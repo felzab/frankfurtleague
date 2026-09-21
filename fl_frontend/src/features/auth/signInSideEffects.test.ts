@@ -7,8 +7,9 @@ import type { FormState } from "@/shared/types/types.ts";
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-const COLLECTIONS = "__flSignInCollections";
+const STORE = "__flSignInStore";
 const COOKIE_JAR = "__flSignInCookieJar";
+const REQUEST_HEADERS = "__flSignInRequestHeaders";
 const SENT = "__flSignInSentMail";
 const DEFERRED = "__flSignInDeferredWork";
 
@@ -16,41 +17,39 @@ const DEFERRED = "__flSignInDeferredWork";
 const NEXT_SUBPATH = /^next\/[\w-]+$/;
 
 const ALLOWLISTED = "vorstand@example.org";
-/** Absent from the allowlist below, so `@auth/core` throws `AccessDenied` before it mails anything. */
+/** Absent from the allowlist below, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
 
-/** The two deployments the cookie name turns on: `@auth/core` prefixes it under the second and not the first. */
-const PLAIN_URL = "http://localhost:3000";
-const SECURE_URL = "https://frankfurtleague.de";
-
-const configDouble = (authUrl: string) => `export const frontend_config = {
+const CONFIG_DOUBLE = `export const frontend_config = {
   ALLOWED_ADMIN_EMAILS: ["${ALLOWLISTED}"],
-  AUTH_URL: "${authUrl}",
+  AUTH_URL: "http://localhost:3000",
+  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
   LOG_LEVEL: "ERROR",
   LOG_FORMAT: "json",
 };`;
 
 // Replaced at the module boundary rather than the adapter being given a seam: the real module opens
 // a `MongoClient` at import, so loading it would reach for a server no test run holds.
-const DB_DOUBLE = `export const client = {
-  db: () => ({ collection: (name) => globalThis.${COLLECTIONS}[name] }),
-};`;
+const DB_DOUBLE = `export const client = { db: () => ({}) };`;
 
-// Records the recipient rather than sending: the send is what parts the two branches upstream, so a
-// file that cannot see it would compare two rejections and pass.
+// Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
+// would compare two refusals and pass. The text carries the link, which is where a token is read.
 const MAIL_DOUBLE = `export const sendMail = async (message) => {
-  globalThis.${SENT}.push(message.to);
+  globalThis.${SENT}.push({ to: message.to, text: message.text });
   return { id: null };
 };`;
 
 /**
- * `headers()` feeds the trace scope and `createActionURL`'s host detection. `cookies()` hands back the
- * jar the case below installed, which is the whole subject of this file.
+ * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
+ * the jar the case below installed, which is the whole subject of this file.
  */
-const HEADERS_DOUBLE = `export const headers = async () => new Headers({ host: "localhost:3000", "x-forwarded-proto": "http" });
+const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};
 export const cookies = async () => globalThis.${COOKIE_JAR};`;
 
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+/* The Mongo adapter reaches a real server through aggregation pipelines, and what this file watches
+   is the response rather than the store. */
+const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
+export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
 
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
@@ -59,61 +58,59 @@ const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent
 const nextServerDouble = (realUrl: string) => `export * from ${JSON.stringify(realUrl)};
 export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
 
-/** Carried down from the importer, one query on the action asking for the whole chain under it again. */
-const SECURE_PROBE = "flSecureCookies";
+const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
 
-/** The two modules reading `AUTH_URL` at module scope, so a second value needs a second instance of each. */
-const READS_THE_URL = /\/src\/core\/(auth|config)\.ts$/;
-
-const parts = (url: string): { pathname: string; secure: boolean } => {
-  const parsed = new URL(url);
-  return { pathname: parsed.pathname, secure: parsed.search === `?${SECURE_PROBE}` };
-};
+const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
+    // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
+    // extension itself -- so a double on one alone leaves the cookie writer on the real module.
+    if (specifier === "next/headers" || specifier === "next/headers.js") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
+    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
     // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both `next-auth` and the application import these bare.
+    // path resolves. Both the library and the application import these bare.
     if (specifier === "next/server")
       return { url: asDataUrl(nextServerDouble(nextResolve("next/server.js", context).url)), shortCircuit: true };
     if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-
-    const resolved = nextResolve(specifier, context);
-    const probed = context.parentURL !== undefined && parts(context.parentURL).secure;
-    if (probed && READS_THE_URL.test(parts(resolved.url).pathname)) return { ...resolved, url: `${resolved.url}?${SECURE_PROBE}` };
-
-    return resolved;
+    return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    const { pathname, secure } = parts(url);
-    if (pathname.endsWith("/src/core/config.ts"))
-      return { format: "module", source: configDouble(secure ? SECURE_URL : PLAIN_URL), shortCircuit: true };
-    if (pathname.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (pathname.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
-const sent: string[] = [];
-(globalThis as unknown as Record<string, unknown>)[SENT] = sent;
-
+const sent: { to: string; text: string }[] = [];
 const deferred: (() => Promise<void>)[] = [];
-(globalThis as unknown as Record<string, unknown>)[DEFERRED] = deferred;
-
-// No row for either address: the email provider mints a user on first sign-in, so `null` is what the
-// allowlisted branch really reads on the attempt this file drives.
-(globalThis as unknown as Record<string, unknown>)[COLLECTIONS] = {
-  users: { findOne: async () => null },
-  verification_tokens: { insertOne: async () => ({ acknowledged: true }) },
-  accounts: {},
-  sessions: {},
+const store = {
+  user: [] as { email: string }[],
+  session: [] as unknown[],
+  account: [],
+  verification: [] as { expiresAt: Date }[],
+  passkey: [],
 };
 
-// `@auth/core` refuses a config carrying no secret, and the real one is a credential no test holds.
-// Restored because the runner's one-process mode would otherwise carry this into every later module.
+const globals = globalThis as unknown as Record<string, unknown>;
+globals[SENT] = sent;
+globals[DEFERRED] = deferred;
+globals[STORE] = store;
+
+const ARRIVING = { host: "localhost:3000", "x-forwarded-proto": "http" };
+
+/** What `headers()` answers, replaced by the case that needs the cookie a press has just written. */
+function arriveAs(cookie: string | null): void {
+  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ARRIVING : { ...ARRIVING, cookie });
+}
+
+arriveAs(null);
+
+// The library reads this name natively where no `secret` option is passed; the option comes from the
+// config double above, and this keeps a real environment out of the run either way.
 const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
 process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
 after(() => {
@@ -121,11 +118,12 @@ after(() => {
   else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
 });
 
-// Imported here rather than at the top, both of them: a static import resolves before the hook above
-// is registered, so neither the alias nor the `next/server` extension would be in place yet.
-const { NextResponse } = await import("next/server");
+// Imported here rather than at the top: a static import resolves before the hooks above are
+// registered, so neither the doubles nor the `next/server` extension would be in place yet.
+const { NextRequest, NextResponse } = await import("next/server");
+const { auth, getSignInDestination } = await import("@/core/auth.ts");
 const { handleSignIn } = await import("./actions.ts");
-const secureAuth = (await import(`./actions.ts?${SECURE_PROBE}`)) as { handleSignIn: typeof handleSignIn };
+const bestaetigen = await import("@/app/api/signin/bestaetigen/route.ts");
 
 interface Attempt {
   /** The response's `Set-Cookie` lines, serialised by the same `ResponseCookies` Next hands an action. */
@@ -136,11 +134,14 @@ interface Attempt {
   readonly mailedWhileAnswering: readonly string[];
   /** Recipients recorded once the work scheduled behind the response has been run here. */
   readonly mailed: readonly string[];
+  /** Verification rows the store gained while the caller was still waiting. */
+  readonly writtenWhileAnswering: number;
+  readonly writtenAfter: number;
   readonly scheduled: number;
   readonly result: FormState;
 }
 
-async function signInWith(action: typeof handleSignIn, email: string): Promise<Attempt> {
+async function signInWith(email: string): Promise<Attempt> {
   const response = new NextResponse();
   const writes: string[] = [];
   const jar = {
@@ -153,24 +154,50 @@ async function signInWith(action: typeof handleSignIn, email: string): Promise<A
       return response.cookies.delete(...args);
     },
   };
-  (globalThis as unknown as Record<string, unknown>)[COOKIE_JAR] = jar;
+  globals[COOKIE_JAR] = jar;
 
   const submitted = new FormData();
   submitted.set("email", email);
 
   const mailedBefore = sent.length;
+  const storedBefore = store.verification.length;
   deferred.length = 0;
 
   // Settled before the headers are read: an object literal evaluates its properties in order, so a
   // `setCookie` written ahead of this await reads the response the action has not touched yet.
-  const result = await action(undefined, submitted);
+  const result = await handleSignIn(undefined, submitted);
   const setCookie = response.headers.getSetCookie();
-  const mailedWhileAnswering = sent.slice(mailedBefore);
+  const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
+  const writtenWhileAnswering = store.verification.length - storedBefore;
 
   const scheduled = deferred.splice(0);
   for (const task of scheduled) await task();
 
-  return { setCookie, writes, mailedWhileAnswering, mailed: sent.slice(mailedBefore), scheduled: scheduled.length, result };
+  return {
+    setCookie,
+    writes,
+    mailedWhileAnswering,
+    mailed: sent.slice(mailedBefore).map((message) => message.to),
+    writtenWhileAnswering,
+    writtenAfter: store.verification.length - storedBefore,
+    scheduled: scheduled.length,
+    result,
+  };
+}
+
+/** Follows the link the last message carried, which is what writes the `user` row a spelling reaches. */
+async function followTheLastLink(): Promise<void> {
+  const message = sent.at(-1);
+  assert.ok(message, "no message was sent, so there is no link to follow");
+
+  const found = /[?&]token=([^\s&]+)/.exec(message.text);
+  assert.ok(found?.[1], "the message carries no token parameter");
+
+  await auth.api.magicLinkVerify({
+    query: { token: decodeURIComponent(found[1]) },
+    headers: new Headers({ host: "localhost:3000", "x-forwarded-proto": "http" }),
+    returnHeaders: true,
+  });
 }
 
 /** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
@@ -181,14 +208,12 @@ function bodyWithoutEcho(result: FormState): Record<string, unknown> {
   return copy;
 }
 
-const allowlisted = await signInWith(handleSignIn, ALLOWLISTED);
-const rejected = await signInWith(handleSignIn, REJECTED);
-const secureAllowlisted = await signInWith(secureAuth.handleSignIn, ALLOWLISTED);
-const secureRejected = await signInWith(secureAuth.handleSignIn, REJECTED);
+const allowlisted = await signInWith(ALLOWLISTED);
+const rejected = await signInWith(REJECTED);
 
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
-     a config double that failed to land would reject both addresses and agree on everything. */
+     a config double that failed to land would refuse both addresses and agree on everything. */
   it("really did take the two branches, one mailing a link and the other not", () => {
     assert.deepEqual(
       [...allowlisted.mailed],
@@ -198,17 +223,16 @@ describe("what a sign-in leaves behind on the response", () => {
     assert.deepEqual([...rejected.mailed], []);
   });
 
-  it("leaves the same `Set-Cookie` either way, which is the one tell a body and a floor cannot hide", () => {
-    // Floored: two responses carrying no cookie at all would agree here and agree for the wrong reason.
-    assert.ok(allowlisted.setCookie.length > 0, "neither branch wrote a cookie, so this comparison holds of nothing");
-    assert.deepEqual([...allowlisted.setCookie], [...rejected.setCookie]);
+  /* A cookie written after the response is sent does not reach it, so what fails the day the
+     library call moves in front of the response is that NEITHER branch wrote one. */
+  it("writes no cookie on either branch, which is the one tell a body cannot hide", () => {
+    assert.deepEqual([...allowlisted.setCookie], []);
+    assert.deepEqual([...rejected.setCookie], []);
   });
 
-  /* The FIRST jar write flips `pathWasRevalidated`, which puts `x-action-revalidated` on the response
-     and stops Next skipping the page render. How many follow it is invisible to the caller. */
-  it("touches the jar on both, so neither the revalidation header nor the page render can tell them apart", () => {
-    assert.ok(allowlisted.writes.length > 0, "the allowlisted attempt wrote no cookie at all");
-    assert.ok(rejected.writes.length > 0, "the rejected attempt wrote none, so its answer carries no revalidation and skips the render");
+  it("touches the jar on neither, so the revalidation header cannot tell them apart either", () => {
+    assert.deepEqual([...allowlisted.writes], []);
+    assert.deepEqual([...rejected.writes], []);
   });
 
   it("answers with the same body", () => {
@@ -216,32 +240,127 @@ describe("what a sign-in leaves behind on the response", () => {
     assert.equal(allowlisted.result?.success, true);
   });
 
-  /* The floor narrows the timing and cannot close it: the provider's own retries and timeout run far
-     past it, and an answer that ever exceeds the floor names the address as allowlisted. */
-  it("schedules the send behind the response instead of waiting for it", () => {
-    assert.deepEqual([...allowlisted.mailedWhileAnswering], [], "the caller waited on the provider, which the rejected branch never does");
+  /* The whole library call sits behind the response, so no branch-dependent work is timed by the
+     caller at all — which a response floor narrows and cannot close. */
+  it("schedules every branch-dependent step behind the response instead of waiting for it", () => {
+    assert.deepEqual([...allowlisted.mailedWhileAnswering], [], "the caller waited on the send, which the rejected branch never does");
     assert.equal(allowlisted.scheduled, 1);
-    assert.equal(rejected.scheduled, 0);
+    assert.equal(rejected.scheduled, 1, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer");
+  });
+
+  it("writes the verification row behind the response as well, on both branches", () => {
+    assert.equal(allowlisted.writtenWhileAnswering, 0, "the caller waited on a store write");
+    assert.equal(rejected.writtenWhileAnswering, 0);
+    assert.equal(allowlisted.writtenAfter, 1);
+    assert.equal(rejected.writtenAfter, 1, "the two branches differ in what the store gained, which is an oracle to anyone who can read it");
   });
 });
 
-describe("the same sign-in where the deployment's own URL turns secure cookies on", () => {
-  it("really did take the two branches under this flag too", () => {
-    assert.deepEqual([...secureAllowlisted.mailed], [ALLOWLISTED], "the second module instance did not reach the allowlisted branch");
-    assert.deepEqual([...secureRejected.mailed], []);
+describe("what the press under the mailed link leaves in the cookie store", () => {
+  /* The one wiring the whole sign-in rests on: the handler drops the verification's own answer, and
+     `nextCookies()` writes the browser's copy into Next's store rather than onto the redirect. */
+  it("writes the session cookie through Next's store, and a guard then answers for it", async () => {
+    await signInWith(ALLOWLISTED);
+    const message = sent.at(-1);
+    assert.ok(message, "the sign-in mailed nothing, so there is no link to press");
+
+    const found = /[?&]token=([^\s&]+)/.exec(message.text);
+    assert.ok(found?.[1], "the message carries no token parameter");
+
+    // Installed after the send, which fits a jar of its own: what this case reads is the press.
+    const written: { name: string; value: string }[] = [];
+    const response = new NextResponse();
+    globals[COOKIE_JAR] = {
+      set: (name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) => {
+        written.push({ name, value });
+        return response.cookies.set(name, value, options);
+      },
+      delete: (name: string) => response.cookies.delete(name),
+    };
+
+    const body = new FormData();
+    body.set("token", decodeURIComponent(found[1]));
+    const pressed = await bestaetigen.POST(
+      new NextRequest("http://localhost:3000/api/signin/bestaetigen", {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin" },
+        body: body,
+      }),
+    );
+
+    assert.equal(pressed.status, 303);
+    assert.deepEqual([...pressed.headers.getSetCookie()], [], "the handler answered the credential on its own response");
+
+    const session = written.find((cookie) => cookie.name.endsWith("session_token"));
+    assert.ok(session, `no session cookie was written to the store: ${JSON.stringify(written)}`);
+
+    arriveAs(`${session.name}=${session.value}`);
+    assert.equal(await getSignInDestination(), "/signin/passkey", "the cookie the store holds opens no session at all");
+
+    arriveAs(null);
   });
 
-  /* The name and the attribute are `@auth/core`'s under this flag, and a literal spelled without
-     either clears nothing in production while comparing equal under the flag above. */
-  it("clears the prefixed cookie the library writes, so both answers still serialise alike", () => {
-    assert.equal(secureAllowlisted.setCookie.length, 1, JSON.stringify(secureAllowlisted.setCookie));
-    assert.match(secureAllowlisted.setCookie[0] ?? "", /^__Secure-authjs\.callback-url=;/);
-    assert.match(secureAllowlisted.setCookie[0] ?? "", /; Secure;/);
-    assert.deepEqual([...secureAllowlisted.setCookie], [...secureRejected.setCookie]);
-  });
+  /* The window the message states is worth nothing unless the store enforces it: the library
+     consumes an expired row on the way past, so a link pressed late must refuse rather than sign in. */
+  it("refuses a link whose row has expired, and mints no session for it", async () => {
+    await signInWith(ALLOWLISTED);
+    const message = sent.at(-1);
+    assert.ok(message);
 
-  it("answers with the same body", () => {
-    assert.deepEqual(bodyWithoutEcho(secureAllowlisted.result), bodyWithoutEcho(secureRejected.result));
-    assert.equal(secureAllowlisted.result?.success, true);
+    const found = /[?&]token=([^\s&]+)/.exec(message.text);
+    assert.ok(found?.[1]);
+
+    const row = store.verification.at(-1);
+    assert.ok(row, "the sign-in wrote no verification row to age");
+    // Aged in the STORE, never by a clock handed to the running application, which would be a
+    // testing-only seam in production code.
+    row.expiresAt = new Date(Date.now() - 1000);
+
+    const sessions = store.session.length;
+    const body = new FormData();
+    body.set("token", decodeURIComponent(found[1]));
+
+    const pressed = await bestaetigen.POST(
+      new NextRequest("http://localhost:3000/api/signin/bestaetigen", {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin" },
+        body: body,
+      }),
+    );
+
+    assert.equal(pressed.status, 303);
+    assert.equal(pressed.headers.get("location"), "/signin/bestaetigen");
+    assert.equal(store.session.length, sessions, "an expired link still minted a session");
+  });
+});
+
+describe("which administrator two spellings of one address reach", () => {
+  /* The library folds CASE and nothing else, on the row it stores: an NFKC-equivalent spelling that
+     the allowlist admits would otherwise verify into a second `user` row -- a second administrator,
+     with a passkey of their own to enrol. */
+  it("writes one user row for two spellings the allowlist reads as one address", async () => {
+    await signInWith(ALLOWLISTED);
+    await followTheLastLink();
+
+    // NFKC folds the fullwidth letter to the allowlisted spelling; `toLowerCase` alone does not.
+    await signInWith(`Ｖ${ALLOWLISTED.slice(1)}`);
+    await followTheLastLink();
+
+    // The whole store, not a slice: no other address here is ever mailed a link, so a second row
+    // could only be the second spelling's.
+    assert.deepEqual(
+      store.user.map((user) => user.email),
+      [ALLOWLISTED],
+    );
+  });
+});
+
+describe("what the action answers an address it cannot parse", () => {
+  it("refuses in front of the response and schedules nothing, a format check leaking no membership", async () => {
+    const attempt = await signInWith("keine-adresse");
+
+    assert.equal(attempt.result?.success, false);
+    assert.equal(attempt.scheduled, 0);
+    assert.deepEqual([...attempt.setCookie], []);
   });
 });

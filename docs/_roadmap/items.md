@@ -553,10 +553,10 @@ application, authorised by an emailed token rather than by a session. Every othe
 data sits behind `verify_access_admin`, declared at router level and inherited by the endpoints
 under it; the browser side of that is an email allowlist checked at sign-in and re-derived on every
 session read (`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no
-application data — the sign-in action, which triggers an outbound email and writes into the Auth.js
-store alone, and `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each
-public write has its own `limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is
-limited. **A self-registration page is the first that inserts a person**, and the first whose text
+application data — the sign-in action, which triggers an outbound email and writes into the sign-in
+store alone, and `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and every
+public write is metered in `nginx/prod.conf` on a zone keyed so that only the POST is limited, the
+sign-in link's completion sharing the confirmation write's budget rather than taking its own. **A self-registration page is the first that inserts a person**, and the first whose text
 reaches a public page with no decision standing between.
 
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
@@ -907,7 +907,7 @@ log, these gaps:
   be read beside the failures around it without leaving the log; the row's `trace_id` is the join
   key that makes a line cheap.
 - **External calls log their refusals and never their outcomes.** No line says a mail was sent, a
-  sign-in succeeded or a session was created; Auth.js has no `events` block; the database logs its
+  sign-in succeeded or a session was created; the sign-in configuration logs no success; the database logs its
   boot and nothing after.
 - **The retention sweep writes no start, end or counts**, so an hour in which the timer did not fire
   reads like a pass that mailed nobody; neither service writes a line at readiness or shutdown, and

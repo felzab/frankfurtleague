@@ -239,7 +239,7 @@ def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypat
 
 def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
     """An exact match cannot name a catch-all's URLs, so only a prefix reaches the subtree at all."""
-    findings, _ = judged(tree("/api/auth/[...nextauth]"), served(METERED, CATCH_ALL))
+    findings, _ = judged(tree("/api/auth/[...all]"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "unmeterable" in details(findings)
@@ -247,17 +247,17 @@ def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
 
 def test_a_prefix_above_a_dynamic_segment_covers_it(monkeypatch):
     """The catch-all's own case: the prefix has to sit above the segment, not inside it."""
-    reason = routes.Reason("/api/auth", "Auth.js's catch-all")
+    reason = routes.Reason("/api/auth", "the sign-in library's catch-all")
     monkeypatch.setattr(routes, "REASONS", (reason,))
-    findings, used = judged(tree("/api/auth/[...nextauth]"), served(prefix("/api/auth"), CATCH_ALL))
+    findings, used = judged(tree("/api/auth/[...all]"), served(prefix("/api/auth"), CATCH_ALL))
 
     assert findings == []
     assert used == {reason}
 
 
 def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
-    """`/api/auth/signin` meters one path under the catch-all and leaves the rest of it open."""
-    inner = prefix("/api/auth/signin", metered=True)
+    """`/api/auth/magic-link/verify` sits under the catch-all and covers no other path of it."""
+    inner = prefix("/api/auth/magic-link/verify")
 
     assert routes.covering_prefix("/api/auth/", served(inner, CATCH_ALL)) is None
 
@@ -311,7 +311,7 @@ def test_a_route_group_leaves_the_url():
 
 def test_a_catch_all_segment_stops_the_static_head():
     """What a prefix has to cover is everything above the segment, never the segment itself."""
-    assert routes.url_of(("api", "auth", "[...nextauth]"), Path("route.ts")) == ("/api/auth/[...nextauth]", "/api/auth/", True)
+    assert routes.url_of(("api", "auth", "[...all]"), Path("route.ts")) == ("/api/auth/[...all]", "/api/auth/", True)
 
 
 def test_a_dynamic_segment_stops_it_too():

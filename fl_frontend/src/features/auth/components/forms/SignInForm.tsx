@@ -6,10 +6,10 @@ import { catchError } from "next/error";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
+import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -21,9 +21,9 @@ import type { FormState } from "@/shared/types/types";
 import type { ErrorInfo } from "next/error";
 
 /**
- * `catchError` rather than a hand-written class: it rethrows a Next router error instead of
- * swallowing it, so the `redirect()` that `handleSignIn`'s `unstable_rethrow` keeps alive still
- * reaches the boundary that navigates.
+ * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
+ * navigation included, so this card's retry panel would answer one — and would go on standing after
+ * the route had changed under it.
  */
 const SignInActionBoundary = catchError((_props, { reset }: ErrorInfo) => (
   // `reset` rather than `retry`, which refetches this route's payload: the POST is what failed, and
@@ -37,27 +37,18 @@ export function SignInForm() {
   const [email, setEmail] = useState("");
 
   return (
-    // `dvh`, not `vh`: on a phone `vh` is the chrome-HIDDEN height, so the card's box outgrows the
-    // visible area and this page scrolls further than the footer below it. REASONED, not measured.
-    <div className="flex min-h-[calc(100dvh-var(--navbar-height))] w-full flex-1 items-center justify-center px-4 py-8">
-      <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
-        <div className="flex flex-col items-center pb-6 text-center">
-          <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h1 className={`${DISPLAY_HEADING} fluid-2xl text-foreground`}>Anmelden</h1>
-        </div>
-
-        <div className="border-border mb-8 h-[1px] w-full" />
-
-        {/* The card's heading stays standing through a catch: the boundary is around the region the
-            send can fail in, and a route-segment `error.tsx` would replace the page instead. */}
-        <SignInActionBoundary>
-          <SignInPanel
-            email={email}
-            onEmailChange={setEmail}
-          />
-        </SignInActionBoundary>
-      </div>
-    </div>
+    <SignInCard
+      title="Anmelden"
+      ornament={<span className="mb-3 text-4xl sm:text-5xl">⚽</span>}>
+      {/* The card's heading stays standing through a catch: the boundary is around the region the
+          send can fail in, and a route-segment `error.tsx` would replace the page instead. */}
+      <SignInActionBoundary>
+        <SignInPanel
+          email={email}
+          onEmailChange={setEmail}
+        />
+      </SignInActionBoundary>
+    </SignInCard>
   );
 }
 

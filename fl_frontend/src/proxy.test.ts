@@ -1,39 +1,54 @@
 import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
 import { after, describe, it } from "node:test";
-
-import { ObjectId } from "mongodb";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-const COLLECTIONS = "__flProxySessionCollections";
+const STORE = "__flProxyStore";
+const REQUEST_HEADERS = "__flProxyRequestHeaders";
 
 /** A single-segment subpath such as `next/server`, leaving a deep `next/dist/…` path to Node. */
 const NEXT_SUBPATH = /^next\/[\w-]+$/;
 
+/** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
+const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+
 const ADMIN_EMAIL = "vorstand@example.org";
-/** An address the allowlist below does not carry, whose session the role check is what refuses. */
+/** An address the allowlist below does not carry, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
 const CONFIG_DOUBLE = `export const frontend_config = {
   ALLOWED_ADMIN_EMAILS: ["${ADMIN_EMAIL}"],
   AUTH_URL: "http://localhost:3000",
+  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
   LOG_LEVEL: "ERROR",
   LOG_FORMAT: "json",
 };`;
 
 // Replaced at the module boundary rather than the adapter being given a seam: the real module opens
 // a `MongoClient` at import, so loading it would reach for a server no test run holds.
-const DB_DOUBLE = `export const client = {
-  db: () => ({ collection: (name) => globalThis.${COLLECTIONS}[name] }),
-};`;
+const DB_DOUBLE = `export const client = { db: () => ({}) };`;
+
+const MAIL_DOUBLE = `export const sendMail = async () => ({ id: null });`;
+
+/* The Mongo adapter reaches a real server through aggregation pipelines, and this file's subject is
+   the SHAPE of a turn-away rather than the store behind it. */
+const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
+export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
+
+const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
+
+const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
+    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
     // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both `next-auth` and the application import these bare.
+    // path resolves. Both the library and the application import these bare.
     if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
     // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
     if (specifier === "react-server-dom-webpack/client") return nextResolve("next/dist/compiled/react-server-dom-webpack/client.js", context);
@@ -43,47 +58,26 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
-/** Both fabricated. A real one is the bearer credential no test file may carry. */
-const ADMIN_TOKEN = "fabricated-admin-token-6b2c1f40";
-const REMOVED_TOKEN = "fabricated-removed-token-8e17a3d5";
+type SessionRow = { token: string; userId: string; authFactor?: string };
 
-const ADMIN_ID = new ObjectId("0123456789abcdef01234567");
-const REMOVED_ID = new ObjectId("89abcdef0123456776543210");
-
-// A full `maxAge` out, so `updateAge` has not elapsed and the read draws no write the double would
-// have to answer.
-const EXPIRES = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
-const sessionRows = new Map(
-  [
-    [ADMIN_TOKEN, ADMIN_ID],
-    [REMOVED_TOKEN, REMOVED_ID],
-  ].map(([sessionToken, userId]) => [
-    sessionToken as string,
-    { _id: new ObjectId(), sessionToken: sessionToken as string, userId: userId as ObjectId, expires: EXPIRES },
-  ]),
-);
-
-const userRows = new Map(
-  [
-    [ADMIN_ID, ADMIN_EMAIL],
-    [REMOVED_ID, REMOVED_EMAIL],
-  ].map(([id, email]) => [(id as ObjectId).toHexString(), { _id: id as ObjectId, email: email as string, emailVerified: new Date(0) }]),
-);
-
-(globalThis as unknown as Record<string, unknown>)[COLLECTIONS] = {
-  sessions: { findOne: async ({ sessionToken }: { sessionToken: string }) => sessionRows.get(sessionToken) ?? null },
-  users: { findOne: async ({ _id }: { _id: ObjectId }) => userRows.get(_id.toHexString()) ?? null },
-  accounts: {},
-  verification_tokens: {},
+type Store = {
+  user: unknown[];
+  session: SessionRow[];
+  account: unknown[];
+  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
+  passkey: unknown[];
 };
 
-// `@auth/core` refuses a config carrying no secret, and the real one is a credential no test holds.
-// Restored when the file ends: one process holds one environment, which a later case reads.
+const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
+(globalThis as unknown as Record<string, unknown>)[STORE] = store;
+
+// The library reads this name natively where no `secret` option is passed; the option comes from the
+// config double above, and this keeps a real environment out of the run either way.
 const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
 process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
 after(() => {
@@ -91,10 +85,54 @@ after(() => {
   else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
 });
 
-// Imported here rather than at the top, both of them: a static import resolves before the hook above
-// is registered, so neither the alias nor the `next/server` extension would be in place yet.
+// Imported here rather than at the top: a static import resolves before the hooks above are
+// registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
-const { default: proxy } = await import("./proxy.ts");
+const { auth, getSignInDestination } = await import("./core/auth.ts");
+const { proxy } = await import("./proxy.ts");
+
+const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" };
+
+/** What the landing reads, for the cases that put its answer and this proxy's side by side. */
+function arriveAs(cookie: string | null): void {
+  (globalThis as unknown as Record<string, unknown>)[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+}
+
+arriveAs(null);
+
+/* Seeded at the shape the plugin stores — SHA-256, base64url, no padding — because verification is
+   what mints a session and it gates on no allowlist. */
+async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
+  const token = `fabricated-link-${randomUUID()}`;
+
+  store.verification.push({
+    id: randomUUID(),
+    identifier: createHash("sha256").update(token).digest("base64url"),
+    value: JSON.stringify({ email }),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
+  const cookie = verified.headers
+    .getSetCookie()
+    .map((line) => line.split(";")[0])
+    .join("; ");
+
+  const row = store.session.at(-1);
+  assert.ok(row !== undefined, "the verification wrote no session row");
+
+  return { cookie, row };
+}
+
+const admin = await signIn(ADMIN_EMAIL);
+// Stamped, because an administrator who has only followed the link is turned away by design and
+// every "let through" case below would then pass for the wrong reason.
+admin.row.authFactor = "passkey";
+
+const removed = await signIn(REMOVED_EMAIL);
+removed.row.authFactor = "passkey";
 
 const ADMIN_URL = "http://localhost:3000/admin/spiele";
 
@@ -104,16 +142,14 @@ const ACTION_ID = "6f1b0c9d4a2e8f37";
 /** Every method react-dom cannot be sending an action on, so each is a page request. */
 const RENDERING_METHODS = ["HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"];
 
-type Arrival = { method?: string; action?: boolean; token?: string };
+type Arrival = { method?: string; action?: boolean; cookie?: string };
 
-async function arriveAtAdmin({ method = "GET", action = false, token }: Arrival = {}): Promise<Response> {
-  const headers = new Headers();
+async function arriveAtAdmin({ method = "GET", action = false, cookie }: Arrival = {}): Promise<Response> {
+  const headers = new Headers({ host: "localhost:3000" });
   if (action) headers.set("next-action", ACTION_ID);
-  if (token !== undefined) headers.set("cookie", `authjs.session-token=${token}`);
+  if (cookie !== undefined) headers.set("cookie", cookie);
 
-  // Forwarded to the callback untouched and read by neither, so this stands in for the
-  // `NextFetchEvent` Next hands the real proxy; the shape is only what the overload demands.
-  const answer = await proxy(new NextRequest(ADMIN_URL, { method, headers }), { params: Promise.resolve({}) });
+  const answer = await proxy(new NextRequest(ADMIN_URL, { method, headers }));
 
   assert.ok(answer instanceof Response, "the proxy answered something other than a response");
   return answer;
@@ -158,26 +194,56 @@ describe("where the admin proxy sends a signed-in request", () => {
   // The case that proves the redirects above are the proxy's decision: a harness resolving no
   // session at all would redirect every one of them and read exactly the same.
   it("lets an allowlisted administrator through", async () => {
-    assert.equal(redirectedTo(await arriveAtAdmin({ token: ADMIN_TOKEN })), null);
+    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: admin.cookie })), null);
   });
 
   it("lets that administrator's action POST through, whose answer has to be an RSC payload and not a redirect", async () => {
-    const answer = await arriveAtAdmin({ method: "POST", action: true, token: ADMIN_TOKEN });
+    const answer = await arriveAtAdmin({ method: "POST", action: true, cookie: admin.cookie });
 
     assert.equal(redirectedTo(answer), null);
     assert.equal(answer.headers.get("x-action-redirect"), null);
     assert.equal(answer.status, 200);
   });
 
-  it("sends a session whose address has left the allowlist to the public root", async () => {
-    assert.equal(redirectedTo(await arriveAtAdmin({ token: REMOVED_TOKEN })), "/");
+  /* To the landing and never the public root: the landing is the one place that decides, and it
+     sends a removed address to `/` while sending the administrator below one step further on. */
+  it("sends a session whose address has left the allowlist to the landing", async () => {
+    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
   });
 
-  it("turns that session's action POST away to the public root as well, in the action's own redirect", async () => {
-    const answer = await arriveAtAdmin({ method: "POST", action: true, token: REMOVED_TOKEN });
+  it("turns that session's action POST away to the landing as well, in the action's own redirect", async () => {
+    const answer = await arriveAtAdmin({ method: "POST", action: true, cookie: removed.cookie });
 
     assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), "/;replace");
+    assert.equal(answer.headers.get("x-action-redirect"), "/signin/weiter;replace");
+  });
+
+  /* The arm that made the public root wrong: an administrator who has followed the link and not yet
+     used the passkey was dropped on a page offering neither the step nor a way back. */
+  it("sends a link-borne administrator to the landing, which answers the passkey step for it", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+
+    assert.equal(redirectedTo(await arriveAtAdmin({ cookie })), "/signin/weiter");
+
+    arriveAs(cookie);
+    assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a link-borne administrator somewhere else");
+  });
+
+  /* The landing's `/admin` answer is the guard's own verdict, so a session it sends there is one the
+     proxy lets through: the pair cannot bounce a caller between them. */
+  it("sends nobody back to `/admin` that this proxy would turn away again", async () => {
+    for (const { name, cookie } of [
+      { name: "link-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
+      { name: "address outside the allowlist", cookie: removed.cookie },
+      { name: "no session at all", cookie: undefined },
+    ]) {
+      arriveAs(cookie ?? null);
+
+      const landing = await getSignInDestination();
+      const turned = redirectedTo(await arriveAtAdmin({ cookie }));
+
+      assert.ok(landing !== "/admin" || turned === null, `${name} is bounced between the landing and the proxy`);
+    }
   });
 });
 

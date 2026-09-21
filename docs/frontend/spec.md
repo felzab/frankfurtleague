@@ -157,11 +157,13 @@ exception to every sentence above and below about a row.** `handleSignIn` is the
 in this application reachable without a session, so it can no more open on `getAdminSession()` than
 the public route handlers below can, and it answers a neutral sentence rather than a `FormState`
 carrying a verdict — a distinguishable refusal there is a membership oracle. **Everything else the
-answer carries is equalised too**: both branches clear the callback-url cookie that only the
-allowlisted one makes Auth.js write, and the magic-link send is scheduled behind the response
-(`after` from `next/server`) rather than awaited, the provider's retries and timeout being latency no
-rejected address can have. What the floor under the response covers is the one verification-token
-write left between them. `signOutAction` ends the session it would otherwise check.
+answer carries is equalised by construction rather than by hand**: the whole of
+`auth.api.signInMagicLink` — the allowlist gate, the verification-token write and the send — is
+scheduled inside `after` from `next/server`, so neither branch does any branch-dependent work before
+the response, neither writes a cookie the other does not, and there is no floor to measure. A floor
+is the opposite trade: it is set against the slower branch's ninety-fifth percentile, so one
+known-address request in twenty exceeds it by design, and it costs every sign-in the wait.
+`signOutAction` ends the session it would otherwise check.
 
 **The sign-in form's send carries a boundary of its own**
 (`fl_frontend/src/features/auth/components/ui/SignInActionFallback.tsx`, wired by `catchError` in
@@ -172,15 +174,16 @@ visitor can simply repeat with the whole page. **Nothing of the response reaches
 rejected server action arrives carrying no status and no body — so it says the answer was not ours,
 offers the send again, and names no cause. The typed address is held outside the boundary, every
 mount inside it being replaced by the reset. **Nothing else about a sign-in is held in the page**:
-`redirectTo` is a literal `handleSignIn` re-supplies on every POST and reaches the browser only
-inside the emailed link's own `callbackUrl`, which outranks the cookie, and next-auth's server-side
-`signIn` skips the CSRF check, so no cookie is owed before the POST and a reload of `/signin` costs
-nothing but what was typed.
+the send names no destination at all, so nothing about where it lands is a value a caller supplies,
+and a server-side `auth.api.*` call passes no `Request`, so the library's own form-CSRF middleware
+returns without checking an origin — no cookie is owed before the POST, and a reload of `/signin`
+costs nothing but what was typed.
 
-**That `getAdminSession()` call is also what makes the write attributable**: it records the
-session's address in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it
-as `X-FL-Actor` on admin-tier calls alone — the ordering is load-bearing. A write reaching the
-backend without it comes back 401 ([`docs/backend/spec.md`](../backend/spec.md) I41).
+**That `getAdminSession()` call is also what makes the write attributable**: it records the folded
+identifier of the session's address (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`)
+in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it as `X-FL-Actor` on
+admin-tier calls alone — the ordering is load-bearing. A write reaching the backend without it comes
+back 401 ([`docs/backend/spec.md`](../backend/spec.md) I41).
 
 **Among the ADMIN mutations the route handlers are the eight page-owned editors' undos, one
 `undo/route.ts` per slice under `fl_frontend/src/app/api/admin/`, and the boundary is the PATTERN
@@ -196,8 +199,8 @@ disabling `cacheComponents` would take every cached read in §1.2 with it, and u
 shipped and was disproven by retest — on 2026-08-06, 16.3.0 and 16.3.1-canary.4 both still
 reproduce it.
 
-**The app's other route handlers sit outside that boundary, each for its own reason.** The Auth.js
-catch-all and the client-error ingest (`FE-CLIENT-001`) mutate no application data at all. The
+**The app's other route handlers sit outside that boundary, each for its own reason.** The sign-in
+library's catch-all and the client-error ingest (`FE-CLIENT-001`) mutate no application data at all. The
 public application form's submit, its Kürzel check and the confirmation page's write
 (`fl_frontend/src/app/api/bestaetigung/route.ts`) authorize nobody, so none can open on
 `getAdminSession()` (I7) or borrow `runAdminMutation`, whose name asserts a session was checked;
@@ -206,6 +209,16 @@ authorizes nothing — the guard on the backend endpoint stays the only thing de
 write may happen ([`docs/backend/spec.md`](../backend/spec.md) §1.1). The confirmation's own
 credential is the emailed token, sent in the body: the link's GET writes nothing, because a mail
 scanner's GET and a reader's are one request to the same-origin guard.
+
+**The sign-in link's completion (`fl_frontend/src/app/api/signin/bestaetigen/route.ts`) takes
+neither spine either, and is the route handler that SPENDS a credential.** It has the confirmation's
+reason for declaring no GET and one of its own for declaring nothing else: the token it redeems mints
+a session, so a link a mail gateway fetched would be signed in and spent before its reader opened the
+message, and a cross-site press of an attacker's link would sign the reader into the attacker's
+account — which is why its own origin check falls back to the pinned `AUTH_URL` rather than the
+caller's. Its answer is a 303 carrying the session cookie rather than a body, so there is nothing for
+`handlePublicRequest` to word and nothing a caller reads: both the refusal and the success are a
+redirect, and the page the refusal lands on is where the one refusal state is rendered.
 
 **The provider's delivery webhook (`fl_frontend/src/app/api/mail/zustellung/route.ts`) takes neither
 spine, and is the one route handler here that answers a status a caller reads.**
@@ -515,7 +528,7 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `AUTH_RESEND_KEY`                              | string, **required only under `APP_ENV=production`** — a deployment that is not production is demanded no key and sends nothing (I228) |
 | `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                              |
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                    |
-| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a deliverable address, normalised as Auth.js normalises a sign-in identifier                                     |
+| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a deliverable address, folded through `fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`               |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                   |
 | `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
 | `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
@@ -531,16 +544,20 @@ writes four of them, so a `CRITICAL` threshold would admit nothing but the env g
 line and leave a silenced stream reading as a quiet one. Refusing the value is what makes that
 misconfiguration a boot failure naming `LOG_LEVEL` instead.
 
-The `AUTH_URL` https rule exists because `@auth/core` derives the session cookie's `Secure` flag
-from that URL's protocol, so a stray `http://` value would ship an admin session cookie in
-plaintext; it is gated on hostname rather than `NODE_ENV`, because the local stack runs the
-production image against `http://localhost:3000`. The `API_URL` origin rule exists because the
+The `AUTH_URL` https rule exists because the sign-in library reads the scheme of the `baseURL` it is
+handed and gives the session cookie the `__Secure-` name prefix and the `secure` attribute together
+or neither, so a stray `http://` value would ship an admin session cookie in plaintext; it is gated on hostname rather than `NODE_ENV`, because the local stack runs
+the production image against `http://localhost:3000`. The `API_URL` origin rule exists because the
 public origin reaches FastAPI on the liveness path alone
 ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so an `API_URL` standing on it would leave
 `checkIsLive` answering 200 while Next's HTML 404 met every other read and write — the boot refusal
-stops that half-alive shape reaching a page. `AUTH_TRUST_HOST` is deliberately **not** declared:
-`@auth/core` reads `AUTH_URL` first in the same chain, and `AUTH_URL` is mandatory, so the variable
-can never be reached.
+stops that half-alive shape reaching a page.
+
+**`AUTH_URL` and `AUTH_SECRET` are passed to the library as explicit options rather than read by it
+from the environment.** The library's own chain looks for `BETTER_AUTH_URL` and never a bare
+`AUTH_URL`, so an unpassed `baseURL` would leave the origin derived from each incoming request; the
+explicit value is also what decides the cookie prefix above and the relying-party identifier the
+passkey ceremony is bound to.
 
 **`AUTH_URL` is also the origin every message's links are built on** (I186): repointing it moves the
 sign-in link, the confirmation links and each close's legal links together, which is what lets a
@@ -1717,10 +1734,10 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I92  | **The website field needs the rule at both levels**: a floor left on the `InputGroup` renders the typed text outside its own border                                                                                                        | `fl_frontend/src/features/teams/components/forms/WebsiteUrlField.tsx :: WebsiteUrlField`, whose group and box each carry the floor's removal                                                                                                                                                                             |
 | I93  | **A read schema bounds no field.** A stored value outside a bound must still parse, or one row fails a whole list                                                                                                                          | `fl_frontend/src/shared/schemas.test.ts`, which parses stored values the payload refuses through the shared address and contact schemas alone; review elsewhere                                                                                                                                                          |
 | I94  | **A kit-colour swatch is filled from `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`' `hex`, never a Tailwind token**: the league's print colours answer to no theme scale                                           | `fl_frontend/src/features/teams/constants.ts :: trikotFarbeHex`, the one reader of that field                                                                                                                                                                                                                            |
-| I120 | **The frontend opens exactly one `MongoClient`, in `fl_frontend/src/core/db.ts`, and Auth.js is its only reader**: application data goes through FastAPI                                                                                   | Unenforced — no check sweeps for a second client; `fl_frontend/src/core/db.ts` is the only module importing `mongodb`, and `fl_frontend/src/core/auth.ts` its only importer                                                                                                                                              |
-| I121 | **Admin is `ALLOWED_ADMIN_EMAILS` rather than a stored role, and `fl_frontend/src/core/auth.ts :: isUserAdmin` decides it at sign-in and again on every session read** (§4)                                                                | `fl_frontend/src/core/auth.test.ts` and `fl_frontend/src/proxy.test.ts` drive the session read; no check counts the call sites, `fl_frontend/src/core/config.ts` validating the allowlist's shape (§1.7)                                                                                                                 |
+| I120 | **The frontend opens exactly one `MongoClient`, in `fl_frontend/src/core/db.ts`, and the sign-in library is its only reader**: application data goes through FastAPI                                                                       | Unenforced — no check sweeps for a second client; `fl_frontend/src/core/db.ts` is the only module importing `mongodb`, and `fl_frontend/src/core/auth.ts` its only importer                                                                                                                                              |
+| I121 | **Admin is `ALLOWED_ADMIN_EMAILS` rather than a stored role, and `fl_frontend/src/core/auth.ts :: isUserAdmin` decides it on every session read** (§4)                                                                                     | `fl_frontend/src/core/auth.test.ts` and `fl_frontend/src/proxy.test.ts` drive the session read; no check counts the call sites, `fl_frontend/src/core/config.ts` validating the allowlist's shape (§1.7)                                                                                                                 |
 | I122 | **`/admin` is guarded twice and rendering fails closed even if the matcher stops matching**: `fl_frontend/src/proxy.ts`, and `fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx` inside the admin layout's `Suspense` | Unenforced — no check compares the two; `fl_frontend/src/app/admin/layout.tsx` places the second, above the page segment                                                                                                                                                                                                 |
-| I135 | **Both auth lifetimes are set explicitly and below `@auth/core`'s defaults**: dropping either as redundant restores the library's, a far longer window                                                                                     | Unenforced — no check compares either against a default; `fl_frontend/src/core/auth.ts` holds both, each with the argument for its own value                                                                                                                                                                             |
+| I135 | **Every session carries an idle window and an absolute cap, compared per request rather than configured**: dropping either as redundant restores a far longer window                                                                       | `fl_frontend/src/core/auth.ts :: withinLifetime`, over `ADMIN_LIFETIME` and `PERSON_LIFETIME`; `fl_frontend/src/core/auth.test.ts` drives both kinds at 29, 31, 47, 49 and 91 days or hours                                                                                                                              |
 | I136 | **Every retirable editor's retirement banner names the exclusion in its title and what survives in its body, and points at no control**                                                                                                    | `fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/banners.test.ts :: the exclusion plus what survives, and points at no control`, and the same case in each other retirable editor's `banners.test.ts`                                                                                          |
 | I139 | **An unreadable kit-colour read degrades to the EMPTY set**: narrowing would withhold a colour nobody holds                                                                                                                                | `fl_frontend/src/app/(public)/bewerbung/[saison_id]/page.tsx :: Degraded to the EMPTY set`; `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts :: degrades to the empty set rather than to a narrowed palette`                                                                                                   |
 | I147 | **The confirmation page renders every standing paragraph from the version it stamps**; the age warning, the armed alert and the answered states are its own                                                                                | `fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`, rendered by `fl_frontend/src/features/bewerbungen/components/views/BestaetigungHinweise.tsx`; `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts :: renders every paragraph the version holds` and the cases beside it                          |
@@ -1745,7 +1762,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I191 | Every `apiClient` call declares the tier `fl_backend/openapi.json` publishes for the operation it reaches, a wrong one being a 401 no page survives                                                                                        | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                               |
 | I194 | A facet marked `narrowsTheRead` navigates on a change and is given the server's counts, so an option the server left out stays pressable                                                                                                   | `fl_frontend/src/shared/utils/facets.ts :: isFacetOptionReachable`; `fl_frontend/src/shared/utils/facets.test.ts :: "the counts a server-narrowed facet is told"`; `fl_frontend/src/shared/hooks/useUrlFilters.ts :: refetches` navigates, unchecked                                                                     |
 | I197 | The delivery webhook answers 400 for a signature it cannot verify, 503 where the backend is unreachable or answers 5xx, and 200 for all else                                                                                               | `fl_frontend/src/app/api/mail/zustellung/route.ts`; `fl_frontend/src/features/bewerbungen/zustellung.test.ts` drives each of the three                                                                                                                                                                                   |
-| I198 | **`/api/auth/session` carries the presentation fields and `role`, never the adapter's session row**: returning that row serves the `httpOnly` cookie's own value to any script                                                             | `fl_frontend/src/core/auth.ts :: session`; `fl_frontend/src/core/auth.test.ts` drives both the route and the `auth()` path `fl_frontend/src/proxy.ts` takes                                                                                                                                                              |
+| I198 | **No endpoint the sign-in library mounts serves a session to a script**: the passkey ceremony is the whole of its open HTTP surface                                                                                                        | `fl_frontend/src/core/auth.ts :: BROWSER_PATHS`, `DISABLED_PATHS` and the `hooks.after` shaping of `CEREMONY_VERIFY_PATHS`; `fl_frontend/src/core/auth.test.ts` classifies every mounted path and reads a driven assertion's own body                                                                                    |
 | I201 | **Every admin path to a capped squad write states `REQ-SQUAD-003` before the press**                                                                                                                                                       | `fl_frontend/src/features/spieler/utils.ts :: squadIsFull`; `fl_frontend/src/features/spieler/actions.test.ts :: REQ-SQUAD-003 before the press`                                                                                                                                                                         |
 | I205 | Every erased referee's fixtures arrive under the ghost's one id, so the facet offers one „anonym“ option and a nameless entry keeps its own word                                                                                           | `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`, swept by `fl_frontend/src/features/spiele/facets.test.ts`                                                                                                                                                                            |
 | I206 | **One derivation decides a fixture never took place**, read by the status chip and every score placeholder, so none can grade one the others cannot                                                                                        | `fl_frontend/src/features/spiele/utils.ts :: isAbgesagt`, read by `:: computeSpielStatus` and by every score surface through `:: ergebnisTone`; pinned by `fl_frontend/src/features/spiele/utils.test.ts :: the tint a score carries`                                                                                    |
@@ -1779,6 +1796,8 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I251 | **A signed-out admin write leaves for `/signin`**: an action's POST by `x-action-redirect`, never a 307 its `fetch` would replay; an undo by 401                                                                                           | `fl_frontend/src/proxy.test.ts`, which hands the proxy's answer to Next's installed action client; `fl_frontend/src/shared/utils/undoDispatch.test.ts`; `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`                                                                                                        |
 | I253 | **A value a link names is kept picked, under its own label**, wherever the facet knows it and no row on hand holds it                                                                                                                      | `fl_frontend/src/shared/utils/facets.ts :: offeredOptions`, which the selection, the counts, the pill and the panel all read; `fl_frontend/src/shared/utils/facets.test.ts :: "a value a link names"`                                                                                                                    |
 | I255 | **A save confirmation opens only over a draft every schema accepts**, never ahead of the block, where one accepted would be asked again                                                                                                    | `fl_frontend/src/shared/hooks/useDraftFieldErrors.ts :: guardSubmit`; `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts :: "marks and announces a draft the schemas refuse, and raises no dialog over it"`; `fl_frontend/src/features/admin/saveConfirmation.test.ts`, per editor                                |
+| I260 | **The second factor is what the SESSION was made by, never what the administrator holds**: a link-borne session that acquired a passkey is still link-borne                                                                                | `fl_frontend/src/core/auth.ts :: isAdminSession` over the server-owned `authFactor`; `fl_frontend/src/core/auth.test.ts` drives a link-borne session against a full assertion ceremony                                                                                                                                   |
+| I261 | **An administrator holds exactly one passkey, and no session enrols a second**: the plugin gates enrolment on freshness alone, which a link-borne session is inside                                                                        | `fl_frontend/src/core/auth.ts :: refuseASecondPasskey`, raised in `hooks.before` and in `registration.afterVerification`; `fl_frontend/src/core/auth.test.ts :: "the one passkey an administrator holds"`                                                                                                                |
 
 ## 3. Violation → remedy
 
@@ -1828,7 +1847,8 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No guard proves a refusal message is German                                                                                                          | Accepted — detecting German needs a dictionary, and a list short enough to maintain fails an ordinary German sentence; §1.12 and review carry it instead                                    |
 | Pydantic and Zod models are hand-mirrored                                                                                                            | Accepted — checked rather than generated (I17, I236): every length and pattern is paired or recorded, and one payload's refusals with them                                                  |
-| Revocation is out of band, never the session lifetime; `fl_frontend/src/features/auth/actions.ts :: signOutAction` is the admin's own sign-out       | Accepted — an operator revokes by removing the address from `ALLOWED_ADMIN_EMAILS`, which the `session` callback re-reads on every request                                                  |
+| Revocation is out of band, never the session lifetime; `fl_frontend/src/features/auth/actions.ts :: signOutAction` is the admin's own sign-out       | Accepted — an operator revokes by removing the address from `ALLOWED_ADMIN_EMAILS`, which `fl_frontend/src/core/auth.ts :: isUserAdmin` re-reads on every request                           |
+| A person navigating only client-side never slides their own idle window (I135)                                                                       | Accepted — `nextCookies()` skips the session refresh on a server-component read; an administrator is unreachable by it, the 48-hour cap being measured from `createdAt`                     |
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/src/shared/utils/facets.test.ts :: isClientModule` covers `fl_frontend/src/app/`, `:: VIEWS_GLOB` the admin views; a server-render harness is refused               |

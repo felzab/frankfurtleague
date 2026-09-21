@@ -53,8 +53,8 @@ const BACKEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY: Record<string, string> = {
   BaseAPIResponse: "the envelope is inlined into every response rather than published as a component",
 
-  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to Auth.js, which mails the link.
-  SignInPayload: "the sign-in action posts to Auth.js rather than to the API, so no component describes it",
+  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to the sign-in library, which mails the link.
+  SignInPayload: "the sign-in action posts to the sign-in library rather than to the API, so no component describes it",
 
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",

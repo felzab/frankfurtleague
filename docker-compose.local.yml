@@ -36,15 +36,15 @@ services:
       # Nothing else stops this stack mailing the league's real contact people.
       - APP_ENV=local
       # http:// and localhost specifically: `fl_frontend/src/core/config.ts` refuses a non-loopback
-      # http URL, because @auth/core derives the session cookie's Secure flag from this protocol.
-      # Loopback is the one exemption.
+      # http URL, because the sign-in library derives the session cookie's Secure prefix from this
+      # protocol. Loopback is the one exemption.
       - AUTH_URL=http://localhost:3000
       # The point of this stack is the production behaviour, and the developer's .env legitimately
       # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
       # stream (docs/logging/spec.md).
       - LOG_FORMAT=json
-      # Auth.js keeps its session store in the same cluster, so leaving this one alone would sign
-      # the local stack in against production while every other read came from the container below.
+      # The sign-in store sits in the same cluster, so leaving this one alone would sign the local
+      # stack in against production while every other read came from the container below.
       - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice

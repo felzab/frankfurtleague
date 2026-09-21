@@ -26,9 +26,9 @@ graph TB
     cf --> connector
     connector --> nginx
     nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/bestaetigung · /api/admin/ · /signin · /_next/static · /"| fe
+    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/bestaetigung · /api/signin/bestaetigen · /api/mail/zustellung<br/>/api/admin/ · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
-    fe -->|"authjs database only"| mongo
+    fe -->|"auth database only"| mongo
     be --> mongo
 ```
 
@@ -40,8 +40,9 @@ routing table is the whole of what the internet can address on this host, and th
 reach it at otherwise.
 
 **The two arrows into the cluster are two different database users**, neither holding a
-`*AnyDatabase` role: the backend on the application database alone, Auth.js on `authjs` alone — read
-from the cluster's users 2026-08-02, because no file here records either grant. **Never give the two a
+`*AnyDatabase` role: the backend on the application database alone, the sign-in library on `auth`
+alone. No file here records either grant — the backend's was read from the cluster's users
+2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
 user also needs `collMod` ([`../backend/spec.md`](../backend/spec.md) §4).
 

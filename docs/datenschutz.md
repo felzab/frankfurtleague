@@ -179,15 +179,29 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
   removal records).
-- **An administrator's erasure includes the sign-in store.** The second database holding
-  administrators' addresses, sessions and sign-in tokens is inside the erasure, and it is reached by
-  hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
+- **An administrator's erasure includes the sign-in store.** The `auth` database holding
+  administrators' addresses, sessions, sign-in tokens and passkeys is inside the erasure, and it is
+  reached by hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place an administrator's own data sits. **A session and a sign-in token
-  each carry an expiry set at that configuration, and the expiry bounds the credential rather than
-  the row**: the adapter drops a session row when its holder presents the stale cookie and leaves it
-  standing where nobody comes back, and it drops a sign-in token's row on redemption alone, so an
-  unredeemed one is deleted by nothing. Neither collection has a retention index.
+  is what names it as the place an administrator's own data sits. Its collections are `user`,
+  `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
+  identifier and the counters the browser reports, and never a secret the person holds, the private
+  key staying on their own device; a `session` row holds the administrator it belongs to, its own
+  expiry and which factor made it, and neither the address nor the browser the sign-in came from. **A session and a sign-in token each carry an expiry set at that
+  configuration, and the expiry bounds the credential rather than the row**: the library drops a
+  session row when its holder presents the stale cookie and leaves it standing where nobody comes
+  back, and it consumes a sign-in token's row when the link is followed, live or expired, so one
+  nobody follows is deleted by nothing. Neither collection is swept by the application; the
+  retention index each needs is a console step
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
+- **The sign-in store holds more than administrators.** The sign-in send is public and the library
+  writes its `verification` row before the allowlist is consulted, so the address of anyone who
+  submits the form is held there — an allowlisted administrator's and a stranger's alike — until
+  that retention index removes it
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
+  recorded of such a person: no `user` row is written until a link is followed, and a session row
+  carries neither the caller's address nor their browser identifier
+  (`fl_frontend/src/core/auth.ts`).
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live

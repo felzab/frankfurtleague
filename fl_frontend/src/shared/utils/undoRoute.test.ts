@@ -18,13 +18,25 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "next/headers": `export const headers = async () => new Headers();`,
 };
 /**
- * The session each case sets on the bus below; unset, an administrator is signed in. Both exports read
- * that one session, the admin read keeping the role test `fl_frontend/src/core/auth.ts` applies.
+ * The session each case sets on the bus below; unset, an administrator is signed in. The landing
+ * derives from that one session, so a case cannot set a verdict its session contradicts.
  */
-const AUTH = `const session = () =>
-  globalThis.__flUndoRouteSession === undefined ? { user: { email: "admin@example.de", role: "admin" } } : globalThis.__flUndoRouteSession;
-export const auth = async () => session();
-export const getAdminSession = async () => (session()?.user?.role === "admin" ? session() : null);`;
+const AUTH = `const ALLOWLISTED = "admin@example.de";
+const session = () =>
+  globalThis.__flUndoRouteSession === undefined
+    ? { user: { email: ALLOWLISTED }, session: { authFactor: "passkey" } }
+    : globalThis.__flUndoRouteSession;
+const through = () => {
+  const served = session();
+  return served !== null && served.user.email === ALLOWLISTED && served.session.authFactor === "passkey";
+};
+export const getAdminSession = async () => (through() ? session() : null);
+export const getSignInDestination = async () => {
+  const served = session();
+  if (served === null) return "/signin";
+  if (served.user.email !== ALLOWLISTED) return "/";
+  return through() ? "/admin" : "/signin";
+};`;
 const bus = globalThis as unknown as Record<string, unknown>;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
@@ -145,10 +157,10 @@ describe("who the undo spine answers before it does any work", () => {
     }
   });
 
-  /* The line `fl_frontend/src/proxy.ts` draws: a session without the role is sent to `/` rather than to
-     sign in again, where the allowlist that removed its address would refuse it once more. */
-  it("answers a session without the admin role apart from a missing one, and still does no work for it", async () => {
-    bus.__flUndoRouteSession = { user: { email: "ehemalig@example.de", role: "user" } };
+  /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to `/`
+     rather than to sign in again, where that same allowlist would refuse it once more. */
+  it("answers a session outside the allowlist apart from a missing one, and still does no work for it", async () => {
+    bus.__flUndoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
     let restored = 0;
 
     try {
@@ -157,11 +169,31 @@ describe("who the undo spine answers before it does any work", () => {
         return {};
       });
 
-      assert.equal(status, 403, "a signed-in session without the role is answered as though nobody were signed in");
+      assert.equal(status, 403, "a person's live session is answered as though nobody were signed in");
       // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
       assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
       assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
-      assert.equal(restored, 0, "the undo restores for a session without the role");
+      assert.equal(restored, 0, "the undo restores for a session nobody authorized");
+      assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
+    } finally {
+      delete bus.__flUndoRouteSession;
+    }
+  });
+
+  /* The other half of the split: an administrator who has followed the link and not yet presented
+     the passkey is 401, which sends them somewhere they can finish, rather than 403 to the root. */
+  it("answers an allowlisted session short of the second factor the way it answers a missing one", async () => {
+    bus.__flUndoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
+    let restored = 0;
+
+    try {
+      const { status, invalidated } = await undo(async () => {
+        restored += 1;
+        return {};
+      });
+
+      assert.equal(status, 401, "an administrator short of the factor is sent to the public root with no way back");
+      assert.equal(restored, 0, "the undo restores for a session short of the second factor");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
       delete bus.__flUndoRouteSession;

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
@@ -116,6 +117,12 @@ const FRISTEN = [
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
+  {
+    daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
+    // The figure's one home is `fl_frontend/src/core/authEmail.ts :: LINK_VALIDITY_MINUTES`, which
+    // the link is minted on and the message states: a copy typed here is a promise nothing keeps.
+    frist: `Ein Anmeldelink gilt ${String(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft nach höchstens 90 Tagen ab. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+  },
   {
     daten: "Änderungsprotokoll der Verwaltung",
     frist: "12 Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
@@ -437,8 +444,10 @@ export function DatenschutzView() {
           <p className={ABSATZ}>Diese Website setzt zwei Dinge im Browser, und beide sind für den Betrieb notwendig:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>
-              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung, gilt 48 Stunden
-              und hält die Sitzung. Wer sich nicht anmeldet, bekommt es nie.
+              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung und hält die
+              Sitzung. Das Cookie selbst läuft nach höchstens 90 Tagen ab; für den Zugang zur Verwaltung prüfen wir bei jedem Aufruf zusätzlich,
+              ob die Anmeldung nicht länger als 48 Stunden her ist, und verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt
+              es nie.
             </li>
             <li className={ABSATZ}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim

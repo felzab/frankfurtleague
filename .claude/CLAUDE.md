@@ -183,14 +183,15 @@ line that depends on one, grep that library's `llms.txt`** — ahead of the pros
 recall. An API claim made without checking an available one is unverified: say so in the same answer
 that makes it.
 
-| Package      | Index                                                            | Full text                                                                  |
-| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **HeroUI**   | [react/llms.txt](https://heroui.com/react/llms.txt)              | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
-| **Next.js**  | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
-| **Pydantic** | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt) | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
-| **Zod**      | [llms.txt](https://zod.dev/llms.txt)                             | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
-| **React**    | [llms.txt](https://react.dev/llms.txt)                           | — (index only)                                                             |
-| **Resend**   | [docs/llms.txt](https://resend.com/docs/llms.txt)                | — (index only)                                                             |
+| Package         | Index                                                            | Full text                                                                  |
+| --------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **HeroUI**      | [react/llms.txt](https://heroui.com/react/llms.txt)              | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
+| **Next.js**     | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
+| **Pydantic**    | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt) | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
+| **Zod**         | [llms.txt](https://zod.dev/llms.txt)                             | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
+| **React**       | [llms.txt](https://react.dev/llms.txt)                           | — (index only)                                                             |
+| **Resend**      | [docs/llms.txt](https://resend.com/docs/llms.txt)                | — (index only)                                                             |
+| **Better Auth** | [docs/llms.txt](https://better-auth.com/docs/llms.txt)           | — (index only)                                                             |
 
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
@@ -200,7 +201,7 @@ that makes it.
   its silence beforehand is not a denial. HeroUI's
   `react/` URL, never the bare `heroui.com/llms-full.txt`, which merges in HeroUI Native, a React
   Native product this repo does not use.
-- Tailwind, FastAPI and Auth.js publish none, and PyMongo's is a topic index of unconfirmed
+- Tailwind and FastAPI publish none, and PyMongo's is a topic index of unconfirmed
   conformance, so their prose docs stay authoritative: [Tailwind](https://tailwindcss.com/docs) ·
   [FastAPI](https://fastapi.tiangolo.com) ·
   [PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/). A package
@@ -215,13 +216,13 @@ that makes it.
 Every other deprecation surfaces as a type error, a lint error or a failed build. These compile,
 pass, and silently do nothing:
 
-| Never                                   | Always                                   |
-| --------------------------------------- | ---------------------------------------- |
-| `middleware.ts`                         | `proxy.ts`                               |
-| `tailwind.config.js`                    | CSS-first `@theme` / `@layer`            |
-| `@tailwind base/components/utilities`   | `@import "tailwindcss"`                  |
-| `getServerSideProps` / `getStaticProps` | Server Components + `use cache`          |
-| A direct DB query for application data  | FastAPI (Auth.js session store excepted) |
+| Never                                   | Always                               |
+| --------------------------------------- | ------------------------------------ |
+| `middleware.ts`                         | `proxy.ts`                           |
+| `tailwind.config.js`                    | CSS-first `@theme` / `@layer`        |
+| `@tailwind base/components/utilities`   | `@import "tailwindcss"`              |
+| `getServerSideProps` / `getStaticProps` | Server Components + `use cache`      |
+| A direct DB query for application data  | FastAPI (the sign-in store excepted) |
 
 ## 5. Platform
 

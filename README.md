@@ -45,12 +45,12 @@ maintainer, a live audience each season.
 
 ## Stack
 
-| Layer        | What                                                                  |
-| ------------ | --------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4 |
-| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                         |
-| **Auth**     | Auth.js — magic-link sign-in, admin by email allowlist                |
-| **Deploy**   | Docker Compose behind nginx, on a single host                         |
+| Layer        | What                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------- |
+| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4                  |
+| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                                          |
+| **Auth**     | Better Auth — magic-link sign-in and a passkey second factor, admin by email allowlist |
+| **Deploy**   | Docker Compose behind nginx, on a single host                                          |
 
 The app never calls FastAPI from the browser: every application read is a server-side fetch from the
 Next.js container, and the backend gates every request that touches application data on a shared key.

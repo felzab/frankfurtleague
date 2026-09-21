@@ -21,6 +21,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The order the two halves run in, and what is lost with them    |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
+| [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
 
 ---
 
@@ -314,8 +315,31 @@ a perfectly good name, and a row missing its name can name a club that exists.
 Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
 is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
 
-- **The session row is not the grant.** It stays in the `authjs` database after a revocation and authorizes
+- **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
+- **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
+  allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
+  until one stands, so there is nothing to prepare for them and nothing to hand over.
+- **A lost passkey is recovered in the Atlas console**, by deleting that administrator's rows in the
+  `passkey` collection of the `auth` database; their next sign-in through the e-mail link enrols a
+  new one. **Until that row is gone both enrolment endpoints answer 404 to every session**, their
+  own included, so a deletion against the wrong database reads to them as the step never being
+  offered. One passkey per administrator is the whole requirement, and no control here lists or
+  deletes another person's: that is a listing and a write against the sign-in store, and it buys a
+  console step already available.
+- **A device that cannot enrol a passkey locks that administrator out, and no setting here relaxes
+  it.** The enrolment asks for a discoverable credential and for the person to be verified
+  (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  nothing where the machine has no platform authenticator and no security key supporting both — an
+  older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
+  resident-key and user-verification support, or a second device they can enrol from; there is no
+  password and no code to fall back to. **Where nobody can get in at all, the way back is the
+  previous image** (§1's deploy by tag), which authenticates against the store that build carries —
+  so it works only while that store is still there, and dropping it is what closes this route.
+- **Deleting one's OWN passkey is no recovery, and no page offers it.** A session that could reach
+  such a control has already passed the factor, so offering it to a link-borne session would let a
+  stolen mailbox swap the passkey for its own — which is the attack the second factor exists
+  against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
 
@@ -400,12 +424,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                 |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                           |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on |
-| Administrator  | The sign-in store — the second database, holding the address, the sessions and the sign-in tokens                                   |
+| Role           | Where their data is read                                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                        |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                  |
+| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                        |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey                                                             |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14) |
 
 `/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -843,7 +868,7 @@ does not look erased, and each role's guard reads something the restore took awa
   keyed on the address, so the address off the thread is the whole input — and the armed panel's list
   now names seats written since the snapshot as well, which is why section 5 says to read it before
   pressing.
-- **An administrator.** The sign-in store is a second database reached by hand (section 5), so whether
+- **An administrator.** The sign-in store is the `auth` database, reached by hand (section 5), so whether
   the restore reached it is a question about what was restored rather than about this step.
 
 **The log's redactions came back as well**, so re-running each erasure is also what re-empties the
@@ -855,3 +880,25 @@ time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spe
 I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
 answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
 misses.
+
+## 14. The `auth` database's two expiry indexes
+
+The sign-in library writes an `expiresAt` on every `verification` row and every `session` row, and
+it deletes neither on a schedule: a verification row is removed only by the caller that redeems it,
+and a session row only when its own cookie comes back. **Both collections therefore need a TTL index
+on `expiresAt`, created once in the Atlas console**, with an expiry-after of zero seconds so the
+stored value is itself the deletion time.
+
+`verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
+any URL on the site rather than to `/signin` alone, and the library writes the row before the
+allowlist is consulted — so every address anyone submits is kept, with no path in the running system
+that removes it.
+
+`session` is smaller and the index is defence in depth: a row for an administrator who closed the
+browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
+serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+
+**Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
+configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
+declared indexes, which these are not — so the console is where both are made and where their
+presence is read.

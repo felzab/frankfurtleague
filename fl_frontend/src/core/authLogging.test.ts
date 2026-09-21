@@ -32,9 +32,9 @@ function loggerErrorArguments(file: string): ts.NodeArray<ts.Expression>[] {
   return calls;
 }
 
-describe("the Auth.js logger", () => {
+describe("what the sign-in module hands the log stream", () => {
   /* `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and
-     an Auth.js error on the Resend path routinely carries the submitted address, which
+     a failure on the mail path routinely carries the submitted address, which
      `docs/logging/spec.md :: L9` keeps off the stream. */
   it("hands the log stream no error object, only the name and the code", () => {
     const calls = loggerErrorArguments(AUTH_MODULE);

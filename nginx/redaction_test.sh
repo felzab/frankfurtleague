@@ -109,33 +109,34 @@ done
 #   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
 
 CASES=(
-  # The plain case: @auth/core's callback, credentials in the query.
-  "LEAK|${BASE}/api/auth/callback/resend?callbackUrl=%2F&token=${TOK}&email=${EM}"
+  # The plain case: the library's own verification path, the token in the query.
+  "LEAK|${BASE}/api/auth/magic-link/verify?callbackURL=%2F&token=${TOK}"
 
   # Spellings the raw URI does not begin with, which $request_uri carries and $uri does not. A
   # trailing slash on AUTH_URL produces the first of them for real.
-  "LEAK|${BASE}//api/auth/callback/resend?token=${TOK}"
-  "LEAK|${BASE}/api//auth/callback/resend?token=${TOK}"
-  "LEAK|${BASE}/%61pi/auth/callback/resend?token=${TOK}"
-  "LEAK|${BASE}/api/./auth/callback/resend?token=${TOK}"
-  "LEAK|${BASE}/api/auth/callback/resend%3Ftoken=${TOK}"
+  "LEAK|${BASE}//api/auth/magic-link/verify?token=${TOK}"
+  "LEAK|${BASE}/api//auth/magic-link/verify?token=${TOK}"
+  "LEAK|${BASE}/%61pi/auth/magic-link/verify?token=${TOK}"
+  "LEAK|${BASE}/api/./auth/magic-link/verify?token=${TOK}"
+  "LEAK|${BASE}/api/auth/magic-link/verify%3Ftoken=${TOK}"
 
-  # Case, and the callback path with no trailing slash, which a prefix written with one walks past.
-  "LEAK|${BASE}/API/AUTH/CALLBACK/resend?token=${TOK}"
-  "LEAK|${BASE}/Api/Auth/Callback/resend?token=${TOK}"
-  "LEAK|${BASE}/api/auth/callback?token=${TOK}"
-  "LEAK|${BASE}/api/auth/callback/?token=${TOK}"
+  # Case, and the trailing slash a prefix written without one still has to cover.
+  "LEAK|${BASE}/API/AUTH/MAGIC-LINK/VERIFY?token=${TOK}"
+  "LEAK|${BASE}/Api/Auth/Magic-Link/Verify?token=${TOK}"
+  "LEAK|${BASE}/api/auth/magic-link/verify/?token=${TOK}"
 
-  # The parameter guard standing alone, on paths the callback prefix never covers.
-  "LEAK|${BASE}/api/auth/signin/resend?token=${TOK}"
+  # The parameter guard standing alone, on paths the verification prefix never covers -- the mailed
+  # landing among them, which is the URL this application actually sends.
+  "LEAK|${BASE}/signin/bestaetigen?token=${TOK}"
+  "LEAK|${BASE}/api/auth/sign-in/magic-link?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
 
-  # A parameter reached past a SECOND literal `?`, which a callbackUrl carrying its own query puts
+  # A parameter reached past a SECOND literal `?`, which a callbackURL carrying its own query puts
   # there. A separator class of `&` alone walks past it.
-  "LEAK|${BASE}/signin?callbackUrl=/x?token=${TOK}"
-  "LEAK|${BASE}/teams?a=1&callbackUrl=/x?email=${EM}"
+  "LEAK|${BASE}/signin?callbackURL=/x?token=${TOK}"
+  "LEAK|${BASE}/teams?a=1&callbackURL=/x?email=${EM}"
 
   # A raw URI with no literal `?` anywhere. $request_uri is never decoded, so the arm that keeps the
   # path has nothing to anchor on and only the backstop reaches these.
@@ -151,12 +152,12 @@ CASES=(
   "LEAK|${BASE}/signin?token=a%09b${TOK}"
   "LEAK|${BASE}/signin?token=a%22b${TOK}"
   "LEAK|${BASE}/signin?token=a,b${TOK}"
-  "LEAK|${BASE}/api/auth/callback/resend?token=a%20b${TOK}&email=${EM}"
+  "LEAK|${BASE}/api/auth/magic-link/verify?token=a%20b${TOK}&email=${EM}"
 
   # The referer, which Referrer-Policy: strict-origin-when-cross-origin fills with the whole URL on
   # a same-origin navigation. It needs no misspelling at all to carry a credential.
-  "LEAK-REF|http://localhost/api/auth/callback/resend?token=${TOK}&email=${EM}"
-  "LEAK-REF|http://localhost/api/auth/callback/resend%3Ftoken=${TOK}"
+  "LEAK-REF|http://localhost/api/auth/magic-link/verify?token=${TOK}&email=${EM}"
+  "LEAK-REF|http://localhost/api/auth/magic-link/verify%3Ftoken=${TOK}"
   "LEAK-REF|http://localhost/x%3Ftoken%3D${TOK}"
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"

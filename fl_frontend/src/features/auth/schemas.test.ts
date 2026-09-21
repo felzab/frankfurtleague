@@ -15,8 +15,8 @@ describe("SignInPayloadSchema", () => {
     }
   });
 
-  /* Auth.js normalises and mails whatever passes here, and the action answers both outcomes with the
-     same sentence: an undeliverable address leaves the reader waiting on a link that never went. */
+  /* Whatever passes here is folded and mailed, and the action answers both outcomes with the same
+     sentence: an undeliverable address leaves the reader waiting on a link that never went. */
   it("refuses an address no mailbox can be reached at", () => {
     for (const email of ["erika@ab-.de", "erika@schule", "erika@", "", "erika@@schule.de", "Erika <erika@schule.de>"]) {
       assert.equal(refused(email), true, `expected "${email}" to be rejected`);

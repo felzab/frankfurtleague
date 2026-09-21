@@ -295,9 +295,8 @@ KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
 def hash_token(raw: str) -> str:
     """The form the database holds a token in.
 
-    UNKEYED, unlike Auth.js's `createHash(token + secret)`: 256 random bits have no dictionary to
-    search, and a pepper would cost a backend environment name reaching the server, CI and the
-    local stack.
+    UNKEYED: 256 random bits have no dictionary to search, and a pepper would cost a backend
+    environment name reaching the server, CI and the local stack.
     """
 
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
