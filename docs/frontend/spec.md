@@ -760,12 +760,16 @@ assignment whose value is none of the shapes it handles (I34, I63).
 value arriving from a prop resolving only while every call site passes a literal (I42).
 `fl_frontend/src/core/schemaGerman.test.ts` reports every required control whose schema path it
 cannot build — a `name` arriving through a props spread, and an opening tag it could not read at all
-— and follows a path written in the other file of the pair. A marked site handing over no `name` takes the default the control destructures, where that default reaches a `name` attribute; a control forwarding a bare `name={…}` prop takes the literal `name` each of its own call sites passes, as a templated name already does. Both resolve against the component the mark stands INSIDE rather than the file's first, three rule controls sharing one module. What it still spares is a mark whose path neither route can build. A call site whose own tag it
+— and follows a path written in the other file of the pair. A marked site handing over no `name` takes the default the control destructures, where that default reaches a `name` attribute; a control forwarding a bare `name={…}` prop takes the literal or templated `name` each of its own call sites passes, a template contributing the segment marker the schema's own keys close exactly as an in-file template does; a site whose value is a hole alone or an opaque expression is reported rather than credited, because a bare segment would cover every top-level path the schema carries. Both resolve against the component the mark stands INSIDE rather than the file's first, three rule controls sharing one module. What it still spares is a mark whose path neither route can build. A call site whose own tag it
 cannot read fails the run rather than being credited the prop's default, which would name a path no
 form writes. Every name it reads lands on a path of the schema THAT form's own draft block judges,
 resolved from the form's `schemas: { … }` entry or its `schema=` prop through that file's imports to
 the bound export — a factory by the bound export declared with it — so a field renamed on one side
-alone is a failure rather than a smaller run. Matching a name against every payload instead lets a
+alone is a failure rather than a smaller run. The one exception is declared rather than inferred: a
+row in `fl_frontend/src/core/schemaGerman.test.ts :: SUBMITTED_ELSEWHERE` names a site whose control
+marks a path its own form never submits together with the schema that does judge it, and the row
+fails where its names are not exactly that schema's own leaves, where its site has left the tree, or
+where the form has since taken those names on. Matching a name against every payload instead lets a
 schema no control of its own marks answer for another form's mark, which any field name two payloads
 share is one form away from. A form whose schema will not resolve, and a marked control no resolved
 form's import tree reaches, each fail the run rather than leaving the population.
