@@ -304,6 +304,106 @@ def test_an_unmetered_exact_match_owes_no_twin():
     assert routes.twins(served(probe, CATCH_ALL)) == []
 
 
+GONE = exact("/api/gone") + exact("/api/gone/")
+
+
+def orphans(app: Path, where: tuple) -> list:
+    """What the orphan rule says about a planted tree and a planted set of locations."""
+    return routes.orphaned(where, routes.handlers(app) + routes.pages(app), routes.metadata(app))
+
+
+def test_an_exact_match_naming_no_file_in_the_tree_is_a_finding(monkeypatch):
+    """The block a moved handler leaves behind: the URL is gone and the pair still meters it.
+
+    The answered pair beside it is the non-vacuity arm: a rule reporting every exact match alike
+    fails here.
+    """
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
+    findings = orphans(tree("/api/bewerbung"), served(METERED, GONE, CATCH_ALL))
+
+    assert severities(findings) == ["fail", "fail"]
+    assert "/api/gone" in details(findings)
+    assert "/api/bewerbung" not in details(findings)
+
+
+def test_an_exact_match_naming_a_page_is_no_orphan(monkeypatch):
+    """`= /signin` meters a page's server action, and no route handler answers that URL at all."""
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
+
+    assert orphans(tree("/signin", file="page.tsx"), served(exact("/signin"), CATCH_ALL)) == []
+
+
+def test_an_exact_match_under_a_dynamic_segment_is_no_orphan(monkeypatch):
+    """A catch-all answers URLs no directory spells, so one of them is unnameable rather than absent."""
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
+    app = tree("/bewerbung/[saison_id]", file="page.tsx")
+
+    assert orphans(app, served(exact("/bewerbung/2026"), CATCH_ALL)) == []
+
+
+def test_a_sibling_of_a_dynamic_head_is_no_excused_orphan(monkeypatch):
+    """`url_of` gives a dynamic head its own trailing slash; without it every location merely sharing that prefix goes unreported."""
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
+    app = tree("/bewerbung/[saison_id]", file="page.tsx")
+
+    findings = orphans(app, served(exact("/bewerbungen-alt"), CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "/bewerbungen-alt" in details(findings)
+
+
+def test_a_recorded_answer_covers_an_exact_match_the_tree_cannot(monkeypatch):
+    """The liveness probe's case: the edge answers it from the backend, and no walk of this tree sees it."""
+    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/gone", "answered elsewhere"),))
+
+    assert orphans(tree("/api/bewerbung"), served(METERED, exact("/api/gone"), CATCH_ALL)) == []
+
+
+def test_a_top_level_dynamic_route_excuses_no_exact_match(monkeypatch):
+    """Its static head is the root, and taking that as coverage leaves this rule unable to fail.
+
+    `location /` is refused one level up for the same reason, reached from the configuration instead
+    of from the tree.
+    """
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
+    findings = orphans(tree("/[slug]"), served(GONE, CATCH_ALL))
+
+    assert severities(findings) == ["fail", "fail"]
+    assert "/api/gone" in details(findings)
+
+
+def test_a_recorded_answer_the_tree_itself_serves_is_a_finding(monkeypatch):
+    """A row outlives its reason the moment a file answers that URL, and the location then reads as recorded rather than accounted."""
+    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/bewerbung", "answered elsewhere"),))
+    app = tree("/api/bewerbung")
+    findings = routes.undeclared(served(METERED, CATCH_ALL), routes.handlers(app) + routes.pages(app), routes.metadata(app))
+
+    assert severities(findings) == ["fail"]
+    assert "answers for itself" in details(findings)
+
+
+def test_a_recorded_answer_no_location_names_is_a_finding(monkeypatch):
+    """The rot `unused` reports for a prefix location's reason, over the off-tree table."""
+    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/gone", "answered elsewhere"),))
+
+    findings = routes.undeclared(served(METERED, CATCH_ALL), (), ())
+
+    assert severities(findings) == ["fail"]
+    assert "named by no exact-match location" in details(findings)
+
+
+def test_the_repository_own_exact_matches_all_name_something():
+    """The real pair, where the page locations and the recorded probe are what a handler walk misses."""
+    found, where, _ = repository_own()
+    app = routes.REPO_ROOT / routes.APP_ROUTER
+
+    answering = found + routes.pages(app)
+    served_here = routes.metadata(app)
+
+    assert routes.orphaned(where, answering, served_here) == []
+    assert routes.undeclared(where, answering, served_here) == []
+
+
 def test_a_route_group_leaves_the_url():
     """A parenthesised folder organises the tree and is not a path segment."""
     assert routes.url_of(("api", "(public)", "bewerbung"), Path("route.ts")) == ("/api/bewerbung", "/api/bewerbung", False)
@@ -500,6 +600,7 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
     """
     monkeypatch.setattr(routes, "REASONS", ())
     monkeypatch.setattr(routes, "METADATA", ())
+    monkeypatch.setattr(routes, "ELSEWHERE", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
@@ -511,6 +612,20 @@ def test_a_clean_pair_exits_zero(monkeypatch):
     app = tree("/api/bewerbung")
 
     assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 0
+
+
+def test_an_orphan_pair_reaches_the_exit_contract(monkeypatch):
+    """The rule reaches a reader through `main` alone, and a run that never calls it exits zero."""
+    app = tree("/api/bewerbung")
+
+    assert run_main(app, "server {\n" + METERED + GONE + CATCH_ALL + "}\n", monkeypatch) == 1
+
+
+def test_a_pair_a_page_answers_reaches_the_exit_contract_too(monkeypatch):
+    """The other half of that wiring: the page walk decides this run, and without it the pair is an orphan."""
+    app = tree("/signin", file="page.tsx")
+
+    assert run_main(app, "server {\n" + exact("/signin") + exact("/signin/") + CATCH_ALL + "}\n", monkeypatch) == 0
 
 
 def test_a_finding_exits_one(monkeypatch):

@@ -311,9 +311,6 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
     different files.
     """
 
-    # Never `_stored`, which this module already spells for the write-path table below:
-    # `scripts/checks/check_test_estate.py :: Estate.resolve` keys on the bare name, so the shadow
-    # would report every caller of that one as reaching a database.
     def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
         async def body() -> Any:
             async with a_clean_database(url, EINWILLIGUNG_DATABASE_NAME) as (_, database):

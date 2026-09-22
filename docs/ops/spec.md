@@ -142,7 +142,15 @@ selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and doe
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
-would otherwise leave one of the two standing for both.
+would otherwise leave one of the two standing for both. **An exact-match location names something
+this repository answers or it is a finding too**: a route handler's URL, a page's, a metadata
+convention's, or a path recorded at `scripts/checks/check_public_routes.py :: ELSEWHERE`, which the
+liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
+answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
+is a finding: it is named by no exact-match location, or a file in the tree has started answering
+it, so the row records what the accounting already reads. Pages are read for that direction alone,
+`location /` carrying every one of them, and a dynamic segment at the top level excuses nothing: its
+static head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
