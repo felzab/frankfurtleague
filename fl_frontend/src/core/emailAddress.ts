@@ -44,6 +44,39 @@ const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
 const EMAIL_HOST_MAX_OCTETS = 253;
 const EMAIL_HOST_LABEL_MAX_OCTETS = 63;
 
+/** The only punycode route a browser offers, and the one both callers below take: a second spelling is what drifts from this one. */
+function asAsciiHost(host: string): string | undefined {
+  try {
+    return new URL(`https://${host}`).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A host already inside ASCII, which `withAsciiDomain` hands back rather than rebuilding. */
+const ASCII_HOST_REGEX = /^\p{ASCII}+$/u;
+
+/** The address with its domain in the ASCII form every mail system carries, or `undefined` where the domain has none. */
+export function withAsciiDomain(address: string): string | undefined {
+  const at = address.lastIndexOf("@");
+  if (at < 1) return undefined;
+
+  const host = address.slice(at + 1);
+  // Byte for byte where nothing needs converting: `new URL` also lower-cases, and a recipient
+  // spelled differently from the stored row is one no later delivery event can be matched back to it.
+  if (ASCII_HOST_REGEX.test(host)) return address;
+
+  // Narrower than `isDeliverableAddress`'s own reading of the same alphabet, and deliberately: an
+  // ASCII host is handed back unparsed above, so only the conversion below can answer another host.
+  if (!EMAIL_HOST_CHARS_REGEX.test(host)) return undefined;
+
+  const ascii = asAsciiHost(host);
+
+  // The local part crosses untouched: only SMTPUTF8 carries a non-ASCII one, and nothing here can
+  // promise the receiving server speaks it.
+  return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
+}
+
 // The API's refusals that rest on a registry rather than on characters stay the API's: IDNA 2008's
 // code-point tables, RFC 5890's reserved labels, and IANA's special-use names.
 /** `EmailStr`'s own three checks: the local part's alphabet, the host's, and the host's lengths after punycoding. */
@@ -54,13 +87,9 @@ export function isDeliverableAddress(value: string): boolean {
   const host = value.slice(at + 1);
   if (!EMAIL_HOST_CHARS_REGEX.test(host)) return false;
 
-  let punycoded: string;
-  try {
-    // The only punycode route a browser offers, and `EmailStr` measures the lengths below on this form too.
-    punycoded = new URL(`https://${host}`).hostname;
-  } catch {
-    return false;
-  }
+  // `EmailStr` measures the two lengths below on the punycoded form too.
+  const punycoded = asAsciiHost(host);
+  if (punycoded === undefined) return false;
   if (punycoded.length > EMAIL_HOST_MAX_OCTETS || !EMAIL_HOST_TLD_REGEX.test(punycoded)) return false;
 
   const labels = punycoded.split(".");
