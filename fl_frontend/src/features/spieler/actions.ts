@@ -116,7 +116,7 @@ export async function postSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, rolle, ...personFields } = validated.data;
+    const { saison_id, team_id, nummer, position, stufe, ist_nachnominiert, rolle, ...personFields } = validated.data;
 
     // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
     const postOperation = await postSpieler(personFields);
@@ -134,7 +134,7 @@ export async function postSpielerAction(
         nummer,
         position,
         stufe,
-        is_nachgetragen,
+        ist_nachnominiert,
         rolle,
       });
     } catch (error) {

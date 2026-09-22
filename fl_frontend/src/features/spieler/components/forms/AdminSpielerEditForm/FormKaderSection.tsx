@@ -83,7 +83,7 @@ export function FormKaderSection({
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
   // Derived rather than asked, so it cannot be forgotten: a started season means a late arrival.
-  const entryIsNachgetragen = saison.saisonStatus !== "future";
+  const entryIstNachnominiert = saison.saisonStatus !== "future";
 
   const handleEnterSaison = () => {
     startEntering(async () => {
@@ -96,7 +96,7 @@ export function FormKaderSection({
         nummer: nummerPayload(nummer),
         position,
         stufe,
-        is_nachgetragen: entryIsNachgetragen,
+        ist_nachnominiert: entryIstNachnominiert,
         rolle: null,
       });
 
@@ -141,6 +141,7 @@ export function FormKaderSection({
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="team_id">Team</FieldLabel>
                 <TeamSelect
+                  isRequired
                   value={teamId}
                   onChange={(next) => {
                     onTeamIdChange(next);
@@ -159,7 +160,7 @@ export function FormKaderSection({
               />
             </div>
 
-            {/* A group rather than a switch, unlike `is_nachgetragen`: three states, and pressing the
+            {/* A group rather than a switch, unlike `ist_nachnominiert`: three states, and pressing the
                 held one again is how a role is given up. Empty selection is the ordinary state. */}
             <TextField
               name="rolle"
@@ -283,7 +284,7 @@ export function FormKaderSection({
                 behalf, which must not read as fine print. */}
             <InlineBanners
               banners={banners}
-              spot="kader-nachgetragen"
+              spot="kader-nachnominiert"
             />
           </div>
         )}

@@ -103,7 +103,7 @@ def squad_row(index: int, *, saison_id: str, team_id: ObjectId, inactive_since: 
         "spieler_id": ObjectId(MEMBERSHIP_ID.format(500 + index)),
         "saison_id": saison_id,
         "team_id": team_id,
-        "is_nachgetragen": False,
+        "ist_nachnominiert": False,
         "rolle": None,
         "stufe": "Q2",
         "position": "Angriff",

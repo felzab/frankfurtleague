@@ -75,7 +75,7 @@ def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | 
         "spieler_id": spieler_id,
         "saison_id": SAISON_ID,
         "team_id": team_id,
-        "is_nachgetragen": False,
+        "ist_nachnominiert": False,
         "rolle": rolle,
         "stufe": "Q2",
         "position": "Angriff",
@@ -88,8 +88,17 @@ def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since:
     """A row as written before either field existed: the keys are ABSENT rather than empty, which no projection can supply."""
 
     row = squad_row(spieler_id=spieler_id, team_id=team_id, inactive_since=inactive_since)
-    del row["is_nachgetragen"]
+    del row["ist_nachnominiert"]
     del row["rolle"]
+
+    return row
+
+
+def old_spelling_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
+    """A MARKED row as written before the rename: no payload can produce one, so it is assembled here and inserted raw."""
+
+    row = legacy_squad_row(spieler_id=spieler_id, team_id=team_id, inactive_since=inactive_since)
+    row["is_nachgetragen"] = True
 
     return row
 
@@ -132,7 +141,7 @@ async def enter(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId
     return await post_saison_spieler(
         spieler_id=spieler_id,
         saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=SAISON_ID, team_id=team_id, nummer=None, position=None, stufe=None, is_nachgetragen=False, rolle=rolle
+            saison_id=SAISON_ID, team_id=team_id, nummer=None, position=None, stufe=None, ist_nachnominiert=False, rolle=rolle
         ),
         saison_spieler_collection=database.saison_spieler,
         saison_teams_collection=database.saison_teams,
@@ -146,7 +155,7 @@ async def move(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId,
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
         saison_spieler_data=FLPatchSaisonSpielerPayload(
-            team_id=team_id, nummer=nummer, position=None, stufe=None, is_nachgetragen=False, rolle=rolle
+            team_id=team_id, nummer=nummer, position=None, stufe=None, ist_nachnominiert=False, rolle=rolle
         ),
         saison_spieler_collection=database.saison_spieler,
         saison_teams_collection=database.saison_teams,
@@ -586,12 +595,9 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
                 today=TODAY,
             )
 
-        # UNCONSTRAINED, here and in the case below: the shipped validator requires
-        # `is_nachgetragen`, so the legacy row this class exists for models one already stored when
-        # that validator arrived.
-        response = on_a_database(mongo_replica_set_url, body, constrained=False)
+        response = on_a_database(mongo_replica_set_url, body)
 
-        assert (response.is_nachgetragen, response.rolle) == (False, None)
+        assert (response.ist_nachnominiert, response.rolle) == (False, None)
         assert response.inactive_since == TODAY
 
     def test_returning_to_a_squad_answers_for_one_too(self, mongo_replica_set_url: str):
@@ -604,7 +610,22 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
 
             return await revive(database, spieler_id_for(90))
 
-        response = on_a_database(mongo_replica_set_url, body, constrained=False)
+        response = on_a_database(mongo_replica_set_url, body)
 
-        assert (response.is_nachgetragen, response.rolle) == (False, None)
+        assert (response.ist_nachnominiert, response.rolle) == (False, None)
         assert response.inactive_since is None
+
+    def test_a_row_stored_under_the_markers_old_spelling_still_echoes_as_marked(self, mongo_replica_set_url: str):
+        """A hand-written dictionary read, which no Pydantic alias reaches: dropped, the retire answers a late entry as an ordinary one."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database.saison_spieler.insert_one(old_spelling_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID))
+
+            return await delete_saison_spieler(
+                spieler_id=spieler_id_for(90),
+                saison_id=SAISON_ID,
+                saison_spieler_collection=database.saison_spieler,
+                today=TODAY,
+            )
+
+        assert on_a_database(mongo_replica_set_url, body).ist_nachnominiert is True

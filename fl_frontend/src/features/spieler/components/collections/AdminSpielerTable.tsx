@@ -106,8 +106,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
            `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
         <span className={labelBadge("success")}>Aktiv</span>
       )}
-      {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        <span className={labelBadge("info")}>Nachgetragen</span>
+      {spieler.selected?.ist_nachnominiert === true && spieler.selected.inactive_since === null && (
+        <span className={labelBadge("info")}>Nachnominiert</span>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -23,6 +23,13 @@ const { calls: gesendet } = doubleActions({
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0" }),
 });
 
+/* A hook, not a first line in each case: one that throws before its own reset leaves the array
+   dirty for whatever runs next, and one added without a reset inherits the last case's writes with
+   nothing failing. */
+beforeEach(() => {
+  gesendet.length = 0;
+});
+
 /** The squad number each write of one action carried, in order. */
 const nummern = (action: string): unknown[] =>
   gesendet.filter((call) => call.action === action).map((call) => (call.payload as { nummer?: unknown }).nummer);
@@ -41,7 +48,7 @@ const renderDialog = () =>
   render(
     underSaison(
       h(AdminCreateSpielerForm, {
-        saisonOptions: [{ saisonId: "2026", isNachgetragen: false, teams: [TEAM], erlaubteStufen: ["Q1"] }],
+        saisonOptions: [{ saisonId: "2026", istNachnominiert: false, teams: [TEAM], erlaubteStufen: ["Q1"] }],
         defaultSaisonId: "2026",
         onClose: () => undefined,
       }),
@@ -64,7 +71,7 @@ const renderEditor = () =>
             nummer: "10",
             position: null,
             stufe: null,
-            is_nachgetragen: false,
+            ist_nachnominiert: false,
             rolle: null,
             inactive_since: null,
           },
@@ -108,7 +115,6 @@ describe("the squad number's refusal as the admin reads it", () => {
    number on one form that it refuses on the other. */
 describe("a squad number typed with space around it", () => {
   it("is sent trimmed from the create dialog", async () => {
-    gesendet.length = 0;
     const user = userEvent.setup();
     renderDialog();
 
@@ -123,7 +129,6 @@ describe("a squad number typed with space around it", () => {
   });
 
   it("is sent trimmed from the squad editor", async () => {
-    gesendet.length = 0;
     const user = userEvent.setup();
     renderEditor();
 

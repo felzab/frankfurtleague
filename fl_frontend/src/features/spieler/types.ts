@@ -65,7 +65,7 @@ type SpielerSquadFields = {
   nummer: string | null;
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
-  is_nachgetragen: boolean;
+  ist_nachnominiert: boolean;
   /** A role on the junction, not a property of the person. `null` is the ordinary state. */
   rolle: FLSpielerRolle | null;
   /** The day the ROW was retired. Not editable — the retire and reactivate controls own it. */
@@ -111,12 +111,12 @@ export type SpielerTeamOption = {
 };
 
 /**
- * `isNachgetragen` is derived from the season's status rather than asked: an `active` season is
+ * `istNachnominiert` is derived from the season's status rather than asked: an `active` season is
  * under way, a `future` one has not begun.
  */
 export type SpielerCreateSaisonOption = {
   saisonId: string;
-  isNachgetragen: boolean;
+  istNachnominiert: boolean;
   teams: SpielerTeamOption[];
   /** The season's `rules.erlaubte_stufen`, as on `SpielerSaisonMembership`. */
   erlaubteStufen: FLSpielerStufe[];

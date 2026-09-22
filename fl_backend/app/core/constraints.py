@@ -575,7 +575,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "spieler_id",
                 "saison_id",
                 "team_id",
-                "is_nachgetragen",
                 "stufe",
                 "position",
                 "nummer",
@@ -586,7 +585,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "spieler_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
-                "is_nachgetragen": {"bsonType": "bool"},
+                # Out of `required` while rows written under the marker's old spelling survive
+                # (`docs/backend/spec.md :: I302`): a retire or a reactivate `$set`s
+                # `inactive_since` alone, so requiring it would refuse one on such a row.
+                "ist_nachnominiert": {"bsonType": "bool"},
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as holding no role.
                 "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},

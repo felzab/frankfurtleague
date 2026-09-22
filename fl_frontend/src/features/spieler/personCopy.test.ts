@@ -85,7 +85,7 @@ describe("the note a create carries where the season has already begun", () => {
   const shown = (): string =>
     read(
       renderMarkup(AdminCreateSpielerForm, {
-        saisonOptions: [{ saisonId: "2026", isNachgetragen: true, teams: [], erlaubteStufen: [] }],
+        saisonOptions: [{ saisonId: "2026", istNachnominiert: true, teams: [], erlaubteStufen: [] }],
         defaultSaisonId: "2026",
         onClose: () => undefined,
       }),
@@ -101,11 +101,11 @@ describe("the note a create carries where the season has already begun", () => {
       isMember: false,
       rowInactiveSince: null,
       isRowTeamInSaison: true,
-      isNachgetragen: false,
+      istNachnominiert: false,
       isTeamChanged: false,
       isSquadFull: false,
       blockedRolle: null,
-    }).find(({ id }) => id === "spieler.entry-nachgetragen");
+    }).find(({ id }) => id === "spieler.entry-nachnominiert");
 
     assert.ok(banner !== undefined, "the editor raises no banner for the flag, so this case judges nothing");
     assert.ok(shown().includes(`${banner.title}. ${banner.body}`), "the form and the banner word the flag differently");

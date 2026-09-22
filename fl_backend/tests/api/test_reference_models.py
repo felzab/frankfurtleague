@@ -402,7 +402,7 @@ class TestSaisonSpielerRow:
             "spieler_id",
             "saison_id",
             "team_id",
-            "is_nachgetragen",
+            "ist_nachnominiert",
             "rolle",
             "stufe",
             "position",

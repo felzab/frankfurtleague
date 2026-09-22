@@ -51,7 +51,7 @@ export function AdminCreateSpielerForm({
         ...EMPTY_DRAFT_BASE,
         saison_id: defaultSaisonId,
         // Derived from the season's status, never asked; the note under the fields says what was decided.
-        is_nachgetragen: saisonOptions.find((option) => option.saisonId === defaultSaisonId)?.isNachgetragen ?? false,
+        ist_nachnominiert: saisonOptions.find((option) => option.saisonId === defaultSaisonId)?.istNachnominiert ?? false,
       }}
       renderFields={(draft, setDraft) => {
         const selectedOption = saisonOptions.find((option) => option.saisonId === draft.saison_id) ?? saisonOptions[0];
@@ -114,7 +114,7 @@ export function AdminCreateSpielerForm({
                     saison_id: nextSaisonId,
                     // Follows the season, never the previous choice — that season's answer, not a
                     // preference the admin carries.
-                    is_nachgetragen: nextOption?.isNachgetragen ?? false,
+                    ist_nachnominiert: nextOption?.istNachnominiert ?? false,
                     // A team from another season must not ride along silently, and no more may one the
                     // next season has no room in — the picker returns to "wählen" instead.
                     team_id:
@@ -164,9 +164,9 @@ export function AdminCreateSpielerForm({
               />
             </div>
 
-            {draft.is_nachgetragen && (
+            {draft.ist_nachnominiert && (
               <p className="fluid-xxs text-foreground-muted font-medium">
-                Diese Person wird nachgetragen. Zu Beginn der Saison war sie nicht im Kader.
+                Diese Person wird nachnominiert. Zu Beginn der Saison war sie nicht im Kader.
               </p>
             )}
           </>

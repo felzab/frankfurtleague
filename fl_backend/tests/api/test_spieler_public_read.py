@@ -49,7 +49,7 @@ PUBLIC_FIELDS = {"id", "vorname", "nachname", "nummer", "position"}
 
 # `stufe`, `einwilligung` and `email` are the confidentiality rules; the rest fails the allow-list,
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "is_nachgetragen", "rolle", "inactive_since"]
+WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "ist_nachnominiert", "rolle", "inactive_since"]
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
@@ -108,7 +108,7 @@ def _squad_row(
         "nummer": nummer,
         "position": position,
         "stufe": stufe,
-        "is_nachgetragen": False,
+        "ist_nachnominiert": False,
         "rolle": rolle,
         "inactive_since": inactive_since,
     }
@@ -118,7 +118,7 @@ def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
     """A row written before either field existed: the keys are ABSENT, and `$project` omits an absent key rather than nulling it."""
 
     row = _squad_row(key, **fields)
-    del row["is_nachgetragen"]
+    del row["ist_nachnominiert"]
     del row["rolle"]
 
     return row
@@ -165,7 +165,7 @@ class TestTheBaseTierShape:
         """Each rule is about one READ: the field stays stored, admin-visible and validator-enforced, and `FLSpieler` still declares it."""
         assert field in FLSpieler.model_fields
 
-    @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachgetragen", "rolle", "inactive_since"])
+    @pytest.mark.parametrize("field", ["stufe", "team_id", "ist_nachnominiert", "rolle", "inactive_since"])
     def test_the_admin_membership_read_keeps_every_field(self, field: str):
         """`GET /spieler/memberships` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
         assert field in FLSpielerMembership.model_fields
@@ -219,7 +219,7 @@ RETIREMENT_ECHOES = {
             "nummer": "7",
             "position": "Angriff",
             "stufe": "Q2",
-            "is_nachgetragen": False,
+            "ist_nachnominiert": False,
             "rolle": None,
         },
     ),
@@ -264,10 +264,10 @@ class TestTheProjection:
         assert "stufe" not in get_args(FLSpielerSortOptions)
 
     def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """The same sentence one field up: `is_nachgetragen` is withheld too, so a request per value would partition the squad by it."""
-        assert "is_nachgetragen" not in _project()
-        assert "is_nachgetragen" not in BASE_QUERY_PARAMETERS
-        assert "is_nachgetragen" not in get_args(FLSpielerSortOptions)
+        """The same sentence one field up: `ist_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
+        assert "ist_nachnominiert" not in _project()
+        assert "ist_nachnominiert" not in BASE_QUERY_PARAMETERS
+        assert "ist_nachnominiert" not in get_args(FLSpielerSortOptions)
 
     def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
         """`sort_by` is a published parameter.
@@ -610,7 +610,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     """
 
     async def _seed() -> None:
-        # UNCONSTRAINED: `_legacy_squad_row` omits `is_nachgetragen`, which the shipped validator
+        # UNCONSTRAINED: `_legacy_squad_row` omits `ist_nachnominiert`, which the shipped validator
         # requires, so the row this corpus exists to serve is one a constrained database refuses --
         # it models a row already stored when the validator arrived.
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):

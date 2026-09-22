@@ -19,7 +19,7 @@ const stored: FLSpielerDraftFields = {
     nummer: "10",
     position: "Mittelfeld",
     stufe: "Q1",
-    is_nachgetragen: false,
+    ist_nachnominiert: false,
     rolle: null,
   },
 };
@@ -34,7 +34,7 @@ describe("deriveSpielerDraftStatus", () => {
   it("carries a row for every person field and every squad row", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {}, teams: TEAMS });
 
-    // Three person fields plus the five squad rows; `is_nachgetragen` is a note, never a field.
+    // Three person fields plus the five squad rows; `ist_nachnominiert` is a note, never a field.
     assert.equal(status.fields.length, 8);
   });
 
@@ -124,17 +124,17 @@ describe("deriveSpielerDraftStatus", () => {
     assert.equal(row.storedText, "Mittelfeld");
   });
 
-  it("ignores is_nachgetragen entirely, because nothing on the page edits it", () => {
+  it("ignores ist_nachnominiert entirely, because nothing on the page edits it", () => {
     // It still travels on the payload — the patch replaces the row wholesale — but a draft that
     // differs on it is not a change the save bar counts.
     const status = deriveSpielerDraftStatus({
       stored,
-      draft: draftFrom(squad({ is_nachgetragen: true })),
+      draft: draftFrom(squad({ ist_nachnominiert: true })),
       fieldErrors: {},
       teams: TEAMS,
     });
 
-    assert.equal(status.byPath.get("is_nachgetragen"), undefined);
+    assert.equal(status.byPath.get("ist_nachnominiert"), undefined);
     assert.equal(status.isDirty, false);
   });
 

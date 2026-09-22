@@ -61,7 +61,7 @@ const PERSON: AdminSpielerRow = {
     nummer: "7",
     position: "Angriff",
     stufe: "Q2",
-    is_nachgetragen: false,
+    ist_nachnominiert: false,
     rolle: null,
     inactive_since: STILLGELEGT_AM,
     teamName: "Carl-Schurz-Schule",

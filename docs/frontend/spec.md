@@ -397,7 +397,7 @@ What the table cannot carry:
   junction join ([`docs/backend/spec.md`](../backend/spec.md) I11): a club created without a
   junction row would be invisible to the very list the create form sits on. **The player create is
   the same shape for the same reason**, offering `active` and `future` seasons both; the chosen
-  season's status decides `is_nachgetragen`, which the form derives rather than asks (decided
+  season's status decides `ist_nachnominiert`, which the form derives rather than asks (decided
   2026-08-07).
 - **Season entry is offered only where the backend would take it**: only `future` seasons, with
   `fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer` deriving each offered group's fill

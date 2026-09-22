@@ -406,15 +406,15 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    is_nachgetragen: "derived from the season's status, never asked",
+    ist_nachnominiert: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
-    is_nachgetragen: "round-tripped read-only: a historical fact about the entry, not an editable field",
+    ist_nachnominiert: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
   FLCreateSpielerFormPayloadSchema: {
-    is_nachgetragen: "derived from the chosen season's status, never asked",
+    ist_nachnominiert: "derived from the chosen season's status, never asked",
     rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
   },
 

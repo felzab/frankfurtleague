@@ -567,7 +567,7 @@ never a second create. Making a create idempotent on a natural key was rejected 
 shorthand cannot distinguish the same club returning from a different one wanting those letters, and
 getting it wrong repoints history silently. **A typed name is a weaker key than a shorthand**, so the
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
-one, and the resolution belongs to somebody who can be wrong out loud. `is_nachgetragen` is the
+one, and the resolution belongs to somebody who can be wrong out loud. `ist_nachnominiert` is the
 field that already records a squad entry arriving after the season began, derived from the chosen
 season's status rather than asked
 (`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a

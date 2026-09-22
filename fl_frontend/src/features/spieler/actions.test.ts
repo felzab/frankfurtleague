@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -38,6 +38,13 @@ const SAISON_ID = "2026";
 const { calls } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
+});
+
+/* A hook, not a first line in each case: one that throws before its own reset leaves the array
+   dirty for whatever runs next, and one added without a reset inherits the last case's writes with
+   nothing failing. */
+beforeEach(() => {
+  calls.length = 0;
 });
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -105,7 +112,7 @@ function renderEditor({
             nummer: "10",
             position: null,
             stufe: null,
-            is_nachgetragen: false,
+            ist_nachnominiert: false,
             rolle,
             inactive_since: rowInactiveSince,
           },
@@ -233,7 +240,6 @@ describe("the erasure's copy", () => {
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
      the same gesture as a name edit. */
   it("arms before it writes", async () => {
-    calls.length = 0;
     const user = userEvent.setup();
     renderErasure();
 
@@ -467,7 +473,7 @@ const listRow = (person: Partial<AdminSpielerRow> = {}): AdminSpielerRow => ({
     nummer: "10",
     position: null,
     stufe: null,
-    is_nachgetragen: false,
+    ist_nachnominiert: false,
     rolle: null,
     inactive_since: RETIRED_ON,
     teamName: STORED_TEAM.name,
@@ -524,6 +530,7 @@ describe("the reactivate's gate on the list", () => {
       [ROW_RESTORE, "reactivateSaisonSpielerAction", { spieler_id: SPIELER_ID, saison_id: SAISON_ID }],
       [PERSON_RESTORE, "reactivateSpielerAction", { id: SPIELER_ID }],
     ] as const) {
+      // Per iteration, where no hook reaches: the two halves of this one case share the array.
       calls.length = 0;
       const { unmount } = render(
         underSaison(
@@ -667,9 +674,9 @@ describe("REQ-SQUAD-003 before the press", () => {
       underSaison(
         h(AdminCreateSpielerForm, {
           saisonOptions: [
-            { saisonId: "2026", isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
-            { saisonId: "2027", isNachgetragen: false, teams: [{ ...STORED_TEAM, isSquadFull: true }], erlaubteStufen: ["Q1"] },
-            { saisonId: "2028", isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
+            { saisonId: "2026", istNachnominiert: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
+            { saisonId: "2027", istNachnominiert: false, teams: [{ ...STORED_TEAM, isSquadFull: true }], erlaubteStufen: ["Q1"] },
+            { saisonId: "2028", istNachnominiert: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
           ],
           defaultSaisonId: "2026",
           onClose: () => undefined,
@@ -703,7 +710,7 @@ describe("the create dialog's squad pickers", () => {
     render(
       underSaison(
         h(AdminCreateSpielerForm, {
-          saisonOptions: [{ saisonId: SAISON_ID, isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] }],
+          saisonOptions: [{ saisonId: SAISON_ID, istNachnominiert: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] }],
           defaultSaisonId: SAISON_ID,
           onClose: () => undefined,
         }),

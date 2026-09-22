@@ -165,7 +165,7 @@ def squad_row(
         "spieler_id": ObjectId(SQUAD_PERSON_ID.format(index if person is None else person)),
         "saison_id": saison_id,
         "team_id": team_id,
-        "is_nachgetragen": False,
+        "ist_nachnominiert": False,
         "rolle": None,
         "stufe": "Q2",
         "position": "Angriff",

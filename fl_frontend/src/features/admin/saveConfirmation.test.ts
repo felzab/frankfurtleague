@@ -179,7 +179,7 @@ const EDITORS: Record<string, Editor> = {
               nummer: "10",
               position: null,
               stufe: null,
-              is_nachgetragen: false,
+              ist_nachnominiert: false,
               rolle: null,
               inactive_since: null,
             },

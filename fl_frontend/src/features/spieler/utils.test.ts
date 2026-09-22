@@ -16,7 +16,7 @@ const MEMBERSHIP: FLSpielerMembership = {
   nummer: null,
   position: null,
   stufe: null,
-  is_nachgetragen: false,
+  ist_nachnominiert: false,
   rolle: null,
   inactive_since: null,
 };

@@ -66,7 +66,7 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
 
       return {
         saisonId: saison.id,
-        isNachgetragen: saison.status === "active",
+        istNachnominiert: saison.status === "active",
         teams: teamsInSaison(teamsRes.teams, saison.id).map((team) => ({
           ...team,
           isSquadFull: squadIsFull(liveSquadRows[team.teamId], saison.rules.max_kadergroesse),
@@ -132,7 +132,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
               nummer: selected.nummer ?? "",
               position: selected.position,
               stufe: selected.stufe,
-              is_nachgetragen: selected.is_nachgetragen,
+              ist_nachnominiert: selected.ist_nachnominiert,
               rolle: selected.rolle,
               inactive_since: selected.inactive_since,
               // An unresolvable team is a squad row pointing at a deleted club: null, not a crash, so the row

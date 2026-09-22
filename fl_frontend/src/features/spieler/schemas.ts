@@ -75,7 +75,7 @@ export const FLSpielerMembershipSchema = z.object({
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
@@ -173,7 +173,7 @@ const saisonSpielerPayloadFields = {
   stufe: FLSpielerStufeSchema.nullable(),
   // The create form derives this from the season's status rather than asking it, so it cannot be
   // forgotten.
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   // On the junction: a role is held within one team for one season, not by the person. One field and
   // not a flag per role, so holding both at once cannot be expressed.
   rolle: FLSpielerRolleSchema.nullable(),
@@ -257,7 +257,7 @@ export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });

@@ -10434,9 +10434,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -10461,7 +10461,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle"
         ],
         "title": "FLPatchSaisonSpielerPayload",
@@ -11729,9 +11729,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -11762,7 +11762,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle",
           "saison_id"
         ],
@@ -13187,9 +13187,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -13233,7 +13233,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle",
           "spieler_id",
           "saison_id",
@@ -15296,9 +15296,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen",
+            "title": "Ist Nachnominiert",
             "default": false
           },
           "rolle": {

@@ -154,7 +154,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "is_nachgetragen": False,
+            "ist_nachnominiert": False,
             "rolle": None,
             "stufe": "Q2",
             "position": "Angriff",

@@ -200,7 +200,11 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "nummer": 1,
                             "position": 1,
                             "stufe": 1,
-                            "is_nachgetragen": 1,
+                            # Either stored spelling, `$$REMOVE` where a row carries neither: this
+                            # projection decides which keys the model sees, so a bare `1` drops the
+                            # marker and a null reaches a `bool` field and 500s the list
+                            # (`docs/backend/spec.md :: I302`).
+                            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
                             "rolle": 1,
                             "inactive_since": 1,
                         }

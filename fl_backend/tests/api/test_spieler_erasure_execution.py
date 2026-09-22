@@ -123,7 +123,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
         await post_saison_spieler(
             spieler_id=spieler_id,
             saison_spieler_data=FLPostSaisonSpielerPayload(
-                saison_id=saison_id, team_id=team_id, nummer=worn, position="Angriff", stufe="Q2", is_nachgetragen=False, rolle=None
+                saison_id=saison_id, team_id=team_id, nummer=worn, position="Angriff", stufe="Q2", ist_nachnominiert=False, rolle=None
             ),
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -134,7 +134,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
             spieler_id=spieler_id,
             saison_id=saison_id,
             saison_spieler_data=FLPatchSaisonSpielerPayload(
-                team_id=team_id, nummer=then_worn, position="Abwehr", stufe="Q2", is_nachgetragen=False, rolle="kapitaen"
+                team_id=team_id, nummer=then_worn, position="Abwehr", stufe="Q2", ist_nachnominiert=False, rolle="kapitaen"
             ),
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
