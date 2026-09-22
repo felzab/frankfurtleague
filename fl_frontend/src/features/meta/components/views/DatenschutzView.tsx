@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
+import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { card } from "@/shared/components/ui/card";
@@ -20,7 +20,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "21. September 2026";
+const STAND = "22. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -224,10 +224,10 @@ export function DatenschutzView() {
             <br />
             E-Mail: <MailLink />
           </p>
-          <p className={ABSATZ}>Vertretungsberechtigt sind {VERTRETUNGSBERECHTIGTE.join(" und ")}, jeweils mit gleichen Befugnissen.</p>
+          <p className={ABSATZ}>Vertreten wird der Verein durch seinen Vorstand; jeweils zwei Vorstandsmitglieder vertreten ihn gemeinsam.</p>
           <p className={ABSATZ}>
-            Der Verein befindet sich in Gründung und ist noch in keinem Vereinsregister eingetragen. Eine Telefonnummer für den Verein gibt es
-            nicht; wir sind über die E-Mail-Adresse oben erreichbar.
+            Der Verein ist im Vereinsregister des Amtsgerichts Frankfurt am Main unter VR 17757 eingetragen. Eine Telefonnummer für den Verein
+            gibt es nicht; wir sind über die E-Mail-Adresse oben erreichbar.
           </p>
         </LegalSection>
 

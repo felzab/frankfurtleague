@@ -25,6 +25,25 @@ const ANGABEN = new Map(
 
 const rendert = (absatz: string): void => assert.ok(ABSAETZE.includes(absatz), `no paragraph of the notice reads:\n  ${absatz}`);
 
+describe("the privacy notice's account of the association", () => {
+  it("states the joint representation without naming a single board member", () => {
+    rendert("Vertreten wird der Verein durch seinen Vorstand; jeweils zwei Vorstandsmitglieder vertreten ihn gemeinsam.");
+  });
+
+  it("gives the register court and the register number", () => {
+    rendert(
+      "Der Verein ist im Vereinsregister des Amtsgerichts Frankfurt am Main unter VR 17757 eingetragen. " +
+        "Eine Telefonnummer für den Verein gibt es nicht; wir sind über die E-Mail-Adresse oben erreichbar.",
+    );
+  });
+
+  /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
+     change to this page and a stale one tells them there was none. */
+  it("dates the notice to the day this wording landed", () => {
+    rendert("Stand: 22. September 2026");
+  });
+});
+
 describe("the privacy notice's account of a birthdate", () => {
   it("says the birthdate is compulsory and what it is checked against", () => {
     rendert(

@@ -29,8 +29,8 @@ two** — which is what a reviewer needs before reading the published notice
 ## 1. Responsibility and the request route
 
 - **The controller is the association.** `fl_frontend/src/core/brand.ts :: VEREIN_NAME` is the one
-  spelling the notice, the Impressum and every message's close read, and it carries the „i. G.“
-  suffix until the register entry exists — the day it does, that constant drops it. No school and no
+  spelling the notice, the Impressum and every message's close read, and it carries the
+  association's registered legal form, so no page spells that form for itself. No school and no
   individual is the controller; the league is run by its pupils as an association, and a school-law
   basis is unavailable.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to

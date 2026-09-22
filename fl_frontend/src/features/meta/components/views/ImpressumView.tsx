@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
+import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VORSTAND } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
@@ -27,16 +27,16 @@ export function ImpressumView() {
           </p>
         </LegalSection>
 
-        <LegalSection title="Vertreten durch">
+        <LegalSection title="Vertreten durch den Vorstand">
           <p className={ABSATZ}>
-            {VERTRETUNGSBERECHTIGTE.map((person) => (
-              <span key={person}>
-                {person}
+            {VORSTAND.map((mitglied) => (
+              <span key={mitglied.name}>
+                {mitglied.name}, {mitglied.amt}
                 <br />
               </span>
             ))}
           </p>
-          <p className={ABSATZ}>Beide sind einzeln zur Vertretung des Vereins berechtigt.</p>
+          <p className={ABSATZ}>Jeweils zwei Vorstandsmitglieder vertreten den Verein gemeinsam.</p>
         </LegalSection>
 
         <LegalSection title="Kontakt">
@@ -55,10 +55,7 @@ export function ImpressumView() {
         </LegalSection>
 
         <LegalSection title="Registereintrag">
-          <p className={ABSATZ}>
-            Der Verein befindet sich in Gründung. Er ist in keinem Vereinsregister eingetragen, weshalb hier weder ein Registergericht noch eine
-            Registernummer stehen kann. Sobald die Eintragung erfolgt ist, ergänzen wir beides an dieser Stelle.
-          </p>
+          <p className={ABSATZ}>Eingetragen im Vereinsregister des Amtsgerichts Frankfurt am Main unter der Nummer VR 17757.</p>
         </LegalSection>
 
         <LegalSection title="Umsatzsteuer-Identifikationsnummer">
@@ -67,9 +64,9 @@ export function ImpressumView() {
 
         <LegalSection title="Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV">
           <p className={ABSATZ}>
-            {VERTRETUNGSBERECHTIGTE.map((person) => (
-              <span key={person}>
-                {person}, {VEREIN_ANSCHRIFT}
+            {VORSTAND.filter((mitglied) => mitglied.vorsitz).map((mitglied) => (
+              <span key={mitglied.name}>
+                {mitglied.name}, {VEREIN_ANSCHRIFT}
                 <br />
               </span>
             ))}
