@@ -18,7 +18,7 @@ from app.core.crud import aggregate_many_from_db, pull_many_from_db
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
 # names it here.
-SERVED_FIELDS: Mapping[str, int] = {"grund": 1, "erstellt_von": 1, "erstellt_am": 1}
+SERVED_FIELDS: Mapping[str, int] = {"grund": 1, "erstellt_von": 1, "erstellt_am": 1, "gesperrt_bis_saison_id": 1}
 
 
 def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
@@ -65,19 +65,25 @@ async def address_is_gesperrt(
     *,
     sperrliste_collection: AsyncCollection,
     adresse_hash: str,
+    massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> bool:
-    """Whether the list holds this hash, as the one equality `uniq_sperrliste_adresse_hash` serves.
+    """Whether a ban on this hash still stands, `uniq_sperrliste_adresse_hash` serving the equality half.
 
-    The read is in-session where a caller passes one, so a ban judged inside a transaction is judged
-    against what that transaction can see.
+    The bound is compared rather than assumed gone: the write that moves the season read here is the
+    one that removes what it lapsed.
     """
+
+    # The hash alone where the league has run no season, rather than an answer given without asking:
+    # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
+    # way bars rather than passing unjudged.
+    bound = {} if massgebliche_saison_id is None else {"gesperrt_bis_saison_id": {"$gte": massgebliche_saison_id}}
 
     # The id alone and capped at one: a registration asks whether, never which row, and the answer
     # must carry no part of a ban past the lane that may read it.
     found = await pull_many_from_db(
         collection=sperrliste_collection,
-        db_filter={"adresse_hash": adresse_hash},
+        db_filter={"adresse_hash": adresse_hash, **bound},
         limit=1,
         projection=["_id"],
         session=session,

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
+from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.schemas import (
     FLPostSperrlistePayload,
@@ -12,10 +13,16 @@ from app.api.sperrliste.schemas import (
     FLSperrlisteListResponse,
     FLSperrlisteWriteResponse,
 )
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash, find_sperrliste_refusal
+from app.api.sperrliste.services import (
+    SPERRLISTE_SCHLUESSEL_VERSION,
+    adresse_hash,
+    compose_gesperrt_bis_saison_id,
+    find_keine_saison_refusal,
+    find_sperrliste_refusal,
+)
 from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.crud import delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SperrlisteCollection, get_german_date_str
+from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -51,6 +58,7 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection) -> FLSperr
 async def post_sperrliste_eintrag(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],
     sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_config)],
     erstellt_von: str = Depends(get_actor_email),
@@ -59,13 +67,21 @@ async def post_sperrliste_eintrag(
     """
     Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
 
-    Refused where the list already holds the address (`REQ-SPERRLISTE-001`). The ban stands until an
-    administrator removes it, and it survives that person's erasure.
+    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has
+    never run a season, there being nothing to count the ban's five seasons from
+    (`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one
+    it covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.
     """
 
-    # Outside the transaction: hashing reads no document, and `with_transaction` may run its
-    # callback again.
+    # Outside the transaction: neither reads a document this callback writes, and `with_transaction`
+    # may run its callback again.
     gehasht = adresse_hash(str(sperrliste_data.email), schluessel=config.sperrliste_schluessel)
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    refuse(find_keine_saison_refusal(massgebliche_saison_id=massgebliche_saison_id))
+
+    # `str` past the refusal, as the re-send's own hashing is past `find_missing_address_refusal`:
+    # the composer refuses the spelling `None` would take rather than storing a bound off it.
+    gesperrt_bis_saison_id = compose_gesperrt_bis_saison_id(massgebliche_saison_id=str(massgebliche_saison_id))
 
     document: dict[str, Any] = {
         "adresse_hash": gehasht,
@@ -77,14 +93,23 @@ async def post_sperrliste_eintrag(
         # `aktionen` row recording the same write.
         "erstellt_von": erstellt_von,
         "erstellt_am": today,
+        # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
+        "gesperrt_bis_saison_id": gesperrt_bis_saison_id,
     }
 
     async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:
         """Ask the list, then write into it. The check is handed this transaction's session, so a retry re-asks it."""
 
-        gesperrt = await address_is_gesperrt(sperrliste_collection=sperrliste_collection, adresse_hash=gehasht, session=session)
+        gesperrt = await address_is_gesperrt(
+            sperrliste_collection=sperrliste_collection,
+            adresse_hash=gehasht,
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
         refuse(find_sperrliste_refusal(gesperrt=gesperrt))
 
+        # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
+        # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         return await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
 
     # `uniq_sperrliste_adresse_hash` still decides: two administrators banning one address inside one
@@ -95,6 +120,7 @@ async def post_sperrliste_eintrag(
     return FLPostSperrlisteResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
+        gesperrt_bis_saison_id=gesperrt_bis_saison_id,
     )
 
 
@@ -105,7 +131,7 @@ async def delete_sperrliste_eintrag(
     db: DBClient,
 ) -> FLSperrlisteWriteResponse:
     """
-    Lift a ban, removing the row. HARD, and there is no soft form.
+    Lift a ban before it lapses, removing the row. HARD, no soft form.
 
     Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
     hash, so re-entering the ban means being told the address again. 404 where no row holds the id.

@@ -4622,7 +4622,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`). The ban stands until an\nadministrator removes it, and it survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has\nnever run a season, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -4667,7 +4667,7 @@
     "/api/v0/sperrliste/{sperrliste_id}": {
       "delete": {
         "summary": "Lift a ban",
-        "description": "Lift a ban, removing the row. HARD, and there is no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
+        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
         "operationId": "delete_sperrliste_eintrag_api_v0_sperrliste__sperrliste_id__delete",
         "security": [
           {
@@ -10540,13 +10540,21 @@
           "created_id": {
             "type": "string",
             "title": "Created Id"
+          },
+          "gesperrt_bis_saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Gesperrt Bis Saison Id"
           }
         },
         "type": "object",
         "required": [
-          "created_id"
+          "created_id",
+          "gesperrt_bis_saison_id"
         ],
-        "title": "FLPostSperrlisteResponse"
+        "title": "FLPostSperrlisteResponse",
+        "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."
       },
       "FLPostSpielerPayload": {
         "properties": {
@@ -11712,6 +11720,12 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Erstellt Am"
+          },
+          "gesperrt_bis_saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Gesperrt Bis Saison Id"
           }
         },
         "type": "object",
@@ -11719,7 +11733,8 @@
           "id",
           "grund",
           "erstellt_von",
-          "erstellt_am"
+          "erstellt_am",
+          "gesperrt_bis_saison_id"
         ],
         "title": "FLSperrlisteEintrag",
         "description": "One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."

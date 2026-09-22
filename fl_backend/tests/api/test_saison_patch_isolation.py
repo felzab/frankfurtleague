@@ -308,6 +308,7 @@ async def call_roll_the_league_over(database: AsyncDatabase, client: AsyncMongoC
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
     )
 

@@ -119,7 +119,8 @@ const FRISTEN = [
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
-    frist: "Bis die Verwaltung die Sperre aufhebt; der Eintrag bleibt auch bestehen, wenn die übrigen Daten gelöscht werden",
+    frist:
+      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
     daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
@@ -524,7 +525,8 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Widerspruch gegen jede Verarbeitung, die wir auf ein berechtigtes Interesse stützen, aus Gründen, die sich aus Deiner besonderen
               Situation ergeben (Art. 21 DSGVO). Das betrifft die Zugriffsprotokolle, die Freitexte, die Anschrift der Schule als Anschrift des
-              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen einer Bewerbung.
+              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel, die Daten der Kontaktpersonen einer Bewerbung und den
+              Eintrag einer gesperrten E-Mail-Adresse.
             </li>
             <li className={ABSATZ}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
@@ -555,7 +557,7 @@ export function DatenschutzView() {
             Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
             einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
             eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
-            nach einer Löschung bestehen, bis die Verwaltung die Sperre aufhebt.
+            nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt.
           </p>
         </LegalSection>
 

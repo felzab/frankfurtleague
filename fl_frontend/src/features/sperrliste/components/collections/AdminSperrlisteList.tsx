@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import { Ban } from "@gravity-ui/icons";
 
-import { SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
+import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD, IDENTITY_LINE, IDENTITY_ROW, IDENTITY_STACK } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
@@ -76,6 +76,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
           <div className="border-border/50 flex w-full flex-col gap-1 border-t pt-3">
             <span className={FACT_LABEL}>Grund</span>
             <p className="fluid-sm text-foreground font-medium">{eintrag.grund}</p>
+          </div>
+
+          {/* Its own track under the reason rather than a line inside it: the bound is the one fact
+              on the card an administrator compares against the running season. */}
+          <div className="border-border/50 flex w-full flex-col gap-1 border-t pt-3">
+            <span className={FACT_LABEL}>{SPERRE_BIS_LABEL}</span>
+            <p className="fluid-sm text-foreground font-medium">{sperreBisWert(eintrag.gesperrt_bis_saison_id)}</p>
           </div>
 
           <div className="border-border/50 -mx-1 border-t pt-2">

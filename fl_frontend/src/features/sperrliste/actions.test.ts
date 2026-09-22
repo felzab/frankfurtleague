@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -10,6 +11,81 @@ import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
+
+/** Stands in for `server-only`, whose real module throws outside a React server build. */
+const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+
+const EVENTS = "__flSperreEvents";
+const SENT = "__flSperreSentMail";
+const POSTED = "__flSperrePosted";
+const ANSWER = "__flSperrePostAnswer";
+const SEND_FAILS = "__flSperreSendFails";
+
+const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+
+/* The ORDER between the write and the send decides whether somebody is told they are barred by a
+   request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double
+   appends to one list, read instead of the source. */
+const MUTATIONS_DOUBLE = `export const postSperre = async (payload) => {
+  globalThis.${EVENTS}.push("post");
+  globalThis.${POSTED}.push(payload);
+  return globalThis.${ANSWER};
+};
+export const deleteSperre = async () => {
+  globalThis.${EVENTS}.push("delete");
+  return { acknowledged: 1, sperrliste_id: "6890a1b2c3d4e5f607190001" };
+};`;
+
+const MAIL_DOUBLE = `export const sendMail = async (message) => {
+  globalThis.${EVENTS}.push("mail");
+  if (globalThis.${SEND_FAILS}) throw new Error("the provider refused the message");
+  globalThis.${SENT}.push(message);
+  return { id: null };
+};`;
+
+const AUTH_DOUBLE = `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`;
+
+const HEADERS_DOUBLE = `export const headers = async () => new Headers();`;
+
+/* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
+   that the action reached it at all. */
+const CACHE_DOUBLE = `export const refresh = () => { globalThis.${EVENTS}.push("refresh"); };`;
+
+const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
+
+const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+    if (specifier === "next/cache") return { url: asDataUrl(CACHE_DOUBLE), shortCircuit: true };
+    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/features/sperrliste/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
+/** The bound the WRITE answers. Deliberately not the five-season arithmetic's, so a mail stating it could have come from nowhere else. */
+const ANSWERED_BOUND = "2044";
+
+const events: string[] = [];
+const sent: { to: string; subject: string; html: string; text: string }[] = [];
+const posted: { email: string; grund: string }[] = [];
+
+const globals = globalThis as unknown as Record<string, unknown>;
+globals[EVENTS] = events;
+globals[SENT] = sent;
+globals[POSTED] = posted;
+globals[SEND_FAILS] = false;
+globals[ANSWER] = { acknowledged: 1, created_id: "6890a1b2c3d4e5f607190001", gesperrt_bis_saison_id: ANSWERED_BOUND };
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -53,6 +129,86 @@ describe("the address a unique index already holds", () => {
      §1.9); what the mapper answers is asked of it in `fl_frontend/src/features/sperrliste/refusals.test.ts`. */
   it("consults the mapper on the create, the one write that sends an address", () => {
     assert.ok(CREATE_ACTION.includes("mapAdresseRefusal(error)"), "the create consults no mapper, so a duplicate reaches the error page");
+  });
+});
+
+const { postSperreAction } = await import("./actions.ts");
+const { SPERRE_ERFOLG } = await import("./constants.ts");
+
+const BARRED = "zorbanax@beispielschule.de";
+const GRUND = "Falsches Geburtsdatum angegeben";
+
+const anAddressIsBanned = () => postSperreAction({ email: BARRED, grund: GRUND });
+
+describe("the message the barred person is sent", () => {
+  beforeEach(() => {
+    events.length = 0;
+    sent.length = 0;
+    posted.length = 0;
+    globals[SEND_FAILS] = false;
+    globals[ANSWER] = { acknowledged: 1, created_id: "6890a1b2c3d4e5f607190001", gesperrt_bis_saison_id: ANSWERED_BOUND };
+  });
+
+  it("sends the notice only after the write has been acknowledged", async () => {
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.deepEqual(events, ["post", "mail", "refresh"]);
+  });
+
+  /* The half the order alone cannot show: a send placed after the call but before its answer is
+     read would tell somebody they are barred by a write that did not take. */
+  it("tells nobody where the write was not acknowledged", async () => {
+    globals[ANSWER] = { acknowledged: 0, created_id: "6890a1b2c3d4e5f607190001", gesperrt_bis_saison_id: ANSWERED_BOUND };
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, false);
+    assert.deepEqual(events, ["post"]);
+  });
+
+  /* The typed address is used for this one send and stored nowhere, so it reaches the mail module
+     from the parsed payload and from no read of the row the write created. */
+  it("mails the address that was typed, and the bound the write itself answered", async () => {
+    await anAddressIsBanned();
+
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]?.to, BARRED);
+    assert.deepEqual(posted, [{ email: BARRED, grund: GRUND }]);
+    // The write's own answer and not the arithmetic's: `ANSWERED_BOUND` is a season no reference
+    // season in this file composes, so a second read could not have produced it.
+    assert.match(String(sent[0]?.text), new RegExp(`bis einschließlich der Saison ${ANSWERED_BOUND}`));
+    assert.match(String(sent[0]?.text), new RegExp(GRUND));
+  });
+
+  /* The ban is already written and no address survives to re-send to, so a failure is reported
+     rather than repaired -- and an administrator told nothing would assume the person knows. */
+  it("leaves the ban standing on a failed send and says the person was not told", async () => {
+    globals[SEND_FAILS] = true;
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    // The list is still refreshed and nothing is removed: the row stands, and only the sentence
+    // the administrator reads differs.
+    assert.deepEqual(events, ["post", "mail", "refresh"]);
+    assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
+  });
+
+  /* `EntityForm` shows the action's message as a description only where it DIFFERS from the title
+     the form passes, so the success sentence and that literal are one string or every clean save
+     grows a second line saying the same thing. */
+  it("answers a clean save the exact title the form raises", async () => {
+    const result = await anAddressIsBanned();
+
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.ok(
+      readFileSync(path.resolve(import.meta.dirname, "components", "forms", "AdminCreateSperreForm.tsx"), "utf8").includes(
+        `successMessage="${SPERRE_ERFOLG}"`,
+      ),
+      "the form raises a title the action never answers, so a clean save shows it twice",
+    );
   });
 });
 

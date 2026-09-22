@@ -444,6 +444,15 @@ they are kept, and the address for a complaint to the supervisory authority. Poi
 notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
 rather than restating it in the mail.
 
+**A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
+and nothing else of the person, so `/admin/sperrliste` cannot be asked whether a given address is on
+it: the question is answered by computing that address's hash under `SPERRLISTE_SCHLUESSEL` — the
+same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
+included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
+in the operator's own checklist and in no file here. What the answer then says is the row's reason,
+its day, its administrator and the season it runs to; the hash itself is not sent to the person, it
+being the value that identifies them.
+
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
 application, an accepted one and a season's contact block are each removed by the retention sweep
 (`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
@@ -529,17 +538,24 @@ in the same reply.
 **A false birthdate is found by a person, and the answer is a decision and a ban rather than a
 rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
-Decline the application, bar the address at `/admin/sperrliste` with the reason in your own words
+Decline the application and bar the address at `/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)), and tell them by mail that they may apply again when they are old enough. **The ban records the
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
+mails the person itself**, naming the reason you typed and the last season the ban covers, so there
+is nothing to send by hand; where the send fails the page says so, and there is then no address left
+anywhere to try again with. **The ban records the
 decision and refuses nothing by itself** — no route consults the list
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)) — so what actually keeps the
 address out until one does is the queue being read by a person.
 
-**A ban stands until you lift it.** It carries no review date and no expiry, deliberately: a queue of
-review dates is a queue nobody works, and the removal is already one press on the page you are
-reading the list on. A ban entered because somebody lied about their age loses its purpose the day
-they reach the floor their seat asks for, and the page is where somebody notices.
+**A ban lapses five full seasons after the one it was entered under, and the row is removed at the
+activation that runs past it.** The season it was entered in does not count, so a ban entered while
+2026 is active covers through 2031 and goes when 2032 is activated. There is no window between the
+two: the
+activation that makes a ban lapse is the same write that removes its row, so a ban on this page is
+always one that still bars. Lift a ban earlier from the page itself,
+which is still one press: a ban entered because somebody lied about their age loses its purpose the
+day they reach the floor their seat asks for, and the page is where somebody notices.
 
 **Generating the key is the one command in this section.** A key-generation command is an operator
 instruction rather than a database migration, so it stands here; nothing it produces is ever written

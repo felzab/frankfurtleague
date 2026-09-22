@@ -17,12 +17,19 @@ doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
 const { AdminSperrlisteView } = await import("./AdminSperrlisteView.tsx");
 
 const SPERREN: FLSperrlisteEintrag[] = [
-  { id: "6890a1b2c3d4e5f607190001", grund: "Falsches Geburtsdatum angegeben", erstellt_von: "vorstand@example.org", erstellt_am: "2026-03-12" },
+  {
+    id: "6890a1b2c3d4e5f607190001",
+    grund: "Falsches Geburtsdatum angegeben",
+    erstellt_von: "vorstand@example.org",
+    erstellt_am: "2026-03-12",
+    gesperrt_bis_saison_id: "2031",
+  },
   {
     id: "6890a1b2c3d4e5f607190002",
     grund: "Wiederholt fremde Namen eingetragen",
     erstellt_von: "turnier@example.org",
     erstellt_am: "2026-04-02",
+    gesperrt_bis_saison_id: "2032",
   },
 ];
 

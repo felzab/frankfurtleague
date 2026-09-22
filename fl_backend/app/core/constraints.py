@@ -749,7 +749,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Every key required and none nullable: a ban nobody is named for cannot be lifted by
             # the person who would know why.
-            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"),
+            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 # Required above rather than optional: MongoDB indexes a missing key as null, so one
@@ -761,6 +761,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "grund": {"bsonType": "string"},
                 "erstellt_von": {"bsonType": "string"},
                 "erstellt_am": {"bsonType": "string"},
+                # Required rather than optional-with-a-fallback: the lapse check compares this with
+                # `$gte`, which passes over a row that lacks it -- a ban stopping in silence.
+                "gesperrt_bis_saison_id": {"bsonType": "string"},
             },
         )
     },

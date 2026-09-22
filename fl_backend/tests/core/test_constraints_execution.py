@@ -254,6 +254,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "grund": "Falsches Geburtsdatum bei der Anmeldung",
             "erstellt_von": "admin@example.invalid",
             "erstellt_am": "2026-03-15",
+            "gesperrt_bis_saison_id": "2031",
         },
     }
 

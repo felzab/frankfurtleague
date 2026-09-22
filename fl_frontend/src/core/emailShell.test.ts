@@ -51,6 +51,7 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -90,10 +91,14 @@ function controlSection(html: string): string {
 }
 
 /**
- * Every builder the two mail modules export, read off the module namespace rather than matched in
+ * Every builder the mail modules export, read off the module namespace rather than matched in
  * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const BUILT_MESSAGES = [...Object.keys(await import("./bewerbungEmail.ts")), ...Object.keys(await import("./authEmail.ts"))]
+const BUILT_MESSAGES = [
+  ...Object.keys(await import("./bewerbungEmail.ts")),
+  ...Object.keys(await import("./authEmail.ts")),
+  ...Object.keys(await import("./sperrlisteEmail.ts")),
+]
   .filter((name) => name.startsWith("build"))
   .sort();
 
@@ -163,9 +168,11 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       fristText: "18.09.2026",
     }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
+  buildSperreEmail: (origin) =>
+    buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };
 
-/** Every message the two mail modules build, so a design claim is checked against all of them rather than against one. */
+/** Every message the mail modules build, so a design claim is checked against all of them rather than against one. */
 const MESSAGES = Object.entries(FIXTURES).map(([name, bauen]) => ({ name, mail: bauen(ORIGIN) }));
 
 describe("the shared email shell", () => {

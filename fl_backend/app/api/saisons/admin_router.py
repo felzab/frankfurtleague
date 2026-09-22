@@ -45,6 +45,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
@@ -58,6 +59,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
+    SperrlisteCollection,
     SpieleCollection,
     SpieltageCollection,
     TeamsCollection,
@@ -440,6 +442,7 @@ async def activate_saison(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
     """
@@ -540,6 +543,18 @@ async def activate_saison(
                     outgoing_unplayed=unplayed,
                 )
             )
+
+        # ERASED rather than deleted (`docs/backend/spec.md :: I274`): a retention period
+        # ended, which is I48's distinction between the two helpers, and a `before` image would
+        # outlive the bound by the log's own twelve months.
+
+        # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
+        # lapses on the activation of the season AFTER it.
+        await erase_many_from_db(
+            collection=sperrliste_collection,
+            db_filter={"gesperrt_bis_saison_id": {"$lt": saison_id}},
+            session=session,
+        )
 
         activated = FLSaison.model_validate(with_schedule(activated_raw))
 

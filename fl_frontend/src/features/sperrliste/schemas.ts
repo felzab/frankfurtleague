@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { SPERRLISTE_GRUND_MAX_LENGTH } from "@/features/sperrliste/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
@@ -15,6 +16,9 @@ export const FLSperrlisteEintragSchema = z.object({
   // one such row fails the whole list's parse.
   erstellt_von: z.string().nonempty(),
   erstellt_am: CustomDateStringSchema,
+  // The last season the ban covers, INCLUSIVE. Held to the width alone rather than to a year: a
+  // stored row a later rule would refuse must still parse, or one of them fails the whole list.
+  gesperrt_bis_saison_id: z.string().length(SAISON_ID_LENGTH),
 });
 export type FLSperrlisteEintrag = z.infer<typeof FLSperrlisteEintragSchema>;
 
@@ -56,6 +60,11 @@ export type FLPostSperrlistePayload = z.infer<typeof FLPostSperrlistePayloadSche
 
 export const FLPostSperrlisteResponseSchema = BaseAPIResponseSchema.extend({
   created_id: CustomObjectIdStringSchema,
+  /**
+   * The bound the action's mail states. Answered by the write rather than read back, because the
+   * activation that sweeps a lapsed row would otherwise be free to land in between.
+   */
+  gesperrt_bis_saison_id: z.string().length(SAISON_ID_LENGTH),
 });
 export type FLPostSperrlisteResponse = z.infer<typeof FLPostSperrlisteResponseSchema>;
 

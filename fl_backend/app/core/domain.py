@@ -230,8 +230,11 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "which stays true however either person is recorded afterwards -- so it is in no boundary with `spieler`, "
             "with an application, or with whatever a later sign-up writes, and it carries no reference to any of them. "
             "That independence is what lets the row outlive the erasure of the person it bars and of the administrator "
-            "it names, standing until an administrator lifts it (`docs/backend/spec.md :: I268`), where a member of "
-            "either person's own boundary would have to go with them. Anonymous it is not: `erstellt_von` is that "
+            "it names (`docs/backend/spec.md :: I268`), where a member of either person's own boundary would have to go "
+            "with them. What bounds it instead is the league's own calendar: `gesperrt_bis_saison_id` names the last "
+            "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
+            "the row rather than deleting it, so the bound is outlived by no log image either "
+            "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
             "administrator's address in plain and `grund` is free text that may name the person barred, both served "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
@@ -1623,6 +1626,14 @@ RULES: tuple[Rule, ...] = (
         summary="an address the list already holds takes no second ban",
         implemented_by="app.api.sperrliste.services.find_sperrliste_refusal",
         tested_by="tests/api/test_sperrliste_execution.py::TestASecondBanOfOneAddress",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-002",
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="a league that has run no season enters no ban, the five seasons it lapses after having nothing to count from",
+        implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
+        tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueThatHasRunNoSeason",
     ),
 )
 

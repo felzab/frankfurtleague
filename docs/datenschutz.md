@@ -234,12 +234,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   in it past their own erasure: the person barred, whom the free-text reason may name outright, and
   the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
   either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
-  It is bounded by an administrator's removal and never by age, which is the one shape the rule
-  below permits. **Lifting the ban removes the row, and the action log keeps a copy of it** — the
-  hash, the key label, the reason and the administrator, and no barred address — for the twelve
-  months every stamped log row is kept
-  (`docs/backend/spec.md :: I48`, `:: I119`), so a lifted ban is readable at `/admin/aktionen` for
-  that period and enforced by nothing from the moment it is lifted.
+  **It is bounded by the league's own calendar**: the row names the last season it covers, five full
+  seasons after the one it was entered under, and the activation that runs past it removes the row
+  without anybody asking (`docs/backend/spec.md :: I273`). An administrator may lift it
+  earlier. **Either removal keeps a copy in the action log** — the hash, the key label, the reason,
+  the administrator and the season it ran to, and no barred address — for the twelve months every
+  stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban is readable
+  at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
@@ -289,6 +290,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   refused. The confirmation page states the period to the person whose details they are
   (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
+- **A ban on an email address is kept for five full seasons after the one it was entered under, and
+  the person it bars is told so at the moment it is entered.** The row records the last season it
+  covers and the activation of the season after that removes it
+  (`docs/backend/spec.md :: I273`); nothing is counted in days, the bound being the thing the
+  ban exists for — somebody too young for the league stays barred until they are too old for it. The
+  message sent at the ban names that season, the reason, what is kept and how to object
+  (`fl_frontend/src/core/sperrlisteEmail.ts`); the address it is sent to is used for that one send
+  and stored nowhere, so no second message can ever be sent about the row. Ruled 2026-09-21.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
@@ -413,10 +422,12 @@ the `Entry` column carries a token only where one still resolves in that file.
   no personal data at all; beside it stand a free-text reason that may name them and the entering
   administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
-  declined — a refusal no route yet performs, the list being read by an administrator and consulted
-  by nothing ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Two questions to put: whether that basis carries a record retained without a bound and
-  without a review date; and what an access request reaches, given that no route finds the row from
-  the address it was taken from while the reason beside it may name its subject outright.
+  declined — a refusal one write path now performs: the ban's own create
+  ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). One question to put: what
+  an access request reaches, given that no route finds the row from the address it was taken from
+  while the reason beside it may name its subject outright. The bound is
+  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure
+  for the lookup is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
   as easy as giving.** A pupil's consent record is composed by the registration and carried on no
   payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),

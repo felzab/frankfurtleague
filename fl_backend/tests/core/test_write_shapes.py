@@ -23,6 +23,7 @@ from tests.core.app_source import (
     REMOVAL_HELPERS,
     WRITE_HELPERS,
     app_declares,
+    bounds_its_field,
     callee,
     carries_session,
     crud_helpers_taking_a_session,
@@ -316,6 +317,42 @@ class TestWhatARemovalFilterMayName:
 
         assert unbounded == []
 
+    def test_the_reader_accepts_a_bounded_comparison_and_refuses_every_other_operator_shape(self):
+        """The clause's own reader, over a sample the tree cannot supply.
+
+        Every removal in `app/` is a plain value or a `$lt`, so no count over them separates this
+        reader from one taking `$exists` too, which takes everything.
+        """
+
+        judged = {
+            spelling: bounds_its_field(ast.parse(spelling, mode="eval").body)
+            for spelling in (
+                "saison_id",
+                '{"$lt": saison_id}',
+                '{"$in": ids}',
+                '{"$gte": saison_id, "$lt": next_id}',
+                "{}",
+                '{"$exists": True}',
+                '{"$ne": None}',
+                '{"$not": {"$eq": saison_id}}',
+                '{"$lt": saison_id, "$exists": True}',
+                "{**bound}",
+            )
+        }
+
+        assert judged == {
+            "saison_id": True,
+            '{"$lt": saison_id}': True,
+            '{"$in": ids}': True,
+            '{"$gte": saison_id, "$lt": next_id}': True,
+            "{}": False,
+            '{"$exists": True}': False,
+            '{"$ne": None}': False,
+            '{"$not": {"$eq": saison_id}}': False,
+            '{"$lt": saison_id, "$exists": True}': False,
+            "{**bound}": False,
+        }
+
     def test_a_removal_from_a_season_partitioned_root_names_its_season(self):
         """Narrow either delete to `{"_id": ...}` and this fails: one fixture would go where a season's set is the boundary."""
 
@@ -341,6 +378,17 @@ class TestWhatARemovalFilterMayName:
         ]
 
         assert kept == []
+
+    def test_the_ban_lists_two_removals_take_opposite_helpers(self):
+        """Swap either one and this fails, which is what `docs/backend/spec.md :: I274` turns on.
+
+        Both scopes in one equality: a rule naming the lapse alone passes while the lift is swapped
+        the other way.
+        """
+
+        chosen = {removal.scope: removal.helper for removal in removals() if removal.collection == str(Collection.SPERRLISTE)}
+
+        assert chosen == {"judge_and_roll_the_league_over": ERASURE_HELPER, "lift_the_ban": "delete_many_from_db"}
 
     def test_an_erasure_names_identities_and_nothing_else(self):
         """Add `nachname` beside the id and this fails: the log stores a filter's values as text, so it would outlive the erasure.

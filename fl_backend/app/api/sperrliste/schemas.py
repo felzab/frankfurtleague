@@ -3,7 +3,7 @@ from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, SAISON_ID_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -37,6 +37,9 @@ class FLSperrlisteEintrag(BaseModel):
     # The bound actor, on no payload: a ban and its `aktionen` row cannot then name two people.
     erstellt_von: CustomNonEmptyString
     erstellt_am: CustomDateString
+    # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
+    # one an administrator cannot tell from a standing ban, and the lapse removes it without asking.
+    gesperrt_bis_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
 class FLPostSperrlistePayload(BaseModel):
@@ -68,7 +71,10 @@ class FLSperrlisteListResponse(BaseAPIResponse):
 
 
 class FLPostSperrlisteResponse(BaseAPIResponse):
+    """Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."""
+
     created_id: CustomObjectId
+    gesperrt_bis_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
 class FLSperrlisteWriteResponse(BaseAPIResponse):
