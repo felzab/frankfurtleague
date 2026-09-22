@@ -60,7 +60,6 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
   },
   "features/spieler/actions.ts": {
     writes: [
-      "postSpielerAction",
       "patchSpielerAction",
       "deleteSpielerAction",
       "reactivateSpielerAction",

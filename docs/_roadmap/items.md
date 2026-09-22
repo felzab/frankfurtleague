@@ -84,7 +84,7 @@ deliverable.
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, tests, meta                                                   | Blocked  |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
@@ -379,31 +379,30 @@ question that could move Mantine's rank.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags                        | Status  | Depends on  |
-| --------------------------- | ------- | ----------- |
-| FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
+| Tags                      | Status  | Depends on  |
+| ------------------------- | ------- | ----------- |
+| FE, BE, Docs, tests, meta | Blocked | `f3ar-m4qf` |
 
 **The flow it waits on is the one that writes the consent.** The `Depends on` beside it names
 `f3ar-m4qf`, the sign-up flow, which is open and whose player registration is the writer this entry
 asks for; while that entry is on the page the block stands and the status derives correctly. Nothing
 here is worked apart from that flow.
 
-**`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
-`fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
-`erteilt_von` as `erziehungsberechtigt` and `bestaetigt_am` as the same day; its one caller,
-`fl_backend/app/api/spieler/admin_router.py :: post_spieler`, sits on a router guarded by
-`verify_access_admin`. So a pupil registered through the admin surface is stored as consented by a
-guardian on the day of registration, and nothing distinguishes that row from one a guardian actually
-filed. The comment at the line gives the reasoning as the guardian being the one filing it, which is
-true of no caller the system has.
+**`spieler.einwilligung` has a schema and no writer at all.** No route composes a record on a pupil
+row and no payload carries one, so every record stored there is one an earlier write left; the rows
+carrying `erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a
+record a guardian actually filed. The confirmations a registration and a referee answer compose
+records of their own, each on its own collection, and neither reaches this one.
+`fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no writer
+while the vocabulary still admits it.
 
 **The writer is ruled, and the flow that would be it does not exist.** `docs/datenschutz.md` §2
 settles it: everyone signs up for themselves through the website and gives their own consent there,
 from 16, and an administrator may neither create a player nor assume, enter or transcribe a consent
-on anybody's behalf. There is no guardian workflow. So `registration_einwilligung` and its admin
-caller go with the flow that replaces them, and the consent vocabulary then has to express a
-person's own consent and a carried-over record and nothing else — `bestandsuebernahme` already marks
-the second.
+on anybody's behalf. There is no guardian workflow. The composer and its administrator's route are
+gone, so the vocabulary has a person's own consent and a carried-over record to express and nothing
+else — `bestandsuebernahme` already marks the second, and `erziehungsberechtigt` stays in the enum
+for the rows that carry it.
 
 **What the ruling leaves standing.** The gate publishing nobody without a recorded consent may be
 built before the flow ships, provided every pupil row standing today counts as fully consented:
@@ -412,8 +411,8 @@ not empty the public squad lists meanwhile. Today no read consults the stored fi
 publication is gated on nothing — and the predicate is written into `docs/backend/spec.md`'s
 read-rules table before any code.
 
-**Done** is the sign-up flow writing a person's own consent, `registration_einwilligung` and its
-caller gone with it, the vocabulary narrowed to what stays expressible, the publication gate reading
+**Done** is the sign-up flow writing a person's own consent, the vocabulary narrowed to what stays
+expressible, the publication gate reading
 what the flow stores, and the notice's squad and referee publication rows
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
 interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
@@ -568,10 +567,10 @@ shorthand cannot distinguish the same club returning from a different one wantin
 getting it wrong repoints history silently. **A typed name is a weaker key than a shorthand**, so the
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
 one, and the resolution belongs to somebody who can be wrong out loud. `ist_nachnominiert` is the
-field that already records a squad entry arriving after the season began, derived from the chosen
-season's status rather than asked
-(`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a
-self-registration into a running season is precisely that case.
+field that already records a squad entry arriving after the season began, derived from the season's
+status rather than asked
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx`), and
+a self-registration into a running season is precisely that case.
 
 **Nothing refuses a shared squad number and nothing reports one, so this page inherits a question
 rather than a pattern.** A shared shirt is a permitted state on every write path

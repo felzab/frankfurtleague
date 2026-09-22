@@ -12,14 +12,12 @@ from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
-    FLPostSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
     FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
     FLSpielerRolle,
     FLSpielerWithMemberships,
-    FLSpielerWriteResponse,
 )
 from app.api.spieler.services import (
     build_live_rolle_filter,
@@ -29,7 +27,6 @@ from app.api.spieler.services import (
     find_squad_capacity_refusal,
     find_squad_refusal,
     find_squad_rolle_refusal,
-    registration_einwilligung,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -37,7 +34,6 @@ from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
     erase_many_from_db,
-    insert_live,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
@@ -185,33 +181,6 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
     )
 
     return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
-
-
-@router.post("", response_model=FLSpielerWriteResponse, status_code=201, summary="Create a Spieler")
-async def post_spieler(
-    spieler_data: Annotated[FLPostSpielerPayload, Body()],
-    spieler_collection: SpielerCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielerWriteResponse:
-    """
-    Create a player -- the person, and nothing else.
-
-    They belong to no team until they have a junction row, and no uniqueness rule applies to a name.
-    The consent record is COMPOSED here rather than taken from the body, so no admin can write one.
-    """
-
-    post_operation = await insert_live(
-        collection=spieler_collection,
-        document={
-            **spieler_data.model_dump(mode="json"),
-            "einwilligung": registration_einwilligung(today=today).model_dump(mode="json"),
-        },
-    )
-
-    return FLSpielerWriteResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
-        spieler_id=post_operation.inserted_id,
-    )
 
 
 @router.patch(by_id("spieler_id"), response_model=FLSpielerAdminSingleResponse, summary="Update a Spieler's name")

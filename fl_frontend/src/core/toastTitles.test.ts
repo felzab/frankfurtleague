@@ -432,7 +432,6 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Schiedsrichterdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Sperre aufgehoben": { variant: "success", identifies: "one site" },
   "Sperre nicht aufgehoben": { variant: "danger", identifies: "one site" },
-  "Spieler angelegt": { variant: "success", identifies: "one site" },
   "Spieler aufgenommen": { variant: "success", identifies: "one site" },
   "Spieler gelöscht": { variant: "success", identifies: "one site" },
   "Spieler nicht aufgenommen": { variant: "danger", identifies: "one site" },

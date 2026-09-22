@@ -1,11 +1,6 @@
 import { apiClient } from "@/core/api";
 
-import {
-  FLSaisonSpielerResponseSchema,
-  FLSpielerAdminSingleResponseSchema,
-  FLSpielerErasureResponseSchema,
-  FLSpielerWriteResponseSchema,
-} from "./schemas";
+import { FLSaisonSpielerResponseSchema, FLSpielerAdminSingleResponseSchema, FLSpielerErasureResponseSchema } from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
@@ -13,22 +8,12 @@ import type {
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
   FLPostSaisonSpielerPayload,
-  FLPostSpielerPayload,
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerErasureResponse,
-  FLSpielerWriteResponse,
 } from "./schemas";
-
-export async function postSpieler(payload: FLPostSpielerPayload): Promise<FLSpielerWriteResponse> {
-  return apiClient<FLSpielerWriteResponse>("/spieler", FLSpielerWriteResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
-}
 
 // The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
 // body (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.

@@ -847,8 +847,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "einwilligung",
         Editability.IMMUTABLE,
-        "written once by `post_spieler`, which composes it: no payload carries the field, so an admin can neither "
-        "state a consent nor overwrite one, and a manual database edit is the only other writer",
+        "written once at the person's creation, by no route this tree holds: the writer is the admission that copies a "
+        "confirmed registration's record, and until it exists a manual database edit is the only writer. No payload carries "
+        "the field either way, so an administrator can neither state a consent nor overwrite one",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -2110,7 +2111,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a person holding no squad row at all",
         reason=(
-            "A person is registered before they are placed, and `REQ-SQUAD-001` governs the row rather than its "
+            "A person can stand with no squad row -- every row written before this programme may, and retiring a "
+            "person's last squad entry leaves the person -- and `REQ-SQUAD-001` governs the row rather than its "
             "absence. `GET /spieler/memberships` returns them with an empty membership list, so the read that "
             "would report the state already is the surface that repairs it."
         ),
@@ -2122,8 +2124,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a person carrying no birthdate, whose age nothing judges",
         reason=(
             "A pupil supplies their own date at a registration's confirmation and at no other keyboard, so requiring one on "
-            "the PERSON would refuse every row standing today. `POST /spieler` takes the field nullable and the "
-            "`spieler` validator leaves it out of `required`, so a person stored before it still writes. "
+            "the PERSON would refuse every row standing today. The `spieler` validator leaves the field out of `required`, "
+            "which is what lets those rows go on validating. "
             "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
             "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
             "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); `FLEinwilligung.erteilt_von`'s "

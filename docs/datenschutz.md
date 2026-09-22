@@ -47,8 +47,9 @@ two** — which is what a reviewer needs before reading the published notice
 Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Everyone signs up for themselves through the website and gives their own consent there** —
-  players, referees, contact persons, organisers and administrators alike. An administrator can
-  neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
+  players, referees, contact persons, organisers and administrators alike. No route creates a player
+  and no payload carries a consent record, so an administrator can neither create one nor assume,
+  enter or transcribe a consent on anybody's behalf.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(b)/(f) rather than an
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
@@ -99,11 +100,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
   question about one arises**, which is what the published notice tells a reader; it gates no
   read and no publication, and nothing judges it automatically. Ruled 2026-09-08.
-- **There is no guardian workflow.** The consent a registration composes today asserts a guardian
-  (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`) while its only caller
-  is an administrator; that path goes with the flow that replaces it, and the consent vocabulary
-  then needs to express only a person's own consent and a carried-over record. The comment at
-  that line gives a reason that is true of no caller, and is false today.
+- **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
+  registration is what records one, and what the vocabulary still expresses beyond that is a
+  carried-over record. `erziehungsberechtigt` stays in the stored enum for the rows that already
+  carry it (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG_QUELLEN`), and
+  `fl_backend/tests/core/test_consent_writers.py` is what holds the value to having no writer.
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
@@ -333,6 +334,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   why — never before it, a notice being unable to prolong a row nobody decided. A declined
   registration goes one calendar month after the decision (`:: decline_erasure_is_due`). Ruled
   2026-09-11.
+- **A pupil's own row is bounded by a condition and never by a clock.** It stands while a squad row
+  references it, and what ends it is the person's erasure, the one-off reset of
+  [section 3](#3-the-current-pupil-records-are-reset-once), or the recurring deletion the next
+  programme builds — which is released by a condition too, the next season active and its
+  registration window closed, and which selects a person no squad row references. **An erasure
+  deletes the document outright** rather than nulling its fields
+  (`docs/backend/spec.md :: I12`), so the row either stands whole or is gone and there is no third
+  state to write a clock for.
 - **A registration link stops working when the season's registration window shuts, or the moment an
   administrator withdraws it or replaces it with a new one; the entry recording it is kept without a
   clock.** The link carries no date of its own: what decides whether it opens anything is the
@@ -485,8 +494,9 @@ the `Entry` column carries a token only where one still resolves in that file.
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure
   for the lookup is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
-  as easy as giving.** A pupil's consent record is composed by the registration and carried on no
-  payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),
+  as easy as giving.** A pupil's consent record is written by their own confirmation
+  (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) and carried on no
+  payload any route accepts afterwards,
   so giving it is a form and taking it back is either the erasure that removes the person outright or
   a hand edit in the database console
   ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).

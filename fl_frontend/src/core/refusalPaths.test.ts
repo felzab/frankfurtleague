@@ -424,11 +424,6 @@ const EXEMPT: Record<string, Record<string, string>> = {
     saison_id: IN_THE_PATH,
     ist_nachnominiert: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
-  FLCreateSpielerFormPayloadSchema: {
-    ist_nachnominiert: "derived from the chosen season's status, never asked",
-    rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
-  },
-
   FLSwapGruppenPayloadSchema: {
     saison_id: IN_THE_PATH,
     team1_id: "the page's own club, or the season editor's first pick — never typed",

@@ -16,14 +16,8 @@ from app.api.spieler.admin_router import (
     patch_saison_spieler,
     patch_spieler,
     post_saison_spieler,
-    post_spieler,
 )
-from app.api.spieler.schemas import (
-    FLPatchSaisonSpielerPayload,
-    FLPatchSpielerPayload,
-    FLPostSaisonSpielerPayload,
-    FLPostSpielerPayload,
-)
+from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
@@ -104,20 +98,41 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
-    """A person created, put in two squads and then edited on every row, through the real endpoints.
+def person_row(vorname: str) -> dict[str, Any]:
+    """A pupil as one was stored BEFORE the registration flow existed, which is the shape production still holds.
 
-    The edits are the point: an `insert` row carries no image, so a person seeded from creates alone
-    leaves every redaction assertion below passing vacuously.
+    Seeded rather than written through a route: no endpoint creates a person, and the admission
+    that will is another programme's.
     """
 
-    created = await post_spieler(
+    return {
+        "_id": ObjectId(),
+        "vorname": vorname,
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
-        spieler_data=FLPostSpielerPayload(vorname=vorname, nachname=f"{vorname}-Mustermann", geburtsdatum=None),
-        spieler_collection=database[Collection.SPIELER],
-        today=TODAY,
-    )
-    spieler_id = ObjectId(created.spieler_id)
+        "nachname": f"{vorname}-Mustermann",
+        "einwilligung": {
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "erziehungsberechtigt",
+            "datum": TODAY,
+            "bestaetigt_am": TODAY,
+            "medien": False,
+            "text_version": None,
+        },
+        "geburtsdatum": None,
+        "inactive_since": None,
+    }
+
+
+async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
+    """A person seeded, put in two squads and edited on every row through the real endpoints.
+
+    The edits are the point: a seed writes no log row, so a person never edited leaves every
+    redaction assertion below passing vacuously.
+    """
+
+    document = person_row(vorname)
+    await database[Collection.SPIELER].insert_one(document)
+    spieler_id = document["_id"]
 
     for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
         await post_saison_spieler(
@@ -160,14 +175,11 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
 
 
 async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
-    """A person created, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
+    """A person seeded, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
 
-    created = await post_spieler(
-        spieler_data=FLPostSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Mustermann", geburtsdatum=None),
-        spieler_collection=database[Collection.SPIELER],
-        today=TODAY,
-    )
-    spieler_id = ObjectId(created.spieler_id)
+    document = person_row(LONE_VORNAME)
+    await database[Collection.SPIELER].insert_one(document)
+    spieler_id = document["_id"]
 
     await patch_spieler(
         spieler_id=spieler_id,

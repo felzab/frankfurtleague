@@ -506,10 +506,10 @@ you are in is decided by that seat's own link, not by the person's role:
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
 
-**A pupil withdrawing the consent that publishes their name is the case with no route at all.** The
-record is composed at registration and no payload carries it
-(`fl_backend/app/api/spieler/services.py :: registration_einwilligung`), so nothing an administrator
-presses changes it. Two answers, and which one you give is the person's to choose:
+**A pupil withdrawing the consent that publishes their name is the case with no route at all.** No
+payload carries the record and no endpoint writes one
+(`fl_backend/app/core/domain.py :: FIELD_POLICIES`), so nothing an administrator presses changes it.
+Two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
   `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with

@@ -14,14 +14,12 @@ from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
-    FLPostSpielerPayload,
     FLSaisonSpielerResponse,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerMembership,
     FLSpielerWithMemberships,
 )
-from app.api.spieler.services import registration_einwilligung
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
@@ -223,8 +221,7 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
-    @pytest.mark.parametrize("payload", [FLPostSpielerPayload, FLPatchSpielerPayload])
-    def test_a_person_payload_requires_the_birthdate_key(self, payload):
+    def test_the_person_patch_requires_the_birthdate_key(self):
         """No default, so a form that forgot the field cannot silently clear a stored date.
 
         The value stays optional -- null is an answer somebody gave; what is refused is the key's absence.
@@ -233,9 +230,9 @@ class TestSpieler:
         without = {"vorname": "Max", "nachname": "Mustermann"}
 
         with pytest.raises(ValidationError):
-            payload.model_validate(without)
+            FLPatchSpielerPayload.model_validate(without)
 
-        assert payload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+        assert FLPatchSpielerPayload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
 
 
 class TestEinwilligung:
@@ -300,36 +297,10 @@ class TestEinwilligung:
     def test_rejects_a_date_that_is_not_a_calendar_day(self, einwilligung, assert_rejects):
         assert_rejects(FLEinwilligung, einwilligung(datum="2026-02-31"), "datum")
 
-    def test_a_registration_composes_a_collected_record_and_not_the_backfills(self):
-        """The difference IS the distinguishability: a guardian filing a registration is consenting, and nobody asked a carried-over row."""
-
-        composed = registration_einwilligung(today="2026-04-01")
-
-        assert composed.erteilt_von == "erziehungsberechtigt"
-        assert composed.umfang == "kader_oeffentlich"
-        assert (composed.datum, composed.bestaetigt_am) == ("2026-04-01", "2026-04-01")
-
-    def test_a_registration_is_confirmed_on_the_day_it_is_filed(self):
-        """No unconfirmed window: the person filing the form is the person whose consent it is."""
-
-        composed = registration_einwilligung(today="2026-04-01")
-
-        assert composed.bestaetigt_am == composed.datum
-
-    def test_the_create_payload_carries_no_consent_field(self):
-        """An admin able to state one could publish a pupil on a claim nobody made."""
-
-        assert "einwilligung" not in FLPostSpielerPayload.model_fields
-
     def test_the_patch_payload_carries_no_consent_field(self):
-        """The load-bearing half, because `patch_spieler` `$set`s this model's whole dump."""
+        """`patch_spieler` `$set`s this model's whole dump, so a field here would let a name correction rewrite what somebody agreed to."""
 
         assert "einwilligung" not in FLPatchSpielerPayload.model_fields
-
-    def test_a_registration_never_claims_a_carry_over(self):
-        """`bestandsuebernahme` is reserved for the backfill; composing it here would make a real consent unfindable among the assumed ones."""
-
-        assert registration_einwilligung(today="2026-04-01").erteilt_von != "bestandsuebernahme"
 
 
 @pytest.mark.db
@@ -743,8 +714,6 @@ STRIPPED_WRITE_FIELDS = [
     "spielort.address.strasse",
     "spielort.name",
     "schiedsrichter.name",
-    "spieler_post.nachname",
-    "spieler_post.vorname",
     "spieler_patch.nachname",
     "spieler_patch.vorname",
     "team.full_name",
@@ -828,17 +797,14 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "spielort.address.strasse": (FLPostSpielortPayload, spielort, ("address", "strasse")),
             "spielort.name": (FLPostSpielortPayload, spielort, ("name",)),
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
-            "spieler_post.nachname": (FLPostSpielerPayload, spieler, ("nachname",)),
-            "spieler_post.vorname": (FLPostSpielerPayload, spieler, ("vorname",)),
-            # The two payloads declare these independently, so a strip dropped from one alone is
-            # invisible to the other's clause.
             "spieler_patch.nachname": (FLPatchSpielerPayload, spieler, ("nachname",)),
             "spieler_patch.vorname": (FLPatchSpielerPayload, spieler, ("vorname",)),
             "team.full_name": (FLPostTeamPayload, club, ("full_name",)),
             "team.name": (FLPostTeamPayload, club, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
             "team.shorthand": (FLPostTeamPayload, club, ("shorthand",)),
-            # Three independent declarations of the season id, as the two `spieler` payloads are.
+            # Three independent declarations of the season id, so a strip dropped from one is
+            # invisible to the other two's clauses.
             "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),

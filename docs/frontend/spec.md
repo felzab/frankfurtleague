@@ -343,7 +343,6 @@ the other refuses.
 | `postSaisonTeamAction`            | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
 | `patchSaisonTeamAction`           | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
 | `replaceSaisonTeamAction`         | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
-| `postSpielerAction`               | spieler        | `spieler`                                                                                      |
 | `patchSpielerAction`              | spieler        | `spieler`                                                                                      |
 | `deleteSpielerAction`             | spieler        | `spieler`                                                                                      |
 | `eraseSpielerAction`              | spieler        | `spieler`                                                                                      |
@@ -395,10 +394,7 @@ What the table cannot carry:
 - The team create is **one action over two requests** — `POST /teams`, then
   `POST /teams/{team_id}/saisons` — because every team read is season-scoped with a strict
   junction join ([`docs/backend/spec.md`](../backend/spec.md) I11): a club created without a
-  junction row would be invisible to the very list the create form sits on. **The player create is
-  the same shape for the same reason**, offering `active` and `future` seasons both; the chosen
-  season's status decides `ist_nachnominiert`, which the form derives rather than asks (decided
-  2026-08-07).
+  junction row would be invisible to the very list the create form sits on.
 - **Season entry is offered only where the backend would take it**: only `future` seasons, with
   `fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer` deriving each offered group's fill
   state, full ones disabled. **A club that has left the LEAGUE is refused by every season and every

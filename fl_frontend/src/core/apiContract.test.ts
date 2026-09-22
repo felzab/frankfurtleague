@@ -124,10 +124,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
-  // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
-  // club, I33 for a player.
+  // One form creates the row and its junction: without one the club is invisible (backend spec I11).
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
-  FLCreateSpielerFormPayload: "the create action's own argument; the action splits it into two requests",
 };
 
 /**
@@ -354,7 +352,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 228;
+const EXPECTED_PAIRS = 226;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

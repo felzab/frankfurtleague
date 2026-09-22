@@ -15,7 +15,6 @@ import type { ReactNode } from "react";
 const { AdminCreateSaisonModal } = await import("@/features/saisons/components/modals/AdminCreateSaisonModal.tsx");
 const { AdminCreateSchiedsrichterModal } = await import("@/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal.tsx");
 const { AdminCreateSperreModal } = await import("@/features/sperrliste/components/modals/AdminCreateSperreModal.tsx");
-const { AdminCreateSpielerModal } = await import("@/features/spieler/components/modals/AdminCreateSpielerModal.tsx");
 const { AdminCreateSpielortModal } = await import("@/features/spielorte/components/modals/AdminCreateSpielortModal.tsx");
 const { AdminCreateTeamModal } = await import("@/features/teams/components/modals/AdminCreateTeamModal.tsx");
 
@@ -26,10 +25,6 @@ const TRIGGERS: Record<string, { name: string; html: string }> = {
   AdminCreateSaisonModal: { name: "Neue Saison anlegen", html: markup(h(AdminCreateSaisonModal)) },
   AdminCreateSchiedsrichterModal: { name: "Neuen Schiedsrichter anlegen", html: markup(h(AdminCreateSchiedsrichterModal)) },
   AdminCreateSperreModal: { name: "Adresse sperren", html: markup(h(AdminCreateSperreModal)) },
-  AdminCreateSpielerModal: {
-    name: "Neuen Spieler anlegen",
-    html: markup(h(AdminCreateSpielerModal, { saisonOptions: [], defaultSaisonId: null })),
-  },
   AdminCreateSpielortModal: { name: "Neuen Spielort anlegen", html: markup(h(AdminCreateSpielortModal)) },
   AdminCreateTeamModal: { name: "Neues Team anlegen", html: markup(h(AdminCreateTeamModal, { saisonOptions: [], defaultSaisonId: null })) },
 };
@@ -49,7 +44,7 @@ function createModals(): string[] {
 const trigger = (html: string): string => /<button\b[\s\S]*?<\/button>/.exec(html)?.[0] ?? "";
 
 describe("a CRUD header's create trigger", () => {
-  /* First: a sixth create modal would otherwise go unasserted, its trigger free to lose its name. */
+  /* First: a create modal with no row here would go unasserted, its trigger free to lose its name. */
   it("is asserted for every create modal the slices hold", () => {
     assert.deepEqual(Object.keys(TRIGGERS).sort(), createModals());
   });

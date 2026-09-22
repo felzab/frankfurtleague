@@ -1099,49 +1099,6 @@
           }
         },
         "x-fl-tier": "base"
-      },
-      "post": {
-        "summary": "Create a Spieler",
-        "description": "Create a player -- the person, and nothing else.\n\nThey belong to no team until they have a junction row, and no uniqueness rule applies to a name.\nThe consent record is COMPOSED here rather than taken from the body, so no admin can write one.",
-        "operationId": "post_spieler_api_v0_spieler_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPostSpielerPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerWriteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}": {
@@ -12079,48 +12036,6 @@
         "title": "FLPostSperrlisteResponse",
         "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."
       },
-      "FLPostSpielerPayload": {
-        "properties": {
-          "vorname": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^\\p{L}[\\p{L}\\-' ]*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "vorname",
-          "geburtsdatum"
-        ],
-        "title": "FLPostSpielerPayload",
-        "description": "The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."
-      },
       "FLPostSpielortPayload": {
         "properties": {
           "address": {
@@ -16022,28 +15937,6 @@
         ],
         "title": "FLSpielerWithMemberships",
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows."
-      },
-      "FLSpielerWriteResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "spieler_id": {
-            "type": "string",
-            "title": "Spieler Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "spieler_id"
-        ],
-        "title": "FLSpielerWriteResponse"
       },
       "FLSpielort": {
         "properties": {

@@ -11,15 +11,9 @@ from app.api.spieler.admin_router import (
     patch_saison_spieler,
     patch_spieler,
     post_saison_spieler,
-    post_spieler,
     reactivate_saison_spieler,
 )
-from app.api.spieler.schemas import (
-    FLPatchSaisonSpielerPayload,
-    FLPatchSpielerPayload,
-    FLPostSaisonSpielerPayload,
-    FLPostSpielerPayload,
-)
+from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
@@ -68,6 +62,31 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 def spieler_id_for(index: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6074100{index:02d}")
+
+
+def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[str, Any]:
+    """A pupil as one was stored BEFORE the registration flow existed, which is the shape production holds.
+
+    Seeded rather than written: no endpoint creates a person, and no writer composes a guardian's word.
+    """
+
+    return {
+        "_id": spieler_id_for(spieler_number),
+        "vorname": "Max",
+        "nachname": "Mustermann",
+        # The guardian's word a stored row carries, which nobody gave: the two cases below watch a
+        # later write leave it alone.
+        "einwilligung": {
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "erziehungsberechtigt",
+            "datum": TODAY,
+            "bestaetigt_am": TODAY,
+            "medien": False,
+            "text_version": None,
+        },
+        "inactive_since": None,
+        "geburtsdatum": geburtsdatum,
+    }
 
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
@@ -181,46 +200,20 @@ async def hand_the_junction_row_over(database: AsyncDatabase, team_id: ObjectId)
     await database.saison_teams.update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"team_id": INCOMING_TEAM_OID}})
 
 
-class TestTheConsentRecordIsComposedAndNeverAccepted:
-    """Through the endpoints, because only a database shows what is stored and what survives a later write."""
-
-    def test_creating_a_player_stores_a_collected_consent(self, mongo_replica_set_url: str):
-        """`erziehungsberechtigt` with both dates set -- a guardian filing a registration today really is consenting."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
-                spieler_collection=database.spieler,
-                today=TODAY,
-            )
-            return await database.spieler.find_one({"_id": ObjectId(response.spieler_id)})
-
-        stored = on_a_database(mongo_replica_set_url, body)
-
-        assert stored["einwilligung"] == {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": TODAY,
-            "bestaetigt_am": TODAY,
-            "medien": False,
-            "text_version": None,
-        }
+class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
+    """Through the endpoint, because only a database shows what a `$set` leaves standing."""
 
     def test_correcting_a_name_leaves_the_consent_record_standing(self, mongo_replica_set_url: str):
         """`$set` names only the payload's keys, so the sub-document is left alone rather than replaced -- against a real update."""
 
         async def body(database: AsyncDatabase) -> Any:
-            created = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
-                spieler_collection=database.spieler,
-                today=TODAY,
-            )
+            await database.spieler.insert_one(person_row(spieler_number=92))
             await patch_spieler(
-                spieler_id=ObjectId(created.spieler_id),
+                spieler_id=spieler_id_for(92),
                 spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=None),
                 spieler_collection=database.spieler,
             )
-            return await database.spieler.find_one({"_id": ObjectId(created.spieler_id)})
+            return await database.spieler.find_one({"_id": spieler_id_for(92)})
 
         stored = on_a_database(mongo_replica_set_url, body)
 
@@ -230,50 +223,19 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
 
 
 class TestThePersonsBirthdate:
-    """Both answers a create can give, and the two things a stored one has to survive: a later name write, and the shipped validator."""
-
-    def test_creating_a_player_stores_the_date_that_was_given(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            response = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
-                spieler_collection=database.spieler,
-                today=TODAY,
-            )
-            return await database.spieler.find_one({"_id": ObjectId(response.spieler_id)})
-
-        assert on_a_database(mongo_replica_set_url, body)["geburtsdatum"] == GEBURTSDATUM
-
-    def test_creating_a_player_who_gave_none_stores_the_key_holding_null(self, mongo_replica_set_url: str):
-        """The KEY, not its absence: a create that omitted it would leave the person indistinguishable from one stored before the field."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
-                spieler_collection=database.spieler,
-                today=TODAY,
-            )
-            return await database.spieler.find_one({"_id": ObjectId(response.spieler_id)})
-
-        stored = on_a_database(mongo_replica_set_url, body)
-
-        assert "geburtsdatum" in stored
-        assert stored["geburtsdatum"] is None
+    """The two things a stored date has to survive: a later name write, and the shipped validator."""
 
     def test_correcting_a_name_leaves_the_date_standing(self, mongo_replica_set_url: str):
         """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
 
         async def body(database: AsyncDatabase) -> Any:
-            created = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
-                spieler_collection=database.spieler,
-                today=TODAY,
-            )
+            await database.spieler.insert_one(person_row(spieler_number=93, geburtsdatum=GEBURTSDATUM))
             await patch_spieler(
-                spieler_id=ObjectId(created.spieler_id),
+                spieler_id=spieler_id_for(93),
                 spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
                 spieler_collection=database.spieler,
             )
-            return await database.spieler.find_one({"_id": ObjectId(created.spieler_id)})
+            return await database.spieler.find_one({"_id": spieler_id_for(93)})
 
         stored = on_a_database(mongo_replica_set_url, body)
 

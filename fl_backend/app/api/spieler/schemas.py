@@ -180,22 +180,6 @@ class FLSpielerFilterParams(BaseModel):
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
-class FLPostSpielerPayload(BaseModel):
-    """The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
-    # never printed on a squad sheet.
-    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
-    # Optional here and REQUIRED on the patch below: a create has nothing to overwrite, while a
-    # patch that omits it would erase a surname somebody typed.
-    nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None = None
-    # NULLABLE, and the caller states the null rather than omitting: no flow collects a pupil's own
-    # date yet (`app/core/domain.py :: UNENFORCED`).
-    geburtsdatum: CustomOptionalDateString
-
-
 class FLPatchSpielerPayload(BaseModel):
     """Replaces the person's names WHOLESALE.
 
@@ -269,10 +253,6 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
     # the calendar rule `FLSpieler` states refuses nothing this echo can serve.
     inactive_since: CustomOptionalDateString
-
-
-class FLSpielerWriteResponse(BaseAPIResponse):
-    spieler_id: CustomObjectId
 
 
 class FLSpielerErasureResponse(BaseAPIResponse):

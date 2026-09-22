@@ -36,24 +36,12 @@ const nummern = (action: string): unknown[] =>
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { NummerField } = await import("./NummerField.tsx");
-const { AdminCreateSpielerForm } = await import("./AdminCreateSpielerForm.tsx");
 const { AdminSpielerEditForm } = await import("./AdminSpielerEditForm/AdminSpielerEditForm.tsx");
 
 const TEAM = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SGA" };
 
 /** The season the sidemenu names; no case here makes a navigation, so the router stays inert. */
 const underSaison = (tree: ReactNode): ReactNode => underNext(tree, { search: "saison_id=2026" });
-
-const renderDialog = () =>
-  render(
-    underSaison(
-      h(AdminCreateSpielerForm, {
-        saisonOptions: [{ saisonId: "2026", istNachnominiert: false, teams: [TEAM], erlaubteStufen: ["Q1"] }],
-        defaultSaisonId: "2026",
-        onClose: () => undefined,
-      }),
-    ),
-  );
 
 /** The player's editor on a stored squad row wearing 10. */
 const renderEditor = () =>
@@ -86,19 +74,8 @@ const renderEditor = () =>
 const nummerBox = () => screen.getByRole("textbox", { name: "Nummer" });
 
 describe("the squad number's refusal as the admin reads it", () => {
-  it("tells the create dialog's reader the format once Speichern is pressed, and not before", async () => {
-    const user = userEvent.setup();
-    renderDialog();
-
-    await user.type(nummerBox(), "7a");
-    assert.ok(screen.queryByText(NUMMER_MUST_BE_DIGITS) === null, "the dialog judged the number before anybody pressed Speichern");
-
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
-    screen.getByText(NUMMER_MUST_BE_DIGITS);
-  });
-
-  // Never between keystrokes (`.claude/rules/frontend.md` forms), and in the dialog's own sentence once left.
-  it("tells the squad editor's reader the same sentence once the box is left, and nothing while typing", async () => {
+  // Never between keystrokes (`.claude/rules/frontend.md` forms), and in the field's own sentence once left.
+  it("tells the squad editor's reader the sentence once the box is left, and nothing while typing", async () => {
     const user = userEvent.setup();
     renderEditor();
 
@@ -111,23 +88,9 @@ describe("the squad number's refusal as the admin reads it", () => {
   });
 });
 
-/* Surrounding whitespace is no format an administrator should have to fight, and one field should not take a
-   number on one form that it refuses on the other. */
+/* Surrounding whitespace is no format an administrator should have to fight: the box takes it and
+   what leaves is the number, rather than a refusal over something invisible. */
 describe("a squad number typed with space around it", () => {
-  it("is sent trimmed from the create dialog", async () => {
-    const user = userEvent.setup();
-    renderDialog();
-
-    await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Lena");
-    await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Meier");
-    await user.click(screen.getByRole("button", { name: "Team" }));
-    await user.click(screen.getByRole("option", { name: new RegExp(TEAM.name) }));
-    await user.type(nummerBox(), " 7 ");
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
-
-    assert.deepEqual(nummern("postSpielerAction"), ["7"], "the dialog sends the space along, or sends nothing");
-  });
-
   it("is sent trimmed from the squad editor", async () => {
     const user = userEvent.setup();
     renderEditor();

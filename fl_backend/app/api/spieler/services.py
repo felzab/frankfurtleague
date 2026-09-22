@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, NamedTuple
 
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams, FLSpielerRolle
+from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -230,22 +230,6 @@ SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
 # The erasure's precondition (`docs/backend/spec.md :: I12`): a person still in the league is one
 # somebody would notice missing.
 ERASURE_NOT_RETIRED = "REQ-PURGE-001"
-
-
-def registration_einwilligung(*, today: str) -> FLEinwilligung:
-    """The consent record `POST /spieler` composes for a pupil being registered today.
-
-    Composed rather than accepted from the body: no payload carries the field, which is what stops
-    an ordinary name correction from rewriting what somebody agreed to.
-    """
-
-    return FLEinwilligung(
-        umfang="kader_oeffentlich",
-        erteilt_von="erziehungsberechtigt",
-        datum=today,
-        # The same day: registration IS the confirmation here, because the guardian is the one filing it.
-        bestaetigt_am=today,
-    )
 
 
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
