@@ -78,6 +78,9 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in

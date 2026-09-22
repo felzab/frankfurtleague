@@ -469,8 +469,10 @@ season's matches, a referee not being season-scoped.
 role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
 as them.
 
-- **A pupil.** `spieler.email` is on no payload and no route writes one, so the league holds no
-  pupil's address here to correct, and the answer to somebody asking is that sentence.
+- **A pupil.** `spieler.email` is on no payload and no route writes one, so there is no stored
+  address on the person to correct. What the league does hold is the address a pending registration
+  was typed with, and that one is not corrected either: the answer to somebody asking is to register
+  again through their team's link, the unconfirmed row going with the seven-day sweep.
 - **A referee.** Correct `kontakt.email` in the referee editor. It is the ordinary rectification
   above: nothing is minted from a referee's address and nothing signs in as one.
 - **A contact seat.** Correct it through
@@ -543,10 +545,12 @@ and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
-anywhere to try again with. **The ban records the
-decision and refuses nothing by itself** — no route consults the list
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)) — so what actually keeps the
-address out until one does is the queue being read by a person.
+anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
+registration asks it and is
+refused (`REQ-REGISTRIERUNG-009`); every other
+route consults the list nowhere
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
+still what keeps a barred address out of everything a sign-up does not cover.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -832,14 +836,24 @@ whatever closed the host's inbound 80 and 443 since is opened.
 
     curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
 
-**`sweep_gelaufen_am` is the day the last pass ran, and it is today or yesterday on a healthy
-stack.** A pass that reminds nobody and deletes nothing records it exactly as a busy one does
-([`spec.md`](spec.md) §1.1), so the date is the answer and the absence of log lines is not.
+**`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
+and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
+records its day exactly as a busy one does ([`spec.md`](spec.md) §1.1), so the dates are the answer
+and the absence of log lines is not.
 
-**Null means no pass has ever run against this database**, which on production is one of the ways
-[`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off, `fl_frontend/src/instrumentation.ts :: register` not reached, or
-a build that is not a production one. Check the frontend container's environment and its startup
-before looking at the backend.
+**A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
+runs the two halves of each season independently, and each files its own failure line —
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001`
+([`../logging/error-codes.md`](../logging/error-codes.md)) — so the event name is what names the
+half, and the date alone is not: the application's endpoint stamps its day before the calls that
+follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
+one just as a failed registration call would.
+
+**Null means no pass of that kind has ever run against this database**, which on production is one
+of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
+`fl_frontend/src/instrumentation.ts :: register` not reached, or a build that is not a production
+one. One switch arms both passes, so two nulls point at the frontend container's environment and its
+startup rather than at the backend.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the

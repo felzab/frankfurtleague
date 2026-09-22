@@ -52,6 +52,8 @@ const {
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
+const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
+  await import("./registrierungEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -99,6 +101,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./bewerbungEmail.ts")),
   ...Object.keys(await import("./authEmail.ts")),
   ...Object.keys(await import("./einladungEmail.ts")),
+  ...Object.keys(await import("./registrierungEmail.ts")),
   ...Object.keys(await import("./sperrlisteEmail.ts")),
 ]
   .filter((name) => name.startsWith("build"))
@@ -177,6 +180,28 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
+  buildRegistrierungBestaetigungEmail: (origin) =>
+    buildRegistrierungBestaetigungEmail({
+      vorname: "Mira",
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      token: "beispiel-vier",
+      // The mirrored deadline is handed in rather than read: `fl_frontend/eslint.config.mjs ::
+      // LAYER_BOUNDARY` keeps `core` out of the feature slice that declares it.
+      fristTage: 7,
+    }),
+  buildRegistrierungErinnerungEmail: (origin) =>
+    buildRegistrierungErinnerungEmail({
+      vorname: "Mira",
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      token: "beispiel-fuenf",
+      fristTage: 7,
+    }),
+  buildRegistrierungSaisonendeEmail: (origin) =>
+    buildRegistrierungSaisonendeEmail({ vorname: "Mira", teamName: "Ernst-Reuter-Schule", saisonId: "2627", origin: origin }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };
@@ -357,9 +382,14 @@ describe("the shared email shell", () => {
          label must carry no hook at all -- one would turn it grey on the brand pill. */
       const unflipped = tags.filter((single) => new RegExp(`[;"]color:${constant("ON_BRAND_COLOR")};`).test(single));
 
-      // The filter is the population, so without this an empty one passes the loop below having
-      // compared nothing -- which is what a respelt foreground or a dropped button would leave.
-      assert.ok(unflipped.length > 0, `${name} declares the unflipped foreground nowhere, so this check proves nothing`);
+      /* What fills that population is the SOLID control alone: the outline grade rests on the card
+         and wears the heading colour, so a message offering only that kind declares this foreground
+         nowhere. */
+      const gefuellt = tags.some((single) => new RegExp(`[;"]background-color:${constant("BRAND_SOLID_COLOR")};`).test(single));
+
+      // Compared against the fill rather than required outright: an empty population would otherwise
+      // pass the loop below having compared nothing.
+      assert.equal(unflipped.length > 0, gefuellt, `${name} declares the unflipped foreground on other than its solid control's label`);
       for (const tag of unflipped) {
         assert.ok(!tag.includes("fl-"), `${name} hooks the unflipped foreground: ${tag.slice(0, 90)}`);
       }

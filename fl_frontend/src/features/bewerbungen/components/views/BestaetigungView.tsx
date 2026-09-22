@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { joinUnd } from "@/core/joinUnd";
@@ -9,14 +8,12 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/consta
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
-import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { ABSATZ, BestaetigungErgebnis, FaktenBanner, GespeicherteAngaben, Wert } from "./BestaetigungPanels";
+import { ABSATZ, BestaetigungErgebnis, FaktenBanner, FrageStellen, GespeicherteAngaben, Wert, ZurLiga } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
-import type { ReactNode } from "react";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
 /**
@@ -228,35 +225,5 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         </BestaetigungErgebnis>
       )}
     </section>
-  );
-}
-
-/** The two actions this page offers, in the width the panel gives them rather than the page's. */
-function Aktion({ children }: { children: ReactNode }) {
-  return <div className="flex w-full max-w-xs flex-col">{children}</div>;
-}
-
-function ZurLiga() {
-  return (
-    <Aktion>
-      <Link
-        href="/"
-        prefetch={false}
-        className={ctaButton({ intent: "outline", hover: "css" })}>
-        Zur Frankfurt League
-      </Link>
-    </Aktion>
-  );
-}
-
-function FrageStellen() {
-  return (
-    <Aktion>
-      <a
-        href={`mailto:${KONTAKT_EMAIL}`}
-        className={ctaButton({ intent: "primary", hover: "css" })}>
-        Frage stellen
-      </a>
-    </Aktion>
   );
 }

@@ -73,6 +73,7 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
         "einladungen",
         "identitaet",
         "kontakte",
+        "registrierungen",
         "saisons",
         "schiedsrichter",
         "sperrliste",
@@ -310,6 +311,7 @@ class TestWhatARemovalFilterMayName:
             str(Collection.SPIELTAGE),
             str(Collection.BEWERBUNGEN),
             str(Collection.EINLADUNGEN),
+            str(Collection.REGISTRIERUNGEN),
         }
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):

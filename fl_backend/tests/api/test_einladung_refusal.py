@@ -7,10 +7,12 @@ from app.api.einladungen import schemas as einladungen_schemas
 from app.api.einladungen.services import (
     EINLADUNG_SAISON_VORBEI,
     EINLADUNG_TEAM_NICHT_EINGETRAGEN,
+    EINLADUNG_UNBEKANNT,
     bestaetigte_empfaenger,
     einladung_ist_versendet,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
+    find_unknown_einladung_refusal,
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
@@ -79,6 +81,19 @@ class TestASeasonThatHasEnded:
 
         assert refusal is not None
         assert refusal.error_code == EINLADUNG_SAISON_VORBEI
+
+
+class TestALinkThatOpensNothing:
+    """`REQ-EINLADUNG-003` over the row the caller's own live-invite read found, or did not."""
+
+    def test_a_live_row_opens(self):
+        assert find_unknown_einladung_refusal(einladung_raw=einladung(versand={})) is None
+
+    def test_a_read_that_found_nothing_is_refused(self):
+        refusal = find_unknown_einladung_refusal(einladung_raw=None)
+
+        assert refusal is not None
+        assert refusal.error_code == EINLADUNG_UNBEKANNT
 
 
 class TestTheWindowALinkExpiresWith:

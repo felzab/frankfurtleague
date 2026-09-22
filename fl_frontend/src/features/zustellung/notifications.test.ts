@@ -19,20 +19,53 @@ const sent: SentMail[] = [];
 const logged: LoggedCall[] = [];
 /** Addresses the doubled provider refuses, so a failure can be aimed at one recipient. */
 const refused = new Set<string>();
+/** Addresses this deployment never tries, which is the shape every stack but production has. */
+const withheld = new Set<string>();
+/** Addresses whose domain has no ASCII form: that recipient fails and the rest of the fan-out does not. */
+const unconvertible = new Set<string>();
+/** Per address the provider itself turned away: its own token, and the status that says whether a retry could land. */
+const tokenRefused = new Map<string, { token?: string; status: number }>();
 const gemeldet: Record<string, unknown>[] = [];
+const abgewiesen: Record<string, unknown>[] = [];
 
 recorders.__flZielSentMail = sent;
 recorders.__flZielMailLogs = logged;
 recorders.__flZielRefusedMail = refused;
+recorders.__flZielWithheldMail = withheld;
+recorders.__flZielUnconvertibleMail = unconvertible;
+recorders.__flZielTokenRefusedMail = tokenRefused;
 recorders.__flZielGemeldet = gemeldet;
+recorders.__flZielAbgewiesen = abgewiesen;
+recorders.__flZielAbweisungFails = false;
 recorders.__flZielMeldungFails = false;
 recorders.__flZielAngewendet = true;
 recorders.__flZielAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
 
 // Replaced at the module boundary rather than the fan-out being reshaped to admit a seam: the real
 // transport posts to the mail provider, on a key no test run holds.
-const MAIL_DOUBLE = `export const sendMail = async (mail) => {
+
+// The two error classes come from the real module rather than being restated: the fan-out tells a
+// withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
+const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./mail.ts?real";
+import { MailRecipientError, MailWithheldError } from "./mail.ts?real";
+// The real class here too: the refusal arm reads the provider's token off it, which a look-alike
+// carrying the same field would not prove.
+import { MailSendError } from "./errors.ts";
+
+export const sendMail = async (mail) => {
   globalThis.__flZielSentMail.push({ to: mail.to, subject: mail.subject, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
+  if (globalThis.__flZielWithheldMail.has(mail.to)) throw new MailWithheldError();
+  if (globalThis.__flZielUnconvertibleMail.has(mail.to)) throw new MailRecipientError();
+  const abweisung = globalThis.__flZielTokenRefusedMail.get(mail.to);
+  if (abweisung !== undefined) {
+    throw new MailSendError({
+      message: "The mail provider refused the message.",
+      url: "https://api.example.invalid/emails",
+      statusCode: abweisung.status,
+      providerErrorName: abweisung.token,
+      traceId: "0123456789abcdef0123456789abcdef",
+    });
+  }
   if (globalThis.__flZielRefusedMail.has(mail.to)) throw new Error("the provider refused the message");
   return { id: globalThis.__flZielAcceptedId };
 };`;
@@ -41,6 +74,12 @@ const MAIL_DOUBLE = `export const sendMail = async (mail) => {
 const MUTATIONS_DOUBLE = `export const meldeZielZustellungAngenommen = async (payload) => {
   globalThis.__flZielGemeldet.push(payload);
   if (globalThis.__flZielMeldungFails) throw new Error("the backend refused the record");
+  return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
+};
+
+export const meldeZielZustellungAbgewiesen = async (payload) => {
+  globalThis.__flZielAbgewiesen.push(payload);
+  if (globalThis.__flZielAbweisungFails) throw new Error("the backend refused the record");
   return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
 };`;
 
@@ -94,7 +133,12 @@ beforeEach(() => {
   sent.length = 0;
   logged.length = 0;
   gemeldet.length = 0;
+  abgewiesen.length = 0;
   refused.clear();
+  withheld.clear();
+  unconvertible.clear();
+  tokenRefused.clear();
+  recorders.__flZielAbweisungFails = false;
   recorders.__flZielMeldungFails = false;
   recorders.__flZielAngewendet = true;
   recorders.__flZielAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
@@ -236,6 +280,28 @@ describe("one fan-out about a record", () => {
     assert.equal(gemeldet.length, 1, "a refused message was recorded as accepted");
   });
 
+  /* Outside production every address is withheld, and a caller reading that as a refusal reports one
+     on every local submission — while an address the provider itself rejected is one it may report. */
+  it("marks a withheld send withheld, and leaves a rejected address out of that list", async () => {
+    withheld.add(ADDRESS);
+    unconvertible.add(SECOND_ADDRESS);
+
+    const settled = await sendZielMail({
+      operation: "schiedsrichter.einladung",
+      auftrag: auftrag,
+      recipients: [ADDRESS, SECOND_ADDRESS],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(settled.delivered, []);
+    assert.deepEqual(
+      [...settled.unreachable].sort(),
+      [ADDRESS, SECOND_ADDRESS].sort(),
+      "an address that failed is missing from the whole list",
+    );
+    assert.deepEqual(settled.withheld, [ADDRESS]);
+  });
+
   /* The message HAS gone, so a caller told otherwise would report a send that happened as one that
      did not — and the record is the half that can be repaired by the next send. */
   it("keeps a delivered address delivered when the record could not be written", async () => {
@@ -249,6 +315,87 @@ describe("one fan-out about a record", () => {
     });
 
     assert.deepEqual([delivered, unreachable], [[ADDRESS], []]);
+    assert.equal(logged.at(-1)?.meta["error_code"], "FE-MAIL-003");
+  });
+
+  /* A send refused at submit time mints no message, so nothing else ever tells the clocks about that
+     address: unrecorded, the reminder chases it and the deadline erases the row as though the link
+     had been read. */
+  it("records the provider's refusal against the record the message was about", async () => {
+    tokenRefused.set(ADDRESS, { token: "invalid_parameter", status: 422 });
+
+    const { unreachable } = await sendZielMail({
+      operation: "schiedsrichter.einladung",
+      auftrag: auftrag,
+      recipients: [ADDRESS],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(unreachable, [ADDRESS]);
+    assert.equal(abgewiesen.length, 1);
+    assert.equal(abgewiesen[0]?.["ziel"], "schiedsrichter");
+    assert.equal(abgewiesen[0]?.["ziel_id"], ZIEL_ID);
+    assert.equal(abgewiesen[0]?.["grund"], "invalid_parameter", "the provider's own token is what the record is worth reading for");
+    assert.ok(!Number.isNaN(Date.parse(String(abgewiesen[0]?.["am"]))), "the stamp orders this refusal against the record's own state");
+    assert.deepEqual(gemeldet, [], "a refused message was recorded as accepted");
+  });
+
+  /* Outside production every send is withheld, and a stack that marked those addresses unreachable
+     would stamp a whole season's registrations undeliverable on a developer's machine. */
+  it("records nothing for a send this deployment withheld", async () => {
+    withheld.add(ADDRESS);
+
+    await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.deepEqual(abgewiesen, []);
+  });
+
+  /* A refusal a retry could land is no fact about the mailbox, and the person's one reminder is what
+     carries a link whose first send fell over. */
+  it("records nothing where a retry could still land the message", async () => {
+    tokenRefused.set(ADDRESS, { status: 429 });
+
+    await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.deepEqual(abgewiesen, []);
+  });
+
+  /* An address whose domain has no ASCII form is refused before any request goes out, and no later
+     send can reach it either. */
+  it("records a refusal the provider was never asked about", async () => {
+    unconvertible.add(ADDRESS);
+
+    await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.equal(abgewiesen.length, 1);
+    assert.equal(abgewiesen[0]?.["grund"], "MailRecipientError");
+  });
+
+  /* The token is the provider's own JSON, and one past the endpoint's screen would be answered 422 —
+     losing the whole record over the word that explains it. */
+  it("drops a token the endpoint would refuse rather than the refusal itself", async () => {
+    tokenRefused.set(ADDRESS, { token: "MailboxFull\nBcc: someone@example.com", status: 422 });
+
+    await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.equal(abgewiesen.length, 1);
+    assert.equal(abgewiesen[0]?.["grund"], null);
+  });
+
+  /* The fan-out's answer is what the person's page is written from, and it stands whatever became of
+     the record — which the next send repairs. */
+  it("keeps the fan-out's answer when the refusal could not be recorded", async () => {
+    tokenRefused.set(ADDRESS, { token: "invalid_parameter", status: 422 });
+    recorders.__flZielAbweisungFails = true;
+
+    const { delivered, unreachable } = await sendZielMail({
+      operation: "schiedsrichter.einladung",
+      auftrag: auftrag,
+      recipients: [ADDRESS],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual([delivered, unreachable], [[], [ADDRESS]]);
     assert.equal(logged.at(-1)?.meta["error_code"], "FE-MAIL-003");
   });
 

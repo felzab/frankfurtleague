@@ -983,9 +983,12 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 
-/** Every season's id, and the day the sweep last ran: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
+/** Every season's id, and each pass's own day: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
 export const FLBewerbungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
   saison_ids: z.array(z.string()),
   sweep_gelaufen_am: CustomDateStringSchema.nullable(),
+  // The registration pass's own day beside the application's: the two clocks run in one process and
+  // stop separately, so a fresh date beside a stale one is what names the pass that stopped.
+  registrierung_sweep_gelaufen_am: CustomDateStringSchema.nullable(),
 });
 export type FLBewerbungSweepSaisonsResponse = z.infer<typeof FLBewerbungSweepSaisonsResponseSchema>;

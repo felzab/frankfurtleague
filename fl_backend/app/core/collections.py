@@ -39,3 +39,6 @@ class Collection(StrEnum):
     #: One minted registration link per row. It names a team and a season and no person, so an
     #: erasure never reaches one.
     EINLADUNGEN = "einladungen"
+    #: One pupil's pending registration for a team's season. Erased by its own clocks and by the
+    #: admission, which writes the person and the squad row in the transaction that deletes it.
+    REGISTRIERUNGEN = "registrierungen"

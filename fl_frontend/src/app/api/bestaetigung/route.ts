@@ -1,5 +1,6 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { logger } from "@/core/logging";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
@@ -83,7 +84,8 @@ export async function POST(request: NextRequest) {
 
       // Stamped BEFORE the parse: the label is this server's to write, so judging the browser's own
       // would refuse a body on `text_version`, which no control renders and no reader would see.
-      const gestempelt = typeof body === "object" && body !== null ? stampEinwilligungFassung(body) : body;
+      const gestempelt =
+        typeof body === "object" && body !== null ? stampEinwilligungFassung(body, BESTAETIGUNG_KENNTNISNAHME.textVersion) : body;
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(gestempelt);
 
       if (!parsed.success) {

@@ -35,25 +35,26 @@
 
 ### 1.1 Slice inventory
 
-| Slice            | queries | mutations | actions | schemas | Owns, beyond the four modules and `components/`                                                                                                |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | The Spiel write path                                                                                                                           |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                                                                                                      |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                                                                                                      |
-| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction                                                                                                                    |
-| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw and its undraw — no delete, and the draw's `replace` where the season already holds one |
-| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction                                                                                                                     |
-| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them, and a replace or an undraw of that draw removes them                                        |
-| `bewerbungen`    |   ✅    |    ✅     |   ✅    |   ✅    | Triage, the public application form and the contact confirmation — two irreversible decisions, two unauthenticated writes                      |
-| `aktionen`       |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                           |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                      |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
-| `kontakte`       |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                            |
-| `sperrliste`     |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                     |
-| `einladungen`    |   ✅    |    ✅     |   ✅    |   ✅    | One live registration link per team and season, and one press that mails every admitted team; no edit — a reissue revokes and mints            |
-| `auth`           |    —    |     —     |   ✅    |   ✅    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
-| `dashboard`      |    —    |     —     |    —    |    —    | —                                                                                                                                              |
-| `meta`           |    —    |     —     |    —    |    —    | —                                                                                                                                              |
+| Slice             | queries | mutations | actions | schemas | Owns, beyond the four modules and `components/`                                                                                                |
+| ----------------- | :-----: | :-------: | :-----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele`          |   ✅    |    ✅     |   ✅    |   ✅    | The Spiel write path                                                                                                                           |
+| `spielorte`       |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                                                                                                      |
+| `schiedsrichter`  |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                                                                                                      |
+| `teams`           |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction                                                                                                                    |
+| `saisons`         |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw and its undraw — no delete, and the draw's `replace` where the season already holds one |
+| `spieler`         |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction                                                                                                                     |
+| `spieltage`       |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them, and a replace or an undraw of that draw removes them                                        |
+| `bewerbungen`     |   ✅    |    ✅     |   ✅    |   ✅    | Triage, the public application form and the contact confirmation — two irreversible decisions, two unauthenticated writes                      |
+| `registrierungen` |   ✅    |    ✅     |    —    |   ✅    | A pupil's registration through their team's invite and their own confirmation — two unauthenticated writes, no admin action of its own         |
+| `aktionen`        |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                           |
+| `system`          |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                      |
+| `admin`           |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
+| `kontakte`        |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                            |
+| `sperrliste`      |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                     |
+| `einladungen`     |   ✅    |    ✅     |   ✅    |   ✅    | One live registration link per team and season, and one press that mails every admitted team; no edit — a reissue revokes and mints            |
+| `auth`            |    —    |     —     |   ✅    |   ✅    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
+| `dashboard`       |    —    |     —     |    —    |    —    | —                                                                                                                                              |
+| `meta`            |    —    |     —     |    —    |    —    | —                                                                                                                                              |
 
 `utils.ts`, `resolvers.ts` and `facets.ts` are sanctioned optional modules. `utils.ts` and
 `resolvers.ts` exist separately from `queries.ts` because they hold non-caching code, and folding
@@ -256,9 +257,9 @@ own 429 among them. Only a `fetch()` caller can read the second
 **`fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm` is where that reading is done**,
 as `handlePublicRequest` is where the answering is: one place tells a rate limit, a challenge and an
 unparseable body from an outcome this application decided, so no form has to recognise one to report
-it. The application form has a second reason the confirmation page does not: its page sits on a
+it. The application form has a second reason the confirmation pages do not: its page sits on a
 dynamic segment, so a server action there would post to no path an exact `location` could meter,
-which `/signin` and `/bestaetigung` each have. **The Kürzel check
+which every other public write's page has. **The Kürzel check
 (`fl_frontend/src/app/api/bewerbung/kuerzel/route.ts`) is a route handler on the first reason and
 stays outside that helper**: it is a read that refuses nothing, so an answer it cannot use costs the
 applicant a courtesy rather than a submit, and the helper's sentence would stand beside the hint its
@@ -1832,6 +1833,9 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I264 | A pupil's consent record is an input to the cached squad read, so every writer of one drops the `spieler` tag                                                                                                                              | `fl_frontend/src/features/spieler/queries.ts :: getSpieler` under `cacheTag("spieler")`; which call drops it is I14's; the tag's present writers are `fl_frontend/src/features/spieler/actions.ts`, `fl_frontend/src/features/teams/actions.ts`, `fl_frontend/src/features/saisons/actions.ts` and `fl_frontend/src/app/api/admin/spieler/undo/route.ts` |
 | I271 | **`getSubjectSession` answers, logs and joins on one folded identifier**: the session's own spelling names a second mailbox to the seat lookup                                                                                             | `fl_frontend/src/core/subject.test.ts :: "folds a session's own spelling into the one the join, the answer and the scope share"`, whose seeded session is stored decomposed                                                                                                                                                                              |
 | I272 | **One request records one actor**: `setRequestActor` throws on a second, different one rather than letting whichever guard ran last name every write                                                                                       | `fl_frontend/src/core/requestScope.test.ts :: "refuses a second, different actor rather than overwriting the one already recorded"`                                                                                                                                                                                                                      |
+| I299 | **A pupil's registration is stored and its confirmation token minted before the mail is attempted**                                                                                                                                        | `fl_frontend/src/app/api/registrierung/route.ts`; `fl_frontend/src/app/api/registrierung/route.test.ts :: stores the row before it attempts the mail`                                                                                                                                                                                                    |
+| I301 | **A registration answers as a refusal under the address where the provider accepted no recipient**, and as a receipt where this deployment withheld the send                                                                               | `fl_frontend/src/app/api/registrierung/route.ts`; `fl_frontend/src/app/api/registrierung/route.test.ts :: tells the pupil at once where no recipient was accepted`                                                                                                                                                                                       |
+| I300 | **The registration form offers exactly the Stufen the invite's own read answers**, never the league's ladder — the write refuses every value outside that set                                                                              | `fl_frontend/src/features/registrierungen/components/views/RegistrierungFormPanel.tsx`; `fl_frontend/src/features/registrierungen/publicRoutes.test.ts :: offers exactly the set the invite's own read answered`                                                                                                                                         |
 
 ## 3. Violation → remedy
 

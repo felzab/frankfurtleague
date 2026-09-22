@@ -11,27 +11,47 @@ import {
   fuelleFassung,
   LIGA_KENNTNISNAHME,
   LIGA_KENNTNISNAHMEN,
+  SPIELER_EINWILLIGUNG,
 } from "./einwilligung.ts";
+
+import type { EinwilligungFassung } from "./einwilligung.ts";
 
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
 const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 // Frozen when a label is minted and never updated afterwards: a changed digest means the stored
 // words moved, and moved words are a NEW label rather than a new number here.
-const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
-  "2026-08": "d1e56ea29e00f2d6b76ccd47694f86b268e06024817ed24f7b457c4e22879edd",
-  "2026-09-bestaetigung": "b503d29ff41e70cdf5b129b43e0f95568a2849fd0b88d01443b367d07a12d818",
-  "2026-09-bestaetigung-2": "9d075e3f8b6f38e2e70577134c22dc1a2f6c31ddb5390b803e76cf6c510d6a05",
-  "2026-09-bestaetigung-3": "af66039f44dc5aceb10f01d7d01e4ca9acbb628050b2d085ed726deb37d7a36e",
-  "2026-09-bestaetigung-4": "0f2b1a2299e42b1325e685455ed31257195a670e5b40bad6d06fe316ab35fa08",
-  "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
-  "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
-  "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
-  "2026-09-bestaetigungsseite-4": "3e1b323c33619294f7f76112cd5ad2583461b04a1b729826dd584eaa71f204cf",
-  "2026-09-bestaetigungsseite-5": "9685a0ae7de41ed8d1a72682597e3ea3728c41750b729d825860456ad7fac1bb",
+const FASSUNG_DIGESTS: Readonly<Record<string, string>> = {
+  "2026-08": "5ee0fd132685f067dfcb5efd9a85e1df36fabdfcb5dab451c98d760a262c4dc8",
+  "2026-09-bestaetigung": "2b7227c1252f386e7c9f68967f049fa78a353540dfd309d3fc5bdce3e4c0d7fa",
+  "2026-09-bestaetigung-2": "061b910a47324eb91c9c6b81191804b44b015ee5153b6c8843c884422d02f811",
+  "2026-09-bestaetigung-3": "694d9949915bbb999214f6e0f276a20020e464bdd28955152d58c19edc803a22",
+  "2026-09-bestaetigung-4": "6cd1ecde85282bb369a0e3437915752bf0ac4fe1dc35b0fe8b4ba2b15f84ecf3",
+  "2026-09-bestaetigungsseite": "0f43376babe1890edc2e38e482300d940b50de65c75b2f8bdeb4393be1a459f6",
+  "2026-09-bestaetigungsseite-2": "a3f63055cde360a1a547f6e04e547101d90af2de71b89058e4a684d5e1f4ed2f",
+  "2026-09-bestaetigungsseite-3": "d14ba6338194b3ba562ab09a76472af2bd7b7834e9a4b7956046025b8c8f3f19",
+  "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
+  "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
+  "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
 };
 
-const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");
+// The controls are inside because a record cites its label and nothing else: a chip reworded under
+// a standing label would leave that record quoting a question nobody was asked.
+
+/** Every word the label freezes, in one hash: the paragraphs, the switch's label, and each control's. */
+const fassungDigest = (fassung: EinwilligungFassung): string =>
+  createHash("sha256")
+    .update(
+      [
+        ...fassung.absaetze,
+        fassung.schalter,
+        ...Object.keys(fassung.bedienelemente)
+          .sort()
+          .map((key) => `${key}=${fassung.bedienelemente[key] ?? ""}`),
+      ].join("\n"),
+      "utf8",
+    )
+    .digest("hex");
 
 /** The bound the API publishes, so the label is judged against the tier that stores it rather than a copy of the number. */
 function publishedVersionMaxLength(): number {
@@ -57,15 +77,15 @@ describe("LIGA_KENNTNISNAHMEN", () => {
     // Both directions: a new label fails until its own digest is minted, and a digest whose label
     // is gone fails rather than standing over nothing.
     assert.deepEqual(
-      Object.keys(ABSATZ_DIGESTS).sort(),
+      Object.keys(FASSUNG_DIGESTS).sort(),
       Object.keys(LIGA_KENNTNISNAHMEN).sort(),
       "a label has no frozen digest, or the reverse",
     );
 
     for (const [textVersion, fassung] of Object.entries(LIGA_KENNTNISNAHMEN)) {
       assert.equal(
-        absaetzeDigest(fassung.absaetze),
-        ABSATZ_DIGESTS[textVersion],
+        fassungDigest(fassung),
+        FASSUNG_DIGESTS[textVersion],
         `${textVersion} no longer holds the words its records cite — mint a new label, never a new digest here`,
       );
     }
@@ -86,6 +106,14 @@ describe("LIGA_KENNTNISNAHMEN", () => {
       assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
       assert.ok(text.includes("eine Erinnerung verschiebt sie nicht"), `${textVersion} lets a reminder read as a new deadline`);
     }
+  });
+
+  /* Its own case rather than a third entry in the array above: a registration's deadline is seven
+     days from the mail with no re-send, so that case's two sentences are false of this page. */
+  it("points the live pupil label at a wording naming the seven days a registration has", () => {
+    const text = SPIELER_EINWILLIGUNG.absaetze.join(" ");
+
+    assert.ok(text.includes("sieben Tagen"), `${SPIELER_EINWILLIGUNG.textVersion} states no deadline a pupil can count`);
   });
 
   /* The three other periods read as exhausting the outcomes, so a reader whose own confirmation
@@ -121,10 +149,19 @@ describe("LIGA_KENNTNISNAHMEN", () => {
     for (const [textVersion, fassung] of Object.entries(LIGA_KENNTNISNAHMEN)) {
       assert.ok(fassung.absaetze.length > 0, `${textVersion} holds no paragraph at all`);
 
-      for (const text of [...fassung.absaetze, fassung.schalter]) {
-        assert.equal(text.trim(), text, `${textVersion} holds a paragraph or a switch label padded with whitespace`);
-        assert.ok(text.length > 0, `${textVersion} holds an empty paragraph or switch label`);
+      for (const text of [...fassung.absaetze, fassung.schalter, ...Object.values(fassung.bedienelemente)]) {
+        assert.equal(text.trim(), text, `${textVersion} holds a paragraph or a control label padded with whitespace`);
+        assert.ok(text.length > 0, `${textVersion} holds an empty paragraph or control label`);
       }
+    }
+  });
+
+  /* The page places its sections BY KEY, the label freezes them BY POSITION. A rewording mints a
+     fresh array under a fresh label, leaving the keyed object behind and the page rendering words
+     no record cites. */
+  it("hands each page's keyed paragraphs and its stamped array the same words", () => {
+    for (const kenntnisnahme of [SPIELER_EINWILLIGUNG]) {
+      assert.deepEqual(Object.values(kenntnisnahme.absaetzeNachSchluessel), [...kenntnisnahme.absaetze]);
     }
   });
 

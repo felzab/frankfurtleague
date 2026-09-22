@@ -23,6 +23,12 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellung,
 )
 from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
+from app.api.registrierungen.schemas import (
+    FLRegistrierung,
+    FLRegistrierungBestaetigung,
+    FLRegistrierungEntscheidung,
+    FLRegistrierungStatus,
+)
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonBewerbung,
@@ -189,6 +195,14 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # nested in `zustellung` is a path `zustellung_pfad` cannot spell.
     (Collection.EINLADUNGEN, ("versand",), FLEinladungVersand, frozenset()),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
+    # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
+    (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
+    # The pupil's consent record on a second collection: widening `_EINWILLIGUNG` for either
+    # widens it for both, and this row is where that shows.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -343,6 +357,16 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    # The consent vocabulary at its second home: one sub-schema in Python, and the drift walk still
+    # reaches each collection's path on its own.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
+    # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
+    # pupil may answer neither.
+    (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
+    (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
 ]
 
 
@@ -421,9 +445,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer")): frozenset({"token_hash", "token_hash_zuvor"}),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash", "token_hash_zuvor"}),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash", "token_hash_zuvor"}),
-    # The pass's own clock rather than a fact about the season it is stored on: an operator asks
-    # whether the sweep ran, and no page of a season is that question.
-    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
+    # Each pass's own clock rather than a fact about the season they are stored on: an operator asks
+    # whether the sweeps ran, and no page of a season is that question.
+    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am", "registrierung_sweep_gelaufen_am"}),
     # The lookup key, and the whole of what a row holds about a person. Serving it would hand
     # whoever reads the list the one value a leaked collection is missing, and the label beside it
     # says which key that is.
@@ -435,6 +459,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.
     (Collection.EINLADUNGEN, ()): frozenset({"token_hash"}),
+    # The pupil's link, and the reminder's second one beside it: both live, both the whole
+    # credential, and no read recovers either.
+    (Collection.REGISTRIERUNGEN, ("bestaetigung",)): frozenset({"token_hash", "token_hash_zuvor"}),
 }
 
 

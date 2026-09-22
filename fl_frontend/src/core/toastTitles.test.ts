@@ -411,6 +411,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
   "Passkey eingerichtet": { variant: "success", identifies: "one site" },
   "Passkey nicht eingerichtet": { variant: "danger", identifies: "one site" },
+  "Registrierung nicht abgeschickt": { variant: "danger", identifies: "its description" },
   "Registrierungslink angelegt": { variant: "success", identifies: "one site" },
   "Registrierungslink gesendet": { variant: "success", identifies: "one site" },
   "Registrierungslink nicht angelegt": { variant: "danger", identifies: "one site" },

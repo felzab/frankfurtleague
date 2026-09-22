@@ -329,6 +329,45 @@ _BEWERBUNG_ENTSCHEIDUNG = _object(
     },
 )
 
+# A pupil's registration states one of two, and an admitted one states neither: the transaction that
+# admits it deletes the row.
+_REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
+
+# The registration's own confirmation bookkeeping, and never `_BEWERBUNG_BESTAETIGUNG`: that one
+# declares the decline a contact seat may give, which a pupil's page does not offer, and carries no
+# deadline of its own, the application's sitting on the application.
+_REGISTRIERUNG_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "frist"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        # The reminder's second hash: it mints a fresh link and keeps the one already in somebody's
+        # inbox valid. Out of `required` because the first mint writes only `token_hash`.
+        "token_hash_zuvor": {"bsonType": _STRING_OR_NULL},
+        "verschickt_am": {"bsonType": "string"},
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        # STORED rather than derived from `verschickt_am` and the bound: raising the bound would
+        # otherwise move the deadline of every link already in somebody's inbox.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `token_hash_zuvor`'s reason: a mint knows nothing yet about the
+        # message its link goes out in.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# Spelled out rather than assigned `_BEWERBUNG_ENTSCHEIDUNG`: one name over both would let a key
+# either flow adds reach the other, and a pupil's decision is taken on a different surface from a
+# school's.
+_REGISTRIERUNG_ENTSCHEIDUNG = _object(
+    nullable=True,
+    required=("getroffen_am", "von", "grund"),
+    properties={
+        "getroffen_am": {"bsonType": "string"},
+        "von": {"bsonType": "string"},
+        "grund": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
 _AUSTRITT = _object(
     nullable=True,
     required=("type", "grund", "datum"),
@@ -460,6 +499,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
                 "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
+                # Its own key beside the application sweep's, out of `required` on the same terms: a
+                # reader chasing a stale date learns WHICH pass stopped, and one key over both would
+                # answer that the other one ran.
+                "registrierung_sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -791,6 +834,53 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.REGISTRIERUNGEN: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "saison_id",
+                "team_id",
+                "einladung_id",
+                "eingereicht_am",
+                "status",
+                "vorname",
+                "nachname",
+                "email",
+                "position",
+                "nummer",
+                "stufe",
+                "geburtsdatum",
+                "einwilligung",
+                "entscheidung",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "team_id": {"bsonType": "objectId"},
+                "einladung_id": {"bsonType": "objectId"},
+                "eingereicht_am": {"bsonType": "string"},
+                "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
+                "vorname": {"bsonType": "string"},
+                "nachname": {"bsonType": "string"},
+                # As the pupil typed it, and never folded: this is the address the confirmation link
+                # was mailed to, and `spieler.email` holds the folded form the sign-in seam joins on.
+                "email": {"bsonType": "string"},
+                "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
+                # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.
+                "nummer": {"bsonType": _STRING_OR_NULL},
+                "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
+                # Required as KEYS and null until the pupil's own confirmation writes both in one
+                # `$set` (`docs/backend/spec.md :: I285`).
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
+                # :: ZIEL_PFADE`): the accepted send skips a row holding no carrier at all, and a
+                # row seeded without one still stores. Every submission composes it.
+                "bestaetigung": _REGISTRIERUNG_BESTAETIGUNG,
+                "entscheidung": _REGISTRIERUNG_ENTSCHEIDUNG,
+            },
+        )
+    },
 }
 
 
@@ -945,6 +1035,32 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "einladungen_token_hash",
         (("token_hash", ASCENDING),),
         "the invite page's lookup, driven by strangers",
+    ),
+    # Two indexes for one `$or`: "all the clauses in the $or expression must be supported by
+    # indexes. Otherwise, MongoDB performs a collection scan." Mirrored from
+    # https://www.mongodb.com/docs/manual/reference/operator/query/or/, which moves without us;
+    # read 2026-09-21.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_bestaetigung_token_hash",
+        (("bestaetigung.token_hash", ASCENDING),),
+        "the confirmation page's lookup, driven by strangers",
+    ),
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_bestaetigung_token_hash_zuvor",
+        (("bestaetigung.token_hash_zuvor", ASCENDING),),
+        "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
+    ),
+    # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
+    # "only when the query includes equality conditions on all prefix keys that precede the sort
+    # keys." Mirrored from
+    # https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/; read 2026-09-21.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_saison_id_team_id_queue",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
+        "one team's pending registrations for one season, newest first, narrowed by status or not",
     ),
 )
 

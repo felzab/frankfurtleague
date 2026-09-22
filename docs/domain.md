@@ -39,8 +39,9 @@ model holds; read this for the shape those tables are stating.
   on the club.
 - **Drawn** — the matchdays and the fixtures (`spieltage`, `spiele`), composed by one operation from a
   season's rules and the clubs entered into it.
-- **Standing apart** — one school's application to play one season (`bewerbungen`), one minted registration
-  link (`einladungen`) and one recorded write (`aktionen`).
+- **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
+  to play it (`registrierungen`), one minted registration link (`einladungen`), one barred address
+  (`sperrliste`) and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents. A club's league table is on neither, being computed from the matches.
@@ -61,10 +62,11 @@ fixtures true together: its place is unique among the other matchdays of its pha
 count comes from the season's rules rather than from the fixtures attached to it. The one operation that
 writes both — the season's draw, a confirmed replace of it included — writes them as a season's decision.
 
-**An application and a log row are each held true against nothing, and both are decisions.** Each states what
-was true when it was written — what one school submitted, that one write happened — and that stays true
-however the season, the club or the document it names changes afterwards, so no invariant holds either
-against another document and nothing has to be rewritten to keep one true. An application's `status` is a
+**An application, a pupil's registration and a log row are each held true against nothing, and all three are
+decisions.** Each states what was true when it was written — what one school submitted, what one pupil
+registered, that one write happened — and that stays true however the season, the club or the document it
+names changes afterwards, so no invariant holds any of them against another document and nothing has to be
+rewritten to keep one true. An application's `status` is a
 claim of the same kind: it says a junction row _was written_, not that one still stands. Accepting an
 application does write outside its own boundary, creating the club and its `saison_teams` row in one
 transaction, and what holds those writes to the season's rules is

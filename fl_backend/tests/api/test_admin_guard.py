@@ -88,6 +88,14 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
     ("/api/v0/bewerbungen/einwilligung/ansicht", "post"),
     ("/api/v0/bewerbungen/einwilligung", "post"),
+    # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
+    # the token is the whole credential, so the guard here would have no session to check.
+    ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
+    ("/api/v0/registrierungen/bestaetigung", "post"),
+    # The invite's own read and the registration it leads to: a pupil holds a link and no session,
+    # and the first is a POST because the link value travels in the body.
+    ("/api/v0/registrierungen/einladung/ansicht", "post"),
+    ("/api/v0/registrierungen", "post"),
 ]
 
 # The retention sweep's writes, made by the application to itself on the SYSTEM key: no session
@@ -96,10 +104,12 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
+    ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
     ("/api/v0/zustellung", "post"),
     ("/api/v0/zustellung/angenommen", "post"),
+    ("/api/v0/zustellung/abgewiesen", "post"),
     # A POST that stores nothing, listed for `ADMIN_READS`' Kontakte entry's reason: the address
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
@@ -138,6 +148,9 @@ ADMIN_READS = [
     ("/api/v0/saisons/{saison_id}/einladungen/versand/vorschau", "get"),
     # The invitation's own read serves `erstellt_von`, an administrator's address.
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", "get"),
+    # A registration holds a pupil's name, the address the league mailed and, once they confirm,
+    # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
+    ("/api/v0/registrierungen", "get"),
 ]
 
 

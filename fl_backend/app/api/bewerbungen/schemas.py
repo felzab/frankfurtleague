@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
@@ -15,6 +15,7 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
     _KontaktpersonWritablePayload,
 )
+from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -372,14 +373,6 @@ class FLAblehnenBewerbungResponse(BaseAPIResponse):
 # an undeclared key; the read models above stay lax (`docs/backend/spec.md :: I49`).
 
 
-def _whole_years_between(*, born: str, today: str) -> int:
-    """Whole years elapsed, so a birthday later this year has not been reached yet."""
-
-    birth, now = date.fromisoformat(born), date.fromisoformat(today)
-
-    return now.year - birth.year - ((now.month, now.day) < (birth.month, birth.day))
-
-
 def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
@@ -387,7 +380,7 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter
     clock. Both messages reach the log alone (`docs/logging/spec.md :: L4`).
     """
 
-    age = _whole_years_between(born=geburtsdatum, today=today)
+    age = whole_years_between(born=geburtsdatum, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
     # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
@@ -976,12 +969,16 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."""
+    """Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database."""
 
     saison_ids: list[str]
     # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
     # once (`docs/backend/spec.md :: I189`). Null means no pass has ever run here.
     sweep_gelaufen_am: CustomDateString | None
+    # The registration pass's own day, answered from the read this operation already makes: the two
+    # clocks run in one process and stop separately, so a fresh date beside a stale one is what says
+    # which of them stopped.
+    registrierung_sweep_gelaufen_am: CustomDateString | None
 
 
 # --- The ZUSTELLSTAND, system tier. One endpoint records what the sender learned, the other applies

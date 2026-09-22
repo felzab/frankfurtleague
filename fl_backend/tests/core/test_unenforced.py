@@ -8,6 +8,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
@@ -769,9 +770,12 @@ class TestAPersonWithNoSquadRow:
 
 
 class TestAPupilStoredWithNoBirthdate:
-    """That the person create takes a null date, that a stored person needs no key, and that the league's age reaches no squad module."""
+    """That the one write judging a date demands one, that a stored person needs no key, and that the league's age reaches no squad module."""
 
-    def test_the_person_create_takes_a_null_date(self):
+    def test_the_write_that_judges_a_date_demands_one_while_the_person_does_not(self):
+        """The asymmetry this entry is about: a pupil cannot answer their confirmation dateless, and the person it becomes may carry none."""
+
+        assert FLRegistrierungBestaetigungPayload.model_fields["geburtsdatum"].is_required()
         assert FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None).geburtsdatum is None
 
     def test_a_stored_person_carrying_no_key_still_validates(self):

@@ -1,6 +1,10 @@
+import Link from "next/link";
+
 import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
 import { tv } from "tailwind-variants";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
+import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -170,5 +174,37 @@ export function BestaetigungErgebnis({
       />
       {children}
     </section>
+  );
+}
+
+/** The action a result panel offers, in the width the panel gives it rather than the page's. */
+export function Aktion({ children }: { children: ReactNode }) {
+  return <div className="flex w-full max-w-xs flex-col">{children}</div>;
+}
+
+/** The way back for a reader whose business here is done. */
+export function ZurLiga() {
+  return (
+    <Aktion>
+      <Link
+        href="/"
+        prefetch={false}
+        className={ctaButton({ intent: "outline", hover: "css" })}>
+        Zur Frankfurt League
+      </Link>
+    </Aktion>
+  );
+}
+
+/** The way out for a reader a panel could not help: a mailbox, never a form they have no link for. */
+export function FrageStellen() {
+  return (
+    <Aktion>
+      <a
+        href={`mailto:${KONTAKT_EMAIL}`}
+        className={ctaButton({ intent: "primary", hover: "css" })}>
+        Frage stellen
+      </a>
+    </Aktion>
   );
 }

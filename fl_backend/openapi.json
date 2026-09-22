@@ -2313,6 +2313,177 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/registrierungen": {
+      "get": {
+        "summary": "List Registrierungen",
+        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves.",
+        "operationId": "get_registrierungen_api_v0_registrierungen_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 4,
+                  "maxLength": 4
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "eingereicht",
+                    "abgelehnt"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "eingereicht_am",
+              "type": "string",
+              "default": "eingereicht_am",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Register through a team's link",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.",
+        "operationId": "post_registrierung_api_v0_registrierungen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostRegistrierungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostRegistrierungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "base"
+      }
+    },
     "/api/v0/spiele/list/admin": {
       "get": {
         "summary": "Spiele for the admin surfaces",
@@ -5269,10 +5440,145 @@
         "x-fl-tier": "base"
       }
     },
+    "/api/v0/registrierungen/einladung/ansicht": {
+      "post": {
+        "summary": "What a registration link opens",
+        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA POST because the link value travels in the body and never in a path the edge would log. A shut\nwindow is a STATE here rather than a refusal, so a link opened after the deadline reads as closed\nrather than as invalid; only a link that opens no live invite is refused.",
+        "operationId": "post_einladung_ansicht_api_v0_registrierungen_einladung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/registrierungen/bestaetigung/ansicht": {
+      "post": {
+        "summary": "What one registration confirmation link opens",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, and the wording's version. Beside them the three answers the league already holds for this\nperson -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what\nstands rather than entering it again. That person is matched on the registration's folded address AND its\nfolded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one\nof them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/registrierungen/bestaetigung": {
+      "post": {
+        "summary": "Confirm one registration and record the pupil's consent",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age\nbelow the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and\nthe pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
         "operationId": "get_sweep_saisons_api_v0_bewerbungen_sweep_get",
         "responses": {
           "200": {
@@ -5542,6 +5848,52 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/registrierungen/sweep/{saison_id}": {
+      "post": {
+        "summary": "Run one season's registration retention clocks",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe season's own end comes first: once the season is `past`, every registration still awaiting a decision is erased whatever the\npupil answered, because no admission can be taken for a season that is over. The confirmed ones among them are listed in\n`benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is told neither before nor\nafter, its address never having been confirmed. Then an unconfirmed registration strictly past its deadline is erased with no\nnotice at all, the confirmation mail having named that day. Then one reminder per registration at its reminder age: a fresh link\nis minted and `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and\nthe link already in that inbox stays valid beside the fresh one. A registration whose last message the mail provider refused is\nnot chased at all. Last, a declined registration is erased a month after the decision. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
     "/api/v0/zustellung/angenommen": {
       "post": {
         "summary": "Record the message the provider accepted for this record",
@@ -5552,6 +5904,51 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FLZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung/abgewiesen": {
+      "post": {
+        "summary": "Record the send the provider refused for this record",
+        "description": "Record that the mail provider refused the send itself, so no message about this record exists.\n\nThe send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without\nthis state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.\n\nJudged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record\nalready holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider\nstamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no\ndocument of that kind has the id.",
+        "operationId": "abgewiesen_zustellung_api_v0_zustellung_abgewiesen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungAbgewiesenPayload"
               }
             }
           },
@@ -7898,15 +8295,28 @@
               }
             ],
             "title": "Sweep Gelaufen Am"
+          },
+          "registrierung_sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registrierung Sweep Gelaufen Am"
           }
         },
         "type": "object",
         "required": [
           "saison_ids",
-          "sweep_gelaufen_am"
+          "sweep_gelaufen_am",
+          "registrierung_sweep_gelaufen_am"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
-        "description": "Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."
+        "description": "Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database."
       },
       "FLBewerbungSweepSeat": {
         "properties": {
@@ -8826,6 +9236,104 @@
         ],
         "title": "FLEinladung",
         "description": "One minted link as it is served -- and NO `token_hash`.\n\nA model declaring the hash would put every live link of the season on an admin read\n(`docs/backend/spec.md :: I275`)."
+      },
+      "FLEinladungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLEinladungAnsichtPayload",
+        "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for."
+      },
+      "FLEinladungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "schule": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Schule"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "saison_status": {
+            "type": "string",
+            "enum": [
+              "past",
+              "active",
+              "future"
+            ],
+            "title": "Saison Status"
+          },
+          "laeuft": {
+            "type": "boolean",
+            "title": "Laeuft"
+          },
+          "erlaubte_stufen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "E1",
+                "E2",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            },
+            "type": "array",
+            "title": "Erlaubte Stufen"
+          },
+          "team_eingetragen": {
+            "type": "boolean",
+            "title": "Team Eingetragen"
+          },
+          "kader_frei": {
+            "type": "boolean",
+            "title": "Kader Frei"
+          },
+          "nachnominierung": {
+            "type": "boolean",
+            "title": "Nachnominierung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team",
+          "schule",
+          "saison_id",
+          "saison_status",
+          "laeuft",
+          "erlaubte_stufen",
+          "team_eingetragen",
+          "kader_frei",
+          "nachnominierung"
+        ],
+        "title": "FLEinladungAnsichtResponse",
+        "description": "What an invite's holder is told before they type anything.\n\nEach field is something the link's own message already said, or something the form is bounded\nby: a select offering more than the write accepts is a drifted client."
       },
       "FLEinladungEmpfaenger": {
         "properties": {
@@ -10947,6 +11455,149 @@
         "title": "FLPostBewerbungResponse",
         "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between."
       },
+      "FLPostRegistrierungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "vorname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "vorname",
+          "nachname",
+          "email",
+          "position",
+          "nummer",
+          "stufe"
+        ],
+        "title": "FLPostRegistrierungPayload",
+        "description": "One pupil registering through a team's link.\n\nThe league's own fields -- the team, the season, the state, the deadline and the confirmation\nlink -- are taken off the invite and the clock, never off this body."
+      },
+      "FLPostRegistrierungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "bestaetigung_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Bestaetigung Token"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "bestaetigung_token",
+          "frist",
+          "team",
+          "saison_id",
+          "email"
+        ],
+        "title": "FLPostRegistrierungResponse",
+        "description": "The stored registration and the raw confirmation link, answered here and never again.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
+      },
       "FLPostSaisonPayload": {
         "properties": {
           "start_date": {
@@ -11455,6 +12106,628 @@
           "created_id"
         ],
         "title": "FLPostTeamResponse"
+      },
+      "FLRegistrierung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Eingereicht Am"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "eingereicht",
+              "abgelehnt"
+            ],
+            "title": "Status"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "einwilligung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entscheidung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungEntscheidung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigt": {
+            "type": "boolean",
+            "title": "Bestaetigt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "team_id",
+          "einladung_id",
+          "eingereicht_am",
+          "status",
+          "vorname",
+          "nachname",
+          "email",
+          "position",
+          "nummer",
+          "stufe",
+          "geburtsdatum",
+          "einwilligung",
+          "bestaetigung",
+          "entscheidung",
+          "bestaetigt"
+        ],
+        "title": "FLRegistrierung",
+        "description": "One pupil's registration for one team's season, as it is stored.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
+      },
+      "FLRegistrierungBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLRegistrierungBestaetigung",
+        "description": "One registration's confirmation bookkeeping as an administrator reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirmation query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire."
+      },
+      "FLRegistrierungBestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLRegistrierungBestaetigungAnsichtPayload",
+        "description": "A POST that reads: the token travels in a body, never in a second URL."
+      },
+      "FLRegistrierungBestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "bestaetigt",
+              "abgelaufen"
+            ],
+            "title": "Zustand"
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "schule": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Schule"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "team",
+          "schule",
+          "saison_id",
+          "vorname",
+          "text_version",
+          "mindestalter",
+          "geburtsdatum",
+          "umfang",
+          "medien"
+        ],
+        "title": "FLRegistrierungBestaetigungAnsichtResponse",
+        "description": "What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."
+      },
+      "FLRegistrierungBestaetigungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "geburtsdatum",
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLRegistrierungBestaetigungPayload",
+        "description": "One pupil's own answer: their date of birth, and the two consents that stand under one record."
+      },
+      "FLRegistrierungBestaetigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "ergebnis": {
+            "type": "string",
+            "const": "bestaetigt",
+            "title": "Ergebnis"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis",
+          "geburtsdatum",
+          "umfang",
+          "medien"
+        ],
+        "title": "FLRegistrierungBestaetigungResponse",
+        "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
+      },
+      "FLRegistrierungEntscheidung": {
+        "properties": {
+          "getroffen_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Getroffen Am"
+          },
+          "von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Von"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "getroffen_am",
+          "von",
+          "grund"
+        ],
+        "title": "FLRegistrierungEntscheidung",
+        "description": "Who declined this registration, when, and why.\n\nIts own model beside the application's: one shape over both would let a field either flow adds\nreach the other, where a pupil's record and a school's are decided by different surfaces."
+      },
+      "FLRegistrierungSweepBenachrichtigung": {
+        "properties": {
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team": {
+            "type": "string",
+            "title": "Team"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "saison_id",
+          "team",
+          "vorname",
+          "email"
+        ],
+        "title": "FLRegistrierungSweepBenachrichtigung",
+        "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing."
+      },
+      "FLRegistrierungSweepErinnerung": {
+        "properties": {
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team": {
+            "type": "string",
+            "title": "Team"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "saison_id",
+          "team",
+          "vorname",
+          "email",
+          "token"
+        ],
+        "title": "FLRegistrierungSweepErinnerung",
+        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one (`docs/backend/spec.md :: I296`)."
+      },
+      "FLRegistrierungSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "erinnerungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierungSweepErinnerung"
+            },
+            "type": "array",
+            "title": "Erinnerungen"
+          },
+          "benachrichtigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierungSweepBenachrichtigung"
+            },
+            "type": "array",
+            "title": "Benachrichtigt"
+          },
+          "geloescht_unbestaetigt": {
+            "type": "integer",
+            "title": "Geloescht Unbestaetigt"
+          },
+          "geloescht_ohne_entscheidung": {
+            "type": "integer",
+            "title": "Geloescht Ohne Entscheidung"
+          },
+          "geloescht_abgelehnt": {
+            "type": "integer",
+            "title": "Geloescht Abgelehnt"
+          },
+          "redigierte_aktionen": {
+            "type": "integer",
+            "title": "Redigierte Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "erinnerungen",
+          "benachrichtigt",
+          "geloescht_unbestaetigt",
+          "geloescht_ohne_entscheidung",
+          "geloescht_abgelehnt",
+          "redigierte_aktionen"
+        ],
+        "title": "FLRegistrierungSweepResponse",
+        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.\n\nThe ordering that makes those three true is `docs/backend/spec.md :: I297`."
+      },
+      "FLRegistrierungenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierung"
+            },
+            "type": "array",
+            "title": "Registrierungen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierungen",
+          "vollstaendig"
+        ],
+        "title": "FLRegistrierungenListResponse",
+        "description": "The pending rows, newest first, and whether that is the whole of them."
       },
       "FLReplaceSaisonTeamPayload": {
         "properties": {
@@ -15480,13 +16753,14 @@
         "title": "FLUndrawSpielplanResponse",
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
       },
-      "FLZustellungAngenommenPayload": {
+      "FLZustellungAbgewiesenPayload": {
         "properties": {
           "ziel": {
             "type": "string",
             "enum": [
               "schiedsrichter",
-              "einladung"
+              "einladung",
+              "registrierung"
             ],
             "title": "Ziel"
           },
@@ -15494,17 +16768,24 @@
             "type": "string",
             "title": "Ziel Id"
           },
-          "nachricht_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Nachricht Id"
-          },
           "am": {
             "type": "string",
             "maxLength": 64,
             "minLength": 1,
             "title": "Am"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
           }
         },
         "additionalProperties": false,
@@ -15512,8 +16793,47 @@
         "required": [
           "ziel",
           "ziel_id",
-          "nachricht_id",
-          "am"
+          "am",
+          "grund"
+        ],
+        "title": "FLZustellungAbgewiesenPayload",
+        "description": "A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join."
+      },
+      "FLZustellungAngenommenPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "enum": [
+              "schiedsrichter",
+              "einladung",
+              "registrierung"
+            ],
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "am",
+          "nachricht_id"
         ],
         "title": "FLZustellungAngenommenPayload",
         "description": "One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state."
@@ -15524,7 +16844,8 @@
             "type": "string",
             "enum": [
               "schiedsrichter",
-              "einladung"
+              "einladung",
+              "registrierung"
             ],
             "title": "Ziel"
           },
@@ -15532,17 +16853,17 @@
             "type": "string",
             "title": "Ziel Id"
           },
-          "nachricht_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Nachricht Id"
-          },
           "am": {
             "type": "string",
             "maxLength": 64,
             "minLength": 1,
             "title": "Am"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
           },
           "stand": {
             "type": "string",
@@ -15574,8 +16895,8 @@
         "required": [
           "ziel",
           "ziel_id",
-          "nachricht_id",
           "am",
+          "nachricht_id",
           "stand",
           "grund"
         ],

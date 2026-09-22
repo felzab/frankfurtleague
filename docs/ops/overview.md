@@ -26,7 +26,7 @@ graph TB
     cf --> connector
     connector --> nginx
     nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/bestaetigung · /api/signin/bestaetigen · /api/mail/zustellung<br/>/api/admin/ · /signin · /_next/static · /"| fe
+    nginx -->|"every path but the liveness probe"| fe
     fe -->|"server-side fetch"| be
     fe -->|"auth database only"| mongo
     be --> mongo

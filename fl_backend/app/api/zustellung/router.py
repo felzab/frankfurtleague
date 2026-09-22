@@ -8,8 +8,14 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 # The application's slice owns the two judges, and the rules inside them are the whole idempotency
 # of both routers: a second copy would let one home settle an event the other replays.
 from app.api.bewerbungen.services import zustellung_event_applies, zustellung_send_applies
-from app.api.zustellung.schemas import FLZustellungAngenommenPayload, FLZustellungEreignisPayload, FLZustellungResponse, FLZustellungZiel
-from app.api.zustellung.services import ZIEL_PFADE, compose_ziel_zustellung_update, zustellung_projektion
+from app.api.zustellung.schemas import (
+    FLZustellungAbgewiesenPayload,
+    FLZustellungAngenommenPayload,
+    FLZustellungEreignisPayload,
+    FLZustellungResponse,
+    FLZustellungZiel,
+)
+from app.api.zustellung.services import ABGEWIESENER_VERSAND_STAND, ZIEL_PFADE, compose_ziel_zustellung_update, zustellung_projektion
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
@@ -96,6 +102,39 @@ async def angenommen_zustellung(
         # from the refusal before it would read as this message's own.
         grund=None,
         am=angenommen_data.am,
+    )
+
+
+@router.post("/abgewiesen", response_model=FLZustellungResponse, summary="Record the send the provider refused for this record")
+async def abgewiesen_zustellung(
+    abgewiesen_data: Annotated[FLZustellungAbgewiesenPayload, Body()],
+    db: DB,
+    db_client: DBClient,
+) -> FLZustellungResponse:
+    """
+    Record that the mail provider refused the send itself, so no message about this record exists.
+
+    The send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without
+    this state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.
+
+    Judged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record
+    already holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider
+    stamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no
+    document of that kind has the id.
+    """
+
+    return await _apply(
+        db=db,
+        db_client=db_client,
+        ziel=abgewiesen_data.ziel,
+        ziel_id=abgewiesen_data.ziel_id,
+        judge=lambda *, bestaetigungen, seat: zustellung_send_applies(bestaetigungen=bestaetigungen, seat=seat, am=abgewiesen_data.am),
+        stand=ABGEWIESENER_VERSAND_STAND,
+        # Empty by construction: no message was minted, so a synthetic id would let a real event
+        # about a real message read as unrelated to the record it was sent about.
+        nachricht_id="",
+        grund=abgewiesen_data.grund,
+        am=abgewiesen_data.am,
     )
 
 

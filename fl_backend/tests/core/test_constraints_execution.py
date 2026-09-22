@@ -60,6 +60,7 @@ ORPHAN_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200008")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
+REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
 
 # The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
 # fails here instead of quietly changing what the report is understood to mean.
@@ -268,6 +269,31 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "erstellt_von": "admin@example.invalid",
             "widerrufen_am": None,
             "versand": {},
+        },
+        # Every key the submission writes, `geburtsdatum`, `einwilligung` and `entscheidung`
+        # included: each is a stored null rather than an absent key, which is what `required` means.
+        "registrierungen": {
+            "_id": REGISTRIERUNG_OID,
+            "saison_id": SAISON_ID,
+            "team_id": TEAM_OID,
+            "einladung_id": EINLADUNG_OID,
+            "eingereicht_am": "2026-03-16",
+            "status": "eingereicht",
+            "vorname": "Thessaly",
+            "nachname": "Okonkwo-Brandt",
+            "email": "thessaly@example.invalid",
+            "position": "Mittelfeld",
+            "nummer": "17",
+            "stufe": "Q1",
+            "geburtsdatum": None,
+            "einwilligung": None,
+            "bestaetigung": {
+                "token_hash": "c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200",
+                "verschickt_am": "2026-03-16",
+                "erinnert_am": None,
+                "frist": "2026-03-23",
+            },
+            "entscheidung": None,
         },
     }
 

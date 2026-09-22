@@ -1,9 +1,11 @@
 import "server-only";
 
+import { MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailWithheldError, sendMail } from "@/core/mail";
+import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
 
-import { meldeZielZustellungAngenommen } from "./mutations";
+import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
+import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 
 import type { OutboundMail } from "@/core/mail";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
@@ -87,6 +89,44 @@ async function meldeAngenommen(auftrag: ZielAuftrag, nachrichtId: string, operat
   }
 }
 
+/**
+ * A retry that could still land, and a request that never reached the provider, say nothing about the
+ * mailbox: a record marking one unreachable spends the person's one reminder and lets the deadline
+ * erase the row.
+ */
+function versandIstAbgewiesen(reason: unknown): boolean {
+  if (reason instanceof MailRecipientError) return true;
+
+  return reason instanceof MailSendError && !reason.isTransient;
+}
+
+/** The record an address the provider would not take covered, stamped with THIS server's clock. */
+async function meldeAbgewiesen(auftrag: ZielAuftrag, reason: unknown, operation: string): Promise<void> {
+  // Screened through the mirror rather than sent as it came: the token is the provider's own JSON,
+  // and one past the endpoint's bound would be answered 422, losing the record over its reason.
+  const token = reason instanceof MailSendError ? reason.providerErrorName : reason instanceof Error ? reason.name : null;
+  const gescreent = FLZustellungAbgewiesenPayloadSchema.shape.grund.safeParse(token ?? null);
+
+  try {
+    await meldeZielZustellungAbgewiesen({
+      ziel: auftrag.ziel,
+      ziel_id: auftrag.zielId,
+      grund: gescreent.success ? gescreent.data : null,
+      // This host's clock, as the accepted send's is: the backend orders the two against each other
+      // (`fl_backend/app/api/bewerbungen/services.py :: zustellung_send_applies`).
+      am: new Date().toISOString(),
+    });
+  } catch (error) {
+    // Never thrown on: the person's page is answered from the fan-out's own result, and the next
+    // send repairs the record. Name only, never the error (`docs/logging/spec.md :: L9`).
+    logger.error("zustellung.abweisung_ungemeldet", undefined, {
+      error_code: "FE-MAIL-003",
+      name: error instanceof Error ? error.name : undefined,
+      operation: operation,
+    });
+  }
+}
+
 // `fl_frontend/src/features/bewerbungen/notifications.ts :: settleFanOut`'s twin rather than a
 // branch inside it: that one's recipient carries the seats a message answers for and this one's
 // carries none, so one function would take a shape neither caller can satisfy.
@@ -141,6 +181,9 @@ export async function sendZielMail({
     unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
     if (result.reason instanceof MailWithheldError) withheld.push(address);
+    // The submit is where a refused address is learnt at all: no message was minted, so no delivery
+    // event will ever carry this to the record the clocks read.
+    if (versandIstAbgewiesen(result.reason)) gemeldet.push(meldeAbgewiesen(auftrag, result.reason, operation));
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
     // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
     logger.error("zustellung.mail_failed", undefined, {

@@ -3,34 +3,33 @@ import { describe, it } from "node:test";
 
 import { FLBewerbungZustellungEreignisPayloadSchema } from "@/features/bewerbungen/schemas";
 
-import { FLZustellungEreignisPayloadSchema } from "./schemas";
+import { FLZustellungAbgewiesenPayloadSchema, FLZustellungEreignisPayloadSchema } from "./schemas";
 
 const ZIEL_ID = `${"c".repeat(23)}3`;
 const BEWERBUNG_ID = `${"a".repeat(23)}1`;
 const MESSAGE_ID = "56761188-7520-42d8-8898-ff6fc54ce618";
 const EVENT_AT = "2026-09-08T10:15:00.000Z";
 
-/** The two mirrors of one backend field, so a screen added to either alone fails here rather than at a 422 nobody sees. */
+/** Every mirror of one backend field, so a screen added to one alone fails here rather than at a 422 nobody sees. */
 const MIRRORS = [
   [
     "features/zustellung/schemas.ts :: FLZustellungEreignisPayloadSchema",
     FLZustellungEreignisPayloadSchema,
-    { ziel: "schiedsrichter", ziel_id: ZIEL_ID },
+    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, nachricht_id: MESSAGE_ID, stand: "unzustellbar", am: EVENT_AT },
   ],
   [
     "features/bewerbungen/schemas.ts :: FLBewerbungZustellungEreignisPayloadSchema",
     FLBewerbungZustellungEreignisPayloadSchema,
-    { bewerbung_id: BEWERBUNG_ID, rollen: ["ansprechperson"] },
+    { bewerbung_id: BEWERBUNG_ID, rollen: ["ansprechperson"], nachricht_id: MESSAGE_ID, stand: "unzustellbar", am: EVENT_AT },
+  ],
+  [
+    "features/zustellung/schemas.ts :: FLZustellungAbgewiesenPayloadSchema",
+    FLZustellungAbgewiesenPayloadSchema,
+    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, am: EVENT_AT },
   ],
 ] as const;
 
-const bodyFor = (keys: Record<string, unknown>, grund: string | null) => ({
-  ...keys,
-  nachricht_id: MESSAGE_ID,
-  stand: "unzustellbar",
-  grund: grund,
-  am: EVENT_AT,
-});
+const bodyFor = (keys: Record<string, unknown>, grund: string | null) => ({ ...keys, grund: grund });
 
 describe("the provider's own token, as both mirrors screen it", () => {
   for (const [name, schema, keys] of MIRRORS) {

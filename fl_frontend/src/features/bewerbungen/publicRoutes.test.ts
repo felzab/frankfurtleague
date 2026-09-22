@@ -1483,10 +1483,16 @@ describe("what one answered seat sets the confirmation route sending", () => {
     };
     // The handler's own two steps, in its order: the stamp rewrites the body, and the schema judges
     // what the stamp produced.
-    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(stampEinwilligungFassung(foreignBody));
+    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(
+      stampEinwilligungFassung(foreignBody, BESTAETIGUNG_KENNTNISNAHME.textVersion),
+    );
 
     assert.equal(stamped.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
-    assert.match(CONFIRM_ROUTE, /stampEinwilligungFassung\(body\)/, "the browser's own label reaches the endpoint");
+    assert.match(
+      CONFIRM_ROUTE,
+      /stampEinwilligungFassung\(body, BESTAETIGUNG_KENNTNISNAHME\.textVersion\)/,
+      "the browser's own label reaches the endpoint",
+    );
     assert.doesNotMatch(CONFIRM_ROUTE, /safeParse\(body\)/, "the body is judged before its label is replaced");
   });
 
@@ -1500,7 +1506,11 @@ describe("what one answered seat sets the confirmation route sending", () => {
       false,
       "the label is optional, so the stamp's position decides nothing",
     );
-    assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion)).success, true);
+    assert.equal(
+      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion, BESTAETIGUNG_KENNTNISNAHME.textVersion))
+        .success,
+      true,
+    );
   });
 
   /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than

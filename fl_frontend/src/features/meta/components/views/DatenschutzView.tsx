@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
+import { VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
+import { REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
@@ -115,6 +117,11 @@ const FRISTEN = [
     daten: "Bewerbung, über die nicht entschieden wurde, samt den Daten der drei Kontaktpersonen",
     frist: "Bis zum Ende der beworbenen Saison",
   },
+  {
+    daten: "Registrierung eines Spielers oder einer Spielerin",
+    frist:
+      "7 Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung",
+  },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
@@ -190,8 +197,8 @@ export function DatenschutzView() {
               Schiedsrichtern genau aussieht, steht in Abschnitt 10.
             </li>
             <li className={ABSATZ}>
-              Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein; als Ansprechperson oder Stellvertretung
-              mindestens 18.
+              Mitspielen, Pfeifen und Kontaktperson einer Bewerbung sein kann nur, wer mindestens {REGISTRIERUNG_MIN_ALTER} Jahre alt ist; als
+              Ansprechperson oder Stellvertretung mindestens {VERTRETUNG_MIN_ALTER}.
             </li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
@@ -433,15 +440,16 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Vorname und erster Buchstabe des
-            Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten
-            ist; ohne sie steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
-            angegeben sind.
+            Wer im Kader eines Teams steht, meldet sich über den Link seines Teams selbst an und bestätigt das per E-Mail. Wer ein Spiel pfeift,
+            wird von der Verwaltung eingetragen und bestätigt den Eintrag über einen Link. Vorname und erster Buchstabe des Nachnamens einer
+            Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten ist; ohne sie
+            steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie angegeben sind.
           </p>
           <p className={ABSATZ}>
-            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
-            nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
-            wir damit nicht. Ein Mindestalter gilt allein für die Kontaktpersonen einer Bewerbung.
+            Wer sich über den Link eines Teams registriert oder einen Eintrag als Schiedsrichterin oder Schiedsrichter bestätigt, trägt dabei
+            das eigene Geburtsdatum ein. Die Angabe ist Pflicht und wird nicht veröffentlicht: Mitspielen und Pfeifen kann nur, wer mindestens{" "}
+            {REGISTRIERUNG_MIN_ALTER} Jahre alt ist, und das prüfen wir an diesem Datum. Bei Spielerinnen und Spielern, die schon vor der
+            Registrierung im Kader standen, kann die Verwaltung das Geburtsdatum nachtragen.
           </p>
           <p className={ABSATZ}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil

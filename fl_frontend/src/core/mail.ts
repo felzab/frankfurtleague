@@ -73,6 +73,18 @@ export class MailWithheldError extends Error {
   }
 }
 
+/**
+ * Raised where the recipient's domain has no ASCII form. Beside `MailWithheldError` rather than in
+ * `errors.ts` for its reason, and carrying no address for the same one.
+ */
+export class MailRecipientError extends Error {
+  constructor() {
+    super("The recipient's domain cannot be written in ASCII.");
+
+    this.name = "MailRecipientError";
+  }
+}
+
 /** The errno token where a failure carries one — `EEXIST`, `EACCES` — and nothing else. */
 function errnoCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;

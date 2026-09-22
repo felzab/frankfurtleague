@@ -13,7 +13,10 @@ from app.api.einladungen.schemas import FLEinladungVersandPayload
 from app.api.einladungen.services import (
     EINLADUNG_SAISON_VORBEI,
     EINLADUNG_TEAM_NICHT_EINGETRAGEN,
+    EINLADUNG_UNBEKANNT,
     WITHOUT_TOKEN_HASH,
+    find_live_einladung_filter,
+    find_unknown_einladung_refusal,
 )
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
@@ -327,6 +330,49 @@ class TestReissuingALink:
         assert len(rows) == 2
         assert [row["widerrufen_am"] for row in rows if row["_id"] == ObjectId(first.einladung_id)] == [TODAY]
         assert [row["widerrufen_am"] for row in rows if row["_id"] == ObjectId(second.einladung_id)] == [None]
+
+    def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
+        """`REQ-EINLADUNG-003` over the filter S9 reads: the revocation term is half of it, and a hash alone finds the spent row."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            first = await mint(database, TWO_SEATS)
+            await mint(database, TWO_SEATS)
+
+            found = await database[Collection.EINLADUNGEN].find_one(dict(find_live_einladung_filter(token_hash=hash_token(first.token))))
+            by_hash_alone = await database[Collection.EINLADUNGEN].count_documents({"token_hash": hash_token(first.token)})
+            # A value no mint ever produced, so the second cause is driven rather than assumed.
+            unknown = await database[Collection.EINLADUNGEN].find_one(dict(find_live_einladung_filter(token_hash=hash_token("never-minted"))))
+
+            return found, by_hash_alone, unknown
+
+        found, by_hash_alone, unknown = on_a_league(mongo_replica_set_url, body)
+
+        assert found is None
+        # The row is still there, which is what makes the revocation term load-bearing.
+        assert by_hash_alone == 1
+        assert unknown is None
+
+        # The only rung both causes exist at: a replaced link and a stranger's guess answer with
+        # the SAME refusal, message included, so nothing tells the guess it hit a real link.
+        replaced = find_unknown_einladung_refusal(einladung_raw=found)
+        guessed = find_unknown_einladung_refusal(einladung_raw=unknown)
+
+        assert replaced is not None
+        assert replaced.error_code == EINLADUNG_UNBEKANNT
+        assert replaced == guessed
+
+    def test_the_live_link_opens(self, mongo_replica_set_url: str):
+        """The control: a filter that found nothing for any hash would pass the case above and refuse every visitor."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            minted = await mint(database, TWO_SEATS)
+
+            return await database[Collection.EINLADUNGEN].find_one(dict(find_live_einladung_filter(token_hash=hash_token(minted.token))))
+
+        found = on_a_league(mongo_replica_set_url, body)
+
+        assert found is not None
+        assert find_unknown_einladung_refusal(einladung_raw=found) is None
 
 
 class TestTwoMintsAtOnce:

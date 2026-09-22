@@ -44,6 +44,11 @@ const BACKEND_ONLY: Record<string, string> = {
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+
+  FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
+  FLRegistrierung: "the row of that read, which no page consumes",
+  FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
+  FLRegistrierungEntscheidung: "that row's decision block, which no page consumes",
 };
 
 /**
@@ -79,6 +84,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -346,7 +352,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 209;
+const EXPECTED_PAIRS = 221;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

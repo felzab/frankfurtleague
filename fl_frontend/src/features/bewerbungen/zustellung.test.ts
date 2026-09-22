@@ -104,7 +104,7 @@ function bewerbungsMeldung(raw: unknown) {
 /** An application id as `CustomObjectIdStringSchema` demands it: 24 hex characters and nothing else. */
 const BEWERBUNG_ID = `${"a".repeat(23)}1`;
 
-/** A referee's own row, which is the one kind `ZIEL_PFADE` has a home for today. */
+/** A row of one of the kinds `@/features/zustellung/schemas :: FLZustellungZielSchema` admits. */
 const ZIEL_ID = `${"c".repeat(23)}3`;
 const MESSAGE_ID = "56761188-7520-42d8-8898-ff6fc54ce618";
 const ADDRESS = "erika@schule.de";
@@ -312,7 +312,9 @@ describe("which record one event names", () => {
   /* The tag is a value the provider echoes back from whatever it was handed, so a kind that failed
      the set is attacker-shaped text and never leaves here. */
   it("marks a kind this side has no home for as unplaceable, and names no kind", () => {
-    for (const ziel of ["registrierung", "bewerbung", "<script>"]) {
+    // „bewerbung“ among them because an application's event is placed by its own id rather than by
+    // this tag, so the kind reading like the one this file is about is exactly the one refused here.
+    for (const ziel of ["bewerbung", "spieler", "<script>"]) {
       assert.deepEqual(
         leseZustellEreignis(zielEvent({ ziel: ziel, ziel_id: ZIEL_ID, anlass: "eingang" })),
         { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null },

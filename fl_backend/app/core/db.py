@@ -204,3 +204,9 @@ async def get_einladungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.EINLADUNGEN]
+
+
+async def get_registrierungen_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.REGISTRIERUNGEN]

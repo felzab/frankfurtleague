@@ -166,6 +166,15 @@ const expectedCallerFiles = featureSlices
   .flatMap((slice) => [path.join(FEATURES_DIR, slice, "queries.ts"), path.join(FEATURES_DIR, slice, "mutations.ts")])
   .filter((file) => existsSync(file));
 
+/**
+ * A read module whose slice reaches the client through its sibling. **Each entry is a decision, not
+ * a backlog row**: the run still compares every request the slice composes.
+ */
+const DELEGATING_CALLERS: Record<string, string> = {
+  "features/registrierungen/queries.ts":
+    "both reads of this slice are POSTs, the token riding in the body rather than the query string, so their calls are in mutations.ts",
+};
+
 const configFile = ts.readConfigFile(path.join(FRONTEND_DIR, "tsconfig.json"), ts.sys.readFile);
 const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, FRONTEND_DIR);
 // `incremental` off so reading the tree writes no build-info file beside it.
@@ -441,13 +450,21 @@ describe("the reader sees every call site", () => {
   });
 
   it("finds a call in every queries and mutations module", () => {
-    const silent = expectedCallerFiles.map(asPosix).filter((file) => !calls.some((call) => call.where.startsWith(`${file}:`)));
+    const yields = (file: string): boolean => calls.some((call) => call.where.startsWith(`${file}:`));
+    const silent = expectedCallerFiles.map(asPosix).filter((file) => !yields(file) && !(file in DELEGATING_CALLERS));
 
     assert.deepEqual(
       silent,
       [],
       `These modules exist but yielded no apiClient call, so the reader has gone blind to them:\n  ${silent.join("\n  ")}`,
     );
+
+    // The reverse, which the list above cannot give: an excused module that calls the client again is
+    // one nothing here grades, and its entry would sit there excusing a module that needs no excuse.
+    for (const file of Object.keys(DELEGATING_CALLERS)) {
+      assert.ok(expectedCallerFiles.map(asPosix).includes(file), `${file} is excused here and is no longer a caller module — drop the entry`);
+      assert.ok(!yields(file), `${file} reaches the client itself now — drop its entry`);
+    }
   });
 });
 

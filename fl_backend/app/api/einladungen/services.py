@@ -15,6 +15,10 @@ from app.shared.folding import mailbox_key
 
 EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
 EINLADUNG_SAISON_VORBEI = "REQ-EINLADUNG-002"
+# One code for a link nobody minted and one an administrator replaced, for the reason
+# `REQ-BEWERBUNG-009` gives: nothing tells a stranger's guess from a spent link, and naming which
+# would say more than the guess knew.
+EINLADUNG_UNBEKANNT = "REQ-EINLADUNG-003"
 
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything
@@ -55,6 +59,22 @@ def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
     )
 
 
+def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`REQ-EINLADUNG-003`: the link value the visitor presented opens no live invite.
+
+    Takes the row the caller's own read found, for `find_team_in_saison_refusal`'s reason. A revoked
+    row is a miss here because the filter that found nothing asked for a live one.
+    """
+
+    if einladung_raw is not None:
+        return None
+
+    return WriteRefusal(
+        error_code=EINLADUNG_UNBEKANNT,
+        message="this registration link opens nothing: no invitation matches it, or the one it was minted for has been replaced",
+    )
+
+
 def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
     """Whether this season takes registrations on `today`: `offen`, AND the day inside the span.
 
@@ -79,6 +99,16 @@ def build_live_team_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]
     """The live invite of one team and season, which `uniq_einladung_live` makes at most one row."""
 
     return {"saison_id": saison_id, "team_id": team_id, "widerrufen_am": None}
+
+
+def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
+    """The live invite a presented link opens, or nothing.
+
+    The revocation term is half the filter: a hash alone finds the row a reissue replaced, and that
+    link is spent.
+    """
+
+    return {"token_hash": token_hash, "widerrufen_am": None}
 
 
 def compose_einladung(*, saison_id: str, team_id: Any, token_hash: str, erstellt_von: str, today: str) -> dict[str, Any]:

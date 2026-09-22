@@ -44,7 +44,7 @@ two** — which is what a reviewer needs before reading the published notice
 
 ## 2. Consent comes from the person, from 16 or 18
 
-Every ruling below assumes the sign-up flow settled for the next season, which does not exist yet.
+Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Everyone signs up for themselves through the website and gives their own consent there** —
   players, referees, contact persons, organisers and administrators alike. An administrator can
@@ -52,10 +52,15 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(b)/(f) rather than an
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
-  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
+  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
-  Once the sign-up flow exists it refuses a registration below 16. Sixteen is the age at which a
+  A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
+  pupil enters on their own confirmation page and before anything is written
+  (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`); the refusal stands there
+  and nowhere else, the submission itself collecting no birthdate at all. The floor is
+  `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_ALTER_JAHRE`, the pupil's own rather
+  than a contact seat's, so raising one does not silently raise the other. Sixteen is the age at which a
   person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
   three. **The Ansprechperson and the Stellvertretung are held to 18** because those two seats
   commit the school — they are the people a fixture, a withdrawal and the entry itself are agreed
@@ -126,6 +131,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   player records are kept and governed by
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated. Ruled
   2026-09-02.
+- **A registration nobody confirms is deleted after seven days, and the page states the period.**
+  The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`,
+  stored on the row at the mint rather than derived, so raising it never moves the deadline of a
+  link already in somebody's inbox
+  (`fl_backend/app/api/registrierungen/services.py :: compose_bestaetigung`). It is shorter than an
+  application's fourteen because it carries a second job: it is the window inside which a mistyped
+  address is discovered and the pupil registers again, no administrator being able to edit a stored
+  address for them.
 - **This reset is what reaches the log rows the retention index cannot.** A row carries the date
   stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
   nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
@@ -279,6 +292,15 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   ordering refuses: it mails the un-announced, stamps what was delivered and erases only what was
   announced. It stands until an administrator enters a reachable address or decides the
   application, and in neither case past the end of the season it applied for. Ruled 2026-09-08.
+- **A registration is bounded at each of its three ends, and a pupil's own confirmation is what
+  starts the longest of them.** Unconfirmed, it is deleted the day after its stored `frist`, with no
+  second notice — the confirmation mail named the day and the address is one the league could not
+  confirm. Confirmed but undecided, it is deleted once its season is past, with one note after the
+  fact and never before it, a notice being unable to prolong a row nobody decided. Declined, a month
+  after the decision. The confirmation writes the
+  birthdate and the whole consent record in one update
+  (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`), so no row ever
+  holds a birthdate nobody consented to the league keeping. Ruled 2026-09-11.
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
@@ -290,6 +312,19 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   refused. The confirmation page states the period to the person whose details they are
   (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
+- **A registration nobody has confirmed is deleted once its window has run out, the pupil's name,
+  address and every answer on it included, and no message is sent about it either way.** The window
+  is seven days (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`)
+  from the day the link was sent, and the confirmation mail names it; a shorter period than the
+  application's because it is also the window inside which a mistyped address is discovered, the
+  only route back being to register again. One reminder goes out inside it and moves nothing
+  (`fl_backend/app/api/registrierungen/services.py :: compose_erinnerung_update`), and none goes to
+  an address the mail provider has already refused. **A registration still awaiting a decision when
+  the season it was made for has ended is deleted whatever the pupil answered**
+  (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards that it happened and
+  why — never before it, a notice being unable to prolong a row nobody decided. A declined
+  registration goes one calendar month after the decision (`:: decline_erasure_is_due`). Ruled
+  2026-09-11.
 - **A registration link stops working when the season's registration window shuts, or the moment an
   administrator withdraws it or replaces it with a new one; the entry recording it is kept without a
   clock.** The link carries no date of its own: what decides whether it opens anything is the
@@ -434,7 +469,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   no personal data at all; beside it stand a free-text reason that may name them and the entering
   administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
-  declined — a refusal one write path now performs: the ban's own create
+  declined — a refusal two write paths now perform: the ban's own create and the public registration
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). One question to put: what
   an access request reaches, given that no route finds the row from the address it was taken from
   while the reason beside it may name its subject outright. The bound is

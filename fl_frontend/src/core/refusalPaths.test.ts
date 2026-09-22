@@ -349,6 +349,17 @@ const EXEMPT: Record<string, Record<string, string>> = {
     text_version: WRITTEN_NOT_PICKED,
   },
 
+  // The registration form. The token rides in the invite's link, so no control offers it.
+  FLPostRegistrierungPayloadSchema: {
+    token: "handed in from the invite's query, so no control offers it and no refusal can land on one",
+  },
+
+  // The pupil's confirmation page. The label is the server's to write, and the token rides in the link.
+  FLRegistrierungBestaetigungPayloadSchema: {
+    token: "handed in from the link's query, so no control offers it and no refusal can land on one",
+    text_version: WRITTEN_NOT_PICKED,
+  },
+
   // The re-send names its seat in the path and sends no body; the strip's control carries both.
   FLEinwilligungErneutPayloadSchema: { id: IN_THE_PATH, rolle: IN_THE_PATH },
 
@@ -448,6 +459,14 @@ const ROUTE_FORMS: Record<string, { slice: string; form: string }> = {
   FLBewerbungEinwilligungAntwortPayloadSchema: {
     slice: "bewerbungen",
     form: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  },
+  FLPostRegistrierungPayloadSchema: {
+    slice: "registrierungen",
+    form: "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
+  },
+  FLRegistrierungBestaetigungPayloadSchema: {
+    slice: "registrierungen",
+    form: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   },
 };
 
@@ -550,6 +569,21 @@ describe("every path a refusal mapper emits", () => {
    * `):` so a type alias and an interface field, which declare the shape without answering in it, are not one.
    */
   const DECLARES_FIELD_ERRORS = /\)\s*:\s*(?:Promise<)?\{[^{}]*fieldErrors\?:\s*FieldErrors/;
+
+  /**
+   * The same shape under a local name.
+   *
+   * Resolved rather than trusted: what makes a module a mapper is still the shape, and an alias
+   * nothing returns declares one without answering in it.
+   */
+  const ALIAS_OF_THE_SHAPE = /\btype\s+(\w+)\s*=\s*\{[^{}]*fieldErrors\?:\s*FieldErrors/g;
+
+  function declaresFieldErrors(text: string): boolean {
+    if (DECLARES_FIELD_ERRORS.test(text)) return true;
+
+    return [...text.matchAll(ALIAS_OF_THE_SHAPE)].some((hit) => new RegExp(String.raw`\)\s*:\s*(?:Promise<)?${hit[1] ?? ""}\b`).test(text));
+  }
+
   // A code in a COMPARISON, never anywhere in the file: one quoted in prose above an unrelated
   // function would otherwise make that file a mapper owing an excuse.
   const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
@@ -572,7 +606,7 @@ describe("every path a refusal mapper emits", () => {
     return { literals, opaque };
   }
 
-  const declaredMappers = production.filter(([, text]) => DECLARES_FIELD_ERRORS.test(text) && NAMES_A_REFUSAL_CODE.test(text));
+  const declaredMappers = production.filter(([, text]) => declaresFieldErrors(text) && NAMES_A_REFUSAL_CODE.test(text));
 
   /**
    * The source between one `{` and the `}` closing it, scanned with depth so a brace inside a value
@@ -702,7 +736,11 @@ describe("every path a refusal mapper emits", () => {
 
         const urls = callers.filter((caller) => ROUTE_HANDLER.test(caller)).map(routeUrl);
         for (const component of components) {
-          if (urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`))) audience.add(component);
+          // Both spellings of one POST, as the bridge case below reads them: a public form names its
+          // own through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`, and a
+          // reader matching the bare `fetch` alone reports its whole slice as reaching no form.
+          const posts = urls.map((url) => new RegExp(String.raw`(?:fetch|postPublicForm<\w+>)\("${url}"`));
+          if (posts.some((post) => post.test(sources.get(component) ?? ""))) audience.add(component);
         }
 
         // A route handler is never a hop: its own audience is what fetches its URL, read just above,
@@ -761,6 +799,19 @@ describe("every path a refusal mapper emits", () => {
       sample.filter(([source]) => DECLARES_FIELD_ERRORS.test(source)).map(([source]) => source),
       sample.filter(([, matches]) => matches).map(([source]) => source),
     );
+  });
+
+  /* A mapper read by two callers names its answer, and the sweep then found the whole module only
+     while some OTHER function in it still spelled the shape out — which is an accident, not a rule. */
+  it("follows a named answer to the shape it is declared as, and no further", () => {
+    const named =
+      "export type Refusal = { error?: string; fieldErrors?: FieldErrors };\nasync function map(e: unknown): Promise<Refusal | null> {";
+    const unreturned = "export type Refusal = { error?: string; fieldErrors?: FieldErrors };\nexport const leer: Refusal = {};";
+    const opaque = "export type Ergebnis = { created_id?: string };\nfunction map(e: unknown): Ergebnis | null {";
+
+    assert.equal(declaresFieldErrors(named), true, "a mapper answering in its own alias is not found at all");
+    assert.equal(declaresFieldErrors(unreturned), false, "an alias nothing returns makes its module a mapper");
+    assert.equal(declaresFieldErrors(opaque), false, "any named return type is read as the field-error shape");
   });
 
   it("reads every key of a literal, whatever the value before it is made of", () => {

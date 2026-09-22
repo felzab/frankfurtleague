@@ -29,7 +29,7 @@ export default function robots(): MetadataRoute.Robots {
         // `/bestaetigung` noindexes itself; this turns back a crawler that learnt a link some other
         // way before it fetches one, a fetch being a token spent on nobody. `/signin/bestaetigen`
         // joins it: its mailed URL carries a live sign-in token.
-        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen"],
+        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,
