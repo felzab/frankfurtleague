@@ -4891,7 +4891,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link\nthe mail provider will not carry: everything else the school typed stays the record the decision is taken\nagainst. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an\naddress another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is\na 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -4935,6 +4935,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
+      "post": {
+        "summary": "Seat another person where a contact person stepped out",
+        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "operationId": "besetze_kontakt_sitz_api_v0_bewerbungen__bewerbung_id__kontakte__seat__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungKontaktSitzPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungKontaktSitzResponse"
                 }
               }
             }
@@ -7043,7 +7108,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a seat's `email` through\n`app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone."
+        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -7755,6 +7820,94 @@
         ],
         "title": "FLBewerbungKontaktEmailResponse",
         "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."
+      },
+      "FLBewerbungKontaktSitzPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "telefon": {
+            "type": "string",
+            "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
+            "title": "Telefon"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "email",
+          "telefon",
+          "text_version"
+        ],
+        "title": "FLBewerbungKontaktSitzPayload",
+        "description": "The person seated where a contact person stepped out, carrying no `einwilligung` block.\n\n`FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to\nnothing: their own link is what asks them."
+      },
+      "FLBewerbungKontaktSitzResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollen",
+          "token",
+          "bestaetigungsfrist"
+        ],
+        "title": "FLBewerbungKontaktSitzResponse",
+        "description": "Every seat the new person now holds, and the fresh link the caller mails them."
       },
       "FLBewerbungKontaktePayload": {
         "properties": {

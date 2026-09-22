@@ -600,12 +600,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.BEWERBUNGEN,
         "kontakte",
         Editability.CONDITIONAL,
-        "written whole at submission, and afterwards by the seat's own person alone, through "
+        "written whole at submission, and afterwards by the seat's own person through "
         "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
         "wording and scope on every seat that person holds, a decline nulls those slots, and both are refused once "
-        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). An erasure empties the "
-        "slot naming one of them. On no payload the TRIAGE serves: a decision moves `status`, `entscheidung` and "
-        "`team_id` alone",
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Two administrative "
+        "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
+        "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email` moves one address, and "
+        "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}` seats another person where one stepped out. An erasure "
+        "empties the slot naming one of them. On no payload the DECISIONS serve: an acceptance or a decline moves "
+        "`status`, `entscheidung` and `team_id` alone",
         "app.api.bewerbungen.services.find_already_answered_refusal",
     ),
     FieldPolicy(
@@ -1725,6 +1728,7 @@ RULES: tuple[Rule, ...] = (
             "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
             " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
             " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
         ),
         aggregate="Bewerbung",
         summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
@@ -1808,9 +1812,13 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
             " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
         ),
         aggregate="Bewerbung",
-        summary="a seat already confirmed or declined, or with nothing left to confirm, takes no second answer and no new link",
+        summary=(
+            "a seat takes a second answer, a new link or a correction only while it is unanswered and has something left to confirm, "
+            "and another person only where its own stepped out"
+        ),
         implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestASeatAlreadyAnswered",
     ),
@@ -1832,9 +1840,9 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-014",
-        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email",
+        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
         aggregate="Bewerbung",
-        summary="a corrected contact address is not one another contact person on the same application is already reached at",
+        summary="a contact address an administrator writes is not one another contact person on the same application is already reached at",
         implemented_by="app.api.bewerbungen.services.find_kontakt_email_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestCorrectingOneContactAddress",
     ),

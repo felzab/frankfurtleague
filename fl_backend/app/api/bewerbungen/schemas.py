@@ -212,8 +212,8 @@ class FLBewerbung(BaseModel):
     """One school's application to play one season, as it is stored.
 
     The submission is never rewritten: `status`, `entscheidung` and `team_id` move through the
-    triage, and a seat's `email` through
-    `app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone.
+    triage, and a contact seat through the two administrative repairs in
+    `app/api/bewerbungen/admin_router.py`.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -843,6 +843,29 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
 
     token: str
     rolle: FLKontaktRolle
+    bestaetigungsfrist: CustomDateString
+
+
+class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
+    """The person seated where a contact person stepped out, carrying no `einwilligung` block.
+
+    `FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to
+    nothing: their own link is what asks them.
+    """
+
+    # The label alone, `compose_einwilligung` requiring one and the registry naming it being the
+    # frontend's (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`). Stripped before the
+    # floor counts it: a version that is spaces cites no text.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+
+class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
+    """Every seat the new person now holds, and the fresh link the caller mails them."""
+
+    # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
+    # the claim `kontakte.trainer_ist_zugleich` records.
+    rollen: list[FLKontaktRolle]
+    token: str
     bestaetigungsfrist: CustomDateString
 
 

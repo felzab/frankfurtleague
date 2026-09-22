@@ -362,6 +362,7 @@ the other refuses.
 | `ablehnenBewerbungAction`         | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds           |
 | `einwilligungErneutSendenAction`  | bewerbungen    | **nothing** — no cached read holds an application                                              |
 | `kontaktEmailKorrigierenAction`   | bewerbungen    | **nothing** — no cached read holds an application                                              |
+| `besetzeKontaktSitzAction`        | bewerbungen    | **nothing** — no cached read holds an application                                              |
 | `postEinladungAction`             | einladungen    | **nothing** — no cached read holds an invitation                                               |
 | `mailEinladungAction`             | einladungen    | **nothing** — its only write is the delivery record, which no cached read holds                |
 | `deleteEinladungAction`           | einladungen    | **nothing** — no cached read holds an invitation                                               |

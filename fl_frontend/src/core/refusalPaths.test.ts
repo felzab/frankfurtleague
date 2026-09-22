@@ -251,6 +251,9 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 /** The row's own identity, travelling in the path as the re-send's does; the surface renders one input. */
 const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the path rather than typed";
 
+/** Written from `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHME` as the application form writes it, so no control offers one. */
+const THE_LABEL_THE_REGISTRY_HOLDS = "the Kenntnisnahme's label, written from the registry rather than typed";
+
 /** A panel button rather than a row's removal, which is why `A_ROWS_OWN_REMOVAL` would read wrong beside it. */
 const A_ROWS_OWN_SEND = "the referee whose panel this is: the id is in the path and the control is a button, neither being an input";
 
@@ -289,6 +292,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
   FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
   FLBewerbungKontaktEmailPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY },
+  FLBewerbungKontaktSitzPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY, text_version: THE_LABEL_THE_REGISTRY_HOLDS },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLSchiedsrichterEinladenPayloadSchema: { id: A_ROWS_OWN_SEND },
   FLSchiedsrichterBestaetigungPayloadSchema: { token: THE_TOKEN_THE_LINK_CARRIED, text_version: THE_WORDING_THIS_SERVER_STAMPED },

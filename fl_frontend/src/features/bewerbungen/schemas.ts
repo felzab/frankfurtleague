@@ -839,6 +839,32 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
 
 /**
+ * Mirrors `FLBewerbungKontaktSitzPayload` — the person seated where a contact person stepped out.
+ * The four fields are restated rather than taken off `FLBewerbungKontaktpersonPayloadSchema`: that
+ * one carries the Kenntnisnahme, which this person has given nobody.
+ */
+export const FLBewerbungKontaktSitzPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  rolle: FLKontaktRolleSchema,
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  email: KontaktEmailSchema,
+  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  // The label alone and no `erteilt`: it says which wording the new person will be shown, and their
+  // own link is what asks them to answer it.
+  text_version: FLBewerbungEinwilligungPayloadSchema.shape.text_version,
+});
+export type FLBewerbungKontaktSitzPayload = z.infer<typeof FLBewerbungKontaktSitzPayloadSchema>;
+
+/** Mirrors `FLBewerbungKontaktSitzResponse`. `rollen` for the correction's reason: one press fills every seat that person holds. */
+export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend({
+  rollen: z.array(FLKontaktRolleSchema),
+  token: z.string(),
+  bestaetigungsfrist: CustomDateStringSchema,
+});
+export type FLBewerbungKontaktSitzResponse = z.infer<typeof FLBewerbungKontaktSitzResponseSchema>;
+
+/**
  * The ceilings the two delivery writes state at their shared base, paired with that base's own by
  * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_MODEL_BOUNDS`. Retyped here rather
  * than left off: both endpoints answer 422 past one, and no caller of either retries.

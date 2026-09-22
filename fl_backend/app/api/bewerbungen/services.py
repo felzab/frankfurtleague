@@ -698,6 +698,67 @@ def compose_kontakt_email_update(
     return {"$set": {**{f"kontakte.{seat}.email": email for seat in seats}, **erneut["$set"]}}
 
 
+# --- The RESEAT: another person in a seat its own holder stepped out of.
+
+
+def seat_awaits_a_replacement(*, bestaetigungen: Any, seat: str) -> bool:
+    """Whether this seat is empty because its person exercised their Widerspruch.
+
+    The ONE place an ERASED seat is refused: an erasure clears the whole entry, so the `abgelehnt_am`
+    a decline leaves behind is all that parts the two empty slots.
+    """
+
+    return _declined_on(bestaetigungen, seat) is not None
+
+
+def find_reseat_refusal(*, bestaetigungen: Any, seats: Sequence[str]) -> WriteRefusal | None:
+    """Why no other person may be seated here, or `None`.
+
+    Its own predicate beside `find_already_answered_refusal`, which refuses the declined seat this
+    one exists for: widening that one would let the re-send mint against an emptied slot.
+    """
+
+    # EVERY seat, because a claimed pair is one person: a mirror in another state is refused rather
+    # than written unjudged, or dropped from a write that asked for both.
+    for seat in seats:
+        if not seat_awaits_a_replacement(bestaetigungen=bestaetigungen, seat=seat):
+            return WriteRefusal(
+                error_code=BEWERBUNG_SEAT_ALREADY_ANSWERED,
+                message=f"the seat '{seat}' takes no other person; only a seat whose own holder stepped out of it is seated again",
+            )
+
+    return None
+
+
+def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
+    """The other seat `trainer_ist_zugleich` claims for this person, standing or emptied.
+
+    `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied slots
+    a reseat runs on and would leave one of them holding the other's link.
+    """
+
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    if zugleich is None:
+        return None
+
+    return seat_named(zugleich) if seat == "trainer" else (cast(FLKontaktRolle, "trainer") if seat == zugleich else None)
+
+
+def compose_kontakt_seat_update(
+    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str
+) -> Mapping[str, Any]:
+    """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
+
+    erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+    # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
+    # and the confirmation fills it (`docs/backend/spec.md :: I141`).
+    slot = {**person, "geburtsdatum": None, "einwilligung": compose_einwilligung(text_version=text_version, today=today)}
+
+    # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
+    # `$set` under a null is `PathNotViable`, which aborts the transaction.
+    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"]}}
+
+
 # --- The ZUSTELLSTAND: what became of the last message to one seat. Written by the two system-tier
 # endpoints alone, and read by the reminder clock and the fourteen-day clock below.
 

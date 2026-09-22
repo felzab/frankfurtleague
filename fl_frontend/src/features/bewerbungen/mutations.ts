@@ -7,6 +7,7 @@ import {
   FLBewerbungEinwilligungAntwortResponseSchema,
   FLBewerbungEinwilligungErneutResponseSchema,
   FLBewerbungKontaktEmailResponseSchema,
+  FLBewerbungKontaktSitzResponseSchema,
   FLBewerbungSweepAngekuendigtResponseSchema,
   FLBewerbungSweepLoeschenResponseSchema,
   FLBewerbungSweepResponseSchema,
@@ -27,6 +28,8 @@ import type {
   FLBewerbungEinwilligungErneutResponse,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
+  FLBewerbungKontaktSitzPayload,
+  FLBewerbungKontaktSitzResponse,
   FLBewerbungSweepAngekuendigtPayload,
   FLBewerbungSweepAngekuendigtResponse,
   FLBewerbungSweepLoeschenPayload,
@@ -123,6 +126,15 @@ export async function korrigierenKontaktEmail({ id, rolle, email }: FLBewerbungK
     method: "POST",
     authType: "admin",
     body: JSON.stringify({ email: email }),
+  });
+}
+
+/** The one path that writes a NAME onto a submitted application, and it runs on a seat its own holder emptied. */
+export async function besetzenKontaktSitz({ id, rolle, ...person }: FLBewerbungKontaktSitzPayload): Promise<FLBewerbungKontaktSitzResponse> {
+  return apiClient<FLBewerbungKontaktSitzResponse>(`/bewerbungen/${id}/kontakte/${rolle}`, FLBewerbungKontaktSitzResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(person),
   });
 }
 

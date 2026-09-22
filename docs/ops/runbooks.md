@@ -483,9 +483,10 @@ as them.
   address would mail them a consent link for a role they take no booking in. Reactivate them first,
   or leave the address as it stands.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, the one field of a
-  submitted application an administrator may rewrite. It mints the fresh link, voids the old one and
-  restarts the confirmation deadline, and where one person holds two seats it corrects both.
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
+  address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
+  confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
+  has stepped out takes a different route, below.
 
 **The self-service change is not built.** It would be an endpoint, a page, a proving link and a
 notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
@@ -498,7 +499,12 @@ you are in is decided by that seat's own link, not by the person's role:
   page the link opens, empties the seat at once and tells the submitter so the school can name
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
-  rather than that an administrator removed them.
+  rather than that an administrator removed them. Once the school has named a replacement, seat them
+  from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
+  new person their own link and restarts the confirmation deadline for the whole application; it is
+  acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
+  and neither does one half of a claimed pair whose other half has not stepped out: that application
+  takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed or
   whose application has been decided takes none either (`REQ-BEWERBUNG-010`) — both are refusals the

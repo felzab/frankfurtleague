@@ -9,6 +9,7 @@ import {
   istOffen,
   linkAngebot,
   loeschungsSatz,
+  sitzAngebot,
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
@@ -132,31 +133,119 @@ describe("a seat an erasure emptied", () => {
     assert.deepEqual([...linkAngebot(standsOf2(ERASED))].sort(), ["stellvertretung", "trainer"]);
   });
 
-  /* The decline's own closure: both leave a role with nobody in it, and neither can be waited out,
-     so the page must not promise a confirmation over either. */
-  it("closes the Zusage the way a decline closes it", () => {
+  /* Two empty slots and one repair between them: the seat its own person stepped out of takes
+     somebody else, and the one the league erased on request takes nobody. */
+  it("closes the Zusage harder than a Widerspruch does", () => {
     const declined = seatsOf({
       ansprechperson: null,
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(zusageHindernis(standsOf2(ERASED), TEAM), zusageHindernis(standsOf2(declined), TEAM));
     assert.equal(
       zusageHindernis(standsOf2(ERASED), TEAM),
-      "Eine Kontaktperson hat widersprochen oder ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
+      "Eine Kontaktperson hat ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
+    );
+    assert.equal(
+      zusageHindernis(standsOf2(declined), TEAM),
+      "Eine Kontaktperson hat widersprochen. Besetze ihre Rolle mit einer anderen Person oder lehne die Bewerbung ab.",
     );
   });
 
-  /* The reader meets this satz under a row calling the seat a Widerspruch or an Eintrag
-     gelöscht, and a third wording would read as a third state. Roots rather than the chips' forms:
-     the satz says who did what. */
+  /* The row can still only be declined, so the reason naming the reseat would send an administrator
+     to a control that would repair one seat and leave the application no more acceptable. */
+  it("takes the reason where a row carries both it and a Widerspruch", () => {
+    const bothSeats = seatsOf({
+      ansprechperson: null,
+      stellvertretung: null,
+      bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
+    });
+
+    assert.match(zusageHindernis(standsOf2(bothSeats), TEAM) ?? "", /nur noch abgelehnt/);
+  });
+
+  /* The reader meets this satz under a row calling the seat an Eintrag gelöscht, and a second
+     wording would read as a second state. Roots rather than the chip's form: the satz says who did what. */
   it("states the cause in the words its own rows use", () => {
     const satz = zusageHindernis(standsOf2(ERASED), TEAM) ?? "";
 
-    for (const rootOf of ["widerspr", "Eintrag", "lösch"]) {
+    for (const rootOf of ["Eintrag", "lösch"]) {
       assert.ok(satz.includes(rootOf), `the reason drops „${rootOf}“, which is the root the row above it uses`);
     }
     assert.equal(satz.split(". ").length, 2, "the reason is one long sentence again, which is what made the last one unreadable");
+  });
+});
+
+describe("the seats another person may be put in", () => {
+  const DECLINED = seatsOf({
+    ansprechperson: null,
+    bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+  });
+
+  /* `seat_awaits_a_replacement` parts the two empty slots by the day the decline left in the entry
+     an erasure took with the person, and a control over an erased seat is a press the write refuses. */
+  it("offers the seat its own person stepped out of, and no seat in any other state", () => {
+    assert.deepEqual([...sitzAngebot(standsOf2(DECLINED))], ["ansprechperson"]);
+    assert.deepEqual([...sitzAngebot(standsOf2(ERASED))], []);
+    assert.deepEqual([...sitzAngebot(standsOf2(seatsOf()))], []);
+  });
+
+  /* One answer emptied both seats and one write fills both, so a second control would put a second
+     message in one mailbox over one decision. */
+  it("gives one person holding two emptied seats a single control, on the Trainer's row", () => {
+    const paar = seatsOf({
+      ansprechperson: null,
+      trainer: null,
+      zugleich: "ansprechperson",
+      bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: ABGELEHNT },
+    });
+
+    assert.deepEqual([...sitzAngebot(standsOf2(paar))], ["trainer"]);
+  });
+
+  /* The write reaches both seats of a claimed pair or neither
+     (`fl_backend/app/api/bewerbungen/services.py :: find_reseat_refusal`); a control on the half
+     that stepped out is refused. Both halves are tried: `||` passes the mirror's half. */
+  it("offers neither row where only one half of a claimed pair stepped out", () => {
+    const halbePaare = [
+      // The MIRROR stepped out, beside a Trainer seat still waiting, then one nothing can confirm.
+      seatsOf({
+        ansprechperson: null,
+        zugleich: "ansprechperson",
+        bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+      }),
+      seatsOf({
+        ansprechperson: null,
+        zugleich: "ansprechperson",
+        bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: null },
+      }),
+      // The TRAINER stepped out, beside a mirror in those same two states.
+      seatsOf({
+        trainer: null,
+        zugleich: "ansprechperson",
+        bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: ABGELEHNT },
+      }),
+      seatsOf({
+        trainer: null,
+        zugleich: "ansprechperson",
+        bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: ABGELEHNT },
+      }),
+    ];
+
+    for (const nurEiner of halbePaare) {
+      assert.deepEqual([...sitzAngebot(standsOf2(nurEiner))], []);
+    }
+  });
+
+  /* The re-send writes whichever seat of a pair still stands, so its own selector keeps the row this
+     one withholds. */
+  it("takes nothing away from the seats a re-send is offered on", () => {
+    const trainerGone = seatsOf({
+      trainer: null,
+      zugleich: "ansprechperson",
+      bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
+    });
+
+    assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
   });
 });
 
@@ -266,6 +355,20 @@ describe("the reason the Zusage is closed", () => {
      that absence would make every queued application undecidable in the deploy that shipped it. */
   it("closes nothing where the application carries no confirmation block", () => {
     assert.equal(zusageHindernis(null, TEAM), null);
+  });
+
+  /* The reseat replaces the entry the Widerspruch wrote into, so the seated person's own stamp
+     stands beside a null `abgelehnt_am` and the Absage is not the only decision left. */
+  it("opens again once the seated person has confirmed", () => {
+    const wiederBesetzt = seatsOf({
+      ansprechperson: person("Doreen", "2026-09-06"),
+      stellvertretung: person("Bernd", "2026-09-03"),
+      trainer: person("Clara", "2026-09-03"),
+      bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
+    });
+
+    assert.equal(zusageHindernis(standsOf2(wiederBesetzt), TEAM), null);
+    assert.equal(endstand(standsOf2(wiederBesetzt)), null, "the queue still names a Widerspruch the reseat has undone");
   });
 });
 

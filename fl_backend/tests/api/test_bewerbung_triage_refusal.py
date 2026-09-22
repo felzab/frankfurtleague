@@ -13,16 +13,22 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_KONTAKT_EMAIL_TAKEN,
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
+    BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_SUBJECT_UNRESOLVED,
+    claimed_pair_seat,
     compose_bestaetigungen,
     compose_kontakt_email_update,
+    compose_kontakt_seat_update,
     compose_new_club,
     find_acceptance_subject_refusal,
     find_kontakt_email_refusal,
     find_new_club_refusal,
+    find_reseat_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     hash_token,
+    paired_seat,
+    seat_awaits_a_replacement,
 )
 from app.core.exception_handlers import base_api_exception_handler
 from app.core.exceptions import DocumentConflictException
@@ -233,6 +239,176 @@ class TestCorrectingOneContactAddress:
             "erinnert_am": None,
             "abgelehnt_am": None,
         }
+
+
+WIDERSPRUCH_AM = "2026-03-25"
+
+NEW_PERSON: Mapping[str, Any] = {
+    "vorname": "Wilburga",
+    "nachname": "Dringenhoff",
+    "email": "wilburga@example.com",
+    "telefon": "+49 170 7654321",
+}
+
+
+def declined_entries(seat: str) -> dict[str, Any]:
+    """The bookkeeping a Widerspruch leaves: the entry stands beside the emptied slot, carrying the day."""
+
+    return {**BESTAETIGUNGEN, seat: {**BESTAETIGUNGEN[seat], "abgelehnt_am": WIDERSPRUCH_AM}}
+
+
+def erased_entries(seat: str) -> dict[str, Any]:
+    """What an erasure leaves, which is the entry nulled (`app/api/kontakte/services.py :: build_clearing_update`)."""
+
+    return {**BESTAETIGUNGEN, seat: None}
+
+
+# Every seat state the reseat refuses, as a stored block. A CONFIRMED seat is not among them because
+# the stamp sits in the slot rather than in the entry this predicate reads
+# (`fl_backend/tests/api/test_bewerbung_triage_execution.py :: TestSeatingAnotherPersonInAnEmptiedSeat`).
+NOT_STEPPED_OUT = [
+    pytest.param(BESTAETIGUNGEN, id="a seat still waiting on its own answer"),
+    pytest.param(erased_entries("ansprechperson"), id="a seat erased at its person's request"),
+    pytest.param(None, id="an application stored before the confirmation flow"),
+]
+
+
+class TestSeatingAnotherPersonWhereOneSteppedOut:
+    """`REQ-BEWERBUNG-011` from the other side: the one seat state this write runs on is the state every neighbour refuses."""
+
+    def test_a_seat_its_person_stepped_out_of_takes_another(self):
+        """The floor: without it every case below would pass on a guard that refuses everything."""
+
+        assert find_reseat_refusal(bestaetigungen=declined_entries("ansprechperson"), seats=("ansprechperson",)) is None
+
+    @pytest.mark.parametrize("bestaetigungen", NOT_STEPPED_OUT)
+    def test_no_other_seat_state_is_seated_again(self, bestaetigungen: Any):
+        refusal = find_reseat_refusal(bestaetigungen=bestaetigungen, seats=("ansprechperson",))
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+    def test_the_refusal_names_the_seat_it_is_about(self):
+        """Three seats stand on the page, and a refusal naming none of them is one an administrator cannot place."""
+
+        refusal = find_reseat_refusal(bestaetigungen=BESTAETIGUNGEN, seats=("stellvertretung",))
+
+        assert refusal is not None and "stellvertretung" in refusal.message
+
+    def test_a_widerspruch_and_an_erasure_are_parted_by_the_day_the_decline_left(self):
+        """Both leave an empty slot, and only one is repaired: the erasure took the entry the decline writes into."""
+
+        assert seat_awaits_a_replacement(bestaetigungen=declined_entries("trainer"), seat="trainer") is True
+        assert seat_awaits_a_replacement(bestaetigungen=erased_entries("trainer"), seat="trainer") is False
+
+    def test_the_claimed_pair_survives_the_emptying_that_hides_it_from_paired_seat(self):
+        """A pair read through `paired_seat` answers `None` here, and one seat would be left holding the other's link."""
+
+        emptied = {**seats(), "trainer": None, "ansprechperson": None, "trainer_ist_zugleich": "ansprechperson"}
+        # BOTH seats declined, which is the only shape the write runs on: one person answered once.
+        bestaetigungen = {**declined_entries("ansprechperson"), "trainer": {**BESTAETIGUNGEN["trainer"], "abgelehnt_am": WIDERSPRUCH_AM}}
+
+        assert claimed_pair_seat(kontakte=emptied, seat="ansprechperson") == "trainer"
+        assert claimed_pair_seat(kontakte=emptied, seat="trainer") == "ansprechperson"
+        assert paired_seat(kontakte=emptied, bestaetigungen=bestaetigungen, seat="ansprechperson") is None
+        assert find_reseat_refusal(bestaetigungen=bestaetigungen, seats=("ansprechperson", "trainer")) is None
+
+    @pytest.mark.parametrize(
+        "mirror",
+        [
+            pytest.param(BESTAETIGUNGEN["trainer"], id="a mirror still waiting on its own answer"),
+            pytest.param(None, id="a mirror erased at its person's request"),
+        ],
+    )
+    def test_a_claimed_mirror_in_any_other_state_refuses_the_press(self, mirror: Any):
+        """The mirror is written unasked, so judging the pressed seat alone would seat somebody over a person who never stepped out."""
+
+        bestaetigungen = {**declined_entries("ansprechperson"), "trainer": mirror}
+        refusal = find_reseat_refusal(bestaetigungen=bestaetigungen, seats=("ansprechperson", "trainer"))
+
+        assert refusal is not None and "trainer" in refusal.message
+        assert refusal.error_code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+    def test_a_seat_nobody_claims_as_the_trainers_is_seated_alone(self):
+        assert claimed_pair_seat(kontakte={**seats(), "trainer_ist_zugleich": None}, seat="ansprechperson") is None
+        assert claimed_pair_seat(kontakte={**seats(), "trainer_ist_zugleich": "stellvertretung"}, seat="ansprechperson") is None
+
+
+class TestWhatSeatingAnotherPersonWrites:
+    """One `$set`, so the new person never stands in the seat beside the link its last holder was sent."""
+
+    def test_the_slot_is_written_whole_rather_than_field_by_field(self):
+        """A decline nulled the slot, and a dotted `$set` under a null is `PathNotViable`, which aborts the transaction."""
+
+        update = compose_kontakt_seat_update(
+            seats=("ansprechperson",),
+            person=dict(NEW_PERSON),
+            text_version="2026-09-bestaetigung-4",
+            token_hash="frisch",
+            today="2026-03-26",
+            bestaetigungsfrist="2026-04-09",
+        )
+
+        assert set(update) == {"$set"}
+        assert set(update["$set"]) == {"kontakte.ansprechperson", "bestaetigungen.ansprechperson", "bestaetigungsfrist"}
+
+    def test_the_seated_person_carries_an_administrative_record_and_no_birthdate(self):
+        """Nobody has answered for this seat yet: the date and the stamp are the new person's own to enter at their link."""
+
+        update = compose_kontakt_seat_update(
+            seats=("ansprechperson",),
+            person=dict(NEW_PERSON),
+            text_version="2026-09-bestaetigung-4",
+            token_hash="frisch",
+            today="2026-03-26",
+            bestaetigungsfrist="2026-04-09",
+        )
+        slot = update["$set"]["kontakte.ansprechperson"]
+
+        assert {field: slot[field] for field in NEW_PERSON} == dict(NEW_PERSON)
+        assert slot["geburtsdatum"] is None
+        assert slot["einwilligung"] == {
+            "umfang": "kontaktdaten",
+            "erfasst_von": "administrativ",
+            "text_version": "2026-09-bestaetigung-4",
+            "datum": "2026-03-26",
+            "bestaetigt_am": None,
+        }
+
+    def test_the_day_the_last_holder_stepped_out_goes_with_the_entry(self):
+        """Kept, it would hold the new person's seat as answered and refuse the very link this write minted."""
+
+        update = compose_kontakt_seat_update(
+            seats=("trainer", "ansprechperson"),
+            person=dict(NEW_PERSON),
+            text_version="2026-09-bestaetigung-4",
+            token_hash="frisch",
+            today="2026-03-26",
+            bestaetigungsfrist="2026-04-09",
+        )
+
+        for seat_name in ("trainer", "ansprechperson"):
+            assert update["$set"][f"bestaetigungen.{seat_name}"] == {
+                "token_hash": "frisch",
+                "verschickt_am": "2026-03-26",
+                "erinnert_am": None,
+                "abgelehnt_am": None,
+            }
+            assert update["$set"][f"kontakte.{seat_name}"] == update["$set"]["kontakte.trainer"]
+
+    def test_one_press_moves_the_deadline_for_the_whole_application(self):
+        """The new person is given the fourteen days the seat's last holder had, and the other two seats ride with it."""
+
+        update = compose_kontakt_seat_update(
+            seats=("ansprechperson",),
+            person=dict(NEW_PERSON),
+            text_version="2026-09-bestaetigung-4",
+            token_hash="frisch",
+            today="2026-03-26",
+            bestaetigungsfrist="2026-04-09",
+        )
+
+        assert update["$set"]["bestaetigungsfrist"] == "2026-04-09"
 
 
 ADDRESS: Mapping[str, Any] = {

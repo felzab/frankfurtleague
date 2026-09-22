@@ -17,7 +17,13 @@ const ADMIN_ACTION_MODULES = adminActionModules();
  */
 const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly string[] }> = {
   "features/bewerbungen/actions.ts": {
-    writes: ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"],
+    writes: [
+      "annehmenBewerbungAction",
+      "ablehnenBewerbungAction",
+      "einwilligungErneutSendenAction",
+      "kontaktEmailKorrigierenAction",
+      "besetzeKontaktSitzAction",
+    ],
     readOnly: [],
   },
   "features/einladungen/actions.ts": {

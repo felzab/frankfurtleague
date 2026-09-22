@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -63,11 +64,19 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
 
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
+/** What a Widerspruch leaves: the entry carrying the day, beside a slot the decline nulled. */
+const WIDERSPRUCH = { ...OFFEN, abgelehnt_am: "2026-09-03" };
+
 /** Three seats, Anna confirmed and Bernd and Clara still waiting on their links. */
 function standsOf({
   kontakte = {},
+  bestaetigungen = {},
   status = "eingereicht",
-}: { kontakte?: Partial<FLBewerbung["kontakte"]>; status?: FLBewerbung["status"] } = {}) {
+}: {
+  kontakte?: Partial<FLBewerbung["kontakte"]>;
+  bestaetigungen?: Partial<NonNullable<FLBewerbung["bestaetigungen"]>>;
+  status?: FLBewerbung["status"];
+} = {}) {
   const stands = bestaetigungsStand({
     kontakte: {
       ansprechperson: person("Anna", "anna@schule.example", "2026-09-02"),
@@ -76,13 +85,16 @@ function standsOf({
       trainer_ist_zugleich: null,
       ...kontakte,
     },
-    bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
+    bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN, ...bestaetigungen },
     status: status,
   });
 
   assert.ok(stands !== null, "the fixture carries no confirmation block, so nothing below is judged");
   return stands;
 }
+
+/** The state the reseat runs on: Clara stepped out of the Trainer seat, leaving it empty. */
+const claraStieAus = { kontakte: { trainer: null }, bestaetigungen: { trainer: WIDERSPRUCH } };
 
 function renderStrip({
   stands = standsOf(),
@@ -96,7 +108,17 @@ function renderStrip({
 
 const pencil = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
 const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
+const reseat = (rolle: string) => screen.queryByRole("button", { name: `${rolle} neu besetzen` });
 const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
+
+/** Fills the reseat box with a whole person, the address last so a case can press Enter in it. */
+async function seatSomebody(user: ReturnType<typeof userEvent.setup>, rolle: string, email: string): Promise<void> {
+  await user.click(reseat(rolle) ?? assert.fail(`${rolle} offers no way to seat another person`));
+  await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
+  await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
+  await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
+  await user.type(screen.getByRole("textbox", { name: "E-Mail" }), email);
+}
 
 /** The schema's own sentence for an address, so a case follows its wording rather than a copy of it. */
 const schemaSentence = (email: string): string => {
@@ -340,5 +362,144 @@ describe("a write whose answer never arrives", () => {
     assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
     assert.equal(seen.refresh, 1);
     assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
+  });
+
+  it("releases the reseat and keeps its box open over the person typed into it", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+    renderStrip({ stands: standsOf(claraStieAus) });
+
+    await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+
+    assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
+    assert.equal(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
+      "Doreen",
+      "the person a second press would send is gone",
+    );
+    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
+  });
+});
+
+describe("seating another person where one stepped out", () => {
+  /* The one state this write runs on. A waiting seat still belongs to its person, a confirmed one has
+     been answered, and a decided application's contact block is what the decision was taken against. */
+  it("is offered on a seat its own person stepped out of, and on no other seat or decided application", () => {
+    const { unmount } = renderStrip({ stands: standsOf(claraStieAus) });
+
+    assert.ok(reseat("Trainer"), "the seat a Widerspruch emptied offers no way to seat anybody else");
+    assert.ok(!reseat("Ansprechperson") && !reseat("Stellvertretung"), "a confirmed or waiting seat is offered to another person");
+    assert.ok(!send("Trainer") && !pencil("Clara Meier"), "the emptied seat keeps the controls that need somebody in it");
+    unmount();
+
+    renderStrip({ stands: standsOf({ ...claraStieAus, status: "abgelehnt" }), isOpen: false });
+    assert.ok(!reseat("Trainer"), "a decided application offers its emptied seat to another person");
+  });
+
+  /* One answer covers both seats and one link is minted for them, so a second control would put a second
+     message in one mailbox over one decision. */
+  it("gives one person holding two emptied seats a single control, on the Trainer's row", () => {
+    renderStrip({
+      stands: standsOf({
+        kontakte: { trainer: null, ansprechperson: null, trainer_ist_zugleich: "ansprechperson" },
+        bestaetigungen: { trainer: WIDERSPRUCH, ansprechperson: WIDERSPRUCH },
+      }),
+    });
+
+    assert.ok(reseat("Trainer"), "the mirrored pair is offered no control at all");
+    assert.ok(!reseat("Ansprechperson"), "one person's two seats each carry their own control");
+  });
+
+  /* The stored record cites a Kenntnisnahme, and the person it names is not here to read it: the
+     administrator writing the record is the only one who can weigh what it claims. */
+  it("shows the wording the record it writes will cite, linked to the privacy notice", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf(claraStieAus) });
+
+    await user.click(reseat("Trainer") ?? assert.fail("the emptied seat offers no control"));
+
+    // Read off `textContent` rather than matched as one node: the linked notice splits the paragraph
+    // that names it into three, and a node matcher then finds neither half.
+    const gerendert = document.body.textContent ?? "";
+
+    for (const absatz of LIGA_KENNTNISNAHME.absaetze) {
+      assert.ok(gerendert.includes(absatz), `the box withholds a paragraph of the wording it stamps: ${absatz.slice(0, 40)}`);
+    }
+    assert.ok(
+      screen.getAllByRole("link", { name: "Datenschutzerklärung" }).length > 0,
+      "the wording names the notice and the box gives the reader no way to it",
+    );
+  });
+
+  /* A whole person is written, so a half-filled box would seat somebody the league cannot reach. Closed on
+     the control, with the reason where a keystroke does not unmount it. */
+  it("is closed until all four fields carry something", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf(claraStieAus) });
+
+    await user.click(reseat("Trainer") ?? assert.fail("the emptied seat offers no control"));
+    closedControl("Neu besetzen und Link senden", "Fülle zuerst alle vier Felder aus.");
+    assert.equal(isInTheFlow("Fülle zuerst alle vier Felder aus."), false, "the reason stands where a keystroke unmounts it");
+
+    await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
+    closedControl("Neu besetzen und Link senden", "Fülle zuerst alle vier Felder aus.");
+  });
+
+  /* Judged before anything is sent, so the administrator is told at the field; the backend refuses it
+     regardless (`REQ-BEWERBUNG-014`). */
+  it("refuses another contact person's address at the field, and sends nothing", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf(claraStieAus) });
+
+    await seatSomebody(user, "Trainer", "Bernd@Schule.example{Enter}");
+
+    assert.ok(screen.queryByText("Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen."), "the box takes a taken address");
+    assert.equal(ran("besetzeKontaktSitzAction"), 0, "an address another person holds reaches the write");
+  });
+
+  /* The label is the registry's rather than anything typed, and it is what the new person's own
+     confirmation page will then overwrite with the wording they were shown. */
+  it("sends the typed person and the current Kenntnisnahme label, once however often Enter is pressed", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf(claraStieAus) });
+
+    await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+    await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "{Enter}");
+
+    assert.equal(ran("besetzeKontaktSitzAction"), 1, "a second Enter while the write runs sent it again");
+    assert.deepEqual(calls.find((call) => call.action === "besetzeKontaktSitzAction")?.payload, {
+      id: "68d0f2a4c1e2b3a4d5e6f708",
+      rolle: "trainer",
+      vorname: "Doreen",
+      nachname: "Ostwald",
+      email: "doreen@schule.example",
+      telefon: "069 7654321",
+      text_version: LIGA_KENNTNISNAHME.textVersion,
+    });
+  });
+
+  /* The seat stands filled whatever the message did, so the arm reporting a refused send must not read
+     as a person who was never seated. */
+  it("reports a refusal, a sent link and a seat filled behind a message that did not go", async () => {
+    const user = userEvent.setup();
+
+    for (const answer of [
+      { success: false, error: "Die Bewerbung ist entschieden." },
+      { success: true, verschickt: false, message: "Der Link ging nicht raus." },
+      { success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." },
+    ]) {
+      const { unmount } = renderStrip({ stands: standsOf(claraStieAus) });
+      answerWith(() => Promise.resolve(answer));
+
+      await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      unmount();
+    }
+
+    assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
+    // Its own title rather than the correction's „Link nicht gesendet“, which `core/toastTitles.test.ts`
+    // registers to one site: the two outcomes differ in what stands afterwards.
+    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht gesendet"]);
+    assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });
 });

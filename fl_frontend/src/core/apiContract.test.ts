@@ -135,6 +135,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   // The seat is a path segment too, the correction addressing one seat of one application.
   FLBewerbungKontaktEmailPayload: ["id", "rolle"],
+  FLBewerbungKontaktSitzPayload: ["id", "rolle"],
   FLPatchSchiedsrichterPayload: ["id"],
   FLAnnehmenBewerbungPayload: ["id"],
   FLAblehnenBewerbungPayload: ["id"],
@@ -352,7 +353,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 226;
+const EXPECTED_PAIRS = 228;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

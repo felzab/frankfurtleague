@@ -12,16 +12,21 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungErneutResponse,
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktEmailResponse,
+    FLBewerbungKontaktSitzPayload,
+    FLBewerbungKontaktSitzResponse,
 )
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,
+    claimed_pair_seat,
     compose_erneut_update,
     compose_kontakt_email_update,
+    compose_kontakt_seat_update,
     compose_new_club,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_kontakt_email_refusal,
     find_new_club_refusal,
+    find_reseat_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
@@ -334,17 +339,16 @@ async def korrigiere_kontakt_email(
     """
     Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
 
-    The ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link
-    the mail provider will not carry: everything else the school typed stays the record the decision is taken
-    against. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation
+    The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
+    record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
     deadline restarts from today exactly as a re-send restarts it.
 
     The seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day
     deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
-    for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already
-    confirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an
-    address another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is
-    a 404.
+    for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
+    write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
+    — the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this
+    application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.
     """
 
     async def correct_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
@@ -366,6 +370,11 @@ async def korrigiere_kontakt_email(
 
         other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)
+
+        # The MIRROR is judged too: `paired_seat` adds a seat that merely STANDS, and a confirmed one
+        # would be re-addressed and handed a link the person's own answer has already spent.
+        if other is not None:
+            refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
 
         # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
         # together is not refused for sharing it with itself.
@@ -389,3 +398,88 @@ async def korrigiere_kontakt_email(
     # credential, so a decision landing mid-request must leave neither half standing.
     async with db.start_session() as session:
         return await session.with_transaction(correct_and_mint)
+
+
+@router.post(
+    f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
+    response_model=FLBewerbungKontaktSitzResponse,
+    summary="Seat another person where a contact person stepped out",
+)
+async def besetze_kontakt_sitz(
+    bewerbung_id: CustomRouteObjectId,
+    seat: str,
+    sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
+    bewerbungen_collection: BewerbungenCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungKontaktSitzResponse:
+    """
+    Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.
+
+    It runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.
+    The record written is administrative and confirms nothing: the new person's own link is what asks them, and an
+    acceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled
+    from one press and one link answers both, and both must be empty for either to be written.
+
+    The link the seat's last holder was sent stops opening anything, and the application's confirmation deadline
+    restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
+    nothing, seating them for a confirmation they cannot give.
+
+    Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
+    stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
+    before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
+    contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.
+    """
+
+    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSitzResponse:
+        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
+
+        db_filter = {"_id": bewerbung_id}
+        bewerbung_raw = await pull_one_from_db(
+            collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"], session=session
+        )
+
+        # A 404 rather than a 422, as the correction's is: the segment names no seat any application has.
+        rolle = seat_named(seat)
+        if rolle is None:
+            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+
+        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
+        refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
+
+        # The pair is claimed rather than read off the slots, so it is composed BEFORE the refusal
+        # and judged with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.
+        other = claimed_pair_seat(kontakte=kontakte, seat=rolle)
+        seats = (rolle,) if other is None else (rolle, other)
+
+        refuse(find_reseat_refusal(bestaetigungen=bestaetigungen, seats=seats))
+
+        # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
+        # is one person, and comparing them against each other would refuse every such reseat.
+        refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
+
+        raw, token_hash = mint_token()
+        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+
+        await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            update=compose_kontakt_seat_update(
+                seats=seats,
+                # The label is excluded rather than dropped by the composer: everything left is the
+                # person as the slot stores them, so a sixth field added here reaches storage.
+                person=sitz_data.model_dump(mode="json", exclude={"text_version"}),
+                text_version=sitz_data.text_version,
+                token_hash=token_hash,
+                today=today,
+                bestaetigungsfrist=bestaetigungsfrist,
+            ),
+            session=session,
+        )
+
+        return FLBewerbungKontaktSitzResponse(rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+
+    # A transaction for the correction's reason: this write seats a person as well as a credential,
+    # so a decision landing mid-request must leave neither half standing.
+    async with db.start_session() as session:
+        return await session.with_transaction(seat_and_mint)
