@@ -25,6 +25,7 @@ export function AppShell<TIcon extends string>({
   fallbackTitle,
   fallbackHint,
   onSignOut,
+  onManagePasskeys,
   children,
 }: {
   structure: SidemenuStructure<TIcon>;
@@ -45,6 +46,11 @@ export function AppShell<TIcon extends string>({
   fallbackHint: SidemenuHint;
   /** Passed to the bar's options menu; only the admin shell supplies one. */
   onSignOut?: () => Promise<FormState>;
+  /**
+   * Opens the shell's own passkey dialog, which that shell renders outside this tree: the menu item
+   * sits inside a popover that unmounts on close, so the overlay cannot live there.
+   */
+  onManagePasskeys?: () => void;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -121,6 +127,7 @@ export function AppShell<TIcon extends string>({
           iconDictionary={iconDictionary}
           saisonMetadataDisplay={saisonMetadataDisplay}
           onSignOut={onSignOut}
+          onManagePasskeys={onManagePasskeys}
           pathname={pathname}
           isMobileOpen={isMobileOpen}
           onMobileClose={() => setIsMobileOpen(false)}

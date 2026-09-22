@@ -318,15 +318,16 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 - **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.
-- **A lost passkey is recovered in the Atlas console**, by deleting that administrator's rows in the
-  `passkey` collection of the `auth` database; their next sign-in through the e-mail link enrols a
-  new one. **Until that row is gone both enrolment endpoints answer 404 to every session**, their
-  own included, so a deletion against the wrong database reads to them as the step never being
-  offered. One passkey per administrator is the whole requirement, and no control here lists or
-  deletes another person's: that is a listing and a write against the sign-in store, and it buys a
-  console step already available.
-- **A device that cannot enrol a passkey locks that administrator out, and no setting here relaxes
-  it.** The enrolment asks for a discoverable credential and for the person to be verified
+- **A lost passkey is the administrator's own to replace while they still hold another**: the
+  sidemenu's options menu lists what they hold, adds one and removes one, each behind a fresh
+  passkey ceremony, and the last row cannot be removed. Removing one signs their other devices out.
+- **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
+  their rows in the `passkey` collection of the `auth` database; their next sign-in through the
+  e-mail link enrols anew. **Until those rows are gone the mailed link enrols nothing**, their own
+  included, so a deletion against the wrong database reads to them as the step never being offered.
+- **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
+  administrator who enrolled a second device in advance still has one; one who did not is in the
+  case below. The enrolment asks for a discoverable credential and for the person to be verified
   (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
@@ -334,12 +335,22 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
   previous image** (§1's deploy by tag), which authenticates against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
-- **Deleting one's OWN passkey is no recovery, and no page offers it.** A session that could reach
-  such a control has already passed the factor, so offering it to a link-borne session would let a
-  stolen mailbox swap the passkey for its own — which is the attack the second factor exists
-  against.
+- **A removal is not a recovery route, and no control offers one to a session the mailed link alone
+  made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
+  which is the attack the second factor exists against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
+- **A unique index on `credentialID` in the `auth` database's `passkey` collection is worth creating
+  by hand, and it is the only index that collection has.** The adapter resolves a model's indexes
+  from its schema's TABLE-level `indexes` alone, and the passkey plugin's schema declares none: its
+  `index: true` on `userId` and `credentialID` is read for name collisions and for nothing else, so
+  no `createIndex` is issued for that model on any write. Never on `userId`, which several passkeys
+  per administrator contradicts.
+- **Give a hand-made index a name of your own, and never one a release could generate.** Better
+  Auth documents no index behaviour for MongoDB at all — only that the schema needs no migration
+  there — so a release that starts declaring table-level indexes would ask for
+  `passkey_credentialID_uidx` on every create and inside the counter update every passkey sign-in
+  makes, and a hand-made index holding that name with a different spec would throw in both.
 
 ## 4. When the application queue has been flooded
 

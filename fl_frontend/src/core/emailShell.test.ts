@@ -52,6 +52,7 @@ const {
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
+const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
   await import("./registrierungEmail.ts");
 const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
@@ -102,6 +103,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./bewerbungEmail.ts")),
   ...Object.keys(await import("./authEmail.ts")),
   ...Object.keys(await import("./einladungEmail.ts")),
+  ...Object.keys(await import("./passkeyEmail.ts")),
   ...Object.keys(await import("./registrierungEmail.ts")),
   ...Object.keys(await import("./schiedsrichterEmail.ts")),
   ...Object.keys(await import("./sperrlisteEmail.ts")),
@@ -182,6 +184,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
+  buildPasskeyHinzugefuegtEmail: (origin) => buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
+  buildPasskeyGeloeschtEmail: (origin) => buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
   buildRegistrierungBestaetigungEmail: (origin) =>
     buildRegistrierungBestaetigungEmail({
       vorname: "Mira",

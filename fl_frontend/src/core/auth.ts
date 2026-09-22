@@ -19,10 +19,12 @@ import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
+import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 
 import type { BetterAuthOptions, DBAdapter } from "better-auth";
+import type { PasskeyEmail } from "./passkeyEmail";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -39,6 +41,15 @@ type Lifetime = { readonly idle: number; readonly absolute: number };
 const ADMIN_WINDOW_MS = 48 * HOUR_MS;
 
 const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_WINDOW_MS, absolute: ADMIN_WINDOW_MS };
+
+// Minutes, which is what WebAuthn practice and the large providers' documented re-authentication
+// ask for. It shrinks the exposure rather than closing it: inside those minutes a stolen cookie
+// still acts (`docs/frontend/spec.md :: I261`).
+const STEP_UP_WINDOW_MS = 5 * 60 * 1000;
+
+// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit
+// (`docs/frontend/spec.md :: I311`).
+export const PASSKEY_LIMIT = 5;
 
 // A sliding window with no cap means a stolen cookie used weekly never expires, which is why the
 // second figure is here and never redundant (`docs/frontend/spec.md :: I135`).
@@ -66,6 +77,10 @@ const PASSKEY_REGISTRATION_PATH = "/passkey/verify-registration";
 // hook below is the whole of what a link-borne session meets on either.
 const ENROLMENT_PATHS: ReadonlySet<string> = new Set(["/passkey/generate-register-options", PASSKEY_REGISTRATION_PATH]);
 
+// Two fields the plugin's schemas take and this league's client never sends: one swaps the caller's
+// session for one nothing asked for, the other titles the row on the surface built to spot it.
+const ENROLMENT_FIELDS_REFUSED: readonly string[] = ["createSession", "name"];
+
 // The plugin answers each of these with the session row it minted, `token` -- the cookie's own
 // value -- among its fields (`docs/frontend/spec.md :: I198`).
 const CEREMONY_VERIFY_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_PATH, PASSKEY_ASSERTION_PATH]);
@@ -91,18 +106,62 @@ function refuseUnverified(userVerified: boolean): void {
   throw new APIError("BAD_REQUEST", { code: USER_VERIFICATION_REFUSED, message: "The authenticator did not verify the user." });
 }
 
-// One passkey per administrator; recovery is a console step rather than a control anywhere here.
+/** As much of the enrolling session as either arm can see; both arms read one stored row. */
+type Enroller = { readonly email?: string | null; readonly authFactor?: unknown; readonly createdAt?: Date | string };
 
 /**
- * The plugin takes a passkey already held for an `excludeCredentials` hint, which a different
- * authenticator ignores -- so nothing in it stops a stolen mailbox enrolling one beside the
- * administrator's own (`docs/frontend/spec.md :: I261`).
+ * Whether the authenticator itself answered recently enough for a session to manage passkeys.
+ * Exported for `fl_frontend/src/features/passkeys/actions.ts`, which asks it of a removal.
  */
-async function refuseASecondPasskey(adapter: DBAdapter, userId: string): Promise<void> {
-  const held = await adapter.findMany({ model: "passkey", where: [{ field: "userId", value: userId }], limit: 1 });
+export function isRecentlyAsserted(createdAt?: Date | string): boolean {
+  const created = new Date(createdAt ?? Number.NaN).getTime();
 
-  // The default-deny net's own answer, so an enrolment the page never offers names no surface either.
-  if (held.length > 0) throw APIError.fromStatus("NOT_FOUND");
+  // An unreadable stamp is no step-up rather than an unbounded one, as `withinLifetime` reads one.
+  return Number.isFinite(created) && Date.now() - created < STEP_UP_WINDOW_MS;
+}
+
+/**
+ * The stamp sits on the stored row and on neither arm's declared type, the library typing both to
+ * its own base shape: read through `Reflect` rather than cast, so nothing here claims it is there.
+ */
+function asEnroller(served: { user: { email: string }; session: object } | null): Enroller {
+  if (served === null) return {};
+
+  return {
+    email: served.user.email,
+    authFactor: Reflect.get(served.session, "authFactor"),
+    createdAt: Reflect.get(served.session, "createdAt") as Date | string | undefined,
+  };
+}
+
+/**
+ * Every condition an enrolment meets, on both arms. The plugin gates its two registration endpoints
+ * on `freshAge` and on nothing else, which a link-borne session is inside
+ * (`docs/frontend/spec.md :: I261`).
+ */
+async function refuseEnrolment(adapter: DBAdapter, userId: string, caller: Enroller, credentialID?: string): Promise<void> {
+  // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
+  // names no surface either.
+  if (!isUserAdmin(caller.email)) throw APIError.fromStatus("NOT_FOUND");
+
+  const held = await adapter.findMany<{ credentialID?: string }>({
+    model: "passkey",
+    where: [{ field: "userId", value: userId }],
+    limit: PASSKEY_LIMIT + 1,
+  });
+
+  // The mailed link enrols the first passkey and only ever that one: past it a stolen mailbox would
+  // put its own authenticator beside the administrator's and never need the administrator's again.
+  const bootstrap = held.length === 0 && caller.authFactor === LINK_FACTOR;
+  const further = caller.authFactor === PASSKEY_FACTOR && isRecentlyAsserted(caller.createdAt);
+
+  if (!bootstrap && !further) throw APIError.fromStatus("NOT_FOUND");
+  if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
+
+  // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
+  // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
+  // rows nothing on the page tells apart (driven against 1.7.5).
+  if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
 /* The library mounts forty endpoints and an upgrade adds more, so the surface is closed from two
@@ -155,6 +214,27 @@ const DISABLED_PATHS: readonly string[] = [
   "/verify-password",
 ];
 
+/**
+ * A failed send leaves the change standing: a passkey row rolled back for an unreachable mailbox is
+ * a lockout the reader never asked for (`docs/frontend/spec.md :: I314`).
+ */
+async function notify(message: PasskeyEmail, email: string): Promise<void> {
+  try {
+    await sendMail({ to: email, subject: message.subject, html: message.html, text: message.text });
+  } catch (failed) {
+    // Name only, as the link's own send writes one: a failure here routinely carries the address.
+    logger.error("auth.passkey_notice_failed", undefined, {
+      error_code: "FE-AUTH-004",
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
+  }
+}
+
+/** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
+export async function notifyPasskeyRemoved(email: string): Promise<void> {
+  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN }), email);
+}
+
 /** Where every finished sign-in step lands: the one page that decides where a session goes next. */
 export const SIGN_IN_LANDING = "/signin/weiter";
 
@@ -180,6 +260,9 @@ const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
 // (`docs/frontend/spec.md :: I45`); its `.invalid` host matches no browser's origin, so one that
 // escaped the builder would refuse rather than enrol.
 const AUTH_ORIGIN = new URL(frontend_config.AUTH_URL ?? "https://auth-url-unset.invalid");
+
+/** The serving origin a notice below is composed on, never `brand.ts :: SITE_URL` (I186). */
+const MAIL_ORIGIN = frontend_config.AUTH_URL ?? AUTH_ORIGIN.origin;
 
 /**
  * Bound to a name because `customSession` below is typed off it: the projection's `session`
@@ -288,11 +371,22 @@ export const auth = betterAuth({
       // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
       // and a request reshaped behind its back is how the next reader believes the field works.
       const asked: unknown = ctx.body;
-      if (typeof asked === "object" && asked !== null && "createSession" in asked) throw APIError.fromStatus("BAD_REQUEST");
+      for (const field of ENROLMENT_FIELDS_REFUSED) {
+        if (typeof asked === "object" && asked !== null && field in asked) throw APIError.fromStatus("BAD_REQUEST");
+        // The options half takes `name` on the query string instead, where it becomes the account
+        // name the browser's own prompt shows.
+        if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
+      }
 
       // The plugin gates both halves on `freshAge` alone, which the link's own session is inside.
       const caller = await getSessionFromCtx(ctx);
-      if (caller !== null) await refuseASecondPasskey(ctx.context.adapter, caller.user.id);
+
+      // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
+      // while `registration.requireSession` keeps its default: this arm judges nothing about a
+      // session it cannot read, and the in-process arm already refuses one.
+      if (caller === null) throw APIError.fromStatus("NOT_FOUND");
+
+      await refuseEnrolment(ctx.context.adapter, caller.user.id, asEnroller(caller));
     }),
 
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -302,6 +396,13 @@ export const auth = betterAuth({
 
       // Left standing where the ceremony was refused, or a refusal is answered as a success.
       if (isAPIError(ctx.context.returned)) return undefined;
+
+      // Here rather than in the callback above, which runs BEFORE the write: a notice sent there
+      // would name an enrolment a later refusal never made.
+      if (ctx.path === PASSKEY_REGISTRATION_PATH) {
+        const enrolled = await getSessionFromCtx(ctx);
+        if (enrolled !== null) await notify(buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN }), enrolled.user.email);
+      }
 
       // The browser client reads nothing off either body but whether it is there
       // (`@better-auth/passkey/client :: getPasskeyActions`).
@@ -369,7 +470,16 @@ export const auth = betterAuth({
 
           // Asked again here rather than trusted from the hook: this is the last point before the
           // row is written, and it is reached by an `auth.api` call the hook lets through.
-          await refuseASecondPasskey(ctx.context.adapter, user.id);
+
+          // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
+          // mounts only while `registration.requireSession` keeps its default: unset it and this arm
+          // sees no factor at all and refuses every enrolment.
+          await refuseEnrolment(
+            ctx.context.adapter,
+            user.id,
+            asEnroller(ctx.context.session ?? null),
+            verification.registrationInfo?.credential.id,
+          );
         },
       },
       authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },

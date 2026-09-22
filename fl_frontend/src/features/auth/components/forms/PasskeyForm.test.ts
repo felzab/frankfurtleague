@@ -75,8 +75,8 @@ beforeEach(() => {
 });
 
 describe("which ceremony the card runs", () => {
-  /* The guard decides the step and the card obeys it: an enrolment offered to somebody who already
-     holds a passkey enrols a second one, which `docs/frontend/spec.md :: I261` refuses. */
+  /* The guard decides the step and the card obeys it: an enrolment offered to a link-borne session
+     that already holds one is refused by the server (`docs/frontend/spec.md :: I261`). */
   it("enrols on the step the guard asked to enrol, and signs in on the step it asked to assert", async () => {
     const user = userEvent.setup();
     const { unmount } = renderCard("enrol");
@@ -220,8 +220,8 @@ describe("what the card puts in front of the reader", () => {
     assert.match(screen.getByText(ADDRESS).className, /\bfont-bold\b/);
   });
 
-  /* One passkey per administrator, and recovery is the runbook's console step. A session that
-     could delete its own passkey is one a stolen mailbox could swap a passkey on. */
+  /* Removal lives behind a fresh assertion, in the sidemenu's dialog. A session that could remove
+     its own passkey here is one a stolen mailbox could swap a passkey on. */
   it("offers one control and no second one that deletes a passkey", () => {
     renderCard("assert");
 

@@ -36,6 +36,11 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
     // The erasure preview, which reads and moves nothing.
     readOnly: ["readKontaktErasureAnsichtAction"],
   },
+  "features/passkeys/actions.ts": {
+    writes: ["removePasskeyAction"],
+    // The dialog's own read, which lists this administrator's rows and moves nothing.
+    readOnly: ["readPasskeysAction"],
+  },
   "features/saisons/actions.ts": {
     writes: [
       "postSaisonAction",

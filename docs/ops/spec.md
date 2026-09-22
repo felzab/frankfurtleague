@@ -362,7 +362,9 @@ sign in is an environment value rather than a stored row. **A sign-in alone does
 there**: the link stamps its session `link` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
-gives. Every machine, and every `--fresh`, enrols again.
+gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the
+sidemenu's options menu rather than from `/signin/passkey`, and adding or removing one asks for a
+passkey the machine already holds.
 
 **The production tier's limitations shape that command**, and they are the fastest-rotting fact on
 this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial
