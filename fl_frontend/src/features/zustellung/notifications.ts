@@ -1,7 +1,7 @@
 import "server-only";
 
 import { logger } from "@/core/logging";
-import { sendMail } from "@/core/mail";
+import { MailWithheldError, sendMail } from "@/core/mail";
 
 import { meldeZielZustellungAngenommen } from "./mutations";
 
@@ -24,10 +24,17 @@ export type ZielAuftrag = {
   idempotenzTag?: string;
 };
 
-/** Both lists are in the order the addresses were tried. */
+/** Every list is in the order the addresses were tried. */
 export type ZielMailOutcome = {
   delivered: readonly string[];
   unreachable: readonly string[];
+  /**
+   * The subset of `unreachable` this deployment never tried, `sendMail` having withheld it.
+   *
+   * A caller telling a person their mail could not be sent needs the two apart: outside production
+   * every address lands in `unreachable`.
+   */
+  withheld: readonly string[];
 };
 
 /** One message, without the envelope the fan-out fills in. */
@@ -116,6 +123,7 @@ export async function sendZielMail({
 
   const delivered: string[] = [];
   const unreachable: string[] = [];
+  const withheld: string[] = [];
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -131,6 +139,8 @@ export async function sendZielMail({
     }
 
     unreachable.push(address);
+    // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
+    if (result.reason instanceof MailWithheldError) withheld.push(address);
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
     // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
     logger.error("zustellung.mail_failed", undefined, {
@@ -143,5 +153,5 @@ export async function sendZielMail({
   // Together rather than one after another: each round trip is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable };
+  return { delivered: delivered, unreachable: unreachable, withheld: withheld };
 }

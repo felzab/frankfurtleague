@@ -10,6 +10,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.folding import mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
@@ -590,20 +591,6 @@ def seat_vorname(*, kontakte: Any, seat: str) -> str:
     return str(slot.get("vorname") or "") if isinstance(slot, Mapping) else ""
 
 
-def _mailbox_key(email: str) -> str:
-    """What makes two stored addresses one inbox.
-
-    Stricter than `app/api/kontakte/services.py :: _same_address`, which folds the whole address:
-    over-matching costs an erasure nothing, and here it would name somebody else's seat in a message.
-    """
-
-    at = email.rfind("@")
-
-    # The local part byte for byte and the domain without case (RFC 5321 §2.4), as
-    # `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats` compares them.
-    return email if at == -1 else f"{email[:at]}@{email[at + 1 :].lower()}"
-
-
 def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontaktRolle]]:
     """The Ansprechperson's address as stored, and every seat that same inbox holds.
 
@@ -624,8 +611,8 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    key = _mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_SEATS if seat in addresses and _mailbox_key(addresses[seat]) == key]
+    key = mailbox_key(anchor)
+    held = [seat for seat in KONTAKT_SEATS if seat in addresses and mailbox_key(addresses[seat]) == key]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -864,7 +851,10 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
-    """The seats as the mails go out: one message per mailbox, keyed as the first mail keys (`_mailbox_key`), in first-seen order."""
+    """The seats as the mails go out: one message per mailbox, in first-seen order.
+
+    Keyed as the first mail keys it (`app/shared/folding.py :: mailbox_key`).
+    """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
@@ -874,7 +864,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if not email:
             continue
-        address, held = grouped.setdefault(_mailbox_key(email), (email, []))
+        address, held = grouped.setdefault(mailbox_key(email), (email, []))
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())

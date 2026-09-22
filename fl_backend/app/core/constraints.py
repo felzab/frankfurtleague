@@ -767,6 +767,30 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.EINLADUNGEN: {
+        "$jsonSchema": _object(
+            required=("_id", "saison_id", "team_id", "token_hash", "erstellt_am", "erstellt_von", "widerrufen_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "team_id": {"bsonType": "objectId"},
+                # The whole credential, on no model and in no read: a link is recoverable from
+                # nothing once this row holds it (`app/api/bewerbungen/services.py :: hash_token`).
+                "token_hash": {"bsonType": "string"},
+                "erstellt_am": {"bsonType": "string"},
+                "erstellt_von": {"bsonType": "string"},
+                # Required above rather than optional, for `sperrliste.adresse_hash`'s reason:
+                # `uniq_einladung_live` reaches the rows holding null, and a row missing the key
+                # would fall outside a rule that is the whole of one-live-invite-per-team.
+                "widerrufen_am": {"bsonType": _STRING_OR_NULL},
+                # The delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`), written
+                # empty by the mint (`docs/backend/spec.md :: I276`). Out of `required`, so a
+                # row seeded without one still stores; hand-written because `_object` would spell
+                # the empty `required` mongod refuses.
+                "versand": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+            },
+        )
+    },
 }
 
 
@@ -807,6 +831,18 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
     UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
+    # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
+    # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
+    # supports and names no null form at all
+    # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
+    # 2026-09-21).
+    UniqueIndex(
+        Collection.EINLADUNGEN,
+        "uniq_einladung_live",
+        ("saison_id", "team_id"),
+        "one live invite per team per season",
+        partial_filter={"widerrufen_am": {"$type": "null"}},
+    ),
 )
 
 
@@ -901,6 +937,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spieler_email",
         (("email", ASCENDING),),
         "the rows a signed-in person may be joined to, matched on the folded address",
+    ),
+    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
+    # key holds as many rows as the team has been reissued links.
+    SupportIndex(
+        Collection.EINLADUNGEN,
+        "einladungen_token_hash",
+        (("token_hash", ASCENDING),),
+        "the invite page's lookup, driven by strangers",
     ),
 )
 

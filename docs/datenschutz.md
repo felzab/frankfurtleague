@@ -290,6 +290,18 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   refused. The confirmation page states the period to the person whose details they are
   (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
+- **A registration link stops working when the season's registration window shuts, or the moment an
+  administrator withdraws it or replaces it with a new one; the entry recording it is kept without a
+  clock.** The link carries no date of its own: what decides whether it opens anything is the
+  season's window, judged afresh at every use
+  (`fl_backend/app/api/einladungen/services.py :: registrierungsfenster_laeuft`), so a window moved
+  after the link was minted moves the link with it. The entry names a team and a season and no
+  SUBJECT — an unkeyed hash of the link value, which yields the link itself to nobody, the day it
+  was minted, and the administrator who minted it, whose address is held in plain and outlives any
+  erasure as the ban list's does. **Nothing deletes one**: no erasure reaches it, no clock removes
+  it, and a replaced entry is kept precisely so a delivery event about the message that carried its
+  link still has somewhere to land (`docs/glossary.md :: Einladung`). The published notice says the
+  same — the link ends, the entry stays (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-21.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered.** The row records the last season it
   covers and the activation of the season after that removes it

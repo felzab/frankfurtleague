@@ -108,6 +108,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
   FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
+  FLEinladungKeyPayload: "the mint and the revoke take both ids from the path and have no request body",
+  FLEinladungMailPayload: "the mail press is this server's own argument; the API sees a send it never makes",
+  FLEinladungVersandGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
@@ -139,6 +142,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLSwapGruppenPayload: ["saison_id"],
   // The draw's own season, for the same reason. Its body carries the replace confirmation and the shape.
   FLGenerateSpielplanPayload: ["id"],
+  // The season is the resource acted on; the body carries the re-send choice alone, and the preview
+  // takes the same choice as a query parameter.
+  FLEinladungVersandPayload: ["id"],
   // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
@@ -340,7 +346,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 198;
+const EXPECTED_PAIRS = 209;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

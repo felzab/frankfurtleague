@@ -12,6 +12,7 @@ from app.core.db import (
     get_bewerbungen_collection,
     get_database,
     get_db_client,
+    get_einladungen_collection,
     get_saison_spieler_collection,
     get_saison_teams_collection,
     get_saisons_collection,
@@ -51,6 +52,8 @@ AktionenCollection = Annotated[AsyncCollection, Depends(get_aktionen_collection)
 BewerbungenCollection = Annotated[AsyncCollection, Depends(get_bewerbungen_collection)]
 
 SperrlisteCollection = Annotated[AsyncCollection, Depends(get_sperrliste_collection)]
+
+EinladungenCollection = Annotated[AsyncCollection, Depends(get_einladungen_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

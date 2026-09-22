@@ -223,6 +223,9 @@ const EDITORS: Record<string, Editor> = {
             { gruppe: "B", occupied: 0, capacity: 4 },
           ],
           swap: { teams: [], playedKnockoutSpiele: 0 },
+          // `null` is the club that holds no junction row for the season, which is the one state
+          // this sweep's fixture can take without the invite panel's own read.
+          einladung: null,
           pageHeader: { title: TEAM_A.name },
         }),
       );

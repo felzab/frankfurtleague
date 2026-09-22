@@ -116,6 +116,11 @@ const FRISTEN = [
     frist: "Bis zum Ende der beworbenen Saison",
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
+  {
+    daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
+    frist:
+      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu nennt keine Person und enthält den Link nur als unlesbaren Schlüssel; er bleibt bestehen.",
+  },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",

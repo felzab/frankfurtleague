@@ -59,6 +59,7 @@ OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 ORPHAN_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200008")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
+EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 
 # The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
 # fails here instead of quietly changing what the report is understood to mean.
@@ -255,6 +256,18 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "erstellt_von": "admin@example.invalid",
             "erstellt_am": "2026-03-15",
             "gesperrt_bis_saison_id": "2031",
+        },
+        # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
+        # holding null, and `versand` is the empty carrier the mint writes.
+        "einladungen": {
+            "_id": EINLADUNG_OID,
+            "saison_id": SAISON_ID,
+            "team_id": TEAM_OID,
+            "token_hash": "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200",
+            "erstellt_am": "2026-03-15",
+            "erstellt_von": "admin@example.invalid",
+            "widerrufen_am": None,
+            "versand": {},
         },
     }
 
@@ -466,6 +479,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_sperrliste_adresse_hash": (
         valid_documents()["sperrliste"],
         valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", erstellt_von="zweite@example.invalid"),
+    ),
+    # Both rows live, which is the reach the `partialFilterExpression` narrows the rule to: a pair
+    # whose second row carried a revocation date would pass while the filter matched anything.
+    "uniq_einladung_live": (
+        valid_documents()["einladungen"],
+        valid_document("einladungen", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
 }
 
@@ -749,8 +768,8 @@ def test_the_check_mode_reports_two_venues_or_two_referees_sharing_a_name(mongo_
 def test_each_unique_index_is_built_with_the_reach_it_declares(mongo_url: str, index):
     """Every declared rule is BUILT, and built at the reach it declares.
 
-    No index declares a `partial_filter` today, so what this holds is that none acquires one
-    unnoticed: the duplicate pairs above seed no row an added filter would exclude.
+    A filter decides which rows a rule reaches, so one added or rewritten unnoticed leaves the rule
+    refusing a different population with every other case here green.
     """
 
     async def body(database: AsyncDatabase) -> Any:

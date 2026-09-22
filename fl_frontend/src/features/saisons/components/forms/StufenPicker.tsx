@@ -10,12 +10,10 @@ import { FIELD_ERROR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFiel
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react";
 
-/**
- * The one toggle-chip appearance in this feature, shared with the Spielplan panel's operation picker.
- *
- * **No hover or press variant here**: HeroUI's own fills are `@layer components` and these
- * are utilities declared last, so each state's resting background is what suppresses them.
- */
+// **No hover or press variant here**: HeroUI's own fills are `@layer components` and these are
+// utilities declared last, so each state's resting background is what suppresses them.
+
+/** The one toggle-chip appearance, shared with every operation picker that arms one write out of two. */
 export const STUFE_CHIP =
   "border-border bg-transparent text-foreground-muted " +
   "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +

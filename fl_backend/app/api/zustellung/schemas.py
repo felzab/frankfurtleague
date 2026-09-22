@@ -11,7 +11,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 # A member joins this set in the commit that gives it an `app/api/zustellung/services.py ::
 # ZIEL_PFADE` row and its own validator block: one arriving without either names a kind every
 # write reaches nothing through.
-FLZustellungZiel = Literal["schiedsrichter"]
+FLZustellungZiel = Literal["schiedsrichter", "einladung"]
 
 
 class _ZielZustellungPayload(BaseModel):

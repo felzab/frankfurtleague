@@ -38,7 +38,16 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
         "default_payment": 25,
         "kontakt": {"telefon": "+49 170 1234567", "email": "bramblewick@example.com"},
         "inactive_since": None,
-    }
+    },
+    "einladung": {
+        "_id": ZIEL_OID,
+        "saison_id": "2026",
+        "team_id": ObjectId("6890a1b2c3d4e5f607970002"),
+        "token_hash": "9f2b1c4d7e8a0b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+        "erstellt_am": "2026-03-28",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "widerrufen_am": None,
+    },
 }
 
 ZIELE = sorted(ZIEL_PFADE)

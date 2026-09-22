@@ -51,6 +51,7 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -97,6 +98,7 @@ function controlSection(html: string): string {
 const BUILT_MESSAGES = [
   ...Object.keys(await import("./bewerbungEmail.ts")),
   ...Object.keys(await import("./authEmail.ts")),
+  ...Object.keys(await import("./einladungEmail.ts")),
   ...Object.keys(await import("./sperrlisteEmail.ts")),
 ]
   .filter((name) => name.startsWith("build"))
@@ -166,6 +168,13 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
       fristText: "18.09.2026",
+    }),
+  buildEinladungEmail: (origin) =>
+    buildEinladungEmail({
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
   buildSperreEmail: (origin) =>

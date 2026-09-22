@@ -133,6 +133,11 @@ ADMIN_READS = [
     # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
     # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
     ("/api/v0/sperrliste", "get"),
+    # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
+    # as the two `bewerbungen` reads are.
+    ("/api/v0/saisons/{saison_id}/einladungen/versand/vorschau", "get"),
+    # The invitation's own read serves `erstellt_von`, an administrator's address.
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", "get"),
 ]
 
 

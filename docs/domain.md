@@ -39,8 +39,8 @@ model holds; read this for the shape those tables are stating.
   on the club.
 - **Drawn** — the matchdays and the fixtures (`spieltage`, `spiele`), composed by one operation from a
   season's rules and the clubs entered into it.
-- **Standing apart** — one school's application to play one season (`bewerbungen`), and one recorded write
-  (`aktionen`).
+- **Standing apart** — one school's application to play one season (`bewerbungen`), one minted registration
+  link (`einladungen`) and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents. A club's league table is on neither, being computed from the matches.

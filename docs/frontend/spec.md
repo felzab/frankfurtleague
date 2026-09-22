@@ -50,6 +50,7 @@
 | `admin`          |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
 | `kontakte`       |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                            |
 | `sperrliste`     |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                     |
+| `einladungen`    |   ✅    |    ✅     |   ✅    |   ✅    | One live registration link per team and season, and one press that mails every admitted team; no edit — a reissue revokes and mints            |
 | `auth`           |    —    |     —     |   ✅    |   ✅    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
 | `dashboard`      |    —    |     —     |    —    |    —    | —                                                                                                                                              |
 | `meta`           |    —    |     —     |    —    |    —    | —                                                                                                                                              |
@@ -361,9 +362,16 @@ the other refuses.
 | `ablehnenBewerbungAction`         | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds           |
 | `einwilligungErneutSendenAction`  | bewerbungen    | **nothing** — no cached read holds an application                                              |
 | `kontaktEmailKorrigierenAction`   | bewerbungen    | **nothing** — no cached read holds an application                                              |
+| `postEinladungAction`             | einladungen    | **nothing** — no cached read holds an invitation                                               |
+| `mailEinladungAction`             | einladungen    | **nothing** — its only write is the delivery record, which no cached read holds                |
+| `deleteEinladungAction`           | einladungen    | **nothing** — no cached read holds an invitation                                               |
+| `previewEinladungVersandAction`   | einladungen    | **nothing** — it writes nothing                                                                |
+| `postEinladungVersandAction`      | einladungen    | **nothing** — no cached read holds an invitation                                               |
 | `patchSaisonTeamKontakteAction`   | kontakte       | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache` |
 | `eraseKontaktpersonAction`        | kontakte       | **nothing** — no cached read holds a contact person                                            |
 | `readKontaktErasureAnsichtAction` | kontakte       | **nothing** — it writes nothing                                                                |
+| `postSperreAction`                | sperrliste     | **nothing** — no cached read holds a ban                                                       |
+| `deleteSperreAction`              | sperrliste     | **nothing** — no cached read holds a ban                                                       |
 | `handleSignIn`                    | auth           | —                                                                                              |
 | `signOutAction`                   | auth           | —                                                                                              |
 

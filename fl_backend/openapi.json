@@ -3155,6 +3155,167 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung": {
+      "post": {
+        "summary": "Mint this team's registration link for a season",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.",
+        "operationId": "post_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungMintResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "delete": {
+        "summary": "Revoke this team's live registration link for a season",
+        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says\nwhich link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.",
+        "operationId": "delete_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "get": {
+        "summary": "This team's live registration link for a season, and whether it opens anything",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure.\n\n`laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds\nthat id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "operationId": "get_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spieltage/list/admin": {
       "get": {
         "summary": "Spieltage for the admin surfaces",
@@ -3950,6 +4111,118 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLUndrawSpielplanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": {
+      "get": {
+        "summary": "Who the send would reach",
+        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
+        "operationId": "preview_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_vorschau_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "erneut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Erneut"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungVersandVorschauResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/saisons/{saison_id}/einladungen/versand": {
+      "post": {
+        "summary": "Mint every admitted team a link",
+        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.",
+        "operationId": "post_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungVersandPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungVersandResponse"
                 }
               }
             }
@@ -8493,6 +8766,449 @@
         ],
         "title": "FLBracketFaultSpieltag",
         "description": "A club standing more than once on one Spieltag.\n\nOne entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`\ncounts in -- never deduplicated, because which to correct is a competition decision."
+      },
+      "FLEinladung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          },
+          "widerrufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widerrufen Am"
+          },
+          "versand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinladungVersand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "team_id",
+          "erstellt_am",
+          "erstellt_von",
+          "widerrufen_am"
+        ],
+        "title": "FLEinladung",
+        "description": "One minted link as it is served -- and NO `token_hash`.\n\nA model declaring the hash would put every live link of the season on an admin read\n(`docs/backend/spec.md :: I275`)."
+      },
+      "FLEinladungEmpfaenger": {
+        "properties": {
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rolle",
+          "vorname",
+          "email"
+        ],
+        "title": "FLEinladungEmpfaenger",
+        "description": "One mailbox a link goes to, and the seat it is addressed as."
+      },
+      "FLEinladungMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung_id",
+          "token",
+          "erstellt_am",
+          "erstellt_von"
+        ],
+        "title": "FLEinladungMintResponse",
+        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash\n(`docs/backend/spec.md :: I275`)."
+      },
+      "FLEinladungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinladung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "laeuft": {
+            "type": "boolean",
+            "title": "Laeuft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung",
+          "laeuft"
+        ],
+        "title": "FLEinladungResponse",
+        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.\n\nDeclared here rather than in `app/api/teams/schemas.py`, whose endpoint answers it: moving it\nthere is an import cycle through `app/api/bewerbungen/schemas.py`."
+      },
+      "FLEinladungVersand": {
+        "properties": {
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "FLEinladungVersand",
+        "description": "The carrier a message about this invite is recorded in.\n\nA carrier rather than the record itself: `zustellung_pfad` composes a dotted path out of it, and\nthe accepted send skips a row holding no carrier at all."
+      },
+      "FLEinladungVersandPayload": {
+        "properties": {
+          "erneut": {
+            "type": "boolean",
+            "title": "Erneut",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FLEinladungVersandPayload"
+      },
+      "FLEinladungVersandResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "zeilen": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungVersandZeile"
+            },
+            "type": "array",
+            "title": "Zeilen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "zeilen"
+        ],
+        "title": "FLEinladungVersandResponse",
+        "description": "What the press did, per admitted team of the season."
+      },
+      "FLEinladungVersandVorschauResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "zeilen": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungVersandVorschauZeile"
+            },
+            "type": "array",
+            "title": "Zeilen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "zeilen"
+        ],
+        "title": "FLEinladungVersandVorschauResponse",
+        "description": "Who the press would mail, over the same rule the press then performs."
+      },
+      "FLEinladungVersandVorschauZeile": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          },
+          "uebersprungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "austritt_eingetragen",
+                  "erzeugung_fehlgeschlagen",
+                  "kein_kontaktblock",
+                  "keine_bestaetigte_kontaktperson",
+                  "bereits_gesendet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebersprungen"
+          },
+          "ersetzt_link": {
+            "type": "boolean",
+            "title": "Ersetzt Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "empfaenger",
+          "uebersprungen",
+          "ersetzt_link"
+        ],
+        "title": "FLEinladungVersandVorschauZeile",
+        "description": "One team as the preview reports it. It mints nothing, so it answers no link."
+      },
+      "FLEinladungVersandZeile": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          },
+          "uebersprungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "austritt_eingetragen",
+                  "erzeugung_fehlgeschlagen",
+                  "kein_kontaktblock",
+                  "keine_bestaetigte_kontaktperson",
+                  "bereits_gesendet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebersprungen"
+          },
+          "ersetzt_link": {
+            "type": "boolean",
+            "title": "Ersetzt Link"
+          },
+          "einladung_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Einladung Id"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "empfaenger",
+          "uebersprungen",
+          "ersetzt_link",
+          "einladung_id",
+          "token"
+        ],
+        "title": "FLEinladungVersandZeile",
+        "description": "One team as the press left it."
+      },
+      "FLEinladungWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung_id"
+        ],
+        "title": "FLEinladungWriteResponse",
+        "description": "The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere."
       },
       "FLEinwilligung": {
         "properties": {
@@ -14768,7 +15484,10 @@
         "properties": {
           "ziel": {
             "type": "string",
-            "const": "schiedsrichter",
+            "enum": [
+              "schiedsrichter",
+              "einladung"
+            ],
             "title": "Ziel"
           },
           "ziel_id": {
@@ -14803,7 +15522,10 @@
         "properties": {
           "ziel": {
             "type": "string",
-            "const": "schiedsrichter",
+            "enum": [
+              "schiedsrichter",
+              "einladung"
+            ],
             "title": "Ziel"
           },
           "ziel_id": {

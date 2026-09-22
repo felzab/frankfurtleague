@@ -22,6 +22,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellstand,
     FLBewerbungZustellung,
 )
+from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonBewerbung,
@@ -183,6 +184,11 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
+    (Collection.EINLADUNGEN, (), FLEinladung, frozenset()),
+    # The delivery state at the register's third home, under a carrier of its own: `zustellung`
+    # nested in `zustellung` is a path `zustellung_pfad` cannot spell.
+    (Collection.EINLADUNGEN, ("versand",), FLEinladungVersand, frozenset()),
+    (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -336,6 +342,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
 ]
 
 
@@ -424,6 +431,10 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # What became of the last message to this referee, written by the system tier and read by no
     # admin model: an administrator acts on the referee's own record, never on a provider's report.
     (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),
+    # Served on a read, every live link of the season would be recoverable from an admin page. The
+    # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
+    # that operation revoked the row it imaged.
+    (Collection.EINLADUNGEN, ()): frozenset({"token_hash"}),
 }
 
 

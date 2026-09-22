@@ -23,7 +23,12 @@ class ZielPfad:
 
 # A `Collection` member per row and never a name spelled out: `app/core/collections.py` is the one
 # declaration of what this database holds.
-ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {"schiedsrichter": ZielPfad(Collection.SCHIEDSRICHTER, "bestaetigung")}
+ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
+    "schiedsrichter": ZielPfad(Collection.SCHIEDSRICHTER, "bestaetigung"),
+    # `versand` rather than `zustellung`: the carrier and the record inside it would otherwise be
+    # `zustellung.zustellung`, which `zustellung_pfad` cannot spell.
+    "einladung": ZielPfad(Collection.EINLADUNGEN, "versand"),
+}
 
 
 def zustellung_pfad(pfad: ZielPfad) -> str:

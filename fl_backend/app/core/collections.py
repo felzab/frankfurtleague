@@ -36,3 +36,6 @@ class Collection(StrEnum):
     #: nobody and yields no address without the key, so it is neither their document to delete nor
     #: a shell of nulls.
     SPERRLISTE = "sperrliste"
+    #: One minted registration link per row. It names a team and a season and no person, so an
+    #: erasure never reaches one.
+    EINLADUNGEN = "einladungen"

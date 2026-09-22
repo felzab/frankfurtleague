@@ -20,6 +20,11 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
     writes: ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"],
     readOnly: [],
   },
+  "features/einladungen/actions.ts": {
+    writes: ["postEinladungAction", "mailEinladungAction", "deleteEinladungAction", "postEinladungVersandAction"],
+    // The bulk send's dry run, which reports who would be written to and writes nothing.
+    readOnly: ["previewEinladungVersandAction"],
+  },
   "features/kontakte/actions.ts": {
     writes: ["eraseKontaktpersonAction", "patchSaisonTeamKontakteAction"],
     // The erasure preview, which reads and moves nothing.

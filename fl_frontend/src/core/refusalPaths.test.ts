@@ -289,6 +289,23 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
 
+  // The invite is addressed by the junction row the panel already stands on, so neither id is typed
+  // and no control offers the season-wide opt-in a name.
+  FLEinladungKeyPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH },
+  // One payload for the preview AND the press, so this row covers both reads of the switch.
+  FLEinladungVersandPayloadSchema: {
+    id: IN_THE_PATH,
+    erneut: "the re-send switch, whose one refusal would be a boolean the panel wrote itself",
+  },
+  FLEinladungMailPayloadSchema: {
+    team_id: IN_THE_PATH,
+    saison_id: IN_THE_PATH,
+    einladung_id: "the row the mint just answered, carried through the page; no control offers one",
+    // The store keeps a hash, so this value exists only in the page that minted it and a box
+    // offering it would be a box for a credential.
+    token: "the link value the mint answered, carried through the page; no control offers one",
+  },
+
   // The triage's two decisions: the application is the page, so its id is never typed. Everything
   // else on both payloads is a control — the group and the kit picker, and the decline's reason.
   FLAnnehmenBewerbungPayloadSchema: { id: IN_THE_PATH },
@@ -635,7 +652,12 @@ describe("every path a refusal mapper emits", () => {
    * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and no
    * way out of the sweep: a listed file that assigns `fieldErrors` at all fails below.
    */
-  const BANNER_ONLY: Record<string, string> = {};
+  const BANNER_ONLY: Record<string, string> = {
+    // Both codes it maps are about the SEASON and the junction row rather than about anything typed:
+    // the panel renders no input either refusal could land on, so a field map would name nothing.
+    "features/einladungen/actions.ts":
+      "the invite's two refusals are the season's and the junction's, and no control on either panel holds a value they judge",
+  };
 
   /** What a module offers by name, so its callers are found rather than listed. */
   function exportedSymbols(text: string): string[] {

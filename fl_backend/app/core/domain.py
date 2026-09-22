@@ -239,6 +239,22 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
     ),
+    Aggregate(
+        name="Einladung",
+        root=Collection.EINLADUNGEN,
+        members=(),
+        boundary=(
+            "One minted registration link for one team's season. Held true against nothing, as an application is: a row states "
+            "that an administrator minted a link on a day, which stays true however the season, the club and the junction row "
+            "between them change afterwards -- so it is in no boundary with any of them, and the season's own rules bound it "
+            "nowhere. What is held is a rule over this collection alone, `uniq_einladung_live`: at most one row per team and "
+            "season carries a null `widerrufen_am`, which a reissue satisfies by revoking and minting in one transaction. The "
+            "link's LIFETIME is the season's registration window, read at every use rather than copied here, so a window moved "
+            "after the mint moves every link with it. It names no SUBJECT, which is why an erasure never reaches one and why the "
+            "row is deleted by nothing. Anonymous it is not: `erstellt_von` is an administrator's address in plain, served on "
+            "the admin read and outliving any erasure, as the ban list's is."
+        ),
+    ),
 )
 
 
@@ -461,6 +477,35 @@ REFERENCES: tuple[Reference, ...] = (
             "`post_saison_team` performs. For a new school the field is null until acceptance writes the created club's "
             "id into it. Nothing is embedded and nothing fans out: a renamed club leaves the application naming what the "
             "school typed, which is what the school applied as."
+        ),
+    ),
+    Reference(
+        source=Collection.EINLADUNGEN,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "The mint reads the season for its status, so a link for one that does not exist is a 404 and one for a `past` "
+            "season is refused (`REQ-EINLADUNG-002`). Nothing is embedded: the window a link expires with is read from the "
+            "season at every use, so moving it strands no row and needs no fan-out. No season delete exists."
+        ),
+    ),
+    Reference(
+        source=Collection.EINLADUNGEN,
+        fields=("team_id",),
+        target=Collection.TEAMS,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Resolved through the JUNCTION rather than against `teams` itself: the mint refuses a team the season holds no "
+            "`saison_teams` row for (`REQ-EINLADUNG-001`), and entry into that junction is what resolved the club "
+            "(`REQ-ENTER-005`), so no link can name a club nothing created. Nothing is embedded and nothing fans out -- the "
+            "row carries no copy of the club's name. Retiring the club is refused from the other side while a running or "
+            "planned season holds it (`REQ-RETIRE-001`), and a retirement that does go through leaves the link standing: "
+            "what it opens is judged at use, against the junction row and the window."
         ),
     ),
 )
@@ -1634,6 +1679,22 @@ RULES: tuple[Rule, ...] = (
         summary="a league that has run no season enters no ban, the five seasons it lapses after having nothing to count from",
         implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
         tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueThatHasRunNoSeason",
+    ),
+    Rule(
+        code="REQ-EINLADUNG-001",
+        operation="POST /teams/{team_id}/saisons/{saison_id}/einladung",
+        aggregate="Einladung",
+        summary="a link is minted only for a team the season already holds a junction row for",
+        implemented_by="app.api.einladungen.services.find_team_in_saison_refusal",
+        tested_by="tests/api/test_einladung_refusal.py::TestATeamTheSeasonDoesNotHold",
+    ),
+    Rule(
+        code="REQ-EINLADUNG-002",
+        operation="POST /teams/{team_id}/saisons/{saison_id}/einladung · POST /saisons/{saison_id}/einladungen/versand",
+        aggregate="Einladung",
+        summary="a season that has ended mints no link, its registration window being over for good",
+        implemented_by="app.api.einladungen.services.find_saison_vorbei_refusal",
+        tested_by="tests/api/test_einladung_refusal.py::TestASeasonThatHasEnded",
     ),
 )
 

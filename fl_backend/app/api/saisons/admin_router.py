@@ -2,10 +2,27 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
 
+from app.api.bewerbungen.services import mint_token
+from app.api.einladungen.schemas import (
+    FLEinladungVersandPayload,
+    FLEinladungVersandResponse,
+    FLEinladungVersandVorschauResponse,
+    FLEinladungVersandVorschauZeile,
+    FLEinladungVersandZeile,
+)
+from app.api.einladungen.services import (
+    WITHOUT_TOKEN_HASH,
+    build_live_team_filter,
+    compose_einladung,
+    compose_widerruf_update,
+    find_saison_vorbei_refusal,
+    plan_einladung_versand,
+)
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
@@ -42,6 +59,7 @@ from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club, has_taken_place
 from app.core.config import API_VERSION
 from app.core.crud import (
+    GERMAN_COLLATION,
     build_query,
     build_sort,
     delete_many_from_db,
@@ -56,6 +74,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    EinladungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -66,7 +85,8 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.core.security import bind_actor, verify_access_admin
+from app.core.logging import fl_logger
+from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
@@ -995,3 +1015,236 @@ async def undraw_spielplan(
     invalidate_saison_cache()
 
     return undrawn
+
+
+async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id: str) -> list[Mapping[str, Any]]:
+    """Every team this season holds, ordered as its other lists are.
+
+    Read one over the cap and refused past it (`app/api/spiele/crud.py :: advance_bracket_winners`'s
+    reason): a truncated list silently leaves teams unmailed, which is what this press exists to stop.
+    """
+
+    entered = await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id},
+        projection=["team_id", "name", "kontakte", "austritt"],
+        sort_by=build_sort(sort_by="name", order="asc"),
+        collation=GERMAN_COLLATION,
+        limit=LIST_LIMIT_DEFAULT + 1,
+    )
+
+    if len(entered) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} teams, which is more than one read can mail in one press")
+
+    return entered
+
+
+async def _mail_one_team(
+    *,
+    einladungen_collection: AsyncCollection,
+    db: AsyncMongoClient,
+    saison_id: str,
+    team: Mapping[str, Any],
+    erneut: bool,
+    erstellt_von: str,
+    today: str,
+) -> FLEinladungVersandZeile:
+    """One team's whole share of the press, in a transaction of its own.
+
+    Per team rather than one for all: a season's worth of mints in one transaction would take back
+    the teams already done on a write conflict.
+    """
+
+    # Outside the callback, for `app/api/teams/admin_router.py :: post_einladung`'s reason.
+    raw_token, token_hash = mint_token()
+
+    async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLEinladungVersandZeile:
+        """Plan this team, then revoke and mint where the plan says to.
+
+        The INVITE alone is read in-session: the withdrawal and the contacts come from the read
+        before the loop, so a retry re-decides on those as they stood then.
+        """
+
+        live = await pull_many_from_db(
+            collection=einladungen_collection,
+            db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
+            limit=1,
+            projection=dict(WITHOUT_TOKEN_HASH),
+            session=session,
+        )
+        plan = plan_einladung_versand(
+            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=live[0] if live else None, erneut=erneut
+        )
+
+        if plan.uebersprungen is not None:
+            return FLEinladungVersandZeile(
+                team_id=team["team_id"],
+                team_name=team["name"],
+                einladung_id=None,
+                token=None,
+                empfaenger=[],
+                uebersprungen=plan.uebersprungen,
+                ersetzt_link=plan.ersetzt_link,
+            )
+
+        # Only where the read above found one: an unconditional revoke files a log row per team
+        # holding no link, which is sixteen rows saying nothing happened.
+        if live:
+            await patch_many_in_db(
+                collection=einladungen_collection,
+                db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
+                update=compose_widerruf_update(today=today),
+                session=session,
+            )
+
+        post_operation = await post_one_to_db(
+            collection=einladungen_collection,
+            document=compose_einladung(
+                saison_id=saison_id,
+                team_id=team["team_id"],
+                token_hash=token_hash,
+                erstellt_von=erstellt_von,
+                today=today,
+            ),
+            session=session,
+        )
+
+        return FLEinladungVersandZeile(
+            team_id=team["team_id"],
+            team_name=team["name"],
+            einladung_id=post_operation.inserted_id,
+            token=raw_token,
+            empfaenger=plan.empfaenger,
+            uebersprungen=None,
+            ersetzt_link=plan.ersetzt_link,
+        )
+
+    async with db.start_session() as session:
+        try:
+            return await session.with_transaction(mint_where_the_team_qualifies)
+        except PyMongoError as failure:
+            # Per TEAM: the transaction aborted, so this team's earlier link still stands, while
+            # every team already done holds a fresh link whose raw value exists only in this list.
+            fl_logger.error(
+                f"The registration link for team {team['team_id']} in season {saison_id} was not minted: {type(failure).__name__}",
+                extra={"error_code": "DB-FAIL-001"},
+            )
+
+            return FLEinladungVersandZeile(
+                team_id=team["team_id"],
+                team_name=team["name"],
+                einladung_id=None,
+                token=None,
+                empfaenger=[],
+                uebersprungen="erzeugung_fehlgeschlagen",
+                ersetzt_link=False,
+            )
+
+
+@router.get("/{saison_id}/einladungen/versand/vorschau", response_model=FLEinladungVersandVorschauResponse, summary="Who the send would reach")
+async def preview_einladungen_versand(
+    saison_id: str,
+    saison_teams_collection: SaisonTeamsCollection,
+    einladungen_collection: EinladungenCollection,
+    saisons_collection: SaisonsCollection,
+    erneut: bool = False,
+) -> FLEinladungVersandVorschauResponse:
+    """
+    Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
+
+    Decided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own
+    switch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with
+    `erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.
+
+    **`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
+    link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
+    so a page offering the press reads that fact here or nowhere.
+
+    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
+    block has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding
+    no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
+    """
+
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+    team_ids = [team["team_id"] for team in entered]
+
+    # Keyed on the teams just read rather than on the season alone: `uniq_einladung_live` makes that
+    # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
+    live = await pull_many_from_db(
+        collection=einladungen_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, "widerrufen_am": None},
+        limit=len(team_ids) or 1,
+        projection=dict(WITHOUT_TOKEN_HASH),
+    )
+    by_team = {row["team_id"]: row for row in live}
+
+    zeilen: list[FLEinladungVersandVorschauZeile] = []
+    for team in entered:
+        plan = plan_einladung_versand(
+            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=by_team.get(team["team_id"]), erneut=erneut
+        )
+        zeilen.append(
+            FLEinladungVersandVorschauZeile(
+                team_id=team["team_id"],
+                team_name=team["name"],
+                empfaenger=plan.empfaenger,
+                uebersprungen=plan.uebersprungen,
+                ersetzt_link=plan.ersetzt_link,
+            )
+        )
+
+    return FLEinladungVersandVorschauResponse(saison_id=saison_id, zeilen=zeilen)
+
+
+@router.post("/{saison_id}/einladungen/versand", response_model=FLEinladungVersandResponse, summary="Mint every admitted team a link")
+async def post_einladungen_versand(
+    saison_id: str,
+    versand_data: Annotated[FLEinladungVersandPayload, Body()],
+    saison_teams_collection: SaisonTeamsCollection,
+    einladungen_collection: EinladungenCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    erstellt_von: str = Depends(get_actor_email),
+    today: str = Depends(get_german_date_str),
+) -> FLEinladungVersandResponse:
+    """
+    Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
+
+    **Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in
+    somebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been
+    made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
+    press. A team this skips is left exactly as it was.
+
+    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
+    has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off
+    the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
+    never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
+    passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
+
+    The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
+    404 where no season holds that id; a season holding no team answers an empty list.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
+    refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
+
+    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+
+    # Sequential rather than gathered: each team opens its own session, and sixteen at once would
+    # hold sixteen against a pool sized for the whole application.
+    zeilen = [
+        await _mail_one_team(
+            einladungen_collection=einladungen_collection,
+            db=db,
+            saison_id=saison_id,
+            team=team,
+            erneut=versand_data.erneut,
+            erstellt_von=erstellt_von,
+            today=today,
+        )
+        for team in entered
+    ]
+
+    return FLEinladungVersandResponse(saison_id=saison_id, zeilen=zeilen)

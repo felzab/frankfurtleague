@@ -70,6 +70,7 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
     {
         "aktionen",
         "bewerbungen",
+        "einladungen",
         "identitaet",
         "kontakte",
         "saisons",
@@ -304,7 +305,12 @@ class TestWhatARemovalFilterMayName:
         # Derived, so it needs no editing -- and pinned, so a derivation that silently empties is
         # caught rather than passing the season clause over nothing. `bewerbungen` is in the set, and
         # the retention sweep's erasures are what the clause below holds to one season.
-        assert SEASON_PARTITIONED_ROOTS == {str(Collection.SPIELE), str(Collection.SPIELTAGE), str(Collection.BEWERBUNGEN)}
+        assert SEASON_PARTITIONED_ROOTS == {
+            str(Collection.SPIELE),
+            str(Collection.SPIELTAGE),
+            str(Collection.BEWERBUNGEN),
+            str(Collection.EINLADUNGEN),
+        }
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):
         """Empty either `db_filter` in `undraw_spielplan` and this fails; the whole db tier does not.
