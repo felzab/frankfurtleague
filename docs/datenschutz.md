@@ -29,8 +29,8 @@ two** — which is what a reviewer needs before reading the published notice
 ## 1. Responsibility and the request route
 
 - **The controller is the association.** `fl_frontend/src/core/brand.ts :: VEREIN_NAME` is the one
-  spelling the notice, the Impressum and every message's close read, and it carries the „i. G.“
-  suffix until the register entry exists — the day it does, that constant drops it. No school and no
+  spelling the notice, the Impressum and every message's close read, and it carries the
+  association's registered legal form, so no page spells that form for itself. No school and no
   individual is the controller; the league is run by its pupils as an association, and a school-law
   basis is unavailable.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
@@ -44,18 +44,24 @@ two** — which is what a reviewer needs before reading the published notice
 
 ## 2. Consent comes from the person, from 16 or 18
 
-Every ruling below assumes the sign-up flow settled for the next season, which does not exist yet.
+Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Everyone signs up for themselves through the website and gives their own consent there** —
-  players, referees, contact persons, organisers and administrators alike. An administrator can
-  neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
+  players, referees, contact persons, organisers and administrators alike. No route creates a player
+  and no payload carries a consent record, so an administrator can neither create one nor assume,
+  enter or transcribe a consent on anybody's behalf.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(b)/(f) rather than an
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
-  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
+  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
-  Once the sign-up flow exists it refuses a registration below 16. Sixteen is the age at which a
+  A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
+  pupil enters on their own confirmation page and before anything is written
+  (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`); the refusal stands there
+  and nowhere else, the submission itself collecting no birthdate at all. The floor is
+  `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_ALTER_JAHRE`, the pupil's own rather
+  than a contact seat's, so raising one does not silently raise the other. Sixteen is the age at which a
   person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
   three. **The Ansprechperson and the Stellvertretung are held to 18** because those two seats
   commit the school — they are the people a fixture, a withdrawal and the entry itself are agreed
@@ -94,11 +100,11 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
   question about one arises**, which is what the published notice tells a reader; it gates no
   read and no publication, and nothing judges it automatically. Ruled 2026-09-08.
-- **There is no guardian workflow.** The consent a registration composes today asserts a guardian
-  (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`) while its only caller
-  is an administrator; that path goes with the flow that replaces it, and the consent vocabulary
-  then needs to express only a person's own consent and a carried-over record. The comment at
-  that line gives a reason that is true of no caller, and is false today.
+- **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
+  registration is what records one, and what the vocabulary still expresses beyond that is a
+  carried-over record. `erziehungsberechtigt` stays in the stored enum for the rows that already
+  carry it (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG_QUELLEN`), and
+  `fl_backend/tests/core/test_consent_writers.py` is what holds the value to having no writer.
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
@@ -107,9 +113,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   record nobody confirmed withholds the name rather than publishing it — the state
   `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
   the one a scope read on its own would publish.
-- **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
-  whose phone, email and school are stored, and today no consent field exists for them;
-  `docs/_roadmap/items.md :: pw5c-zps5` is where that work stands.
+- **Referees give their own consent record**, on the same terms as a pupil rather than a contact
+  person: a referee's name is published on every fixture they officiate, so the record is
+  `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
+  answer beside it, the wording they were shown and the day they answered. Entering a referee with
+  an email address mails them a one-time link, which lasts fourteen days and can be re-sent; the
+  person enters their own date of birth on that page and nobody answers for them
+  (`erteilt_von: volljaehrig`). A live row whose person has not answered publishes as „anonym“.
 
 ## 3. The current pupil records are reset once
 
@@ -126,10 +136,22 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   player records are kept and governed by
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated. Ruled
   2026-09-02.
+- **A registration nobody confirms is deleted after seven days, and the page states the period.**
+  The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`,
+  stored on the row at the mint rather than derived, so raising it never moves the deadline of a
+  link already in somebody's inbox
+  (`fl_backend/app/api/registrierungen/services.py :: compose_bestaetigung`). It is shorter than an
+  application's fourteen because it carries a second job: it is the window inside which a mistyped
+  address is discovered and the pupil registers again, no administrator being able to edit a stored
+  address for them.
 - **This reset is what reaches the log rows the retention index cannot.** A row carries the date
   stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
   nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
   leave here instead (`docs/backend/spec.md :: I119`). Ruled 2026-09-04.
+- **A referee's record is not on this clock.** A referee entered through the confirmation link is
+  bound to no season and their row stands until they ask for it to be deleted, which deletes the
+  document (section 5). The referee rows standing today carry no consent record at all and are
+  dropped once, before the deploy that reads one.
 
 ## 4. What is published, and on what basis
 
@@ -234,12 +256,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   in it past their own erasure: the person barred, whom the free-text reason may name outright, and
   the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
   either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
-  It is bounded by an administrator's removal and never by age, which is the one shape the rule
-  below permits. **Lifting the ban removes the row, and the action log keeps a copy of it** — the
-  hash, the key label, the reason and the administrator, and no barred address — for the twelve
-  months every stamped log row is kept
-  (`docs/backend/spec.md :: I48`, `:: I119`), so a lifted ban is readable at `/admin/aktionen` for
-  that period and enforced by nothing from the moment it is lifted.
+  **It is bounded by the league's own calendar**: the row names the last season it covers, five full
+  seasons after the one it was entered under, and the activation that runs past it removes the row
+  without anybody asking (`docs/backend/spec.md :: I273`). An administrator may lift it
+  earlier. **Either removal keeps a copy in the action log** — the hash, the key label, the reason,
+  the administrator and the season it ran to, and no barred address — for the twelve months every
+  stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban is readable
+  at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
@@ -278,6 +301,15 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   ordering refuses: it mails the un-announced, stamps what was delivered and erases only what was
   announced. It stands until an administrator enters a reachable address or decides the
   application, and in neither case past the end of the season it applied for. Ruled 2026-09-08.
+- **A registration is bounded at each of its three ends, and a pupil's own confirmation is what
+  starts the longest of them.** Unconfirmed, it is deleted the day after its stored `frist`, with no
+  second notice — the confirmation mail named the day and the address is one the league could not
+  confirm. Confirmed but undecided, it is deleted once its season is past, with one note after the
+  fact and never before it, a notice being unable to prolong a row nobody decided. Declined, a month
+  after the decision. The confirmation writes the
+  birthdate and the whole consent record in one update
+  (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`), so no row ever
+  holds a birthdate nobody consented to the league keeping. Ruled 2026-09-11.
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
@@ -289,6 +321,47 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   refused. The confirmation page states the period to the person whose details they are
   (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
+- **A registration nobody has confirmed is deleted once its window has run out, the pupil's name,
+  address and every answer on it included, and no message is sent about it either way.** The window
+  is seven days (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`)
+  from the day the link was sent, and the confirmation mail names it; a shorter period than the
+  application's because it is also the window inside which a mistyped address is discovered, the
+  only route back being to register again. One reminder goes out inside it and moves nothing
+  (`fl_backend/app/api/registrierungen/services.py :: compose_erinnerung_update`), and none goes to
+  an address the mail provider has already refused. **A registration still awaiting a decision when
+  the season it was made for has ended is deleted whatever the pupil answered**
+  (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards that it happened and
+  why — never before it, a notice being unable to prolong a row nobody decided. A declined
+  registration goes one calendar month after the decision (`:: decline_erasure_is_due`). Ruled
+  2026-09-11.
+- **A pupil's own row is bounded by a condition and never by a clock.** It stands while a squad row
+  references it, and what ends it is the person's erasure, the one-off reset of
+  [section 3](#3-the-current-pupil-records-are-reset-once), or the recurring deletion the next
+  programme builds — which is released by a condition too, the next season active and its
+  registration window closed, and which selects a person no squad row references. **An erasure
+  deletes the document outright** rather than nulling its fields
+  (`docs/backend/spec.md :: I12`), so the row either stands whole or is gone and there is no third
+  state to write a clock for.
+- **A registration link stops working when the season's registration window shuts, or the moment an
+  administrator withdraws it or replaces it with a new one; the entry recording it is kept without a
+  clock.** The link carries no date of its own: what decides whether it opens anything is the
+  season's window, judged afresh at every use
+  (`fl_backend/app/api/einladungen/services.py :: registrierungsfenster_laeuft`), so a window moved
+  after the link was minted moves the link with it. The entry names a team and a season and no
+  SUBJECT — an unkeyed hash of the link value, which yields the link itself to nobody, the day it
+  was minted, and the administrator who minted it, whose address is held in plain and outlives any
+  erasure as the ban list's does. **Nothing deletes one**: no erasure reaches it, no clock removes
+  it, and a replaced entry is kept precisely so a delivery event about the message that carried its
+  link still has somewhere to land (`docs/glossary.md :: Einladung`). The published notice says the
+  same — the link ends, the entry stays (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-21.
+- **A ban on an email address is kept for five full seasons after the one it was entered under, and
+  the person it bars is told so at the moment it is entered.** The row records the last season it
+  covers and the activation of the season after that removes it
+  (`docs/backend/spec.md :: I273`); nothing is counted in days, the bound being the thing the
+  ban exists for — somebody too young for the league stays barred until they are too old for it. The
+  message sent at the ban names that season, the reason, what is kept and how to object
+  (`fl_frontend/src/core/sperrlisteEmail.ts`); the address it is sent to is used for that one send
+  and stored nowhere, so no second message can ever be sent about the row. Ruled 2026-09-21.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
@@ -413,13 +486,17 @@ the `Entry` column carries a token only where one still resolves in that file.
   no personal data at all; beside it stand a free-text reason that may name them and the entering
   administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
-  declined — a refusal no route yet performs, the list being read by an administrator and consulted
-  by nothing ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Two questions to put: whether that basis carries a record retained without a bound and
-  without a review date; and what an access request reaches, given that no route finds the row from
-  the address it was taken from while the reason beside it may name its subject outright.
+  declined — a refusal five write paths now perform: the ban's own create, the public registration,
+  and the three referee writes that mint a confirmation link
+  ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). One question to put: what
+  an access request reaches, given that no route finds the row from the address it was taken from
+  while the reason beside it may name its subject outright. The bound is
+  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure
+  for the lookup is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
-  as easy as giving.** A pupil's consent record is composed by the registration and carried on no
-  payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),
+  as easy as giving.** A pupil's consent record is written by their own confirmation
+  (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) and carried on no
+  payload any route accepts afterwards,
   so giving it is a form and taking it back is either the erasure that removes the person outright or
   a hand edit in the database console
   ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).

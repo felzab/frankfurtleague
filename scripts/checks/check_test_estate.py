@@ -46,6 +46,10 @@ CONTAINER_PACKAGE: Final = "testcontainers"
 # a fixture reached only this way looks unconsumed to a parameter sweep.
 BY_NAME: Final = frozenset({"usefixtures", "getfixturevalue"})
 
+# What a call reaches its own class through. `cls` beside `self`, or a classmethod helper's reach is
+# read as an ordinary attribute call and resolved somewhere else.
+SELF_NAMES: Final = frozenset({"self", "cls"})
+
 # `docker-compose.local.yml` publishes this port on loopback for a database client on the host, so a
 # machine running `./scripts/ops/local.sh` answers a URI naming it — and mongod's own default puts a
 # URI carrying no port there too.
@@ -69,6 +73,12 @@ class Module:
         self.dotted = dotted
         self.tree = tree
         self.functions: dict[str, FunctionNode] = {}
+        # Class scope, kept out of the flat namespace: Python resolves a bare name at module scope,
+        # so a method is reached through `self` and never by an import, a conftest or a plain call.
+        self.methods: dict[tuple[str, str], FunctionNode] = {}
+        # Keyed by line, because which definition a name reaches depends on where the ASKING
+        # function stands, and the walk below holds its node rather than its scope.
+        self.scope_at: dict[int, str] = {}
         self.fixtures: dict[str, FunctionNode] = {}
         self.autouse: set[str] = set()
         self.tests: list[tuple[str, FunctionNode, bool, frozenset[str]]] = []
@@ -132,7 +142,11 @@ class Module:
     def _collect(self, node: ast.stmt, *, prefix: str, marked: bool, named: frozenset[str]) -> None:
         """Every function this module defines, at any class depth, and every test among them."""
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self.functions.setdefault(node.name, node)
+            self.scope_at[node.lineno] = prefix
+            if prefix:
+                self.methods.setdefault((prefix, node.name), node)
+            else:
+                self.functions.setdefault(node.name, node)
             fixture = _fixture_decorator(node)
             if fixture is not None:
                 registered = _fixture_name(fixture, node.name)
@@ -244,6 +258,12 @@ def _called_name(node: ast.Call) -> str:
     if isinstance(target, ast.Attribute):
         return target.attr
     return target.id if isinstance(target, ast.Name) else ""
+
+
+def _on_the_instance(node: ast.Call) -> bool:
+    """Whether a call goes through `self` or `cls` directly — `self.store.seed()` names an object instead."""
+    target = node.func
+    return isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id in SELF_NAMES
 
 
 def _released_uri(value: str) -> bool:
@@ -367,7 +387,7 @@ class Estate:
         return chain
 
     def resolve(self, name: str, module: Module) -> tuple[FunctionNode, Module] | None:
-        """Where a name a function mentions is defined — its own module, an import, or a conftest."""
+        """Where a name a function mentions is defined at module scope — its own, an import, or a conftest."""
         own = module.functions.get(name)
         if own is not None:
             return own, module
@@ -403,9 +423,39 @@ class Estate:
             return None
         return source.functions[parts[-1]], source
 
-    def reaches_through_a_name(self, name: str, module: Module) -> bool:
+    def resolve_method(self, name: str, module: Module, scope: str) -> tuple[FunctionNode, Module] | None:
+        """Where `self.seed` is defined: the innermost class body holding one, then outward."""
+        # Two reaches this never places, both false passes: a base class in ANOTHER module, whose
+        # methods no walk of this one holds, and a method bound to a name, which resolves at module
+        # scope and finds none.
+        parts = [part for part in scope.split("::") if part]
+        while parts:
+            found = module.methods.get(("".join(f"{part}::" for part in parts), name))
+            if found is not None:
+                return found, module
+            parts.pop()
+        # Every class body last, over-approximating on purpose: placing an inherited method exactly
+        # means walking an MRO this never builds, and a reach lost here is a test that runs against
+        # a real server.
+        return next(((node, module) for (_, defined), node in module.methods.items() if defined == name), None)
+
+    def _called_definition(self, call: ast.Call, name: str, module: Module, scope: str) -> tuple[FunctionNode, Module] | None:
+        """Where a call resolves, under the scope rules its spelling at the call site implies."""
+        if _on_the_instance(call):
+            return self.resolve_method(name, module, scope)
+        # The bare name first even for a qualified call: a name that resolves is the same function
+        # whichever spelling reached it, and only `helpers.seed` needs the qualifier read exactly.
+        found = self.resolve(name, module) or self.resolve_attribute(call.func, module)
+        if found is not None or not isinstance(call.func, ast.Attribute):
+            return found
+        # A qualifier this reader cannot place — `stub.find_one()`, `super().__init__()` — is
+        # searched for over every class body rather than left unresolved: narrowing it here is the
+        # false negative, a test reaching a real server unmarked.
+        return self.resolve_method(name, module, scope)
+
+    def reaches_through_a_name(self, name: str, module: Module, scope: str) -> bool:
         """Whether a fixture asked for by string, from a scope above any function, needs a server."""
-        found = self.resolve(name, module)
+        found = self.resolve(name, module) or self.resolve_method(name, module, scope)
         return found is not None and self.reaches_a_database(found[0], found[1], set())
 
     def reaches_a_database(
@@ -428,15 +478,14 @@ class Estate:
             self._reaches.add(key)
             return True
 
+        scope = module.scope_at.get(node.lineno, "")
         # Calls first, so a helper handed a source-written URI is judged under that binding rather
         # than under its own signature.
         called: set[str] = set()
         for child in calls:
             name = _called_name(child)
             called.add(name)
-            # The attribute route second: a bare name that resolves is the same function whichever
-            # spelling reached it, and only `helpers.seed` needs the qualifier read.
-            found = self.resolve(name, module) or self.resolve_attribute(child.func, module)
+            found = self._called_definition(child, name, module, scope)
             if found is None or found[0] is node:
                 continue
             if self.reaches_a_database(found[0], found[1], seen, _bindings(child, found[0], module, literal)):
@@ -446,12 +495,15 @@ class Estate:
         # A fixture is taken as a parameter and a helper can be passed rather than called, so the
         # remaining names are resolved with nothing bound.
         for candidate in names - called - literal:
-            found = self.resolve(candidate, module)
-            if found is None or found[0] is node:
-                continue
-            if self.reaches_a_database(found[0], found[1], seen):
-                self._reaches.add(key)
-                return True
+            # Both scopes rather than the first that answers: a bare mention says nothing about
+            # whether it is a fixture parameter, which pytest resolves against the class first, or a
+            # function passed by value, which is module scope's.
+            for found in (self.resolve(candidate, module), self.resolve_method(candidate, module, scope)):
+                if found is None or found[0] is node:
+                    continue
+                if self.reaches_a_database(found[0], found[1], seen):
+                    self._reaches.add(key)
+                    return True
         return False
 
     def consumed_names(self) -> set[str]:
@@ -476,7 +528,10 @@ def check_db_markers(estate: Estate) -> list[Finding]:
         for qualname, node, marked, named in module.tests:
             if marked:
                 continue
-            reaches = estate.reaches_a_database(node, module, set()) or any(estate.reaches_through_a_name(fixture, module) for fixture in named)
+            scope = module.scope_at.get(node.lineno, "")
+            reaches = estate.reaches_a_database(node, module, set()) or any(
+                estate.reaches_through_a_name(fixture, module, scope) for fixture in named
+            )
             if not reaches:
                 continue
             detail = f"{_shown(module.path)}:{node.lineno} {qualname} reaches a database and carries no `@pytest.mark.db`"

@@ -22,12 +22,19 @@ const { SPERRLISTE_CRUD_COPY } = await import("@/features/sperrliste/constants.t
  * be satisfied by the row beside it.
  */
 const SPERREN: FLSperrlisteEintrag[] = [
-  { id: "6890a1b2c3d4e5f607190001", grund: "Falsches Geburtsdatum angegeben", erstellt_von: "vorstand@example.org", erstellt_am: "2026-03-12" },
+  {
+    id: "6890a1b2c3d4e5f607190001",
+    grund: "Falsches Geburtsdatum angegeben",
+    erstellt_von: "vorstand@example.org",
+    erstellt_am: "2026-03-12",
+    gesperrt_bis_saison_id: "2031",
+  },
   {
     id: "6890a1b2c3d4e5f607190002",
     grund: "Wiederholt fremde Namen eingetragen",
     erstellt_von: "turnier@example.org",
     erstellt_am: "2026-04-02",
+    gesperrt_bis_saison_id: "2032",
   },
 ];
 
@@ -56,6 +63,19 @@ describe("what a row of the ban list shows", () => {
 
     assert.ok(html.includes("12.03.2026"), "the row shows no German day for the first ban");
     assert.ok(html.includes("02.04.2026"), "the row shows no German day for the second ban");
+  });
+
+  /* The row lapses on its own, so an administrator reading the list without this number cannot tell
+     a ban that still bars from one the next activation will take. */
+  it("says which season each ban runs to, and says it is the last barred one", () => {
+    const html = listMarkup(SPERREN);
+
+    for (const sperre of SPERREN) {
+      assert.ok(html.includes(sperre.gesperrt_bis_saison_id), `the row does not show the season ${sperre.gesperrt_bis_saison_id}`);
+    }
+
+    // „bis 2031“ alone reads as the season the ban ends in, which is a year early.
+    assert.ok(html.includes("einschließlich"), "the row leaves the named season open to being read as the first free one");
   });
 
   /* The whole point of the keyed hash: the banned address is stored nowhere a reader can reach, so

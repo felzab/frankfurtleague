@@ -12,6 +12,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
  */
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
+import type { TeamEinladungState } from "@/features/einladungen/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
@@ -22,6 +23,7 @@ export function AdminTeamEditView({
   gruppeLocked,
   gruppeOffer,
   swap,
+  einladung,
   today,
 }: {
   team: FLTeamRecord;
@@ -31,6 +33,8 @@ export function AdminTeamEditView({
   gruppeOffer: readonly GruppeOffer[];
   /** The selected season's swap state, for the club editor's entry point into it. */
   swap: SaisonGruppenSwapContext;
+  /** `null` where the club holds no junction row for the season, which is where the page issues no read. */
+  einladung: TeamEinladungState | null;
   today: string;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateTeamAction, noun: "Team" });
@@ -46,6 +50,7 @@ export function AdminTeamEditView({
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
         swap={swap}
+        einladung={einladung}
         pageHeader={{
           title: team.name,
           // Retirement outranks the Kürzel: the Kürzel is a field of the form below, the day is nowhere else.

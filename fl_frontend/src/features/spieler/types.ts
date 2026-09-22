@@ -1,11 +1,4 @@
-import type {
-  FLCreateSpielerFormPayload,
-  FLPatchSaisonSpielerPayload,
-  FLPostSaisonSpielerPayload,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "./schemas";
+import type { FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 
 /** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
 type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
@@ -23,16 +16,7 @@ export type FLSpielerFilterParams = {
   order?: "asc" | "desc";
 };
 
-/**
- * The create form's draft: `team_id` and `nachname` widened to `null` so the form can start empty.
- * The schema refuses both nulls, making an untouched picker a field error rather than a type error.
- */
-export type SpielerCreateDraft = Omit<FLCreateSpielerFormPayload, "team_id" | "nachname"> & {
-  team_id: string | null;
-  nachname: string | null;
-};
-
-/** The squad editor's enter-a-season draft, widened the same way. */
+/** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
 export type SaisonSpielerEnterDraft = Omit<FLPostSaisonSpielerPayload, "team_id"> & {
   team_id: string | null;
 };
@@ -46,9 +30,8 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
 // corrected by registering again (`docs/ops/runbooks.md` §5): a field for it here would bind a
 // control to a save the API refuses.
 /**
- * Its own type rather than `FLPostSpielerPayload`, whose `nachname` is optional: the editor always
- * holds a value — `null` for an empty box — and an `undefined` reaching the patch erases the
- * stored surname.
+ * The editor's own draft rather than a payload type: every field here always holds a value — `null`
+ * for an empty box — where an `undefined` reaching the patch erases the stored surname.
  */
 export type SpielerPersonFields = {
   vorname: string;
@@ -65,7 +48,7 @@ type SpielerSquadFields = {
   nummer: string | null;
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
-  is_nachgetragen: boolean;
+  ist_nachnominiert: boolean;
   /** A role on the junction, not a property of the person. `null` is the ordinary state. */
   rolle: FLSpielerRolle | null;
   /** The day the ROW was retired. Not editable — the retire and reactivate controls own it. */
@@ -108,18 +91,6 @@ export type SpielerTeamOption = {
    * edited player's own row (`REQ-SQUAD-003`).
    */
   isSquadFull?: boolean;
-};
-
-/**
- * `isNachgetragen` is derived from the season's status rather than asked: an `active` season is
- * under way, a `future` one has not begun.
- */
-export type SpielerCreateSaisonOption = {
-  saisonId: string;
-  isNachgetragen: boolean;
-  teams: SpielerTeamOption[];
-  /** The season's `rules.erlaubte_stufen`, as on `SpielerSaisonMembership`. */
-  erlaubteStufen: FLSpielerStufe[];
 };
 
 /**

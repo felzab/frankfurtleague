@@ -140,7 +140,7 @@ after(() => {
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession } = await import("./auth.ts");
+const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, PASSKEY_LIMIT } = await import("./auth.ts");
 const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
 const { filesUnder, isTestFile } = await import("./treeWalk.ts");
@@ -250,7 +250,15 @@ const OVER_HTTP = [
 ];
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
-const IN_PROCESS_ONLY = ["/get-session", "/magic-link/verify", "/passkey/list-user-passkeys", "/sign-in/magic-link", "/sign-out"];
+const IN_PROCESS_ONLY = [
+  "/get-session",
+  "/magic-link/verify",
+  "/passkey/delete-passkey",
+  "/passkey/list-user-passkeys",
+  "/revoke-other-sessions",
+  "/sign-in/magic-link",
+  "/sign-out",
+];
 
 /** Every other endpoint the installed library mounts: refused on both arms. */
 const REFUSED = [
@@ -266,13 +274,11 @@ const REFUSED = [
   "/list-accounts",
   "/list-sessions",
   "/ok",
-  "/passkey/delete-passkey",
   "/passkey/update-passkey",
   "/refresh-token",
   "/request-password-reset",
   "/reset-password",
   "/reset-password/:token",
-  "/revoke-other-sessions",
   "/revoke-session",
   "/revoke-sessions",
   "/send-verification-email",
@@ -359,9 +365,18 @@ describe("what the mounted HTTP surface answers", () => {
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
 
-    assert.equal((await overHttp("/passkey/list-user-passkeys", { cookie })).status, 404);
-    assert.equal((await overHttp("/passkey/delete-passkey", { method: "POST", cookie, body: { id: held.id } })).status, 404);
-    assert.equal((await overHttp("/passkey/update-passkey", { method: "POST", cookie, body: { id: held.id, name: "Neu" } })).status, 404);
+    const refused = [
+      await overHttp("/passkey/list-user-passkeys", { cookie }),
+      await overHttp("/passkey/delete-passkey", { method: "POST", cookie, body: { id: held.id } }),
+      await overHttp("/passkey/update-passkey", { method: "POST", cookie, body: { id: held.id, name: "Neu" } }),
+    ];
+
+    for (const answer of refused) {
+      assert.equal(answer.status, 404);
+      // The BODY, because two mechanisms answer 404 here and the status cannot part them: the
+      // library's switch writes `Not Found` where the hook's default deny writes nothing.
+      assert.equal(await answer.text(), "Not Found", "the switch no longer carries this path, leaving the hook alone on it");
+    }
 
     assert.deepEqual(store.passkey, [held], "a route the allowlist refuses still reached the passkey rows");
   });
@@ -702,8 +717,8 @@ describe("the window the library lets an enrolment happen inside", () => {
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     assert.equal(answer.status, 200, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`);
 
-    /* The one half of user verification 1.7.5 honours: the enrolling authenticator is asked for a
-       PIN or a biometric. Neither response's flag is checked, and the assertion asks for nothing. */
+    /* The enrolment's half of the ask: the authenticator is told a PIN or a biometric is required,
+       and the library checks neither response's flag. */
     const options = (await answer.json()) as { authenticatorSelection: { userVerification: string }; rp: { id: string } };
     assert.equal(options.authenticatorSelection.userVerification, "required");
     assert.equal(options.rp.id, "localhost", "the relying party is not the origin this stack serves");
@@ -734,6 +749,10 @@ const COSE_KEY = Buffer.concat([
 const CREDENTIAL_RAW_ID = Buffer.from("fabricated-credential-id");
 const CREDENTIAL_ID = CREDENTIAL_RAW_ID.toString("base64url");
 
+/* A second authenticator, for the cases where one account enrols twice: the plugin only checks the
+   credential id it is handed, so a second registration needs no key of its own to be verified. */
+const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-zwei");
+
 const FLAG_PRESENT = 0x01;
 const FLAG_VERIFIED = 0x04;
 /** Attested credential data follows the counter, which is what carries the key out of a registration. */
@@ -749,9 +768,9 @@ function authenticatorData(userVerified: boolean): Buffer {
 }
 
 /** The same 37 bytes with the attested credential data a registration appends: AAGUID, the id and the key. */
-function registrationAuthenticatorData(userVerified: boolean): Buffer {
+function registrationAuthenticatorData(userVerified: boolean, rawId: Buffer): Buffer {
   const length = Buffer.alloc(2);
-  length.writeUInt16BE(CREDENTIAL_RAW_ID.length);
+  length.writeUInt16BE(rawId.length);
 
   return Buffer.concat([
     createHash("sha256").update("localhost").digest(),
@@ -760,15 +779,15 @@ function registrationAuthenticatorData(userVerified: boolean): Buffer {
     // All zeroes, which is what a privacy-preserving platform reports and what the plugin stores.
     Buffer.alloc(16),
     length,
-    CREDENTIAL_RAW_ID,
+    rawId,
     COSE_KEY,
   ]);
 }
 
 /* CBOR by hand, because no encoder is installed and the shape is fixed. The two-byte length header
    is legal at any size, so the one branch a hand-rolled writer gets wrong is not written. */
-function attestationObject(userVerified: boolean): Buffer {
-  const authData = registrationAuthenticatorData(userVerified);
+function attestationObject(userVerified: boolean, rawId: Buffer): Buffer {
+  const authData = registrationAuthenticatorData(userVerified, rawId);
   const length = Buffer.alloc(2);
   length.writeUInt16BE(authData.length);
 
@@ -790,19 +809,19 @@ function attestationObject(userVerified: boolean): Buffer {
 }
 
 /** One enrolment as a browser would post it, over the challenge the options call minted. */
-function registrationFor(challenge: string, userVerified: boolean) {
+function registrationFor(challenge: string, userVerified: boolean, rawId: Buffer = CREDENTIAL_RAW_ID) {
   const clientData = Buffer.from(
     JSON.stringify({ type: "webauthn.create", challenge: challenge, origin: "http://localhost:3000", crossOrigin: false }),
   );
 
   return {
-    id: CREDENTIAL_ID,
-    rawId: CREDENTIAL_ID,
+    id: rawId.toString("base64url"),
+    rawId: rawId.toString("base64url"),
     type: "public-key",
     clientExtensionResults: {},
     response: {
       clientDataJSON: clientData.toString("base64url"),
-      attestationObject: attestationObject(userVerified).toString("base64url"),
+      attestationObject: attestationObject(userVerified, rawId).toString("base64url"),
       transports: ["internal"],
     },
   };
@@ -846,7 +865,12 @@ async function assertPasskey(cookie: string, userVerified: boolean): Promise<Res
 }
 
 /** The enrolment's own two calls, which is the step the card's first half runs. */
-async function enrolPasskey(cookie: string, body: Record<string, unknown> = {}, userVerified = true): Promise<Response> {
+async function enrolPasskey(
+  cookie: string,
+  body: Record<string, unknown> = {},
+  userVerified = true,
+  rawId: Buffer = CREDENTIAL_RAW_ID,
+): Promise<Response> {
   const offered = await overHttp("/passkey/generate-register-options", { cookie });
   assert.equal(offered.status, 200, await offered.clone().text());
 
@@ -855,11 +879,29 @@ async function enrolPasskey(cookie: string, body: Record<string, unknown> = {}, 
   return overHttp("/passkey/verify-registration", {
     method: "POST",
     cookie: `${cookie}; ${cookiesOf(offered)}`,
-    body: { response: registrationFor(challenge, userVerified), ...body },
+    body: { response: registrationFor(challenge, userVerified, rawId), ...body },
   });
 }
 
+/** An administrator whose session the passkey made, and made just now: the step-up both writes need. */
+function steppedUp(row: SessionRow): void {
+  row.authFactor = "passkey";
+  ageRow(row, { created: 0, idle: 0 });
+}
+
 describe("what the passkey ceremony has to prove before it mints anything", () => {
+  /* The asking half, which the patched plugin carries: a ceremony told "preferred" may answer with
+     the flag unset, and the arm below would then refuse the only passkey the administrator has. */
+  it("asks the authenticator to verify the user before it will take an assertion", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+
+    const answer = await overHttp("/passkey/generate-authenticate-options", { cookie });
+    assert.equal(answer.status, 200, `the assertion the page offers was refused: ${JSON.stringify(logged)}`);
+
+    const options = (await answer.json()) as { userVerification: string };
+    assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
+  });
+
   /* 1.7.5 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
@@ -952,7 +994,7 @@ describe("which relying party and which origin a ceremony is judged against", ()
   });
 });
 
-describe("the one passkey an administrator holds", () => {
+describe("which sessions may enrol a passkey, and how many rows they may leave", () => {
   /* The bootstrap, driven whole rather than sampled at the options call: the refusals below mean
      nothing unless the step they leave open really writes a row. */
   it("enrols the first passkey for a link-borne session, and leaves that session link-borne", async () => {
@@ -985,15 +1027,142 @@ describe("the one passkey an administrator holds", () => {
     assert.deepEqual(store.passkey, [held], "a refused enrolment still reached the passkey rows");
   });
 
-  /* One passkey per administrator, so the session the passkey itself made is refused too: the rule
-     is the count and never which factor is asking. */
-  it("refuses a second enrolment to the session the passkey made", async () => {
+  /* The positive control for every refusal below: a further passkey is enrolled from a session the
+     assertion made minutes ago, which is the one shape the dialog can put in front of the server. */
+  it("enrols a further passkey for a session the assertion made just now", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    steppedUp(row);
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    const enrolled = await enrolPasskey(cookie, {}, true, SECOND_RAW_ID);
+
+    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    assert.equal(store.passkey.length, 2);
+  });
+
+  /* The whole of what the step-up buys: at `HEAD` the library's freshness gate is the administrator's
+     own window, so a stolen cookie could enrol for as long as it was valid at all. */
+  it("refuses a further passkey to a passkey-made session whose assertion is an hour old", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    ageRow(row, { created: HOUR_MS });
     store.passkey.push(aPasskeyFor(row.userId));
 
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
     assert.equal(store.passkey.length, 1);
+  });
+
+  /* The `auth.api` arm of the same condition, which the hook returns early for: without the callback
+     any in-process caller reaching the plugin would enrol on a session that never asserted. */
+  it("refuses that same stale session where the hook never runs", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
+
+    const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
+    const challenge = (offered.response as { challenge: string }).challenge;
+    const minted = offered.headers
+      .getSetCookie()
+      .map((line) => line.split(";")[0])
+      .join("; ");
+
+    const held = aPasskeyFor(row.userId);
+    store.passkey.push(held);
+    // Aged after the options call, which the library gates on `freshAge` and would refuse first.
+    ageRow(row, { created: HOUR_MS });
+
+    await assert.rejects(
+      () =>
+        auth.api.verifyPasskeyRegistration({
+          body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
+          headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
+        }),
+      // The default-deny net's own answer, named rather than taken for any rejection at all: a body
+      // the plugin refused for its own reasons answers `BAD_REQUEST` and would pass this case.
+      (raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND",
+    );
+
+    assert.deepEqual(store.passkey, [held], "the callback let a stale session write a row");
+  });
+
+  /* The allowlist inside the predicate. Without it "the passkey made it" is the whole
+     rule, and Programme 2's person-tier sessions would satisfy it the day they ship. */
+  it("refuses a further passkey to a passkey-made session whose address the allowlist does not carry", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    steppedUp(row);
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    assert.equal(store.passkey.length, 1);
+  });
+
+  /* Driven at `HEAD` of the design: one stepped-up session wrote twenty-one rows with nothing
+     refusing, so a planted authenticator would sit unnoticed among the administrator's own. */
+  it("refuses the enrolment that would take an administrator past the cap", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
+      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    assert.equal(store.passkey.length, PASSKEY_LIMIT);
+  });
+
+  /* The FIGURE, which every case above takes from the constant and would follow anywhere it moved.
+     Five was chosen, not derived: an administrator carries several devices, and a second passkey
+     enrolled in advance keeps recovery off the Atlas console. */
+  it("caps an administrator at five passkeys, the figure chosen rather than derived", () => {
+    assert.equal(PASSKEY_LIMIT, 5);
+  });
+
+  /* `excludeCredentials` is a hint the BROWSER honours: a caller posting the same credential twice
+     leaves two rows nothing in the dialog tells apart, and removing the wrong one removes neither. */
+  it("refuses a credential the account has already enrolled, leaving the row it has", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+    assert.equal(store.passkey.length, 1);
+
+    steppedUp(row);
+    const again = await enrolPasskey(cookie);
+
+    assert.equal(again.status, 404);
+    assert.equal(store.passkey.length, 1, "the same authenticator enrolled twice");
+  });
+
+  /* The two arms of the management surface, which the classification above places apart: the browser
+     is answered by the library's switch, and the dialog's action acts through `auth.api`. */
+  it("refuses the delete path over HTTP while the in-process call removes the row", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    const held = aPasskeyFor(row.userId);
+    store.passkey.push(held);
+
+    const overTheWire = await overHttp("/passkey/delete-passkey", { method: "POST", cookie, body: { id: held.id } });
+    assert.equal(overTheWire.status, 404);
+    assert.deepEqual(store.passkey, [held]);
+
+    await auth.api.deletePasskey({ body: { id: held.id }, headers: new Headers({ ...ORIGIN, cookie }) });
+    assert.deepEqual(store.passkey, []);
+  });
+
+  /* An enrolment the administrator did not make is the one signal a session of theirs is somebody
+     else's. The row never travels: a planted name would reach the mailbox as this league's own. */
+  it("mails the administrator that a passkey was added, carrying no row material", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    const before = sent.length;
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+
+    const message = sent.at(-1);
+    assert.equal(sent.length, before + 1, "the enrolment mailed nothing");
+    assert.equal(message?.to, ADMIN_EMAIL);
+    const written = JSON.stringify(message);
+    for (const secret of [CREDENTIAL_ID, store.passkey[0]?.id, row.token]) {
+      // Guarded, because `includes("")` answers true and would pass this loop having compared nothing.
+      assert.ok(typeof secret === "string" && secret !== "", "the case has nothing to look for");
+      assert.ok(!written.includes(secret), "the notice carries material from the row it reports");
+    }
   });
 
   /* The hook filters HTTP alone, so the callback is what stands between an `auth.api` enrolment and
@@ -1020,6 +1189,43 @@ describe("the one passkey an administrator holds", () => {
     );
 
     assert.deepEqual(store.passkey, [held], "the callback let a second passkey through");
+  });
+
+  /* The sequence the design stands on, run end to end: every other step-up case stamps the factor
+     and ages the row by hand, so none of them shows the ceremony minting what the predicate admits. */
+  it("enrols a further passkey on the session the assertion itself minted", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    const admitted = await assertPasskey(cookie, true);
+    assert.equal(admitted.status, 200, await admitted.clone().text());
+
+    const enrolled = await enrolPasskey(cookiesOf(admitted), {}, true, SECOND_RAW_ID);
+
+    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    assert.equal(store.passkey.length, 2);
+  });
+
+  /* The plugin writes the caller's own `name` onto the row, and the dialog draws a passkey's make:
+     a planted row would otherwise title itself on the one surface built to spot it. */
+  it("refuses an enrolment that names its own row, on the body and on the query alike", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    assert.equal((await enrolPasskey(cookie, { name: "Windows Hello" }, true, SECOND_RAW_ID)).status, 400);
+    assert.equal((await overHttp("/passkey/generate-register-options?name=Windows%20Hello", { cookie })).status, 400);
+    assert.equal(store.passkey.length, 1, "a named enrolment still wrote a row");
+  });
+
+  /* The net refuses ahead of the plugin's own fresh-session middleware, which is mounted only while
+     `registration.requireSession` keeps its default: leaning on it would put this arm's refusal
+     inside an option somebody could unset. */
+  it("refuses an enrolment carrying no readable session at all", async () => {
+    const answer = await overHttp("/passkey/generate-register-options");
+
+    assert.equal(answer.status, 404);
+    assert.equal(await answer.text(), "", "the refusal is the library switch's rather than the net's");
   });
 
   /* Mounted by the plugin's own body schema and wanted by nothing here: left open it swaps the

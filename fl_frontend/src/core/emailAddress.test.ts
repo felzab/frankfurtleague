@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isDeliverableAddress } from "@/core/emailAddress";
+import { isDeliverableAddress, withAsciiDomain } from "@/core/emailAddress";
 
 /** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de` (I226). */
 const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
@@ -38,5 +38,48 @@ describe("the host alphabet an address is held to", () => {
      hangs. The runner's own timeout is what a regression here would trip. */
   it("answers on a host of twenty thousand hyphens", () => {
     assert.equal(isDeliverableAddress(`person@${"-".repeat(20000)} .de`), false);
+  });
+});
+
+/** Built rather than spelled: written into the source it would attach to the quote in front of it. */
+const COMBINING_ACUTE = String.fromCharCode(0x301);
+
+describe("where the local part admits a combining mark", () => {
+  /* Both directions, or a guard banning the mark everywhere passes too: the mark is atext above
+     ASCII like any other, and its OPENING position alone is what the refusal is about. */
+  it("refuses one that opens the local part, and takes one inside it", () => {
+    assert.equal(isDeliverableAddress(`${COMBINING_ACUTE}vorstand@schule.de`), false);
+    assert.equal(isDeliverableAddress(`vorstand${COMBINING_ACUTE}@schule.de`), true);
+  });
+});
+
+/* Every row carries a character above ASCII as well: an ASCII host is handed back byte for byte
+   and never reaches the parse the characters below mislead. */
+const convertedHostOf = (middle: string): string => `person@xü${middle}y.de`;
+
+/** What `new URL` ANSWERS on rather than throwing over, so nothing but the alphabet stands between it and a host nobody typed. */
+const ANSWERED_AS_ANOTHER_HOST = [...INVISIBLE, "\t", "/", "\\", "?", "#"];
+
+/** Where the alphabet is the second of two refusals: the parse throws over these, so a regression in it would still be refused. */
+const REFUSED_BY_THE_PARSE = [" ", ":"];
+
+describe("the domain the conversion is willing to rewrite", () => {
+  it("converts a host above ASCII, so a refusal below is the alphabet and not the function refusing everything", () => {
+    assert.equal(withAsciiDomain("person@münchen.de"), "person@xn--mnchen-3ya.de");
+    assert.ok(ANSWERED_AS_ANOTHER_HOST.length > 0 && REFUSED_BY_THE_PARSE.length > 0, "a table is empty, so a case below compares nothing");
+  });
+
+  /* Each is dropped or read as structure by the parse, which then answers a host the sender never
+     typed -- `xü` alone for the punctuation, `xüy.de` for the rest -- and the message goes there. */
+  it("refuses a host the parse would answer a different name on", () => {
+    for (const middle of ANSWERED_AS_ANOTHER_HOST) {
+      assert.equal(withAsciiDomain(convertedHostOf(middle)), undefined, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+    }
+  });
+
+  it("refuses a host the parse throws over too", () => {
+    for (const middle of REFUSED_BY_THE_PARSE) {
+      assert.equal(withAsciiDomain(convertedHostOf(middle)), undefined, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+    }
   });
 });

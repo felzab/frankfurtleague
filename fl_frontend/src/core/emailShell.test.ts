@@ -51,6 +51,12 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildEinladungEmail } = await import("./einladungEmail.ts");
+const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
+const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
+  await import("./registrierungEmail.ts");
+const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
+const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -90,10 +96,18 @@ function controlSection(html: string): string {
 }
 
 /**
- * Every builder the two mail modules export, read off the module namespace rather than matched in
+ * Every builder the mail modules export, read off the module namespace rather than matched in
  * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const BUILT_MESSAGES = [...Object.keys(await import("./bewerbungEmail.ts")), ...Object.keys(await import("./authEmail.ts"))]
+const BUILT_MESSAGES = [
+  ...Object.keys(await import("./bewerbungEmail.ts")),
+  ...Object.keys(await import("./authEmail.ts")),
+  ...Object.keys(await import("./einladungEmail.ts")),
+  ...Object.keys(await import("./passkeyEmail.ts")),
+  ...Object.keys(await import("./registrierungEmail.ts")),
+  ...Object.keys(await import("./schiedsrichterEmail.ts")),
+  ...Object.keys(await import("./sperrlisteEmail.ts")),
+]
   .filter((name) => name.startsWith("build"))
   .sort();
 
@@ -121,7 +135,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       saisonId: "2627",
       origin: origin,
       schule: "Ernst-Reuter-Schule",
-      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-eins` }],
+      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins` }],
       fristText: "18.09.2026",
     }),
   buildBewerbungErinnerungEmail: (origin) =>
@@ -131,8 +145,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       schule: "Ernst-Reuter-Schule",
       // Two seats on one address, which is the shape the single-seat fixture above cannot reach.
       seats: [
-        { vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-zwei` },
-        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${ORIGIN}/bestaetigung?token=beispiel-drei` },
+        { vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-zwei` },
+        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-drei` },
       ],
       fristText: "18.09.2026",
     }),
@@ -143,7 +157,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
       fristText: "18.09.2026",
-      link: `${ORIGIN}/bestaetigung?token=beispiel-vier`,
+      link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-vier`,
     }),
   buildBewerbungVollstaendigEmail: (origin) =>
     buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: origin, rollenText: "Ansprechperson" }),
@@ -162,10 +176,45 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
       fristText: "18.09.2026",
     }),
+  buildEinladungEmail: (origin) =>
+    buildEinladungEmail({
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
+    }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
+  buildPasskeyHinzugefuegtEmail: (origin) => buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
+  buildPasskeyGeloeschtEmail: (origin) => buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
+  buildRegistrierungBestaetigungEmail: (origin) =>
+    buildRegistrierungBestaetigungEmail({
+      vorname: "Mira",
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      token: "beispiel-vier",
+      // The mirrored deadline is handed in rather than read: `fl_frontend/eslint.config.mjs ::
+      // LAYER_BOUNDARY` keeps `core` out of the feature slice that declares it.
+      fristTage: 7,
+    }),
+  buildRegistrierungErinnerungEmail: (origin) =>
+    buildRegistrierungErinnerungEmail({
+      vorname: "Mira",
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      token: "beispiel-fuenf",
+      fristTage: 7,
+    }),
+  buildRegistrierungSaisonendeEmail: (origin) =>
+    buildRegistrierungSaisonendeEmail({ vorname: "Mira", teamName: "Ernst-Reuter-Schule", saisonId: "2627", origin: origin }),
+  buildSchiedsrichterBestaetigungEmail: (origin) =>
+    buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
+  buildSperreEmail: (origin) =>
+    buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };
 
-/** Every message the two mail modules build, so a design claim is checked against all of them rather than against one. */
+/** Every message the mail modules build, so a design claim is checked against all of them rather than against one. */
 const MESSAGES = Object.entries(FIXTURES).map(([name, bauen]) => ({ name, mail: bauen(ORIGIN) }));
 
 describe("the shared email shell", () => {
@@ -198,7 +247,7 @@ describe("the shared email shell", () => {
   it("refuses to build a message at all where the origin is not an absolute URL", () => {
     for (const [name, bauen] of Object.entries(FIXTURES)) {
       assert.throws(() => bauen(""), /absolute origin/, `${name} composed a message on an origin that is not a URL`);
-      assert.throws(() => bauen("/bestaetigung"), /absolute origin/, `${name} composed a message on a bare path`);
+      assert.throws(() => bauen("/bestaetigung/kontakt"), /absolute origin/, `${name} composed a message on a bare path`);
     }
   });
 
@@ -341,9 +390,14 @@ describe("the shared email shell", () => {
          label must carry no hook at all -- one would turn it grey on the brand pill. */
       const unflipped = tags.filter((single) => new RegExp(`[;"]color:${constant("ON_BRAND_COLOR")};`).test(single));
 
-      // The filter is the population, so without this an empty one passes the loop below having
-      // compared nothing -- which is what a respelt foreground or a dropped button would leave.
-      assert.ok(unflipped.length > 0, `${name} declares the unflipped foreground nowhere, so this check proves nothing`);
+      /* What fills that population is the SOLID control alone: the outline grade rests on the card
+         and wears the heading colour, so a message offering only that kind declares this foreground
+         nowhere. */
+      const gefuellt = tags.some((single) => new RegExp(`[;"]background-color:${constant("BRAND_SOLID_COLOR")};`).test(single));
+
+      // Compared against the fill rather than required outright: an empty population would otherwise
+      // pass the loop below having compared nothing.
+      assert.equal(unflipped.length > 0, gefuellt, `${name} declares the unflipped foreground on other than its solid control's label`);
       for (const tag of unflipped) {
         assert.ok(!tag.includes("fl-"), `${name} hooks the unflipped foreground: ${tag.slice(0, 90)}`);
       }

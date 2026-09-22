@@ -13,7 +13,16 @@ const APP_DIR = import.meta.dirname;
  * The public pages the list withholds, each for a reason no walk of the tree can see. `/admin` is
  * withheld too and needs no entry here: `robots.ts` disallows the whole prefix.
  */
-const WITHHELD = ["/signin", "/signin/weiter", "/signin/bestaetigen", "/signin/passkey", "/bestaetigung"];
+const WITHHELD = [
+  "/signin",
+  "/signin/weiter",
+  "/signin/bestaetigen",
+  "/signin/passkey",
+  "/bestaetigung/kontakt",
+  "/bestaetigung/schiedsrichter",
+  "/registrierung",
+  "/bestaetigung/spieler",
+];
 
 /** A segment in parentheses organises files and names no path. */
 const isRouteGroup = (segment: string): boolean => segment.startsWith("(");

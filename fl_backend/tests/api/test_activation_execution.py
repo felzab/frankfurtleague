@@ -137,6 +137,7 @@ async def call_activate(database: AsyncDatabase, client: AsyncMongoClient, saiso
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
     )
 

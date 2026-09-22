@@ -90,7 +90,7 @@ export function AdminSpielerEditForm({
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
   // Read-only on this page, but held in state anyway: the patch replaces the row wholesale, so
   // dropping it from the payload would clear it.
-  const [isNachgetragen, setIsNachgetragen] = useState(storedMembership?.is_nachgetragen ?? false);
+  const [istNachnominiert, setIstNachnominiert] = useState(storedMembership?.ist_nachnominiert ?? false);
   const [rolle, setRolle] = useState<FLSpielerRolle | null>(storedMembership?.rolle ?? null);
 
   const [hasSaved, setHasSaved] = useState(false);
@@ -100,7 +100,7 @@ export function AdminSpielerEditForm({
     schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
   });
 
-  // The ids ride in the request URI and `is_nachgetragen` is round-tripped read-only, so none of
+  // The ids ride in the request URI and `ist_nachnominiert` is round-tripped read-only, so none of
   // them is a path an input renders or a refusal can name.
   const buildPersonPayload = () => ({ id: spieler.id, ...personDraft });
   const buildSaisonPayload = () => ({
@@ -111,7 +111,7 @@ export function AdminSpielerEditForm({
     nummer: nummerPayload(nummer),
     position,
     stufe,
-    is_nachgetragen: isNachgetragen,
+    ist_nachnominiert: istNachnominiert,
     rolle,
   });
 
@@ -119,7 +119,7 @@ export function AdminSpielerEditForm({
     vorname: personDraft.vorname,
     nachname: personDraft.nachname ?? "",
     geburtsdatum: personDraft.geburtsdatum,
-    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen, rolle },
+    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, ist_nachnominiert: istNachnominiert, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
     vorname: spieler.vorname,
@@ -134,7 +134,7 @@ export function AdminSpielerEditForm({
             nummer: storedMembership.nummer ?? "",
             position: storedMembership.position,
             stufe: storedMembership.stufe,
-            is_nachgetragen: storedMembership.is_nachgetragen,
+            ist_nachnominiert: storedMembership.ist_nachnominiert,
             rolle: storedMembership.rolle,
           },
   };
@@ -181,7 +181,7 @@ export function AdminSpielerEditForm({
     isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
     isRowTeamInSaison: rowReturn !== "clubLeft",
-    isNachgetragen,
+    istNachnominiert,
     isTeamChanged: isChanged("team_id"),
     isSquadFull,
     blockedRolle,
@@ -193,7 +193,7 @@ export function AdminSpielerEditForm({
     setNummer(storedMembership?.nummer ?? "");
     setPosition(storedMembership?.position ?? null);
     setStufe(storedMembership?.stufe ?? null);
-    setIsNachgetragen(storedMembership?.is_nachgetragen ?? false);
+    setIstNachnominiert(storedMembership?.ist_nachnominiert ?? false);
     setRolle(storedMembership?.rolle ?? null);
 
     setSubmitFieldErrors({}, {});
@@ -283,7 +283,7 @@ export function AdminSpielerEditForm({
                 nummer: storedMembership.nummer,
                 position: storedMembership.position,
                 stufe: storedMembership.stufe,
-                is_nachgetragen: storedMembership.is_nachgetragen,
+                ist_nachnominiert: storedMembership.ist_nachnominiert,
                 rolle: storedMembership.rolle,
               },
             }

@@ -75,7 +75,12 @@ describe("the trigger's box a list route's fallback draws", () => {
     const waiting = ROUTES.filter(({ route }) =>
       /createModal=\{\s*<Suspense\b/.test(readFileSync(path.join(ADMIN, route, "page.tsx"), "utf8")),
     );
-    assert.ok(waiting.length >= 2, `${String(waiting.length)} pages hold their trigger behind a boundary`);
+    // A floor of one, because one route taking the boundary arm is what keeps the `assert.equal`
+    // below from comparing `false` with `false` on every route and passing over the arrangement.
+    assert.ok(
+      waiting.length >= 1,
+      `${String(waiting.length)} pages hold their trigger behind a boundary, so the waiting arm is never exercised`,
+    );
 
     for (const { route, modalName, modal } of ROUTES) {
       const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, route, "page.tsx")).href)) as {

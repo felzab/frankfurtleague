@@ -20,12 +20,12 @@ export function rolleLabel(rolle: FLSpielerRolle): string {
 export const SPIELER_CRUD_COPY = {
   searchLabel: "Spieler suchen",
   searchPlaceholder: "z.B. Lena Meier oder 7",
-  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
-  createLabel: "Neuen Spieler anlegen",
   /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
   emptyForQuery: "Keine Spieler für diese Suche.",
   emptyForFilters: "Keine Spieler für diese Filter.",
-  emptyOverall: "Es wurden noch keine Spieler angelegt.",
+  // A registration can stand unadmitted, so „registriert“ is a claim about a collection this page
+  // never shows; „angelegt“ would point a reader at a create control it has not got.
+  emptyOverall: "Es steht noch niemand in einem Kader.",
 } as const;
 
 /** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */
@@ -94,13 +94,6 @@ export const RETIREMENT_CONSEQUENCE =
  * action toasts once. Two readers meeting different words would read them as two different states.
  */
 export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
-
-/**
- * The tail of the message a create earns when the person was stored but their squad row was not. A
- * noun rather than a pronoun: a refusal sentence can precede this one, and a pronoun would reach
- * back past it.
- */
-export const CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON = "Nimm den Spieler über die Spielerseite in eine Saison auf.";
 
 /**
  * `REQ-PURGE-001` in German, said once — the REPAIR rather than the state, which the Callout beside

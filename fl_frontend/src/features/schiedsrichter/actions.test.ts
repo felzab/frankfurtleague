@@ -8,7 +8,7 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
@@ -80,6 +80,11 @@ const RENAME_ACTION = sliceBetween(
 
 /* The first mapper in the module, so its slice ends where the retire's begins. */
 const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
+const GESPERRT_MAP = sliceBetween(ACTIONS, "function mapGesperrteAdresseRefusal", "const STILLGELEGT_OHNE_LINK");
+const STILLGELEGT_MAP = sliceBetween(ACTIONS, "function mapStillgelegtRefusal", "function mapEinladenRefusal");
+const EINLADEN_MAP = sliceBetween(ACTIONS, "function mapEinladenRefusal", "const SCHON_BESTAETIGT");
+/** The referee's OWN link is read rather than written by an admin action, so its German sits here. */
+const QUERIES = readFileSync(path.resolve(import.meta.dirname, "queries.ts"), "utf8");
 const CREATE_ACTION = sliceBetween(
   ACTIONS,
   "export async function postSchiedsrichterAction",
@@ -131,13 +136,56 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
-  /* Three endpoints declaring nothing, the undo replaying the save: a rule added to any of them and
-     left unmapped reaches the admin as the 409 fallback, which names an entry rather than a rule. */
-  it("leaves the save, its undo and the reactivation with no refusal of their own to word", () => {
-    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), []);
+  /* The reactivation declares nothing and the undo replays the save: a rule added to either and left
+     unmapped reaches the admin as the 409 fallback, which names an entry rather than a rule. */
+  it("leaves the reactivation with no refusal of its own to word", () => {
     assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), []);
     assert.ok(!REACTIVATE_ACTION.includes("serverErrorCode"), "the reactivation words a refusal its endpoint no longer declares");
-    assert.doesNotMatch(UNDO_ROUTE, /REQ-[A-Z]+-\d+/, "the undo words a refusal the replayed endpoint no longer declares");
+  });
+
+  /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
+     the administrator an equivalent entry exists (`.claude/rules/cross-surface.md`). */
+  it("words the ban the replayed save can be refused on, at the undo route too", () => {
+    for (const code of declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}")) {
+      assert.ok(UNDO_ROUTE.includes(code), `${code} reaches the admin through the undo as an unhandled conflict`);
+    }
+  });
+
+  /* Both writes mint where an address was given, so both meet the ban list, and one mapper words it
+     for the box that holds the value the list refused. */
+  it("maps every refusal the create and the save declare, on the box that owes the link", () => {
+    assert.deepEqual(declaredCodes("POST /schiedsrichter"), ["REQ-SCHIEDSRICHTER-007"]);
+    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-007"]);
+
+    assert.ok(
+      GESPERRT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-007"`),
+      "the banned address reaches the admin as an unhandled conflict",
+    );
+    assert.ok(GESPERRT_MAP.includes(`"kontakt.email"`), "the ban lands anywhere but the box that holds the refused address");
+    assert.ok(
+      STILLGELEGT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-001"`),
+      "the retirement reaches the admin as an unhandled conflict",
+    );
+    assert.ok(STILLGELEGT_MAP.includes(`"kontakt.email"`), "the retirement lands anywhere but the box whose change owes the link");
+  });
+
+  /* Every refusal the re-send declares, worded at the panel: nothing there is a form, so each is a
+     sentence rather than a field error. */
+  it("words every refusal the re-send declares", () => {
+    const declared = declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen");
+
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
+    assert.deepEqual(declared, ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"]);
+    for (const code of declared) assert.ok(EINLADEN_MAP.includes(`case "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+  });
+
+  /* The public page's own two endpoints. Their German is the visitor's, so it is worded where the
+     page reads them rather than in an admin action's mapper. */
+  it("words every refusal the referee's own link declares", () => {
+    const declared = [...declaredCodes("POST /schiedsrichter/bestaetigung"), ...declaredCodes("POST /schiedsrichter/bestaetigung/ansicht")];
+
+    assert.ok(declared.length >= 4, `expected the link's four refusals, found ${String(declared.length)}`);
+    for (const code of new Set(declared)) assert.ok(QUERIES.includes(`case "${code}"`), `${code} reaches the visitor as an unhandled conflict`);
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
@@ -240,7 +288,13 @@ const RECORD = {
   schule: "Musterschule",
   kontakt: { email: "anna@example.de", telefon: "069 1234567" },
   default_payment: 25,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 };
+
+/** What the save answers where the address of an outstanding referee moved and the link went out. */
+const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
 
 afterEach(() => {
   calls.length = 0;
@@ -339,6 +393,82 @@ describe("the anonymisation's copy", () => {
     assert.match(PANEL, /SCHIEDSRICHTER_ANONYM_LABEL/, "the panel does not read the label from its one declaration");
     assert.ok(!/„anonym|"anonym|>anonym/.test(PANEL), "the panel types the label as text, so rewording it leaves this copy behind");
     assert.equal(SCHIEDSRICHTER_ANONYM_LABEL, "anonym");
+  });
+});
+
+describe("what the save tells the administrator about the message it sent", () => {
+  /* The save mails a link where an outstanding referee's address moved, and the editor's toast is
+     the one surface that can say so: the page it returns to shows no send. */
+  it("carries the send's own sentence into the undo offer", async () => {
+    answerWith(() =>
+      Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet", versandSatz: VERSAND_SATZ }),
+    );
+
+    const user = userEvent.setup();
+    renderEditor();
+    // The save bar is closed on a clean draft, so the press needs a change to commit — and one the
+    // rail raises no blocking banner over, which would open the confirmation dialog instead.
+    await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
+    await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
+    // The write runs inside a transition, so the press returns before the offer is raised.
+    await waitFor(() => {
+      assert.ok(toasts.length > 0, "the save raised no toast at all");
+    });
+
+    assert.deepEqual(
+      toasts.map((raised) => [raised.variant, raised.title, raised.description]),
+      [["success", "\u00c4nderung gespeichert", VERSAND_SATZ]],
+    );
+  });
+
+  /* A link that did not leave is collateral rather than a clean save: the referee has no working
+     link, and nobody else is told. */
+  it("grades a failed send a warning", async () => {
+    answerWith(() =>
+      Promise.resolve({
+        success: true,
+        updated_document: null,
+        message: "Schiedsrichter bearbeitet",
+        versandSatz: VERSAND_SATZ,
+        versandFehlgeschlagen: true,
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderEditor();
+    // The save bar is closed on a clean draft, so the press needs a change to commit — and one the
+    // rail raises no blocking banner over, which would open the confirmation dialog instead.
+    await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
+    await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
+    // The write runs inside a transition, so the press returns before the offer is raised.
+    await waitFor(() => {
+      assert.ok(toasts.length > 0, "the save raised no toast at all");
+    });
+
+    assert.deepEqual(
+      toasts.map((raised) => [raised.variant, raised.title]),
+      [["warning", "Mit Folgen gespeichert"]],
+    );
+  });
+
+  it("falls back to the editor's own sentence where the save mailed nothing", async () => {
+    answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));
+
+    const user = userEvent.setup();
+    renderEditor();
+    // The save bar is closed on a clean draft, so the press needs a change to commit — and one the
+    // rail raises no blocking banner over, which would open the confirmation dialog instead.
+    await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
+    await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
+    // The write runs inside a transition, so the press returns before the offer is raised.
+    await waitFor(() => {
+      assert.ok(toasts.length > 0, "the save raised no toast at all");
+    });
+
+    assert.deepEqual(
+      toasts.map((raised) => [raised.variant, raised.description]),
+      [["success", "Die Schiedsrichterdaten wurden aktualisiert."]],
+    );
   });
 });
 

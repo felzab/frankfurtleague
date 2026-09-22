@@ -8,7 +8,7 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { ALREADY_IN_SAISON, CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON, ERASURE_NEEDS_RETIREMENT, RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
+import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
   deleteSaisonSpieler,
   deleteSpieler,
@@ -16,12 +16,10 @@ import {
   patchSaisonSpieler,
   patchSpieler,
   postSaisonSpieler,
-  postSpieler,
   reactivateSaisonSpieler,
   reactivateSpieler,
 } from "./mutations";
 import {
-  FLCreateSpielerFormPayloadSchema,
   FLDeleteSpielerPayloadSchema,
   FLEraseSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
@@ -44,7 +42,7 @@ import type {
   FLSpielerAdminSingleResponse,
   FLSpielerErasureResponse,
 } from "./schemas";
-import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
+import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft } from "./types";
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
@@ -98,72 +96,6 @@ function mapErasureRefusal(error: unknown): string | null {
 
   if (error.serverErrorCode === "REQ-PURGE-001") return ERASURE_NEEDS_RETIREMENT;
   return null;
-}
-
-export async function postSpielerAction(
-  // The DRAFT shape: an untouched picker submits `team_id: null`, and the schema below is what turns
-  // that into a field error rather than a type error.
-  rawPayload: SpielerCreateDraft,
-): Promise<ActionResult<{ spieler_id: string }>> {
-  return runAdminMutation("postSpielerAction", async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
-    const validated = FLCreateSpielerFormPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, rolle, ...personFields } = validated.data;
-
-    // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
-    const postOperation = await postSpieler(personFields);
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht angelegt", repair: "Versuche es erneut" }) };
-    }
-
-    // The junction row, in the same action: without one the player is invisible to every
-    // season-scoped read (backend spec I33). A failure here leaves the player EXISTING.
-    try {
-      await postSaisonSpieler({
-        spieler_id: postOperation.spieler_id,
-        saison_id,
-        team_id,
-        nummer,
-        position,
-        stufe,
-        is_nachgetragen,
-        rolle,
-      });
-    } catch (error) {
-      invalidateSpieler();
-      refresh();
-      // A 409 here cannot be the player's own duplicate row, but it CAN be a squad refusal naming
-      // something the admin can act on, so the reason is appended.
-      const refusal = mapSquadRefusal(error);
-      // The field message first: this path HAS a picker, so the short sentence written for it is also
-      // the one that reads best appended here. The cap carries no field message and falls through.
-      const because = refusal ? ` ${Object.values(refusal.fieldErrors ?? {})[0] ?? refusal.error ?? ""}` : "";
-
-      return {
-        success: false,
-        error:
-          `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
-          CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON,
-      };
-    }
-
-    invalidateSpieler();
-    refresh();
-
-    return {
-      success: true,
-      spieler_id: postOperation.spieler_id,
-      message: "Spieler angelegt",
-    };
-  });
 }
 
 export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {

@@ -14,7 +14,13 @@ const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
 const refused = new Set<string>();
 
+/** One failure line, as an operator reads it: which half stopped, and for which season. */
+type SweepLog = { event: string; saison_id: string | undefined };
+
+const logs: SweepLog[] = [];
+
 const recorders = globalThis as unknown as Record<string, unknown>;
+recorders.__flSweepLogs = logs;
 recorders.__flSweepEvents = events;
 recorders.__flSweepRefused = refused;
 recorders.__flSweepSwitch = "on";
@@ -30,13 +36,23 @@ const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = 
   return schema.parse(globalThis.__flSweepAnswer(call));
 };`;
 
-const MAIL_DOUBLE = `export const sendMail = async (mail) => {
+// The real error classes beside the doubled transport: the fan-out this sweep drives tells a
+// withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
+const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./mail.ts?real";
+
+export const sendMail = async (mail) => {
   globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
   if (globalThis.__flSweepRefused.has(mail.to)) throw new Error("the provider refused the message");
   return { id: "56761188-7520-42d8-8898-ff6fc54ce618" };
 };`;
 
-const LOGGING_DOUBLE = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+// The error arm records: which EVENT a failure is filed under is what tells an operator which half
+// of a season's pass stopped, and that is a line rather than a call the transport shows.
+const LOGGING_DOUBLE = `export const logger = {
+  info: () => {},
+  warn: () => {},
+  error: (event, _message, fields) => globalThis.__flSweepLogs.push({ event, saison_id: fields?.saison_id }),
+};`;
 
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
@@ -79,33 +95,56 @@ const apiCalls = (): ApiEvent[] => events.filter((event): event is ApiEvent => e
 /** The season a call addresses, which the contract puts in the path rather than in a parameter. */
 const saisonOf = (call: ApiEvent): string => call.endpoint.split("/")[3] ?? "";
 
-/** The season pass alone: the stamp and the erasure sit under the same prefix and would count as one. */
-const seasonPasses = (): ApiEvent[] =>
-  apiCalls().filter(
-    (call) =>
-      call.method === "POST" && !call.endpoint.endsWith("/loeschen") && !call.endpoint.endsWith("/angekuendigt") && saisonOf(call) !== "",
-  );
+/** One prefix's season pass alone: the stamp and the erasure sit under the application's prefix and would count as one. */
+const passesUnder = (prefix: string): ApiEvent[] =>
+  apiCalls().filter((call) => call.method === "POST" && new RegExp(`^/${prefix}/sweep/[^/]+$`).test(call.endpoint));
+
+const seasonPasses = (): ApiEvent[] => passesUnder("bewerbungen");
+
+const registrierungPasses = (): ApiEvent[] => passesUnder("registrierungen");
+
+/** One call by the endpoint it addressed: the registration pass now follows every season, so no call is the last one by position. */
+const callTo = (endpoint: string): ApiEvent | undefined => apiCalls().find((call) => call.endpoint === endpoint);
 
 function answerWith(answer: (call: ApiEvent) => unknown): void {
   recorders.__flSweepAnswer = answer;
 }
 
-/** One season's pass, with nothing for this side to do unless a case says otherwise. */
+/** One season's pass, with nothing for either side to do unless a case says otherwise. */
 function sweepAnswers({
   saisonIds = [],
   erinnerungen = {},
   loeschungen = {},
+  registrierungErinnerungen = {},
+  benachrichtigt = {},
 }: {
   saisonIds?: string[];
   erinnerungen?: Record<string, unknown[]>;
   loeschungen?: Record<string, unknown[]>;
+  registrierungErinnerungen?: Record<string, unknown[]>;
+  benachrichtigt?: Record<string, unknown[]>;
 }): void {
   answerWith((call) => {
     const saisonId = saisonOf(call);
-    if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds, sweep_gelaufen_am: null };
+    if (call.method === "GET") {
+      return { acknowledged: 1, saison_ids: saisonIds, sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+    }
     if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
+    if (call.endpoint === "/zustellung/angenommen") return { acknowledged: 1, angewendet: true };
     if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
     if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
+    if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+      return {
+        acknowledged: 1,
+        saison_id: saisonId,
+        erinnerungen: registrierungErinnerungen[saisonId] ?? [],
+        benachrichtigt: benachrichtigt[saisonId] ?? [],
+        geloescht_unbestaetigt: 0,
+        geloescht_ohne_entscheidung: 0,
+        geloescht_abgelehnt: 0,
+        redigierte_aktionen: 0,
+      };
+    }
 
     return {
       acknowledged: 1,
@@ -142,6 +181,7 @@ const deletion = (bewerbungId: string, address: string | null, rollen: string[] 
 
 beforeEach(() => {
   events.length = 0;
+  logs.length = 0;
   refused.clear();
   recorders.__flSweepSwitch = "on";
   sweepAnswers({});
@@ -155,7 +195,9 @@ describe("the switch the retention sweep is armed by", () => {
     API_VERSION: "0",
     MONGODB_URI: "mongodb://localhost:27017/probe",
     AUTH_URL: "http://localhost:3000",
-    AUTH_SECRET: "secret",
+    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
+    // environment, and every case here would then report the switch as unreadable.
+    AUTH_SECRET: "s".repeat(32),
     AUTH_RESEND_KEY: "resend",
     // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
     RESEND_WEBHOOK_SECRET: "whsec_probe",
@@ -324,8 +366,9 @@ describe("one pass of the sweep", () => {
     assert.deepEqual(
       events.map((event) => event.kind),
       // The fourth is the accepted send recording itself, which follows the message rather than
-      // preceding it: no id exists to record until the provider has answered.
-      ["api", "api", "mail", "api"],
+      // preceding it: no id exists to record until the provider has answered. The fifth is the
+      // registration pass, which closes every season.
+      ["api", "api", "mail", "api", "api"],
     );
   });
 
@@ -351,7 +394,7 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     const reminder = events.find((event) => event.kind === "mail");
-    assert.equal(reminder?.text.match(/\/bestaetigung\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    assert.equal(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
     assert.ok(reminder?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 
@@ -366,11 +409,13 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    const [stamp, erasure] = apiCalls().slice(-2);
+    const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
+    const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(
       events.map((event) => event.kind),
-      // The record after the delivered notice, and none after the refused one.
-      ["api", "api", "mail", "api", "mail", "api", "api"],
+      // The record after the delivered notice, and none after the refused one; the registration
+      // pass closes the season.
+      ["api", "api", "mail", "api", "mail", "api", "api", "api"],
       "both notices go out before anything is stamped or erased",
     );
     assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
@@ -389,10 +434,10 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    const erasure = apiCalls().at(-1);
+    const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "api"],
+      ["api", "api", "api", "api"],
       "an announced candidate was mailed or stamped again",
     );
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
@@ -428,10 +473,10 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    const erasure = apiCalls().at(-1);
+    const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "api", "api"],
+      ["api", "api", "api", "api", "api"],
       "no message is composed for a candidate with no address",
     );
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NOBODY] });
@@ -454,7 +499,7 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     assert.equal(events.filter((event) => event.kind === "mail").length, 2, "a listed candidate was held back on this side");
-    assert.deepEqual(JSON.parse(apiCalls().at(-2)?.body ?? "{}"), { bewerbung_ids: [ID_REACHED, ID_SILENT] });
+    assert.deepEqual(JSON.parse(callTo("/bewerbungen/sweep/2627/loeschen")?.body ?? "{}"), { bewerbung_ids: [ID_REACHED, ID_SILENT] });
   });
 
   /* The one send here whose body cannot change inside the provider's window, and the one that can
@@ -489,8 +534,22 @@ describe("one pass of the sweep", () => {
 
   it("carries on to the next season when one throws", async () => {
     answerWith((call) => {
-      if (call.method === "GET") return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null };
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
       if (saisonOf(call) === "2526") throw new Error("the backend refused this season");
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+        return {
+          acknowledged: 1,
+          saison_id: saisonOf(call),
+          erinnerungen: [],
+          benachrichtigt: [],
+          geloescht_unbestaetigt: 0,
+          geloescht_ohne_entscheidung: 0,
+          geloescht_abgelehnt: 0,
+          redigierte_aktionen: 0,
+        };
+      }
       return {
         acknowledged: 1,
         saison_id: saisonOf(call),
@@ -507,5 +566,232 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+  });
+});
+
+/** Registration ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
+const ID_PUPIL = `${"d".repeat(23)}4`;
+const ID_UNDECIDED = `${"e".repeat(23)}5`;
+
+const reminder = (registrierungId: string, email: string, token: string) => ({
+  registrierung_id: registrierungId,
+  saison_id: "2627",
+  team: "Adler",
+  vorname: "Quillhilde",
+  email: email,
+  token: token,
+});
+
+const notice = (registrierungId: string, email: string) => ({
+  registrierung_id: registrierungId,
+  saison_id: "2627",
+  team: "Adler",
+  vorname: "Quillhilde",
+  email: email,
+});
+
+describe("the registration half of one pass", () => {
+  /* The detail the shape invites getting wrong: the application half returns early where it has
+     nothing to erase, and a registration call inside that arm runs for no season with a quiet queue. */
+  it("runs for a season whose application half erased nothing at all", async () => {
+    sweepAnswers({ saisonIds: ["2526", "2627"] });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(registrierungPasses().map(saisonOf), ["2526", "2627"]);
+  });
+
+  it("runs after the application's own pass, whose call stamps the day", async () => {
+    sweepAnswers({ saisonIds: ["2627"] });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      apiCalls().map((call) => call.endpoint),
+      ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627"],
+    );
+  });
+
+  it("mails the pupil's reminder with the fresh link and no idempotency key", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      registrierungErinnerungen: { "2627": [reminder(ID_PUPIL, "quillhilde@schule.de", "token-frisch")] },
+    });
+
+    await runBewerbungSweep();
+
+    const chase = events.find((event) => event.kind === "mail");
+    assert.equal(chase?.to, "quillhilde@schule.de");
+    // The CONFIGURED origin and never the published one: a link built on the latter sends a reader
+    // of this stack into production (`docs/frontend/spec.md :: I186`).
+    assert.ok(
+      chase?.text.includes("http://localhost:3000/bestaetigung/spieler?token=token-frisch"),
+      "the message carries the link the pass just minted, on the origin this run is configured with",
+    );
+    // The window the first message named: the sentence says the deadline has not moved, and seven is
+    // the mirrored bound rather than a number this file spells.
+    assert.ok(chase?.text.includes("7 Tagen"), "the reminder states the window the first message named");
+    assert.equal(chase?.idempotencyKey, undefined, "a fresh token in the body makes a reused key a refusal rather than a collapse");
+    assert.deepEqual(chase?.tags, { ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
+  });
+
+  /* No pre-notice and one note after: the row is erased by the call that answered this list, so the
+     message reports rather than asks, and its body cannot change inside the provider's window. */
+  it("mails the season-end note after the erasure, keyed on the day", async () => {
+    sweepAnswers({ saisonIds: ["2627"], benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de")] } });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      // The erasure is behind the second call already; the record after the message is the accepted
+      // send, which reaches no row and is filed as such.
+      ["api", "api", "api", "mail", "api"],
+    );
+    const note = events.find((event) => event.kind === "mail");
+    assert.match(String(note?.idempotencyKey), /^loeschung_registrierung_/);
+    assert.deepEqual(note?.tags, { ziel: "registrierung", ziel_id: ID_UNDECIDED, anlass: "loeschung" });
+  });
+
+  /* `docs/ops/runbooks.md` section 9 reads one call for both dates: a fresh one beside a stale one
+     is what says WHICH timer stopped, and it only says that while the two are stamped apart. */
+  it("leaves the application's day stamped when the registration half throws", async () => {
+    const stamped: Record<string, string | null> = { bewerbung: null, registrierung: null };
+
+    answerWith((call) => {
+      if (call.method === "GET") {
+        return {
+          acknowledged: 1,
+          saison_ids: ["2627"],
+          sweep_gelaufen_am: stamped.bewerbung,
+          registrierung_sweep_gelaufen_am: stamped.registrierung,
+        };
+      }
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) throw new Error("the registration sweep refused this season");
+
+      // The application's own endpoint stamps the day, which is why its call goes first.
+      stamped.bewerbung = "2026-09-21";
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonOf(call),
+        erinnerungen: [],
+        loeschungen: [],
+        abgelehnte_geloescht: 0,
+        angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
+        kontaktbloecke_geleert: 0,
+        redigierte_aktionen: 0,
+      };
+    });
+
+    await runBewerbungSweep();
+
+    assert.equal(stamped.bewerbung, "2026-09-21", "the application's pass was abandoned with the registration's");
+    assert.equal(stamped.registrierung, null);
+  });
+
+  /* The half that starved the other: a throw anywhere in the application's clocks skips no
+     registration now, and the rows it does not reach hold a minor's name, address and birthdate. */
+  it("runs for a season whose application half threw", async () => {
+    answerWith((call) => {
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
+      if (call.endpoint.startsWith("/bewerbungen/sweep/")) throw new Error("the application sweep refused this season");
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonOf(call),
+        erinnerungen: [],
+        benachrichtigt: [],
+        geloescht_unbestaetigt: 0,
+        geloescht_ohne_entscheidung: 0,
+        geloescht_abgelehnt: 0,
+        redigierte_aktionen: 0,
+      };
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(registrierungPasses().map(saisonOf), ["2627"]);
+  });
+
+  it("files a failure line naming the half that stopped", async () => {
+    answerWith((call) => {
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
+      if (call.endpoint === "/bewerbungen/sweep/2526") throw new Error("the application sweep refused this season");
+      if (call.endpoint === "/registrierungen/sweep/2627") throw new Error("the registration sweep refused this season");
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+        return {
+          acknowledged: 1,
+          saison_id: saisonOf(call),
+          erinnerungen: [],
+          benachrichtigt: [],
+          geloescht_unbestaetigt: 0,
+          geloescht_ohne_entscheidung: 0,
+          geloescht_abgelehnt: 0,
+          redigierte_aktionen: 0,
+        };
+      }
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonOf(call),
+        erinnerungen: [],
+        loeschungen: [],
+        abgelehnte_geloescht: 0,
+        angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
+        kontaktbloecke_geleert: 0,
+        redigierte_aktionen: 0,
+      };
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(logs, [
+      { event: "bewerbung.sweep_failed", saison_id: "2526" },
+      { event: "registrierung.sweep_failed", saison_id: "2627" },
+    ]);
+  });
+
+  it("carries on to the next season when one season's registration half throws", async () => {
+    answerWith((call) => {
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
+      if (call.endpoint === "/registrierungen/sweep/2526") throw new Error("the registration sweep refused this season");
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+        return {
+          acknowledged: 1,
+          saison_id: saisonOf(call),
+          erinnerungen: [],
+          benachrichtigt: [],
+          geloescht_unbestaetigt: 0,
+          geloescht_ohne_entscheidung: 0,
+          geloescht_abgelehnt: 0,
+          redigierte_aktionen: 0,
+        };
+      }
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonOf(call),
+        erinnerungen: [],
+        loeschungen: [],
+        abgelehnte_geloescht: 0,
+        angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
+        kontaktbloecke_geleert: 0,
+        redigierte_aktionen: 0,
+      };
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(registrierungPasses().map(saisonOf), ["2526", "2627"]);
   });
 });

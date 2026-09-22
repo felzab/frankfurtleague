@@ -44,6 +44,11 @@ const BACKEND_ONLY: Record<string, string> = {
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+
+  FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
+  FLRegistrierung: "the row of that read, which no page consumes",
+  FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
+  FLRegistrierungEntscheidung: "that row's decision block, which no page consumes",
 };
 
 /**
@@ -79,6 +84,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -108,15 +114,18 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
   FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
+  FLEinladungKeyPayload: "the mint and the revoke take both ids from the path and have no request body",
+  FLEinladungMailPayload: "the mail press is this server's own argument; the API sees a send it never makes",
+  FLEinladungVersandGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
+  FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
+  FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
-  // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
-  // club, I33 for a player.
+  // One form creates the row and its junction: without one the club is invisible (backend spec I11).
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
-  FLCreateSpielerFormPayload: "the create action's own argument; the action splits it into two requests",
 };
 
 /**
@@ -126,6 +135,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   // The seat is a path segment too, the correction addressing one seat of one application.
   FLBewerbungKontaktEmailPayload: ["id", "rolle"],
+  FLBewerbungKontaktSitzPayload: ["id", "rolle"],
   FLPatchSchiedsrichterPayload: ["id"],
   FLAnnehmenBewerbungPayload: ["id"],
   FLAblehnenBewerbungPayload: ["id"],
@@ -139,6 +149,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLSwapGruppenPayload: ["saison_id"],
   // The draw's own season, for the same reason. Its body carries the replace confirmation and the shape.
   FLGenerateSpielplanPayload: ["id"],
+  // The season is the resource acted on; the body carries the re-send choice alone, and the preview
+  // takes the same choice as a query parameter.
+  FLEinladungVersandPayload: ["id"],
   // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
@@ -340,7 +353,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 198;
+const EXPECTED_PAIRS = 228;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -9,11 +9,21 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
-import { anonymiseSchiedsrichter, deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
+import {
+  anonymiseSchiedsrichter,
+  deleteSchiedsrichter,
+  einladeSchiedsrichter,
+  patchSchiedsrichter,
+  postSchiedsrichter,
+  reactivateSchiedsrichter,
+} from "./mutations";
+import { describeLinkMail, mailSchiedsrichterLink } from "./notifications";
+import { getSchiedsrichterById } from "./queries";
 import {
   FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterEinladenPayloadSchema,
   FLSchiedsrichterKeyPayloadSchema,
 } from "./schemas";
 
@@ -25,6 +35,7 @@ import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
+  FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
 
@@ -73,6 +84,77 @@ function mapAnonymiseRefusal(error: unknown): string | null {
   return null;
 }
 
+/**
+ * The administrator's own sentence rather than a visitor's neutral one: every site raising it here
+ * is admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader
+ * who can act on it.
+ */
+const ADRESSE_GESPERRT = buildRefusal({
+  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
+  repair: "Trage eine andere Adresse ein oder nimm die Sperre auf /admin/sperrliste zurück",
+});
+
+/** `null` where the 409 is something else. It lands on the address box, which is the value the list refused. */
+function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": ADRESSE_GESPERRT } } : null;
+}
+
+/**
+ * The save's own refusal of a retired row, which it reaches only through the mint a moved address
+ * owes: the endpoint declines to collect consent for a role nobody can give this person.
+ */
+const STILLGELEGT_OHNE_LINK = buildRefusal({
+  reason: "Diese Person ist stillgelegt, und eine neue E-Mail-Adresse bräuchte einen neuen Bestätigungslink",
+  repair: "Reaktiviere den Eintrag, bevor Du die Adresse änderst",
+});
+
+/** `null` where the 409 is something else. It lands on the address box, the field whose change owes the link. */
+function mapStillgelegtRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-001" ? { fieldErrors: { "kontakt.email": STILLGELEGT_OHNE_LINK } } : null;
+}
+
+/** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
+function mapEinladenRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-SCHIEDSRICHTER-001":
+      return buildRefusal({
+        // A retired row takes no booking, so what the link would collect is consent for a role
+        // nobody can give this person.
+        reason: "Diese Person ist stillgelegt und wird zu keinem Spiel mehr eingeteilt",
+        repair: "Reaktiviere den Eintrag, bevor Du einen Link sendest",
+      });
+    case "REQ-SCHIEDSRICHTER-004":
+      return SCHON_BESTAETIGT;
+    case "REQ-SCHIEDSRICHTER-006":
+      return KEINE_ADRESSE;
+    case "REQ-SCHIEDSRICHTER-007":
+      return ADRESSE_GESPERRT;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Raised at the control as well, where the panel beside it already shows the answer: the endpoint
+ * refuses a second link for a person who has confirmed, there being no page left for them to open.
+ */
+const SCHON_BESTAETIGT = buildRefusal({
+  reason: "Diese Person hat ihren Eintrag schon bestätigt",
+  repair: "Ein neuer Link führt auf keine Seite mehr; Änderungen an der Einwilligung nimmt die Person selbst vor",
+});
+
+/** Raised at the action as well, where the row already says so: a round trip to be told what the page can see is one nobody owes. */
+const KEINE_ADRESSE = buildRefusal({
+  reason: "Für diese Person ist keine E-Mail-Adresse hinterlegt",
+  repair: "Trage oben eine E-Mail-Adresse ein und speichere",
+});
+
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
@@ -92,12 +174,12 @@ export async function postSchiedsrichterAction(
       };
     }
 
-    // The refusal belongs on the box that holds the name, not on the error page.
+    // The refusal belongs on the box that holds the name or the address, not on the error page.
     let postOperation;
     try {
       postOperation = await postSchiedsrichter(validated.data);
     } catch (error) {
-      const refusal = mapNameRefusal(error);
+      const refusal = mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -108,10 +190,29 @@ export async function postSchiedsrichterAction(
 
     refresh();
 
+    // Null exactly where the create carried no address, which mails nothing and can mail nothing:
+    // the re-send is what mails one once an address is entered.
+    const mint = postOperation.bestaetigung;
+    // The address the MINT names, never the one this caller sent: only the mint's own transaction
+    // can say which mailbox the credential was made for.
+    const versand =
+      mint === null
+        ? null
+        : await mailSchiedsrichterLink({
+            operation: "postSchiedsrichterAction",
+            schiedsrichterId: postOperation.created_id,
+            email: mint.email,
+            name: validated.data.name,
+            mint: mint,
+            anlass: "empfang",
+          });
+
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: "Schiedsrichter angelegt",
+      // The form's own title, repeated on purpose: `ui/EntityForm.tsx` drops a description equal to
+      // the title it raises, and `ActionSuccess.message` admits no way to send none.
+      message: mint === null || versand === null ? "Schiedsrichter angelegt" : describeLinkMail(mint.email, versand),
     };
   });
 }
@@ -119,7 +220,9 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+  // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
+  // a warning on it, and the save landed either way.
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("patchSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -140,7 +243,7 @@ export async function patchSchiedsrichterAction(
     try {
       postOperation = await patchSchiedsrichter(validated.data);
     } catch (error) {
-      const refusal = mapNameRefusal(error);
+      const refusal = mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error) ?? mapStillgelegtRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -156,10 +259,98 @@ export async function patchSchiedsrichterAction(
     updateTag("spiele");
     refresh();
 
+    // Non-null only where the correction moved an unconfirmed referee's address: the old link was
+    // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
+    const mint = postOperation.bestaetigung;
+    // The address the MINT names, never the one this caller sent: a save landing between the two
+    // would put the credential in the mailbox this one replaced.
+    const versand =
+      mint === null
+        ? null
+        : await mailSchiedsrichterLink({
+            operation: "patchSchiedsrichterAction",
+            schiedsrichterId: validated.data.id,
+            email: mint.email,
+            name: validated.data.name,
+            mint: mint,
+            anlass: "erneut",
+          });
+
     return {
       success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
+      // Its own field rather than folded into the message: the editor hands this to the undo offer,
+      // and a save that mailed nothing has no sentence to hand it.
+      versandSatz: mint === null || versand === null ? undefined : describeLinkMail(mint.email, versand),
+      versandFehlgeschlagen: versand === false,
+    };
+  });
+}
+
+/**
+ * The address is read BEFORE the mint, which replaces the whole block: a read failing afterwards
+ * would leave the referee with no working link and no message.
+ */
+export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
+  return runAdminMutation("einladeSchiedsrichterAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    const gelesen = await getSchiedsrichterById(validated.data.id);
+    if (gelesen === null) {
+      return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
+    }
+
+    const email = gelesen.schiedsrichter.kontakt.email;
+    if (email === null) {
+      return { success: false, error: KEINE_ADRESSE };
+    }
+
+    // The refusal belongs in the panel that asked, not on the error page.
+    let mintOperation;
+    try {
+      mintOperation = await einladeSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapEinladenRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!mintOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
+    }
+
+    refresh();
+
+    // The address the MINT read in its own transaction, never `email` above: this read is the older
+    // of the two, and a save landing between them moved the mailbox the credential was made for.
+    const mint = mintOperation.bestaetigung;
+    const versand = await mailSchiedsrichterLink({
+      operation: "einladeSchiedsrichterAction",
+      schiedsrichterId: validated.data.id,
+      email: mint.email,
+      name: gelesen.schiedsrichter.name,
+      mint: mint,
+      anlass: "erneut",
+    });
+
+    return {
+      success: true,
+      // Said whichever way the send went: the previous link is dead either way, which is the fact an
+      // administrator has to act on when the message did not leave.
+      message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
     };
   });
 }

@@ -26,10 +26,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // `/bestaetigung` noindexes itself; this turns back a crawler that learnt a link some other
-        // way before it fetches one, a fetch being a token spent on nobody. `/signin/bestaetigen`
-        // joins it: its mailed URL carries a live sign-in token.
-        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen"],
+        // Every mailed URL among these carries a live token in its query, `/bestaetigung` standing
+        // as the prefix over its whole segment.
+
+        // The disallow is what turns a crawler back BEFORE that fetch; a page's noindex is read only
+        // after one.
+        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

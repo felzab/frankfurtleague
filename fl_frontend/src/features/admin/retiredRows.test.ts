@@ -62,6 +62,9 @@ const referee = (id: string, name: string, inactiveSince: string | null): FLSchi
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: inactiveSince,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 });
 
 type List = { live: string; retired: string; html: string };

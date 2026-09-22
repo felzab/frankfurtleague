@@ -17,13 +17,29 @@ const ADMIN_ACTION_MODULES = adminActionModules();
  */
 const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly string[] }> = {
   "features/bewerbungen/actions.ts": {
-    writes: ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"],
+    writes: [
+      "annehmenBewerbungAction",
+      "ablehnenBewerbungAction",
+      "einwilligungErneutSendenAction",
+      "kontaktEmailKorrigierenAction",
+      "besetzeKontaktSitzAction",
+    ],
     readOnly: [],
+  },
+  "features/einladungen/actions.ts": {
+    writes: ["postEinladungAction", "mailEinladungAction", "deleteEinladungAction", "postEinladungVersandAction"],
+    // The bulk send's dry run, which reports who would be written to and writes nothing.
+    readOnly: ["previewEinladungVersandAction"],
   },
   "features/kontakte/actions.ts": {
     writes: ["eraseKontaktpersonAction", "patchSaisonTeamKontakteAction"],
     // The erasure preview, which reads and moves nothing.
     readOnly: ["readKontaktErasureAnsichtAction"],
+  },
+  "features/passkeys/actions.ts": {
+    writes: ["removePasskeyAction"],
+    // The dialog's own read, which lists this administrator's rows and moves nothing.
+    readOnly: ["readPasskeysAction"],
   },
   "features/saisons/actions.ts": {
     writes: [
@@ -40,6 +56,7 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
     writes: [
       "postSchiedsrichterAction",
       "patchSchiedsrichterAction",
+      "einladeSchiedsrichterAction",
       "deleteSchiedsrichterAction",
       "reactivateSchiedsrichterAction",
       "anonymiseSchiedsrichterAction",
@@ -54,7 +71,6 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
   },
   "features/spieler/actions.ts": {
     writes: [
-      "postSpielerAction",
       "patchSpielerAction",
       "deleteSpielerAction",
       "reactivateSpielerAction",

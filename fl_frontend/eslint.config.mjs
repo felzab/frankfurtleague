@@ -100,7 +100,8 @@ const LAYER_BOUNDARY = {
  * Modules belonging to the suite alone; nothing else in the toolchain would say so.
  *
  * `stdoutCapture` swaps `process.stdout.write` out for a call's length, swallowing a server's log
- * stream; `actionSources` and `schemeReader` read a repository a deployed bundle does not carry.
+ * stream; `actionSources`, `schemeReader` and `edgeRedaction` read a repository a deployed bundle
+ * does not carry.
  */
 const TEST_ONLY = [
   {
@@ -108,7 +109,7 @@ const TEST_ONLY = [
     message: "stdoutCapture replaces process.stdout.write: a *.test.ts(x) file may import it, production code may not.",
   },
   {
-    group: ["**/actionSources.ts", "**/actionSources", "**/schemeReader.ts", "**/schemeReader"],
+    group: ["**/actionSources.ts", "**/actionSources", "**/schemeReader.ts", "**/schemeReader", "**/edgeRedaction.ts", "**/edgeRedaction"],
     message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
   },
 ];

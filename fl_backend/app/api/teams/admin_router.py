@@ -2,9 +2,21 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import mint_token
+from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse
+from app.api.einladungen.services import (
+    WITHOUT_TOKEN_HASH,
+    build_live_team_filter,
+    compose_einladung,
+    compose_widerruf_update,
+    find_saison_vorbei_refusal,
+    find_team_in_saison_refusal,
+    registrierungsfenster_laeuft,
+)
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -59,6 +71,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    EinladungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -67,7 +80,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -677,3 +690,159 @@ async def replace_saison_team(
     # callback re-reading everything it judges on.
     async with db.start_session() as session:
         return await session.with_transaction(hand_the_row_over)
+
+
+@router.post(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
+    response_model=FLEinladungMintResponse,
+    status_code=201,
+    summary="Mint this team's registration link for a season",
+)
+async def post_einladung(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    einladungen_collection: EinladungenCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    erstellt_von: str = Depends(get_actor_email),
+    today: str = Depends(get_german_date_str),
+) -> FLEinladungMintResponse:
+    """
+    Mint the link a team's players register through, revoking whatever link that team held for this season.
+
+    **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
+    this response is lost and the repair is another mint. Mailing it is a separate press.
+
+    The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
+    holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
+    every time somebody opens it, so a window moved after the mint moves this link with it.
+
+    Refused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended
+    (`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
+
+    **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
+    administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
+    """
+
+    # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
+    # answer a raw link whose hash is not the one the winning attempt stored.
+    raw_token, token_hash = mint_token()
+
+    async def mint_the_link(session: AsyncClientSession) -> Any:
+        """Judge the season and the junction, then revoke and mint. Everything judged is read in-session, so a retry re-judges it."""
+
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+
+        # Before the junction: a season that has ended cannot be repaired by entering the team into
+        # it, so nobody should be handed the junction's answer to act on first.
+        refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
+
+        entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, session=session)
+        refuse(find_team_in_saison_refusal(entered=bool(entered)))
+
+        # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
+        # every team starts in, and the single-document helper answers that with a 404.
+        await patch_many_in_db(
+            collection=einladungen_collection,
+            db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
+            update=compose_widerruf_update(today=today),
+            session=session,
+        )
+
+        document = compose_einladung(
+            saison_id=saison_id,
+            team_id=team_id,
+            token_hash=token_hash,
+            erstellt_von=erstellt_von,
+            today=today,
+        )
+        post_operation = await post_one_to_db(collection=einladungen_collection, document=document, session=session)
+
+        return post_operation.inserted_id
+
+    # One transaction over the revoke and the mint: `uniq_einladung_live` refuses the second live row
+    # outright, so the two landing apart would leave the mint failing against the team's own old link.
+    async with db.start_session() as session:
+        einladung_id = await session.with_transaction(mint_the_link)
+
+    return FLEinladungMintResponse(
+        saison_id=saison_id,
+        team_id=team_id,
+        einladung_id=einladung_id,
+        token=raw_token,
+        erstellt_am=today,
+        erstellt_von=erstellt_von,
+    )
+
+
+@router.delete(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
+    response_model=FLEinladungWriteResponse,
+    summary="Revoke this team's live registration link for a season",
+)
+async def delete_einladung(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    einladungen_collection: EinladungenCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLEinladungWriteResponse:
+    """
+    Stamp this team's live registration link revoked, so it opens nothing from here on.
+
+    The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
+    which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
+    """
+
+    # The filter is the judgement: `patch_one_in_db` answers a miss with the 404, so no read stands
+    # between resolving the live row and stamping it.
+    revoked = await patch_one_in_db(
+        collection=einladungen_collection,
+        db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
+        update=compose_widerruf_update(today=today),
+        return_document=ReturnDocument.BEFORE,
+    )
+
+    return FLEinladungWriteResponse(saison_id=saison_id, team_id=team_id, einladung_id=revoked["_id"])
+
+
+@router.get(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
+    response_model=FLEinladungResponse,
+    summary="This team's live registration link for a season, and whether it opens anything",
+)
+async def get_einladung(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    einladungen_collection: EinladungenCollection,
+    saisons_collection: SaisonsCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLEinladungResponse:
+    """
+    What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
+
+    **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
+    of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
+    rather than a delivery failure.
+
+    `laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds
+    that id; a team with no invitation answers `einladung: null` rather than a 404.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung"])
+
+    # A list read where the answer is one row: a team legitimately holds no live invitation, and
+    # `pull_one_from_db` would make that absence a 404.
+    live = await pull_many_from_db(
+        collection=einladungen_collection,
+        db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
+        limit=1,
+        projection=WITHOUT_TOKEN_HASH,
+    )
+
+    return FLEinladungResponse(
+        saison_id=saison_id,
+        team_id=team_id,
+        einladung=FLEinladung.model_validate(live[0]) if live else None,
+        laeuft=registrierungsfenster_laeuft(registrierung=saison_raw.get("registrierung"), today=today),
+    )

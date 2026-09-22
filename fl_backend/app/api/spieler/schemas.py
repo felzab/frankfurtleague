@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -76,7 +76,7 @@ class _SaisonSpielerWritable(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     # True when the player joined a season already under way; the form derives it from the status.
-    is_nachgetragen: bool
+    ist_nachnominiert: bool
     # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
     # rather than a flag per role, because two booleans can both be true and no validator sees a
     # second field to refuse it.
@@ -121,7 +121,7 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
 
     # Re-declared with defaults where the junction requires them: a squad row written before either
     # field existed still has to be describable, and a model that 422s describes it as impossible.
-    is_nachgetragen: bool = False
+    ist_nachnominiert: bool = False
     rolle: FLSpielerRolle | None = None
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
@@ -143,8 +143,8 @@ FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 class FLSaisonSpielerRow(BaseModel):
     """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
 
-    `rolle` is the one defaulted key, and the one the validator leaves out of `required`: every
-    stored row predates it. `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
+    `rolle` is the one defaulted key: every stored row predates it, and
+    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -152,7 +152,7 @@ class FLSaisonSpielerRow(BaseModel):
     spieler_id: CustomObjectId
     saison_id: str
     team_id: CustomObjectId
-    is_nachgetragen: bool
+    ist_nachnominiert: bool
     # DEFAULTED, alone on this model: every stored row predates the field, so the validator leaves
     # it out of `required` and a model requiring it would describe those rows as impossible.
     rolle: FLSpielerRolle | None = None
@@ -178,22 +178,6 @@ class FLSpielerFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
     order: Literal["asc", "desc"] = Field(default="asc")
-
-
-class FLPostSpielerPayload(BaseModel):
-    """The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
-    # never printed on a squad sheet.
-    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
-    # Optional here and REQUIRED on the patch below: a create has nothing to overwrite, while a
-    # patch that omits it would erase a surname somebody typed.
-    nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None = None
-    # NULLABLE, and the caller states the null rather than omitting: no flow collects a pupil's own
-    # date yet (`app/core/domain.py :: UNENFORCED`).
-    geburtsdatum: CustomOptionalDateString
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -271,10 +255,6 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerWriteResponse(BaseAPIResponse):
-    spieler_id: CustomObjectId
-
-
 class FLSpielerErasureResponse(BaseAPIResponse):
     """What the erasure removed, and NOT an echo of the person.
 
@@ -305,8 +285,10 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
-    # Defaulted for `FLSpieler`'s reason, over a row predating either field.
-    is_nachgetragen: bool = False
+    # Defaulted for `FLSpieler`'s reason. The alias stands BEHIND the projection, which hands this
+    # model the new key from either stored spelling, so nothing reaches it; it is the ruled second
+    # half of that leniency (`docs/backend/spec.md :: I302`).
+    ist_nachnominiert: bool = Field(default=False, validation_alias=AliasChoices("ist_nachnominiert", "is_nachgetragen"))
     rolle: FLSpielerRolle | None = None
 
     saison_id: str

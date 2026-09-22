@@ -63,14 +63,23 @@ const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErn
 const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
 
 const KORREKTUR_MAPPER = sliceBetween(ACTIONS, "function mapKontaktEmailRefusal", "export async function kontaktEmailKorrigierenAction");
-/* The correction is the last declaration in the module, so its slice runs to the end of the file. */
-const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", null);
+const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", "function mapKontaktSitzRefusal");
+
+const SITZ_MAPPER = sliceBetween(ACTIONS, "function mapKontaktSitzRefusal", "export async function besetzeKontaktSitzAction");
+/* The reseat is the last declaration in the module, so its slice runs to the end of the file. */
+const SITZ_ACTION = sliceBetween(ACTIONS, "export async function besetzeKontaktSitzAction", null);
 
 /** The one field of a submitted application an administrator may move, in the backend's own spelling. */
 const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
 
+/** The one path that writes a whole person onto a submitted application, in the backend's own spelling. */
+const SITZ_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}";
+
 /** Every code the correction answers, read off its own switch rather than the re-send's. */
 const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
+
+/** Every code the reseat answers, read off its own switch rather than the correction's. */
+const sitzCodes = [...SITZ_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 /**
  * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
@@ -583,15 +592,16 @@ describe("a message that cannot be sent", () => {
 
     // The exact count rather than a floor: each reader is judged by its own rule below, and a
     // further one is a path whose side of the write nobody has decided.
-    assert.equal(reads.length, 3, `expected three club-name readers, found ${String(reads.length)}`);
+    assert.equal(reads.length, 4, `expected four club-name readers, found ${String(reads.length)}`);
 
     const afterTheWrite = reads.find((read) => read.holder === "notifyBewerbung");
     assert.ok(afterTheWrite?.guarded, "a failed club read reports a committed decision as one that did not happen");
 
-    // Both of the two that mint: each reads before its own write, where a throw has cost nothing.
+    // Each of the three that mint: each reads before its own write, where a throw has cost nothing.
     for (const [holder, schreiben] of [
       ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
       ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
+      ["besetzeKontaktSitzAction", "await besetzenKontaktSitz("],
     ] as const) {
       const beforeTheMint = reads.find((read) => read.holder === holder);
 
@@ -868,5 +878,78 @@ describe("the corrected contact address", () => {
   it("moves no tag, and says why", () => {
     assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
     assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
+  });
+});
+
+describe("the person seated where one stepped out", () => {
+  /* First, so a boundary that stopped matching fails here rather than leaving every assertion below
+     reading an empty string and passing. */
+  it("cuts the reseat's mapper and its action out of the file", () => {
+    assert.ok(SITZ_MAPPER.includes("error.serverErrorCode"), "the reseat mapper's switch is outside its slice");
+    assert.ok(!SITZ_MAPPER.includes("besetzenKontaktSitz("), "the reseat mapper's slice reaches the write");
+
+    assert.ok(SITZ_ACTION.includes("besetzenKontaktSitz(validated.data)"), "the reseat's call is outside its slice");
+    assert.ok(!KORREKTUR_ACTION.includes("besetzenKontaktSitz("), "the correction's slice still runs to the end of the file");
+
+    assert.ok(sitzCodes.length > 0, "no refusal code could be read out of the reseat's mapper at all");
+  });
+
+  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
+     green, and this endpoint's operation string is the backend's to spell. */
+  it("finds rules declared against the endpoint it addresses", () => {
+    assert.ok(declaredCodes(SITZ_OPERATION).length > 0, `no rule is declared against ${SITZ_OPERATION}`);
+  });
+
+  it("maps every code the reseat declares", () => {
+    for (const code of declaredCodes(SITZ_OPERATION)) {
+      assert.ok(sitzCodes.includes(code), `${code} is declared against the reseat and reaches the admin unmapped`);
+    }
+  });
+
+  it("maps no code the backend does not declare at all", () => {
+    for (const code of sitzCodes) {
+      assert.ok(
+        DECLARED_RULES.some((rule) => rule.code === code),
+        `${code} is mapped by the reseat and declared by no rule`,
+      );
+    }
+  });
+
+  /* The correction's own path with the `/email` segment dropped, and it takes a body: everything but
+     the application and the seat is typed, so a path-only request would seat nobody. */
+  it("addresses its own endpoint, with the seat in the path and the person in the body", () => {
+    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}`/, "the reseat no longer addresses its own endpoint");
+    assert.match(MUTATIONS, /body: JSON\.stringify\(person\)/, "the reseat sends something other than the person it was given");
+  });
+
+  /* `SITZ_LEER` is the correction's guard on an empty slot, and an empty slot is what this write runs
+     ON: copied here it would refuse every press the control is offered for. */
+  it("judges no empty seat of its own, that being its entry condition", () => {
+    assert.ok(!SITZ_ACTION.includes("SITZ_LEER"), "the reseat refuses the seat state it exists to repair");
+    assert.ok(SITZ_ACTION.includes("BEWERBUNG_WEG") && SITZ_ACTION.includes("KEIN_TEAM"), "the reseat stopped judging what it cannot compose");
+  });
+
+  /* `gepaarteSitze` mirrors `paired_seat`, which drops a seat missing either half — and every seat
+     this write fills was emptied, so a message composed from it names one seat of a pair. */
+  it("names the seats the write itself answered rather than recomputing the pair", () => {
+    assert.match(SITZ_ACTION, /sitze: sitzOperation\.rollen/, "the reseat recomputes a pair the emptied slots hide");
+    assert.ok(!SITZ_ACTION.includes("gepaarteSitze("), "the reseat reads the pair off the page it was drawn from");
+  });
+
+  /* The person IS seated whatever the message did, so a failure arm here would tell the
+     administrator to seat somebody who is already in the application. */
+  it("reports a filled seat whose message did not go as a seat that stands", () => {
+    const sentMail = SITZ_ACTION.indexOf("sendeBestaetigungErneut({");
+    const caught = SITZ_ACTION.indexOf("} catch (error) {", sentMail);
+
+    assert.notEqual(sentMail, -1, "the reseat sends no message at all");
+    assert.notEqual(caught, -1, "a throw from the send escapes the reseat as a write that did not happen");
+    assert.match(SITZ_ACTION.slice(caught), /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/);
+    assert.ok(!SITZ_ACTION.includes("success: false, error: zustellung.error"), "the reseat takes the re-send's failure arm");
+  });
+
+  it("moves no tag, and says why", () => {
+    assert.ok(!SITZ_ACTION.includes("updateTag("), "the reseat clears a cached read its endpoint does not move");
+    assert.match(SITZ_ACTION, /No tag moves/, "the reseat no longer says why it invalidates nothing");
   });
 });

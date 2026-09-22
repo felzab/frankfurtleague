@@ -3,17 +3,31 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "./publicSubmit.ts";
 
 const FEATURES = path.resolve(import.meta.dirname, "..", "..", "features");
 
 const read = (...parts: string[]): string => readFileSync(path.resolve(FEATURES, ...parts), "utf8");
 
-/** Both public forms, each named as this file reports it. */
-const FORMULARE: Record<string, string> = {
-  "the application form": read("bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx"),
-  "the confirmation panel": read("bewerbungen", "components", "views", "BestaetigungFormPanel.tsx"),
+/** Every component under a feature slice that reaches the shared helper, found rather than listed. */
+const REACHING_THE_HELPER = filesUnder(FEATURES, (name) => /\.tsx$/.test(name) && !isTestFile(name), 40)
+  .filter((file) => file.includes(`${path.sep}components${path.sep}`) && readFileSync(file, "utf8").includes("postPublicForm"))
+  .map((file) => path.relative(FEATURES, file).split(path.sep).join("/"));
+
+/** Every public form a visitor can submit, each named as this file reports it. */
+const FORMULAR_PFADE: Record<string, string> = {
+  "the application form": "bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
+  "the confirmation panel": "bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  "the referee's confirmation page": "schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+  "the registration form": "registrierungen/components/views/RegistrierungFormPanel.tsx",
+  "the pupil's confirmation page": "registrierungen/components/views/SpielerBestaetigungView.tsx",
 };
+
+const FORMULARE: Record<string, string> = Object.fromEntries(
+  Object.entries(FORMULAR_PFADE).map(([name, relativ]) => [name, read(...relativ.split("/"))]),
+);
 
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
@@ -70,7 +84,7 @@ describe("what a public form is told when the answer was not this application's"
   it("refuses a body that is no JSON at all", async () => {
     antwortet("<html>interstitial</html>", { status: 200, headers: { "content-type": "text/html" } });
 
-    const answered = await postPublicForm("/api/bestaetigung", {});
+    const answered = await postPublicForm("/api/bestaetigung/kontakt", {});
 
     assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS });
   });
@@ -90,7 +104,7 @@ describe("what a public form is told when the answer was not this application's"
   it("blames the connection where the request left no judgement", async () => {
     transportiert(() => Promise.reject(new TypeError("Failed to fetch")));
 
-    const answered = await postPublicForm("/api/bestaetigung", {});
+    const answered = await postPublicForm("/api/bestaetigung/kontakt", {});
 
     assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_VERBINDUNG });
   });
@@ -150,11 +164,11 @@ describe("what a public form is told when the application did answer", () => {
       return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
     });
 
-    await postPublicForm("/api/bestaetigung", { token: "abc" });
+    await postPublicForm("/api/bestaetigung/kontakt", { token: "abc" });
 
     assert.deepEqual(
       sent.map(({ url }) => url),
-      ["/api/bestaetigung"],
+      ["/api/bestaetigung/kontakt"],
     );
     assert.equal(sent[0]?.init.method, "POST");
     assert.deepEqual(new Headers(sent[0]?.init.headers).get("content-type"), "application/json");
@@ -163,13 +177,24 @@ describe("what a public form is told when the application did answer", () => {
 });
 
 describe("where each public form's write is transported", () => {
+  /* The population is CLOSED against the tree: a sixth form reaching the helper joins the two cases
+     below by existing, rather than by somebody remembering to name it here. */
+  it("names every component that reaches the shared helper, and none that does not", () => {
+    assert.deepEqual([...REACHING_THE_HELPER].sort(), Object.values(FORMULAR_PFADE).sort());
+  });
+
   /* Which transport a submit reaches is a call rather than an attribute, so it stands in no markup a
      render could be read for. A form spelling a write of its own regrows the copy this helper
      removed. */
   it("rides the shared helper to its own route, spelling no write of its own", () => {
     for (const [name, source] of Object.entries(FORMULARE)) {
       assert.ok(source.length > 0, `${name} is empty, so this case proves nothing about it`);
-      assert.match(source, /postPublicForm<\w+>\("\/api\/\w+", payload\)/, `${name}: the write no longer rides the shared helper`);
+      // `[\w/]+` rather than one segment: a confirmation's route is `/api/bestaetigung/<type>`, and a
+      // single-segment pattern reads a form that moved under a segment as one that stopped riding.
+
+      // The argument is read as any identifier: what this case grades is the call, and a page naming
+      // its body something else was being reported as one that spells a write of its own.
+      assert.match(source, /postPublicForm<\w+>\("\/api\/[\w/]+", \w+\)/, `${name}: the write no longer rides the shared helper`);
       assert.ok(!source.includes('method: "POST"'), `${name}: the form spells a write of its own beside the shared one`);
     }
   });
@@ -188,8 +213,10 @@ describe("where each public form's write is transported", () => {
 describe("the title a form raises where the write may already have landed", () => {
   /* Which title an arm raises is a call rather than an attribute, so it stands in no markup a render
      could be read for — the reason the two cases above read these files. */
+  // The `wroteNothing` arm is admitted as an identifier as well: a page raising that title at more
+  // than one site names it once, and only the SHARED arm below is this case's subject.
   const geteilterTitel = (source: string): string | undefined =>
-    /appToast\.danger\(gesendet\.wroteNothing \? "[^"]+" : "([^"]+)"/.exec(source)?.[1];
+    /appToast\.danger\(gesendet\.wroteNothing \? (?:"[^"]+"|\w+) : "([^"]+)"/.exec(source)?.[1];
 
   /* One title over both sentences above: a word of either in it says that branch's fact twice and
      makes the title read as the other branch's cause. Five letters skips shared function words. */

@@ -4,14 +4,13 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { actionBodies } from "@/core/actionSources.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
@@ -40,11 +39,17 @@ const { calls } = doubleActions({
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
 });
 
+/* A hook, not a first line in each case: one that throws before its own reset leaves the array
+   dirty for whatever runs next, and one added without a reset inherits the last case's writes with
+   nothing failing. */
+beforeEach(() => {
+  calls.length = 0;
+});
+
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
 const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx");
 const { AdminSpielerEditForm } = await import("./components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
-const { AdminCreateSpielerForm } = await import("./components/forms/AdminCreateSpielerForm.tsx");
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
@@ -105,7 +110,7 @@ function renderEditor({
             nummer: "10",
             position: null,
             stufe: null,
-            is_nachgetragen: false,
+            ist_nachnominiert: false,
             rolle,
             inactive_since: rowInactiveSince,
           },
@@ -133,10 +138,9 @@ const ERASURE_CODES = ["REQ-PURGE-001"];
 
 /* Read per slice rather than over the file: two mappers live here, and a search over the whole
    source is satisfied by whichever one happens to carry the arm. */
-const ERASURE_MAP = sliceBetween(ACTIONS, "function mapErasureRefusal", "export async function postSpielerAction");
+const ERASURE_MAP = sliceBetween(ACTIONS, "function mapErasureRefusal", "export async function patchSpielerAction");
 const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
-const SQUAD_MAP = sliceBetween(ACTIONS, "function mapSquadRefusal", "export async function postSpielerAction");
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielerAction", "export async function patchSpielerAction");
+const SQUAD_MAP = sliceBetween(ACTIONS, "function mapSquadRefusal", "function mapErasureRefusal");
 /* The last declaration in the module, so its slice runs to the end of the file. */
 const REACTIVATE_ROW_ACTION = sliceBetween(ACTIONS, "export async function reactivateSaisonSpielerAction", null);
 
@@ -233,7 +237,6 @@ describe("the erasure's copy", () => {
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
      the same gesture as a name edit. */
   it("arms before it writes", async () => {
-    calls.length = 0;
     const user = userEvent.setup();
     renderErasure();
 
@@ -329,16 +332,6 @@ describe("REQ-SQUAD-001 where no form is on screen", () => {
     assert.match(declared, /Kadereintrag/, "the message does not name the entry it is about");
     assert.match(declared, /Kader/, "the message does not say where the team is changed");
     assert.doesNotMatch(declared, /gewählt/, "the message assumes a picker the reactivate never rendered");
-  });
-
-  /* The create DOES render a picker, and its message is embedded in a longer sentence — so it takes
-     the short field text rather than the standalone one. */
-  it("appends the field message on the create, which has a picker", () => {
-    assert.match(
-      CREATE_ACTION,
-      /Object\.values\(refusal\.fieldErrors \?\? \{\}\)\[0\] \?\? refusal\.error/,
-      "the create prefers the standalone sentence over the message its own picker carries",
-    );
   });
 });
 
@@ -467,7 +460,7 @@ const listRow = (person: Partial<AdminSpielerRow> = {}): AdminSpielerRow => ({
     nummer: "10",
     position: null,
     stufe: null,
-    is_nachgetragen: false,
+    ist_nachnominiert: false,
     rolle: null,
     inactive_since: RETIRED_ON,
     teamName: STORED_TEAM.name,
@@ -524,6 +517,7 @@ describe("the reactivate's gate on the list", () => {
       [ROW_RESTORE, "reactivateSaisonSpielerAction", { spieler_id: SPIELER_ID, saison_id: SAISON_ID }],
       [PERSON_RESTORE, "reactivateSpielerAction", { id: SPIELER_ID }],
     ] as const) {
+      // Per iteration, where no hook reaches: the two halves of this one case share the array.
       calls.length = 0;
       const { unmount } = render(
         underSaison(
@@ -612,8 +606,8 @@ describe("REQ-SQUAD-003 before the press", () => {
     assert.ok(branch.includes(`repair: "${repair ?? ""}"`), "the toast names the two ways out in another wording or another order");
   });
 
-  /* The picker offers every write path its team, so a full squad barred here is barred on the create,
-     on the transfer and on the editor's entry at once. Hiding the row instead would say nothing. */
+  /* The picker offers every write path its team, so a full squad barred here is barred on the
+     transfer and on the editor's entry at once. Hiding the row instead would say nothing. */
   it("closes a full squad's row in the picker, saying why, rather than dropping it", async () => {
     render(h(TeamSelect, { value: null, onChange: () => undefined, teams: [STORED_TEAM, { ...OTHER_TEAM, isSquadFull: true }] }));
     await userEvent.setup().click(screen.getByRole("button", TEAM_PICKER));
@@ -642,75 +636,6 @@ describe("REQ-SQUAD-003 before the press", () => {
     assert.deepEqual(picked, [], "a pick past a closed row reaches the caller");
     await user.selectOptions(mirror, STORED_TEAM.teamId);
     assert.deepEqual(picked, [STORED_TEAM.teamId], "a pick through the mirror reaches no caller at all, so the case above proves nothing");
-  });
-
-  /* The create modal offers every running and planned season, and its picker's teams change with the
-     one chosen — a fold for the preselected season alone would report room in all the others. */
-  it("folds the create loader's counts for every season it offers", () => {
-    assert.match(
-      LIST_PAGE,
-      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: saison\.id, exceptSpielerId: null \}\);/,
-      "the create loader counts against one season rather than each offered one",
-    );
-    assert.match(
-      LIST_PAGE,
-      /isSquadFull: squadIsFull\(liveSquadRows\[team\.teamId\], saison\.rules\.max_kadergroesse\)/,
-      "the create loader's teams carry no cap answer, which the picker reads as unknown and offers",
-    );
-  });
-
-  /* A team can stand in both seasons and be full in only one, so the season switch has to drop it for
-     the same reason it drops a team the next season never had. */
-  it("drops a team the newly chosen season has no room in", async () => {
-    const user = userEvent.setup();
-    render(
-      underSaison(
-        h(AdminCreateSpielerForm, {
-          saisonOptions: [
-            { saisonId: "2026", isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
-            { saisonId: "2027", isNachgetragen: false, teams: [{ ...STORED_TEAM, isSquadFull: true }], erlaubteStufen: ["Q1"] },
-            { saisonId: "2028", isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
-          ],
-          defaultSaisonId: "2026",
-          onClose: () => undefined,
-        }),
-      ),
-    );
-    const pickSaison = async (saisonId: string) => {
-      await user.click(screen.getByRole("button", { name: /Saison/ }));
-      await user.click(screen.getByRole("option", { name: new RegExp(saisonId) }));
-    };
-
-    await pickTeam(user, STORED_TEAM);
-    await pickSaison("2028");
-    assert.ok(
-      screen.getByRole("button", TEAM_PICKER).textContent.includes(STORED_TEAM.name),
-      "a team with room in the next season is dropped too",
-    );
-
-    await pickSaison("2027");
-    assert.equal(
-      screen.getByRole("button", TEAM_PICKER).textContent.trim(),
-      "Team wählen",
-      "a full squad survives the season switch and reaches the submit",
-    );
-  });
-});
-
-describe("the create dialog's squad pickers", () => {
-  // Beside its own visible label a second name reads each field out twice, „Team Team“.
-  it("are each named once, by their visible label", () => {
-    render(
-      underSaison(
-        h(AdminCreateSpielerForm, {
-          saisonOptions: [{ saisonId: SAISON_ID, isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] }],
-          defaultSaisonId: SAISON_ID,
-          onClose: () => undefined,
-        }),
-      ),
-    );
-
-    for (const name of ["Team", "Position", "Stufe"]) screen.getByRole("button", { name });
   });
 });
 
@@ -754,16 +679,4 @@ describe("the squad edit's refusals when the undo replays it", () => {
       assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
-});
-
-describe("the refresh the create's rescue owes the admin", () => {
-  /* The one admin path that fails with a row already added, so `core/adminWriteRefresh.test.ts` —
-     which reads each callback's own top level — cannot reach the call that serves it. */
-  it("refreshes on the create's partial write too, where the person exists and the squad row does not", () => {
-    const body = actionBodies(ACTIONS).get("postSpielerAction") ?? "";
-    const opensRescue = body.indexOf("} catch (error) {");
-
-    assert.notEqual(opensRescue, -1, "the create no longer rescues the squad row's failure where this case reads");
-    assert.match(body.slice(opensRescue).split("\n    }")[0] ?? "", /^ {6}refresh\(\);$/m, "the create's rescue leaves a person no list shows");
-  });
 });

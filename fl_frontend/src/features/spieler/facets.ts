@@ -43,12 +43,18 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     label: "Rolle",
     options: [
       ...ROLLE_OPTIONS.map((option) => ({ value: option.value, label: option.label })),
-      { value: "nachgetragen", label: "Nachgetragen" },
+      { value: "nachnominiert", label: "Nachnominiert" },
     ],
+    // A saved link still names the marker's earlier value, and an unoffered value is dropped from
+    // the selection with no chip saying so — the whole list back, silently
+    // (`docs/backend/spec.md :: I302`).
+    known: [{ value: "nachgetragen", label: "Nachnominiert" }],
     read: (spieler) => {
       const held: string[] = [];
       if (spieler.selected?.rolle != null) held.push(spieler.selected.rolle);
-      if (spieler.selected?.is_nachgetragen) held.push("nachgetragen");
+      // Both values for one marked row, so the earlier one narrows to exactly what the new one does.
+      // Goes with the rest of the leniency.
+      if (spieler.selected?.ist_nachnominiert) held.push("nachnominiert", "nachgetragen");
       return held;
     },
   },

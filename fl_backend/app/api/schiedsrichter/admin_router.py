@@ -5,27 +5,44 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.bewerbungen.services import mint_token
+from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
     FLPostSchiedsrichterPayload,
     FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
+    FLSchiedsrichterMint,
+    FLSchiedsrichterMintResponse,
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
+    BESTAETIGUNG_FELD,
+    EINLADEN_FIELDS,
+    EINWILLIGUNG_FELD,
+    bestaetigung_frist_from,
     build_assignment_filter,
     build_booked_image_filter,
     build_ghost_repoint,
     build_ghost_schiedsrichter,
     build_referee_filter,
     build_unplayed_assignment_filter,
+    compose_bestaetigung,
+    compose_mint_update,
+    find_already_confirmed_refusal,
+    find_gesperrt_refusal,
     find_ghost_erasure_refusal,
+    find_korrektur_mint,
+    find_missing_address_refusal,
     find_referee_retire_refusal,
+    find_retired_refusal,
     first_stamped,
 )
+from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.services import adresse_hash
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.crud import (
     erase_many_from_db,
     insert_live,
@@ -40,7 +57,9 @@ from app.core.crud import (
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
+    SaisonsCollection,
     SchiedsrichterCollection,
+    SperrlisteCollection,
     SpieleCollection,
     get_german_date_str,
     get_germany_now,
@@ -61,17 +80,76 @@ router = APIRouter(
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_config)],
+    today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
-    """Create a referee. `inactive_since` is set to null here and is on no payload."""
+    """
+    Create a referee, and mint their confirmation link where the entry carries an email address.
 
-    post_operation = await insert_live(
-        collection=schiedsrichter_collection,
-        document=schiedsrichter_data.model_dump(mode="json"),
-    )
+    `inactive_since` is set to null here and is on no payload. **Entering an address IS the
+    invitation**: there is no second press deciding whether this person is asked, because a referee
+    nobody asked is a name nobody consented to publish. The raw token is answered once, for the
+    caller to mail, and the row stores only its hash; an entry with no address answers
+    `bestaetigung: null` and mails nothing.
+
+    Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
+    """
+
+    email = schiedsrichter_data.kontakt.email
+    raw_token, token_hash = mint_token()
+    # Outside the transaction, as the ban endpoint's own hashing and season read are: neither
+    # reaches a document this transaction writes, and `with_transaction` may run its callback again.
+    gehasht = None if email is None else adresse_hash(email, schluessel=config.sperrliste_schluessel)
+    massgebliche_saison_id = None if email is None else await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+
+    async def judge_and_create(session: AsyncClientSession) -> Any:
+        """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
+
+        if email is None:
+            # In the callback beside the other create and never outside it: an endpoint that opens a
+            # transaction may make no write beside it (`docs/backend/spec.md :: I52`).
+            return await insert_live(
+                collection=schiedsrichter_collection,
+                document=schiedsrichter_data.model_dump(mode="json"),
+                session=session,
+            )
+
+        assert gehasht is not None and massgebliche_saison_id is not None
+
+        gesperrt = await address_is_gesperrt(
+            sperrliste_collection=sperrliste_collection,
+            adresse_hash=gehasht,
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
+        # Spelled at the call site rather than assembled above it, so
+        # `fl_backend/tests/core/test_write_shapes.py :: creations` can still read what this create
+        # composes against the validator's `required`.
+        return await insert_live(
+            collection=schiedsrichter_collection,
+            document={
+                **schiedsrichter_data.model_dump(mode="json"),
+                BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=token_hash, today=today),
+            },
+            session=session,
+        )
+
+    # ONE transaction over the judgement and the insert: a row written outside it would stand with a
+    # live link an administrator was then told had been refused.
+    async with db.start_session() as session:
+        post_operation = await session.with_transaction(judge_and_create)
 
     return FLPostSchiedsrichterResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
+        # The payload's own address, which this transaction wrote: there is no earlier row for a
+        # rival save to have moved between the caller's read and the mint.
+        bestaetigung=None if email is None else FLSchiedsrichterMint(token=raw_token, frist=bestaetigung_frist_from(today=today), email=email),
     )
 
 
@@ -85,22 +163,72 @@ async def patch_schiedsrichter(
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_config)],
+    today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
     Update a referee, then update the embedded name on every Spiel that uses them.
 
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
 
+    **A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for
+    the caller to mail to the new address: the old link was posted to a mailbox nobody reads, and
+    leaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints
+    nothing and answers `bestaetigung: null`, the record being already given; the administrator tells
+    them by hand (`docs/ops/runbooks.md` §5).
+
+    Where a fresh link would be minted, two refusals apply that a plain rename never meets: a RETIRED
+    referee is refused `REQ-SCHIEDSRICHTER-001`, no consent being collected for a role nobody can
+    give them, and a banned new address `REQ-SCHIEDSRICHTER-007`.
+
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
     """
 
-    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSchiedsrichterResponse:
+    payload = schiedsrichter_data.model_dump(mode="json")
+    email = schiedsrichter_data.kontakt.email
+    # Minted before the judgement and discarded where none is owed: the raw half must never sit in
+    # the same structure as the document, and random bytes cost nothing unused.
+    raw_token, token_hash = mint_token()
+    gehasht = None if email is None else adresse_hash(email, schluessel=config.sperrliste_schluessel)
+    # Outside the transaction, which takes no session, and no narrower than the payload's address:
+    # whether a mint is owed is decided in-session below.
+    massgebliche_saison_id = None if email is None else await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+
+    async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
+        # In-session, so the judgement below reads the address and the record this save replaces
+        # rather than a snapshot a rival write has already moved.
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
+            session=session,
+        )
+        minted = find_korrektur_mint(stored=stored, payload_email=email, token_hash=token_hash, today=today)
+        # Judged only where a fresh link would go out, on the re-send's own reason: a row taking no
+        # new booking has no role left to collect a consent for. A plain rename is not refused.
+        if minted is not None:
+            refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
+
+        # The season is NOT a condition here: it is `None` exactly where the payload carries no
+        # address, which is where `gehasht` is `None` too, so adding it would let a judgement be
+        # skipped by a state that means something else.
+        if minted is not None and gehasht is not None:
+            gesperrt = await address_is_gesperrt(
+                sperrliste_collection=sperrliste_collection,
+                adresse_hash=gehasht,
+                massgebliche_saison_id=massgebliche_saison_id,
+                session=session,
+            )
+            refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            update={"$set": schiedsrichter_data.model_dump(mode="json")},
+            update={"$set": {**payload, **(minted or {})}},
             session=session,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
@@ -112,13 +240,23 @@ async def patch_schiedsrichter(
             session=session,
         )
 
-        return FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        answer = FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+
+        return answer, minted is not None
 
     # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
-    # the fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the
-    # callback derives both writes from the payload, so a retry is safe.
+    # the fan-out exists to prevent. Every write derives from the payload and an in-session read,
+    # so a `with_transaction` retry is safe.
     async with db.start_session() as session:
-        return await session.with_transaction(rename_and_fan_out)
+        answer, re_minted = await session.with_transaction(rename_and_fan_out)
+
+    if re_minted:
+        # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing
+        # the link to the address the save moved away from is the defect the re-mint exists to end.
+        assert email is not None
+        answer.bestaetigung = FLSchiedsrichterMint(token=raw_token, frist=bestaetigung_frist_from(today=today), email=email)
+
+    return answer
 
 
 @router.delete(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterWriteResponse, summary="Deactivate a Schiedsrichter (soft delete)")
@@ -191,6 +329,92 @@ async def reactivate_schiedsrichter(
     )
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
+
+
+@router.post(
+    f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
+    response_model=FLSchiedsrichterMintResponse,
+    summary="Send a Schiedsrichter a fresh confirmation link",
+)
+async def einladen_schiedsrichter(
+    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_config)],
+    today: str = Depends(get_german_date_str),
+) -> FLSchiedsrichterMintResponse:
+    """
+    Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.
+
+    It replaces the whole block, so the previous link stops working at once and the delivery state
+    of the message that link went out in goes with it — a bounce recorded against a replaced address
+    would otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from
+    today.
+
+    Refused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already
+    answered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address
+    (`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list
+    (`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and
+    for the ghost, which every by-id route filters out.
+
+    **A referee who has already answered is refused rather than sent a second link**: the
+    confirmation refuses every such press, so minting one would replace a live block with a
+    credential that can never be spent.
+    """
+
+    raw_token, token_hash = mint_token()
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+
+    async def judge_and_mint(session: AsyncClientSession) -> str:
+        """Judge, then replace the block, and answer the address the link was minted for.
+
+        Everything judged is read in-session, so a retry re-judges it against the row as it stands
+        rather than against a snapshot.
+        """
+
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            projection=dict(EINLADEN_FIELDS),
+            session=session,
+        )
+
+        refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
+        refuse(find_already_confirmed_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD)))
+
+        email = (stored.get("kontakt") or {}).get("email")
+        refuse(find_missing_address_refusal(email=email))
+
+        # Hashed inside the callback, where the ban endpoint hoists its own: the address is not known
+        # until the read above, and the hash reads no document a retry could see differently.
+        gehasht = adresse_hash(str(email), schluessel=config.sperrliste_schluessel)
+        gesperrt = await address_is_gesperrt(
+            sperrliste_collection=sperrliste_collection,
+            adresse_hash=gehasht,
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
+        await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            update={"$set": compose_mint_update(token_hash=token_hash, today=today)},
+            session=session,
+        )
+
+        return str(email)
+
+    # The address ANSWERED is the one read in-session above, never one the caller read before this
+    # request: a save moving it in between would otherwise send the link to the previous mailbox.
+    async with db.start_session() as session:
+        gemintet_fuer = await session.with_transaction(judge_and_mint)
+
+    return FLSchiedsrichterMintResponse(
+        bestaetigung=FLSchiedsrichterMint(token=raw_token, frist=bestaetigung_frist_from(today=today), email=gemintet_fuer)
+    )
 
 
 @router.post(

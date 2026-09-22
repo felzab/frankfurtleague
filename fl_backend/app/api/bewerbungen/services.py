@@ -10,6 +10,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.folding import mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
@@ -590,20 +591,6 @@ def seat_vorname(*, kontakte: Any, seat: str) -> str:
     return str(slot.get("vorname") or "") if isinstance(slot, Mapping) else ""
 
 
-def _mailbox_key(email: str) -> str:
-    """What makes two stored addresses one inbox.
-
-    Stricter than `app/api/kontakte/services.py :: _same_address`, which folds the whole address:
-    over-matching costs an erasure nothing, and here it would name somebody else's seat in a message.
-    """
-
-    at = email.rfind("@")
-
-    # The local part byte for byte and the domain without case (RFC 5321 §2.4), as
-    # `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats` compares them.
-    return email if at == -1 else f"{email[:at]}@{email[at + 1 :].lower()}"
-
-
 def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontaktRolle]]:
     """The Ansprechperson's address as stored, and every seat that same inbox holds.
 
@@ -624,8 +611,8 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    key = _mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_SEATS if seat in addresses and _mailbox_key(addresses[seat]) == key]
+    key = mailbox_key(anchor)
+    held = [seat for seat in KONTAKT_SEATS if seat in addresses and mailbox_key(addresses[seat]) == key]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -709,6 +696,67 @@ def compose_kontakt_email_update(
     erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
 
     return {"$set": {**{f"kontakte.{seat}.email": email for seat in seats}, **erneut["$set"]}}
+
+
+# --- The RESEAT: another person in a seat its own holder stepped out of.
+
+
+def seat_awaits_a_replacement(*, bestaetigungen: Any, seat: str) -> bool:
+    """Whether this seat is empty because its person exercised their Widerspruch.
+
+    The ONE place an ERASED seat is refused: an erasure clears the whole entry, so the `abgelehnt_am`
+    a decline leaves behind is all that parts the two empty slots.
+    """
+
+    return _declined_on(bestaetigungen, seat) is not None
+
+
+def find_reseat_refusal(*, bestaetigungen: Any, seats: Sequence[str]) -> WriteRefusal | None:
+    """Why no other person may be seated here, or `None`.
+
+    Its own predicate beside `find_already_answered_refusal`, which refuses the declined seat this
+    one exists for: widening that one would let the re-send mint against an emptied slot.
+    """
+
+    # EVERY seat, because a claimed pair is one person: a mirror in another state is refused rather
+    # than written unjudged, or dropped from a write that asked for both.
+    for seat in seats:
+        if not seat_awaits_a_replacement(bestaetigungen=bestaetigungen, seat=seat):
+            return WriteRefusal(
+                error_code=BEWERBUNG_SEAT_ALREADY_ANSWERED,
+                message=f"the seat '{seat}' takes no other person; only a seat whose own holder stepped out of it is seated again",
+            )
+
+    return None
+
+
+def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
+    """The other seat `trainer_ist_zugleich` claims for this person, standing or emptied.
+
+    `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied slots
+    a reseat runs on and would leave one of them holding the other's link.
+    """
+
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    if zugleich is None:
+        return None
+
+    return seat_named(zugleich) if seat == "trainer" else (cast(FLKontaktRolle, "trainer") if seat == zugleich else None)
+
+
+def compose_kontakt_seat_update(
+    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str
+) -> Mapping[str, Any]:
+    """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
+
+    erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+    # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
+    # and the confirmation fills it (`docs/backend/spec.md :: I141`).
+    slot = {**person, "geburtsdatum": None, "einwilligung": compose_einwilligung(text_version=text_version, today=today)}
+
+    # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
+    # `$set` under a null is `PathNotViable`, which aborts the transaction.
+    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"]}}
 
 
 # --- The ZUSTELLSTAND: what became of the last message to one seat. Written by the two system-tier
@@ -864,7 +912,10 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
-    """The seats as the mails go out: one message per mailbox, keyed as the first mail keys (`_mailbox_key`), in first-seen order."""
+    """The seats as the mails go out: one message per mailbox, in first-seen order.
+
+    Keyed as the first mail keys it (`app/shared/folding.py :: mailbox_key`).
+    """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
@@ -874,7 +925,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if not email:
             continue
-        address, held = grouped.setdefault(_mailbox_key(email), (email, []))
+        address, held = grouped.setdefault(mailbox_key(email), (email, []))
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())

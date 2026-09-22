@@ -42,6 +42,7 @@ from app.api.teams.schemas import FLPatchTeamPayload, FLPostSaisonTeamPayload, F
 from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
 from tests.payloads import spiel_patch_body
@@ -50,6 +51,10 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
+
+CONFIG = build_test_config()
+
+TODAY = "2026-04-01"
 
 
 @pytest.fixture(autouse=True)
@@ -445,7 +450,11 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         ),
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
+        sperrliste_collection=handles[Collection.SPERRLISTE],
+        saisons_collection=handles[Collection.SAISONS],
         db=client,
+        config=CONFIG,
+        today=TODAY,
     )
 
 

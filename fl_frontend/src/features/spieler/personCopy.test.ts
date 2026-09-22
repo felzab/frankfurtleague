@@ -9,7 +9,6 @@ import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts
 
 import {
   ALREADY_IN_SAISON,
-  CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON,
   ERASURE_NEEDS_RETIREMENT,
   RETIREMENT_CONSEQUENCE,
   RETIREMENT_KEEPS_SQUAD_ROWS,
@@ -19,8 +18,6 @@ import {
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
-const { buildSpielerBanners } = await import("./components/forms/AdminSpielerEditForm/banners.ts");
-const { AdminCreateSpielerForm } = await import("./components/forms/AdminCreateSpielerForm.tsx");
 const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
 const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx");
 
@@ -81,38 +78,6 @@ describe("the erasure panel", () => {
   });
 });
 
-describe("the note a create carries where the season has already begun", () => {
-  const shown = (): string =>
-    read(
-      renderMarkup(AdminCreateSpielerForm, {
-        saisonOptions: [{ saisonId: "2026", isNachgetragen: true, teams: [], erlaubteStufen: [] }],
-        defaultSaisonId: "2026",
-        onClose: () => undefined,
-      }),
-    );
-
-  /* One wording for one fact: the editor raises the same two sentences as a banner, and a reader who
-     creates and then edits meets both. */
-  it("says what the editor's own banner says, word for word", () => {
-    const banner = buildSpielerBanners({
-      isRetired: false,
-      saisonId: "2026",
-      saisonStatus: "active",
-      isMember: false,
-      rowInactiveSince: null,
-      isRowTeamInSaison: true,
-      isNachgetragen: false,
-      isTeamChanged: false,
-      isSquadFull: false,
-      blockedRolle: null,
-    }).find(({ id }) => id === "spieler.entry-nachgetragen");
-
-    assert.ok(banner !== undefined, "the editor raises no banner for the flag, so this case judges nothing");
-    assert.ok(shown().includes(`${banner.title}. ${banner.body}`), "the form and the banner word the flag differently");
-    assert.doesNotMatch(banner.title, MASKULIN, "the shared wording names the pupil with a masculine word");
-  });
-});
-
 describe("the retirement dialog's second step", () => {
   it("names the pupil neutrally in the consequence it escalates to", () => {
     assert.match(RETIREMENT_CONSEQUENCE, /Die Kadereinträge dieser Person bleiben/, "the consequence stopped naming what survives");
@@ -126,7 +91,6 @@ describe("the sentences the player's own write paths answer with", () => {
 
     for (const [where, sentence] of [
       ["the duplicate squad row", ALREADY_IN_SAISON],
-      ["the create whose squad row failed", CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON],
       ["the retirement", RETIREMENT_KEEPS_SQUAD_ROWS],
     ] as const) {
       if (MASKULIN.test(sentence)) namedMasculine.push(where);

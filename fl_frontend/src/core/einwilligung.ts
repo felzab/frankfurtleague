@@ -5,6 +5,13 @@
 export type EinwilligungFassung = {
   readonly absaetze: readonly string[];
   readonly schalter: string;
+  /**
+   * Every OTHER control the page decides a stored field with, keyed by the value it writes.
+   *
+   * A label outside the frozen wording is a sentence a record cannot reproduce beside the choice it
+   * holds.
+   */
+  readonly bedienelemente: Readonly<Record<string, string>>;
 };
 
 // A record cites its label alone, and every entry below stands inside the label
@@ -168,6 +175,122 @@ const BESTAETIGUNGSSEITE_ABSAETZE_2026_09_4 = [
   "Eine Einwilligung ist das nicht, und wir holen hier auch keine ein. Du bestätigst, was in der Bewerbung steht, und ergänzt Dein Geburtsdatum; die Grundlage dafür steht oben.",
 ] as const;
 
+/**
+ * The pupil's confirmation page. Its paragraphs differ from the contact seat's in KIND rather than
+ * in nouns: a pupil's record is an Einwilligung, so „Eine Einwilligung ist das nicht“ has no
+ * counterpart here.
+ */
+export const SPIELER_ABSAETZE = {
+  worum:
+    "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser " +
+    "Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team " +
+    "Dich in seinen Kader aufnehmen.",
+  gespeichert:
+    "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie " +
+    "das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich " +
+    "damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
+  geburtsdatum:
+    "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; " +
+    "niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit " +
+    "dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
+  wer:
+    "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, " +
+    "Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die " +
+    "Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der " +
+    "Liga.",
+  veroeffentlichung:
+    "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste " +
+    "Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller " +
+    "Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am " +
+    "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
+  medien:
+    "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, " +
+    "veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und " +
+    "auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
+  rechtsgrundlage:
+    "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos " +
+    "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des " +
+    "Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der " +
+    "Liga. Rechtsgrundlage dafür ist Deine Teilnahme selbst (Art. 6 Abs. 1 lit. b DSGVO).",
+  frist:
+    "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann " +
+    "über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung " +
+    "geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine " +
+    "Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
+  widerruf:
+    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du " +
+    "kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über " +
+    "„{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der " +
+    "{datenschutz}.",
+  klickIdentitaet: "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+  klickAlter: "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
+  klickEinwilligung:
+    "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben " +
+    "gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
+  klickHinweise: "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
+} as const;
+
+// A record cites its label alone, and every entry below stands inside the label
+// `SCHIEDSRICHTER_EINWILLIGUNG` names, so a polish here rewords what a stored record claims its
+// reader saw. Different words mean a new label, never an edit here.
+/**
+ * The referee confirmation page's standing text. A reader's own facts are `{slots}` for
+ * `BESTAETIGUNG_ABSAETZE`'s reason: a record stores those beside the label, so the two together
+ * reproduce the screen its person pressed on.
+ */
+export const SCHIEDSRICHTER_ABSAETZE = {
+  worum:
+    "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link " +
+    "geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
+  gespeichert:
+    "Gespeichert sind Dein Vorname, Dein Nachname, Deine Schule, Deine E-Mail-Adresse und Deine Telefonnummer, die für Dich " +
+    "hinterlegte Aufwandsentschädigung je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist " +
+    "zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, " +
+    "reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
+  geburtsdatum:
+    "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; " +
+    "niemand hat es vorher für Dich angegeben.",
+  wer:
+    "Deine Schule, Deine Kontaktdaten, die Aufwandsentschädigung und Dein Geburtsdatum sehen nur die Administratorinnen und " +
+    "Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
+  veroeffentlichung:
+    "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens im Spielplan bei den Spielen erscheinen, die Du " +
+    "leitest. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, steht dort an der Stelle " +
+    "Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang " +
+    "umstellen.",
+  medien:
+    "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, " +
+    "veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und " +
+    "auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
+  rechtsgrundlage:
+    "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos " +
+    "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich " +
+    "anzusetzen und die Aufwandsentschädigung auszuzahlen, sind Name, Schule, Kontaktdaten, Betrag und Geburtsdatum in der " +
+    "Verwaltung der Liga. Rechtsgrundlage dafür ist Deine Tätigkeit für die Liga selbst (Art. 6 Abs. 1 lit. b DSGVO).",
+  frist:
+    "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen " +
+    "neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, solange Du für die Liga Spiele leitest. Du kannst ihn " +
+    "jederzeit selbst löschen.",
+  widerruf:
+    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du " +
+    "kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über " +
+    "„{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der " +
+    "{datenschutz}.",
+  klickIdentitaet: "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+  klickEintrag: "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
+  klickAlter: "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
+  klickEinwilligung:
+    "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben " +
+    "gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
+  klickHinweise: "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
+} as const;
+
+/**
+ * The media switch's own words, which the label below freezes beside the paragraphs. It is the
+ * freiwillig one the contact page's own `schalter` stands for.
+ */
+export const SCHIEDSRICHTER_MEDIEN_SCHALTER = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.";
+
 // A stored record cites its label alone, so an entry here is never reworded or removed: either
 // leaves a record claiming words nobody was shown. Spelling the league's name is not a rewording:
 // the stamped words do not move.
@@ -180,6 +303,7 @@ export const LIGA_KENNTNISNAHMEN = {
         "kann die Einwilligung jederzeit widerrufen.",
     ],
     schalter: "Ja, ich bin einverstanden",
+    bedienelemente: {},
   },
   "2026-09-bestaetigung": {
     absaetze: [
@@ -194,6 +318,7 @@ export const LIGA_KENNTNISNAHMEN = {
         "machen und welche Rechte jede dieser Personen hat, steht in der Datenschutzerklärung.",
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+    bedienelemente: {},
   },
   "2026-09-bestaetigung-2": {
     absaetze: [
@@ -209,6 +334,7 @@ export const LIGA_KENNTNISNAHMEN = {
         "Daten sonst machen und welche Rechte jede dieser Personen hat, steht in der Datenschutzerklärung.",
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+    bedienelemente: {},
   },
   "2026-09-bestaetigung-3": {
     absaetze: [
@@ -225,6 +351,7 @@ export const LIGA_KENNTNISNAHMEN = {
         "Rechte jede dieser Personen hat, steht in der Datenschutzerklärung.",
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+    bedienelemente: {},
   },
   // A label of its own because the words moved: every record already stamped keeps the ones it was
   // given. The floors stand in the form beside this text rather than inside it, so raising one
@@ -244,35 +371,65 @@ export const LIGA_KENNTNISNAHMEN = {
         "Rechte jede dieser Personen hat, steht in der Datenschutzerklärung.",
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+    bedienelemente: {},
   },
   // A label of its own, never a second block in the entry above: that entry is stamped on the
   // applicant's and the admin editor's records, and neither reader saw a word of the page below.
   "2026-09-bestaetigungsseite": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    bedienelemente: {},
   },
   "2026-09-bestaetigungsseite-2": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09_2,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    bedienelemente: {},
   },
   "2026-09-bestaetigungsseite-3": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09_3,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    bedienelemente: {},
   },
   "2026-09-bestaetigungsseite-4": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09_4,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    bedienelemente: {},
   },
   // A label of its own because the words moved: every record already stamped keeps the ones it
   // was given.
   "2026-09-bestaetigungsseite-5": {
     absaetze: Object.values(BESTAETIGUNG_ABSAETZE),
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    bedienelemente: {},
+  },
+  // The referee's page, under a label of its own: the paragraphs below are a different page's, and
+  // a record stamped here cites words no contact person and no pupil was shown.
+  "2026-09-schiedsrichterseite": {
+    absaetze: Object.values(SCHIEDSRICHTER_ABSAETZE),
+    schalter: SCHIEDSRICHTER_MEDIEN_SCHALTER,
+    bedienelemente: {
+      kader_oeffentlich: "Vorname und erster Buchstabe des Nachnamens",
+      intern: "Intern: dort steht „anonym“",
+    },
+  },
+  // A label of its own, never a paragraph added to the entries above: a pupil's record is a consent
+  // and a contact seat's is not, so no reader of one ever saw a word of the other.
+  "2026-09-spielerseite": {
+    absaetze: Object.values(SPIELER_ABSAETZE),
+    schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+    bedienelemente: {
+      kader_oeffentlich: "Vorname und erster Buchstabe des Nachnamens",
+      intern: "Intern: nur Nummer und Position, ohne Namen",
+    },
   },
 } as const satisfies Readonly<Record<string, EinwilligungFassung>>;
 
 const AKTUELLE_FASSUNG = "2026-09-bestaetigung-4";
 const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite-5";
+const AKTUELLE_SPIELERSEITE = "2026-09-spielerseite";
+// No suffix: the first wording under this label. `2026-09` is the month the wording was minted,
+// which is the registry's own spelling for every entry above.
+const AKTUELLE_SCHIEDSRICHTERSEITE = "2026-09-schiedsrichterseite";
 
 // Read off the record rather than spelled again, so a new wording and the bump that names it cannot
 // land in separate edits.
@@ -285,6 +442,23 @@ export const LIGA_KENNTNISNAHME = {
 export const BESTAETIGUNG_KENNTNISNAHME = {
   textVersion: AKTUELLE_BESTAETIGUNG,
   ...LIGA_KENNTNISNAHMEN[AKTUELLE_BESTAETIGUNG],
+} as const;
+
+// `absaetzeNachSchluessel` beside the frozen array, because a page places its sections by key and
+// the label freezes them by position. A rewording that froze a copy and left the keyed object
+// standing reaches `einwilligung.test.ts`'s equality rather than the live page.
+/** The registering pupil's own wording and label, read off the record for `LIGA_KENNTNISNAHME`'s reason. */
+export const SPIELER_EINWILLIGUNG = {
+  textVersion: AKTUELLE_SPIELERSEITE,
+  ...LIGA_KENNTNISNAHMEN[AKTUELLE_SPIELERSEITE],
+  absaetzeNachSchluessel: SPIELER_ABSAETZE,
+} as const;
+
+/** The confirming referee's own wording and label, read off the record for `LIGA_KENNTNISNAHME`'s reason. */
+export const SCHIEDSRICHTER_EINWILLIGUNG = {
+  textVersion: AKTUELLE_SCHIEDSRICHTERSEITE,
+  ...LIGA_KENNTNISNAHMEN[AKTUELLE_SCHIEDSRICHTERSEITE],
+  absaetzeNachSchluessel: SCHIEDSRICHTER_ABSAETZE,
 } as const;
 
 /**

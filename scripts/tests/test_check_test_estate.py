@@ -134,6 +134,123 @@ def test_a_helper_reached_through_an_imported_module_keeps_the_exemption():
     assert markers(body, PLAIN_CONFTEST, {"api/helpers.py": HELPER_MODULE}) == []
 
 
+def test_a_module_level_helper_is_not_shadowed_by_an_earlier_method():
+    """The direction that lets a test hit a real server.
+
+    The method reaches nothing, so a resolver keyed on the bare name alone judges `test_reads` by it
+    rather than by the client-building helper it actually calls.
+    """
+    body = (
+        "import pytest\nfrom pymongo import MongoClient\n\n\n"
+        "class TestThePayload:\n"
+        "    def helper(self, value):\n        return value.strip()\n\n"
+        "    @pytest.mark.db\n"
+        '    def test_strips(self):\n        assert self.helper(" x ")\n\n\n'
+        "def helper(url):\n    return MongoClient(url)\n\n\n"
+        "def test_reads(mongo_url):\n    assert helper(mongo_url)\n"
+    )
+    found = markers(body, PLAIN_CONFTEST)
+
+    assert len(found) == 1
+    assert "test_reads" in found[0]
+
+
+def test_a_method_does_not_lend_its_reach_to_a_plain_helper_of_the_same_name():
+    """The mirror corpus: a clean test refused because a method of that name reaches a database.
+
+    The repair a reader reaches for is renaming one of the two definitions to dodge the checker.
+    """
+    body = (
+        "import pytest\nfrom pymongo import MongoClient\n\n\n"
+        "@pytest.mark.db\nclass TestTheStore:\n"
+        "    def helper(self, url):\n        return MongoClient(url)\n\n"
+        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n\n\n"
+        "def helper(value):\n    return value.strip()\n\n\n"
+        'def test_plain():\n    assert helper(" x ")\n'
+    )
+
+    assert markers(body, PLAIN_CONFTEST) == []
+
+
+def test_the_nearest_class_body_answers_a_method_name_two_of_them_define():
+    """Empty `resolve_method`'s scope walk and this fails: the fallback answers the first `helper` in the module, which is the outer one."""
+    body = (
+        "from pymongo import MongoClient\n\n\n"
+        "class TestTheStore:\n"
+        "    def helper(self, url):\n        return MongoClient(url)\n\n"
+        "    class TestInside:\n"
+        "        def helper(self, value):\n            return value.strip()\n\n"
+        '        def test_reads(self):\n            assert self.helper(" x ")\n'
+    )
+
+    assert markers(body, PLAIN_CONFTEST) == []
+
+
+def test_a_classmethod_lends_its_reach_through_cls():
+    """Drop `cls` from `SELF_NAMES` and this fails: the call resolves at module scope.
+
+    The plain `opened` answers there, and a test building a real client goes unmarked.
+    """
+    body = (
+        "from pymongo import MongoClient\n\n\n"
+        "class TestTheStore:\n"
+        "    @classmethod\n"
+        "    def helper(cls, url):\n        return cls.opened(url)\n\n"
+        "    @classmethod\n"
+        "    def opened(cls, url):\n        return MongoClient(url)\n\n"
+        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n\n\n"
+        "def opened(value):\n    return value.strip()\n"
+    )
+
+    assert len(markers(body, PLAIN_CONFTEST)) == 1
+
+
+def test_a_method_a_base_class_in_the_module_defines_still_lends_its_reach():
+    """`self.helper` stands in no enclosing class body here, and placing it exactly means an MRO.
+
+    Narrowing the search to the enclosing chain is the repair that looks principled and hides a test
+    which builds a real client.
+    """
+    body = (
+        "from pymongo import MongoClient\n\n\n"
+        "class Store:\n"
+        "    def helper(self, url):\n        return MongoClient(url)\n\n\n"
+        "class TestReading(Store):\n"
+        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n"
+    )
+
+    assert len(markers(body, PLAIN_CONFTEST)) == 1
+
+
+def test_a_class_scoped_fixture_taken_as_a_parameter_still_lends_its_reach():
+    """A parameter is a bare mention, and pytest resolves this one against the class rather than the module."""
+    body = (
+        "import pytest\nfrom pymongo import MongoClient\n\n\n"
+        "class TestReading:\n"
+        "    @pytest.fixture\n"
+        "    def seeded(self, mongo_url):\n        return MongoClient(mongo_url)\n\n"
+        "    def test_reads(self, seeded):\n        assert seeded\n"
+    )
+
+    assert len(markers(body, PLAIN_CONFTEST)) == 1
+
+
+def test_a_method_reached_through_an_instance_still_lends_its_reach():
+    """`stub.open()` names an object this reader cannot place, so the qualifier decides nothing.
+
+    Reading it as unresolved rather than searching every class body is the false negative: these
+    suites drive a database through exactly such a stub.
+    """
+    body = (
+        "from pymongo import MongoClient\n\n\n"
+        "class Store:\n"
+        "    def open(self, url):\n        return MongoClient(url)\n\n\n"
+        "def test_reads(mongo_url):\n    stub = Store()\n    assert stub.open(mongo_url)\n"
+    )
+
+    assert len(markers(body, PLAIN_CONFTEST)) == 1
+
+
 def test_a_fixture_named_by_string_reaches_the_rule():
     """`usefixtures` takes the name as text, so a parameter sweep alone never sees this one."""
     body = 'import pytest\n\n\n@pytest.mark.usefixtures("mongo_database")\ndef test_reads():\n    assert True\n'

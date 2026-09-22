@@ -287,7 +287,7 @@ export function BestaetigungFormPanel({
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
   const sende = async (payload: FLBewerbungEinwilligungAntwortPayload): Promise<void> => {
-    const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung", payload);
+    const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung/kontakt", payload);
 
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an

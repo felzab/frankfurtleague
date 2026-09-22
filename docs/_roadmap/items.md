@@ -84,12 +84,12 @@ deliverable.
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, tests, meta                                                   | Blocked  |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                          | FE, BE, meta, schiedsrichter                                                | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
@@ -379,31 +379,30 @@ question that could move Mantine's rank.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags                        | Status  | Depends on  |
-| --------------------------- | ------- | ----------- |
-| FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
+| Tags                      | Status  | Depends on  |
+| ------------------------- | ------- | ----------- |
+| FE, BE, Docs, tests, meta | Blocked | `f3ar-m4qf` |
 
 **The flow it waits on is the one that writes the consent.** The `Depends on` beside it names
 `f3ar-m4qf`, the sign-up flow, which is open and whose player registration is the writer this entry
 asks for; while that entry is on the page the block stands and the status derives correctly. Nothing
 here is worked apart from that flow.
 
-**`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
-`fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
-`erteilt_von` as `erziehungsberechtigt` and `bestaetigt_am` as the same day; its one caller,
-`fl_backend/app/api/spieler/admin_router.py :: post_spieler`, sits on a router guarded by
-`verify_access_admin`. So a pupil registered through the admin surface is stored as consented by a
-guardian on the day of registration, and nothing distinguishes that row from one a guardian actually
-filed. The comment at the line gives the reasoning as the guardian being the one filing it, which is
-true of no caller the system has.
+**`spieler.einwilligung` has a schema and no writer at all.** No route composes a record on a pupil
+row and no payload carries one, so every record stored there is one an earlier write left; the rows
+carrying `erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a
+record a guardian actually filed. The confirmations a registration and a referee answer compose
+records of their own, each on its own collection, and neither reaches this one.
+`fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no writer
+while the vocabulary still admits it.
 
 **The writer is ruled, and the flow that would be it does not exist.** `docs/datenschutz.md` §2
 settles it: everyone signs up for themselves through the website and gives their own consent there,
 from 16, and an administrator may neither create a player nor assume, enter or transcribe a consent
-on anybody's behalf. There is no guardian workflow. So `registration_einwilligung` and its admin
-caller go with the flow that replaces them, and the consent vocabulary then has to express a
-person's own consent and a carried-over record and nothing else — `bestandsuebernahme` already marks
-the second.
+on anybody's behalf. There is no guardian workflow. The composer and its administrator's route are
+gone, so the vocabulary has a person's own consent and a carried-over record to express and nothing
+else — `bestandsuebernahme` already marks the second, and `erziehungsberechtigt` stays in the enum
+for the rows that carry it.
 
 **What the ruling leaves standing.** The gate publishing nobody without a recorded consent may be
 built before the flow ships, provided every pupil row standing today counts as fully consented:
@@ -412,8 +411,8 @@ not empty the public squad lists meanwhile. Today no read consults the stored fi
 publication is gated on nothing — and the predicate is written into `docs/backend/spec.md`'s
 read-rules table before any code.
 
-**Done** is the sign-up flow writing a person's own consent, `registration_einwilligung` and its
-caller gone with it, the vocabulary narrowed to what stays expressible, the publication gate reading
+**Done** is the sign-up flow writing a person's own consent, the vocabulary narrowed to what stays
+expressible, the publication gate reading
 what the flow stores, and the notice's squad and referee publication rows
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
 interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
@@ -567,11 +566,11 @@ never a second create. Making a create idempotent on a natural key was rejected 
 shorthand cannot distinguish the same club returning from a different one wanting those letters, and
 getting it wrong repoints history silently. **A typed name is a weaker key than a shorthand**, so the
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
-one, and the resolution belongs to somebody who can be wrong out loud. `is_nachgetragen` is the
-field that already records a squad entry arriving after the season began, derived from the chosen
-season's status rather than asked
-(`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a
-self-registration into a running season is precisely that case.
+one, and the resolution belongs to somebody who can be wrong out loud. `ist_nachnominiert` is the
+field that already records a squad entry arriving after the season began, derived from the season's
+status rather than asked
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx`), and
+a self-registration into a running season is precisely that case.
 
 **Nothing refuses a shared squad number and nothing reports one, so this page inherits a question
 rather than a pattern.** A shared shirt is a permitted state on every write path
@@ -709,46 +708,32 @@ range makes the ausstehend/heute/vergangen ternary genuinely harder, and the int
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
-### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
+### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
 
-| Tags                                                   | Status | Depends on |
-| ------------------------------------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
+| Tags                         | Status | Depends on |
+| ---------------------------- | ------ | ---------- |
+| FE, BE, meta, schiedsrichter | Open   | —          |
 
-**A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
-`fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
-`schule` and no consent field, and the `schiedsrichter` collection's validator declares none either;
-a referee is entered by an administrator through
-`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx`
-and is asked nothing. A team's contact person holds the opposite: a record on
-`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` that only that person's own emailed
-link can stamp.
+**A referee's own consent record is stored, and the published notice still rests their name on a
+different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
+`einwilligung`, the `schiedsrichter` collection's validator declares it, and
+`POST /schiedsrichter/bestaetigung` is the only writer: the person answers their own emailed link,
+choosing whether their name is published and whether photographs, videos and interviews may be. The
+notice's publication table still gives a referee's name the legitimate-interest basis
+(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: VEROEFFENTLICHT`), which
+is the basis the record replaces.
 
-**Ruled: referees get a consent record on the same terms as contact persons**
-(`docs/datenschutz.md` §2). The two roles hold the same categories about the same pupils — a
-telephone number, an email address and a school — so the asymmetry is in the mechanism rather than in
-the sensitivity.
+**Why the two halves are not one change.** Moving the notice's basis to consent is a claim that the
+consent decides what is published, and nothing reads the record yet: the fixture list serves every
+referee's name as before. A notice promising a gate that does not exist is worse than one naming the
+old basis honestly, so the sentence moves when the read does and not before.
 
-**Why it matters.** The privacy notice describes one rule for how the league obtains permission to
-hold contact details, and that rule is true of a contact seat and false of a referee, with no field
-on the referee to say which. `READ-CONTACT-001` keeps the block admin-tier, so nothing is published:
-what is missing is the record, not a guard.
+**What the reader of this entry must not do.** The record is not missing and is not to be built
+again: a second write path for it would collect a person's answer twice and leave two records to
+disagree. The work here is a text and the read it describes.
 
-**Three things that shape the work.** The confirmation flow is built on an application — a token
-block on the `bewerbungen` collection, a public router that resolves it, and a mail fan-out over
-three seats — so reaching a referee is a second collection, a second write path and a second message
-rather than a parameter, which is why this is an entry and not a fold-in. The vocabulary is a choice
-between the two that exist and never a third: `FLKontaktKenntnisnahme` says only that details may be
-held and used, `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` says what may be published,
-and a referee is a pupil whose name is published on every fixture they officiate. And a referee's
-removal is an anonymisation rather than a deletion, so whoever adds the record decides whether it
-survives one.
-
-**Done when** a referee has a consent record they gave themselves, its validator copy moved in the
-same commit as the model, the admin editor rendering that record rather than offering it, and the
-notice's referee publication row moved off the legitimate interest it rests on
-(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) to the consent the flow
-collects.
+**Done when** the fixture read decides a referee's published name from their own record, and the
+notice's publication row rests on that consent rather than on legitimate interest.
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 

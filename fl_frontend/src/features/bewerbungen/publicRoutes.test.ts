@@ -14,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -71,6 +72,7 @@ const { FaktenBanner, GespeicherteAngaben } = await import("./components/views/B
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
+const REPO_DIR = path.resolve(FRONTEND_DIR, "..");
 const SRC_DIR = path.join(FRONTEND_DIR, "src");
 const APP_DIR = path.join(SRC_DIR, "app");
 const ROUTE_DIR = path.join(APP_DIR, "(public)", "bewerbung", "[saison_id]");
@@ -85,7 +87,7 @@ const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "com
 const INVITATION_SOURCE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
 const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
-const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "route.ts"), "utf8");
+const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "kontakt", "route.ts"), "utf8");
 /** The provider's delivery webhook, the one session-less route that takes neither spine. */
 const ZUSTELLUNG_ROUTE = readFileSync(path.join(APP_DIR, "api", "mail", "zustellung", "route.ts"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
@@ -657,10 +659,35 @@ describe("who the submission's receipt is addressed to", () => {
       ["the administrator's re-send", ACTIONS],
     ] as const) {
       assert.match(sourceText, /bestaetigungsLink\(/, `${whose} no longer mints its link through the one helper`);
-      assert.doesNotMatch(sourceText, /\/bestaetigung\?/, `${whose} spells a link of its own beside the helper`);
+      assert.doesNotMatch(sourceText, /\/bestaetigung\/kontakt\?/, `${whose} spells a link of its own beside the helper`);
     }
 
     assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
+  });
+
+  /* A fixture spelling the emptied path is how the move half-lands: the mail goes out on a 404, and
+     every case here still passes, because nothing in this suite drives a URL. */
+  it("spells the path the move emptied in no frontend or edge file", () => {
+    // Composed rather than written out: this file is inside the population below, and a needle
+    // spelled contiguously here would report itself.
+    const GELEERT = "/bestaetigung";
+    const stale = [
+      { pattern: new RegExp(`${GELEERT}\\?`), what: "mints a confirmation link on the path the move emptied" },
+      { pattern: new RegExp(`/api${GELEERT}"`), what: "names the handler path the move emptied" },
+    ];
+
+    const swept = [
+      ...filesUnder(SRC_DIR, (name) => /\.tsx?$/.test(name), 400),
+      ...filesUnder(path.join(REPO_DIR, "nginx"), (name) => /\.(?:conf|sh)$/.test(name), 3),
+    ];
+
+    for (const file of swept) {
+      const sourceText = readFileSync(file, "utf8");
+
+      for (const { pattern, what } of stale) {
+        assert.doesNotMatch(sourceText, pattern, `${path.relative(REPO_DIR, file)} ${what}`);
+      }
+    }
   });
 });
 
@@ -1483,10 +1510,16 @@ describe("what one answered seat sets the confirmation route sending", () => {
     };
     // The handler's own two steps, in its order: the stamp rewrites the body, and the schema judges
     // what the stamp produced.
-    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(stampEinwilligungFassung(foreignBody));
+    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(
+      stampEinwilligungFassung(foreignBody, BESTAETIGUNG_KENNTNISNAHME.textVersion),
+    );
 
     assert.equal(stamped.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
-    assert.match(CONFIRM_ROUTE, /stampEinwilligungFassung\(body\)/, "the browser's own label reaches the endpoint");
+    assert.match(
+      CONFIRM_ROUTE,
+      /stampEinwilligungFassung\(body, BESTAETIGUNG_KENNTNISNAHME\.textVersion\)/,
+      "the browser's own label reaches the endpoint",
+    );
     assert.doesNotMatch(CONFIRM_ROUTE, /safeParse\(body\)/, "the body is judged before its label is replaced");
   });
 
@@ -1500,7 +1533,11 @@ describe("what one answered seat sets the confirmation route sending", () => {
       false,
       "the label is optional, so the stamp's position decides nothing",
     );
-    assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion)).success, true);
+    assert.equal(
+      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion, BESTAETIGUNG_KENNTNISNAHME.textVersion))
+        .success,
+      true,
+    );
   });
 
   /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than

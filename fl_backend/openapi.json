@@ -1099,49 +1099,6 @@
           }
         },
         "x-fl-tier": "base"
-      },
-      "post": {
-        "summary": "Create a Spieler",
-        "description": "Create a player -- the person, and nothing else.\n\nThey belong to no team until they have a junction row, and no uniqueness rule applies to a name.\nThe consent record is COMPOSED here rather than taken from the body, so no admin can write one.",
-        "operationId": "post_spieler_api_v0_spieler_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPostSpielerPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerWriteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}": {
@@ -1930,7 +1887,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee. `inactive_since` is set to null here and is on no payload.",
+        "description": "Create a referee, and mint their confirmation link where the entry carries an email address.\n\n`inactive_since` is set to null here and is on no payload. **Entering an address IS the\ninvitation**: there is no second press deciding whether this person is asked, because a referee\nnobody asked is a name nobody consented to publish. The raw token is answered once, for the\ncaller to mail, and the row stores only its hash; an entry with no address answers\n`bestaetigung: null` and mails nothing.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -2019,7 +1976,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\nWhere a fresh link would be minted, two refusals apply that a plain rename never meets: a RETIRED\nreferee is refused `REQ-SCHIEDSRICHTER-001`, no consent being collected for a role nobody can\ngive them, and a banned new address `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2311,6 +2268,177 @@
           }
         },
         "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/registrierungen": {
+      "get": {
+        "summary": "List Registrierungen",
+        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves.",
+        "operationId": "get_registrierungen_api_v0_registrierungen_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 4,
+                  "maxLength": 4
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "eingereicht",
+                    "abgelehnt"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "eingereicht_am",
+              "type": "string",
+              "default": "eingereicht_am",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Register through a team's link",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.",
+        "operationId": "post_registrierung_api_v0_registrierungen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostRegistrierungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostRegistrierungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/spiele/list/admin": {
@@ -3155,6 +3283,167 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung": {
+      "post": {
+        "summary": "Mint this team's registration link for a season",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.",
+        "operationId": "post_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungMintResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "delete": {
+        "summary": "Revoke this team's live registration link for a season",
+        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says\nwhich link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.",
+        "operationId": "delete_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "get": {
+        "summary": "This team's live registration link for a season, and whether it opens anything",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure.\n\n`laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds\nthat id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "operationId": "get_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spieltage/list/admin": {
       "get": {
         "summary": "Spieltage for the admin surfaces",
@@ -3968,6 +4257,118 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": {
+      "get": {
+        "summary": "Who the send would reach",
+        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
+        "operationId": "preview_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_vorschau_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "erneut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Erneut"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungVersandVorschauResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/saisons/{saison_id}/einladungen/versand": {
+      "post": {
+        "summary": "Mint every admitted team a link",
+        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.",
+        "operationId": "post_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungVersandPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungVersandResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Spielort back",
@@ -4042,6 +4443,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": {
+      "post": {
+        "summary": "Send a Schiedsrichter a fresh confirmation link",
+        "description": "Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.\n\nIt replaces the whole block, so the previous link stops working at once and the delivery state\nof the message that link went out in goes with it — a bounce recorded against a replaced address\nwould otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from\ntoday.\n\nRefused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already\nanswered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address\n(`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list\n(`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "operationId": "einladen_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__bestaetigung_einladen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterMintResponse"
                 }
               }
             }
@@ -4444,7 +4891,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link\nthe mail provider will not carry: everything else the school typed stays the record the decision is taken\nagainst. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an\naddress another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is\na 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -4488,6 +4935,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
+      "post": {
+        "summary": "Seat another person where a contact person stepped out",
+        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "operationId": "besetze_kontakt_sitz_api_v0_bewerbungen__bewerbung_id__kontakte__seat__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungKontaktSitzPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungKontaktSitzResponse"
                 }
               }
             }
@@ -4622,7 +5134,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`). The ban stands until an\nadministrator removes it, and it survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has\nnever run a season, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -4667,7 +5179,7 @@
     "/api/v0/sperrliste/{sperrliste_id}": {
       "delete": {
         "summary": "Lift a ban",
-        "description": "Lift a ban, removing the row. HARD, and there is no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
+        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
         "operationId": "delete_sperrliste_eintrag_api_v0_sperrliste__sperrliste_id__delete",
         "security": [
           {
@@ -4996,10 +5508,235 @@
         "x-fl-tier": "base"
       }
     },
+    "/api/v0/registrierungen/einladung/ansicht": {
+      "post": {
+        "summary": "What a registration link opens",
+        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA POST because the link value travels in the body and never in a path the edge would log. A shut\nwindow is a STATE here rather than a refusal, so a link opened after the deadline reads as closed\nrather than as invalid; only a link that opens no live invite is refused.",
+        "operationId": "post_einladung_ansicht_api_v0_registrierungen_einladung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/registrierungen/bestaetigung/ansicht": {
+      "post": {
+        "summary": "What one registration confirmation link opens",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, and the wording's version. Beside them the three answers the league already holds for this\nperson -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what\nstands rather than entering it again. That person is matched on the registration's folded address AND its\nfolded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one\nof them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/registrierungen/bestaetigung": {
+      "post": {
+        "summary": "Confirm one registration and record the pupil's consent",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age\nbelow the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and\nthe pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/schiedsrichter/bestaetigung/ansicht": {
+      "post": {
+        "summary": "What one Schiedsrichter confirmation link opens",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, the age floor, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/schiedsrichter/bestaetigung": {
+      "post": {
+        "summary": "Confirm one Schiedsrichter's entry and consent",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
         "operationId": "get_sweep_saisons_api_v0_bewerbungen_sweep_get",
         "responses": {
           "200": {
@@ -5269,6 +6006,52 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/registrierungen/sweep/{saison_id}": {
+      "post": {
+        "summary": "Run one season's registration retention clocks",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe season's own end comes first: once the season is `past`, every registration still awaiting a decision is erased whatever the\npupil answered, because no admission can be taken for a season that is over. The confirmed ones among them are listed in\n`benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is told neither before nor\nafter, its address never having been confirmed. Then an unconfirmed registration strictly past its deadline is erased with no\nnotice at all, the confirmation mail having named that day. Then one reminder per registration at its reminder age: a fresh link\nis minted and `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and\nthe link already in that inbox stays valid beside the fresh one. A registration whose last message the mail provider refused is\nnot chased at all. Last, a declined registration is erased a month after the decision. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
     "/api/v0/zustellung/angenommen": {
       "post": {
         "summary": "Record the message the provider accepted for this record",
@@ -5279,6 +6062,51 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FLZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung/abgewiesen": {
+      "post": {
+        "summary": "Record the send the provider refused for this record",
+        "description": "Record that the mail provider refused the send itself, so no message about this record exists.\n\nThe send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without\nthis state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.\n\nJudged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record\nalready holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider\nstamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no\ndocument of that kind has the id.",
+        "operationId": "abgewiesen_zustellung_api_v0_zustellung_abgewiesen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungAbgewiesenPayload"
               }
             }
           },
@@ -6280,7 +7108,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a seat's `email` through\n`app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone."
+        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -6993,6 +7821,94 @@
         "title": "FLBewerbungKontaktEmailResponse",
         "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."
       },
+      "FLBewerbungKontaktSitzPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "telefon": {
+            "type": "string",
+            "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
+            "title": "Telefon"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "email",
+          "telefon",
+          "text_version"
+        ],
+        "title": "FLBewerbungKontaktSitzPayload",
+        "description": "The person seated where a contact person stepped out, carrying no `einwilligung` block.\n\n`FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to\nnothing: their own link is what asks them."
+      },
+      "FLBewerbungKontaktSitzResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollen",
+          "token",
+          "bestaetigungsfrist"
+        ],
+        "title": "FLBewerbungKontaktSitzResponse",
+        "description": "Every seat the new person now holds, and the fresh link the caller mails them."
+      },
       "FLBewerbungKontaktePayload": {
         "properties": {
           "trainer": {
@@ -7625,15 +8541,28 @@
               }
             ],
             "title": "Sweep Gelaufen Am"
+          },
+          "registrierung_sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registrierung Sweep Gelaufen Am"
           }
         },
         "type": "object",
         "required": [
           "saison_ids",
-          "sweep_gelaufen_am"
+          "sweep_gelaufen_am",
+          "registrierung_sweep_gelaufen_am"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
-        "description": "Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."
+        "description": "Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database."
       },
       "FLBewerbungSweepSeat": {
         "properties": {
@@ -8494,6 +9423,547 @@
         "title": "FLBracketFaultSpieltag",
         "description": "A club standing more than once on one Spieltag.\n\nOne entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`\ncounts in -- never deduplicated, because which to correct is a competition decision."
       },
+      "FLEinladung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          },
+          "widerrufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widerrufen Am"
+          },
+          "versand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinladungVersand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "team_id",
+          "erstellt_am",
+          "erstellt_von",
+          "widerrufen_am"
+        ],
+        "title": "FLEinladung",
+        "description": "One minted link as it is served -- and NO `token_hash`.\n\nA model declaring the hash would put every live link of the season on an admin read\n(`docs/backend/spec.md :: I275`)."
+      },
+      "FLEinladungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLEinladungAnsichtPayload",
+        "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for."
+      },
+      "FLEinladungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "schule": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Schule"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "saison_status": {
+            "type": "string",
+            "enum": [
+              "past",
+              "active",
+              "future"
+            ],
+            "title": "Saison Status"
+          },
+          "laeuft": {
+            "type": "boolean",
+            "title": "Laeuft"
+          },
+          "erlaubte_stufen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "E1",
+                "E2",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            },
+            "type": "array",
+            "title": "Erlaubte Stufen"
+          },
+          "team_eingetragen": {
+            "type": "boolean",
+            "title": "Team Eingetragen"
+          },
+          "kader_frei": {
+            "type": "boolean",
+            "title": "Kader Frei"
+          },
+          "nachnominierung": {
+            "type": "boolean",
+            "title": "Nachnominierung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team",
+          "schule",
+          "saison_id",
+          "saison_status",
+          "laeuft",
+          "erlaubte_stufen",
+          "team_eingetragen",
+          "kader_frei",
+          "nachnominierung"
+        ],
+        "title": "FLEinladungAnsichtResponse",
+        "description": "What an invite's holder is told before they type anything.\n\nEach field is something the link's own message already said, or something the form is bounded\nby: a select offering more than the write accepts is a drifted client."
+      },
+      "FLEinladungEmpfaenger": {
+        "properties": {
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rolle",
+          "vorname",
+          "email"
+        ],
+        "title": "FLEinladungEmpfaenger",
+        "description": "One mailbox a link goes to, and the seat it is addressed as."
+      },
+      "FLEinladungMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung_id",
+          "token",
+          "erstellt_am",
+          "erstellt_von"
+        ],
+        "title": "FLEinladungMintResponse",
+        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash\n(`docs/backend/spec.md :: I275`)."
+      },
+      "FLEinladungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinladung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "laeuft": {
+            "type": "boolean",
+            "title": "Laeuft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung",
+          "laeuft"
+        ],
+        "title": "FLEinladungResponse",
+        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.\n\nDeclared here rather than in `app/api/teams/schemas.py`, whose endpoint answers it: moving it\nthere is an import cycle through `app/api/bewerbungen/schemas.py`."
+      },
+      "FLEinladungVersand": {
+        "properties": {
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "FLEinladungVersand",
+        "description": "The carrier a message about this invite is recorded in.\n\nA carrier rather than the record itself: `zustellung_pfad` composes a dotted path out of it, and\nthe accepted send skips a row holding no carrier at all."
+      },
+      "FLEinladungVersandPayload": {
+        "properties": {
+          "erneut": {
+            "type": "boolean",
+            "title": "Erneut",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FLEinladungVersandPayload"
+      },
+      "FLEinladungVersandResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "zeilen": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungVersandZeile"
+            },
+            "type": "array",
+            "title": "Zeilen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "zeilen"
+        ],
+        "title": "FLEinladungVersandResponse",
+        "description": "What the press did, per admitted team of the season."
+      },
+      "FLEinladungVersandVorschauResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "zeilen": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungVersandVorschauZeile"
+            },
+            "type": "array",
+            "title": "Zeilen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "zeilen"
+        ],
+        "title": "FLEinladungVersandVorschauResponse",
+        "description": "Who the press would mail, over the same rule the press then performs."
+      },
+      "FLEinladungVersandVorschauZeile": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          },
+          "uebersprungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "austritt_eingetragen",
+                  "erzeugung_fehlgeschlagen",
+                  "kein_kontaktblock",
+                  "keine_bestaetigte_kontaktperson",
+                  "bereits_gesendet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebersprungen"
+          },
+          "ersetzt_link": {
+            "type": "boolean",
+            "title": "Ersetzt Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "empfaenger",
+          "uebersprungen",
+          "ersetzt_link"
+        ],
+        "title": "FLEinladungVersandVorschauZeile",
+        "description": "One team as the preview reports it. It mints nothing, so it answers no link."
+      },
+      "FLEinladungVersandZeile": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          },
+          "uebersprungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "austritt_eingetragen",
+                  "erzeugung_fehlgeschlagen",
+                  "kein_kontaktblock",
+                  "keine_bestaetigte_kontaktperson",
+                  "bereits_gesendet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebersprungen"
+          },
+          "ersetzt_link": {
+            "type": "boolean",
+            "title": "Ersetzt Link"
+          },
+          "einladung_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Einladung Id"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "empfaenger",
+          "uebersprungen",
+          "ersetzt_link",
+          "einladung_id",
+          "token"
+        ],
+        "title": "FLEinladungVersandZeile",
+        "description": "One team as the press left it."
+      },
+      "FLEinladungWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "einladung_id"
+        ],
+        "title": "FLEinladungWriteResponse",
+        "description": "The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere."
+      },
       "FLEinwilligung": {
         "properties": {
           "umfang": {
@@ -9210,9 +10680,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -9237,7 +10707,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle"
         ],
         "title": "FLPatchSaisonSpielerPayload",
@@ -9444,6 +10914,16 @@
           "fanned_out_to_spiele": {
             "type": "integer",
             "title": "Fanned Out To Spiele"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -10231,6 +11711,149 @@
         "title": "FLPostBewerbungResponse",
         "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between."
       },
+      "FLPostRegistrierungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "vorname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "vorname",
+          "nachname",
+          "email",
+          "position",
+          "nummer",
+          "stufe"
+        ],
+        "title": "FLPostRegistrierungPayload",
+        "description": "One pupil registering through a team's link.\n\nThe league's own fields -- the team, the season, the state, the deadline and the confirmation\nlink -- are taken off the invite and the clock, never off this body."
+      },
+      "FLPostRegistrierungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "bestaetigung_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Bestaetigung Token"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "bestaetigung_token",
+          "frist",
+          "team",
+          "saison_id",
+          "email"
+        ],
+        "title": "FLPostRegistrierungResponse",
+        "description": "The stored registration and the raw confirmation link, answered here and never again.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
+      },
       "FLPostSaisonPayload": {
         "properties": {
           "start_date": {
@@ -10362,9 +11985,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -10395,7 +12018,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle",
           "saison_id"
         ],
@@ -10491,6 +12114,16 @@
             "title": "Acknowledged",
             "default": 1
           },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_id": {
             "type": "string",
             "title": "Created Id"
@@ -10540,55 +12173,21 @@
           "created_id": {
             "type": "string",
             "title": "Created Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostSperrlisteResponse"
-      },
-      "FLPostSpielerPayload": {
-        "properties": {
-          "vorname": {
+          },
+          "gesperrt_bis_saison_id": {
             "type": "string",
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^\\p{L}[\\p{L}\\-' ]*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Gesperrt Bis Saison Id"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
-          "vorname",
-          "geburtsdatum"
+          "created_id",
+          "gesperrt_bis_saison_id"
         ],
-        "title": "FLPostSpielerPayload",
-        "description": "The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."
+        "title": "FLPostSperrlisteResponse",
+        "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."
       },
       "FLPostSpielortPayload": {
         "properties": {
@@ -10731,6 +12330,628 @@
           "created_id"
         ],
         "title": "FLPostTeamResponse"
+      },
+      "FLRegistrierung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "einladung_id": {
+            "type": "string",
+            "title": "Einladung Id"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Eingereicht Am"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "eingereicht",
+              "abgelehnt"
+            ],
+            "title": "Status"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "einwilligung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entscheidung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungEntscheidung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigt": {
+            "type": "boolean",
+            "title": "Bestaetigt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "team_id",
+          "einladung_id",
+          "eingereicht_am",
+          "status",
+          "vorname",
+          "nachname",
+          "email",
+          "position",
+          "nummer",
+          "stufe",
+          "geburtsdatum",
+          "einwilligung",
+          "bestaetigung",
+          "entscheidung",
+          "bestaetigt"
+        ],
+        "title": "FLRegistrierung",
+        "description": "One pupil's registration for one team's season, as it is stored.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
+      },
+      "FLRegistrierungBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLRegistrierungBestaetigung",
+        "description": "One registration's confirmation bookkeeping as an administrator reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirmation query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire."
+      },
+      "FLRegistrierungBestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLRegistrierungBestaetigungAnsichtPayload",
+        "description": "A POST that reads: the token travels in a body, never in a second URL."
+      },
+      "FLRegistrierungBestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "bestaetigt",
+              "abgelaufen"
+            ],
+            "title": "Zustand"
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "schule": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Schule"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "team",
+          "schule",
+          "saison_id",
+          "vorname",
+          "text_version",
+          "mindestalter",
+          "geburtsdatum",
+          "umfang",
+          "medien"
+        ],
+        "title": "FLRegistrierungBestaetigungAnsichtResponse",
+        "description": "What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."
+      },
+      "FLRegistrierungBestaetigungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "geburtsdatum",
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLRegistrierungBestaetigungPayload",
+        "description": "One pupil's own answer: their date of birth, and the two consents that stand under one record."
+      },
+      "FLRegistrierungBestaetigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "ergebnis": {
+            "type": "string",
+            "const": "bestaetigt",
+            "title": "Ergebnis"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis",
+          "geburtsdatum",
+          "umfang",
+          "medien"
+        ],
+        "title": "FLRegistrierungBestaetigungResponse",
+        "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
+      },
+      "FLRegistrierungEntscheidung": {
+        "properties": {
+          "getroffen_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Getroffen Am"
+          },
+          "von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Von"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "getroffen_am",
+          "von",
+          "grund"
+        ],
+        "title": "FLRegistrierungEntscheidung",
+        "description": "Who declined this registration, when, and why.\n\nIts own model beside the application's: one shape over both would let a field either flow adds\nreach the other, where a pupil's record and a school's are decided by different surfaces."
+      },
+      "FLRegistrierungSweepBenachrichtigung": {
+        "properties": {
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team": {
+            "type": "string",
+            "title": "Team"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "saison_id",
+          "team",
+          "vorname",
+          "email"
+        ],
+        "title": "FLRegistrierungSweepBenachrichtigung",
+        "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing."
+      },
+      "FLRegistrierungSweepErinnerung": {
+        "properties": {
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team": {
+            "type": "string",
+            "title": "Team"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "saison_id",
+          "team",
+          "vorname",
+          "email",
+          "token"
+        ],
+        "title": "FLRegistrierungSweepErinnerung",
+        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one (`docs/backend/spec.md :: I296`)."
+      },
+      "FLRegistrierungSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "erinnerungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierungSweepErinnerung"
+            },
+            "type": "array",
+            "title": "Erinnerungen"
+          },
+          "benachrichtigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierungSweepBenachrichtigung"
+            },
+            "type": "array",
+            "title": "Benachrichtigt"
+          },
+          "geloescht_unbestaetigt": {
+            "type": "integer",
+            "title": "Geloescht Unbestaetigt"
+          },
+          "geloescht_ohne_entscheidung": {
+            "type": "integer",
+            "title": "Geloescht Ohne Entscheidung"
+          },
+          "geloescht_abgelehnt": {
+            "type": "integer",
+            "title": "Geloescht Abgelehnt"
+          },
+          "redigierte_aktionen": {
+            "type": "integer",
+            "title": "Redigierte Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "erinnerungen",
+          "benachrichtigt",
+          "geloescht_unbestaetigt",
+          "geloescht_ohne_entscheidung",
+          "geloescht_abgelehnt",
+          "redigierte_aktionen"
+        ],
+        "title": "FLRegistrierungSweepResponse",
+        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.\n\nThe ordering that makes those three true is `docs/backend/spec.md :: I297`."
+      },
+      "FLRegistrierungenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLRegistrierung"
+            },
+            "type": "array",
+            "title": "Registrierungen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierungen",
+          "vollstaendig"
+        ],
+        "title": "FLRegistrierungenListResponse",
+        "description": "The pending rows, newest first, and whether that is the whole of them."
       },
       "FLReplaceSaisonTeamPayload": {
         "properties": {
@@ -11190,9 +13411,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Ist Nachnominiert"
           },
           "rolle": {
             "anyOf": [
@@ -11236,7 +13457,7 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
+          "ist_nachnominiert",
           "rolle",
           "spieler_id",
           "saison_id",
@@ -11611,6 +13832,38 @@
               }
             ],
             "title": "Inactive Since"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "einwilligung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "type": "object",
@@ -11623,6 +13876,224 @@
           "inactive_since"
         ],
         "title": "FLSchiedsrichter"
+      },
+      "FLSchiedsrichterBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLSchiedsrichterBestaetigung",
+        "description": "One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire."
+      },
+      "FLSchiedsrichterBestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSchiedsrichterBestaetigungAnsichtPayload"
+      },
+      "FLSchiedsrichterBestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "bestaetigt",
+              "abgelaufen"
+            ],
+            "title": "Zustand"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "vorname",
+          "text_version",
+          "mindestalter",
+          "frist"
+        ],
+        "title": "FLSchiedsrichterBestaetigungAnsichtResponse",
+        "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nA first name and a role: never the full name, the school, the contact details, the fee, the\nbirthdate or the id."
+      },
+      "FLSchiedsrichterBestaetigungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "geburtsdatum",
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLSchiedsrichterBestaetigungPayload"
+      },
+      "FLSchiedsrichterBestaetigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "bestaetigt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "umfang",
+          "medien",
+          "bestaetigt_am"
+        ],
+        "title": "FLSchiedsrichterBestaetigungResponse",
+        "description": "What the person just recorded, read back off the updated document.\n\nBounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a\ncaller holding a leaked token learns nothing it did not already post."
       },
       "FLSchiedsrichterListResponse": {
         "properties": {
@@ -11648,6 +14119,54 @@
           "schiedsrichter"
         ],
         "title": "FLSchiedsrichterListResponse"
+      },
+      "FLSchiedsrichterMint": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "frist",
+          "email"
+        ],
+        "title": "FLSchiedsrichterMint",
+        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — the three mints answering it are all on `app/api/schiedsrichter/admin_router.py`."
+      },
+      "FLSchiedsrichterMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "bestaetigung": {
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bestaetigung"
+        ],
+        "title": "FLSchiedsrichterMintResponse",
+        "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead."
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
@@ -11712,6 +14231,12 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Erstellt Am"
+          },
+          "gesperrt_bis_saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Gesperrt Bis Saison Id"
           }
         },
         "type": "object",
@@ -11719,7 +14244,8 @@
           "id",
           "grund",
           "erstellt_von",
-          "erstellt_am"
+          "erstellt_am",
+          "gesperrt_bis_saison_id"
         ],
         "title": "FLSperrlisteEintrag",
         "description": "One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."
@@ -13292,9 +15818,9 @@
             ],
             "title": "Stufe"
           },
-          "is_nachgetragen": {
+          "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Is Nachgetragen",
+            "title": "Ist Nachnominiert",
             "default": false
           },
           "rolle": {
@@ -13564,28 +16090,6 @@
         ],
         "title": "FLSpielerWithMemberships",
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows."
-      },
-      "FLSpielerWriteResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "spieler_id": {
-            "type": "string",
-            "title": "Spieler Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "spieler_id"
-        ],
-        "title": "FLSpielerWriteResponse"
       },
       "FLSpielort": {
         "properties": {
@@ -14749,28 +17253,39 @@
         "title": "FLUndrawSpielplanResponse",
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
       },
-      "FLZustellungAngenommenPayload": {
+      "FLZustellungAbgewiesenPayload": {
         "properties": {
           "ziel": {
             "type": "string",
-            "const": "schiedsrichter",
+            "enum": [
+              "schiedsrichter",
+              "einladung",
+              "registrierung"
+            ],
             "title": "Ziel"
           },
           "ziel_id": {
             "type": "string",
             "title": "Ziel Id"
           },
-          "nachricht_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Nachricht Id"
-          },
           "am": {
             "type": "string",
             "maxLength": 64,
             "minLength": 1,
             "title": "Am"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
           }
         },
         "additionalProperties": false,
@@ -14778,8 +17293,47 @@
         "required": [
           "ziel",
           "ziel_id",
-          "nachricht_id",
-          "am"
+          "am",
+          "grund"
+        ],
+        "title": "FLZustellungAbgewiesenPayload",
+        "description": "A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join."
+      },
+      "FLZustellungAngenommenPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "enum": [
+              "schiedsrichter",
+              "einladung",
+              "registrierung"
+            ],
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "am",
+          "nachricht_id"
         ],
         "title": "FLZustellungAngenommenPayload",
         "description": "One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state."
@@ -14788,24 +17342,28 @@
         "properties": {
           "ziel": {
             "type": "string",
-            "const": "schiedsrichter",
+            "enum": [
+              "schiedsrichter",
+              "einladung",
+              "registrierung"
+            ],
             "title": "Ziel"
           },
           "ziel_id": {
             "type": "string",
             "title": "Ziel Id"
           },
-          "nachricht_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Nachricht Id"
-          },
           "am": {
             "type": "string",
             "maxLength": 64,
             "minLength": 1,
             "title": "Am"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
           },
           "stand": {
             "type": "string",
@@ -14837,8 +17395,8 @@
         "required": [
           "ziel",
           "ziel_id",
-          "nachricht_id",
           "am",
+          "nachricht_id",
           "stand",
           "grund"
         ],

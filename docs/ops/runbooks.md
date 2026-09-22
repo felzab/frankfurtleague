@@ -62,7 +62,9 @@ the machine is outside the repository. What it does tell you:
   from the shell that ran compose and reaching the container as nothing at all. That is where a
   release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
   the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
-  judged at boot and nowhere else. It does catch the misspelling whose value is EMPTY
+  judged at boot and nowhere else, `AUTH_SECRET` below the sign-in library's floor of 32 characters
+  and an `ALLOWED_ADMIN_EMAILS` entry that library will not take among them — each a refusal this
+  reader passes and the recreated container meets. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
@@ -315,18 +317,26 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
+- **An entry the sign-in library will not take stops the site rather than that one administrator.**
+  The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
+  after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
+  never the entry. An umlaut is the case that turns up, and the two halves of an address differ:
+  a domain one is entered in its punycoded spelling, which that administrator then has to type at the
+  sign-in box as well, while an umlaut in the local part has no such form — that person needs a
+  mailbox the sign-in box will accept before there is anything to allowlist.
 - **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.
-- **A lost passkey is recovered in the Atlas console**, by deleting that administrator's rows in the
-  `passkey` collection of the `auth` database; their next sign-in through the e-mail link enrols a
-  new one. **Until that row is gone both enrolment endpoints answer 404 to every session**, their
-  own included, so a deletion against the wrong database reads to them as the step never being
-  offered. One passkey per administrator is the whole requirement, and no control here lists or
-  deletes another person's: that is a listing and a write against the sign-in store, and it buys a
-  console step already available.
-- **A device that cannot enrol a passkey locks that administrator out, and no setting here relaxes
-  it.** The enrolment asks for a discoverable credential and for the person to be verified
+- **A lost passkey is the administrator's own to replace while they still hold another**: the
+  sidemenu's options menu lists what they hold, adds one and removes one, each behind a fresh
+  passkey ceremony, and the last row cannot be removed. Removing one signs their other devices out.
+- **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
+  their rows in the `passkey` collection of the `auth` database; their next sign-in through the
+  e-mail link enrols anew. **Until those rows are gone the mailed link enrols nothing**, their own
+  included, so a deletion against the wrong database reads to them as the step never being offered.
+- **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
+  administrator who enrolled a second device in advance still has one; one who did not is in the
+  case below. The enrolment asks for a discoverable credential and for the person to be verified
   (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
@@ -334,12 +344,22 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
   previous image** (§1's deploy by tag), which authenticates against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
-- **Deleting one's OWN passkey is no recovery, and no page offers it.** A session that could reach
-  such a control has already passed the factor, so offering it to a link-borne session would let a
-  stolen mailbox swap the passkey for its own — which is the attack the second factor exists
-  against.
+- **A removal is not a recovery route, and no control offers one to a session the mailed link alone
+  made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
+  which is the attack the second factor exists against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
+- **A unique index on `credentialID` in the `auth` database's `passkey` collection is worth creating
+  by hand, and it is the only index that collection has.** The adapter resolves a model's indexes
+  from its schema's TABLE-level `indexes` alone, and the passkey plugin's schema declares none: its
+  `index: true` on `userId` and `credentialID` is read for name collisions and for nothing else, so
+  no `createIndex` is issued for that model on any write. Never on `userId`, which several passkeys
+  per administrator contradicts.
+- **Give a hand-made index a name of your own, and never one a release could generate.** Better
+  Auth documents no index behaviour for MongoDB at all — only that the schema needs no migration
+  there — so a release that starts declaring table-level indexes would ask for
+  `passkey_credentialID_uidx` on every create and inside the counter update every passkey sign-in
+  makes, and a hand-made index holding that name with a different spec would throw in both.
 
 ## 4. When the application queue has been flooded
 
@@ -444,6 +464,15 @@ they are kept, and the address for a complaint to the supervisory authority. Poi
 notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
 rather than restating it in the mail.
 
+**A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
+and nothing else of the person, so `/admin/sperrliste` cannot be asked whether a given address is on
+it: the question is answered by computing that address's hash under `SPERRLISTE_SCHLUESSEL` — the
+same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
+included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
+in the operator's own checklist and in no file here. What the answer then says is the row's reason,
+its day, its administrator and the season it runs to; the hash itself is not sent to the person, it
+being the value that identifies them.
+
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
 application, an accepted one and a season's contact block are each removed by the retention sweep
 (`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
@@ -460,14 +489,24 @@ season's matches, a referee not being season-scoped.
 role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
 as them.
 
-- **A pupil.** `spieler.email` is on no payload and no route writes one, so the league holds no
-  pupil's address here to correct, and the answer to somebody asking is that sentence.
-- **A referee.** Correct `kontakt.email` in the referee editor. It is the ordinary rectification
-  above: nothing is minted from a referee's address and nothing signs in as one.
+- **A pupil.** `spieler.email` is on no payload and no route writes one, so there is no stored
+  address on the person to correct. What the league does hold is the address a pending registration
+  was typed with, and that one is not corrected either: the answer to somebody asking is to register
+  again through their team's link, the unconfirmed row going with the seven-day sweep.
+- **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
+  itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
+  address, so nothing further is owed and the old link opens nothing.
+- **A referee who HAS confirmed.** Correct `kontakt.email` in the referee editor. Their link is not
+  re-minted — the record is already given — so the correction is the ordinary rectification above
+  and no message goes out. Tell them by hand that the address on file has moved.
+- **A referee who is RETIRED and has not confirmed.** The save is refused, because correcting the
+  address would mail them a consent link for a role they take no booking in. Reactivate them first,
+  or leave the address as it stands.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, the one field of a
-  submitted application an administrator may rewrite. It mints the fresh link, voids the old one and
-  restarts the confirmation deadline, and where one person holds two seats it corrects both.
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
+  address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
+  confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
+  has stepped out takes a different route, below.
 
 **The self-service change is not built.** It would be an endpoint, a page, a proving link and a
 notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
@@ -480,7 +519,12 @@ you are in is decided by that seat's own link, not by the person's role:
   page the link opens, empties the seat at once and tells the submitter so the school can name
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
-  rather than that an administrator removed them.
+  rather than that an administrator removed them. Once the school has named a replacement, seat them
+  from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
+  new person their own link and restarts the confirmation deadline for the whole application; it is
+  acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
+  and neither does one half of a claimed pair whose other half has not stepped out: that application
+  takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed or
   whose application has been decided takes none either (`REQ-BEWERBUNG-010`) — both are refusals the
@@ -488,10 +532,10 @@ you are in is decided by that seat's own link, not by the person's role:
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
 
-**A pupil withdrawing the consent that publishes their name is the case with no route at all.** The
-record is composed at registration and no payload carries it
-(`fl_backend/app/api/spieler/services.py :: registration_einwilligung`), so nothing an administrator
-presses changes it. Two answers, and which one you give is the person's to choose:
+**A pupil withdrawing the consent that publishes their name is the case with no route at all.** No
+payload carries the record and no endpoint writes one
+(`fl_backend/app/core/domain.py :: FIELD_POLICIES`), so nothing an administrator presses changes it.
+Two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
   `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
@@ -529,17 +573,26 @@ in the same reply.
 **A false birthdate is found by a person, and the answer is a decision and a ban rather than a
 rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
-Decline the application, bar the address at `/admin/sperrliste` with the reason in your own words
+Decline the application and bar the address at `/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)), and tell them by mail that they may apply again when they are old enough. **The ban records the
-decision and refuses nothing by itself** — no route consults the list
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)) — so what actually keeps the
-address out until one does is the queue being read by a person.
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
+mails the person itself**, naming the reason you typed and the last season the ban covers, so there
+is nothing to send by hand; where the send fails the page says so, and there is then no address left
+anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
+registration asks it and is
+refused (`REQ-REGISTRIERUNG-009`), and so do the three referee writes that mint a link; every other
+route consults the list nowhere
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
+still what keeps a barred address out of everything a sign-up does not cover.
 
-**A ban stands until you lift it.** It carries no review date and no expiry, deliberately: a queue of
-review dates is a queue nobody works, and the removal is already one press on the page you are
-reading the list on. A ban entered because somebody lied about their age loses its purpose the day
-they reach the floor their seat asks for, and the page is where somebody notices.
+**A ban lapses five full seasons after the one it was entered under, and the row is removed at the
+activation that runs past it.** The season it was entered in does not count, so a ban entered while
+2026 is active covers through 2031 and goes when 2032 is activated. There is no window between the
+two: the
+activation that makes a ban lapse is the same write that removes its row, so a ban on this page is
+always one that still bars. Lift a ban earlier from the page itself,
+which is still one press: a ban entered because somebody lied about their age loses its purpose the
+day they reach the floor their seat asks for, and the page is where somebody notices.
 
 **Generating the key is the one command in this section.** A key-generation command is an operator
 instruction rather than a database migration, so it stands here; nothing it produces is ever written
@@ -816,14 +869,24 @@ whatever closed the host's inbound 80 and 443 since is opened.
 
     curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
 
-**`sweep_gelaufen_am` is the day the last pass ran, and it is today or yesterday on a healthy
-stack.** A pass that reminds nobody and deletes nothing records it exactly as a busy one does
-([`spec.md`](spec.md) §1.1), so the date is the answer and the absence of log lines is not.
+**`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
+and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
+records its day exactly as a busy one does ([`spec.md`](spec.md) §1.1), so the dates are the answer
+and the absence of log lines is not.
 
-**Null means no pass has ever run against this database**, which on production is one of the ways
-[`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off, `fl_frontend/src/instrumentation.ts :: register` not reached, or
-a build that is not a production one. Check the frontend container's environment and its startup
-before looking at the backend.
+**A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
+runs the two halves of each season independently, and each files its own failure line —
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001`
+([`../logging/error-codes.md`](../logging/error-codes.md)) — so the event name is what names the
+half, and the date alone is not: the application's endpoint stamps its day before the calls that
+follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
+one just as a failed registration call would.
+
+**Null means no pass of that kind has ever run against this database**, which on production is one
+of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
+`fl_frontend/src/instrumentation.ts :: register` not reached, or a build that is not a production
+one. One switch arms both passes, so two nulls point at the frontend container's environment and its
+startup rather than at the backend.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the

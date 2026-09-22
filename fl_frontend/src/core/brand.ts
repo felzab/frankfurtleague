@@ -1,15 +1,18 @@
 export const KONTAKT_EMAIL = "kontakt@frankfurtleague.de";
 
-/** The register entry that drops this constant's `i. G.` suffix is the first moment an association can hold an
- * exclusive Nutzungsrecht in the source: German copyright itself never transfers. Revisit `NOTICE`'s holder line
- * the same day. */
-export const VEREIN_NAME = "Frankfurt League e. V. i. G.";
+export const VEREIN_NAME = "Frankfurt League e. V.";
 
 /** Spelled once: the Impressum, the Datenschutzerklärung and every email's close render this same string. */
 export const VEREIN_ANSCHRIFT = "Windmühlstraße 5, 60329 Frankfurt am Main";
 
-/** Both, in no ranked order: each represents the association alone and with the same power, so a single name would misstate it. */
-export const VERTRETUNGSBERECHTIGTE = ["David Wilbers", "Maria-Lucia Uribe"] as const;
+/** All four, the two chairs first: any two of them represent the association jointly, so a single name would misstate who
+ * binds it. Selected on `vorsitz` rather than on the word rendered, one office carrying two gendered spellings. */
+export const VORSTAND = [
+  { name: "David Daniel Wilbers", amt: "Vorsitzender", vorsitz: true },
+  { name: "Maria-Lucia Uribe Pacheco", amt: "Vorsitzende", vorsitz: true },
+  { name: "Matteo Müller", amt: "Stellvertreter", vorsitz: false },
+  { name: "Janosch Weiß", amt: "Schatzmeister", vorsitz: false },
+] as const;
 
 /** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead (`docs/frontend/spec.md :: I186`). */
 export const SITE_URL = "https://frankfurtleague.de";

@@ -9,6 +9,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
+from app.api.bewerbungen.services import hash_token
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
@@ -28,6 +30,8 @@ from app.api.schiedsrichter.services import (
     build_ghost_repoint,
     build_ghost_schiedsrichter,
     build_unplayed_assignment_filter,
+    compose_bestaetigung,
+    compose_einwilligung,
     find_ghost_erasure_refusal,
     first_stamped,
 )
@@ -47,11 +51,14 @@ from app.core.exceptions import DocumentConflictException, DocumentNotFoundExcep
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
+
+CONFIG = build_test_config()
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -98,6 +105,13 @@ A_LATER_PRESS = "2026-05-04"
 # What the seeded fixture edit moves. The field is arbitrary; the edit is not -- it is what files a log
 # row carrying the whole fixture, the referee's embedded name included.
 A_RESCHEDULED_TIME = "15:00:00"
+
+# The day the seeded links were minted, earlier than every press here, so a block found carrying it
+# is the seed's rather than one a case wrote.
+MINTED_ON = "2026-03-02"
+GEBURTSDATUM = "1984-05-09"
+
+TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES}
 
 # Read off the declaration, so renaming the index fails here rather than leaving these cases asserting nothing.
 NAME_INDEX = next(index for index in UNIQUE_INDEXES if index.collection == Collection.SCHIEDSRICHTER)
@@ -158,6 +172,11 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": dict(FORMER_KONTAKT[schiedsrichter_id]),
         "inactive_since": None,
+        # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
+        # them would let a nulling write pass every case below.
+        "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASHES[schiedsrichter_id], today=MINTED_ON),
+        "einwilligung": compose_einwilligung(umfang="kader_oeffentlich", medien=True, text_version="v1", today=MINTED_ON),
+        "geburtsdatum": GEBURTSDATUM,
     }
 
 
@@ -219,11 +238,11 @@ def saison_document(saison_id: str, status: str) -> dict[str, Any]:
 async def an_archived_fixture(database: AsyncDatabase) -> None:
     """One more of their played fixtures, in a season that is CLOSED.
 
-    Both season rows, so a repoint that started reading a status would find one and stop at this
-    fixture rather than passing because no season exists.
+    The PAST row alone, `on_a_league` seeding the running one: a repoint reading a status then
+    finds a season rather than an empty collection.
     """
 
-    await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
+    await database[Collection.SAISONS].insert_one(saison_document(PAST_SAISON_ID, "past"))
     await database[Collection.SPIELE].insert_one(
         {
             **fixture_document(SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 4),
@@ -403,7 +422,11 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        saisons_collection=database[Collection.SAISONS],
         db=client,
+        config=CONFIG,
+        today=TODAY,
     )
 
 
@@ -429,14 +452,25 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
-            await database[Collection.SPIELE].insert_many(fixture_documents())
-            for oid in REFEREE_NAMES:
-                await a_referee_with_a_history(database, client, oid)
-            for spiel_id in (spiel_id for spiel_ids in SPIEL_OIDS.values() for spiel_id in spiel_ids):
-                await a_fixture_with_a_history(database, spiel_id)
+            # The season cache is PROCESS-WIDE and outlives a clean database, so the seeded save
+            # would otherwise judge the ban list against a season a sibling left cached. Dropped on
+            # both sides: this case reads none of another's, and leaves none.
+            invalidate_saison_cache()
 
-            return await body(database, client)
+            try:
+                # A referee save carrying an address reads the running season, the ban list being
+                # judged against it, so a league with none would 404 in the seed rather than in a case.
+                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+                await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
+                await database[Collection.SPIELE].insert_many(fixture_documents())
+                for oid in REFEREE_NAMES:
+                    await a_referee_with_a_history(database, client, oid)
+                for spiel_id in (spiel_id for spiel_ids in SPIEL_OIDS.values() for spiel_id in spiel_ids):
+                    await a_fixture_with_a_history(database, spiel_id)
+
+                return await body(database, client)
+            finally:
+                invalidate_saison_cache()
 
     return on_the_seed_loop(_run())
 
@@ -706,7 +740,11 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
                     db=client,
+                    config=CONFIG,
+                    today=TODAY,
                 )
             elif press == "delete":
                 await delete_schiedsrichter(
@@ -1056,6 +1094,18 @@ def test_the_array_image_a_removal_files_is_emptied_too(mongo_replica_set_url: s
     assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
     assert row["before"] is None
     assert row["redacted_at"] == REDACTED_AT
+
+
+def test_the_two_seasons_this_suite_seeds_are_two_rows():
+    """`on_a_league` writes the running season and `an_archived_fixture` the closed one.
+
+    A floor rather than the whole guard: one id for both is a duplicate `_id`, and the database
+    tier is where mongod answers `E11000` for it.
+    """
+
+    assert SAISON_ID != PAST_SAISON_ID
+    assert saison_document(SAISON_ID, "active")["status"] == "active"
+    assert saison_document(PAST_SAISON_ID, "past")["status"] == "past"
 
 
 def test_the_unplayed_assignment_filter_spells_the_definition_once():

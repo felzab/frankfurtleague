@@ -7,7 +7,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
-import type { FLKontakt } from "@/shared/schemas";
+import type { ComponentProps } from "react";
 
 /**
  * Retiring is the referee list's own dialog; reactivating is here, a fact about the row rather than
@@ -17,7 +17,9 @@ export function AdminSchiedsrichterEditView({
   schiedsrichter,
   inactiveSince,
 }: {
-  schiedsrichter: { id: string; name: string | null; schule: string | null; kontakt: FLKontakt; default_payment: number };
+  // Taken off the form rather than restated: this view adds nothing to the record and a second
+  // spelling is one the form's next field would leave behind.
+  schiedsrichter: ComponentProps<typeof AdminSchiedsrichterEditForm>["schiedsrichter"];
   /** The day this referee was retired, or `null` while they officiate — on no field of the form. */
   inactiveSince: string | null;
 }) {

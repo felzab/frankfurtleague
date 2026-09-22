@@ -21,6 +21,9 @@ const RECORD = {
   schule: "Carl-Schurz-Schule",
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   default_payment: 20,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 };
 
 const view = (props: { name: string | null; inactiveSince: string | null }): string =>

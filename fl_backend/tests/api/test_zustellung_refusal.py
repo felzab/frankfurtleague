@@ -4,9 +4,21 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.services import compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
-from app.api.zustellung.schemas import FLZustellungAngenommenPayload, FLZustellungEreignisPayload, FLZustellungZiel
-from app.api.zustellung.services import ZIEL_PFADE, compose_ziel_zustellung_update, zustellung_pfad, zustellung_projektion
+from app.api.bewerbungen.schemas import FLBewerbungZustellstand
+from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
+from app.api.zustellung.schemas import (
+    FLZustellungAbgewiesenPayload,
+    FLZustellungAngenommenPayload,
+    FLZustellungEreignisPayload,
+    FLZustellungZiel,
+)
+from app.api.zustellung.services import (
+    ABGEWIESENER_VERSAND_STAND,
+    ZIEL_PFADE,
+    compose_ziel_zustellung_update,
+    zustellung_pfad,
+    zustellung_projektion,
+)
 from app.core.collections import Collection
 
 ZIEL_OID = "6890a1b2c3d4e5f607970001"
@@ -34,6 +46,12 @@ def event_body(**overrides: Any) -> dict[str, Any]:
         "am": LATER,
         **overrides,
     }
+
+
+def abgewiesen_body(**overrides: Any) -> dict[str, Any]:
+    """One refusal the provider gave at submit time: no message was minted, so the body names none."""
+
+    return {"ziel": ZIEL, "ziel_id": ZIEL_OID, "grund": "validation_error", "am": LATER, **overrides}
 
 
 def projiziert(*, traeger: str, record: dict[str, Any] | None, carrier_exists: bool = True) -> dict[str, Any]:
@@ -171,7 +189,47 @@ class TestWhatTheWriteComposes:
         assert mine == theirs
 
 
-class TestTheTwoPayloads:
+class TestTheRefusedSend:
+    """What the write makes of a send the provider refused before any message existed."""
+
+    def test_the_state_it_writes_is_one_the_clocks_skip(self):
+        """The whole of what this write buys: a chase spent on an address the provider will not carry to reaches nobody."""
+
+        assert ABGEWIESENER_VERSAND_STAND in ZUSTELLUNG_ABGEWIESEN
+
+    def test_the_state_it_writes_is_one_the_stored_record_declares(self):
+        """A member outside the six aborts the transaction at the validator, where the caller sees a 500 rather than a refusal."""
+
+        assert ABGEWIESENER_VERSAND_STAND in get_args(FLBewerbungZustellstand)
+
+    @pytest.mark.parametrize("ziel", sorted(ZIEL_PFADE), ids=lambda ziel: ziel)
+    def test_the_record_it_writes_joins_no_later_event(self, ziel: FLZustellungZiel):
+        """Why the id is empty rather than synthetic: a made-up one would make a real event about a real message look unrelated."""
+
+        pfad = ZIEL_PFADE[ziel]
+        written = compose_ziel_zustellung_update(
+            pfad=pfad, nachricht_id="", stand=ABGEWIESENER_VERSAND_STAND, grund="validation_error", am=STAMP
+        )["$set"][zustellung_pfad(pfad)]
+
+        assert not zustellung_event_applies(
+            bestaetigungen=projiziert(traeger=pfad.traeger, record=written), seat=pfad.traeger, nachricht_id=FIRST_MESSAGE, am=LATER
+        )
+
+    @pytest.mark.parametrize("ziel", sorted(ZIEL_PFADE), ids=lambda ziel: ziel)
+    def test_a_refusal_no_newer_than_the_accept_the_record_holds_is_a_no_op(self, ziel: FLZustellungZiel):
+        """Judged as an accept is, both stamps being this host's.
+
+        Retried after the re-send that repaired the address, a refusal would mark a live link.
+        """
+
+        traeger = ZIEL_PFADE[ziel].traeger
+        held = projiziert(traeger=traeger, record=zustellung())
+
+        assert zustellung_send_applies(bestaetigungen=held, seat=traeger, am=LATER)
+        assert not zustellung_send_applies(bestaetigungen=held, seat=traeger, am=EARLIER)
+
+
+class TestThePayloads:
     def test_the_event_body_parses_and_normalises_its_stamp(self):
         parsed = FLZustellungEreignisPayload.model_validate(event_body(am="2026-03-29T11:00:00Z"))
 
@@ -194,10 +252,11 @@ class TestTheTwoPayloads:
         with pytest.raises(ValidationError):
             FLZustellungEreignisPayload.model_validate(event_body(ziel_id="nicht-hex"))
 
-    def test_an_undeclared_key_is_refused_on_both(self):
+    def test_an_undeclared_key_is_refused_on_each(self):
         for payload, body in (
             (FLZustellungEreignisPayload, event_body()),
             (FLZustellungAngenommenPayload, {key: value for key, value in event_body().items() if key not in ("stand", "grund")}),
+            (FLZustellungAbgewiesenPayload, abgewiesen_body()),
         ):
             with pytest.raises(ValidationError) as failure:
                 payload.model_validate({**body, "erfundenes_feld": "x"})
@@ -209,6 +268,25 @@ class TestTheTwoPayloads:
 
         with pytest.raises(ValidationError):
             FLZustellungAngenommenPayload.model_validate(event_body())
+
+    def test_the_refused_send_names_no_message(self):
+        """Nothing was minted for a send the provider turned away, so a body carrying an id would name a message no event can be about."""
+
+        with pytest.raises(ValidationError) as failure:
+            FLZustellungAbgewiesenPayload.model_validate(abgewiesen_body(nachricht_id=FIRST_MESSAGE))
+
+        assert "extra_forbidden" in {entry["type"] for entry in failure.value.errors()}
+
+    def test_the_refused_send_declares_no_state_of_its_own(self):
+        """The refused state is the endpoint's: a body naming one could file a complaint against an address that merely failed to parse."""
+
+        with pytest.raises(ValidationError):
+            FLZustellungAbgewiesenPayload.model_validate(abgewiesen_body(stand="beschwerde"))
+
+    def test_the_refused_send_parses_and_normalises_its_stamp(self):
+        parsed = FLZustellungAbgewiesenPayload.model_validate(abgewiesen_body(am="2026-03-29T11:00:00Z"))
+
+        assert (parsed.ziel, parsed.grund, parsed.am) == (ZIEL, "validation_error", LATER)
 
     def test_an_event_may_not_claim_the_accept(self):
         with pytest.raises(ValidationError) as failure:
@@ -224,18 +302,26 @@ class TestTheTwoPayloads:
         ],
     )
     def test_the_provider_token_is_single_line_and_bounded(self, grund: str):
-        """It arrives from outside and is rendered beside a German sentence; the prose it is taken from names the recipient."""
+        """It arrives from outside and is rendered beside a German sentence; the prose it is taken from names the recipient.
 
-        with pytest.raises(ValidationError):
-            FLZustellungEreignisPayload.model_validate(event_body(grund=grund))
+        Both homes of the token, so one screen cannot be widened alone.
+        """
+
+        for payload, body in (
+            (FLZustellungEreignisPayload, event_body(grund=grund)),
+            (FLZustellungAbgewiesenPayload, abgewiesen_body(grund=grund)),
+        ):
+            with pytest.raises(ValidationError):
+                payload.model_validate(body)
 
     def test_a_state_carrying_no_token_is_a_null_rather_than_an_omitted_key(self):
-        assert FLZustellungEreignisPayload.model_validate(event_body(grund=None)).grund is None
+        for payload, body in ((FLZustellungEreignisPayload, event_body), (FLZustellungAbgewiesenPayload, abgewiesen_body)):
+            assert payload.model_validate(body(grund=None)).grund is None
 
-        with pytest.raises(ValidationError) as failure:
-            FLZustellungEreignisPayload.model_validate({key: value for key, value in event_body().items() if key != "grund"})
+            with pytest.raises(ValidationError) as failure:
+                payload.model_validate({key: value for key, value in body().items() if key != "grund"})
 
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["grund"]
+            assert [entry["loc"][-1] for entry in failure.value.errors()] == ["grund"]
 
     def test_a_value_naming_no_instant_is_refused(self):
         """The ordering is the whole of the idempotency, so a stamp naming no moment orders against nothing."""

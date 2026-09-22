@@ -30,3 +30,19 @@ export const SPERRLISTE_CRUD_COPY = {
  */
 export const SPERRE_AUFHEBEN_CONSEQUENCE =
   "Die Sperre verschwindet aus der Liste. Um die Adresse wieder zu sperren, musst Du sie neu eintragen.";
+
+/**
+ * What a CLEAN save answers. `EntityForm` shows it beside the form's title only where the two
+ * DIFFER, which is how a failed send is told apart. The form spells the same words as a literal,
+ * which `core/toastTitles.test.ts` needs.
+ */
+export const SPERRE_ERFOLG = "Adresse gesperrt";
+
+/** The eyebrow over the bound on a row, and the phrasing that makes the named season a barred one rather than the first free one. */
+export const SPERRE_BIS_LABEL = "Gesperrt bis";
+
+export const sperreBisWert = (saisonId: string): string => `einschließlich Saison ${saisonId}`;
+
+/** Under the create form's own address box, because the lapse is what the person typed into it is being signed up for. */
+export const SPERRE_DAUER_HINWEIS =
+  "Die Sperre endet nach fünf vollen Saisons von selbst. Die Adresse erhält sofort eine E-Mail, die den Grund, die Dauer und das Widerspruchsrecht nennt.";

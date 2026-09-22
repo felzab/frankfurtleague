@@ -105,21 +105,24 @@ uncommittable from a checkout that has to hold it.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                    | Upstream        | Notes                                                                                                                                                                                                |
-| --------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                 | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                       |
-| `= /api/client-error`       | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
-| `= /api/bewerbung`          | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel`  | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung`       | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
-| `= /api/signin/bestaetigen` | `frontend:3000` | Next route handler, the mailed sign-in link's completion — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                          |
-| `= /api/mail/zustellung`    | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
-| the `/` twins               | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `/api/admin/`               | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
-| `= /api/v0/system/is_live`  | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
-| `= /signin`                 | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `/_next/static/`            | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
-| `/`                         | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
+| Location                             | Upstream        | Notes                                                                                                                                                                                                |
+| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                          | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                       |
+| `= /api/client-error`                | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
+| `= /api/bewerbung`                   | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
+| `= /api/bewerbung/kuerzel`           | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
+| `= /api/bestaetigung/kontakt`        | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                             |
+| `= /api/signin/bestaetigen`          | `frontend:3000` | Next route handler, the mailed sign-in link's completion — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                          |
+| `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
+| `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
+| `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
+| `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
+| the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
+| `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
+| `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
+| `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
+| `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
+| `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
 
 **Every `/api/...` path but the liveness probe reaches Next** — some through a block naming it, the
 rest through the catch-all, which answers Next's HTML 404 where nothing routes the path (§3). The
@@ -139,7 +142,15 @@ selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and doe
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
-would otherwise leave one of the two standing for both.
+would otherwise leave one of the two standing for both. **An exact-match location names something
+this repository answers or it is a finding too**: a route handler's URL, a page's, a metadata
+convention's, or a path recorded at `scripts/checks/check_public_routes.py :: ELSEWHERE`, which the
+liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
+answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
+is a finding: it is named by no exact-match location, or a file in the tree has started answering
+it, so the row records what the accounting already reads. Pages are read for that direction alone,
+`location /` carrying every one of them, and a dynamic segment at the top level excuses nothing: its
+static head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
@@ -167,7 +178,7 @@ running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a sec
 address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL` (§1.6).
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
-`limit_req` — so `signin`, `clienterr`, `bewerbung`, `bestaetigung` and `zustellung` reach POSTs alone.
+`limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
 **The zones over a GET key on the network maps unconditionally**: the Kürzel check, and the pair
 under `/api/auth`, would otherwise read as limited and be unlimited.
 
@@ -359,7 +370,9 @@ sign in is an environment value rather than a stored row. **A sign-in alone does
 there**: the link stamps its session `link` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
-gives. Every machine, and every `--fresh`, enrols again.
+gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the
+sidemenu's options menu rather than from `/signin/passkey`, and adding or removing one asks for a
+passkey the machine already holds.
 
 **The production tier's limitations shape that command**, and they are the fastest-rotting fact on
 this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial

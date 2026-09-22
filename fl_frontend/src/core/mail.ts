@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { frontend_config } from "./config";
+import { withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
 import { getRequestTraceId } from "./requestScope";
@@ -70,6 +71,18 @@ export class MailWithheldError extends Error {
     super("This deployment does not send mail.");
 
     this.name = "MailWithheldError";
+  }
+}
+
+/**
+ * Raised where the recipient's domain has no ASCII form. Beside `MailWithheldError` rather than in
+ * `errors.ts` for its reason, and carrying no address for the same one.
+ */
+export class MailRecipientError extends Error {
+  constructor() {
+    super("The recipient's domain cannot be written in ASCII.");
+
+    this.name = "MailRecipientError";
   }
 }
 
@@ -204,6 +217,13 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     throw new MailWithheldError();
   }
 
+  // At the send and never at entry: the API stores the unicode spelling back, so a domain converted
+  // on the way in is converted away again before any message is composed.
+  const recipient = withAsciiDomain(to);
+
+  // Above the timer below, which a throw from here would leave running for the whole budget.
+  if (recipient === undefined) throw new MailRecipientError();
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
 
@@ -238,7 +258,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const body = JSON.stringify({
     from: MAIL_FROM,
-    to,
+    to: recipient,
     subject,
     html,
     text,

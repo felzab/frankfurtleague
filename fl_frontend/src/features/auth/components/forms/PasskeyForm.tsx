@@ -62,11 +62,12 @@ async function ceremonyHeld(step: Step): Promise<string | null> {
   }
 }
 
-// No control deletes a passkey: recovery is the runbook's console step, and a link-borne session
-// that could delete one could swap a stolen mailbox's passkey in.
+// No control here lists or removes a passkey: this page is reached by the mailed link alone, and a
+// session that could remove one would let a stolen mailbox swap the administrator's own out.
 
-// What makes this card's silence a guard rather than an omission is that the plugin's own three
-// management paths are refused at `fl_frontend/src/core/auth.ts :: BROWSER_PATHS`.
+// Removal lives in the sidemenu's dialog, behind a fresh assertion, and the plugin's own three
+// management paths stay refused at `fl_frontend/src/core/auth.ts :: BROWSER_PATHS` for both
+// (`docs/frontend/spec.md :: I261`).
 
 /** The card `/signin` opens the flow with, so every step of one sign-in meets one design. */
 export function PasskeyForm({ step, address, next }: { step: Step; address: string; next: string }) {

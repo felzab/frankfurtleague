@@ -7,3 +7,7 @@ overrides:
   # too: the importer takes this range, not package.json's.
   sharp: "^0.35.4"
   postcss: "^8.5.26"
+patchedDependencies:
+  # One line, so the assertion asks for the user verification `authenticatorSelection` already asks
+  # of the enrolment. better-auth pull request 11155 is the same change upstream, and retires this.
+  "@better-auth/passkey@1.7.5": patches/@better-auth__passkey@1.7.5.patch

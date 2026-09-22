@@ -203,7 +203,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                         "nummer": "7",
                         "position": "Angriff",
                         "stufe": "Q3",
-                        "is_nachgetragen": False,
+                        "ist_nachnominiert": False,
                         "rolle": None,
                         "inactive_since": None,
                     }

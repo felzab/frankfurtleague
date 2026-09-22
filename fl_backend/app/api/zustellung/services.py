@@ -23,7 +23,21 @@ class ZielPfad:
 
 # A `Collection` member per row and never a name spelled out: `app/core/collections.py` is the one
 # declaration of what this database holds.
-ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {"schiedsrichter": ZielPfad(Collection.SCHIEDSRICHTER, "bestaetigung")}
+ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
+    "schiedsrichter": ZielPfad(Collection.SCHIEDSRICHTER, "bestaetigung"),
+    # `versand` rather than `zustellung`: the carrier and the record inside it would otherwise be
+    # `zustellung.zustellung`, which `zustellung_pfad` cannot spell.
+    "einladung": ZielPfad(Collection.EINLADUNGEN, "versand"),
+    # The confirmation bookkeeping, as a referee's is: the message this state is about is the link
+    # mailed to the address the pupil typed.
+    "registrierung": ZielPfad(Collection.REGISTRIERUNGEN, "bestaetigung"),
+}
+
+
+# `unzustellbar` of the three states the clocks skip on: the other two are a suppression list and a
+# recipient's complaint, which a provider reports about a message it took rather than about one it
+# turned away.
+ABGEWIESENER_VERSAND_STAND = "unzustellbar"
 
 
 def zustellung_pfad(pfad: ZielPfad) -> str:

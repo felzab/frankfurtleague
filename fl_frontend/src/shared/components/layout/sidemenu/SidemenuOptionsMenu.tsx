@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, Ellipsis, Key } from "@gravity-ui/icons";
 
 import { Dropdown, Label, Separator } from "@heroui/react";
 
@@ -22,10 +22,13 @@ import type { FormState } from "@/shared/types/types";
 export function SidemenuOptionsMenu({
   isDesktopCollapsed,
   onSignOut,
+  onManagePasskeys,
 }: {
   isDesktopCollapsed: boolean;
   /** Injected by the shell that has a session to end, and its presence is the gate — `shared` cannot import from `features`. */
   onSignOut?: () => Promise<FormState>;
+  /** Injected the same way, and gated on its own presence: the dialog it opens is the shell's to render. */
+  onManagePasskeys?: () => void;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
@@ -78,6 +81,21 @@ export function SidemenuOptionsMenu({
             <>
               <Separator className="my-1" />
               <Dropdown.Section aria-label="Konto">
+                {onManagePasskeys && (
+                  /* Closes on select, unlike the two items above it: the dialog it opens is rendered
+                     outside this `Dropdown.Popover`, which portals and unmounts on close. */
+                  <Dropdown.Item
+                    id="passkeys"
+                    textValue="Passkeys verwalten"
+                    onAction={onManagePasskeys}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                    <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Passkeys verwalten</Label>
+                    <Key
+                      aria-hidden="true"
+                      className="text-foreground-muted size-4 shrink-0"
+                    />
+                  </Dropdown.Item>
+                )}
                 <SignOutItem
                   onSignOut={onSignOut}
                   isMenuOpen={isOpen}

@@ -251,6 +251,18 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 /** The row's own identity, travelling in the path as the re-send's does; the surface renders one input. */
 const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the path rather than typed";
 
+/** Written from `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHME` as the application form writes it, so no control offers one. */
+const THE_LABEL_THE_REGISTRY_HOLDS = "the Kenntnisnahme's label, written from the registry rather than typed";
+
+/** A panel button rather than a row's removal, which is why `A_ROWS_OWN_REMOVAL` would read wrong beside it. */
+const A_ROWS_OWN_SEND = "the referee whose panel this is: the id is in the path and the control is a button, neither being an input";
+
+/** Opaque to this side: the page carries it from the link to the press and never composes one. */
+const THE_TOKEN_THE_LINK_CARRIED = "the token the mailed link carried, held by the page; no control offers it";
+
+/** Written by the handler over whatever arrived, so no value a control could carry reaches the endpoint. */
+const THE_WORDING_THIS_SERVER_STAMPED = "the label this server rendered, stamped at the route handler; the browser's own is discarded";
+
 /** Opaque to this side: the page carries it from the read to the save and never composes one. */
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
 
@@ -280,7 +292,10 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
   FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
   FLBewerbungKontaktEmailPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY },
+  FLBewerbungKontaktSitzPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY, text_version: THE_LABEL_THE_REGISTRY_HOLDS },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
+  FLSchiedsrichterEinladenPayloadSchema: { id: A_ROWS_OWN_SEND },
+  FLSchiedsrichterBestaetigungPayloadSchema: { token: THE_TOKEN_THE_LINK_CARRIED, text_version: THE_WORDING_THIS_SERVER_STAMPED },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -288,6 +303,23 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLSperrlisteKeyPayloadSchema: { id: A_ROWS_OWN_REMOVAL },
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
+
+  // The invite is addressed by the junction row the panel already stands on, so neither id is typed
+  // and no control offers the season-wide opt-in a name.
+  FLEinladungKeyPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH },
+  // One payload for the preview AND the press, so this row covers both reads of the switch.
+  FLEinladungVersandPayloadSchema: {
+    id: IN_THE_PATH,
+    erneut: "the re-send switch, whose one refusal would be a boolean the panel wrote itself",
+  },
+  FLEinladungMailPayloadSchema: {
+    team_id: IN_THE_PATH,
+    saison_id: IN_THE_PATH,
+    einladung_id: "the row the mint just answered, carried through the page; no control offers one",
+    // The store keeps a hash, so this value exists only in the page that minted it and a box
+    // offering it would be a box for a credential.
+    token: "the link value the mint answered, carried through the page; no control offers one",
+  },
 
   // The triage's two decisions: the application is the page, so its id is never typed. Everything
   // else on both payloads is a control — the group and the kit picker, and the decline's reason.
@@ -329,6 +361,17 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLBewerbungEinwilligungAntwortPayloadSchema: {
     token: "handed in from the link's query, so no control offers it and no refusal can land on one",
     antwort: "which of the two buttons was pressed; a press is no input, and either answer sends a whole payload",
+    text_version: WRITTEN_NOT_PICKED,
+  },
+
+  // The registration form. The token rides in the invite's link, so no control offers it.
+  FLPostRegistrierungPayloadSchema: {
+    token: "handed in from the invite's query, so no control offers it and no refusal can land on one",
+  },
+
+  // The pupil's confirmation page. The label is the server's to write, and the token rides in the link.
+  FLRegistrierungBestaetigungPayloadSchema: {
+    token: "handed in from the link's query, so no control offers it and no refusal can land on one",
     text_version: WRITTEN_NOT_PICKED,
   },
 
@@ -378,18 +421,13 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    is_nachgetragen: "derived from the season's status, never asked",
+    ist_nachnominiert: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
-    is_nachgetragen: "round-tripped read-only: a historical fact about the entry, not an editable field",
+    ist_nachnominiert: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
-  FLCreateSpielerFormPayloadSchema: {
-    is_nachgetragen: "derived from the chosen season's status, never asked",
-    rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
-  },
-
   FLSwapGruppenPayloadSchema: {
     saison_id: IN_THE_PATH,
     team1_id: "the page's own club, or the season editor's first pick — never typed",
@@ -431,6 +469,18 @@ const ROUTE_FORMS: Record<string, { slice: string; form: string }> = {
   FLBewerbungEinwilligungAntwortPayloadSchema: {
     slice: "bewerbungen",
     form: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  },
+  FLPostRegistrierungPayloadSchema: {
+    slice: "registrierungen",
+    form: "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
+  },
+  FLRegistrierungBestaetigungPayloadSchema: {
+    slice: "registrierungen",
+    form: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
+  },
+  FLSchiedsrichterBestaetigungPayloadSchema: {
+    slice: "schiedsrichter",
+    form: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
   },
 };
 
@@ -533,6 +583,21 @@ describe("every path a refusal mapper emits", () => {
    * `):` so a type alias and an interface field, which declare the shape without answering in it, are not one.
    */
   const DECLARES_FIELD_ERRORS = /\)\s*:\s*(?:Promise<)?\{[^{}]*fieldErrors\?:\s*FieldErrors/;
+
+  /**
+   * The same shape under a local name.
+   *
+   * Resolved rather than trusted: what makes a module a mapper is still the shape, and an alias
+   * nothing returns declares one without answering in it.
+   */
+  const ALIAS_OF_THE_SHAPE = /\btype\s+(\w+)\s*=\s*\{[^{}]*fieldErrors\?:\s*FieldErrors/g;
+
+  function declaresFieldErrors(text: string): boolean {
+    if (DECLARES_FIELD_ERRORS.test(text)) return true;
+
+    return [...text.matchAll(ALIAS_OF_THE_SHAPE)].some((hit) => new RegExp(String.raw`\)\s*:\s*(?:Promise<)?${hit[1] ?? ""}\b`).test(text));
+  }
+
   // A code in a COMPARISON, never anywhere in the file: one quoted in prose above an unrelated
   // function would otherwise make that file a mapper owing an excuse.
   const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
@@ -555,7 +620,7 @@ describe("every path a refusal mapper emits", () => {
     return { literals, opaque };
   }
 
-  const declaredMappers = production.filter(([, text]) => DECLARES_FIELD_ERRORS.test(text) && NAMES_A_REFUSAL_CODE.test(text));
+  const declaredMappers = production.filter(([, text]) => declaresFieldErrors(text) && NAMES_A_REFUSAL_CODE.test(text));
 
   /**
    * The source between one `{` and the `}` closing it, scanned with depth so a brace inside a value
@@ -635,7 +700,12 @@ describe("every path a refusal mapper emits", () => {
    * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and no
    * way out of the sweep: a listed file that assigns `fieldErrors` at all fails below.
    */
-  const BANNER_ONLY: Record<string, string> = {};
+  const BANNER_ONLY: Record<string, string> = {
+    // Both codes it maps are about the SEASON and the junction row rather than about anything typed:
+    // the panel renders no input either refusal could land on, so a field map would name nothing.
+    "features/einladungen/actions.ts":
+      "the invite's two refusals are the season's and the junction's, and no control on either panel holds a value they judge",
+  };
 
   /** What a module offers by name, so its callers are found rather than listed. */
   function exportedSymbols(text: string): string[] {
@@ -680,7 +750,11 @@ describe("every path a refusal mapper emits", () => {
 
         const urls = callers.filter((caller) => ROUTE_HANDLER.test(caller)).map(routeUrl);
         for (const component of components) {
-          if (urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`))) audience.add(component);
+          // Both spellings of one POST, as the bridge case below reads them: a public form names its
+          // own through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`, and a
+          // reader matching the bare `fetch` alone reports its whole slice as reaching no form.
+          const posts = urls.map((url) => new RegExp(String.raw`(?:fetch|postPublicForm<\w+>)\("${url}"`));
+          if (posts.some((post) => post.test(sources.get(component) ?? ""))) audience.add(component);
         }
 
         // A route handler is never a hop: its own audience is what fetches its URL, read just above,
@@ -739,6 +813,19 @@ describe("every path a refusal mapper emits", () => {
       sample.filter(([source]) => DECLARES_FIELD_ERRORS.test(source)).map(([source]) => source),
       sample.filter(([, matches]) => matches).map(([source]) => source),
     );
+  });
+
+  /* A mapper read by two callers names its answer, and the sweep then found the whole module only
+     while some OTHER function in it still spelled the shape out — which is an accident, not a rule. */
+  it("follows a named answer to the shape it is declared as, and no further", () => {
+    const named =
+      "export type Refusal = { error?: string; fieldErrors?: FieldErrors };\nasync function map(e: unknown): Promise<Refusal | null> {";
+    const unreturned = "export type Refusal = { error?: string; fieldErrors?: FieldErrors };\nexport const leer: Refusal = {};";
+    const opaque = "export type Ergebnis = { created_id?: string };\nfunction map(e: unknown): Ergebnis | null {";
+
+    assert.equal(declaresFieldErrors(named), true, "a mapper answering in its own alias is not found at all");
+    assert.equal(declaresFieldErrors(unreturned), false, "an alias nothing returns makes its module a mapper");
+    assert.equal(declaresFieldErrors(opaque), false, "any named return type is read as the field-error shape");
   });
 
   it("reads every key of a literal, whatever the value before it is made of", () => {

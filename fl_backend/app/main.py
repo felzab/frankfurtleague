@@ -12,9 +12,14 @@ from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
+from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
+from app.api.registrierungen.public_router import router as registrierungen_public_router
+from app.api.registrierungen.router import router as registrierungen_router
+from app.api.registrierungen.sweep_router import router as registrierungen_sweep_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
+from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
@@ -48,6 +53,7 @@ READ_ROUTERS = (
     spielorte_router,
     schiedsrichter_router,
     bewerbungen_router,
+    registrierungen_router,
 )
 WRITE_ROUTERS = (
     spiele_admin_router,
@@ -64,11 +70,23 @@ WRITE_ROUTERS = (
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
-PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
+PUBLIC_ROUTERS = (
+    bewerbungen_public_router,
+    bewerbungen_einwilligung_router,
+    registrierungen_public_router,
+    registrierungen_einwilligung_router,
+    schiedsrichter_bestaetigung_router,
+)
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
 # it beside the writes.
-SYSTEM_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router, zustellung_router, identitaet_router)
+SYSTEM_ROUTERS = (
+    bewerbungen_sweep_router,
+    bewerbungen_zustellung_router,
+    registrierungen_sweep_router,
+    zustellung_router,
+    identitaet_router,
+)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).

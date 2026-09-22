@@ -56,7 +56,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("shared/schemas.ts", "ADDRESS_STADT_MAX_LENGTH", "ADDRESS_STADT_MAX_LENGTH"),
     Mirror("shared/schemas.ts", "ADDRESS_STADTTEIL_MAX_LENGTH", "ADDRESS_STADTTEIL_MAX_LENGTH"),
     Mirror("shared/schemas.ts", "ADDRESS_HAUSNUMMER_MAX_LENGTH", "ADDRESS_HAUSNUMMER_MAX_LENGTH"),
-    Mirror("shared/schemas.ts", "KONTAKT_EMAIL_MAX_LENGTH", "KONTAKT_EMAIL_MAX_LENGTH"),
+    Mirror("core/emailAddress.ts", "KONTAKT_EMAIL_MAX_LENGTH", "KONTAKT_EMAIL_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_GRUND_MAX_LENGTH", "BEWERBUNG_GRUND_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH", "BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_KADER_GROESSE_MAX", "BEWERBUNG_KADER_GROESSE_MAX"),
@@ -78,6 +78,14 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
+    Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
+    # These two mirror the published notice's sentences and never a payload schema: each confirmation
+    # view still states the floor off the answer it was served, and neither
+    # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
+    Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in

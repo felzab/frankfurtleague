@@ -27,12 +27,14 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
+import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLPatchSchiedsrichterPayload } from "@/features/schiedsrichter/schemas";
+import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
+import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
@@ -57,7 +59,18 @@ export function AdminSchiedsrichterEditForm({
   pageHeader,
 }: {
   /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */
-  schiedsrichter: { id: string; name: string | null; schule: string | null; kontakt: FLKontakt; default_payment: number };
+  schiedsrichter: {
+    id: string;
+    name: string | null;
+    schule: string | null;
+    kontakt: FLKontakt;
+    default_payment: number;
+    // The three the confirmation owns, on no draft field and in no payload: they are read back and
+    // never edited, so they travel beside the values rather than through `buildPayload`.
+    geburtsdatum: string | null;
+    einwilligung: FLEinwilligung | null;
+    bestaetigung: FLSchiedsrichterBestaetigung | null;
+  };
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -178,10 +191,19 @@ export function AdminSchiedsrichterEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
+      // The save's own sentence FIRST: where the address moved it reports a link that went out, and
+      // dropping it leaves an administrator with no record that a message was sent at all.
+      const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
+        .filter((satz) => satz !== undefined)
+        .join(" ");
+
       offerUndo({
         endpoint: "/api/admin/schiedsrichter/undo",
         body: undoPayload,
-        message: renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined,
+        message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
+        // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
+        // referee having no working link and nobody else being told.
+        warn: res.versandFehlgeschlagen === true,
         fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
         // Judged here and not left to the undo route: the shared spine can only answer a body the
         // schema refuses with a reload nothing would change.
@@ -233,6 +255,17 @@ export function AdminSchiedsrichterEditForm({
             defaultPayment={defaultPayment}
             onChange={setDefaultPayment}
             onFieldChanged={validatePicked}
+          />
+
+          {/* The STORED address, never `kontakt`: the send goes to what is saved, and a typed box
+              the save bar has not committed is nowhere a message can reach. */}
+          <FormBestaetigungSection
+            schiedsrichterId={schiedsrichter.id}
+            hatAdresse={schiedsrichter.kontakt.email !== null}
+            isRetired={isRetired}
+            bestaetigung={schiedsrichter.bestaetigung}
+            einwilligung={schiedsrichter.einwilligung}
+            geburtsdatum={schiedsrichter.geburtsdatum}
           />
 
           {/* Last on the page, the position the season editor's rollover holds: the one control here

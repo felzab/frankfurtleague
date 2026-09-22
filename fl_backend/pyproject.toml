@@ -139,6 +139,10 @@ empty_parameter_set_mark = "fail_at_collect"
 # (`scripts/gate/verify.sh :: do_backend_pyright`); `scripts/pyrightconfig.json` names the same one.
 venvPath = "."
 venv = ".venv"
+# Pinned rather than read from whichever interpreter pyright finds: CI's Linux run judged the tree
+# as an older Python and refused a self-reference 3.14's deferred annotations allow, while the
+# Windows gate, on the same pyright, accepted it.
+pythonVersion = "3.14"
 include = ["app", "tests"]
 # `basic`, below pyright's `standard` default: at `standard`, every payload schema narrowing a base
 # model's field reports `reportIncompatibleVariableOverride` for the shape it exists for.

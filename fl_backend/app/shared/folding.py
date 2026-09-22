@@ -21,3 +21,17 @@ def sign_in_identifier(address: str) -> str:
     # frontend's `toLowerCase` leaves it standing: this answers what
     # `fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier` answers, for every code point.
     return unicodedata.normalize("NFKC", address).lower().strip(_TRIMMED)
+
+
+def mailbox_key(address: str) -> str:
+    """What makes two stored addresses one INBOX, which is a narrower question than `sign_in_identifier`'s.
+
+    Over-matching costs an erasure nothing and a message everything: folded whole, two people are
+    one recipient and one of them is never written to.
+    """
+
+    at = address.rfind("@")
+
+    # The local part byte for byte and the domain without case (RFC 5321 §2.4), as
+    # `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats` compares them.
+    return address if at == -1 else f"{address[:at]}@{address[at + 1 :].lower()}"

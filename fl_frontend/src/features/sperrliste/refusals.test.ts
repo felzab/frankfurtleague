@@ -31,11 +31,20 @@ describe("the address a unique index already holds", () => {
   it("answers every refusal the create declares", () => {
     // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
     const declared = declaredCodes("POST /sperrliste");
-    assert.deepEqual(declared, ["REQ-SPERRLISTE-001"]);
+    assert.deepEqual(declared, ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002"]);
 
     for (const code of declared) {
-      assert.deepEqual(mapAdresseRefusal(refusedWith(409, code)), ON_THE_BOX, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(mapAdresseRefusal(refusedWith(409, code)), null, `${code} reaches the admin as an unhandled conflict`);
     }
+  });
+
+  /* The league's own state and not the typed address: a sentence under the box would tell the
+     administrator to change an address that is not the problem. */
+  it("answers a league with no season a banner and marks no box", () => {
+    const answered = mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-002"));
+
+    assert.equal(answered?.fieldErrors, undefined);
+    assert.match(String(answered?.error), /Saison/);
   });
 
   it("leaves a conflict it does not know to the shared reader", () => {

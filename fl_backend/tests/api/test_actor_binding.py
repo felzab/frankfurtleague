@@ -242,6 +242,18 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "POST"),
     ("/api/v0/bewerbungen/einwilligung/ansicht", "POST"),
     ("/api/v0/bewerbungen/einwilligung", "POST"),
+    # A referee answering their own link holds no session either, so both endpoints bind the public
+    # actor and the confirmation's write is recorded under it.
+    ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
+    ("/api/v0/schiedsrichter/bestaetigung", "POST"),
+    # A pupil answering their own link holds no session either, so both endpoints bind the public
+    # actor and the confirmation's write is recorded under it.
+    ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
+    ("/api/v0/registrierungen/bestaetigung", "POST"),
+    # The invite's read and the registration itself: a pupil opening a team's link sends no
+    # `X-FL-Actor`, and the row this write stores is recorded under the public actor.
+    ("/api/v0/registrierungen/einladung/ansicht", "POST"),
+    ("/api/v0/registrierungen", "POST"),
 ]
 
 # The writes the application makes to itself on the system key -- the retention sweep's, and the two
@@ -251,10 +263,12 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "POST"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "POST"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "POST"),
+    ("/api/v0/registrierungen/sweep/{saison_id}", "POST"),
     ("/api/v0/bewerbungen/zustellung", "POST"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "POST"),
     ("/api/v0/zustellung", "POST"),
     ("/api/v0/zustellung/angenommen", "POST"),
+    ("/api/v0/zustellung/abgewiesen", "POST"),
     # Reads rather than writes, and listed for the binder all the same: omitted, it is demanded the
     # administrator's `X-FL-Actor`, which the system key never sends.
     ("/api/v0/identitaet/subjekt", "POST"),

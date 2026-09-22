@@ -51,7 +51,7 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 const logs: RecordedLine[] = [];
 (globalThis as unknown as Record<string, RecordedLine[]>)[LOG_RECORDER] = logs;
 
-const { sendMail, MailWithheldError } = await import("./mail.ts");
+const { sendMail, MailRecipientError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
@@ -244,6 +244,87 @@ describe("the mail transport", () => {
     await sendMail({ ...MESSAGE, idempotencyKey: "loeschung_abc_2026-09-08" });
 
     assert.equal((sends[0]!.init.headers as Record<string, string>)["Idempotency-Key"], "loeschung_abc_2026-09-08");
+  });
+});
+
+/** The recipient of the one request, which is the only place the conversion may show. */
+async function recipientOf(to: string): Promise<string> {
+  await sendMail({ ...MESSAGE, to: to });
+  assert.equal(sends.length, 1, `expected exactly one request, saw ${sends.length}`);
+
+  return (JSON.parse(String(sends[0]!.init.body)) as { to: string }).to;
+}
+
+/** A domain IDNA 2008 has no mapping for, which is what reaches the refusal rather than a mistyped ASCII one. */
+const UNCONVERTIBLE = "anna@℀.de";
+
+describe("the recipient the provider is handed", () => {
+  beforeEach(resetTransport);
+
+  /* The provider documents no address syntax at all, so the domain goes in the one spelling every
+     mail system demonstrably carries rather than in the one a German school types. */
+  it("converts an internationalised domain to its ASCII form", async () => {
+    assert.equal(await recipientOf("vorstand@münchen-schule.de"), "vorstand@xn--mnchen-schule-wob.de");
+  });
+
+  /* Byte for byte, upper case included: a recipient the provider echoes on a delivery event has to
+     match the address the row stores, and `new URL` would lower-case this one. */
+  it("hands on an ASCII domain untouched", async () => {
+    for (const address of ["trainer@example.org", "Trainer@Example.ORG", "anna+u12@schule.de"]) {
+      sends.length = 0;
+      assert.equal(await recipientOf(address), address);
+    }
+  });
+
+  /* Only SMTPUTF8 carries a non-ASCII local part and nothing here can promise the receiving server
+     speaks it, so converting the left of the `@` would be an invention rather than a translation. */
+  it("leaves the local part alone while converting the domain beside it", async () => {
+    assert.equal(await recipientOf("jörg@münchen-schule.de"), "jörg@xn--mnchen-schule-wob.de");
+  });
+
+  /* One fan-out sends one message per address, so a list is converted where it needs it and left
+     where it does not — and the stored rows behind it are never rewritten. */
+  it("converts each address of a fan-out on its own", async () => {
+    const stored = ["trainer@example.org", "anna@münchen-schule.de"];
+    const handed: string[] = [];
+
+    for (const address of stored) {
+      sends.length = 0;
+      handed.push(await recipientOf(address));
+    }
+
+    assert.deepEqual(handed, ["trainer@example.org", "anna@xn--mnchen-schule-wob.de"]);
+    assert.deepEqual(stored, ["trainer@example.org", "anna@münchen-schule.de"]);
+  });
+
+  /* An ASCII domain is never rebuilt, so what reaches this refusal is a domain IDNA has no mapping
+     for. The fan-out settles every message, so it costs one address its mail and no other
+     (`fl_frontend/src/features/zustellung/notifications.ts :: sendZielMail`). */
+  it("refuses a domain that has no ASCII form, before any request is drawn", async () => {
+    const refusal: unknown = await sendMail({ ...MESSAGE, to: UNCONVERTIBLE }).catch((error: unknown) => error);
+
+    assert.ok(refusal instanceof MailRecipientError, `expected a recipient refusal, saw ${inspect(refusal)}`);
+    assert.equal(sends.length, 0);
+  });
+
+  /* The parse reads the slash as a path and answers the domain to its left, so the league's message
+     would leave for a mailbox nobody typed -- with no writer, and no reader, able to see it happen. */
+  it("refuses a host carrying URL structure rather than mailing the name the parse keeps", async () => {
+    const refusal: unknown = await sendMail({ ...MESSAGE, to: "anna@münchen.de/example.org" }).catch((error: unknown) => error);
+
+    assert.ok(refusal instanceof MailRecipientError, `expected a recipient refusal, saw ${inspect(refusal)}`);
+    assert.equal(sends.length, 0);
+  });
+
+  /* `inspect` rather than the message alone, for `assertHidesRecipient`'s reason: the shape most
+     likely to carry the address is the one a hand-listed set cannot see. */
+  it("carries no part of the address into the refusal it raises", async () => {
+    const refusal: unknown = await sendMail({ ...MESSAGE, to: UNCONVERTIBLE }).catch((error: unknown) => error);
+    const carried = inspect(refusal, { depth: null });
+
+    for (const fragment of [UNCONVERTIBLE, "anna", UNCONVERTIBLE.slice(UNCONVERTIBLE.indexOf("@") + 1)]) {
+      assert.equal(carried.includes(fragment), false, `the refusal carried ${fragment}`);
+    }
   });
 });
 

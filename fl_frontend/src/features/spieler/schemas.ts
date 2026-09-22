@@ -75,7 +75,7 @@ export const FLSpielerMembershipSchema = z.object({
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
@@ -109,30 +109,19 @@ export const FLSpielerMembershipsResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpielerMembershipsResponse = z.infer<typeof FLSpielerMembershipsResponseSchema>;
 
 /**
- * Shared by create and patch: the patch replaces them wholesale, so both carry the same field set.
+ * Replaces the person's own fields wholesale, so none is optional: an omitted surname would erase a
+ * stored one.
  *
  * No uniqueness rule on a name — two people genuinely can share one.
  */
-const spielerPayloadFields = {
+export const FLPatchSpielerPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
   vorname: PersonNameSchema,
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
   nachname: PersonNameSchema.nullable(),
   // Nullable, and the form states the null rather than omitting: no flow collects a pupil's own
   // date yet (`fl_backend/app/core/domain.py :: UNENFORCED`).
   geburtsdatum: CustomDateStringSchema.nullable(),
-};
-
-// OPTIONAL on the create and required on the patch, mirroring the backend: a create has nothing to
-// overwrite, while a patch replaces wholesale and an omitted field would erase a stored surname.
-export const FLPostSpielerPayloadSchema = z.object({
-  ...spielerPayloadFields,
-  nachname: spielerPayloadFields.nachname.optional(),
-});
-export type FLPostSpielerPayload = z.infer<typeof FLPostSpielerPayloadSchema>;
-
-export const FLPatchSpielerPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  ...spielerPayloadFields,
 });
 export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
 
@@ -173,7 +162,7 @@ const saisonSpielerPayloadFields = {
   stufe: FLSpielerStufeSchema.nullable(),
   // The create form derives this from the season's status rather than asking it, so it cannot be
   // forgotten.
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   // On the junction: a role is held within one team for one season, not by the person. One field and
   // not a flag per role, so holding both at once cannot be expressed.
   rolle: FLSpielerRolleSchema.nullable(),
@@ -203,21 +192,6 @@ export const FLSaisonSpielerKeyPayloadSchema = z.object({
 export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayloadSchema>;
 
 /**
- * One form, split by the action into two requests. One form on purpose: every squad read joins the
- * junction strictly (backend spec I33), so a player created without a row is invisible to every
- * surface that could give them one.
- */
-export const FLCreateSpielerFormPayloadSchema = z.object({
-  ...spielerPayloadFields,
-  // Required here and nullable everywhere else: imported squads hold surnameless rows, but a player
-  // entered through this form always has one.
-  nachname: PersonNameSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-  ...saisonSpielerPayloadFields,
-});
-export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPayloadSchema>;
-
-/**
  * Mirrors `FLSpielerAdminSingleResponse` — the person alone, which is all the three admin
  * name-writes echo: squad fields are season-scoped and this path names no season. The base tier's
  * `FLSpielerSingleResponse` has no caller here, so no mirror.
@@ -231,11 +205,6 @@ export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpielerAdminSingleResponse = z.infer<typeof FLSpielerAdminSingleResponseSchema>;
-
-export const FLSpielerWriteResponseSchema = BaseAPIResponseSchema.extend({
-  spieler_id: CustomObjectIdStringSchema,
-});
-export type FLSpielerWriteResponse = z.infer<typeof FLSpielerWriteResponseSchema>;
 
 /**
  * Mirrors `FLSpielerErasureResponse` — what the erasure removed, and never an echo of the person: a
@@ -257,7 +226,7 @@ export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
-  is_nachgetragen: z.boolean(),
+  ist_nachnominiert: z.boolean(),
   rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });

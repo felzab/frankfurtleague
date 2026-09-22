@@ -6,11 +6,12 @@ which carries no `limit_req`. The accounting is total rather than aimed at the p
 alone, because no predicate selects those, and `REASONS` carries the locations covering an unmetered
 one (`docs/ops/spec.md`).
 
-A construct this reader cannot place refuses rather than answering, and a reason covering no handler
-is a finding.
+A construct this reader cannot place refuses rather than answering; a reason covering no handler is a
+finding, and so is an exact match naming a URL nothing in the tree answers.
 
 Invariants:
-- The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places.
+- The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
+  with `PAGE_FILES` joining it for the exact matches a page answers and nothing else.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
 """
@@ -51,6 +52,10 @@ ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
 # metadata convention, and two lists here would drift a metadata file out of the walk in silence.
 CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 
+# A page is charged to no location -- `location /` carries every one of them -- and is read for the
+# opposite question alone: whether an exact-match location names a URL this tree still answers.
+PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
+
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
 # Counting it as coverage would leave this check unable to fail.
 CATCH_ALL: Final = "/"
@@ -76,6 +81,21 @@ class Reason:
 REASONS: Final[tuple[Reason, ...]] = (
     Reason("/api/admin/", "page-owned undo handlers, each authorizing itself behind the admin guard"),
     Reason("/api/auth", "the sign-in library's catch-all, every path of it metered by a prefix because a dynamic segment names no exact match"),
+)
+
+
+@dataclass(frozen=True)
+class Elsewhere:
+    """One exact-match location whose URL no file under the App Router tree answers, and what does."""
+
+    path: str
+    why: str
+
+
+# Beside REASONS rather than in it: a reason answers for a PREFIX, and `unused` reads that table as
+# the prefix accounting alone. An entry here is an edge path no walk of this tree can derive.
+ELSEWHERE: Final[tuple[Elsewhere, ...]] = (
+    Elsewhere("/api/v0/system/is_live", "the liveness probe, proxied to the backend rather than to Next"),
 )
 
 
@@ -147,7 +167,7 @@ class Location:
 
 @dataclass(frozen=True)
 class Handler:
-    """One `route.ts`, the URL it answers, and the part of that URL an exact match could name."""
+    """One routable file, the URL it answers, and the part of that URL an exact match could name."""
 
     path: Path
     url: str
@@ -353,6 +373,19 @@ def handlers(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
+def pages(app_dir: Path) -> tuple[Handler, ...]:
+    """Every page under the App Router tree, in path order.
+
+    A page is charged to no location, so this answers one question: whether an exact-match location
+    naming a page's URL still names a page.
+    """
+    found: list[Handler] = []
+    for page in sorted(one for one in app_dir.rglob("page.*") if one.name in PAGE_FILES):
+        url, head, dynamic = url_of(page.parent.relative_to(app_dir).parts, page)
+        found.append(Handler(page, url, head, dynamic))
+    return tuple(found)
+
+
 def metadata(app_dir: Path) -> tuple[Metadata, ...]:
     """Every code-generated metadata convention under the tree, in path order."""
     placed = {one.stem: one for one in METADATA}
@@ -487,6 +520,86 @@ def unclaimed(served: tuple[Metadata, ...]) -> list[Finding]:
     ]
 
 
+def recorded(path: str) -> Elsewhere | None:
+    """The recorded answer for an exact match outside the App Router tree, or None where none is."""
+    for one in ELSEWHERE:
+        if one.path == path:
+            return one
+    return None
+
+
+def _canonical(path: str) -> str:
+    """One exact match's path without the trailing slash a twin carries, the root keeping its own."""
+    if not path.endswith(TRAILING_SLASH):
+        return path
+    return path[: -len(TRAILING_SLASH)] or TRAILING_SLASH
+
+
+def _answered(answering: tuple[Handler, ...], served: tuple[Metadata, ...]) -> set[str]:
+    """Every URL this repository answers that a directory tree spells exactly."""
+    return {one.url for one in answering if not one.dynamic} | {one.url for one in served}
+
+
+def orphaned(where: tuple[Location, ...], answering: tuple[Handler, ...], served: tuple[Metadata, ...]) -> list[Finding]:
+    """Every exact-match location naming a URL this repository does not answer.
+
+    `account` walks from the tree to the locations and `twins` compares a pair to itself, so a block
+    a moved handler left behind satisfies both.
+    """
+    answered = _answered(answering, served)
+    # A dynamic segment's own URLs are answered too, and a directory tree spells none of them: an
+    # exact match anywhere under the static head is taken as one rather than reported as an orphan.
+
+    # The root is dropped for `CATCH_ALL`'s reason reached from the tree instead of the
+    # configuration: a dynamic segment at the top level heads at `/` and would excuse every exact
+    # match there is, leaving this rule unable to fail.
+    heads = tuple(one.head for one in answering if one.dynamic and one.head != CATCH_ALL)
+    findings: list[Finding] = []
+    for one in where:
+        if not one.exact:
+            continue
+        named = _canonical(one.path)
+        if named in answered or recorded(named) is not None or any(named.startswith(head) for head in heads):
+            continue
+        findings.append(
+            Finding(
+                "fail",
+                f"the exact match {one.path} names a URL no file under {APP_ROUTER} answers\n"
+                f"{CONTINUATION}delete the location, or record what answers that URL at "
+                f"scripts/checks/check_public_routes.py :: ELSEWHERE",
+            )
+        )
+    return findings
+
+
+def undeclared(where: tuple[Location, ...], answering: tuple[Handler, ...], served: tuple[Metadata, ...]) -> list[Finding]:
+    """Every recorded off-tree answer that stopped being one -- `unused`'s rot, over the other table."""
+    declared = {_canonical(one.path) for one in where if one.exact}
+    answered = _answered(answering, served)
+    findings: list[Finding] = []
+    for one in ELSEWHERE:
+        path = _canonical(one.path)
+        if path not in declared:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"the recorded answer for {one.path} ({one.why}) is named by no exact-match location\n"
+                    f"{CONTINUATION}drop the row, or restore the location it answers for",
+                )
+            )
+        elif path in answered:
+            # The rot a walk of the locations alone hides: a file now answers that URL, so the row
+            # records what the accounting already reads.
+            findings.append(
+                Finding(
+                    "fail",
+                    f"the recorded answer for {one.path} ({one.why}) names a URL {APP_ROUTER} answers for itself\n"
+                    f"{CONTINUATION}drop the row: the file answering it is what the accounting reads",
+                )
+            )
+    return findings
+
+
 def twins(where: tuple[Location, ...]) -> list[Finding]:
     """Every metered exact match whose trailing-slash counterpart is missing.
 
@@ -529,6 +642,7 @@ def main() -> int:
 
     try:
         found = handlers(app_dir)
+        answering = found + pages(app_dir)
         served = metadata(app_dir)
         # Bytes, so no platform's newline translation reaches a path this reader then compares.
         where = locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name)
@@ -546,6 +660,7 @@ def main() -> int:
 
     findings, used = account(found, where, root, conf_path.name)
     findings += unused(used, where) + unclaimed(served) + twins(where)
+    findings += orphaned(where, answering, served) + undeclared(where, answering, served)
 
     code = report_findings(findings)
     if findings:

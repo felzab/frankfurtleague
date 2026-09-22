@@ -131,7 +131,7 @@ def squad_document(index: int, team_index: int, *, inactive_since: str | None = 
         "spieler_id": oid(2000 + index),
         "saison_id": SAISON,
         "team_id": oid(team_index),
-        "is_nachgetragen": False,
+        "ist_nachnominiert": False,
         "rolle": None,
         "stufe": "Q2",
         "position": "Angriff",
@@ -333,7 +333,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
                 nummer=str(index),
                 position="Angriff",
                 stufe="Q2",
-                is_nachgetragen=False,
+                ist_nachnominiert=False,
                 rolle=None,
             ),
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -370,7 +370,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
                 spieler_id=oid(2091),
                 saison_id=SAISON,
                 saison_spieler_data=FLPatchSaisonSpielerPayload(
-                    team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", is_nachgetragen=False, rolle=None
+                    team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", ist_nachnominiert=False, rolle=None
                 ),
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],

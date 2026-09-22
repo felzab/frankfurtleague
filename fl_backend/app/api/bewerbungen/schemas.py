@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
@@ -15,6 +15,7 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
     _KontaktpersonWritablePayload,
 )
+from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -211,8 +212,8 @@ class FLBewerbung(BaseModel):
     """One school's application to play one season, as it is stored.
 
     The submission is never rewritten: `status`, `entscheidung` and `team_id` move through the
-    triage, and a seat's `email` through
-    `app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone.
+    triage, and a contact seat through the two administrative repairs in
+    `app/api/bewerbungen/admin_router.py`.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -372,14 +373,6 @@ class FLAblehnenBewerbungResponse(BaseAPIResponse):
 # an undeclared key; the read models above stay lax (`docs/backend/spec.md :: I49`).
 
 
-def _whole_years_between(*, born: str, today: str) -> int:
-    """Whole years elapsed, so a birthday later this year has not been reached yet."""
-
-    birth, now = date.fromisoformat(born), date.fromisoformat(today)
-
-    return now.year - birth.year - ((now.month, now.day) < (birth.month, birth.day))
-
-
 def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
@@ -387,7 +380,7 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter
     clock. Both messages reach the log alone (`docs/logging/spec.md :: L4`).
     """
 
-    age = _whole_years_between(born=geburtsdatum, today=today)
+    age = whole_years_between(born=geburtsdatum, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
     # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
@@ -853,6 +846,29 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
     bestaetigungsfrist: CustomDateString
 
 
+class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
+    """The person seated where a contact person stepped out, carrying no `einwilligung` block.
+
+    `FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to
+    nothing: their own link is what asks them.
+    """
+
+    # The label alone, `compose_einwilligung` requiring one and the registry naming it being the
+    # frontend's (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`). Stripped before the
+    # floor counts it: a version that is spaces cites no text.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+
+class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
+    """Every seat the new person now holds, and the fresh link the caller mails them."""
+
+    # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
+    # the claim `kontakte.trainer_ist_zugleich` records.
+    rollen: list[FLKontaktRolle]
+    token: str
+    bestaetigungsfrist: CustomDateString
+
+
 class FLBewerbungKontaktEmailPayload(BaseModel):
     """The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten."""
 
@@ -976,12 +992,16 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."""
+    """Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database."""
 
     saison_ids: list[str]
     # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
     # once (`docs/backend/spec.md :: I189`). Null means no pass has ever run here.
     sweep_gelaufen_am: CustomDateString | None
+    # The registration pass's own day, answered from the read this operation already makes: the two
+    # clocks run in one process and stop separately, so a fresh date beside a stale one is what says
+    # which of them stopped.
+    registrierung_sweep_gelaufen_am: CustomDateString | None
 
 
 # --- The ZUSTELLSTAND, system tier. One endpoint records what the sender learned, the other applies

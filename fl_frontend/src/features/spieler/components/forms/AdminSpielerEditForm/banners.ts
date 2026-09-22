@@ -8,13 +8,13 @@ type SpielerBannerId =
   | "spieler.retired"
   | "spieler.not-in-kader-entry"
   | "spieler.row-retired-since"
-  | "spieler.nachgetragen"
-  | "spieler.entry-nachgetragen"
+  | "spieler.nachnominiert"
+  | "spieler.entry-nachnominiert"
   | "spieler.team-changed"
   | "spieler.kader-voll"
   | "spieler.rolle-vergeben";
 
-type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
+type SpielerBannerSpot = "kader-eintritt" | "kader-nachnominiert" | "kader-rolle" | "austragen";
 
 export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBannerSpot | null };
 
@@ -26,7 +26,7 @@ export function buildSpielerBanners({
   isMember,
   rowInactiveSince,
   isRowTeamInSaison,
-  isNachgetragen,
+  istNachnominiert,
   isTeamChanged,
   isSquadFull,
   blockedRolle,
@@ -39,7 +39,7 @@ export function buildSpielerBanners({
   rowInactiveSince: string | null;
   /** Whether the row's STORED club still holds a place in this season. Read only where a row is retired. */
   isRowTeamInSaison: boolean;
-  isNachgetragen: boolean;
+  istNachnominiert: boolean;
   isTeamChanged: boolean;
   /** Whether the DRAFT's team is at the season's `max_kadergroesse`, read off the draft as `blockedRolle` is. */
   isSquadFull: boolean;
@@ -70,18 +70,18 @@ export function buildSpielerBanners({
       inline: "kader-eintritt",
     });
 
-    // `is_nachgetragen` is derived from the season's status rather than asked — see `FormKaderSection`.
+    // `ist_nachnominiert` is derived from the season's status rather than asked — see `FormKaderSection`.
     // The body is the word's meaning, which its sibling below owes the reader for the same reason.
     if (saisonStatus !== "future") {
       banners.push({
-        id: "spieler.entry-nachgetragen",
+        id: "spieler.entry-nachnominiert",
         severity: "info",
         // `state` though it reads as a consequence: the panel's Aufnehmen button writes the flag on
         // its own, and nothing here waits on the editor's save.
         raisedBy: "state",
-        title: "Diese Person wird nachgetragen",
+        title: "Diese Person wird nachnominiert",
         body: "Zu Beginn der Saison war sie nicht im Kader.",
-        inline: "kader-nachgetragen",
+        inline: "kader-nachnominiert",
       });
     }
   }
@@ -103,14 +103,14 @@ export function buildSpielerBanners({
 
   // The person rather than the row, and the body says what the word means: the player list spells it
   // back as a badge, and no surface but this one tells a reader what it stands for.
-  if (isNachgetragen) {
+  if (istNachnominiert) {
     banners.push({
-      id: "spieler.nachgetragen",
+      id: "spieler.nachnominiert",
       severity: "info",
-      // `isNachgetragen` is a draft field the edit path never offers — `FormKaderSection` derives it
+      // `istNachnominiert` is a draft field the edit path never offers — `FormKaderSection` derives it
       // at entry — so this can only report the flag the row loaded with.
       raisedBy: "state",
-      title: "Diese Person wurde nachgetragen",
+      title: "Diese Person wurde nachnominiert",
       body: "Zu Beginn der Saison war sie nicht im Kader.",
       inline: null,
     });

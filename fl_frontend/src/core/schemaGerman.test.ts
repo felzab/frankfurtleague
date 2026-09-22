@@ -42,8 +42,9 @@ type Shaped = { def?: { shape?: Record<string, unknown>; type?: string; innerTyp
 const OUTSIDE_THE_SET = "__kein_mitglied__";
 
 /**
- * The emptiness this field's own control writes, which is `isAbsent`'s set. Probing every field with `null`
- * would grade a value no control can produce and report a message no reader is ever shown.
+ * The emptiness this field's own control writes, which is `isAbsent`'s set. Probing a NON-nullable leaf
+ * with `null` would grade a value no control can produce; a nullable one's `null` is `leafPaths`'s own
+ * probe beside this.
  */
 function emptyFor(schema: unknown): unknown {
   const def = (schema as Shaped).def;
@@ -77,7 +78,9 @@ function emptyFor(schema: unknown): unknown {
  * One graded probe. A union member carries its OWN root: a value under a discriminator is unreachable by
  * setting one path on the outer object, the discriminator failing first.
  */
-type Probe = { root: unknown; rootId: string; path: string; wrong: unknown };
+type Probe = { root: unknown; rootId: string; path: string; wrong: unknown; cleared: boolean };
+
+type Parsed = { safeParse: (value: unknown) => { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } } };
 
 /** `nullable`, `optional` and `default` wrap the thing that actually carries the shape. */
 function unwrap(schema: unknown): unknown {
@@ -85,6 +88,16 @@ function unwrap(schema: unknown): unknown {
   if (def?.type === "nullable" || def?.type === "optional" || def?.type === "default") return unwrap(def.innerType);
 
   return schema;
+}
+
+/** Whether a leaf can be handed `null` at all, which is the only place a cleared picker's value lands. */
+function admitsNull(schema: unknown): boolean {
+  const def = (schema as Shaped).def;
+  if (def?.type === "nullable") return true;
+
+  // `undefined` is not `null`, so neither wrapper admits one by itself — only the `nullable` one of
+  // them a chain may hold further in.
+  return (def?.type === "optional" || def?.type === "default") && admitsNull(def.innerType);
 }
 
 /** Walks the schema's own shape, so a field is found because it EXISTS rather than because of how it is written. */
@@ -102,7 +115,7 @@ function leafPaths(schema: unknown, prefix = "", root: unknown = schema, rootId 
   // Each member is identified separately: both spell `type`, and one id would grade only the first of them.
   if (def?.type === "union" && Array.isArray(def.options)) {
     return [
-      { root, rootId, path: prefix, wrong: {} },
+      { root, rootId, path: prefix, wrong: {}, cleared: false },
       ...def.options.flatMap((option, index) => leafPaths(option, "", option, `${rootId}${prefix}[${String(index)}]`)),
     ];
   }
@@ -111,7 +124,15 @@ function leafPaths(schema: unknown, prefix = "", root: unknown = schema, rootId 
   // name of its own, so a path restarted here leaves that payload judged by nothing.
   if (def?.type === "array" && def.element !== undefined) return leafPaths(def.element, prefix === "" ? "0" : `${prefix}.0`, root, rootId);
 
-  return prefix === "" ? [] : [{ root, rootId, path: prefix, wrong: emptyFor(inner) }];
+  if (prefix === "") return [];
+
+  // Both values where the leaf admits `null`: a cleared PICKER writes that, a cleared BOX writes the
+  // inner type's own emptiness, and a leaf graded on one of them leaves the other's control
+  // promising a refusal nothing checked.
+  const empty = emptyFor(inner);
+  const emptied = { root, rootId, path: prefix, wrong: empty, cleared: false };
+
+  return admitsNull(schema) && empty !== null ? [emptied, { root, rootId, path: prefix, wrong: null, cleared: true }] : [emptied];
 }
 
 function setAt(target: Record<string, unknown>, path: string[], value: unknown): void {
@@ -140,6 +161,25 @@ describe("what the walker reads off a schema", () => {
   it("finds nothing where a schema carries no field, which is the state the floor below refuses", () => {
     assert.deepEqual(leafPaths(z.object({})), []);
   });
+
+  it("probes a nullable leaf with the null a cleared control writes, beside the type's own emptiness", () => {
+    /* The two are written by different controls — a cleared picker and a cleared box — and a leaf
+       graded on one of them leaves the other's control promising a refusal nothing checked. */
+    assert.deepEqual(
+      leafPaths(z.object({ datum: z.string().nullable(), name: z.string(), anzahl: z.number().nullable() })).map(({ path, wrong, cleared }) => [
+        path,
+        wrong,
+        cleared,
+      ]),
+      [
+        ["datum", "", false],
+        ["datum", null, true],
+        ["name", "", false],
+        // One probe where the type's own emptiness IS `null`: a second would grade the same value twice.
+        ["anzahl", null, false],
+      ],
+    );
+  });
 });
 
 describe("what a bound schema says when a field is emptied", () => {
@@ -152,7 +192,11 @@ describe("what a bound schema says when a field is emptied", () => {
     });
 
     const seen = new Set<string>();
-    for (const { root, rootId, path, wrong } of probes) {
+    for (const { root, rootId, path, wrong, cleared } of probes) {
+      // A nullable leaf admits `null` by construction, so a case here could only ever speak for a
+      // refinement a payload carrying one field never reaches. `marked` is where that probe answers.
+      if (cleared) continue;
+
       // Only what a control can leave behind, or — for a closed set — a value outside it. `undefined` here
       // means a shape neither applies to. The key dedupes the same leaf reached through two union members.
       if (wrong === undefined || path === "") continue;
@@ -181,9 +225,9 @@ describe("what a bound schema says when a field is emptied", () => {
 
 const TAG = /<[A-Za-z][\w.]*/g;
 // The mark as a bare attribute: the tag carries its own `>`, so a boundary of whitespace alone
-// would lose `<X name="a" isRequired>`. The braced arm takes the literal alone, a conditional mark
-// being out of `requiredNamesIn`'s reach.
-const MARK = /\bisRequired(?![\w=])|\bisRequired=\{\s*true\s*\}/;
+// would lose `<X name="a" isRequired>`. The braces are `carriesMark`'s depth tokens, and the
+// literal arm is what survives its count.
+const MARK = /[{}]|\bisRequired(?![\w=])|\bisRequired=\{\s*true\s*\}/g;
 const LITERAL_NAME = /\bname="([^"]*)"/;
 /** A name a template composes around one prop hole, wherever in the path that hole sits. */
 const TEMPLATE_NAME = /\bname=\{`([^`${]*)\$\{(\w+)\}([^`${]*)`\}/;
@@ -208,6 +252,23 @@ function carriesSpread(opening: string): boolean {
       depth += 1;
       if (depth === 1 && /^\{\s*\.\.\./.test(opening.slice(at))) return true;
     } else if (opening[at] === "}") depth -= 1;
+  }
+
+  return false;
+}
+
+/**
+ * Depth-counted as `carriesSpread` is: a control forwarding `isRequired={isRequired}` leaves the
+ * mark to its call sites, and read as a mark here it promises every site's path whether that site
+ * asked for one or not.
+ */
+function carriesMark(opening: string): boolean {
+  let depth = 0;
+
+  for (const token of opening.matchAll(MARK)) {
+    if (token[0] === "{") depth += 1;
+    else if (token[0] === "}") depth -= 1;
+    else if (depth === 0) return true;
   }
 
   return false;
@@ -283,7 +344,7 @@ function requiredNamesIn(
       unread.push(source.slice(tag.index).split("\n")[0] ?? "");
       continue;
     }
-    if (!MARK.test(opening)) continue;
+    if (!carriesMark(opening)) continue;
 
     const literal = LITERAL_NAME.exec(opening);
     if (literal?.[1] !== undefined) {
@@ -337,8 +398,11 @@ function enclosingComponent(text: string, at: number): { name: string; body: str
   return { name: opening[1], body: text.slice(opening.index, declarations[index + 1]?.index) };
 }
 
-/** Every value a prop holds where a `name` is built from it, resolved from the tree rather than listed. */
-function propValues(tree: ReadonlyMap<string, string>, file: string, identifier: string, at: number): string[] {
+/**
+ * Every value a prop holds where a `name` is built from it, resolved from the tree rather than listed,
+ * and every call site whose value no reader here could read.
+ */
+function propValues(tree: ReadonlyMap<string, string>, file: string, identifier: string, at: number): { values: string[]; unread: string[] } {
   const text = tree.get(file) ?? "";
   // The component the mark stands INSIDE, never the file's first: three rule controls share one
   // module, and a file-wide answer would credit every path to whichever is declared first.
@@ -347,40 +411,75 @@ function propValues(tree: ReadonlyMap<string, string>, file: string, identifier:
   // The destructuring's own punctuation, never its indentation: a prop reflowed onto one line with
   // its siblings is a prop this reader would stop finding, with every path built from it going too.
   const declared = new RegExp(String.raw`[,{]\s*` + identifier + String.raw`\s*(?:=\s*"([^"]*)")?\s*[,}]`).exec(enclosing?.body ?? "");
-  if (component === undefined || declared === null) return [];
+  if (component === undefined || declared === null) return { values: [], unread: [] };
 
   const fallback = declared[1];
   const literal = new RegExp(String.raw`\b` + identifier + String.raw`="([^"]*)"`);
   const expression = new RegExp(String.raw`\b` + identifier + String.raw`=\{`);
+  const composed = new RegExp(String.raw`\b` + identifier + String.raw`=\{\s*` + "`([^`]*)`" + String.raw`\s*\}`);
   const values: string[] = [];
+  const unread: string[] = [];
 
   for (const [other, otherText] of tree) {
     if (other === file) continue;
 
     for (const site of otherText.matchAll(new RegExp(String.raw`<` + component + String.raw`\b`, "g"))) {
       const tag = openingTag(otherText, site.index);
-      // Thrown rather than skipped: an empty span fails both tests below, so an unreadable site is
+      // Thrown rather than skipped: an empty span fails every test below, so an unreadable site is
       // credited the default and the sweep grades a path that site may have overridden.
       if (tag === "") throw new Error(`${other}: a <${component}> site's opening tag could not be read`);
       const passed = literal.exec(tag);
 
-      if (passed?.[1] !== undefined) values.push(passed[1]);
-      // The default only where a site leaves the prop off, and nothing where one passes an
-      // expression: a default every site overrides names a path no form writes.
-      else if (!expression.test(tag) && fallback !== undefined) values.push(fallback);
+      if (passed?.[1] !== undefined) {
+        values.push(passed[1]);
+        continue;
+      }
+      if (!expression.test(tag)) {
+        // The default only where a site leaves the prop off: one every site overrides names a path
+        // no form writes.
+        if (fallback !== undefined) values.push(fallback);
+        continue;
+      }
+
+      // `namesFromTemplate` again rather than a second reader of the same shape: the hole is a
+      // segment a form fills, which `covers` closes against the schema's own keys at that position.
+      const template = composed.exec(tag);
+      const credited =
+        template?.[1] === undefined ? [] : namesFromTemplate(template[1], () => [SEGMENT], site.index).filter((name) => name !== SEGMENT);
+
+      // A hole standing alone would cover every top-level path and an opaque expression covers
+      // none, so neither is credited: reported instead, because a site read as nothing leaves the
+      // mark graded by whichever sibling site happens to pass a literal.
+      if (credited.length === 0) unread.push(`${other}: ${tag}`);
+      else values.push(...credited);
     }
   }
-  return [...new Set(values)];
+  return { values: [...new Set(values)], unread };
+}
+
+/** Every marked control one file leaves unplaced, and every call site of one that no reader could read. */
+function unplaceableIn(tree: ReadonlyMap<string, string>, file: string): string[] {
+  // A call site stands in ANOTHER file, so only `propValues` ever sees it and only a mark makes it
+  // matter: collected here, where the reader that never opened that file would drop it.
+  const sites: string[] = [];
+  const { unread } = requiredNamesIn(
+    tree.get(file) ?? "",
+    (identifier, at) => {
+      const resolved = propValues(tree, file, identifier, at);
+      sites.push(...resolved.unread);
+
+      return resolved.values;
+    },
+    (component) => fixedNameOf(tree, component),
+  );
+
+  // Deduped: one control's several marked primitives resolve the same prop once each, and a site
+  // named five times is five copies of one finding.
+  return [...unread.map((tag) => `${file}: ${tag}`), ...new Set(sites)];
 }
 
 /** Every marked control no reader above could place, against the file it stands in. */
-const UNREAD = [...COMPONENTS].flatMap(([file, text]) =>
-  requiredNamesIn(
-    text,
-    (identifier, at) => propValues(COMPONENTS, file, identifier, at),
-    (component) => fixedNameOf(COMPONENTS, component),
-  ).unread.map((tag) => `${file}: ${tag}`),
-);
+const UNREAD = [...COMPONENTS.keys()].flatMap((file) => unplaceableIn(COMPONENTS, file));
 
 /** One required name against one schema path, the wildcard standing for the segment a form fills. */
 const covers = (name: string, candidate: string): boolean =>
@@ -527,7 +626,7 @@ const READ = FORMS.map((form) => {
       ([file, text]) =>
         requiredNamesIn(
           text,
-          (identifier, at) => propValues(tree, file, identifier, at),
+          (identifier, at) => propValues(tree, file, identifier, at).values,
           (component) => fixedNameOf(tree, component),
         ).names,
     ),
@@ -537,7 +636,7 @@ const READ = FORMS.map((form) => {
       // This form's own schemas, never a name match over `BOUND`: `grund` sits on three payloads, and a
       // match makes two of them answer for a mark no control of theirs carries (`docs/frontend/spec.md` §1.9).
       .filter((probe) => probe.rootId === "" && probe.wrong !== undefined && [...names].some((name) => covers(name, probe.path)))
-      .map((probe) => ({ schema, root: probe.root, path: probe.path, wrong: probe.wrong })),
+      .map((probe) => ({ schema, root: probe.root, path: probe.path, wrong: probe.wrong, cleared: probe.cleared })),
   );
 
   return { ...form, tree: [...tree.keys()], names: [...names], probes };
@@ -549,8 +648,220 @@ const REQUIRED_NAMES = new Set(READ.flatMap(({ names }) => names));
 /** Every file a form renders through, which is the reach inside which a mark is graded at all. */
 const REACHED = new Set(READ.flatMap(({ tree }) => tree));
 
+/**
+ * A marked control whose path belongs to a payload its own form does not submit. The draw's boxes go
+ * to `fl_frontend/src/features/saisons/actions.ts :: generateSpielplanAction`, which the season
+ * editor's schema knows nothing of.
+ */
+const SUBMITTED_ELSEWHERE = [
+  {
+    site: "features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
+    schema: "features/saisons/schemas.ts :: FLGenerateSpielplanPayloadSchema",
+    names: ["shape.number_of_groups", "shape.qualifiers_per_group", "shape.teams_per_group"],
+  },
+];
+
+/** Each credited name its own form's schemas do not carry, against the register row answering for it. */
+const STRAY = READ.flatMap(({ file, tree, names, probes }) =>
+  names
+    .filter((name) => !probes.some((probe) => covers(name, probe.path)))
+    .map((name) => ({
+      file,
+      name,
+      // Tied to the call site as well as to the name: a row answers for the form rendering its site
+      // and for no other, so a second form crediting the same name still has to place it itself.
+      row: SUBMITTED_ELSEWHERE.find((entry) => tree.includes(entry.site) && entry.names.every((path) => covers(name, path))),
+    })),
+);
+
+/** Each register row's names against the schema it names, which is the row's other direction. */
+const ELSEWHERE = SUBMITTED_ELSEWHERE.flatMap((row) =>
+  row.names.flatMap((name) =>
+    // Every probe that leaf carries rather than the first: a nullable one answers for two values, and
+    // the one taken would be whichever the walker happened to emit ahead of the other.
+    leafPaths(BOUND[row.schema] ?? z.object({}))
+      .filter((found) => found.rootId === "" && found.path === name && found.wrong !== undefined)
+      .map((probe) => ({ schema: row.schema, name, probe })),
+  ),
+);
+
 /** One schema's path that a form marks required, with the emptiness that field's own control writes. */
-const marked = [...new Map(READ.flatMap(({ probes }) => probes.map((probe) => [`${probe.schema}.${probe.path}`, probe] as const))).values()];
+const marked = [
+  ...new Map(
+    [
+      ...READ.flatMap(({ probes }) => probes),
+      // The register's rows grade here rather than in a case of their own: the promise a mark makes
+      // is one promise, and a second copy of this body would be a second thing to keep true.
+      ...ELSEWHERE.map(({ schema, probe }) => ({ schema, root: probe.root, path: probe.path, wrong: probe.wrong, cleared: probe.cleared })),
+      // Keyed on the value as well as the path: one leaf carries two probes where it admits `null`,
+      // and a key over the path alone would keep whichever of them the walker emitted second.
+    ].map((probe) => [`${probe.schema}.${probe.path}:${String(probe.wrong)}`, probe] as const),
+  ).values(),
+];
+
+/** The marked leaves a schema judges on the value alone, which is every one that cannot be handed `null`. */
+const EMPTIED = marked.filter(({ cleared }) => !cleared);
+
+/** The marked leaves that admit a cleared picker's `null`, which no leaf can refuse by itself. */
+const CLEARED = marked.filter(({ cleared }) => cleared);
+
+/**
+ * What refuses the `null` a cleared control writes, where the leaf admits one. `.nullable()` IS the
+ * admission, so the promise a mark makes there is a sibling field's or the browser's, and neither is
+ * readable from the leaf.
+ */
+const NULL_REFUSED_BY: { schema: string; path: string; beside?: Record<string, unknown>; browser?: string }[] = [
+  {
+    schema: "features/bewerbungen/schemas.ts :: FLBewerbungEinwilligungAntwortPayloadSchema",
+    path: "geburtsdatum",
+    // The consenting answer is what the marked press sends; an objection must carry no date at all,
+    // and its own press is not a submit, so no mark of this one ever reaches it.
+    beside: { token: "abcdefghijklmnopqrst", antwort: "erteilt", whatsapp: false, text_version: "2026-09-01" },
+  },
+  {
+    schema: "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema",
+    path: "team_id",
+    // A proposed school is the other half of one answer, so the pair refuses only where neither
+    // stands — which is why the refusal is keyed to this field rather than to the record.
+    beside: { schule: null },
+  },
+  {
+    schema: "features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema",
+    path: "sonderereignis",
+    // Dropping the event is how a fixture goes back on, so the write path takes the null and has no
+    // rule to lend; the switch asserting an event is what makes an empty pick wrong, and it says so.
+    browser: "features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx",
+  },
+];
+
+/**
+ * Every leaf a form marks required, pinned. The cases below are GENERATED from the marks, so a
+ * deleted mark takes its own case with it while every floor over the rest of the tree stays green.
+ */
+const MARKED_LEAVES = [
+  "features/auth/schemas.ts :: SignInPayloadSchema.email",
+  "features/bewerbungen/schemas.ts :: FLBewerbungEinwilligungAntwortPayloadSchema.geburtsdatum",
+  "features/bewerbungen/schemas.ts :: FLBewerbungKontaktEmailPayloadSchema.email",
+  "features/bewerbungen/schemas.ts :: FLBewerbungKontaktSitzPayloadSchema.email",
+  "features/bewerbungen/schemas.ts :: FLBewerbungKontaktSitzPayloadSchema.nachname",
+  "features/bewerbungen/schemas.ts :: FLBewerbungKontaktSitzPayloadSchema.telefon",
+  "features/bewerbungen/schemas.ts :: FLBewerbungKontaktSitzPayloadSchema.vorname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kader.gute_spieler",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kader.voraussichtliche_groesse",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.ansprechperson.einwilligung.erteilt",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.ansprechperson.email",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.ansprechperson.nachname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.ansprechperson.telefon",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.ansprechperson.vorname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.stellvertretung.email",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.stellvertretung.nachname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.stellvertretung.telefon",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.stellvertretung.vorname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.trainer.email",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.trainer.nachname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.trainer.telefon",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.kontakte.trainer.vorname",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.address.plz",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.address.stadt",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.address.strasse",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.full_name",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.schulform",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.shorthand",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.schule.team_name",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.stufengroesse",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.team_id",
+  "features/bewerbungen/schemas.ts :: FLPostBewerbungPayloadSchema.trikot.wunschfarbe",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.ansprechperson.einwilligung.text_version",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.ansprechperson.email",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.ansprechperson.nachname",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.ansprechperson.telefon",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.ansprechperson.vorname",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.stellvertretung.einwilligung.text_version",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.stellvertretung.email",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.stellvertretung.nachname",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.stellvertretung.telefon",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.stellvertretung.vorname",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.trainer.einwilligung.text_version",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.trainer.email",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.trainer.nachname",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.trainer.telefon",
+  "features/kontakte/schemas.ts :: FLPatchSaisonTeamKontaktePayloadSchema.kontakte.trainer.vorname",
+  "features/registrierungen/schemas.ts :: FLPostRegistrierungPayloadSchema.email",
+  "features/registrierungen/schemas.ts :: FLPostRegistrierungPayloadSchema.nachname",
+  "features/registrierungen/schemas.ts :: FLPostRegistrierungPayloadSchema.vorname",
+  "features/registrierungen/schemas.ts :: FLRegistrierungBestaetigungPayloadSchema.geburtsdatum",
+  "features/registrierungen/schemas.ts :: FLRegistrierungBestaetigungPayloadSchema.umfang",
+  "features/saisons/schemas.ts :: FLGenerateSpielplanPayloadSchema.shape.number_of_groups",
+  "features/saisons/schemas.ts :: FLGenerateSpielplanPayloadSchema.shape.qualifiers_per_group",
+  "features/saisons/schemas.ts :: FLGenerateSpielplanPayloadSchema.shape.teams_per_group",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.bewerbung.bis",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.bewerbung.von",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.end_date",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.registrierung.bis",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.registrierung.von",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.draw_points",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.forfeit_ergebnis.sieger_tore",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.forfeit_ergebnis.verlierer_tore",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.max_kadergroesse",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.number_of_groups",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.qualifiers_per_group",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.teams_per_group",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.tiebreak_order",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.rules.win_points",
+  "features/saisons/schemas.ts :: FLPatchSaisonPayloadSchema.start_date",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.end_date",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.id",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.draw_points",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.forfeit_ergebnis.sieger_tore",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.forfeit_ergebnis.verlierer_tore",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.max_kadergroesse",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.number_of_groups",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.qualifiers_per_group",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.teams_per_group",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.tiebreak_order",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.rules.win_points",
+  "features/saisons/schemas.ts :: FLPostSaisonPayloadSchema.start_date",
+  "features/schiedsrichter/schemas.ts :: FLPatchSchiedsrichterPayloadSchema.default_payment",
+  "features/schiedsrichter/schemas.ts :: FLPatchSchiedsrichterPayloadSchema.name",
+  "features/schiedsrichter/schemas.ts :: FLPostSchiedsrichterPayloadSchema.default_payment",
+  "features/schiedsrichter/schemas.ts :: FLPostSchiedsrichterPayloadSchema.name",
+  "features/schiedsrichter/schemas.ts :: FLSchiedsrichterBestaetigungPayloadSchema.geburtsdatum",
+  "features/schiedsrichter/schemas.ts :: FLSchiedsrichterBestaetigungPayloadSchema.umfang",
+  "features/sperrliste/schemas.ts :: FLPostSperrlistePayloadSchema.email",
+  "features/sperrliste/schemas.ts :: FLPostSperrlistePayloadSchema.grund",
+  "features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema.sonderereignis",
+  "features/spieler/schemas.ts :: FLPatchSaisonSpielerPayloadSchema.team_id",
+  "features/spieler/schemas.ts :: FLPatchSpielerPayloadSchema.vorname",
+  "features/spielorte/schemas.ts :: FLPatchSpielortPayloadSchema.address.plz",
+  "features/spielorte/schemas.ts :: FLPatchSpielortPayloadSchema.address.stadt",
+  "features/spielorte/schemas.ts :: FLPatchSpielortPayloadSchema.address.strasse",
+  "features/spielorte/schemas.ts :: FLPatchSpielortPayloadSchema.default_mietpreis",
+  "features/spielorte/schemas.ts :: FLPatchSpielortPayloadSchema.name",
+  "features/spielorte/schemas.ts :: FLPostSpielortPayloadSchema.address.plz",
+  "features/spielorte/schemas.ts :: FLPostSpielortPayloadSchema.address.stadt",
+  "features/spielorte/schemas.ts :: FLPostSpielortPayloadSchema.address.strasse",
+  "features/spielorte/schemas.ts :: FLPostSpielortPayloadSchema.default_mietpreis",
+  "features/spielorte/schemas.ts :: FLPostSpielortPayloadSchema.name",
+  "features/spieltage/schemas.ts :: FLPatchSpieltagPayloadSchema.beginn",
+  "features/spieltage/schemas.ts :: FLPatchSpieltagPayloadSchema.ende",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.address.plz",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.address.stadt",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.address.strasse",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.full_name",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.gruppe",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.name",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.saison_id",
+  "features/teams/schemas.ts :: FLCreateTeamFormPayloadSchema.shorthand",
+  "features/teams/schemas.ts :: FLPatchSaisonTeamPayloadSchema.austritt.datum",
+  "features/teams/schemas.ts :: FLPatchSaisonTeamPayloadSchema.austritt.grund",
+  "features/teams/schemas.ts :: FLPatchSaisonTeamPayloadSchema.gruppe",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.address.plz",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.address.stadt",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.address.strasse",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.full_name",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.name",
+  "features/teams/schemas.ts :: FLPatchTeamPayloadSchema.shorthand",
+];
 
 describe("what a schema does with a field its form marks required", () => {
   it("reads a mark off the control that carries it, and off no other", () => {
@@ -759,8 +1070,8 @@ describe("what a schema does with a field its form marks required", () => {
     ]);
     const source = controls.get("controls.tsx") ?? "";
 
-    assert.deepEqual(propValues(controls, "controls.tsx", "name", source.indexOf("<NumberField")), ["rules.win_points"]);
-    assert.deepEqual(propValues(controls, "controls.tsx", "name", source.indexOf("<Select")), ["rules.number_of_groups"]);
+    assert.deepEqual(propValues(controls, "controls.tsx", "name", source.indexOf("<NumberField")).values, ["rules.win_points"]);
+    assert.deepEqual(propValues(controls, "controls.tsx", "name", source.indexOf("<Select")).values, ["rules.number_of_groups"]);
   });
 
   it("takes a bare `name` prop through to the paths its call sites write", () => {
@@ -796,7 +1107,62 @@ describe("what a schema does with a field its form marks required", () => {
       ["form.tsx", '<AddressFields namePrefix="schule.address" />\n<AddressFields />'],
     ]);
 
-    assert.deepEqual(propValues(sources, "fields.tsx", "namePrefix", INSIDE_THE_ONLY_COMPONENT), ["schule.address", "address"]);
+    assert.deepEqual(propValues(sources, "fields.tsx", "namePrefix", INSIDE_THE_ONLY_COMPONENT).values, ["schule.address", "address"]);
+  });
+
+  it("credits the wildcard a template site names, and reports the site whose value is a hole alone", () => {
+    /* Both spellings of a hole with nothing around it, because they reach the reader by different
+       branches and a fixture holding one alone would leave the other's branch free to credit a bare
+       segment. */
+    const sources = new Map([
+      ["controls.tsx", "export function CountSelect({ name, options }: Props) {\n  <Select isRequired name={name}>"],
+      [
+        "form.tsx",
+        [
+          "<CountSelect name={`shape.${shapeKey}`} />",
+          "<CountSelect name={`${feld}.anzahl`} />",
+          "<CountSelect name={`${feld}`} />",
+          "<CountSelect name={feld} />",
+        ].join("\n"),
+      ],
+    ]);
+
+    assert.deepEqual(propValues(sources, "controls.tsx", "name", INSIDE_THE_ONLY_COMPONENT), {
+      values: [`shape.${SEGMENT}`, `${SEGMENT}.anzahl`],
+      unread: ["form.tsx: <CountSelect name={`${feld}`} />", "form.tsx: <CountSelect name={feld} />"],
+    });
+  });
+
+  it("carries an unreadable call site up to the file that marks the control", () => {
+    /* The mark is in one file and the site in another, so a finding dropped by either reader is a
+       finding nobody makes: the control's file is where it has to surface. */
+    const marks = new Map([
+      ["controls.tsx", "export function CountSelect({ name }: Props) {\n  <Select isRequired name={name}>"],
+      ["form.tsx", "<CountSelect name={feld} />"],
+    ]);
+
+    assert.deepEqual(unplaceableIn(marks, "controls.tsx"), ["form.tsx: <CountSelect name={feld} />"]);
+    // The site's own file marks nothing, so the finding is not reported twice over.
+    assert.deepEqual(unplaceableIn(marks, "form.tsx"), []);
+  });
+
+  it("leaves a control forwarding its own mark out of reach, with its call sites", () => {
+    /* `AppDatePicker`'s spelling, where the condition is the prop of the same name: read as a mark,
+       its unreadable call sites become findings against a promise the surface never makes. */
+    const forwarded = new Map([
+      ["picker.tsx", "export function AppDatePicker({ name, isRequired }: Props) {\n  <DatePicker isRequired={isRequired} name={name}>"],
+      ["form.tsx", '<AppDatePicker name={feld} />\n<AppDatePicker name="geburtsdatum" />'],
+    ]);
+
+    assert.deepEqual(unplaceableIn(forwarded, "picker.tsx"), []);
+    assert.deepEqual(
+      requiredNamesIn(
+        forwarded.get("picker.tsx") ?? "",
+        () => ["geburtsdatum"],
+        () => [],
+      ).names,
+      [],
+    );
   });
 
   /* A site that overrides the prop and a site that leaves it off are told apart by the tag alone, so
@@ -867,7 +1233,7 @@ describe("what a schema does with a field its form marks required", () => {
       .filter(([file, text]) => {
         const { names, unread } = requiredNamesIn(
           text,
-          (identifier, at) => propValues(COMPONENTS, file, identifier, at),
+          (identifier, at) => propValues(COMPONENTS, file, identifier, at).values,
           (component) => fixedNameOf(COMPONENTS, component),
         );
 
@@ -881,11 +1247,86 @@ describe("what a schema does with a field its form marks required", () => {
   it("lands every required name on a path of the schema its own form submits", () => {
     /* The mark and the path are written in two files, and a rename in either parts them: the pair
        leaves `marked` below, its case with it, and no floor over the rest of the tree moves. */
-    const unplaced = READ.flatMap(({ file, names, probes }) =>
-      names.filter((name) => !probes.some((probe) => covers(name, probe.path))).map((name) => `${file}: ${name}`),
-    );
+    const unplaced = STRAY.filter(({ row }) => row === undefined).map(({ file, name }) => `${file}: ${name}`);
 
     assert.deepEqual(unplaced, [], `these forms mark a path their own payload schema does not carry:\n  ${unplaced.join("\n  ")}`);
+  });
+
+  it("names in every register row exactly the leaves its site's own name covers", () => {
+    /* Both directions, because each is a silent loss that leaves every floor green: a renamed schema
+       key leaves a row naming nothing, and a name dropped from a row takes its path out of the
+       grading above. */
+    const mismatched = STRAY.flatMap(({ name, row }) => {
+      if (row === undefined) return [];
+      const covered = leafPaths(BOUND[row.schema] ?? z.object({}))
+        .filter((probe) => probe.rootId === "" && probe.wrong !== undefined && covers(name, probe.path))
+        .map((probe) => probe.path);
+
+      return [...covered.filter((path) => !row.names.includes(path)), ...row.names.filter((path) => !covered.includes(path))].map(
+        (path) => `${row.schema}.${path}`,
+      );
+    });
+
+    assert.deepEqual(mismatched, [], `these register rows and their schemas name different paths:\n  ${mismatched.join("\n  ")}`);
+  });
+
+  it("keeps no register row whose site is gone, or whose names its own form now carries", () => {
+    /* A row is the claim that one form cannot answer for a name. Left standing once the form can, or
+       once its site is deleted, it is an excuse waiting for the next stray to arrive under it. */
+    const answered = new Set(STRAY.flatMap(({ row }) => (row === undefined ? [] : [row])));
+    const stale = SUBMITTED_ELSEWHERE.filter((row) => !COMPONENTS.has(row.site) || !answered.has(row)).map((row) => row.site);
+
+    assert.deepEqual(stale, [], `these register rows answer for nothing on the tree:\n  ${stale.join("\n  ")}`);
+  });
+
+  it("answers in the null register for exactly the marked leaves that admit a cleared control's null", () => {
+    /* Both directions: a new nullable marked leaf arriving with no row is a promise nothing keeps,
+       and a row outliving its leaf is an excuse waiting for the next one to arrive under it. */
+    const admitting = CLEARED.map(({ schema, path }) => `${schema}.${path}`).sort();
+    const answered = NULL_REFUSED_BY.map((row) => `${row.schema}.${row.path}`).sort();
+
+    assert.deepEqual(answered, admitting);
+  });
+
+  it("refuses the null beside the siblings every register row names, in German", () => {
+    /* The row's own payload is parsed rather than believed: a sibling renamed, or a refinement
+       dropped, leaves the row claiming a refusal the schema stopped making. */
+    const unrefused = NULL_REFUSED_BY.flatMap((row) => {
+      if (row.beside === undefined) return [];
+      const payload: Record<string, unknown> = { ...row.beside };
+      setAt(payload, row.path.split("."), null);
+      const parsed = (BOUND[row.schema] as Parsed | undefined)?.safeParse(payload);
+      const issue = (parsed?.error?.issues ?? []).find((found) => found.path.join(".") === row.path);
+
+      if (issue === undefined) return [`${row.schema}.${row.path}: nothing refused the null`];
+      return ZOD_DEFAULT.test(issue.message) ? [`${row.schema}.${row.path}: "${issue.message}"`] : [];
+    });
+
+    assert.deepEqual(unrefused, [], `these register rows do not answer a cleared control in German:\n  ${unrefused.join("\n  ")}`);
+  });
+
+  it("keeps a browser-only row only while its schema still takes the null and its control still stands", () => {
+    /* The one row shape that checks nothing about a schema has to check that there is still nothing
+       to check: a schema that started refusing makes the row an excuse, and so does a deleted file. */
+    const stale = NULL_REFUSED_BY.flatMap((row) => {
+      if (row.browser === undefined) return [];
+      const payload: Record<string, unknown> = {};
+      setAt(payload, row.path.split("."), null);
+      const parsed = (BOUND[row.schema] as Parsed | undefined)?.safeParse(payload);
+      const refused = (parsed?.error?.issues ?? []).some((found) => found.path.join(".") === row.path);
+
+      return refused || !COMPONENTS.has(row.browser) ? [`${row.schema}.${row.path}`] : [];
+    });
+
+    assert.deepEqual(stale, [], `these browser-only rows no longer describe the tree:\n  ${stale.join("\n  ")}`);
+  });
+
+  it("grades exactly the leaves the register names, so a mark deleted is a failure rather than a smaller run", () => {
+    /* Both directions from one comparison: a mark removed leaves a name here with nothing behind it,
+       and a mark added arrives with no row, which is where its refusal is read for the first time. */
+    const graded = EMPTIED.map(({ schema, path }) => `${schema}.${path}`).sort();
+
+    assert.deepEqual(graded, [...MARKED_LEAVES].sort());
   });
 
   it("found the forms, the marks and the schema paths they land on", () => {
@@ -898,7 +1339,7 @@ describe("what a schema does with a field its form marks required", () => {
     assert.ok(marked.length >= 80, `expected at least 80 schema paths carrying a mark, found ${String(marked.length)}`);
   });
 
-  for (const { schema, root, path: fieldPath, wrong } of marked) {
+  for (const { schema, root, path: fieldPath, wrong } of EMPTIED) {
     it(`${schema}.${fieldPath} refuses the emptiness its control writes`, () => {
       /* The mark and the schema are two halves of one promise. A field that keeps its asterisk and
          stops refusing takes the whole promise with it, and every other guard on this branch stays

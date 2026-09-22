@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-const EDGE_CONFIG = path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "prod.conf");
+import { redactedParameterNames } from "./edgeRedaction.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -22,19 +20,6 @@ registerHooks({
 });
 
 const { ANMELDE_BESTAETIGEN_PATH, buildAnmeldeLink } = await import("./anmeldeLink.ts");
-
-/**
- * The parameter names the edge replaces in its access line, read off the map rather than retyped:
- * two literals agreeing is what let three modules drift apart in the first place.
- */
-function redactedParameterNames(): string[] {
-  const config = readFileSync(EDGE_CONFIG, "utf8");
-  const block = config.slice(config.indexOf("map $request_uri $credential_free_uri {"));
-  const arms = block.slice(0, block.indexOf("}"));
-  const alternations = [...arms.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((match) => (match[1] ?? "").split("|"));
-
-  return [...new Set(alternations)];
-}
 
 describe("the sign-in link the mail carries", () => {
   it("puts the token on the configured origin, under the page whose button spends it", () => {

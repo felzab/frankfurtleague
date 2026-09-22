@@ -15,7 +15,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isMember: true,
     rowInactiveSince: null,
     isRowTeamInSaison: true,
-    isNachgetragen: false,
+    istNachnominiert: false,
     isTeamChanged: false,
     isSquadFull: false,
     blockedRolle: null,
@@ -55,8 +55,8 @@ describe("buildSpielerBanners", () => {
     for (const [id, raised] of [
       ["spieler.retired", build({ isRetired: true })],
       ["spieler.not-in-kader-entry", build({ isMember: false })],
-      ["spieler.entry-nachgetragen", build({ isMember: false, saisonStatus: "active" })],
-      ["spieler.nachgetragen", build({ isNachgetragen: true })],
+      ["spieler.entry-nachnominiert", build({ isMember: false, saisonStatus: "active" })],
+      ["spieler.nachnominiert", build({ istNachnominiert: true })],
     ] as const) {
       const banner = raised.find((candidate) => candidate.id === id);
 
@@ -96,19 +96,19 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.severity, "info");
   });
 
-  it("announces the derived nachgetragen flag only where there is no row to enter into yet", () => {
-    /* Both name the player, and both spell the word out: „nachgetragen“ is what the player list
+  it("announces the derived nachnominiert flag only where there is no row to enter into yet", () => {
+    /* Both name the player, and both spell the word out: „nachnominiert“ is what the player list
        spells back as a badge, and no surface but this one says what it means. */
-    const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen");
-    const standing = build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen");
+    const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachnominiert");
+    const standing = build({ istNachnominiert: true }).find(({ id }) => id === "spieler.nachnominiert");
 
-    assert.match(entering?.title ?? "", /Diese Person wird nachgetragen/);
-    assert.match(standing?.title ?? "", /Diese Person wurde nachgetragen/);
+    assert.match(entering?.title ?? "", /Diese Person wird nachnominiert/);
+    assert.match(standing?.title ?? "", /Diese Person wurde nachnominiert/);
     assert.match(entering?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
     assert.match(standing?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
-    assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
-    assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachgetragen"));
-    assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
+    assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachnominiert"));
+    assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachnominiert"));
+    assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachnominiert"));
   });
 
   /* Dictated copy, so both lines are pinned literally rather than by a loosened pattern: a sweep
@@ -158,8 +158,8 @@ describe("buildSpielerBanners", () => {
 
   /* Both are read off a DRAFT field and neither is this save's doing: the flag is derived at entry
      and never offered here, and the role is one another squad row already holds. */
-  it("classifies the nachgetragen flag and a taken role as state", () => {
-    assert.equal(build({ isNachgetragen: true })[0]?.raisedBy, "state");
+  it("classifies the nachnominiert flag and a taken role as state", () => {
+    assert.equal(build({ istNachnominiert: true })[0]?.raisedBy, "state");
     assert.equal(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy, "state");
   });
 

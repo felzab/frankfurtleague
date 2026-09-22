@@ -139,14 +139,18 @@ else
       # The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are
       # retyped by hand in these modules, so a diff editing the frontend side of a mirror would
       # otherwise reach that comparison no earlier than the push to main.
-      fl_frontend/src/shared/schemas.ts|fl_frontend/src/features/bewerbungen/constants.ts| \
+      fl_frontend/src/shared/schemas.ts|fl_frontend/src/core/emailAddress.ts| \
+      fl_frontend/src/features/bewerbungen/constants.ts| \
       fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts| \
       fl_frontend/src/features/saisons/constants.ts|fl_frontend/src/features/saisons/schemas.ts| \
       fl_frontend/src/features/saisons/shapeOffer.ts|fl_frontend/src/features/bewerbungen/schemas.ts| \
       fl_frontend/src/features/aktionen/constants.ts|fl_frontend/src/features/spieler/schemas.ts| \
       fl_frontend/src/features/spiele/schemas.ts|fl_frontend/src/features/spiele/utils.ts| \
       fl_frontend/src/features/bewerbungen/zustellung.ts|fl_frontend/src/core/logFormat.ts| \
-      fl_frontend/src/core/trace.ts|fl_frontend/src/features/sperrliste/constants.ts)
+      fl_frontend/src/core/trace.ts|fl_frontend/src/features/sperrliste/constants.ts| \
+      fl_frontend/src/features/schiedsrichter/constants.ts| \
+      fl_frontend/src/features/registrierungen/constants.ts| \
+      fl_frontend/src/core/objectId.ts|fl_frontend/src/features/sperrliste/schemas.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
       # module below and asserts over the German inside, so a renamed refusal code or a reworded

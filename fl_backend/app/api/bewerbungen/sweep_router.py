@@ -100,7 +100,7 @@ async def _redact(
 @router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbungSweepSaisonsResponse:
     """
-    Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.
+    Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
 
     System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
     and the two clocks that matter run over exactly those seasons.
@@ -112,16 +112,23 @@ async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbun
     seasons = await pull_many_from_db(
         collection=saisons_collection,
         db_filter={},
-        projection=["_id", "sweep_gelaufen_am"],
+        projection=["_id", "sweep_gelaufen_am", "registrierung_sweep_gelaufen_am"],
         sort_by=[("_id", 1)],
         limit=LIST_LIMIT_MAX,
     )
 
     # The newest day any season carries rather than one season's: a season created since the last
     # pass carries none, and reading that one would answer `never` for a sweep that ran yesterday.
-    gelaufen = max((str(season["sweep_gelaufen_am"]) for season in seasons if season.get("sweep_gelaufen_am")), default=None)
+    def newest(field: str) -> str | None:
+        return max((str(season[field]) for season in seasons if season.get(field)), default=None)
 
-    return FLBewerbungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons], sweep_gelaufen_am=gelaufen)
+    return FLBewerbungSweepSaisonsResponse(
+        saison_ids=[str(season["_id"]) for season in seasons],
+        sweep_gelaufen_am=newest("sweep_gelaufen_am"),
+        # Answered beside the application's from the same read: the two passes stop separately, and
+        # an operator holding one date cannot tell which of them did.
+        registrierung_sweep_gelaufen_am=newest("registrierung_sweep_gelaufen_am"),
+    )
 
 
 @router.post("/{saison_id}", response_model=FLBewerbungSweepResponse, summary="Run one season's retention clocks")

@@ -8,6 +8,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
@@ -53,8 +54,8 @@ from app.api.spiele.services import (
     resolve_bracket,
     slots_booked_against,
 )
-from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler, post_spieler
-from app.api.spieler.schemas import FLPostSpielerPayload
+from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler
+from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import find_squad_refusal
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
@@ -743,36 +744,41 @@ class TestASpieltagAlreadyHoldingAClubTwice:
 
 
 class TestAPersonWithNoSquadRow:
-    """That a person is created without a squad row and that no rule asks for one afterwards."""
-
-    def test_creating_a_person_asks_for_no_season_and_no_club(self):
-        assert not {"saison_id", "team_id"} & set(FLPostSpielerPayload.model_fields)
+    """That no rule asks a person for a squad row, and that the rule governing one is asked at each of the three writes."""
 
     def test_the_squad_rule_governs_the_row_rather_than_its_absence(self):
-        """The person create against the three squad-row writes: `REQ-SQUAD-001` is asked where a row is written and nowhere else."""
-
-        # `refuse` is how a write path raises a `WriteRefusal`, so a create reaching none is a create
-        # no rule can stop -- which is the state this entry permits.
-        assert "refuse" not in _calls_of(post_spieler)
+        """`REQ-SQUAD-001` is asked where a squad row is written and nowhere else, so a person holding none is a state no rule can stop."""
 
         # The REACTIVATE for the same reason as the other two: a club replacement retires the
         # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
         # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
 
+        # Every module under `app/`, not the squad router alone: the claim is that nothing ELSE asks
+        # the rule, and a sweep of one module cannot see a caller a second package acquired.
+
         # Named by the CALLBACK each endpoint runs its transaction over, which is the innermost
         # scope around the call and so the scope this sweep attributes it to.
-        assert _callers_of(module_of(post_spieler), find_squad_refusal.__name__) == {
-            "add_the_player",
-            "move_the_player",
-            "bring_the_player_back",
+        asking = {
+            f"{path.relative_to(APP_ROOT).as_posix()} :: {scope}"
+            for path in sorted(APP_ROOT.rglob("*.py"))
+            for scope in _callers_of(path, find_squad_refusal.__name__)
+        }
+
+        assert asking == {
+            "api/spieler/admin_router.py :: add_the_player",
+            "api/spieler/admin_router.py :: move_the_player",
+            "api/spieler/admin_router.py :: bring_the_player_back",
         }
 
 
 class TestAPupilStoredWithNoBirthdate:
-    """That the person create takes a null date, that a stored person needs no key, and that the league's age reaches no squad module."""
+    """That the one write judging a date demands one, that a stored person needs no key, and that the league's age reaches no squad module."""
 
-    def test_the_person_create_takes_a_null_date(self):
-        assert FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None).geburtsdatum is None
+    def test_the_write_that_judges_a_date_demands_one_while_the_person_does_not(self):
+        """The asymmetry this entry is about: a pupil cannot answer their confirmation dateless, and the person it becomes may carry none."""
+
+        assert FLRegistrierungBestaetigungPayload.model_fields["geburtsdatum"].is_required()
+        assert not FLSpieler.model_fields["geburtsdatum"].is_required()
 
     def test_a_stored_person_carrying_no_key_still_validates(self):
         schema = COLLECTION_VALIDATORS[Collection.SPIELER]["$jsonSchema"]

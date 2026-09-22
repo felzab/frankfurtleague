@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
+import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
+import { VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
+import { REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
@@ -18,7 +20,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "21. September 2026";
+const STAND = "22. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -115,11 +117,28 @@ const FRISTEN = [
     daten: "Bewerbung, über die nicht entschieden wurde, samt den Daten der drei Kontaktpersonen",
     frist: "Bis zum Ende der beworbenen Saison",
   },
+  {
+    daten: "Registrierung eines Spielers oder einer Spielerin",
+    frist:
+      "7 Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung",
+  },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
+  {
+    daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
+    frist:
+      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu nennt keine Person und enthält den Link nur als unlesbaren Schlüssel; er bleibt bestehen.",
+  },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
+    daten:
+      "Bestätigung einer Schiedsrichterin oder eines Schiedsrichters: Geburtsdatum, die beiden Antworten (Veröffentlichung, Medien) und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
+    frist:
+      "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht",
+  },
+  {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
-    frist: "Bis die Verwaltung die Sperre aufhebt; der Eintrag bleibt auch bestehen, wenn die übrigen Daten gelöscht werden",
+    frist:
+      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
     daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
@@ -184,8 +203,8 @@ export function DatenschutzView() {
               Schiedsrichtern genau aussieht, steht in Abschnitt 10.
             </li>
             <li className={ABSATZ}>
-              Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein; als Ansprechperson oder Stellvertretung
-              mindestens 18.
+              Mitspielen, Pfeifen und Kontaktperson einer Bewerbung sein kann nur, wer mindestens {REGISTRIERUNG_MIN_ALTER} Jahre alt ist; als
+              Ansprechperson oder Stellvertretung mindestens {VERTRETUNG_MIN_ALTER}.
             </li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
@@ -205,10 +224,10 @@ export function DatenschutzView() {
             <br />
             E-Mail: <MailLink />
           </p>
-          <p className={ABSATZ}>Vertretungsberechtigt sind {VERTRETUNGSBERECHTIGTE.join(" und ")}, jeweils mit gleichen Befugnissen.</p>
+          <p className={ABSATZ}>Vertreten wird der Verein durch seinen Vorstand; jeweils zwei Vorstandsmitglieder vertreten ihn gemeinsam.</p>
           <p className={ABSATZ}>
-            Der Verein befindet sich in Gründung und ist noch in keinem Vereinsregister eingetragen. Eine Telefonnummer für den Verein gibt es
-            nicht; wir sind über die E-Mail-Adresse oben erreichbar.
+            Der Verein ist im Vereinsregister des Amtsgerichts Frankfurt am Main unter VR 17757 eingetragen. Eine Telefonnummer für den Verein
+            gibt es nicht; wir sind über die E-Mail-Adresse oben erreichbar.
           </p>
         </LegalSection>
 
@@ -279,8 +298,8 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei der Kontaktperson, an die die Nachricht ging, damit die Verwaltung sieht, wen sie nicht erreicht. Er wird zusammen mit der
-            Bewerbung gelöscht.
+            wir bei der Person, an die die Nachricht ging. So sieht die Verwaltung, wen sie nicht erreicht. Er wird zusammen mit dem Eintrag
+            gelöscht, zu dem die Person gehört.
           </p>
         </LegalSection>
 
@@ -405,9 +424,9 @@ export function DatenschutzView() {
             ))}
           </dl>
           <p className={ABSATZ}>
-            Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten und die
-            Schule einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin oder eines Spielers.
-            Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
+            Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten, die
+            Schule und das Geburtsdatum einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin
+            oder eines Spielers. Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
           </p>
           <p className={ABSATZ}>
             Die beiden vollständigen Namen im Impressum stehen nicht auf der Grundlage aus dieser Aufstellung, sondern weil § 5 DDG und § 18
@@ -427,15 +446,16 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Vorname und erster Buchstabe des
-            Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten
-            ist; ohne sie steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
-            angegeben sind.
+            Wer im Kader eines Teams steht, meldet sich über den Link seines Teams selbst an und bestätigt das per E-Mail. Wer ein Spiel pfeift,
+            wird von der Verwaltung eingetragen und bestätigt den Eintrag über einen Link. Vorname und erster Buchstabe des Nachnamens einer
+            Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten ist; ohne sie
+            steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie angegeben sind.
           </p>
           <p className={ABSATZ}>
-            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
-            nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
-            wir damit nicht. Ein Mindestalter gilt allein für die Kontaktpersonen einer Bewerbung.
+            Wer sich über den Link eines Teams registriert oder einen Eintrag als Schiedsrichterin oder Schiedsrichter bestätigt, trägt dabei
+            das eigene Geburtsdatum ein. Die Angabe ist Pflicht und wird nicht veröffentlicht: Mitspielen und Pfeifen kann nur, wer mindestens{" "}
+            {REGISTRIERUNG_MIN_ALTER} Jahre alt ist, und das prüfen wir an diesem Datum. Bei Spielerinnen und Spielern, die schon vor der
+            Registrierung im Kader standen, kann die Verwaltung das Geburtsdatum nachtragen.
           </p>
           <p className={ABSATZ}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
@@ -524,7 +544,8 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Widerspruch gegen jede Verarbeitung, die wir auf ein berechtigtes Interesse stützen, aus Gründen, die sich aus Deiner besonderen
               Situation ergeben (Art. 21 DSGVO). Das betrifft die Zugriffsprotokolle, die Freitexte, die Anschrift der Schule als Anschrift des
-              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen einer Bewerbung.
+              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel, die Daten der Kontaktpersonen einer Bewerbung und den
+              Eintrag einer gesperrten E-Mail-Adresse.
             </li>
             <li className={ABSATZ}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
@@ -555,7 +576,7 @@ export function DatenschutzView() {
             Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
             einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
             eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
-            nach einer Löschung bestehen, bis die Verwaltung die Sperre aufhebt.
+            nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt.
           </p>
         </LegalSection>
 

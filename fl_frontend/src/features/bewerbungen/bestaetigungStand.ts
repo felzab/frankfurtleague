@@ -101,9 +101,12 @@ export function istOffen({ stand }: SitzBestaetigung): boolean {
   return stand.art !== "bestaetigt";
 }
 
-/** A seat nothing can still move: nobody stands in it, and no answer puts anybody back. */
+/**
+ * A seat nothing puts anybody back into. The erasure alone: it is the league's own act on the
+ * person's request, where a Widerspruch leaves a slot an administrator seats somebody else in.
+ */
 function istEndgueltig({ stand }: SitzBestaetigung): boolean {
-  return stand.art === "abgelehnt" || stand.art === "geloescht";
+  return stand.art === "geloescht";
 }
 
 /**
@@ -155,6 +158,27 @@ export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
 }
 
 /**
+ * The seats another person may be put in. A Widerspruch alone, never an erasure: the two leave the
+ * same empty slot, and `fl_backend/app/api/bewerbungen/services.py :: seat_awaits_a_replacement`
+ * parts them by the day the decline left behind.
+ */
+export function sitzAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
+  const ausgestiegen = new Set(staende.filter((sitz) => sitz.stand.art === "abgelehnt").map((sitz) => sitz.rolle));
+  const spiegel = staende.find((sitz) => sitz.zugleichTrainer)?.rolle ?? null;
+
+  if (spiegel !== null) {
+    // NOT `linkAngebot`'s pairing: the re-send sends to whichever seat of a pair still stands, where
+    // this write refuses unless both stepped out (`:: find_reseat_refusal`), so a control on one
+    // half alone is a press refused.
+    const beide = ausgestiegen.has("trainer") && ausgestiegen.has(spiegel);
+    ausgestiegen.delete(spiegel);
+    if (!beide) ausgestiegen.delete("trainer");
+  }
+
+  return ausgestiegen;
+}
+
+/**
  * Whether two seats are one person, read off the claim `trainer_ist_zugleich` records. The one
  * exception the submission's duplicate-address rule makes, and so the one this side must make too.
  */
@@ -188,8 +212,8 @@ export function gepaarteSitze(bewerbung: BewerbungSitze, rolle: KontaktRolle): K
 
 /**
  * In `annehmen_bewerbung`'s own order, `REQ-BEWERBUNG-002` before `REQ-BEWERBUNG-013`: the reason
- * under the closed control is the one the write would answer with. Three sentences, because a seat
- * merely unanswered is waited out where the other two leave only the Absage.
+ * under the closed control is the one the write would answer with. Four sentences, because each
+ * names a different way out — and an erasure is the only one with none.
  */
 export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, teamName: string | null): string | null {
   if (teamName === null) {
@@ -201,10 +225,17 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, tea
 
   if (offen.length === 0) return null;
 
-  // The cause in the words the seat's own row uses, then the one decision left: „löschen lassen“
-  // rather than „gelöscht“, because the erasure is the league's act on the person's request.
+  // FIRST: a row carrying both an erasure and a Widerspruch can still only be declined, so the
+  // sentence naming the reseat would send the administrator to a dead end.
   if (offen.some(istEndgueltig)) {
-    return "Eine Kontaktperson hat widersprochen oder ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.";
+    // „löschen lassen“ rather than „gelöscht“, the erasure being the league's act on the person's request.
+    return "Eine Kontaktperson hat ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.";
+  }
+
+  // The repair beside the refusal: the control it sends the administrator to is `sitzAngebot`'s, so
+  // both have to select the declined seat or this points at a row carrying no such control.
+  if (offen.some((sitz) => sitz.stand.art === "abgelehnt")) {
+    return "Eine Kontaktperson hat widersprochen. Besetze ihre Rolle mit einer anderen Person oder lehne die Bewerbung ab.";
   }
 
   // The rule rather than who is outstanding today: the strip above names every seat and its state,

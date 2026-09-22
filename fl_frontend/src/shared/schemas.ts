@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isDeliverableAddress } from "@/core/emailAddress";
+import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
 // `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie. A pattern
@@ -136,10 +136,11 @@ export const FLAddressPayloadSchema = FLAddressSchema.extend({
 export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 
 /**
- * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here so an over-long address is refused
- * in German at the keystroke: the API refuses it with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
+ * Re-exported from `core`, where the administrator allowlist can reach it: applied here so an
+ * over-long address is refused in German at the keystroke, the API refusing it with a bare
+ * `REQ-VAL-001` and no field detail that would mark the box.
  */
-export const KONTAKT_EMAIL_MAX_LENGTH = 254;
+export { KONTAKT_EMAIL_MAX_LENGTH };
 
 /**
  * Every address anybody types is judged here, a school's application and the sign-in box alike.

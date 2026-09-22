@@ -719,7 +719,12 @@ def _crossings() -> Crossings:
     are read where they live, no fixture holding either.
     """
     listing = git(REPO_ROOT, "-c", "core.quotepath=false", "ls-files", "--cached", "--others", "--exclude-standard")
-    files = listing.splitlines()
+    # A deletion git has not staged yet is listed above and reaches nothing.
+    gone = set(git(REPO_ROOT, "-c", "core.quotepath=false", "ls-files", "--deleted").splitlines())
+    # Subtracted rather than filtered on `is_file()`, which is False for a path this platform cannot
+    # open too: such a module would leave the derived reads and shrink this run, where a read that
+    # raises stops it.
+    files = [rel for rel in listing.splitlines() if rel not in gone]
     frontend_modules = [rel for rel in files if rel.startswith(FRONTEND + "/") and rel.endswith((".ts", ".tsx", ".mts", ".cts"))]
     backend_modules = [rel for rel in files if rel.startswith(BACKEND + "/") and rel.endswith(".py")]
     reads, reaches = _frontend_reaches(REPO_ROOT, frontend_modules)
@@ -797,6 +802,69 @@ def test_a_reach_that_names_no_single_file_is_one_this_check_declares() -> None:
         "the trees one package's suites reach into without naming a file have changed.\n"
         "derived:  " + repr(sorted(crossings.reaches)) + "\ndeclared: " + repr(sorted(UNNAMEABLE))
     )
+
+
+# The two suites that retype a frontend module's own constants and compare them, which is the reach
+# `UNNAMEABLE` above spares from the equality: each names its modules as plain strings.
+MIRROR_REGISTERS: Final[tuple[str, ...]] = (
+    "fl_backend/tests/shared/test_frontend_mirrors.py",
+    "fl_backend/tests/shared/test_folding_mirror.py",
+)
+
+# The comment opening the arm those modules sit in, so the block is found without a line number.
+MIRROR_ARM_OPENER: Final = "# The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are"
+
+FRONTEND_SRC: Final = FRONTEND + "/src/"
+
+MODULE_SUFFIXES: Final = (".ts", ".tsx")
+TEST_SUFFIXES: Final = (".test.ts", ".test.tsx")
+
+FRONTEND_MODULE_RE: Final = re.compile(re.escape(FRONTEND_SRC) + r"[\w/.-]+\.tsx?")
+
+
+def _mirrored_modules() -> set[str]:
+    """Every frontend module the two registers name, read out of their source rather than listed here.
+
+    A test module is not one: a register naming one names where a pairing is held rather than a
+    mirror.
+    """
+    found: set[str] = set()
+    for rel in MIRROR_REGISTERS:
+        tree = ast.parse((REPO_ROOT / rel).read_text(encoding="utf-8"), filename=rel)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            module = node.value if node.value.startswith(FRONTEND_SRC) else FRONTEND_SRC + node.value
+            if module.endswith(MODULE_SUFFIXES) and not module.endswith(TEST_SUFFIXES) and (REPO_ROOT / module).is_file():
+                found.add(module)
+    return found
+
+
+def _mirror_arm(mapping: Path) -> set[str]:
+    """The paths of the arm carrying those modules, read off the mapping's own text."""
+    text = mapping.read_text(encoding="utf-8")
+    opened = text.find(MIRROR_ARM_OPENER)
+    assert opened != -1, "the mirror arm's opening comment is gone, so this reader found no block at all"
+
+    return set(FRONTEND_MODULE_RE.findall(text[opened : text.index(")\n", opened)]))
+
+
+def test_every_module_a_mirror_register_names_selects_the_backend_scope() -> None:
+    """Drop one from the mirror arm and this fails: the comparison over it then waits for the push to main."""
+    crossings = _crossings()
+    mirrored = _mirrored_modules()
+
+    assert mirrored, "no frontend module was read out of the mirror registers: that reader went inert"
+    unarmed = sorted(module for module in mirrored if FAR_SCOPE[FRONTEND] not in crossings.selected.get(module, set()))
+    assert unarmed == [], "name each in scripts/gate/scope_map.sh's mirror arm:\n" + "\n".join(unarmed)
+
+
+def test_every_path_in_the_mirror_arm_is_one_a_register_names() -> None:
+    """The other direction: an arm naming a module no register reads buys the backend and database tiers for nothing."""
+    carried = _mirror_arm(_fixture().root / SCRIPTS_COPY / "gate" / "scope_map.sh")
+
+    assert carried, "no path was read out of the mirror arm: that reader went inert"
+    assert carried <= (mirrored := _mirrored_modules()), f"{sorted(carried - mirrored)} sits in the mirror arm and is named by no register"
 
 
 # Two packages in miniature, shaped like the real reads. The real trees are no place to plant one,

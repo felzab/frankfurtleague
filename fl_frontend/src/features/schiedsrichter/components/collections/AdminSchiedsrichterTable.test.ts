@@ -24,6 +24,9 @@ const LIVE: FLSchiedsrichter = {
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: null,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 };
 
 /**

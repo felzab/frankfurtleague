@@ -17,6 +17,10 @@ Declaration = ast.FunctionDef | ast.AsyncFunctionDef
 # `app/core/crud.py`'s two removals, and so every way a document leaves this database.
 REMOVAL_HELPERS = frozenset({"delete_many_from_db", "erase_many_from_db"})
 
+# The operators leaving a field BOUNDED. `$ne` and `$not` are out, each being satisfied by almost
+# every row carrying the key, and `$exists` because it is satisfied by exactly all of them.
+BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
+
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"})
 
@@ -197,6 +201,23 @@ def dict_keys(node: ast.AST) -> frozenset[str]:
     )
 
 
+def bounds_its_field(value: ast.expr) -> bool:
+    """Whether one filter entry's value BOUNDS its key: a plain value, or a dict of `BOUNDED_COMPARISONS` alone.
+
+    The dict arm exists because activation is not sequential, so a sweep keyed on equality strands
+    every ban whose own season nobody activated.
+    """
+
+    if not isinstance(value, ast.Dict):
+        return True
+
+    operators = [key.value for key in value.keys if isinstance(key, ast.Constant) and isinstance(key.value, str)]
+
+    # Length-checked against the dict's own keys, so a `**` spread -- which parses as a `None` key --
+    # cannot pass as an operator set this reader never saw.
+    return bool(operators) and len(operators) == len(value.keys) and set(operators) <= BOUNDED_COMPARISONS
+
+
 @dataclass(frozen=True)
 class Removal:
     """One removal the application makes, read off its own call site."""
@@ -206,8 +227,8 @@ class Removal:
     #: The INNERMOST function around the call, so a removal moved into a nested helper is attributed
     #: there rather than to the callback holding it.
     scope: str
-    #: The filter's top-level keys, each compared to a VALUE. A key whose value is a dict of
-    #: operators names the field and bounds nothing, so it is not among these.
+    #: The filter's top-level keys that `bounds_its_field` accepts. A key left to `$exists` or to an
+    #: unbounded operator names the field and bounds nothing, so it is not among these.
     keyed_on: frozenset[str]
     #: Every key the filter names at any depth, operators included.
     names: frozenset[str]
@@ -245,7 +266,7 @@ def removals() -> list[Removal]:
                 keyed_on=frozenset(
                     key.value
                     for key, value in zip(db_filter.keys, db_filter.values, strict=True)
-                    if isinstance(key, ast.Constant) and isinstance(key.value, str) and not isinstance(value, ast.Dict)
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str) and bounds_its_field(value)
                 ),
                 names=dict_keys(db_filter),
             )

@@ -1,6 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_KENNTNISNAHME, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -116,9 +116,9 @@ export function mindestalterFuer(seats: readonly KontaktRolle[]): number {
 export function geburtsdatumSpanne(today: string, mindestalter: number): { frueheste: string; spaeteste: string } {
   const heute = parseDate(today);
 
-  // The day AFTER one year past the ceiling: `_whole_years_between` in
-  // `fl_backend/app/api/bewerbungen/schemas.py` accepts a birthday not yet reached this year, and a
-  // calendar subtraction clamps 29 February onto the day before 1 March where that year has none.
+  // The day AFTER one year past the ceiling: `fl_backend/app/shared/alter.py :: whole_years_between`
+  // accepts a birthday not yet reached this year, and a calendar subtraction clamps 29 February onto
+  // the day before 1 March where that year has none.
   return {
     frueheste: heute
       .subtract({ years: BEWERBUNG_MAX_ALTER + 1 })
@@ -191,8 +191,8 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
  */
 // Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
 // is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
-export function stampEinwilligungFassung<T extends object>(payload: T): T & { text_version: string } {
-  return { ...payload, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+export function stampEinwilligungFassung<T extends object>(payload: T, textVersion: string): T & { text_version: string } {
+  return { ...payload, text_version: textVersion };
 }
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */

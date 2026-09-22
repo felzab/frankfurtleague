@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants.ts";
+import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
+
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./constants.ts";
 
 import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
@@ -30,7 +33,7 @@ const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
 const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
-const LINK = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
+const LINK = `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK };
@@ -82,7 +85,18 @@ const MESSAGES = [
 ] as const;
 
 /** German writes a small count in words, so „drei Tage“ is as much a clock as „14 Tage“ is. */
-const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, vierzehn: 14 };
+const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, sieben: 7, vierzehn: 14 };
+
+/**
+ * The deletion clock a stamped page states, where it is not the application's.
+ *
+ * A label absent here is held to that one: three flows stamp wordings into one registry, and one
+ * number cannot hold all three.
+ */
+const STAMPED_CLOCK: Readonly<Record<string, number>> = {
+  "2026-09-spielerseite": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  "2026-09-schiedsrichterseite": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+};
 
 /** Every day count a text states, and `null` for one written in a word this reader does not hold. */
 function daysIn(text: string): (number | null)[] {
@@ -129,12 +143,18 @@ describe("the two clocks the workflow messages state", () => {
 
   /* The stamped text is never interpolated from the constant: the words are what somebody was shown,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
-  it("holds the stamped wordings to the deletion clock, written in a word", () => {
-    const foundLink = Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => daysIn(fassung.absaetze.join(" ")));
+  it("holds each stamped wording to its own flow's deletion clock, written in a word", () => {
+    const gelesen = Object.entries(LIGA_KENNTNISNAHMEN).flatMap(([label, fassung]) =>
+      daysIn(fassung.absaetze.join(" ")).map((number) => [label, number] as const),
+    );
 
-    assert.ok(foundLink.length > 0, "no stored wording states a day count, so this case compares nothing");
-    for (const number of foundLink) {
-      assert.equal(number, BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, "a stored wording states a deletion clock the bound no longer sets");
+    assert.ok(gelesen.length > 0, "no stored wording states a day count, so this case compares nothing");
+    for (const [label, number] of gelesen) {
+      assert.equal(
+        number,
+        STAMPED_CLOCK[label] ?? BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+        `${label} states a deletion clock no bound of its flow sets`,
+      );
     }
   });
 });

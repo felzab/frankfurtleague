@@ -61,7 +61,7 @@ const PERSON: AdminSpielerRow = {
     nummer: "7",
     position: "Angriff",
     stufe: "Q2",
-    is_nachgetragen: false,
+    ist_nachnominiert: false,
     rolle: null,
     inactive_since: STILLGELEGT_AM,
     teamName: "Carl-Schurz-Schule",
@@ -85,6 +85,9 @@ const REFEREE: FLSchiedsrichter = {
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: STILLGELEGT_AM,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 };
 
 /** Filled from `before`: each list is imported after this file's own doubles are registered. */

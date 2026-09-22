@@ -152,6 +152,9 @@ const EDITORS: Record<string, Editor> = {
             schule: null,
             kontakt: { email: null, telefon: null },
             default_payment: 25,
+            geburtsdatum: null,
+            einwilligung: null,
+            bestaetigung: null,
           },
           isRetired: false,
           pageHeader: { title: "Pia Kraft" },
@@ -179,7 +182,7 @@ const EDITORS: Record<string, Editor> = {
               nummer: "10",
               position: null,
               stufe: null,
-              is_nachgetragen: false,
+              ist_nachnominiert: false,
               rolle: null,
               inactive_since: null,
             },
@@ -223,6 +226,9 @@ const EDITORS: Record<string, Editor> = {
             { gruppe: "B", occupied: 0, capacity: 4 },
           ],
           swap: { teams: [], playedKnockoutSpiele: 0 },
+          // `null` is the club that holds no junction row for the season, which is the one state
+          // this sweep's fixture can take without the invite panel's own read.
+          einladung: null,
           pageHeader: { title: TEAM_A.name },
         }),
       );

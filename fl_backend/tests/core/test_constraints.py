@@ -22,6 +22,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellstand,
     FLBewerbungZustellung,
 )
+from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
+from app.api.registrierungen.schemas import (
+    FLRegistrierung,
+    FLRegistrierungBestaetigung,
+    FLRegistrierungEntscheidung,
+    FLRegistrierungStatus,
+)
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonBewerbung,
@@ -31,7 +38,7 @@ from app.api.saisons.schemas import (
     FLSaisonSpielplan,
     FLSaisonStatus,
 )
-from app.api.schiedsrichter.schemas import FLSchiedsrichter
+from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -135,9 +142,12 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
-    # The delivery state at the register's other home, its carrier `bestaetigung` having no model of
-    # its own: one shared sub-schema in Python, and the drift walk reaching each path separately
-    # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    # The confirmation bookkeeping, and the pupil's own consent sub-schema on another collection:
+    # widening `_EINWILLIGUNG` for one carrier widens it for every carrier, and this row shows it.
+    (Collection.SCHIEDSRICHTER, ("bestaetigung",), FLSchiedsrichterBestaetigung, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), FLEinwilligung, frozenset()),
+    # The delivery state at the register's other home: one shared sub-schema in Python, and the
+    # drift walk reaching each path separately (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
@@ -146,7 +156,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.TEAMS, ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
-    (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "rolle"})),
+    (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "ist_nachnominiert", "rolle"})),
     # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
@@ -183,6 +193,19 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
+    (Collection.EINLADUNGEN, (), FLEinladung, frozenset()),
+    # The delivery state at the register's third home, under a carrier of its own: `zustellung`
+    # nested in `zustellung` is a path `zustellung_pfad` cannot spell.
+    (Collection.EINLADUNGEN, ("versand",), FLEinladungVersand, frozenset()),
+    (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
+    # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
+    (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
+    # The pupil's consent record on a third collection: widening `_EINWILLIGUNG` for any of them
+    # widens it for all three, and this row is where that shows.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -300,6 +323,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
     (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    # The same sub-schema on another collection, and its own rows: `app/core/constraints.py ::
+    # _EINWILLIGUNG` is shared, so a widening meant for one carrier reaches every carrier.
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (Collection.SPIELE, (), "sonderereignis", get_args(FLSonderereignis), True),
     (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
@@ -336,6 +363,17 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
+    # reaches each collection's path on its own.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
+    # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
+    # pupil may answer neither.
+    (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
+    (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
 ]
 
 
@@ -414,16 +452,23 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer")): frozenset({"token_hash", "token_hash_zuvor"}),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash", "token_hash_zuvor"}),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash", "token_hash_zuvor"}),
-    # The pass's own clock rather than a fact about the season it is stored on: an operator asks
-    # whether the sweep ran, and no page of a season is that question.
-    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
+    # Each pass's own clock rather than a fact about the season they are stored on: an operator asks
+    # whether the sweeps ran, and no page of a season is that question.
+    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am", "registrierung_sweep_gelaufen_am"}),
     # The lookup key, and the whole of what a row holds about a person. Serving it would hand
     # whoever reads the list the one value a leaked collection is missing, and the label beside it
     # says which key that is.
     (Collection.SPERRLISTE, ()): frozenset({"adresse_hash", "schluessel_version"}),
-    # What became of the last message to this referee, written by the system tier and read by no
-    # admin model: an administrator acts on the referee's own record, never on a provider's report.
-    (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),
+    # The raw token's hash is the whole credential and no model declares it, so the link cannot be
+    # recovered from the editor's read of the block beside it.
+    (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
+    # Served on a read, every live link of the season would be recoverable from an admin page. The
+    # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
+    # that operation revoked the row it imaged.
+    (Collection.EINLADUNGEN, ()): frozenset({"token_hash"}),
+    # The pupil's link, and the reminder's second one beside it: both live, both the whole
+    # credential, and no read recovers either.
+    (Collection.REGISTRIERUNGEN, ("bestaetigung",)): frozenset({"token_hash", "token_hash_zuvor"}),
 }
 
 

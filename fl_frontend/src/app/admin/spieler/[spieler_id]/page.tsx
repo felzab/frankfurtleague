@@ -67,7 +67,7 @@ async function AdminSpielerEditContent({
             nummer: membership.nummer ?? "",
             position: membership.position,
             stufe: membership.stufe,
-            is_nachgetragen: membership.is_nachgetragen,
+            ist_nachnominiert: membership.ist_nachnominiert,
             rolle: membership.rolle,
             inactive_since: membership.inactive_since,
           },

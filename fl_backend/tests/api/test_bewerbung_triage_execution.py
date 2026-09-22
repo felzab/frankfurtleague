@@ -11,13 +11,16 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung, korrigiere_kontakt_email
+from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung, besetze_kontakt_sitz, korrigiere_kontakt_email
+from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.router import get_bewerbungen
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
     FLAnnehmenBewerbungPayload,
+    FLBewerbungEinwilligungAntwortPayload,
     FLBewerbungenFilterParams,
     FLBewerbungKontaktEmailPayload,
+    FLBewerbungKontaktSitzPayload,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
 )
@@ -28,6 +31,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_SUBJECT_UNRESOLVED,
+    BEWERBUNG_TOKEN_UNKNOWN,
     bestaetigungsfrist_from,
     compose_bestaetigungen,
     compose_new_club,
@@ -35,6 +39,8 @@ from app.api.bewerbungen.services import (
     seat_zustellung,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.kontakte.admin_router import erase_kontaktperson
+from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
@@ -1268,6 +1274,31 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, 
     )
 
 
+async def seed_a_pair_whose_seats_diverge(
+    database: AsyncDatabase, bewerbung_id: ObjectId, *, open_seat: str, stepped_out: bool = False
+) -> None:
+    """Seeded because no write path makes one: a claimed pair whose Trainer seat is CONFIRMED while its mirror is not.
+
+    The mirror joins both endpoints' write off `kontakte.trainer_ist_zugleich` rather than off its own state.
+    """
+
+    kontakte = confirmed_kontakte(open_seat=open_seat)
+    kontakte["trainer_ist_zugleich"] = open_seat
+    bestaetigungen = dict(BESTAETIGUNGEN)
+
+    if stepped_out:
+        # Written rather than driven: `post_einwilligung` pairs off that same claim, and its decline
+        # would empty the confirmed seat this fixture exists to keep.
+        kontakte[open_seat] = None
+        bestaetigungen[open_seat] = {**BESTAETIGUNGEN[open_seat], "abgelehnt_am": "2026-03-25"}
+
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            bewerbung_id, team_id=EXISTING_OID, kontakte=kontakte, bestaetigungen=bestaetigungen, bestaetigungsfrist="2026-04-20"
+        )
+    )
+
+
 async def seed_a_bounced_application(database: AsyncDatabase, client: AsyncMongoClient, *, mirrored: bool = False) -> None:
     """One open application whose Ansprechperson the mail provider has refused, which is the case the correction exists for."""
 
@@ -1456,3 +1487,286 @@ class TestCorrectingOneContactAddress:
             return missing.value.status_code
 
         assert on_a_league(mongo_replica_set_url, body) == 404
+
+    def test_a_claimed_mirror_that_has_confirmed_refuses_the_correction(self, mongo_replica_set_url: str):
+        """`paired_seat` adds a seat that merely stands, so the mirror's own answer would be spent on a link nobody asked it for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_pair_whose_seats_diverge(database, CORRECTION_BEWERBUNG, open_seat="ansprechperson")
+            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await correct(database, client, "ansprechperson")
+
+            return refused.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after == before
+
+
+RESEAT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000b")
+
+# Distinct from every seeded person, so a slot this write never reached cannot compare equal to one it did.
+RESEAT_PERSON: Mapping[str, Any] = {
+    "vorname": "Wilburga",
+    "nachname": "Dringenhoff",
+    "email": "wilburga.dringenhoff@example.de",
+    "telefon": "+49 69 7654321",
+}
+
+# The label the page the new person will be shown cites, which is the frontend's registry entry and
+# never a backend constant (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`).
+RESEAT_TEXT_VERSION = "liga-kenntnisnahme-2026-01"
+
+
+async def reseat(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *, email: str = RESEAT_PERSON["email"]) -> Any:
+    return await besetze_kontakt_sitz(
+        bewerbung_id=RESEAT_BEWERBUNG,
+        seat=seat,
+        sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": RESEAT_TEXT_VERSION}),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: str, **answer: Any) -> Any:
+    """A hand-built block would let this suite agree with itself while disagreeing with the endpoint.
+
+    The state a reseat runs on is whatever the Widerspruch actually leaves
+    (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+    """
+
+    return await post_einwilligung(
+        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(
+            {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "text_version": "v1", **answer}
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
+async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, client: AsyncMongoClient, *, mirrored: bool = False) -> None:
+    """One open application whose Ansprechperson exercised their Widerspruch, which is the case the reseat exists for."""
+
+    kontakte = confirmed_kontakte(open_seat="ansprechperson")
+    if mirrored:
+        # The Trainer IS the Ansprechperson, so one answer emptied both slots and one reseat fills both.
+        kontakte["trainer"] = {**kontakte["ansprechperson"]}
+        kontakte["trainer_ist_zugleich"] = "ansprechperson"
+
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            RESEAT_BEWERBUNG,
+            team_id=EXISTING_OID,
+            kontakte=kontakte,
+            bestaetigungen=BESTAETIGUNGEN,
+            # After `TODAY`, so the seat's own link still opens and the Widerspruch below is taken,
+            # and off `bestaetigungsfrist_from`'s answer, which a kept deadline would compare equal to.
+            bestaetigungsfrist="2026-04-20",
+        )
+    )
+    await answer_for(database, client, "ansprechperson")
+
+
+class TestSeatingAnotherPersonInAnEmptiedSeat:
+    """The seat a Widerspruch emptied is the one an administrator may put somebody else in, against a real document."""
+
+    def test_it_writes_the_person_a_fresh_record_and_a_fresh_link_in_one_update(self, mongo_replica_set_url: str):
+        """The seeded slot is null, which is the only state this endpoint runs on and the one a dotted `$set` aborts against."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            rows_before = await database[Collection.AKTIONEN].count_documents({"document_id": RESEAT_BEWERBUNG})
+            response = await reseat(database, client, "ansprechperson")
+
+            return (
+                emptied,
+                response,
+                await stored_bewerbung(database, RESEAT_BEWERBUNG),
+                await database[Collection.AKTIONEN].count_documents({"document_id": RESEAT_BEWERBUNG}) - rows_before,
+            )
+
+        emptied, response, stored, rows_written = on_a_league(mongo_replica_set_url, body)
+
+        assert emptied["kontakte"]["ansprechperson"] is None, "the Widerspruch left a slot this endpoint was never exercised against"
+        assert response.rollen == ["ansprechperson"]
+        assert stored["kontakte"]["ansprechperson"] == {
+            **RESEAT_PERSON,
+            "geburtsdatum": None,
+            "einwilligung": {
+                "umfang": "kontaktdaten",
+                "erfasst_von": "administrativ",
+                "text_version": RESEAT_TEXT_VERSION,
+                "datum": TODAY,
+                "bestaetigt_am": None,
+            },
+        }
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+        assert stored["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] is None
+        assert stored["bestaetigungsfrist"] == bestaetigungsfrist_from(today=TODAY)
+        assert response.bestaetigungsfrist == stored["bestaetigungsfrist"]
+        # Two would leave the new person standing in the seat beside the link its last holder was sent.
+        assert rows_written == 1
+
+    def test_the_link_the_seats_last_holder_was_sent_opens_nothing_afterwards(self, mongo_replica_set_url: str):
+        """A credential left live on a seat somebody else now holds is one the league cannot take back."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await reseat(database, client, "ansprechperson")
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await answer_for(database, client, "ansprechperson")
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
+
+    def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
+        """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `:: paired_seat`.
+
+        That helper answers `None` on these two slots (`app/api/bewerbungen/services.py`), leaving one seat holding the other's link.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client, mirrored=True)
+            response = await reseat(database, client, "ansprechperson")
+
+            return response.rollen, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        rollen, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert sorted(rollen) == ["ansprechperson", "trainer"]
+        assert stored["kontakte"]["trainer"] == stored["kontakte"]["ansprechperson"]
+        assert stored["bestaetigungen"]["trainer"]["token_hash"] == stored["bestaetigungen"]["ansprechperson"]["token_hash"]
+
+    def test_a_seat_its_own_person_confirmed_takes_nobody_else(self, mongo_replica_set_url: str):
+        """An administrator does not swap out a person who answered, and a refusal raised after half a `$set` still answers 409."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reseat(database, client, "stellvertretung")
+
+            return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after == before
+
+    def test_a_seat_erased_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
+        """An erasure is a door the league cannot reopen, and the only thing parting it from a Widerspruch is the entry it took with it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await erase_kontaktperson(
+                erasure_data=FLKontaktErasurePayload.model_validate({"email": KONTAKTE["stellvertretung"]["email"]}),
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                db=client,
+                germany_now=NOW,
+            )
+            erased = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reseat(database, client, "stellvertretung")
+
+            return refused.value.error_code, erased, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, erased, after = on_a_league(mongo_replica_set_url, body)
+
+        assert erased["bestaetigungen"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after == erased
+
+    def test_an_address_another_contact_person_holds_is_refused(self, mongo_replica_set_url: str):
+        """Two different people reachable at one mailbox is what the submission's own rule refuses, asked again where an administrator types."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reseat(database, client, "ansprechperson", email=before["kontakte"]["trainer"]["email"])
+
+            return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert after == before
+
+    def test_a_decided_application_takes_no_reseat(self, mongo_replica_set_url: str):
+        """The submission is what the decision was taken against, and a decided one is not repaired into a different application."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await decline(database, RESEAT_BEWERBUNG)
+            before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reseat(database, client, "ansprechperson")
+
+            return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert after == before
+
+    def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+
+            with pytest.raises(DocumentNotFoundException) as missing:
+                await reseat(database, client, "hausmeister")
+
+            return missing.value.status_code
+
+        assert on_a_league(mongo_replica_set_url, body) == 404
+
+    def test_a_claimed_mirror_that_has_confirmed_refuses_the_press(self, mongo_replica_set_url: str):
+        """The mirror joins the write off the claim alone, so an unjudged one would be overwritten by the person its own holder never named."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_pair_whose_seats_diverge(database, RESEAT_BEWERBUNG, open_seat="ansprechperson", stepped_out=True)
+            before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reseat(database, client, "ansprechperson")
+
+            return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert before["kontakte"]["ansprechperson"] is None, "the seeded pair does not diverge, so nothing here is about the mirror"
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after["kontakte"]["trainer"] == before["kontakte"]["trainer"]
+        assert after == before
+
+    def test_a_deadline_already_passed_is_restarted_rather_than_kept(self, mongo_replica_set_url: str):
+        """A new person handed the old deadline gets a link that opens nothing, and is seated for a confirmation they cannot give."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            # The sweep that would have deleted this application has not run; the reseat judges no deadline.
+            await database[Collection.BEWERBUNGEN].update_one({"_id": RESEAT_BEWERBUNG}, {"$set": {"bestaetigungsfrist": "2026-03-01"}})
+            await reseat(database, client, "ansprechperson")
+
+            return await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored["bestaetigungsfrist"] == bestaetigungsfrist_from(today=TODAY)
+        assert stored["bestaetigungsfrist"] > TODAY, "the new person is seated behind a link that already opens nothing"

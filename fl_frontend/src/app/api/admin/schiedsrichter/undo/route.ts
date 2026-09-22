@@ -1,21 +1,62 @@
 import { revalidateTag } from "next/cache";
 
+import { APIBadStatusError } from "@/core/errors";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
+import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { handleUndoRequest } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
+
+/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
+const REPLAY_REFUSALS: Record<string, string> = {
+  "REQ-SCHIEDSRICHTER-001":
+    "Die Änderung steht weiterhin. Diese Person wurde stillgelegt, und die frühere E-Mail-Adresse bräuchte einen neuen " +
+    "Bestätigungslink, den ein stillgelegter Eintrag nicht bekommt.",
+  "REQ-SCHIEDSRICHTER-007":
+    "Die Änderung steht weiterhin. Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr " +
+    "einen neuen Bestätigungslink schicken.",
+};
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSchiedsrichterEdit",
     schema: FLPatchSchiedsrichterPayloadSchema,
     restore: async (payload) => {
-      // No wording of its own: the replayed endpoint declares no refusal, so a 409 here takes the
-      // shared conflict sentence rather than one this route invents (`.claude/rules/cross-surface.md`).
-      const operation = await patchSchiedsrichter(payload);
+      let operation;
+      try {
+        operation = await patchSchiedsrichter(payload);
+      } catch (error) {
+        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
+        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
+        if (refusal === undefined) throw error;
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
+        return { refusal };
+      }
+
+      if (!operation.acknowledged) {
+        return { refusal: "Die Änderung steht weiterhin. Die Rücknahme wurde abgebrochen; prüfe die Schiedsrichterdaten." };
+      }
+
+      // The replay puts the earlier address back, which the endpoint reads as a correction and mints
+      // for: unmailed, that token exists in the database alone and the referee's own link is dead.
+      const mint = operation.bestaetigung;
+      if (mint === null) return {};
+
+      const versand = await mailSchiedsrichterLink({
+        operation: "undoAdminSchiedsrichterEdit",
+        schiedsrichterId: payload.id,
+        // The address the MINT names, never the payload's: the replay is the older of the two reads.
+        email: mint.email,
+        name: payload.name,
+        mint: mint,
+        anlass: "erneut",
+      });
+
+      // A cost either way: the undo silently replaced a live link, which is a fact about the person
+      // rather than about the rows it put back.
+      return { cost: describeLinkMail(mint.email, versand) };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
     invalidate: () => {

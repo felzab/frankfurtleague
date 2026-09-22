@@ -30,10 +30,12 @@ import { buildTeamBanners } from "./banners";
 import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
+import { FormEinladungSection } from "./FormEinladungSection";
 import { FormKontakteLinkSection } from "./FormKontakteLinkSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
+import type { TeamEinladungState } from "@/features/einladungen/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type {
   FLAustrittType,
@@ -66,12 +68,15 @@ export function AdminTeamEditForm({
   gruppeLocked,
   gruppeOffer,
   swap,
+  einladung,
   pageHeader,
 }: {
   team: FLTeamRecord;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
+  /** `null` where the club holds no junction row for the season, which is where the page issues no read. */
+  einladung: TeamEinladungState | null;
   /** The page's answer to "may the group move": whether the club holds a fixture in this season. */
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
@@ -392,6 +397,19 @@ export function AdminTeamEditForm({
               saisonId={saison.saisonId}
               kontakte={storedMembership.kontakte}
               href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
+            />
+          )}
+
+          {/* Under the contacts link, which is where the addresses this link is mailed to are
+              edited, and above the Austritt panel, which has to close the page. */}
+          {storedMembership !== null && einladung !== null && (
+            <FormEinladungSection
+              teamId={team.id}
+              saisonId={saison.saisonId}
+              isMember
+              isFinishedSaison={saison.saisonStatus === "past"}
+              einladung={einladung.einladung}
+              laeuft={einladung.laeuft}
             />
           )}
 

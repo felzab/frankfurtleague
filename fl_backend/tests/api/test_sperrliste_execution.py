@@ -10,12 +10,12 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
-from app.api.spieler.admin_router import delete_spieler, erase_spieler, post_spieler
-from app.api.spieler.schemas import FLPostSpielerPayload
+from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.config import build_test_config
@@ -43,7 +43,41 @@ OTHER = "quillhilde@beispielschule.de"
 
 GRUND = "Falsches Geburtsdatum bei der Anmeldung"
 
+# The league a ban needs to exist at all (`app/api/sperrliste/services.py ::
+# find_keine_saison_refusal`), and the season every case here is counted from. What the five-season
+# bound does with it is `tests/api/test_sperrliste_lapse_execution.py`'s.
+ACTIVE_SAISON_ID = "2026"
+
+# What a ban entered under `ACTIVE_SAISON_ID` covers through: the shipped validator requires the
+# field, so a row written straight to the collection needs one too.
+LAST_COVERED = "2031"
+
+SAISON_DOCUMENT: dict[str, Any] = {
+    "_id": ACTIVE_SAISON_ID,
+    "start_date": f"{ACTIVE_SAISON_ID}-01-01",
+    "end_date": f"{ACTIVE_SAISON_ID}-06-30",
+    "status": "active",
+    "rules": {
+        "win_points": 3,
+        "draw_points": 1,
+        "qualifiers_per_group": 2,
+        "number_of_groups": 2,
+        "teams_per_group": 4,
+        "tiebreak_order": "tordifferenz",
+        "max_kadergroesse": 18,
+        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+        "erlaubte_stufen": ["E1"],
+    },
+}
+
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+
+
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
+
+    invalidate_saison_cache()
 
 
 def on_a_clean_list(url: str, body: Body) -> Any:
@@ -51,6 +85,8 @@ def on_a_clean_list(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            await database[Collection.SAISONS].insert_one(dict(SAISON_DOCUMENT))
+
             return await body(database, client)
 
     return on_the_seed_loop(_run())
@@ -60,6 +96,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
         sperrliste_collection=database[Collection.SPERRLISTE],
+        saisons_collection=database[Collection.SAISONS],
         db=client,
         config=CONFIG,
         erstellt_von=von,
@@ -84,7 +121,7 @@ class TestWhatABanStores:
 
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"}
+        assert set(stored) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"}
         assert stored["adresse_hash"] == adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel)
         assert stored["grund"] == GRUND
         assert stored["erstellt_von"] == ADMIN
@@ -182,6 +219,7 @@ class TestASecondBanOfOneAddress:
                 "grund": GRUND,
                 "erstellt_von": ADMIN,
                 "erstellt_am": TODAY,
+                "gesperrt_bis_saison_id": LAST_COVERED,
             }
 
             with pytest.raises(DuplicateKeyError):
@@ -212,6 +250,7 @@ class TestTheCheckASignUpWillAsk:
                 await address_is_gesperrt(
                     sperrliste_collection=database[Collection.SPERRLISTE],
                     adresse_hash=adresse_hash(typed, schluessel=CONFIG.sperrliste_schluessel),
+                    massgebliche_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
             ]
@@ -227,6 +266,7 @@ class TestTheCheckASignUpWillAsk:
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 adresse_hash=adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel),
+                massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -245,6 +285,7 @@ class TestTheCheckASignUpWillAsk:
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 adresse_hash=adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
+                massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -321,7 +362,9 @@ class TestWhatTheListServes:
 
             return sorted(rows[0])
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "erstellt_am", "erstellt_von", "grund"]
+        # Sorted, so the order is the codepoint one rather than the projection's: `gesperrt_…`
+        # precedes `grund`.
+        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "erstellt_am", "erstellt_von", "gesperrt_bis_saison_id", "grund"]
 
     def test_the_newest_ban_is_served_first(self, mongo_replica_set_url: str):
         """Two rows on ONE day, which is the case `erstellt_am` alone cannot order and an administrator meets first."""
@@ -377,7 +420,7 @@ class TestLiftingABan:
         images = recorded["before"]
 
         assert len(images) == 1
-        assert set(images[0]) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"}
+        assert set(images[0]) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"}
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
@@ -413,12 +456,26 @@ class TestAnErasureLeavesTheListStanding:
             await ban(database, client)
             before = await rows_of(database)
 
-            created = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Zorbanax", nachname="Mustermann", geburtsdatum=None),
-                spieler_collection=database[Collection.SPIELER],
-                today=TODAY,
+            # A pupil as one was stored BEFORE the registration flow existed, the shape production
+            # still holds: this case needs a stored pupil to erase, not a route that made one.
+            spieler_id = ObjectId()
+            await database[Collection.SPIELER].insert_one(
+                {
+                    "_id": spieler_id,
+                    "vorname": "Zorbanax",
+                    "nachname": "Mustermann",
+                    "einwilligung": {
+                        "umfang": "kader_oeffentlich",
+                        "erteilt_von": "erziehungsberechtigt",
+                        "datum": TODAY,
+                        "bestaetigt_am": TODAY,
+                        "medien": False,
+                        "text_version": None,
+                    },
+                    "geburtsdatum": None,
+                    "inactive_since": None,
+                }
             )
-            spieler_id = ObjectId(created.spieler_id)
             await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
             await erase_spieler(
                 spieler_id=spieler_id,
@@ -456,12 +513,14 @@ class TestTheKeyTheRowsWereTakenUnder:
                     "grund": GRUND,
                     "erstellt_von": ADMIN,
                     "erstellt_am": TODAY,
+                    "gesperrt_bis_saison_id": LAST_COVERED,
                 }
             )
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 adresse_hash=adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
+                massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False

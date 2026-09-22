@@ -132,7 +132,8 @@ _AKTION_REQUEST = _object(
 )
 
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent.
+# the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
+# `registrierungen` alike, so widening `umfang` for one widens it for all three.
 _EINWILLIGUNG = _object(
     required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
     properties={
@@ -255,6 +256,26 @@ _BEWERBUNG_BESTAETIGUNGEN = _object(
     },
 )
 
+# Never `_BEWERBUNG_BESTAETIGUNG`: that one declares the decline a contact seat may give, which a
+# referee's page does not offer, so sharing it would put a key on this row nothing can write.
+_SCHIEDSRICHTER_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "frist"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # Null on every referee row: nothing chases this link, and the editor renders the day a
+        # later reminder would stamp.
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        # STORED rather than derived from `verschickt_am` and the bound: raising the bound would
+        # otherwise move the deadline of every link already in somebody's inbox.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason: a mint knows nothing yet about
+        # the message its link goes out in.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
 _SAISON_BEWERBUNG = _object(
     nullable=True,
     required=("offen", "von", "bis"),
@@ -320,6 +341,45 @@ _BEWERBUNG_KADER = _object(
 # state. Required TOGETHER as `_EINWILLIGUNG` is: a decision nobody is named for cannot be chased.
 # `grund` is null on an acceptance.
 _BEWERBUNG_ENTSCHEIDUNG = _object(
+    nullable=True,
+    required=("getroffen_am", "von", "grund"),
+    properties={
+        "getroffen_am": {"bsonType": "string"},
+        "von": {"bsonType": "string"},
+        "grund": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+# A pupil's registration states one of two, and an admitted one states neither: the transaction that
+# admits it deletes the row.
+_REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
+
+# The registration's own confirmation bookkeeping, and never `_BEWERBUNG_BESTAETIGUNG`: that one
+# declares the decline a contact seat may give, which a pupil's page does not offer, and carries no
+# deadline of its own, the application's sitting on the application.
+_REGISTRIERUNG_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "frist"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        # The reminder's second hash: it mints a fresh link and keeps the one already in somebody's
+        # inbox valid. Out of `required` because the first mint writes only `token_hash`.
+        "token_hash_zuvor": {"bsonType": _STRING_OR_NULL},
+        "verschickt_am": {"bsonType": "string"},
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        # STORED rather than derived from `verschickt_am` and the bound: raising the bound would
+        # otherwise move the deadline of every link already in somebody's inbox.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `token_hash_zuvor`'s reason: a mint knows nothing yet about the
+        # message its link goes out in.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# Spelled out rather than assigned `_BEWERBUNG_ENTSCHEIDUNG`: one name over both would let a key
+# either flow adds reach the other, and a pupil's decision is taken on a different surface from a
+# school's.
+_REGISTRIERUNG_ENTSCHEIDUNG = _object(
     nullable=True,
     required=("getroffen_am", "von", "grund"),
     properties={
@@ -460,6 +520,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
                 "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
+                # Its own key beside the application sweep's, out of `required` on the same terms: a
+                # reader chasing a stale date learns WHICH pass stopped, and one key over both would
+                # answer that the other one ran.
+                "registrierung_sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -532,7 +596,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "spieler_id",
                 "saison_id",
                 "team_id",
-                "is_nachgetragen",
                 "stufe",
                 "position",
                 "nummer",
@@ -543,7 +606,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "spieler_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
-                "is_nachgetragen": {"bsonType": "bool"},
+                # Out of `required` while rows written under the marker's old spelling survive
+                # (`docs/backend/spec.md :: I302`): a retire or a reactivate `$set`s
+                # `inactive_since` alone, so requiring it would refuse one on such a row.
+                "ist_nachnominiert": {"bsonType": "bool"},
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as holding no role.
                 "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},
@@ -647,10 +713,15 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
-                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required` because no
-                # create composes the key, and hand-written because `_object` would spell the empty
-                # `required` mongod refuses.
-                "bestaetigung": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: a referee
+                # entered with no address is mailed nothing, so that create composes no key here.
+                "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
+                # Out of `required` for `bestaetigung`'s reason, and nullable besides: only the
+                # person's own confirmation writes it, so a live row awaiting one carries null.
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                # Out of `required` for `saisons.spielplan`'s reason. The person's own to enter, as
+                # a contact seat's is: no admin payload carries it.
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -749,7 +820,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Every key required and none nullable: a ban nobody is named for cannot be lifted by
             # the person who would know why.
-            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"),
+            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 # Required above rather than optional: MongoDB indexes a missing key as null, so one
@@ -761,6 +832,80 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "grund": {"bsonType": "string"},
                 "erstellt_von": {"bsonType": "string"},
                 "erstellt_am": {"bsonType": "string"},
+                # Required rather than optional-with-a-fallback: the lapse check compares this with
+                # `$gte`, which passes over a row that lacks it -- a ban stopping in silence.
+                "gesperrt_bis_saison_id": {"bsonType": "string"},
+            },
+        )
+    },
+    Collection.EINLADUNGEN: {
+        "$jsonSchema": _object(
+            required=("_id", "saison_id", "team_id", "token_hash", "erstellt_am", "erstellt_von", "widerrufen_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "team_id": {"bsonType": "objectId"},
+                # The whole credential, on no model and in no read: a link is recoverable from
+                # nothing once this row holds it (`app/api/bewerbungen/services.py :: hash_token`).
+                "token_hash": {"bsonType": "string"},
+                "erstellt_am": {"bsonType": "string"},
+                "erstellt_von": {"bsonType": "string"},
+                # Required above rather than optional, for `sperrliste.adresse_hash`'s reason:
+                # `uniq_einladung_live` reaches the rows holding null, and a row missing the key
+                # would fall outside a rule that is the whole of one-live-invite-per-team.
+                "widerrufen_am": {"bsonType": _STRING_OR_NULL},
+                # The delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`), written
+                # empty by the mint (`docs/backend/spec.md :: I276`). Out of `required`, so a
+                # row seeded without one still stores; hand-written because `_object` would spell
+                # the empty `required` mongod refuses.
+                "versand": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+            },
+        )
+    },
+    Collection.REGISTRIERUNGEN: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "saison_id",
+                "team_id",
+                "einladung_id",
+                "eingereicht_am",
+                "status",
+                "vorname",
+                "nachname",
+                "email",
+                "position",
+                "nummer",
+                "stufe",
+                "geburtsdatum",
+                "einwilligung",
+                "entscheidung",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "team_id": {"bsonType": "objectId"},
+                "einladung_id": {"bsonType": "objectId"},
+                "eingereicht_am": {"bsonType": "string"},
+                "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
+                "vorname": {"bsonType": "string"},
+                "nachname": {"bsonType": "string"},
+                # As the pupil typed it, and never folded: this is the address the confirmation link
+                # was mailed to, and `spieler.email` holds the folded form the sign-in seam joins on.
+                "email": {"bsonType": "string"},
+                "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
+                # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.
+                "nummer": {"bsonType": _STRING_OR_NULL},
+                "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
+                # Required as KEYS and null until the pupil's own confirmation writes both in one
+                # `$set` (`docs/backend/spec.md :: I285`).
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
+                # :: ZIEL_PFADE`): the accepted send skips a row holding no carrier at all, and a
+                # row seeded without one still stores. Every submission composes it.
+                "bestaetigung": _REGISTRIERUNG_BESTAETIGUNG,
+                "entscheidung": _REGISTRIERUNG_ENTSCHEIDUNG,
             },
         )
     },
@@ -804,6 +949,18 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
     UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
+    # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
+    # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
+    # supports and names no null form at all
+    # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
+    # 2026-09-21).
+    UniqueIndex(
+        Collection.EINLADUNGEN,
+        "uniq_einladung_live",
+        ("saison_id", "team_id"),
+        "one live invite per team per season",
+        partial_filter={"widerrufen_am": {"$type": "null"}},
+    ),
 )
 
 
@@ -891,6 +1048,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("status", ASCENDING),),
         "the withheld-season set every unnarrowed base-tier read must exclude",
     ),
+    # PLAIN rather than sparse or partial, though most referees carry no block: `SupportIndex`
+    # spells no partial form, and the lookup is an equality on a hex digest, which the single null
+    # key a block-less row adds cannot match.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_bestaetigung_token_hash",
+        (("bestaetigung.token_hash", ASCENDING),),
+        "the referee confirmation page's lookup, driven by strangers",
+    ),
     # A support index and never a unique one: one family mailbox really is shared by two pupils, so
     # this read answers a list rather than refusing the second person who registers under it.
     SupportIndex(
@@ -898,6 +1064,40 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spieler_email",
         (("email", ASCENDING),),
         "the rows a signed-in person may be joined to, matched on the folded address",
+    ),
+    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
+    # key holds as many rows as the team has been reissued links.
+    SupportIndex(
+        Collection.EINLADUNGEN,
+        "einladungen_token_hash",
+        (("token_hash", ASCENDING),),
+        "the invite page's lookup, driven by strangers",
+    ),
+    # Two indexes for one `$or`: "all the clauses in the $or expression must be supported by
+    # indexes. Otherwise, MongoDB performs a collection scan." Mirrored from
+    # https://www.mongodb.com/docs/manual/reference/operator/query/or/, which moves without us;
+    # read 2026-09-21.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_bestaetigung_token_hash",
+        (("bestaetigung.token_hash", ASCENDING),),
+        "the confirmation page's lookup, driven by strangers",
+    ),
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_bestaetigung_token_hash_zuvor",
+        (("bestaetigung.token_hash_zuvor", ASCENDING),),
+        "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
+    ),
+    # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
+    # "only when the query includes equality conditions on all prefix keys that precede the sort
+    # keys." Mirrored from
+    # https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/; read 2026-09-21.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_saison_id_team_id_queue",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
+        "one team's pending registrations for one season, newest first, narrowed by status or not",
     ),
 )
 

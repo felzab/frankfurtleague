@@ -31,6 +31,7 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 import { buildSaisonBanners } from "./banners";
 import { spielplanUndrawBlockedReason } from "./blockedReasons";
 import { FormBewerbungSection } from "./FormBewerbungSection";
+import { FormEinladungVersandSection } from "./FormEinladungVersandSection";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRegistrierungSection } from "./FormRegistrierungSection";
@@ -357,6 +358,13 @@ export function AdminSaisonEditForm({
             registrierung={registrierung}
             onRegistrierungChange={changeRegistrierung}
             onFieldLeft={validateFields}
+          />
+
+          {/* Under the registration window it depends on and above the swap: the window is what the
+              link it mails expires with, and every control below this one moves the season itself. */}
+          <FormEinladungVersandSection
+            saisonId={saison.id}
+            isFinishedSaison={saison.status === "past"}
           />
 
           {/* Above the rollover, and below the field panels: a control rather than a field,

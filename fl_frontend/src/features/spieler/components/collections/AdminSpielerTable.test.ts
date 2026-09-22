@@ -12,6 +12,9 @@ import { labelBadge } from "@/shared/components/ui/badges.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
+import { SPIELER_CRUD_COPY } from "../../constants.ts";
+
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView.tsx";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
@@ -38,7 +41,7 @@ const SQUAD = {
   nummer: "7",
   position: "Angriff",
   stufe: "Q2",
-  is_nachgetragen: false,
+  ist_nachnominiert: false,
   rolle: "kapitaen",
   inactive_since: "2026-09-09",
   teamName: TEAM.name,
@@ -56,16 +59,16 @@ const AUSGETRAGEN: AdminSpielerRow = {
 };
 
 /** Live on both counts and added after kick-off, which is the state the other two cannot reach. */
-const NACHGETRAGEN: AdminSpielerRow = {
+const NACHNOMINIERT: AdminSpielerRow = {
   id: "6890a1b2c3d4e5f607900003",
   vorname: "Jule",
   nachname: "Roth",
   fullName: "Jule Roth",
   inactive_since: null,
-  selected: { ...SQUAD, rolle: "co_kapitaen", is_nachgetragen: true, inactive_since: null },
+  selected: { ...SQUAD, rolle: "co_kapitaen", ist_nachnominiert: true, inactive_since: null },
 };
 
-const table = (rows: AdminSpielerRow[]): string =>
+const table = (rows: AdminSpielerRow[], emptiness: CrudEmptiness = "none"): string =>
   renderTree(
     h(
       AppRouterContext.Provider,
@@ -75,7 +78,7 @@ const table = (rows: AdminSpielerRow[]): string =>
         { value: new URLSearchParams("saison_id=2026") },
         h(AdminSpielerTable, {
           filteredSpieler: rows,
-          emptiness: "none" as const,
+          emptiness: emptiness,
           saisonTeams: [TEAM],
           selectedSaisonId: "2026",
           setDeletingSpieler: () => undefined,
@@ -122,7 +125,7 @@ const PILLS: readonly string[] = [
   `Ausgetragen${NBSP}09.09.2026`,
   `Stillgelegt${NBSP}09.09.2026`,
   "Nicht im Kader",
-  "Nachgetragen",
+  "Nachnominiert",
   "Co-Kapitän",
   "Kapitän",
   "Aktiv",
@@ -132,8 +135,31 @@ describe("the pills a Spieler row draws", () => {
   /* The roster is where each of these was last read against the column, so a string that is not on it
      is one with no measured width behind it. */
   it("are the ones this roster names, an edited one arriving unmeasured", () => {
-    const drawn = pillsIn(table([STILLGELEGT, AUSGETRAGEN, NACHGETRAGEN]));
+    const drawn = pillsIn(table([STILLGELEGT, AUSGETRAGEN, NACHNOMINIERT]));
 
     assert.deepEqual(drawn, [...PILLS].sort());
+  });
+});
+
+/** Written out rather than imported from the table: a register that reads the mapping it checks agrees with itself whatever the mapping says. */
+const EMPTY_SENTENCES: Record<CrudEmptiness, string> = {
+  searched: SPIELER_CRUD_COPY.emptyForQuery,
+  filtered: SPIELER_CRUD_COPY.emptyForFilters,
+  none: SPIELER_CRUD_COPY.emptyOverall,
+};
+
+describe("what an empty Spieler list says about itself", () => {
+  /* Both halves are needed: the first alone passes on a list that draws every sentence at once, and
+     the second alone on one that draws none (`docs/frontend/spec.md :: "### 1.12 The copy rules"`). */
+  it("names the narrowing that emptied it, and blames no other", () => {
+    for (const [emptiness, sentence] of Object.entries(EMPTY_SENTENCES) as [CrudEmptiness, string][]) {
+      const html = table([], emptiness);
+
+      assert.ok(html.includes(sentence), `${emptiness}: the list does not say what emptied it`);
+
+      for (const [other, otherSentence] of Object.entries(EMPTY_SENTENCES)) {
+        if (other !== emptiness) assert.ok(!html.includes(otherSentence), `${emptiness}: the list blames ${other} as well`);
+      }
+    }
   });
 });

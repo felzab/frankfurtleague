@@ -128,6 +128,16 @@ CASES=(
   # The parameter guard standing alone, on paths the verification prefix never covers -- the mailed
   # landing among them, which is the URL this application actually sends.
   "LEAK|${BASE}/signin/bestaetigen?token=${TOK}"
+  # The referee's own landing. The map matches the parameter wherever it sits, so this case is a pin
+  # against narrowing it to a path list rather than a fix for anything.
+  "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
+  # The pupil's own landing, a pin for the referee case's reason.
+  "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
+  # The contact person's own landing, a pin for the referee case's reason.
+  "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
+  # The pupil's registration landing, a pin for the referee case's reason: the invite link a whole
+  # team is handed arrives here, so it is a mailed landing like the four above it.
+  "LEAK|${BASE}/registrierung?token=${TOK}"
   "LEAK|${BASE}/api/auth/sign-in/magic-link?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"

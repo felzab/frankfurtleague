@@ -773,9 +773,9 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
     });
 
 /**
- * The league's floor, which every seat's person clears: `fl_frontend/src/app/api/bestaetigung/route.ts`
- * parses a body carrying the token alone, so the seat's own floor is the page's to offer and the
- * endpoint's to refuse.
+ * The league's floor, which every seat's person clears:
+ * `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` parses a body carrying the token alone, so
+ * the seat's own floor is the page's to offer and the endpoint's to refuse.
  */
 export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
 export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEinwilligungAntwortPayloadSchema>;
@@ -786,9 +786,9 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
-  // The seven below are the route handler's alone: `fl_frontend/src/app/api/bestaetigung/route.ts`
-  // composes the two outbound messages from them and answers the browser the four above, so no
-  // contact person is handed another one's address.
+  // The seven below are the route handler's alone:
+  // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
+  // them and answers the browser the four above, so no contact person is handed another one's address.
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rolle: FLKontaktRolleSchema,
@@ -837,6 +837,32 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungKontaktSitzPayload` — the person seated where a contact person stepped out.
+ * The four fields are restated rather than taken off `FLBewerbungKontaktpersonPayloadSchema`: that
+ * one carries the Kenntnisnahme, which this person has given nobody.
+ */
+export const FLBewerbungKontaktSitzPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  rolle: FLKontaktRolleSchema,
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  email: KontaktEmailSchema,
+  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  // The label alone and no `erteilt`: it says which wording the new person will be shown, and their
+  // own link is what asks them to answer it.
+  text_version: FLBewerbungEinwilligungPayloadSchema.shape.text_version,
+});
+export type FLBewerbungKontaktSitzPayload = z.infer<typeof FLBewerbungKontaktSitzPayloadSchema>;
+
+/** Mirrors `FLBewerbungKontaktSitzResponse`. `rollen` for the correction's reason: one press fills every seat that person holds. */
+export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend({
+  rollen: z.array(FLKontaktRolleSchema),
+  token: z.string(),
+  bestaetigungsfrist: CustomDateStringSchema,
+});
+export type FLBewerbungKontaktSitzResponse = z.infer<typeof FLBewerbungKontaktSitzResponseSchema>;
 
 /**
  * The ceilings the two delivery writes state at their shared base, paired with that base's own by
@@ -983,9 +1009,12 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 
-/** Every season's id, and the day the sweep last ran: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
+/** Every season's id, and each pass's own day: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
 export const FLBewerbungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
   saison_ids: z.array(z.string()),
   sweep_gelaufen_am: CustomDateStringSchema.nullable(),
+  // The registration pass's own day beside the application's: the two clocks run in one process and
+  // stop separately, so a fresh date beside a stale one is what names the pass that stopped.
+  registrierung_sweep_gelaufen_am: CustomDateStringSchema.nullable(),
 });
 export type FLBewerbungSweepSaisonsResponse = z.infer<typeof FLBewerbungSweepSaisonsResponseSchema>;

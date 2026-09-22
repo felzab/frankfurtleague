@@ -17,13 +17,14 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
-import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
+import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
 import {
   FLAblehnenBewerbungPayloadSchema,
   FLAnnehmenBewerbungPayloadSchema,
   FLBewerbungKontaktEmailPayloadSchema,
+  FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
 import { bewerbungTeamName, describeAufnahme } from "./utils";
@@ -38,6 +39,7 @@ import type {
   FLAnnehmenBewerbungPayload,
   FLBewerbung,
   FLBewerbungKontaktEmailPayload,
+  FLBewerbungKontaktSitzPayload,
   FLEinwilligungErneutPayload,
 } from "./schemas";
 
@@ -378,6 +380,15 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
 
+/** Both administrative repairs answer `REQ-BEWERBUNG-001` with this: a decided application's contact block is what the decision was taken against. */
+const ANGABEN_STEHEN_FEST = buildRefusal({
+  reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
+  repair: "Lade die Seite neu",
+});
+
+/** `REQ-BEWERBUNG-014` from either repair, worded as the submission words the same collision. */
+const ADRESSE_SCHON_VERGEBEN = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
+
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
 
@@ -528,12 +539,7 @@ function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?:
 
   switch (error.serverErrorCode) {
     case "REQ-BEWERBUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
-          repair: "Lade die Seite neu",
-        }),
-      };
+      return { error: ANGABEN_STEHEN_FEST };
     // The pencil stands on a seat the page drew as outstanding, so the person answered under it: the
     // correction is refused because their own answer named this address, not because a rule shut a box.
     case "REQ-BEWERBUNG-011":
@@ -546,7 +552,7 @@ function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?:
     // Under the field rather than over the panel: the box holding the refused address is the one
     // thing to change, and the submission words the same collision the same way.
     case "REQ-BEWERBUNG-014":
-      return { fieldErrors: { email: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen." } };
+      return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     default:
       return null;
   }
@@ -623,6 +629,103 @@ export async function kontaktEmailKorrigierenAction(
         error_code: "FE-MAIL-002",
         name: error instanceof Error ? error.name : undefined,
         operation: "kontaktEmailKorrigierenAction",
+      });
+
+      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+    }
+
+    return zustellung.verschickt
+      ? { success: true, verschickt: true, message: zustellung.message }
+      : { success: true, verschickt: false, message: zustellung.error };
+  });
+}
+
+/** A reseat 409 as the message it should render, or `null` when the code is none of these. */
+function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-BEWERBUNG-001":
+      return { error: ANGABEN_STEHEN_FEST };
+    // The control stands on a seat the page drew as a Widerspruch, so the seat has moved under it —
+    // never that a rule shut a door: the one open seat is the one its own holder stepped out of.
+    case "REQ-BEWERBUNG-011":
+      return {
+        error: buildRefusal({
+          reason: "Neu besetzt wird nur eine Rolle, deren Person selbst widersprochen hat, und für diese Rolle gilt das nicht mehr",
+          repair: "Lade die Seite neu",
+        }),
+      };
+    case "REQ-BEWERBUNG-014":
+      return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
+    default:
+      return null;
+  }
+}
+
+/**
+ * **The seat stands filled whatever the message did**, as the correction's address does: a refused
+ * send is a link to try again rather than a person who was never seated.
+ */
+export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
+  return runAdminMutation("besetzeKontaktSitzAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // BEFORE the write, as both repairs read: the school's name is what the message names, and a
+    // throw here costs a report rather than a seat filled behind a message nobody could compose.
+    const gelesen = await getBewerbungById(validated.data.id);
+
+    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
+
+    const benanntesTeam = await resolveBewerbungTeamName(gelesen.bewerbung);
+
+    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+
+    let sitzOperation;
+    try {
+      sitzOperation = await besetzenKontaktSitz(validated.data);
+    } catch (error) {
+      const refusal = mapKontaktSitzRefusal(error);
+      if (refusal) return refusalResult(refusal);
+      throw error;
+    }
+
+    if (!sitzOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: "Versuche es erneut" }) };
+    }
+
+    // No tag moves, for the correction's reason: this writes the application's own contact block and
+    // its confirmation entry, and no cached read holds an application.
+    refresh();
+
+    let zustellung;
+    try {
+      zustellung = await sendeBestaetigungErneut({
+        bewerbungId: validated.data.id,
+        saisonId: gelesen.bewerbung.saison_id,
+        person: { vorname: validated.data.vorname, email: validated.data.email },
+        benanntesTeam: benanntesTeam,
+        // The WRITE's own answer, never `gepaarteSitze`: that helper mirrors `paired_seat`, which
+        // drops an emptied seat from the pair, and every seat this write filled was emptied.
+        sitze: sitzOperation.rollen,
+        token: sitzOperation.token,
+      });
+    } catch (error) {
+      // The person is seated by the time this runs, so a throw escaping here would answer a write
+      // that stands with „nicht besetzt“. Name only, never the error or the token
+      // (`docs/logging/spec.md :: L9`).
+      logger.error("bewerbung.mail_failed", undefined, {
+        error_code: "FE-MAIL-002",
+        name: error instanceof Error ? error.name : undefined,
+        operation: "besetzeKontaktSitzAction",
       });
 
       return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
