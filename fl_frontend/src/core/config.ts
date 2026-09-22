@@ -3,7 +3,7 @@ import "server-only";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
-import { asSignInIdentifier, isDeliverableAddress } from "./emailAddress";
+import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
@@ -19,15 +19,17 @@ export const INTERNAL_API_KEY = z
   .regex(/^[\x21-\x7e]+$/, "every character must be printable ASCII, and none may be a space");
 
 /**
- * One rule with the sign-in box, `fl_frontend/src/features/auth/schemas.ts :: SignInPayloadSchema`:
- * an address only one of the two takes is an administrator nobody can let in.
+ * An entry the sign-in library refuses is an administrator no link ever reaches: the send is
+ * answered neutrally and refused behind it (`docs/frontend/spec.md :: I316`). Tightening this
+ * further needs `fl_frontend/src/features/auth/schemas.ts :: SignInPayloadSchema` to keep taking
+ * every entry it takes.
  */
 export const ADMIN_EMAIL_ALLOWLIST = z
   .string()
   .transform((str) => str.split(",").map(asSignInIdentifier))
   // A refused entry fails the whole variable, so a separator nothing split on is met at boot rather
   // than at a sign-in that answers every address alike.
-  .pipe(z.array(z.string().refine(isDeliverableAddress)));
+  .pipe(z.array(z.string().max(KONTAKT_EMAIL_MAX_LENGTH).refine(isDeliverableAddress).refine(isSignInLibraryAddress)));
 
 export function refuseInvalidEnvironment(names: readonly string[]): never {
   // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
@@ -94,7 +96,9 @@ const server = {
     const { protocol, hostname } = new URL(raw);
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
-  AUTH_SECRET: z.string(),
+  // The library's own floor, which it only warns below, so a short value signs every admin session
+  // behind a deploy nothing turned red (`docs/frontend/spec.md :: I317`).
+  AUTH_SECRET: z.string().min(32),
   // Optional here and demanded below under `production` alone. What keeps a send off a deployment
   // that is not production is `APP_ENV` and never this being absent: a development machine's own
   // environment may carry a real key.

@@ -139,7 +139,8 @@ else
       # The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are
       # retyped by hand in these modules, so a diff editing the frontend side of a mirror would
       # otherwise reach that comparison no earlier than the push to main.
-      fl_frontend/src/shared/schemas.ts|fl_frontend/src/features/bewerbungen/constants.ts| \
+      fl_frontend/src/shared/schemas.ts|fl_frontend/src/core/emailAddress.ts| \
+      fl_frontend/src/features/bewerbungen/constants.ts| \
       fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts| \
       fl_frontend/src/features/saisons/constants.ts|fl_frontend/src/features/saisons/schemas.ts| \
       fl_frontend/src/features/saisons/shapeOffer.ts|fl_frontend/src/features/bewerbungen/schemas.ts| \

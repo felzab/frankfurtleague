@@ -1,9 +1,18 @@
+import { z } from "zod";
+
 /**
  * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which is its
  * other caller: `fl_frontend/src/core/config.ts` judges the administrator allowlist, and
  * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`. A second spelling
  * over there is what disagrees with this one.
  */
+
+/**
+ * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Declared here rather than beside
+ * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because the
+ * administrator allowlist holds entries to the same ceiling and `core` may not import from `shared`.
+ */
+export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
 /**
  * RFC 5322 3.2.3's atext, extended by RFC 6531 3.3 to every code point above ASCII and narrowed by
@@ -57,6 +66,18 @@ export function isDeliverableAddress(value: string): boolean {
   const labels = punycoded.split(".");
   // A host with no dot is deliverable nowhere, which is the reason `EmailStr` refuses one.
   return labels.length > 1 && labels.every((label) => label.length <= EMAIL_HOST_LABEL_MAX_OCTETS && EMAIL_HOST_LABEL_REGEX.test(label));
+}
+
+/**
+ * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` parses the
+ * magic-link body with `z.email()`. What holds the two together is the table in
+ * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` and nothing else.
+ */
+const SIGN_IN_LIBRARY_EMAIL = z.email();
+
+/** Asked of the FOLDED address: `fl_frontend/src/features/auth/actions.ts :: handleSignIn` hands the library that form and no other. */
+export function isSignInLibraryAddress(value: string): boolean {
+  return SIGN_IN_LIBRARY_EMAIL.safeParse(value).success;
 }
 
 /**

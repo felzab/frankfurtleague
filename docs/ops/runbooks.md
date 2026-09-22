@@ -62,7 +62,9 @@ the machine is outside the repository. What it does tell you:
   from the shell that ran compose and reaching the container as nothing at all. That is where a
   release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
   the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
-  judged at boot and nowhere else. It does catch the misspelling whose value is EMPTY
+  judged at boot and nowhere else, `AUTH_SECRET` below the sign-in library's floor of 32 characters
+  and an `ALLOWED_ADMIN_EMAILS` entry that library will not take among them — each a refusal this
+  reader passes and the recreated container meets. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
@@ -315,6 +317,13 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
+- **An entry the sign-in library will not take stops the site rather than that one administrator.**
+  The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
+  after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
+  never the entry. An umlaut is the case that turns up, and the two halves of an address differ:
+  a domain one is entered in its punycoded spelling, which that administrator then has to type at the
+  sign-in box as well, while an umlaut in the local part has no such form — that person needs a
+  mailbox the sign-in box will accept before there is anything to allowlist.
 - **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.

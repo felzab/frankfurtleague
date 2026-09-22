@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { magicLink } from "better-auth/plugins/magic-link";
+
+import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress.ts";
 import { documentsWrittenBy, documentsWrittenByAsync } from "./stdoutCapture.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -26,6 +29,13 @@ const {
 
 const LENGTH = 64;
 const pad = (head: string): string => head + "k".repeat(LENGTH - [...head].length);
+
+/* Built from a sentence no reader could mistake for a real value: the schema judges the LENGTH, so
+   a case either side of the floor needs nothing that reads like a credential. */
+const artificialSecret = (length: number): string => "fabricated-not-a-credential".padEnd(length, "x").slice(0, length);
+
+/** The floor the sign-in library warns below, which the two cases for it sit either side of. */
+const SIGNING_FLOOR = 32;
 
 const ORIGINAL_LOG_FORMAT = process.env.LOG_FORMAT;
 
@@ -113,7 +123,7 @@ const COMPLETE_ENV: Record<string, string> = {
   API_VERSION: "0",
   MONGODB_URI: "mongodb://mongo:27017/?directConnection=true",
   AUTH_URL: "https://frankfurtleague.de",
-  AUTH_SECRET: "secret-probe",
+  AUTH_SECRET: artificialSecret(SIGNING_FLOOR),
   AUTH_RESEND_KEY: "resend-probe",
   RESEND_WEBHOOK_SECRET: "whsec_probe",
   INTERNAL_API_KEY_BASE: "b".repeat(LENGTH),
@@ -260,14 +270,43 @@ describe("the names a failed validation is reduced to", () => {
   });
 });
 
+/* One row per clause of the two installed regexes, each keyed by the clause it drives: a clause with
+   no row here is drift the agreement case cannot see, and a row nothing drives is a row to delete. */
+const ADDRESS_TABLE: [clause: string, address: string][] = [
+  ["a plain address", "vorstand@schule.de"],
+  ["a dot inside the local part", "vor.stand@schule.de"],
+  ["a plus tag", "vorstand+admin@schule.de"],
+  ["an underscore in the local part", "vor_stand@schule.de"],
+  ["an apostrophe in the local part", "o'neill@schule.de"],
+  ["an upper-case spelling", "VORSTAND@Schule.de"],
+  ["a punycoded domain", "vorstand@xn--mnchen-3ya.de"],
+  ["a host label ending in a hyphen", "erika@ab-.de"],
+  ["a local part opening on a dot", ".vorstand@schule.de"],
+  ["a doubled dot in the local part", "vor..stand@schule.de"],
+  ["a local part closing on a dot", "vorstand.@schule.de"],
+  ["a local part closing on an apostrophe", "vorstand'@schule.de"],
+  ["an atext character outside the library's class", "a!b@schule.de"],
+  ["a non-ASCII local part", "jörg@schule.de"],
+  ["a quoted local part", '"vor stand"@schule.de'],
+  ["a host label opening on a hyphen", "vorstand@-schule.de"],
+  ["a non-ASCII domain", "vorstand@münchen.de"],
+  ["a host carrying no dot", "erika@schule"],
+  ["a single-letter top-level domain", "vorstand@schule.a"],
+  ["a digit in the top-level domain", "vorstand@schule.d1"],
+  ["a doubled dot in the host", "vorstand@schule..de"],
+  ["nothing at all", ""],
+];
+
 describe("the administrator allowlist", () => {
-  const COMPOSED = "käthe@schule.de".normalize("NFC");
-  const DECOMPOSED = COMPOSED.normalize("NFD");
+  /* Fullwidth, so NFKC folds it to pure ASCII: an entry the fold leaves above ASCII is one the
+     sign-in library refuses, and the case below would then be proving a refusal instead. */
+  const WIDE = "Ｖｏｒｓｔａｎｄ@ｓｃｈｕｌｅ.ｄｅ";
+  const FOLDED = "vorstand@schule.de";
 
   /* One refused entry fails the whole variable and `refuseInvalidEnvironment` throws, so an address
-     the sign-in box takes has to pass here or the site does not boot at all. */
-  it("takes every address the sign-in box takes", () => {
-    for (const raw of [COMPOSED, "erika@käthe-schule.example", "a!b@schule.de"]) {
+     a link can be mailed to has to pass here or the site does not boot at all. */
+  it("takes an address both the sign-in box and the sign-in library accept", () => {
+    for (const raw of ["vorstand@schule.de", "vorstand+admin@schule.de", "VORSTAND@Schule.de", "vorstand@xn--mnchen-3ya.de"]) {
       assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, true, `refused ${raw}`);
     }
   });
@@ -280,11 +319,108 @@ describe("the administrator allowlist", () => {
     }
   });
 
-  /* The two spellings of an umlaut are different strings, so an entry left decomposed matches
-     nothing anybody can type (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
-  it("holds each entry in the form the allowlist check folds an address into", () => {
-    assert.notEqual(COMPOSED, DECOMPOSED);
+  /* The second assertion is what makes each row drive THIS rule: an address the API's own rule
+     refuses would be refused here whatever the sign-in library says. */
+  it("refuses an address the sign-in library will not take, whatever the API's own rule says", () => {
+    for (const raw of ["jörg@schule.de", "vorstand@münchen.de", "a!b@schule.de", "vorstand@schule.a"]) {
+      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, false, `accepted ${raw}`);
+      assert.equal(isDeliverableAddress(asSignInIdentifier(raw)), true, `${raw} drives nothing: the API's rule refuses it too`);
+    }
+  });
 
-    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${COMPOSED.toUpperCase()} , ${DECOMPOSED} `).data, [COMPOSED, COMPOSED]);
+  /* An entry stored in any other form matches nothing anybody can type
+     (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
+  it("holds each entry in the form the allowlist check folds an address into", () => {
+    assert.notEqual(WIDE, FOLDED);
+
+    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${WIDE} , ${FOLDED.toUpperCase()} `).data, [FOLDED, FOLDED]);
+  });
+
+  /* An entry over the sign-in box's own ceiling boots and then cannot be typed at the box
+     (`fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`), which is the same lock-out from the
+     other end. */
+  it("refuses an entry longer than the sign-in box will take", async () => {
+    const ofLength = (length: number): string => `${"a".repeat(length - "@schule.de".length)}@schule.de`;
+
+    assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(ofLength(KONTAKT_EMAIL_MAX_LENGTH)).success, true);
+    assert.equal(await refusedNames({ ALLOWED_ADMIN_EMAILS: ofLength(KONTAKT_EMAIL_MAX_LENGTH + 1) }), "ALLOWED_ADMIN_EMAILS");
+  });
+
+  /* The refusal an operator reads has to send them to a variable, and the one value it may never
+     carry is the entry that failed (`docs/logging/spec.md :: L9`). */
+  it("names the variable for a refused entry, and carries no part of the address", async () => {
+    const refused = "jörg@schule.de";
+    const documents = await documentsWrittenByAsync(async () => {
+      await assert.rejects(bootWith({ ALLOWED_ADMIN_EMAILS: `admin@frankfurtleague.de,${refused}` }), /Invalid environment variables/);
+    });
+
+    assert.equal(documents[0]?.variables, "ALLOWED_ADMIN_EMAILS");
+    // Every document, not the first: a second line is where a value reaches a container log unread.
+    for (const document of documents) {
+      const written = JSON.stringify(document);
+
+      for (const secret of [refused, "jörg", "schule.de"]) {
+        assert.equal(written.includes(secret), false, `a refusal line carried ${secret}`);
+      }
+    }
+  });
+});
+
+describe("the sign-in library's own rule", () => {
+  /* The endpoint's own body schema, not a copy of its pattern: `fl_frontend/src/core/auth.ts`
+     registers this plugin and `fl_frontend/src/core/auth.test.ts` drives the endpoint through it,
+     so what this object refuses is what an administrator's request for a link meets. */
+  const libraryBody = magicLink({ sendMagicLink: async () => undefined }).endpoints.signInMagicLink.options.body;
+
+  const libraryTakes = (folded: string): boolean => libraryBody.safeParse({ email: folded }).success;
+
+  /* An agreement over a table of refusals alone agrees on everything, and a table short of the
+     clauses agrees on the ones it left out. */
+  it("compares a table that covers both regexes and carries an answer of each kind", () => {
+    const answers = ADDRESS_TABLE.map(([, address]) => libraryTakes(asSignInIdentifier(address)));
+
+    assert.ok(ADDRESS_TABLE.length >= 12, `the table holds ${String(ADDRESS_TABLE.length)} rows`);
+    assert.ok(answers.includes(true), "the library takes nothing in the table");
+    assert.ok(answers.includes(false), "the library takes everything in the table");
+  });
+
+  /* Two zod copies are installed and this module resolves the one the library does not, so a release
+     moving either regex is a lock-out that nothing else here would catch. */
+  it("answers each address the way the allowlist's own predicate does", () => {
+    for (const [clause, address] of ADDRESS_TABLE) {
+      const folded = asSignInIdentifier(address);
+
+      assert.equal(isSignInLibraryAddress(folded), libraryTakes(folded), `disagreed on ${clause}: ${address}`);
+    }
+  });
+});
+
+describe("the value an admin session is signed with", () => {
+  it("refuses a value one character under the sign-in library's floor, and names the variable", async () => {
+    assert.equal(await refusedNames({ AUTH_SECRET: artificialSecret(SIGNING_FLOOR - 1) }), "AUTH_SECRET");
+  });
+
+  it("boots at the floor", async () => {
+    const value = artificialSecret(SIGNING_FLOOR);
+
+    assert.equal((await bootWith({ AUTH_SECRET: value }))["AUTH_SECRET"], value);
+  });
+
+  /* The library only warns below the floor, so the refusal here is the only thing standing between a
+     short value and every admin session signed with it. */
+  it("carries no part of the refused value into the line an operator reads", async () => {
+    const refused = artificialSecret(SIGNING_FLOOR - 1);
+    const documents = await documentsWrittenByAsync(async () => {
+      await assert.rejects(bootWith({ AUTH_SECRET: refused }), /Invalid environment variables/);
+    });
+
+    assert.equal(documents[0]?.variables, "AUTH_SECRET");
+    for (const document of documents) {
+      const written = JSON.stringify(document);
+
+      for (const fragment of [refused, refused.slice(0, 12), refused.slice(-12)]) {
+        assert.equal(written.includes(fragment), false, "a refusal line carried part of the value");
+      }
+    }
   });
 });

@@ -195,7 +195,9 @@ describe("the switch the retention sweep is armed by", () => {
     API_VERSION: "0",
     MONGODB_URI: "mongodb://localhost:27017/probe",
     AUTH_URL: "http://localhost:3000",
-    AUTH_SECRET: "secret",
+    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
+    // environment, and every case here would then report the switch as unreadable.
+    AUTH_SECRET: "s".repeat(32),
     AUTH_RESEND_KEY: "resend",
     // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
     RESEND_WEBHOOK_SECRET: "whsec_probe",
