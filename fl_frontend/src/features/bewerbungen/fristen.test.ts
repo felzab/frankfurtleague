@@ -33,7 +33,7 @@ const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
 const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
-const LINK = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
+const LINK = `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK };

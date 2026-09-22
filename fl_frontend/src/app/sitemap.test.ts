@@ -18,7 +18,7 @@ const WITHHELD = [
   "/signin/weiter",
   "/signin/bestaetigen",
   "/signin/passkey",
-  "/bestaetigung",
+  "/bestaetigung/kontakt",
   "/bestaetigung/schiedsrichter",
   "/registrierung",
   "/bestaetigung/spieler",

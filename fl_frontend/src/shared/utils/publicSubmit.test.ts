@@ -84,7 +84,7 @@ describe("what a public form is told when the answer was not this application's"
   it("refuses a body that is no JSON at all", async () => {
     antwortet("<html>interstitial</html>", { status: 200, headers: { "content-type": "text/html" } });
 
-    const answered = await postPublicForm("/api/bestaetigung", {});
+    const answered = await postPublicForm("/api/bestaetigung/kontakt", {});
 
     assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS });
   });
@@ -104,7 +104,7 @@ describe("what a public form is told when the answer was not this application's"
   it("blames the connection where the request left no judgement", async () => {
     transportiert(() => Promise.reject(new TypeError("Failed to fetch")));
 
-    const answered = await postPublicForm("/api/bestaetigung", {});
+    const answered = await postPublicForm("/api/bestaetigung/kontakt", {});
 
     assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_VERBINDUNG });
   });
@@ -164,11 +164,11 @@ describe("what a public form is told when the application did answer", () => {
       return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
     });
 
-    await postPublicForm("/api/bestaetigung", { token: "abc" });
+    await postPublicForm("/api/bestaetigung/kontakt", { token: "abc" });
 
     assert.deepEqual(
       sent.map(({ url }) => url),
-      ["/api/bestaetigung"],
+      ["/api/bestaetigung/kontakt"],
     );
     assert.equal(sent[0]?.init.method, "POST");
     assert.deepEqual(new Headers(sent[0]?.init.headers).get("content-type"), "application/json");

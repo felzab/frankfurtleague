@@ -2,5 +2,5 @@
 // `nginx/prod.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
 // line and the referer unredacted, and one module keeps a rename one edit.
 export function bestaetigungsLink(origin: string, token: string): string {
-  return `${origin}/bestaetigung?token=${encodeURIComponent(token)}`;
+  return `${origin}/bestaetigung/kontakt?token=${encodeURIComponent(token)}`;
 }

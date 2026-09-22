@@ -773,9 +773,9 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
     });
 
 /**
- * The league's floor, which every seat's person clears: `fl_frontend/src/app/api/bestaetigung/route.ts`
- * parses a body carrying the token alone, so the seat's own floor is the page's to offer and the
- * endpoint's to refuse.
+ * The league's floor, which every seat's person clears:
+ * `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` parses a body carrying the token alone, so
+ * the seat's own floor is the page's to offer and the endpoint's to refuse.
  */
 export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
 export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEinwilligungAntwortPayloadSchema>;
@@ -786,9 +786,9 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
-  // The seven below are the route handler's alone: `fl_frontend/src/app/api/bestaetigung/route.ts`
-  // composes the two outbound messages from them and answers the browser the four above, so no
-  // contact person is handed another one's address.
+  // The seven below are the route handler's alone:
+  // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
+  // them and answers the browser the four above, so no contact person is handed another one's address.
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rolle: FLKontaktRolleSchema,

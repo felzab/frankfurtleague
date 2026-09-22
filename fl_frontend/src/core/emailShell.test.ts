@@ -133,7 +133,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       saisonId: "2627",
       origin: origin,
       schule: "Ernst-Reuter-Schule",
-      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-eins` }],
+      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins` }],
       fristText: "18.09.2026",
     }),
   buildBewerbungErinnerungEmail: (origin) =>
@@ -143,8 +143,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       schule: "Ernst-Reuter-Schule",
       // Two seats on one address, which is the shape the single-seat fixture above cannot reach.
       seats: [
-        { vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-zwei` },
-        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${ORIGIN}/bestaetigung?token=beispiel-drei` },
+        { vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-zwei` },
+        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-drei` },
       ],
       fristText: "18.09.2026",
     }),
@@ -155,7 +155,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
       fristText: "18.09.2026",
-      link: `${ORIGIN}/bestaetigung?token=beispiel-vier`,
+      link: `${ORIGIN}/bestaetigung/kontakt?token=beispiel-vier`,
     }),
   buildBewerbungVollstaendigEmail: (origin) =>
     buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: origin, rollenText: "Ansprechperson" }),
@@ -243,7 +243,7 @@ describe("the shared email shell", () => {
   it("refuses to build a message at all where the origin is not an absolute URL", () => {
     for (const [name, bauen] of Object.entries(FIXTURES)) {
       assert.throws(() => bauen(""), /absolute origin/, `${name} composed a message on an origin that is not a URL`);
-      assert.throws(() => bauen("/bestaetigung"), /absolute origin/, `${name} composed a message on a bare path`);
+      assert.throws(() => bauen("/bestaetigung/kontakt"), /absolute origin/, `${name} composed a message on a bare path`);
     }
   });
 

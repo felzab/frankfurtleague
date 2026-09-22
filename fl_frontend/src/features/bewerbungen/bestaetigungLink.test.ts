@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { bestaetigungsLink } from "./bestaetigungLink.ts";
+import { redactedParameterNames } from "@/core/edgeRedaction.ts";
 
-const EDGE_CONFIG = path.resolve(import.meta.dirname, "..", "..", "..", "..", "nginx", "prod.conf");
+import { bestaetigungsLink } from "./bestaetigungLink.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -16,28 +16,15 @@ const MINTER = ["../../app/api/bewerbung/route.ts", "sweep.ts", "actions.ts"].ma
   source: readFileSync(path.resolve(import.meta.dirname, relativ), "utf8"),
 }));
 
-/**
- * The parameter names the edge replaces in its access line, read off the map rather than retyped:
- * two literals agreeing is what let three modules drift apart in the first place.
- */
-function redactedParameterNames(): string[] {
-  const from2 = readFileSync(EDGE_CONFIG, "utf8");
-  const block = from2.slice(from2.indexOf("map $request_uri $credential_free_uri {"));
-  const to2 = block.slice(0, block.indexOf("}"));
-  const alternations = [...to2.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|"));
-
-  return [...new Set(alternations)];
-}
-
 describe("the confirmation link every minter spells", () => {
   it("puts the token on the origin it was handed, under the confirmation page's path", () => {
-    assert.equal(bestaetigungsLink(ORIGIN, "beispiel-eins"), `${ORIGIN}/bestaetigung?token=beispiel-eins`);
+    assert.equal(bestaetigungsLink(ORIGIN, "beispiel-eins"), `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`);
   });
 
   /* A token is a credential the backend compares byte for byte, and an unencoded `&` or `#` in one
      would end the parameter early and hand the page a token nothing matches. */
   it("percent-encodes the token, so nothing inside it can end the parameter", () => {
-    assert.equal(bestaetigungsLink(ORIGIN, "a b&c=d?e/f#g"), `${ORIGIN}/bestaetigung?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
+    assert.equal(bestaetigungsLink(ORIGIN, "a b&c=d?e/f#g"), `${ORIGIN}/bestaetigung/kontakt?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
   });
 
   /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link

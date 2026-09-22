@@ -221,7 +221,7 @@ reproduce it.
 **The app's other route handlers sit outside that boundary, each for its own reason.** The sign-in
 library's catch-all and the client-error ingest (`FE-CLIENT-001`) mutate no application data at all. The
 public application form's submit, its Kürzel check and the confirmation page's write
-(`fl_frontend/src/app/api/bestaetigung/route.ts`) authorize nobody, so none can open on
+(`fl_frontend/src/app/api/bestaetigung/kontakt/route.ts`) authorize nobody, so none can open on
 `getAdminSession()` (I7) or borrow `runAdminMutation`, whose name asserts a session was checked;
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` is their spine, and it
 authorizes nothing — the guard on the backend endpoint stays the only thing deciding whether the

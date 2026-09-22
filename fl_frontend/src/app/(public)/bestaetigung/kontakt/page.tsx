@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   description: "Bestätige Deinen Eintrag als Kontaktperson in der Bewerbung Deiner Schule bei der Frankfurt League.",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
-  openGraph: openGraphFor("/bestaetigung"),
-  alternates: { canonical: "/bestaetigung" },
+  openGraph: openGraphFor("/bestaetigung/kontakt"),
+  alternates: { canonical: "/bestaetigung/kontakt" },
 };
 
 /**

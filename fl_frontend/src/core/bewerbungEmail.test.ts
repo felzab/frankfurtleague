@@ -853,8 +853,8 @@ describe("no value can open a line of its own in the text branch", () => {
 });
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a real credential is one somebody copies. */
-const LINK_EINS = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
-const LINK_ZWEI = `${ORIGIN}/bestaetigung?token=beispiel-zwei`;
+const LINK_EINS = `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`;
+const LINK_ZWEI = `${ORIGIN}/bestaetigung/kontakt?token=beispiel-zwei`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK_EINS };
@@ -1509,7 +1509,7 @@ describe("the confirmation workflow's messages", () => {
   it("break a link that stands in the prose inside the word", () => {
     for (const { name, mail } of allWorkflow()) {
       const paragraphs = [...mail.html.matchAll(/<p ([^>]*)>([\s\S]*?)<\/p>/g)].filter(([, , inner]) =>
-        (inner ?? "").includes("/bestaetigung?"),
+        (inner ?? "").includes("/bestaetigung/kontakt?"),
       );
       if (paragraphs.length === 0) continue;
 
@@ -1537,7 +1537,7 @@ describe("the confirmation workflow's messages", () => {
 describe("the origin every message's links are built on", () => {
   /** An origin no fixture and no module constant carries, so a link still built on either fails here rather than reading alike. */
   const SERVIERT = "https://beispiel.test";
-  const LINK = `${SERVIERT}/bestaetigung?token=beispiel-eins`;
+  const LINK = `${SERVIERT}/bestaetigung/kontakt?token=beispiel-eins`;
   const SEATS = [{ ...ERIKA, link: LINK }] satisfies BewerbungBestaetigungData["seats"];
 
   /** Every message this module builds, each handed that origin, so no builder drops out of the sweep below. */

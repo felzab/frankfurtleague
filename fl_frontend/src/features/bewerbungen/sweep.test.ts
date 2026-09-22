@@ -392,7 +392,7 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     const reminder = events.find((event) => event.kind === "mail");
-    assert.equal(reminder?.text.match(/\/bestaetigung\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    assert.equal(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
     assert.ok(reminder?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 
