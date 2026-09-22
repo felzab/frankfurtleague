@@ -130,6 +130,12 @@ const FRISTEN = [
   },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
+    daten:
+      "Bestätigung einer Schiedsrichterin oder eines Schiedsrichters: Geburtsdatum, die beiden Antworten (Veröffentlichung, Medien) und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
+    frist:
+      "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht",
+  },
+  {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
     frist:
       "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
@@ -292,8 +298,8 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei der Kontaktperson, an die die Nachricht ging, damit die Verwaltung sieht, wen sie nicht erreicht. Er wird zusammen mit der
-            Bewerbung gelöscht.
+            wir bei der Person, an die die Nachricht ging. So sieht die Verwaltung, wen sie nicht erreicht. Er wird zusammen mit dem Eintrag
+            gelöscht, zu dem die Person gehört.
           </p>
         </LegalSection>
 
@@ -418,9 +424,9 @@ export function DatenschutzView() {
             ))}
           </dl>
           <p className={ABSATZ}>
-            Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten und die
-            Schule einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin oder eines Spielers.
-            Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
+            Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten, die
+            Schule und das Geburtsdatum einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin
+            oder eines Spielers. Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
           </p>
           <p className={ABSATZ}>
             Die beiden vollständigen Namen im Impressum stehen nicht auf der Grundlage aus dieser Aufstellung, sondern weil § 5 DDG und § 18

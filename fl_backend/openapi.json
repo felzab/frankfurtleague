@@ -1930,7 +1930,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee. `inactive_since` is set to null here and is on no payload.",
+        "description": "Create a referee, and mint their confirmation link where the entry carries an email address.\n\n`inactive_since` is set to null here and is on no payload. **Entering an address IS the\ninvitation**: there is no second press deciding whether this person is asked, because a referee\nnobody asked is a name nobody consented to publish. The raw token is answered once, for the\ncaller to mail, and the row stores only its hash; an entry with no address answers\n`bestaetigung: null` and mails nothing.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -2019,7 +2019,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\nWhere a fresh link would be minted, two refusals apply that a plain rename never meets: a RETIRED\nreferee is refused `REQ-SCHIEDSRICHTER-001`, no consent being collected for a role nobody can\ngive them, and a banned new address `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -4504,6 +4504,52 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": {
+      "post": {
+        "summary": "Send a Schiedsrichter a fresh confirmation link",
+        "description": "Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.\n\nIt replaces the whole block, so the previous link stops working at once and the delivery state\nof the message that link went out in goes with it — a bounce recorded against a replaced address\nwould otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from\ntoday.\n\nRefused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already\nanswered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address\n(`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list\n(`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "operationId": "einladen_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__bestaetigung_einladen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterMintResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Anonymise a Schiedsrichter",
@@ -5552,6 +5598,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLRegistrierungBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/schiedsrichter/bestaetigung/ansicht": {
+      "post": {
+        "summary": "What one Schiedsrichter confirmation link opens",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, the age floor, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/schiedsrichter/bestaetigung": {
+      "post": {
+        "summary": "Confirm one Schiedsrichter's entry and consent",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungResponse"
                 }
               }
             }
@@ -10668,6 +10804,16 @@
           "fanned_out_to_spiele": {
             "type": "integer",
             "title": "Fanned Out To Spiele"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -11857,6 +12003,16 @@
             ],
             "title": "Acknowledged",
             "default": 1
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_id": {
             "type": "string",
@@ -13608,6 +13764,38 @@
               }
             ],
             "title": "Inactive Since"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "einwilligung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "type": "object",
@@ -13620,6 +13808,224 @@
           "inactive_since"
         ],
         "title": "FLSchiedsrichter"
+      },
+      "FLSchiedsrichterBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLSchiedsrichterBestaetigung",
+        "description": "One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire."
+      },
+      "FLSchiedsrichterBestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSchiedsrichterBestaetigungAnsichtPayload"
+      },
+      "FLSchiedsrichterBestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "bestaetigt",
+              "abgelaufen"
+            ],
+            "title": "Zustand"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "vorname",
+          "text_version",
+          "mindestalter",
+          "frist"
+        ],
+        "title": "FLSchiedsrichterBestaetigungAnsichtResponse",
+        "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nA first name and a role: never the full name, the school, the contact details, the fee, the\nbirthdate or the id."
+      },
+      "FLSchiedsrichterBestaetigungPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "geburtsdatum",
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLSchiedsrichterBestaetigungPayload"
+      },
+      "FLSchiedsrichterBestaetigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "bestaetigt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "umfang",
+          "medien",
+          "bestaetigt_am"
+        ],
+        "title": "FLSchiedsrichterBestaetigungResponse",
+        "description": "What the person just recorded, read back off the updated document.\n\nBounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a\ncaller holding a leaked token learns nothing it did not already post."
       },
       "FLSchiedsrichterListResponse": {
         "properties": {
@@ -13645,6 +14051,54 @@
           "schiedsrichter"
         ],
         "title": "FLSchiedsrichterListResponse"
+      },
+      "FLSchiedsrichterMint": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "frist",
+          "email"
+        ],
+        "title": "FLSchiedsrichterMint",
+        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — the three mints answering it are all on `app/api/schiedsrichter/admin_router.py`."
+      },
+      "FLSchiedsrichterMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "bestaetigung": {
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bestaetigung"
+        ],
+        "title": "FLSchiedsrichterMintResponse",
+        "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead."
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {

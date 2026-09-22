@@ -89,7 +89,7 @@ deliverable.
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                          | FE, BE, meta, schiedsrichter                                                | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
@@ -709,46 +709,32 @@ range makes the ausstehend/heute/vergangen ternary genuinely harder, and the int
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
-### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
+### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
 
-| Tags                                                   | Status | Depends on |
-| ------------------------------------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
+| Tags                         | Status | Depends on |
+| ---------------------------- | ------ | ---------- |
+| FE, BE, meta, schiedsrichter | Open   | —          |
 
-**A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
-`fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
-`schule` and no consent field, and the `schiedsrichter` collection's validator declares none either;
-a referee is entered by an administrator through
-`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx`
-and is asked nothing. A team's contact person holds the opposite: a record on
-`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` that only that person's own emailed
-link can stamp.
+**A referee's own consent record is stored, and the published notice still rests their name on a
+different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
+`einwilligung`, the `schiedsrichter` collection's validator declares it, and
+`POST /schiedsrichter/bestaetigung` is the only writer: the person answers their own emailed link,
+choosing whether their name is published and whether photographs, videos and interviews may be. The
+notice's publication table still gives a referee's name the legitimate-interest basis
+(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: VEROEFFENTLICHT`), which
+is the basis the record replaces.
 
-**Ruled: referees get a consent record on the same terms as contact persons**
-(`docs/datenschutz.md` §2). The two roles hold the same categories about the same pupils — a
-telephone number, an email address and a school — so the asymmetry is in the mechanism rather than in
-the sensitivity.
+**Why the two halves are not one change.** Moving the notice's basis to consent is a claim that the
+consent decides what is published, and nothing reads the record yet: the fixture list serves every
+referee's name as before. A notice promising a gate that does not exist is worse than one naming the
+old basis honestly, so the sentence moves when the read does and not before.
 
-**Why it matters.** The privacy notice describes one rule for how the league obtains permission to
-hold contact details, and that rule is true of a contact seat and false of a referee, with no field
-on the referee to say which. `READ-CONTACT-001` keeps the block admin-tier, so nothing is published:
-what is missing is the record, not a guard.
+**What the reader of this entry must not do.** The record is not missing and is not to be built
+again: a second write path for it would collect a person's answer twice and leave two records to
+disagree. The work here is a text and the read it describes.
 
-**Three things that shape the work.** The confirmation flow is built on an application — a token
-block on the `bewerbungen` collection, a public router that resolves it, and a mail fan-out over
-three seats — so reaching a referee is a second collection, a second write path and a second message
-rather than a parameter, which is why this is an entry and not a fold-in. The vocabulary is a choice
-between the two that exist and never a third: `FLKontaktKenntnisnahme` says only that details may be
-held and used, `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` says what may be published,
-and a referee is a pupil whose name is published on every fixture they officiate. And a referee's
-removal is an anonymisation rather than a deletion, so whoever adds the record decides whether it
-survives one.
-
-**Done when** a referee has a consent record they gave themselves, its validator copy moved in the
-same commit as the model, the admin editor rendering that record rather than offering it, and the
-notice's referee publication row moved off the legitimate interest it rests on
-(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) to the consent the flow
-collects.
+**Done when** the fixture read decides a referee's published name from their own record, and the
+notice's publication row rests on that consent rather than on legitimate interest.
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 

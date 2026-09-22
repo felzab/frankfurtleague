@@ -1,0 +1,134 @@
+import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
+import { describe, it } from "node:test";
+
+const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+
+/** Every package these modules reach that this process cannot load, doubled at resolve time. */
+const PACKAGE_DOUBLES: Record<string, string> = {
+  "server-only": "export {};",
+  "next/headers": `export const headers = async () => new Headers();`,
+  "next/cache": `export const revalidateTag = () => {}; export const updateTag = () => {};`,
+};
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const double = PACKAGE_DOUBLES[specifier];
+    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+  },
+});
+
+/* `await import`, never a static import beside the hook, which registers as this module evaluates. */
+const { APIBadStatusError } = await import("@/core/errors.ts");
+const { alterAusserhalb } = await import("./constants.ts");
+const { alterAusserhalb: kontaktSatz } = await import("@/features/bewerbungen/constants.ts");
+const { schiedsrichterVorname } = await import("./constants.ts");
+const { describeLinkMail } = await import("./notifications.ts");
+const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
+
+const MINDESTALTER = 16;
+
+/** One refused answer as the client raises it; only the status and the code are read past this file. */
+const aRefusal = (statusCode: number, serverErrorCode: string) =>
+  new APIBadStatusError({
+    message: "refused",
+    url: "http://localhost/schiedsrichter/bestaetigung",
+    statusCode,
+    serverErrorCode,
+    endpoint: "/schiedsrichter/bestaetigung",
+    traceId: "0",
+  });
+
+const floor = () => Promise.resolve(MINDESTALTER);
+const noFloor = () => Promise.resolve(null);
+
+describe("what one refused confirmation asks the referee's page to show", () => {
+  /* Each state the link can die in between the open and the press, driven by its own code: the
+     administrator re-sending while the page stands open is the ordinary race, not an edge case. */
+  for (const [code, zustand] of [
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
+    ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
+    ["REQ-SCHIEDSRICHTER-004", "bestaetigt"],
+  ] as const) {
+    it(`answers ${code} as the ${zustand} panel`, async () => {
+      assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, code), floor), { zustand: zustand });
+    });
+
+    it(`answers ${code} without ever reading the floor`, async () => {
+      // The link is spent or dead by now, so a read in front of the mapper answers nothing and the
+      // panel is lost: the thunk is what keeps these three arms reachable.
+      let gelesen = 0;
+      await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, code), () => {
+        gelesen += 1;
+        return Promise.resolve(MINDESTALTER);
+      });
+
+      assert.equal(gelesen, 0);
+    });
+  }
+
+  /* The one refusal that spends nothing, so it lands on the field and the typed date survives it. */
+  it("puts the age refusal on the date, at the floor the link answered", async () => {
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-005"), floor), {
+      fieldErrors: { geburtsdatum: alterAusserhalb(MINDESTALTER) },
+    });
+
+    // The PUPIL's sentence and not the contact seat's: the two public consent pages ask one
+    // person one question, and this page imported the other page's wording until the walk read it.
+    assert.notEqual(alterAusserhalb(MINDESTALTER), kontaktSatz(MINDESTALTER));
+  });
+
+  it("leaves the age refusal unworded where the floor could not be read", async () => {
+    // A sentence naming a floor this link was not minted under sends the person to correct a date
+    // that was right, so nothing is better than a guess.
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-005"), noFloor), null);
+  });
+
+  it("asks for a reload where the body itself was refused", async () => {
+    const refusal = await mapSchiedsrichterBestaetigungRefusal(aRefusal(422, ""), floor);
+
+    assert.match(refusal?.error ?? "", /Lade die Seite neu/);
+    assert.equal(refusal?.zustand, undefined);
+  });
+
+  it("answers nothing for a code it does not word, so the caller reports a failure rather than a state", async () => {
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SPERRLISTE-001"), floor), null);
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(aRefusal(500, "SRV-UNKNOWN-001"), floor), null);
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(new Error("network"), floor), null);
+  });
+});
+
+describe("what one refused link read asks the page to show", () => {
+  /* A confirmed or lapsed link is SERVED in that state, so a refusal on this read is a token nothing
+     could place, and a code nobody planned reads the same way. */
+  it("calls the link void on a refusal, whatever the code", () => {
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-002")), "ungueltig");
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(422, "")), "ungueltig");
+  });
+
+  it("leaves anything but a refusal to the page's own failed-read state", () => {
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(503, "")), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);
+  });
+});
+
+describe("what the administrator is told about the message a write sent", () => {
+  it("names the address on both arms, and only the failed one asks for a second route", () => {
+    assert.match(describeLinkMail("anna@example.de", true), /ging an anna@example\.de/);
+    assert.doesNotMatch(describeLinkMail("anna@example.de", true), /Melde Dich selbst/);
+
+    assert.match(describeLinkMail("anna@example.de", false), /nicht an anna@example\.de zugestellt/);
+    assert.match(describeLinkMail("anna@example.de", false), /Melde Dich selbst bei der Person/);
+  });
+});
+
+describe("the forename the mail greets a referee by", () => {
+  it("takes the first whitespace-separated part, and nothing where the row has no name", () => {
+    assert.equal(schiedsrichterVorname("Anna Meier"), "Anna");
+    assert.equal(schiedsrichterVorname("  Anna   Meier "), "Anna");
+    assert.equal(schiedsrichterVorname("Anna"), "Anna");
+    assert.equal(schiedsrichterVorname(""), null);
+    assert.equal(schiedsrichterVorname("   "), null);
+    assert.equal(schiedsrichterVorname(null), null);
+  });
+});

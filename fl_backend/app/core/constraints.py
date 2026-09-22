@@ -132,7 +132,8 @@ _AKTION_REQUEST = _object(
 )
 
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent.
+# the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
+# `registrierungen` alike, so widening `umfang` for one widens it for all three.
 _EINWILLIGUNG = _object(
     required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
     properties={
@@ -252,6 +253,26 @@ _BEWERBUNG_BESTAETIGUNGEN = _object(
         "trainer": _BEWERBUNG_BESTAETIGUNG,
         "ansprechperson": _BEWERBUNG_BESTAETIGUNG,
         "stellvertretung": _BEWERBUNG_BESTAETIGUNG,
+    },
+)
+
+# Never `_BEWERBUNG_BESTAETIGUNG`: that one declares the decline a contact seat may give, which a
+# referee's page does not offer, so sharing it would put a key on this row nothing can write.
+_SCHIEDSRICHTER_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "frist"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # Null on every referee row: nothing chases this link, and the editor renders the day a
+        # later reminder would stamp.
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        # STORED rather than derived from `verschickt_am` and the bound: raising the bound would
+        # otherwise move the deadline of every link already in somebody's inbox.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason: a mint knows nothing yet about
+        # the message its link goes out in.
+        "zustellung": _ZUSTELLUNG,
     },
 )
 
@@ -692,10 +713,15 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
-                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required` because no
-                # create composes the key, and hand-written because `_object` would spell the empty
-                # `required` mongod refuses.
-                "bestaetigung": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: a referee
+                # entered with no address is mailed nothing, so that create composes no key here.
+                "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
+                # Out of `required` for `bestaetigung`'s reason, and nullable besides: only the
+                # person's own confirmation writes it, so a live row awaiting one carries null.
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                # Out of `required` for `saisons.spielplan`'s reason. The person's own to enter, as
+                # a contact seat's is: no admin payload carries it.
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -1021,6 +1047,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "saisons_status",
         (("status", ASCENDING),),
         "the withheld-season set every unnarrowed base-tier read must exclude",
+    ),
+    # PLAIN rather than sparse or partial, though most referees carry no block: `SupportIndex`
+    # spells no partial form, and the lookup is an equality on a hex digest, which the single null
+    # key a block-less row adds cannot match.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_bestaetigung_token_hash",
+        (("bestaetigung.token_hash", ASCENDING),),
+        "the referee confirmation page's lookup, driven by strangers",
     ),
     # A support index and never a unique one: one family mailbox really is shared by two pupils, so
     # this read answers a list rather than refusing the second person who registers under it.

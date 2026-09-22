@@ -56,9 +56,9 @@ BEWERBUNG_BESTAETIGUNG_FRIST_TAGE: Final = 14
 # than a week inside `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`, so a person reminded still has time to answer.
 BEWERBUNG_ERINNERUNG_TAGE: Final = 3
 
-# The raw confirmation token as it arrives on every public consent endpoint: one mint spells them
-# all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a ceiling all the same:
-# an anonymous caller posts it.
+# The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
+# one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
+# ceiling all the same: an anonymous caller posts it.
 BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
 
 # What kit the school already owns, in its own words. Bounded on the pair that earns
@@ -113,6 +113,16 @@ AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
 
+# How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
+# days, which is the window a mistyped address is caught in: this link waits on an adult with no
+# second route in.
+SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
+
+# The age a referee consents at. Its own constant rather than the application contact's, though the
+# numbers agree: the two floors are separate judgements, so raising one must not silently raise the
+# other.
+SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
+
 # How long a pupil has to confirm their own registration. Seven rather than the application's
 # fourteen because it carries a second job: the window inside which a mistyped address is discovered
 # and the person registers again.
@@ -122,7 +132,7 @@ REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE: Final = 7
 # well inside `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`, so a pupil reminded still has days to answer.
 REGISTRIERUNG_ERINNERUNG_TAGE: Final = 3
 
-# The age a pupil consents at. Its own constant rather than the application contact's, though the
-# numbers agree: the floors are separate judgements, so raising one must not silently raise
-# another.
+# The age a pupil consents at. Its own constant rather than the referee's or the application
+# contact's, though the numbers agree: the floors are separate judgements, so raising one must not
+# silently raise another.
 REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16

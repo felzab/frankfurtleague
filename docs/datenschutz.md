@@ -112,9 +112,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   record nobody confirmed withholds the name rather than publishing it — the state
   `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
   the one a scope read on its own would publish.
-- **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
-  whose phone, email and school are stored, and today no consent field exists for them;
-  `docs/_roadmap/items.md :: pw5c-zps5` is where that work stands.
+- **Referees give their own consent record**, on the same terms as a pupil rather than a contact
+  person: a referee's name is published on every fixture they officiate, so the record is
+  `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
+  answer beside it, the wording they were shown and the day they answered. Entering a referee with
+  an email address mails them a one-time link, which lasts fourteen days and can be re-sent; the
+  person enters their own date of birth on that page and nobody answers for them
+  (`erteilt_von: volljaehrig`). A live row whose person has not answered publishes as „anonym“.
 
 ## 3. The current pupil records are reset once
 
@@ -143,6 +147,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
   nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
   leave here instead (`docs/backend/spec.md :: I119`). Ruled 2026-09-04.
+- **A referee's record is not on this clock.** A referee entered through the confirmation link is
+  bound to no season and their row stands until they ask for it to be deleted, which deletes the
+  document (section 5). The referee rows standing today carry no consent record at all and are
+  dropped once, before the deploy that reads one.
 
 ## 4. What is published, and on what basis
 
@@ -469,7 +477,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   no personal data at all; beside it stand a free-text reason that may name them and the entering
   administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
-  declined — a refusal two write paths now perform: the ban's own create and the public registration
+  declined — a refusal five write paths now perform: the ban's own create, the public registration,
+  and the three referee writes that mint a confirmation link
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). One question to put: what
   an access request reaches, given that no route finds the row from the address it was taken from
   while the reason beside it may name its subject outright. The bound is

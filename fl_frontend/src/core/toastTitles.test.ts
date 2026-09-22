@@ -374,6 +374,8 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Adresse nicht korrigiert": { variant: "danger", identifies: "one site" },
   "Anmeldelink nicht gesendet": { variant: "danger", identifies: "one site" },
   "Antwort nicht gespeichert": { variant: "danger", identifies: "its description" },
+  "Bestätigungslink gesendet": { variant: "success", identifies: "one site" },
+  "Bestätigungslink nicht gesendet": { variant: "danger", identifies: "one site" },
   "Bewerbung abgelehnt": { variant: "success", identifies: "one site" },
   "Bewerbung angenommen": { variant: "success", identifies: "one site" },
   "Bewerbung nicht abgelehnt": { variant: "danger", identifies: "one site" },

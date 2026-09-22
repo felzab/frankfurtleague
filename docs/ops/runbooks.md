@@ -473,8 +473,15 @@ as them.
   address on the person to correct. What the league does hold is the address a pending registration
   was typed with, and that one is not corrected either: the answer to somebody asking is to register
   again through their team's link, the unconfirmed row going with the seven-day sweep.
-- **A referee.** Correct `kontakt.email` in the referee editor. It is the ordinary rectification
-  above: nothing is minted from a referee's address and nothing signs in as one.
+- **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
+  itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
+  address, so nothing further is owed and the old link opens nothing.
+- **A referee who HAS confirmed.** Correct `kontakt.email` in the referee editor. Their link is not
+  re-minted — the record is already given — so the correction is the ordinary rectification above
+  and no message goes out. Tell them by hand that the address on file has moved.
+- **A referee who is RETIRED and has not confirmed.** The save is refused, because correcting the
+  address would mail them a consent link for a role they take no booking in. Reactivate them first,
+  or leave the address as it stands.
 - **A contact seat.** Correct it through
   `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, the one field of a
   submitted application an administrator may rewrite. It mints the fresh link, voids the old one and
@@ -547,7 +554,7 @@ mails the person itself**, naming the reason you typed and the last season the b
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
 anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
 registration asks it and is
-refused (`REQ-REGISTRIERUNG-009`); every other
+refused (`REQ-REGISTRIERUNG-009`), and so do the three referee writes that mint a link; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
 still what keeps a barred address out of everything a sign-up does not cover.

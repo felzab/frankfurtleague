@@ -88,6 +88,10 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
     ("/api/v0/bewerbungen/einwilligung/ansicht", "post"),
     ("/api/v0/bewerbungen/einwilligung", "post"),
+    # A referee's own confirmation link, on a base-tier router under an otherwise admin-tier prefix:
+    # the token is the whole credential, so the guard here would have no session to check.
+    ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
+    ("/api/v0/schiedsrichter/bestaetigung", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),

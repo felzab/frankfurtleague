@@ -251,6 +251,15 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 /** The row's own identity, travelling in the path as the re-send's does; the surface renders one input. */
 const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the path rather than typed";
 
+/** A panel button rather than a row's removal, which is why `A_ROWS_OWN_REMOVAL` would read wrong beside it. */
+const A_ROWS_OWN_SEND = "the referee whose panel this is: the id is in the path and the control is a button, neither being an input";
+
+/** Opaque to this side: the page carries it from the link to the press and never composes one. */
+const THE_TOKEN_THE_LINK_CARRIED = "the token the mailed link carried, held by the page; no control offers it";
+
+/** Written by the handler over whatever arrived, so no value a control could carry reaches the endpoint. */
+const THE_WORDING_THIS_SERVER_STAMPED = "the label this server rendered, stamped at the route handler; the browser's own is discarded";
+
 /** Opaque to this side: the page carries it from the read to the save and never composes one. */
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
 
@@ -281,6 +290,8 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
   FLBewerbungKontaktEmailPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
+  FLSchiedsrichterEinladenPayloadSchema: { id: A_ROWS_OWN_SEND },
+  FLSchiedsrichterBestaetigungPayloadSchema: { token: THE_TOKEN_THE_LINK_CARRIED, text_version: THE_WORDING_THIS_SERVER_STAMPED },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -467,6 +478,10 @@ const ROUTE_FORMS: Record<string, { slice: string; form: string }> = {
   FLRegistrierungBestaetigungPayloadSchema: {
     slice: "registrierungen",
     form: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
+  },
+  FLSchiedsrichterBestaetigungPayloadSchema: {
+    slice: "schiedsrichter",
+    form: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
   },
 };
 

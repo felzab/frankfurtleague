@@ -242,6 +242,10 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "POST"),
     ("/api/v0/bewerbungen/einwilligung/ansicht", "POST"),
     ("/api/v0/bewerbungen/einwilligung", "POST"),
+    # A referee answering their own link holds no session either, so both endpoints bind the public
+    # actor and the confirmation's write is recorded under it.
+    ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
+    ("/api/v0/schiedsrichter/bestaetigung", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),

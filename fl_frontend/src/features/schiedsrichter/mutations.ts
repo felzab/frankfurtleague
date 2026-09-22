@@ -1,6 +1,13 @@
 import { apiClient } from "@/core/api";
 
-import { FLPatchSchiedsrichterResponseSchema, FLPostSchiedsrichterResponseSchema, FLSchiedsrichterWriteResponseSchema } from "./schemas";
+import {
+  FLPatchSchiedsrichterResponseSchema,
+  FLPostSchiedsrichterResponseSchema,
+  FLSchiedsrichterBestaetigungAnsichtResponseSchema,
+  FLSchiedsrichterBestaetigungResponseSchema,
+  FLSchiedsrichterMintResponseSchema,
+  FLSchiedsrichterWriteResponseSchema,
+} from "./schemas";
 
 import type {
   FLAnonymiseSchiedsrichterPayload,
@@ -8,7 +15,13 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
+  FLSchiedsrichterBestaetigungAnsichtPayload,
+  FLSchiedsrichterBestaetigungAnsichtResponse,
+  FLSchiedsrichterBestaetigungPayload,
+  FLSchiedsrichterBestaetigungResponse,
+  FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
+  FLSchiedsrichterMintResponse,
   FLSchiedsrichterWriteResponse,
 } from "./schemas";
 
@@ -52,5 +65,42 @@ export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterP
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",
     authType: "admin",
+  });
+}
+
+// Replaces the whole bookkeeping block, so the previous token stops working at once and the
+// delivery state of the message it went out in goes with it.
+export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayload): Promise<FLSchiedsrichterMintResponse> {
+  return apiClient<FLSchiedsrichterMintResponse>(`/schiedsrichter/${id}/bestaetigung/einladen`, FLSchiedsrichterMintResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
+}
+
+/**
+ * A POST that reads. The token is the credential, and a GET would put it in a query string the
+ * backend's own route template does not redact.
+ */
+export async function postSchiedsrichterBestaetigungAnsicht(
+  payload: FLSchiedsrichterBestaetigungAnsichtPayload,
+): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> {
+  return apiClient<FLSchiedsrichterBestaetigungAnsichtResponse>(
+    "/schiedsrichter/bestaetigung/ansicht",
+    FLSchiedsrichterBestaetigungAnsichtResponseSchema,
+    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+  );
+}
+
+/**
+ * The referee's own press. `base`, not `admin`: the token in the body is the whole authorization,
+ * and an admin key on this call would make the public page a route into the admin tier.
+ */
+export async function postSchiedsrichterBestaetigung(
+  payload: FLSchiedsrichterBestaetigungPayload,
+): Promise<FLSchiedsrichterBestaetigungResponse> {
+  return apiClient<FLSchiedsrichterBestaetigungResponse>("/schiedsrichter/bestaetigung", FLSchiedsrichterBestaetigungResponseSchema, {
+    method: "POST",
+    authType: "base",
+    body: JSON.stringify(payload),
   });
 }

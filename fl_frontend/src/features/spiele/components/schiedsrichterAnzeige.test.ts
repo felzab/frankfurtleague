@@ -99,6 +99,9 @@ const NAMENLOS_IN_LIST: FLSchiedsrichter = {
   default_payment: PAYMENT,
   kontakt: { telefon: null, email: null },
   inactive_since: null,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
 };
 
 /** The picker under both providers it reads, with the list offering NOBODY unless a caller names somebody. */

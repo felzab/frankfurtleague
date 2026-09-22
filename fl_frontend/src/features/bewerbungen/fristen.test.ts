@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants.ts";
+import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./constants.ts";
 
@@ -89,11 +90,12 @@ const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, sieben: 7, vier
 /**
  * The deletion clock a stamped page states, where it is not the application's.
  *
- * A label absent here is held to that one: two flows stamp wordings into one registry, and one
- * number cannot hold both.
+ * A label absent here is held to that one: three flows stamp wordings into one registry, and one
+ * number cannot hold all three.
  */
 const STAMPED_CLOCK: Readonly<Record<string, number>> = {
   "2026-09-spielerseite": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  "2026-09-schiedsrichterseite": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
 };
 
 /** Every day count a text states, and `null` for one written in a word this reader does not hold. */

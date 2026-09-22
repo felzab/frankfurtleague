@@ -147,6 +147,7 @@ else
       fl_frontend/src/features/spiele/schemas.ts|fl_frontend/src/features/spiele/utils.ts| \
       fl_frontend/src/features/bewerbungen/zustellung.ts|fl_frontend/src/core/logFormat.ts| \
       fl_frontend/src/core/trace.ts|fl_frontend/src/features/sperrliste/constants.ts| \
+      fl_frontend/src/features/schiedsrichter/constants.ts| \
       fl_frontend/src/features/registrierungen/constants.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the

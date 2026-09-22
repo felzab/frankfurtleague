@@ -38,7 +38,7 @@ from app.api.saisons.schemas import (
     FLSaisonSpielplan,
     FLSaisonStatus,
 )
-from app.api.schiedsrichter.schemas import FLSchiedsrichter
+from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -142,9 +142,12 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
-    # The delivery state at the register's other home, its carrier `bestaetigung` having no model of
-    # its own: one shared sub-schema in Python, and the drift walk reaching each path separately
-    # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    # The confirmation bookkeeping, and the pupil's own consent sub-schema on another collection:
+    # widening `_EINWILLIGUNG` for one carrier widens it for every carrier, and this row shows it.
+    (Collection.SCHIEDSRICHTER, ("bestaetigung",), FLSchiedsrichterBestaetigung, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), FLEinwilligung, frozenset()),
+    # The delivery state at the register's other home: one shared sub-schema in Python, and the
+    # drift walk reaching each path separately (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
@@ -197,8 +200,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
     (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
-    # The pupil's consent record on a second collection: widening `_EINWILLIGUNG` for either
-    # widens it for both, and this row is where that shows.
+    # The pupil's consent record on a third collection: widening `_EINWILLIGUNG` for any of them
+    # widens it for all three, and this row is where that shows.
     (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
@@ -320,6 +323,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
     (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    # The same sub-schema on another collection, and its own rows: `app/core/constraints.py ::
+    # _EINWILLIGUNG` is shared, so a widening meant for one carrier reaches every carrier.
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (Collection.SPIELE, (), "sonderereignis", get_args(FLSonderereignis), True),
     (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
@@ -358,7 +365,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
-    # The consent vocabulary at its second home: one sub-schema in Python, and the drift walk still
+    # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
@@ -452,9 +459,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # whoever reads the list the one value a leaked collection is missing, and the label beside it
     # says which key that is.
     (Collection.SPERRLISTE, ()): frozenset({"adresse_hash", "schluessel_version"}),
-    # What became of the last message to this referee, written by the system tier and read by no
-    # admin model: an administrator acts on the referee's own record, never on a provider's report.
-    (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),
+    # The raw token's hash is the whole credential and no model declares it, so the link cannot be
+    # recovered from the editor's read of the block beside it.
+    (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.

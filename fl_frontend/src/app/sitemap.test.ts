@@ -19,6 +19,7 @@ const WITHHELD = [
   "/signin/bestaetigen",
   "/signin/passkey",
   "/bestaetigung",
+  "/bestaetigung/schiedsrichter",
   "/registrierung",
   "/bestaetigung/spieler",
 ];

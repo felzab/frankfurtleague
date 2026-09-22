@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants.ts";
+import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants.ts";
 import { REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
+import { SCHIEDSRICHTER_MIN_ALTER } from "@/features/schiedsrichter/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
@@ -42,6 +43,13 @@ describe("the privacy notice's account of a birthdate", () => {
         `ist; als Ansprechperson oder Stellvertretung mindestens ${String(VERTRETUNG_MIN_ALTER)}.`,
     );
   });
+
+  it("is a sentence the three floors it merges still permit", () => {
+    assert.deepEqual(
+      { pfeifen: SCHIEDSRICHTER_MIN_ALTER, kontaktperson: BEWERBUNG_MIN_ALTER },
+      { pfeifen: REGISTRIERUNG_MIN_ALTER, kontaktperson: REGISTRIERUNG_MIN_ALTER },
+    );
+  });
 });
 
 describe("the privacy notice's retention table", () => {
@@ -65,6 +73,17 @@ describe("the privacy notice's retention table", () => {
         "verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen " +
         "ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung " +
         "löschen wir einen Monat nach der Entscheidung",
+    );
+  });
+
+  it("names everything a referee's confirmation record holds, the birthdate included", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Bestätigung einer Schiedsrichterin oder eines Schiedsrichters: Geburtsdatum, die beiden Antworten (Veröffentlichung, Medien) " +
+          "und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
+      ),
+      "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link wird durch jeden neuen Link ersetzt und mit dem Eintrag " +
+        "gelöscht",
     );
   });
 });

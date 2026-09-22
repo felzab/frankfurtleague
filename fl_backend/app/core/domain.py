@@ -1039,10 +1039,33 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "bestaetigung",
         Editability.CONTROL_ONLY,
-        "no payload carries the block, and no admin write on the referee's own record touches it: `POST /zustellung` and "
-        "`POST /zustellung/angenommen` write the delivery state under it on the system key alone, each applying only where the "
-        "report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
-        "to state a delivery state is a client able to say a message bounced that never went",
+        "no payload carries the block. Three controls replace it WHOLE, each answering the raw token once -- the create where "
+        "an address was given, the save that corrects an unconfirmed referee's address, and `POST "
+        "/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- so the link a replaced block held stops working at once "
+        "and the delivery state of the message it went out in goes with it. `POST /zustellung`, `POST /zustellung/angenommen` "
+        "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
+        "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
+        "to state a delivery state is a "
+        "client able to say a message bounced that never went",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "einwilligung",
+        Editability.COMPOSED,
+        "on no payload and written by `POST /schiedsrichter/bestaetigung` alone, from the scope and the media answer the person "
+        "chose: the server stamps `bestaetigt_am` and `datum` with the day it lands and fills `erteilt_von` with `volljaehrig`, "
+        "nobody else being permitted to answer for a referee. It is written once -- a second press is refused "
+        "(`REQ-SCHIEDSRICHTER-004`) -- and an erasure deletes the document rather than nulling it",
+        "app.api.schiedsrichter.services.find_already_confirmed_refusal",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "geburtsdatum",
+        Editability.COMPOSED,
+        "on no admin payload: the person enters their own date on the confirmation page, as a contact seat does, and the write "
+        "lands in the same `$set` as the consent record it is checked for (`REQ-SCHIEDSRICHTER-005`). No control puts it back, "
+        "so a mistyped date is corrected by re-sending the link",
+        "app.api.schiedsrichter.services.find_alter_refusal",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1603,6 +1626,64 @@ RULES: tuple[Rule, ...] = (
         summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
         implemented_by="app.api.schiedsrichter.services.find_ghost_erasure_refusal",
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestErasingTheGhostIsRefused",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-001",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen · PATCH /schiedsrichter/{schiedsrichter_id}",
+        aggregate="Schiedsrichter",
+        summary="a retired referee is sent no confirmation link, there being no role left to collect a consent for",
+        implemented_by="app.api.schiedsrichter.services.find_retired_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestARetiredRefereeTakesNoFreshLink",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-002",
+        operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
+        implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-003",
+        operation="POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a link whose deadline has passed records no consent",
+        implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-004",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
+        aggregate="Schiedsrichter",
+        summary="an entry whose person has already answered takes no second answer and is sent no further link",
+        implemented_by="app.api.schiedsrichter.services.find_already_confirmed_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnEntryAlreadyConfirmed",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-005",
+        operation="POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a birthdate putting the person outside the age span this consent asks records nothing",
+        implemented_by="app.api.schiedsrichter.services.find_alter_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheAgeThisConsentAsks",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-006",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
+        aggregate="Schiedsrichter",
+        summary="a referee carrying no email address is sent no link, and no send is stamped on their entry",
+        implemented_by="app.api.schiedsrichter.services.find_missing_address_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestARefereeWithNoAddress",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-007",
+        operation=(
+            "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
+        ),
+        aggregate="Schiedsrichter",
+        summary="no confirmation link is minted for an address the ban list still holds",
+        implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
     Rule(
         code="REQ-SQUAD-001",

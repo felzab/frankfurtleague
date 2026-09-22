@@ -45,6 +45,7 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
     writes: [
       "postSchiedsrichterAction",
       "patchSchiedsrichterAction",
+      "einladeSchiedsrichterAction",
       "deleteSchiedsrichterAction",
       "reactivateSchiedsrichterAction",
       "anonymiseSchiedsrichterAction",

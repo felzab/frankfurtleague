@@ -18,6 +18,9 @@ function referee(id: string, held: Partial<FLSchiedsrichter> = {}): FLSchiedsric
     default_payment: 20,
     kontakt: { telefon: null, email: null },
     inactive_since: null,
+    geburtsdatum: null,
+    einwilligung: null,
+    bestaetigung: null,
     ...held,
   };
 }

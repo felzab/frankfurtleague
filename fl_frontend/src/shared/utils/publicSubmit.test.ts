@@ -20,6 +20,7 @@ const REACHING_THE_HELPER = filesUnder(FEATURES, (name) => /\.tsx$/.test(name) &
 const FORMULAR_PFADE: Record<string, string> = {
   "the application form": "bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
   "the confirmation panel": "bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  "the referee's confirmation page": "schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
   "the registration form": "registrierungen/components/views/RegistrierungFormPanel.tsx",
   "the pupil's confirmation page": "registrierungen/components/views/SpielerBestaetigungView.tsx",
 };
@@ -176,7 +177,7 @@ describe("what a public form is told when the application did answer", () => {
 });
 
 describe("where each public form's write is transported", () => {
-  /* The population is CLOSED against the tree: a fifth form reaching the helper joins the two cases
+  /* The population is CLOSED against the tree: a sixth form reaching the helper joins the two cases
      below by existing, rather than by somebody remembering to name it here. */
   it("names every component that reaches the shared helper, and none that does not", () => {
     assert.deepEqual([...REACHING_THE_HELPER].sort(), Object.values(FORMULAR_PFADE).sort());
@@ -212,8 +213,10 @@ describe("where each public form's write is transported", () => {
 describe("the title a form raises where the write may already have landed", () => {
   /* Which title an arm raises is a call rather than an attribute, so it stands in no markup a render
      could be read for — the reason the two cases above read these files. */
+  // The `wroteNothing` arm is admitted as an identifier as well: a page raising that title at more
+  // than one site names it once, and only the SHARED arm below is this case's subject.
   const geteilterTitel = (source: string): string | undefined =>
-    /appToast\.danger\(gesendet\.wroteNothing \? "[^"]+" : "([^"]+)"/.exec(source)?.[1];
+    /appToast\.danger\(gesendet\.wroteNothing \? (?:"[^"]+"|\w+) : "([^"]+)"/.exec(source)?.[1];
 
   /* One title over both sentences above: a word of either in it says that branch's fact twice and
      makes the title read as the other branch's cause. Five letters skips shared function words. */

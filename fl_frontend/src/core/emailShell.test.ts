@@ -54,6 +54,7 @@ const { buildMagicLinkEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
   await import("./registrierungEmail.ts");
+const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -102,6 +103,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./authEmail.ts")),
   ...Object.keys(await import("./einladungEmail.ts")),
   ...Object.keys(await import("./registrierungEmail.ts")),
+  ...Object.keys(await import("./schiedsrichterEmail.ts")),
   ...Object.keys(await import("./sperrlisteEmail.ts")),
 ]
   .filter((name) => name.startsWith("build"))
@@ -202,6 +204,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildRegistrierungSaisonendeEmail: (origin) =>
     buildRegistrierungSaisonendeEmail({ vorname: "Mira", teamName: "Ernst-Reuter-Schule", saisonId: "2627", origin: origin }),
+  buildSchiedsrichterBestaetigungEmail: (origin) =>
+    buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };

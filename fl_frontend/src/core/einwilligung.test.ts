@@ -11,6 +11,7 @@ import {
   fuelleFassung,
   LIGA_KENNTNISNAHME,
   LIGA_KENNTNISNAHMEN,
+  SCHIEDSRICHTER_EINWILLIGUNG,
   SPIELER_EINWILLIGUNG,
 } from "./einwilligung.ts";
 
@@ -32,6 +33,7 @@ const FASSUNG_DIGESTS: Readonly<Record<string, string>> = {
   "2026-09-bestaetigungsseite-3": "d14ba6338194b3ba562ab09a76472af2bd7b7834e9a4b7956046025b8c8f3f19",
   "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
   "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
+  "2026-09-schiedsrichterseite": "21e9351ead79fce150e6dc1c822b0912ae630c493935fb901992a17948d893f0",
   "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
 };
 
@@ -160,9 +162,24 @@ describe("LIGA_KENNTNISNAHMEN", () => {
      fresh array under a fresh label, leaving the keyed object behind and the page rendering words
      no record cites. */
   it("hands each page's keyed paragraphs and its stamped array the same words", () => {
-    for (const kenntnisnahme of [SPIELER_EINWILLIGUNG]) {
+    for (const kenntnisnahme of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
       assert.deepEqual(Object.values(kenntnisnahme.absaetzeNachSchluessel), [...kenntnisnahme.absaetze]);
     }
+  });
+
+  /* A control whose words sit outside the frozen wording is a question a record cannot reproduce
+     beside the answer it holds, which is what every consent page here exists to make possible. */
+  it("carries every control label of the two pages that ask a second question", () => {
+    // Both ask the publication question with the same two chips, keyed by the `umfang` each writes,
+    // so a record of either page reproduces the words beside the answer it stores.
+    for (const kenntnisnahme of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      assert.deepEqual(Object.keys(kenntnisnahme.bedienelemente).sort(), ["intern", "kader_oeffentlich"]);
+    }
+    assert.notEqual(
+      SPIELER_EINWILLIGUNG.bedienelemente.intern,
+      SCHIEDSRICHTER_EINWILLIGUNG.bedienelemente.intern,
+      "one page's chip answers the other's page, where the two say different things about a name",
+    );
   });
 
   /* The submission form's label is stamped on a record the applicant made and on one the admin
