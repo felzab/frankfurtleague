@@ -91,12 +91,13 @@ const CEREMONY_DONE = { status: true };
 const PASSKEY_FACTOR = "passkey";
 const LINK_FACTOR = "link";
 
-// The whole of the user-verification requirement, asked below and checked under it. Set to
-// "preferred" and both halves relax together.
+// The whole of the user-verification requirement, asked at both ceremonies and checked under them.
+// Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
+// the check on.
 
-// The check is ours because 1.7.5 hardcodes `requireUserVerification` off in both verifiers and
-// "preferred" in the assertion's options, where WebAuthn Level 3 §7.2 has the relying party verify
-// the flag. Upstream is open on it.
+// The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, which
+// better-auth pull request 11155 retires; the check is ours either way, both verifiers being called
+// with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
 
 /** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
@@ -451,8 +452,8 @@ export const auth = betterAuth({
     // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
     // library rather than this league.
 
-    // `userVerification` is requested at enrolment and never at the assertion: 1.7.5 hardcodes the
-    // assertion's, and verifies the flag on neither response.
+    // `authenticatorSelection` carries the ask into both ceremonies' options; the library verifies
+    // the flag on neither response, so `afterVerification` below is the whole of the check.
     passkey({
       rpName: BRAND_NAME,
       // Named rather than left to the plugin's own derivation, which answers this same host off

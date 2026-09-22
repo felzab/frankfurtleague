@@ -717,8 +717,8 @@ describe("the window the library lets an enrolment happen inside", () => {
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     assert.equal(answer.status, 200, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`);
 
-    /* The one half of user verification 1.7.5 honours: the enrolling authenticator is asked for a
-       PIN or a biometric. Neither response's flag is checked, and the assertion asks for nothing. */
+    /* The enrolment's half of the ask: the authenticator is told a PIN or a biometric is required,
+       and the library checks neither response's flag. */
     const options = (await answer.json()) as { authenticatorSelection: { userVerification: string }; rp: { id: string } };
     assert.equal(options.authenticatorSelection.userVerification, "required");
     assert.equal(options.rp.id, "localhost", "the relying party is not the origin this stack serves");
@@ -890,6 +890,18 @@ function steppedUp(row: SessionRow): void {
 }
 
 describe("what the passkey ceremony has to prove before it mints anything", () => {
+  /* The asking half, which the patched plugin carries: a ceremony told "preferred" may answer with
+     the flag unset, and the arm below would then refuse the only passkey the administrator has. */
+  it("asks the authenticator to verify the user before it will take an assertion", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+
+    const answer = await overHttp("/passkey/generate-authenticate-options", { cookie });
+    assert.equal(answer.status, 200, `the assertion the page offers was refused: ${JSON.stringify(logged)}`);
+
+    const options = (await answer.json()) as { userVerification: string };
+    assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
+  });
+
   /* 1.7.5 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {

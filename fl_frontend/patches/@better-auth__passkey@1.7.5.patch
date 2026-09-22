@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index e22a1ce93080807b06d818dd03074add11f39e16..711145bfc0d964b5db1df6f6c2759837be7960ee 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -275,7 +275,7 @@ const generatePasskeyAuthenticationOptions = (opts, { maxAgeInSeconds }) => crea
+ 	const authenticationExtensions = await resolveExtensions(opts.authentication?.extensions, ctx);
+ 	const options = await generateAuthenticationOptions({
+ 		rpID: getRpID(opts, baseURLString),
+-		userVerification: "preferred",
++		userVerification: opts.authenticatorSelection?.userVerification ?? "preferred",
+ 		extensions: authenticationExtensions,
+ 		...userPasskeys.length ? { allowCredentials: userPasskeys.map((passkey) => ({
+ 			id: passkey.credentialID,

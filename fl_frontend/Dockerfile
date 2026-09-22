@@ -29,6 +29,10 @@ WORKDIR /app
 # Only what `pnpm fetch` reads (pnpm.io/cli/fetch): with package.json in this layer's key, renaming
 # a script re-downloads every package.
 COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
+
+# A patched dependency is one of the things `pnpm fetch` reads, so this joins the lockfile's layer
+# rather than package.json's: without it the fetch dies on ERR_PNPM_PATCH_NOT_FOUND.
+COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
