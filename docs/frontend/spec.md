@@ -862,6 +862,12 @@ holding of nothing.
 cannot resolve — each is reported and fails the run, a call the reader cannot read being a call
 nothing compares.
 
+**`fl_frontend/src/core/buildTimeEnv.test.ts` reads the call building `frontend_config` as the
+source rather than a subject** (I45, I83): under `skipValidation`, `createEnv` returns its input
+unread, so that call's own arguments consume nothing, while a read consumed inside them is still
+reported. It is blind to a member read by element access, a literal mutated after its declaration,
+a literal spread into a call's arguments, and a member read back through a spread copy.
+
 ### 1.10 The match editor's structural properties
 
 #### The draft has exactly one derivation

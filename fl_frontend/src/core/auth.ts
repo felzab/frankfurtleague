@@ -319,7 +319,7 @@ export function isUserAdmin(email?: string | null): boolean {
   return frontend_config.ALLOWED_ADMIN_EMAILS.includes(asSignInIdentifier(email));
 }
 
-export const auth = betterAuth({
+const authOptions = {
   // The `Db` off the one client this process opens, never a second connection
   // (`docs/frontend/spec.md :: I120`).
   database: mongodbAdapter(client.db(MONGO_DB_NAME), { client }),
@@ -545,6 +545,18 @@ export const auth = betterAuth({
     // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
     nextCookies(),
   ],
+} satisfies BetterAuthOptions;
+
+const build = () => betterAuth(authOptions);
+let built: ReturnType<typeof build> | undefined;
+
+// Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret
+// undefined (`docs/frontend/spec.md :: I45`), and constructing the library starts a check that rejects there with nobody
+// awaiting it.
+export const auth = new Proxy({} as ReturnType<typeof build>, {
+  get: (_, key) => Reflect.get((built ??= build()), key),
+  // `toNextJsHandler` asks `"handler" in auth` on every request.
+  has: (_, key) => Reflect.has((built ??= build()), key),
 });
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
