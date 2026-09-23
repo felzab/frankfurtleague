@@ -149,8 +149,9 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   require_python_floor "$PY"
   # Existing is not current: a virtualenv holding what the lockfile dropped, or missing what it
   # added, fails the tools below in their own vocabulary rather than the environment's.
-  if ! worker && ! step_worker && [[ -z "${CI:-}" ]] && command -v uv >/dev/null 2>&1; then
-    # Never in CI, where `uv sync --dev` has just run, and once per run rather than once per unit.
+  if ! worker && ! step_worker && [[ -z "${GITHUB_ACTIONS:-}" ]] && command -v uv >/dev/null 2>&1; then
+    # Never on a runner, where the job's own `uv sync --locked` has just run, and once per run rather
+    # than once per unit. `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
     quietly uv sync --project fl_backend --dev --check \
       || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so nothing this run reported
 would be about the change rather than about this machine. Sync it with:
@@ -502,10 +503,11 @@ if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
 # step pool to lose, so the fallback notice below would describe a slowdown it does not have.
 if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES) )); then STEP_JOBS=0; fi
 
-# Replayed in written order, so a parallel run reads as the serial one it must match. Serial where
-# concurrency cannot pay or be watched: CI runs one scope per job, streaming cannot be replayed.
+# Replayed in written order, so a parallel run reads as the serial one it must match.
 PARALLEL=1
-if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
+# Serial where concurrency cannot pay or be watched: a runner runs one scope per job, streaming
+# cannot be replayed. `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+if (( SERIAL || VERBOSE )) || worker || [[ -n "${GITHUB_ACTIONS:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
 
 POOL_PY=""; POOL_BASH=""; POOL_FALLBACK=0
 if (( PARALLEL || STEP_JOBS )); then
@@ -652,8 +654,9 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
   fi
 
   # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
-  # being typed: one job would fail for a scope another job is running.
-  if [[ -n "${CI:-}" ]]; then
+  # being typed: one job would fail for a scope another job is running. `GITHUB_ACTIONS` rather than
+  # `CI`, which a developer's shell may export.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
   else
     step "scope · does this run cover what the branch changed?"

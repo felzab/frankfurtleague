@@ -242,8 +242,8 @@ jobs:
         run: ./scripts/gate/verify.sh --docs
 
   # Prettier in check mode over the whole repository, wherever a changed path is one it governs:
-  # with `CI` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`), which runs
-  # beside the frontend job rather than on its path.
+  # with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
+  # which runs beside the frontend job rather than on its path.
   format:
     needs: changes
     if: needs.changes.outputs.format == 'true'

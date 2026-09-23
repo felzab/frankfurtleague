@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Final
 
 from conftest import base_env, configure, copy_scripts, git, new_root, run_shell, write_shell
+from test_gate_prerequisites import PAST_THE_GUARD
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -77,6 +78,9 @@ WHAT_IT_WROTE: Final = "the stub failed build"
 # cell is right-aligned.
 DURATION: Final = re.compile(r" +(?:\d+\.\d+s|\d+m \d{2}s|\d+s)")
 
+# A line `scripts/gate/verify.sh` prints in its scope section, whatever the scopes turn out to be.
+SCOPE_CHECK: Final = "scope · does this run cover what the branch changed?"
+
 
 @dataclass(frozen=True)
 class Fixture:
@@ -112,11 +116,10 @@ def _fixture() -> Fixture:
 
 
 @cache
-def _run(*flags: str, fails: str = "", below_floor: bool = False) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
+def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = False) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
-    Cached on its flags and on which tool answers a failure: the cases below read six runs between
-    them and each costs a second.
+    Cached on every argument: the cases below share their runs, and each costs a second.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     fixture = _fixture()
@@ -124,8 +127,11 @@ def _run(*flags: str, fails: str = "", below_floor: bool = False) -> tuple[subpr
         shutil.rmtree(fixture.started)
     fixture.started.mkdir(parents=True)
     environment = base_env()
-    # Past `base_env`: `CI` forces the scope pool off, and that pool is what two cases here compare.
+    # Decided here, never inherited: a parent shell exporting `CI` would give both arms of
+    # `test_a_developer_shell_exporting_ci_runs_the_local_gate` the same value, and it could not fail.
     environment.pop("CI", None)
+    if ci:
+        environment["CI"] = "1"
     environment["PATH"] = str(fixture.stubs) + os.pathsep + environment["PATH"]
     if below_floor:
         environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
@@ -195,6 +201,28 @@ def test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte() -> N
     for stream, one, two in (("stdout", pooled.stdout, serial.stdout), ("stderr", pooled.stderr, serial.stderr)):
         drift = "\n".join(difflib.unified_diff(_masked(one).splitlines(), _masked(two).splitlines(), "pooled", "serial"))
         assert not drift, f"the two forms' {stream} differ:\n{drift}"
+
+
+def test_a_developer_shell_exporting_ci_runs_the_local_gate() -> None:
+    """Only `GITHUB_ACTIONS` names a runner, and many developer shells export `CI`.
+
+    A gate keyed on `CI` drops the implied scopes, the scope check and the pool locally and still
+    ends green.
+    """
+    bare, bare_started = _run(FLAGS)
+    exported, exported_started = _run(FLAGS, ci=True)
+    assert bare.returncode == 0, bare.stdout + bare.stderr
+    assert exported.returncode == 0, exported.stdout + exported.stderr
+    # The diff below compares the whole announcement; this is its premise, that there is one.
+    assert any(PAST_THE_GUARD in line for line in bare.stdout.splitlines()), (
+        f"the bare run announced no scopes, so nothing here compares them:\n{bare.stdout}"
+    )
+    assert SCOPE_CHECK in exported.stdout, f"exporting CI skipped the scope check:\n{exported.stdout}"
+    assert any(row.startswith("worker=1") for row in bare_started), "the bare run started no pool to compare"
+    assert any(row.startswith("worker=1") for row in exported_started), "exporting CI turned the scope pool off"
+    for stream, one, two in (("stdout", bare.stdout, exported.stdout), ("stderr", bare.stderr, exported.stderr)):
+        drift = "\n".join(difflib.unified_diff(_masked(one).splitlines(), _masked(two).splitlines(), "bare", "CI=1"))
+        assert not drift, f"exporting CI changed the run's {stream}:\n{drift}"
 
 
 # What the gate prints where a pool it would start has no interpreter at the checkers' floor.
