@@ -356,8 +356,9 @@ def test_a_retyped_toml_value_is_a_change() -> None:
 # --- the mapping this check reads --------------------------------------------------------------------
 
 SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    # Not in fl_backend/.dockerignore, so COPY . . carries it to where uv sync --frozen reads it.
-    (PYTHON_VERSION, ("images", "backend", "db", "docs")),
+    # Every scope running the virtualenv this file pins, and COPY . . carries it to where the image's
+    # uv sync --frozen reads it. A job handing it to the step pool alone is held out.
+    (PYTHON_VERSION, ("scripts", "docs", "backend", "ops", "db", "images")),
     # scripts/ruff.toml extends this file, and the gate's own ruff comes out of the venv it pins.
     (PYPROJECT, ("scripts", "images", "backend", "db", "docs")),
     # The docs gate's line-endings check and its binary-byte exemption both read .gitattributes.

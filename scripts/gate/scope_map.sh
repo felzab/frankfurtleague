@@ -115,10 +115,10 @@ else
       # ruff and pyright come out of the virtualenv this lockfile pins: both govern that scope
       # without living in it.
       fl_backend/pyproject.toml|fl_backend/uv.lock) scripts=true; backend=true; db=true; images=true; docs=true ;;
-      # Not in .dockerignore, so `COPY . .` carries it into the builder stage, where `uv sync
-      # --frozen` reads it to pick the interpreter — a pin below `requires-python` fails the build
-      # there, and no host-side check runs it.
-      fl_backend/.python-version) backend=true; db=true; images=true; docs=true ;;
+      # Every scope running the virtualenv this file pins, and the image's builder stage. The frontend
+      # and images jobs take a bare interpreter from it for the step pool alone, where a low pin
+      # costs the pool, never a verdict.
+      fl_backend/.python-version) scripts=true; docs=true; backend=true; ops=true; db=true; images=true ;;
       # The published API surface. It selects the frontend scope too, or a change confined to
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
