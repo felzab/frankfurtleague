@@ -195,7 +195,7 @@ describe("the season's bulk invite send", () => {
 
     await user.click(screen.getByRole("switch"));
     assert.equal(isInTheFlow("Hat den Link schon bekommen"), false, "the list judged with the other value is still on screen");
-    assert.equal(screen.queryByRole("alert"), null, "the armed step outlived the list it was armed over");
+    assert.ok(screen.queryByRole("alert") === null, "the armed step outlived the list it was armed over");
 
     await pressTwice(user, {
       resting: RESTING,
@@ -221,7 +221,7 @@ describe("the season's bulk invite send", () => {
     await user.click(screen.getByRole("button", { name: RESTING }));
 
     assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing");
-    assert.equal(screen.queryByRole("alert"), null, "an empty season armed a press with nothing behind it");
+    assert.ok(screen.queryByRole("alert") === null, "an empty season armed a press with nothing behind it");
     // Awaited, because the control is pending-marked while the read it was handed is still in
     // flight, and a closed control is only announced as closed once that mark lifts.
     await screen.findByRole("button", { name: RESTING, description: "Diese Saison hat noch kein Team aufgenommen." });
@@ -246,8 +246,8 @@ describe("the season's bulk invite send", () => {
     render(panel(true));
 
     assert.ok(isInTheFlow("Für eine abgeschlossene Saison werden keine Registrierungslinks mehr gesendet"));
-    assert.equal(screen.queryByRole("button", { name: RESTING }), null, "a finished season is offered a press the endpoint refuses");
-    assert.equal(screen.queryByRole("switch"), null, "a finished season is offered the re-send choice");
+    assert.ok(screen.queryByRole("button", { name: RESTING }) === null, "a finished season is offered a press the endpoint refuses");
+    assert.ok(screen.queryByRole("switch") === null, "a finished season is offered the re-send choice");
   });
 
   /* The partial row is the one a shortfall hides in: a count of what went out says nothing about

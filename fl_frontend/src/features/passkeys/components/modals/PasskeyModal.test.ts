@@ -108,8 +108,8 @@ describe("what the dialog puts in front of the administrator", () => {
     answerWith(() => new Promise(() => undefined));
     open();
 
-    assert.equal(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen."), null);
-    assert.equal(screen.queryByText("Windows Hello"), null, "the list resolved, so this case proves nothing");
+    assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null);
+    assert.ok(screen.queryByText("Windows Hello") === null, "the list resolved, so this case proves nothing");
   });
 });
 

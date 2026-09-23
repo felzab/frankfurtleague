@@ -122,6 +122,30 @@ const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
  */
 const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: patterns }] });
 
+const HISTORY_BACK = {
+  selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
+  message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
+};
+
+const ASSERT_EQUALITY = 'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|deepEqual|deepStrictEqual)$/]';
+const QUERY_NAME = "/^(query|get|find)(All)?By/";
+
+const queryOperand = (index) =>
+  ["callee.property.name", "callee.name"].flatMap((path) => [
+    `[arguments.${index}.type="CallExpression"][arguments.${index}.${path}=${QUERY_NAME}]`,
+    `[arguments.${index}.type="AwaitExpression"][arguments.${index}.argument.type="CallExpression"][arguments.${index}.argument.${path}=${QUERY_NAME}]`,
+  ]);
+
+/**
+ * A failed equality serialises both operands, and a query's DOM node reaches the whole React tree: one
+ * failing case exhausted the machine's memory. Literal shapes only: a node held in a variable passes.
+ */
+const QUERY_IN_EQUALITY = {
+  selector: [...queryOperand(0), ...queryOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
+  message:
+    "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -142,13 +166,7 @@ const eslintConfig = defineConfig([
       // A syntax rule rather than a test sweep: two comments in this tree name `router.back()`
       // without calling it, and a matcher over source text cannot tell them from a call. The
       // exemption below is the one guarded site.
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
-          message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
-        },
-      ],
+      "no-restricted-syntax": ["error", HISTORY_BACK],
     },
   },
 
@@ -166,6 +184,9 @@ const eslintConfig = defineConfig([
   // The one site the rule above exists to protect: it IS the guard, so it is the only place the
   // platform call belongs.
   { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-syntax": "off" } },
+
+  // A later block replaces an earlier one's options for the same rule, so the history ban is restated.
+  { files: TEST_FILES, rules: { "no-restricted-syntax": ["error", HISTORY_BACK, QUERY_IN_EQUALITY] } },
 
   {
     files: ["src/**/*.{ts,tsx}"],

@@ -289,10 +289,10 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
 
     await screen.findByText(MAIL_ABGEWIESEN);
 
-    assert.equal(screen.queryByRole("status"), null, "a send nobody accepted answered with the receipt");
+    assert.ok(screen.queryByRole("status") === null, "a send nobody accepted answered with the receipt");
     // Announced by the move rather than by a toast, which is how every other server refusal this
     // form marks reaches a reader who cannot see the mark.
-    assert.equal(document.activeElement, adresse, "the refusal marks the address and leaves the caret where the press left it");
+    assert.ok(document.activeElement === adresse, "the refusal marks the address and leaves the caret where the press left it");
   });
 });
 

@@ -296,7 +296,7 @@ describe("what a refused press does to the page", () => {
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
       assert.ok(screen.getByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
-      assert.equal(screen.queryByRole("button", { name: "Eintrag bestätigen" }), null);
+      assert.ok(screen.queryByRole("button", { name: "Eintrag bestätigen" }) === null);
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
     });
   }
