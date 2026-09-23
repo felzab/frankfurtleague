@@ -13,8 +13,9 @@ from typing import Any, Final
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, latest_decision_due, one_month_after, season_has_ended
 
-# The window predicate is the invite slice's: one function answers `GET …/einladung`'s `laeuft` and
-# this flow's refusal, so a link and the write it opens cannot disagree about the window.
+# The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
+# every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
+# cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
 from app.core.crud import build_sort
@@ -46,14 +47,24 @@ REGISTRIERUNG_KADER_VOLL = "REQ-REGISTRIERUNG-008"
 REGISTRIERUNG_ADRESSE_GESPERRT = "REQ-REGISTRIERUNG-009"
 
 
-def find_fenster_refusal(*, registrierung: Any, today: str) -> WriteRefusal | None:
-    """Why this season takes no registration today, or `None`.
+def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any, today: str) -> bool:
+    """Whether this season takes a registration on `today`.
 
-    ONE code for all three ways -- no window, the flag off, the day outside the span. Naming which
-    would report a season's administrative state to an anonymous visitor.
+    A finished season's window is over for good, whatever dates it still stores: a link minted
+    while the season was `future` outlives the season, and the dates alone would still admit.
     """
 
-    if registrierungsfenster_laeuft(registrierung=registrierung, today=today):
+    return not season_has_ended(saison_status=saison_status) and registrierungsfenster_laeuft(registrierung=registrierung, today=today)
+
+
+def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) -> WriteRefusal | None:
+    """Why this season takes no registration today, or `None`.
+
+    ONE code for every way `saison_nimmt_registrierungen_an` says no: naming which would report a
+    season's administrative state to an anonymous visitor.
+    """
+
+    if saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today):
         return None
 
     return WriteRefusal(

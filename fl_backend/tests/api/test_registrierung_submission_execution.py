@@ -452,6 +452,17 @@ class TestWhatASubmissionIsRefused:
 
         assert outcome == REGISTRIERUNG_FENSTER_GESCHLOSSEN
 
+    def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self, mongo_replica_set_url: str):
+        """The window's dates run and its flag is on: only the season's status closes it, as minting the link already does."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            with pytest.raises(DocumentConflictException) as refused:
+                await register(database, client)
+
+            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
+
     def test_a_team_the_season_does_not_hold_is_refused(self, mongo_replica_set_url: str):
         """The second club's own live link, for a club with no junction row: the invite opens and the write refuses."""
 
@@ -616,6 +627,16 @@ class TestWhatTheInvitesOwnReadAnswers:
         answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "offen": False})
 
         assert answer.laeuft is False
+
+    def test_a_season_that_has_ended_reads_as_a_shut_window(self, mongo_replica_set_url: str):
+        """The page renders `laeuft` alone, so a `past` season answering true offers a form every submission of which is refused."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, bool]:
+            answer = await ansicht(database)
+
+            return answer.saison_status, answer.laeuft
+
+        assert on_a_league(mongo_replica_set_url, run, saison_status="past") == ("past", False)
 
     def test_a_revoked_link_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:

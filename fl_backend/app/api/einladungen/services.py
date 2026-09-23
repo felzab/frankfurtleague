@@ -76,7 +76,7 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
 
 
 def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
-    """Whether this season takes registrations on `today`: `offen`, AND the day inside the span.
+    """Whether this season's registration window runs on `today`: `offen`, AND the day inside the span.
 
     Both ends compared: span ordering is enforced on the season PAYLOAD alone, so a stored reversal
     is reachable (`docs/backend/spec.md :: I278`).

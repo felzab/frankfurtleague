@@ -17,6 +17,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     KONTAKT_SEATS,
+    SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
     compose_bestaetigungen,
@@ -28,7 +29,7 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     mint_token,
     recorded_window,
-    window_is_running,
+    saison_nimmt_bewerbungen_an,
 )
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
@@ -57,14 +58,15 @@ router = APIRouter(
 # triage's (`app/api/bewerbungen/admin_router.py`).
 SUBMITTED = "eingereicht"
 
-# What a season read serves this tier: the window and no other field. `docs/backend/spec.md :: I47`
-# withholds a `future` season, and one taking applications IS `future`; `:: I111` carves the window
-# and the season's existence out of that.
-WINDOW_PROJECTION = ["bewerbung"]
+
+# What a season read takes on this tier: the window, and the status judging it, never served.
+# `docs/backend/spec.md :: I47` withholds a `future` season, as one taking applications is;
+# `:: I111` carves the window and its existence out.
+WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
-async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> Mapping[str, Any] | None:
-    """One season's application window, or `None` where nothing readable is recorded.
+async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> tuple[Mapping[str, Any] | None, Any]:
+    """One season's application window, `None` where unreadable, beside its status.
 
     A null, no key -- every season stored before the field carries none -- or an object short of a
     field: none is readable, and all are a miss rather than an error.
@@ -74,10 +76,14 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
 
     # `recorded_window`, not a shape check: `_fenster` subscripts every window key, so a short object
     # would 500 where this promises a miss.
-    return recorded_window(bewerbung=saison_raw.get("bewerbung"))
+    window = recorded_window(bewerbung=saison_raw.get("bewerbung"))
+
+    # The status travels beside the window and is never served: a `past` season takes no
+    # application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
+    return window, saison_raw["status"]
 
 
-def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFensterResponse:
+def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) -> FLBewerbungFensterResponse:
     """One window as this tier is served it, with the running judgement already taken."""
 
     return FLBewerbungFensterResponse(
@@ -85,7 +91,7 @@ def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFenste
         offen=bool(bewerbung["offen"]),
         von=str(bewerbung["von"]),
         bis=str(bewerbung["bis"]),
-        laeuft=window_is_running(bewerbung=bewerbung, today=today),
+        laeuft=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
     )
 
 
@@ -95,15 +101,15 @@ def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFenste
 @router.get("/fenster", response_model=FLBewerbungFensterResponse, summary="The Saison currently accepting applications")
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """
-    Return the season whose application window is open today; 404 when none is.
+    Return the season taking applications today -- its window open and the season not ended; 404 when none is.
 
-    The window alone, never the season: `docs/backend/spec.md :: I47` withholds a `future` one from
-    this tier (`READ-BEWERBUNG-001`).
+    What is served is the window alone, never the season: `docs/backend/spec.md :: I47` withholds a
+    `future` one from this tier (`READ-BEWERBUNG-001`).
     """
 
     # Compared in the query rather than after it, so a closed season is never read. ISO dates order
     # lexicographically, which is how the rest of this application compares two.
-    db_filter = {"bewerbung.offen": True, "bewerbung.von": {"$lte": today}, "bewerbung.bis": {"$gte": today}}
+    db_filter = {"bewerbung.offen": True, "bewerbung.von": {"$lte": today}, "bewerbung.bis": {"$gte": today}, **SAISON_NOT_ENDED_FILTER}
 
     # Sorted and limited rather than `find_one`: two open windows is a state an administrator can
     # create, and an arbitrary pick would move between reads. Newest season id first, ids being years.
@@ -118,7 +124,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     if bewerbung is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
-    return _fenster(saison_id=str(open_seasons[0]["_id"]), bewerbung=bewerbung, today=today)
+    return _fenster(saison_id=str(open_seasons[0]["_id"]), saison_status=open_seasons[0]["status"], bewerbung=bewerbung, today=today)
 
 
 @router.get(
@@ -137,11 +143,11 @@ async def get_fenster(
     reason, and its existence is the whole of what this tier learns about it.
     """
 
-    bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
+    bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
     if bewerbung is None:
         return FLBewerbungKeinFensterResponse(saison_id=saison_id, fenster=None)
 
-    return _fenster(saison_id=saison_id, bewerbung=bewerbung, today=today)
+    return _fenster(saison_id=saison_id, saison_status=saison_status, bewerbung=bewerbung, today=today)
 
 
 @router.get("/schulen", response_model=FLBewerbungSchulenResponse, summary="The clubs a public application may name")
@@ -193,18 +199,18 @@ async def get_trikotfarben(
     """
     Answer which kit colours this season has assigned, so the form can offer the rest.
 
-    404 unless that season's application window is running today, which is the one state the form
-    reads this in. The SET alone, naming no club (`READ-BEWERBUNG-001`).
+    404 unless that season takes applications today, which is the one state the form reads this in.
+    The SET alone, naming no club (`READ-BEWERBUNG-001`).
     """
 
     # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
-    # applications is `future`. The WINDOW gates it instead, so `docs/backend/spec.md :: I111`'s
-    # carve-out stays the window reads' own.
-    bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
+    # applications is `future`. Whether it takes applications gates it instead, so
+    # `docs/backend/spec.md :: I111`'s carve-out stays the window reads' own.
+    bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    # `window_is_running`, the judgement `/fenster` and the submission already take: one spelling of
-    # "this season is taking applications", so a second cannot drift from it.
-    if not window_is_running(bewerbung=bewerbung, today=today):
+    # `saison_nimmt_bewerbungen_an`, the judgement `/fenster` and the submission already take: one
+    # spelling of "this season is taking applications", so a second cannot drift from it.
+    if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
         raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     # `distinct`, never a document read: what leaves the database is the field's values, so no
@@ -240,7 +246,7 @@ async def post_bewerbung(
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION
     )
-    refuse(find_window_refusal(bewerbung=saison_raw.get("bewerbung"), today=today))
+    refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
     # Then who is applying, because the two branches below judge different things.
     refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))

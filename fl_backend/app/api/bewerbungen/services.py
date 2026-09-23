@@ -161,7 +161,7 @@ def recorded_window(*, bewerbung: Any) -> Mapping[str, Any] | None:
 
 
 def window_is_running(*, bewerbung: Any, today: str) -> bool:
-    """Whether this season takes applications on `today`: `offen`, AND the day inside the span.
+    """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
 
     Both ends are compared rather than assuming `von <= bis`: span ordering is enforced on the
     season PAYLOAD alone, so a stored reversal is reachable.
@@ -173,14 +173,30 @@ def window_is_running(*, bewerbung: Any, today: str) -> bool:
     return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
 
 
-def find_window_refusal(*, bewerbung: Any, today: str) -> WriteRefusal | None:
-    """Why this season is taking no application today, or `None`.
+def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
+    """Whether this season takes an application on `today`.
 
-    ONE code for all three ways -- no window, the flag off, the day outside the span. Naming which
-    would report a season's administrative state to an anonymous visitor.
+    A finished season's window is over for good, whatever dates it still stores: the payload names
+    the season, and the dates alone would still admit an application into one that has ended.
     """
 
-    if window_is_running(bewerbung=bewerbung, today=today):
+    return not season_has_ended(saison_status=saison_status) and window_is_running(bewerbung=bewerbung, today=today)
+
+
+# `season_has_ended`'s negation for a read that narrows in the query. No stored season lacks a
+# status, the validator requiring one (`app/core/constraints.py :: COLLECTION_VALIDATORS`), which is why
+# the readers of this filter's rows subscript it.
+SAISON_NOT_ENDED_FILTER: Final[Mapping[str, Any]] = {"status": {"$ne": "past"}}
+
+
+def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> WriteRefusal | None:
+    """Why this season is taking no application today, or `None`.
+
+    ONE code for every way `saison_nimmt_bewerbungen_an` says no: naming which would report a
+    season's administrative state to an anonymous visitor.
+    """
+
+    if saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
         return None
 
     return WriteRefusal(

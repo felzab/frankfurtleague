@@ -5,7 +5,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
 from app.api.bewerbungen.services import days_after, hash_token, mint_token
-from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal, registrierungsfenster_laeuft
+from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
 from app.api.registrierungen.schemas import (
     FLEinladungAnsichtPayload,
     FLEinladungAnsichtResponse,
@@ -20,6 +20,7 @@ from app.api.registrierungen.services import (
     find_kader_refusal,
     find_stufe_refusal,
     find_team_junction_refusal,
+    saison_nimmt_registrierungen_an,
 )
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
@@ -132,7 +133,7 @@ async def post_einladung_ansicht(
         schule=str(team_raw["full_name"]),
         saison_id=saison_id,
         saison_status=saison_raw["status"],
-        laeuft=registrierungsfenster_laeuft(registrierung=saison_raw.get("registrierung"), today=today),
+        laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
         erlaubte_stufen=list(rules.get("erlaubte_stufen") or []),
         # The same junction row the submission judges `REQ-REGISTRIERUNG-002` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
@@ -187,7 +188,7 @@ async def post_registrierung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
         rules = saison_raw.get("rules") or {}
-        refuse(find_fenster_refusal(registrierung=saison_raw.get("registrierung"), today=today))
+        refuse(find_fenster_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today))
 
         # The ROW rather than a count: the answer's `team` is the junction's own copy of the name,
         # which the confirmation mail addresses the pupil by, and one read serves both.
@@ -202,6 +203,7 @@ async def post_registrierung(
         gesperrt = await address_is_gesperrt(
             sperrliste_collection=sperrliste_collection,
             adresse_hash=gehasht,
+            # Read before this transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )

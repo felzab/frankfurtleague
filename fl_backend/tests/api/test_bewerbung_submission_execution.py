@@ -149,7 +149,7 @@ def payload(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
+def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future") -> Any:
     """The SHIPPED validators and indexes, so a document production would refuse fails here too."""
 
     async def _run() -> Any:
@@ -158,7 +158,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
                 "_id": SAISON_ID,
                 "start_date": "2026-01-01",
                 "end_date": "2026-06-30",
-                "status": "future",
+                "status": saison_status,
                 "rules": dict(RULES),
                 "bewerbung": None if bewerbung is None else dict(bewerbung),
             }
@@ -391,7 +391,7 @@ class TestWhatTheLogRecords:
             assert submitted not in rendered
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, **overrides: Any) -> DocumentConflictException:
+def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> DocumentConflictException:
     """One submission expected to be refused, with the exception it raised."""
 
     async def body(database: AsyncDatabase) -> DocumentConflictException:
@@ -404,7 +404,7 @@ def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, **overrides: Any) -> Docu
 
         return failure.value
 
-    return on_a_league(url, body, bewerbung=bewerbung)
+    return on_a_league(url, body, bewerbung=bewerbung, saison_status=saison_status)
 
 
 class TestTheRefusalsTheWritePathAnswers:
@@ -420,6 +420,11 @@ class TestTheRefusalsTheWritePathAnswers:
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
         assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+
+    def test_a_season_that_has_ended_refuses_while_its_window_still_runs(self, mongo_replica_set_url: str):
+        """The payload names the season, so a `past` one whose stored window still runs is reachable by the form's own request."""
+
+        assert refused(mongo_replica_set_url, saison_status="past").error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""

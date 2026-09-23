@@ -263,8 +263,8 @@ export function fensterZustand(fenster: FLBewerbungFensterResponse | null, today
   if (!fenster.offen) return "geschlossen";
   if (today < fenster.von) return "noch-nicht";
 
-  // Never `vorbei` by default: `laeuft` is false with the span still open only where this clock and
-  // the server's disagree, and "abgelaufen" would then be a deadline nobody has reached.
+  // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the
+  // server's disagree or the season has ended, and "abgelaufen" would name a deadline nobody reached.
   return today > fenster.bis ? "vorbei" : "geschlossen";
 }
 

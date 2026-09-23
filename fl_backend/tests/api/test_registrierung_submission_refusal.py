@@ -1,3 +1,5 @@
+import pytest
+
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ADRESSE_GESPERRT,
     REGISTRIERUNG_FENSTER_GESCHLOSSEN,
@@ -21,11 +23,12 @@ ERLAUBTE_STUFEN = ("Q1", "Q2")
 
 
 class TestTheWindowMustBeRunning:
-    def test_a_running_window_is_not_refused(self):
-        assert find_fenster_refusal(registrierung=dict(OPEN_WINDOW), today=TODAY) is None
+    @pytest.mark.parametrize("saison_status", ["future", "active"])
+    def test_a_running_window_is_not_refused(self, saison_status: str):
+        assert find_fenster_refusal(saison_status=saison_status, registrierung=dict(OPEN_WINDOW), today=TODAY) is None
 
     def test_a_closed_window_is_refused(self):
-        refusal = find_fenster_refusal(registrierung={**OPEN_WINDOW, "offen": False}, today=TODAY)
+        refusal = find_fenster_refusal(saison_status="future", registrierung={**OPEN_WINDOW, "offen": False}, today=TODAY)
 
         assert refusal is not None
         assert refusal.error_code == REGISTRIERUNG_FENSTER_GESCHLOSSEN
@@ -33,19 +36,29 @@ class TestTheWindowMustBeRunning:
     def test_a_season_recording_no_window_is_refused(self):
         """The third closed shape, which reaches this refusal rather than a 500: a stored null is unreadable."""
 
-        refusal = find_fenster_refusal(registrierung=None, today=TODAY)
+        refusal = find_fenster_refusal(saison_status="future", registrierung=None, today=TODAY)
 
         assert refusal is not None
         assert refusal.error_code == REGISTRIERUNG_FENSTER_GESCHLOSSEN
 
-    def test_the_refusal_names_none_of_the_three(self):
-        """ONE code and one sentence: naming which would report a season's administrative state to a stranger."""
+    def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self):
+        """A link minted while its season was `future` outlives the season's end, and the dates alone would admit through it."""
 
-        refusal = find_fenster_refusal(registrierung={**OPEN_WINDOW, "offen": False}, today=TODAY)
+        refusal = find_fenster_refusal(saison_status="past", registrierung=dict(OPEN_WINDOW), today=TODAY)
 
         assert refusal is not None
-        assert "offen" not in refusal.message
-        assert OPEN_WINDOW["von"] not in refusal.message and OPEN_WINDOW["bis"] not in refusal.message
+        assert refusal.error_code == REGISTRIERUNG_FENSTER_GESCHLOSSEN
+
+    def test_the_refusal_names_none_of_the_four(self):
+        """ONE code and one sentence: naming which would report a season's administrative state to a stranger."""
+
+        for refusal in (
+            find_fenster_refusal(saison_status="future", registrierung={**OPEN_WINDOW, "offen": False}, today=TODAY),
+            find_fenster_refusal(saison_status="past", registrierung=dict(OPEN_WINDOW), today=TODAY),
+        ):
+            assert refusal is not None
+            assert "offen" not in refusal.message and "past" not in refusal.message
+            assert OPEN_WINDOW["von"] not in refusal.message and OPEN_WINDOW["bis"] not in refusal.message
 
 
 class TestTheTeamMustPlayTheSeason:

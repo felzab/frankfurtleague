@@ -15,8 +15,8 @@ from app.api.einladungen.services import (
     compose_widerruf_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
-    registrierungsfenster_laeuft,
 )
+from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -827,11 +827,11 @@ async def get_einladung(
     of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
     rather than a delivery failure.
 
-    `laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds
-    that id; a team with no invitation answers `einladung: null` rather than a 404.
+    `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
+    the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
     """
 
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung"])
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung", "status"])
 
     # A list read where the answer is one row: a team legitimately holds no live invitation, and
     # `pull_one_from_db` would make that absence a 404.
@@ -846,5 +846,5 @@ async def get_einladung(
         saison_id=saison_id,
         team_id=team_id,
         einladung=FLEinladung.model_validate(live[0]) if live else None,
-        laeuft=registrierungsfenster_laeuft(registrierung=saison_raw.get("registrierung"), today=today),
+        laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
     )
