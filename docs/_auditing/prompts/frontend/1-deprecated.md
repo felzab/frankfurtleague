@@ -9,7 +9,7 @@ to `docs/audit/programme/f1-deprecated.md`.
 CONTEXT — derive, do not assume: read the **current** deprecation table in `.claude/CLAUDE.md` (the
 "Deprecations the toolchain will NOT catch" table) at run time, never a copy, and the
 ratified-decisions index beside it, several rows of which read as violations of that table and are
-deliberate. **Cite CLAUDE.md's sections by name — its numbering moves.**
+deliberate. **Cite CLAUDE.md's sections by number, which never moves.**
 
 THE CHECKS:
 
@@ -32,10 +32,10 @@ THE CHECKS:
    that are Server Components rather than action modules; deep imports into `next/dist/**` or other
    private internals; dead config keys referencing packages not in `package.json`. **Verify the
    current recommendation against the official documentation before flagging an idiom as outdated**
-   (CLAUDE.md's stack section lists the documentation sources).
+   (CLAUDE.md §4 lists the documentation sources).
 
 4. **Version drift.** Installed versions (from `package.json`) versus current stable for the
-   technologies CLAUDE.md's stack section mandates, with the breaking changes that affect this repo.
+   technologies CLAUDE.md §4 mandates, with the breaking changes that affect this repo.
    Where one of CLAUDE.md's own claims is contradicted by current docs, report that correction as a
    finding.
 

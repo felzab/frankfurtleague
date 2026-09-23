@@ -48,7 +48,7 @@ much code landed.
 
 BRANCH FIRST. If you are not already on this wave's branch, create
 `wave-<id>-<kebab-name>` off current main before the first edit. One wave = one
-branch = one pull request. Never commit to main, never merge locally.
+branch = one pull request. Never commit to main.
 
 READ FIRST, in this order:
 1. docs/_auditing/lessons.md, in full. It records the traps this wave will

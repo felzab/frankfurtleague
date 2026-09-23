@@ -126,8 +126,9 @@ did the reasonable thing in their absence.
                 The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
                 a run over a tree the fleet is writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.
-                `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed and
-                whose draft pull request is open. That definition is addressed to me, not to you:
+                `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed, whose
+                draft pull request is open and whose every check has concluded. That definition is
+                addressed to me, not to you:
                 YOU are finished when your report lands.
 
 6  SUB-AGENTS.  ZERO, whatever this task looks like it needs. `/docs:audit` fans out to a fleet of

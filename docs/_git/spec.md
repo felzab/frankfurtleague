@@ -350,13 +350,13 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 **Recovering commits already made on local `main`:**
 
 ```bash
-git branch short-kebab-name        # mark the commits FIRST, or the rewind below strands them
-git reset --hard origin/main       # rewind local main to the remote -- discards the working tree
+git checkout -b short-kebab-name   # the commits and any uncommitted work move to the branch
+git branch -f main origin/main     # rewind local main to the remote -- the working tree is untouched
 git push -u origin short-kebab-name
 ```
 
-`reset --hard` belongs only to a `main` certainly holding nothing of value, and the `git branch` line
-is what makes that true.
+Nothing here discards anything: `branch -f` moves `main` only because another branch is checked out,
+so neither the commits nor the working tree are at risk.
 
 ## 4. Known-open
 

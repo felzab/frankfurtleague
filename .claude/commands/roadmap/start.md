@@ -77,7 +77,7 @@ the change (CLAUDE.md §2).
      the closure there will be, so the body has to read as the record rather than as a note: what
      concluded the item, and where every finding outside it was rehomed.
    - **A decision's destination is picked by how it fails**: a silent failure to a comment at the
-     line it constrains (INC-9 caps it at forty words) or to a gate check, a loud one to a
+     line it constrains (INC-9) or to a gate check, a loud one to a
      CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that could break
      it, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in the body**,
      which `git blame` reaches from the constraint, and `scripts/checks/check_commits.py` refuses a

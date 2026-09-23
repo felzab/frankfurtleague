@@ -71,7 +71,7 @@ __pycache__/
 
 # Audit working documents, local-only by design: the repo is public and these carry findings not
 # yet fixed. A finished programme's account is written here beside its working files. Ignored but not
-# secret -- CLAUDE.md §1 carves this path out.
+# secret.
 docs/audit/
 
 # Editor settings. The two workspace files are tracked, because they point the editor at the same

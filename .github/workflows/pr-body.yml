@@ -5,9 +5,8 @@
 # verify.yml to `edited` would re-run the whole gate, image builds included, every time somebody
 # fixes a typo in a description.
 #
-# It is therefore NOT part of verify.yml's aggregate `verify` job, which is the ruleset's required
-# check. To make this one block a merge as well, add `pr-body` to the required status checks on
-# `main` — the checklist is in docs/_git/spec.md, Repository settings.
+# It is therefore NOT part of verify.yml's aggregate `verify` job, and blocks a merge on its own as
+# one of the ruleset's required status checks (docs/_git/spec.md, Repository settings).
 name: pr-body
 
 on:

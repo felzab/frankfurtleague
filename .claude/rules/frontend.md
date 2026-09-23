@@ -48,6 +48,3 @@ own config files included, on §7's terms.
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
 - Add the matching `updateTag` in the same change as any granular cache tag; a tag nothing
   invalidates is decoration.
-- Never put `"use cache"` on an admin-scoped API read: the cache keys on arguments, not caller
-  identity, so a cached admin read is a shared slot of authorized data, and the directive
-  type-checks, lints, builds and passes every test.
