@@ -719,14 +719,14 @@ image that would not run at all is refused at exit 2 rather than graded, as `pub
 `.dockerignore` files hold the same list of credential shapes, and
 `scripts/tests/test_image_assertions.py` holds the two to each other.
 
-Docker is checked before any check runs on a run covering the ops, database or image scopes, and
-the backend virtualenv on one covering the scripts, documentation, backend or database scopes.
+Docker is checked before any check runs on a run covering the ops, database or image scopes, the
+backend virtualenv on one covering the scripts, documentation, backend or database scopes, and
+`fl_frontend/node_modules` on one covering the format, frontend-units, frontend or database scopes.
 **A prerequisite that is absent or not answering refuses the run at 2 rather than reporting a
 finding**, no scope having opened and §1.7 reserving 1 for what the change could be fixed to answer
-for; the virtualenv's half of that is driven by
-`scripts/tests/test_gate_prerequisites.py :: test_a_run_with_no_backend_virtualenv_refuses_and_reaches_no_scope`.
-The frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
-step running a tool out of `node_modules`. Each tool is its own step, tool output is captured and
+for; the virtualenv's and the frontend install's refusals are driven by
+`scripts/tests/test_gate_prerequisites.py :: test_a_run_with_no_backend_virtualenv_refuses_and_reaches_no_scope`
+and `:: test_a_run_with_no_frontend_install_refuses_and_reaches_no_scope`. Each tool is its own step, tool output is captured and
 shown only when its step fails, and `--verbose` streams everything instead (§1.7). **The
 documentation gate is the one exception, because a passing run's output is worth reading**: its
 printed population is what says the sweep read the tree rather than an empty collection (§1.5). The

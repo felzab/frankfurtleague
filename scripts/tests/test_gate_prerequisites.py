@@ -1,8 +1,8 @@
-"""SCRIPTS · the backend virtualenv the gate needs, driven absent.
+"""SCRIPTS · the backend virtualenv and the frontend install the gate needs, each driven absent.
 
 A run reporting a missing interpreter as a finding sends its author into the change on a machine
-that never held the tool, and nothing later in the run takes that back. The case below drives the
-real `scripts/gate/verify.sh` over a copy of `scripts/` with no virtualenv beside it, a lifted line
+that never held the tool, and nothing later in the run takes that back. The cases below drive the
+real `scripts/gate/verify.sh` over a copy of `scripts/` with neither beside it, a lifted line
 being unable to show that the guard stands above every scope it protects.
 
 Invariants:
@@ -23,6 +23,10 @@ BASH: Final = shutil.which("bash")
 # `--db`, whose Docker guard would refuse ahead of it.
 SCOPE: Final = "--docs"
 
+# The install guard's condition names four scopes and one proves it, for `SCOPE`'s reason. This one
+# needs no daemon, and its own step would otherwise grade the absence as unformatted files.
+FRONTEND_SCOPE: Final = "--format"
+
 # What the gate prints first past the guard, so its absence is the whole of "nothing else ran".
 PAST_THE_GUARD: Final = "this run covers"
 
@@ -38,6 +42,20 @@ def test_a_run_with_no_backend_virtualenv_refuses_and_reaches_no_scope() -> None
     output = done.stdout + done.stderr
     assert done.returncode == 2, output
     assert "No fl_backend virtualenv found" in output, output
+    assert "Refused after" in output, output
+    assert "finding(s) in this run" not in output, output
+    assert PAST_THE_GUARD not in output, output
+
+
+def test_a_run_with_no_frontend_install_refuses_and_reaches_no_scope() -> None:
+    """Exit 2 rather than 1: no change to the tree installs `fl_frontend/node_modules`."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-gate-prerequisite-")
+    copy_scripts(root / "scripts")
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", FRONTEND_SCOPE, env=base_env())
+    output = done.stdout + done.stderr
+    assert done.returncode == 2, output
+    assert "Missing required directory: fl_frontend/node_modules" in output, output
     assert "Refused after" in output, output
     assert "finding(s) in this run" not in output, output
     assert PAST_THE_GUARD not in output, output

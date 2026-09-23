@@ -265,6 +265,14 @@
 # where it loaded 4160. The runner's own figures replace these on the pull request's runs; no row
 # moves until a population of them exists.
 #
+# `format`, `frontend`, the `frontend-units` shards and `backend-db` gained a guard ahead of their
+# scopes: `fl_frontend/node_modules` must exist, so a run without the install refuses rather than
+# grading its absence. 58-60 microseconds a call over five interleaved rounds of two thousand calls
+# against an empty loop, measured locally on 2026-09-23 on a sixteen-core Windows machine carrying
+# a fleet of agent sessions, so an upper bound; it is paid once in each gate process those scopes
+# start. That is far inside every floor those rows carry, so no reference or budget moves and none
+# takes a new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

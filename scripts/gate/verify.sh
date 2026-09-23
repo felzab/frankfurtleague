@@ -69,6 +69,11 @@ fi
 if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
   require_docker
 fi
+# Every frontend tool runs out of this directory. Missing, the formatter's failure reads as
+# unformatted files, and the db tier's frontend half finds it gone only after the backend half.
+if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )); then
+  require_dir fl_frontend/node_modules "Every frontend tool this run starts is installed there. Install it with:  cd fl_frontend && pnpm install"
+fi
 
 # One capture directory per pool run, holding its units file, their output and its manifest.
 # Declared up here because the EXIT trap below reclaims them, and `set -u` refuses an array that

@@ -98,6 +98,9 @@ def _fixture() -> Fixture:
     copy_scripts(root / "scripts")
     # `do_prettier` and every frontend body `cd` here before running their tool.
     (root / "fl_frontend").mkdir()
+    # Empty: the gate's preflight refuses a frontend scope without it, and the stub reads nothing
+    # from it. Git tracks no empty directory, so the tree stays committed-clean.
+    (root / "fl_frontend" / "node_modules").mkdir()
     configure(root, hooks=str(root / "hooks-none"))
     git(root, "add", "-A")
     git(root, "commit", "-m", "the gate, with nothing under it")
