@@ -333,9 +333,10 @@ do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
-# Threads on a runner alone: it restores no eslint cache, so it always pays the cold fill threads
-# divide, while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`).
-do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency auto} ); }
+# Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
+# while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`). The `=`
+# keeps the flag one word under `_lib.sh`'s IFS.
+do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 # The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
 # appends after them reaches the runner unapplied, every shard then running the whole suite.

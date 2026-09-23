@@ -134,7 +134,8 @@ describe("what one refused submission shows", () => {
   it("sends a pupil whose repeated press changed its details to the league", () => {
     const answered = mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"));
 
-    assert.match(answered?.error ?? "", new RegExp(`schreib uns an ${KONTAKT_EMAIL.replace(/\./g, "\\.")}`));
+    const error = answered?.error ?? "";
+    assert.ok(error.includes(`schreib uns an ${KONTAKT_EMAIL}`), error);
     assert.equal(answered?.fieldErrors, undefined);
   });
 
