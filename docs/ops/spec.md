@@ -691,7 +691,10 @@ and why a job mapped off reads as `skipped`, is at that job in `.github/workflow
 
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
-`version-file`; each flag's argument is at the `commits` job in `.github/workflows/verify.yml`.
+`version-file`; each flag's argument is at the `scripts` job in `.github/workflows/verify.yml`.
+**Every other CI job that runs python takes the interpreter `fl_backend/.python-version` pins through
+`actions/setup-python`**, the file the virtualenv's interpreter is read from too, so one pin decides
+every job's version; the reason is at that workflow's `commits` job.
 
 | Scope        | Runs                                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -928,13 +931,13 @@ environmental check, so a typo fails instantly rather than after a Docker probe.
 prefix names the class, the stem names the subject, and the extension names the harness. A new
 script goes into that scheme rather than beside it.
 
-| Part        | Reads as                                                                                 |
-| ----------- | ---------------------------------------------------------------------------------------- |
-| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract |
-| `_`         | Sourced by another script and never run on its own                                       |
-| no prefix   | Run directly — by a person, by CI, or by another script as a subprocess                  |
-| `.sh` `.py` | bash, and the python in the backend virtualenv                                           |
-| `.mjs`      | node, taken only where the subject needs a parser bash and python do not have            |
+| Part        | Reads as                                                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract                                                          |
+| `_`         | Sourced by another script and never run on its own                                                                                                |
+| no prefix   | Run directly — by a person, by CI, or by another script as a subprocess                                                                           |
+| `.sh` `.py` | bash, and python at the version `fl_backend/.python-version` pins: the backend virtualenv's, or a CI job's own where no step needs the virtualenv |
+| `.mjs`      | node, taken only where the subject needs a parser bash and python do not have                                                                     |
 
 `scripts/lib/checker_kernel.py` is the one name the scheme does not classify, and it keeps that
 name: it is imported rather than run, so the `_` marking a sourced script would say the wrong thing
