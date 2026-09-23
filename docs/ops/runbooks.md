@@ -19,7 +19,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                                    | The one call that answers it, and what each answer means       |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
-| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The order the two halves run in, and what is lost with them    |
+| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
 
@@ -428,8 +428,8 @@ section never exercised against a real page load.
 ## 5. When somebody asks for their data, or asks us to change it
 
 Access, rectification, objection, restriction, portability and the withdrawal of a consent all
-arrive the same way and are answered by one person by hand. Erasure has its own three mechanisms and
-is [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
+arrive the same way and are answered by one person by hand. Erasure has its own mechanisms and is
+[`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
 **Every request arrives at the league's mailbox**
@@ -549,6 +549,13 @@ Two answers, and which one you give is the person's to choose:
   tag, and check the public squad page before you answer the person.
 
 Tell them which of the two you did, and that the second is reversible and the first is not.
+
+**A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
+[section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
+as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and the log
+images naming them stand until that section's reset or the retention index takes them. Where the
+person has registered again since, erase the new row under „Daten löschen“ in that referee's own
+editor.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -984,6 +991,40 @@ write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and
 so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
 first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
 hand as a MongoDB Playground paste, as every migration here is (§2).
+
+**The player half is what lets the old late-entry key go**: once it has run, no stored squad row
+carries the marker under its old spelling, and the leniency that reads it is removed in one change
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I303).
+
+**The referee rows standing today go at a different moment, not at this season's end**: immediately
+before the deploy whose fixture read first consults a referee's own consent record, so that read
+never meets a live row nobody asked
+([`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)). The rows are
+the ones carrying no consent record; a row whose confirmation link went out and is still unanswered
+carries none either, so read what the term matches before dropping anything. It is run by hand as a
+MongoDB Playground paste as well, and it is **not** a referee's erasure, though it repoints as one
+does: every fixture naming one of those rows is repointed at the ghost
+(`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled, the
+update `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds. Three things
+decide whether the one pasted is right:
+
+- **The ghost exists first.** Only an erasure writes it, inside its own transaction, so a league
+  that has had none holds no such row: insert exactly the document
+  `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` builds, and a repoint
+  run without it points every fixture at a document nobody has.
+- **Repoint before deleting, counting both** — the fixtures naming the rows, and the rows — and read
+  each count the database reports against it. `spiele.schiedsrichter.schiedsrichter_id` is a
+  required id, so a null is refused rather than stored.
+- **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
+  holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
+  reads „anonym“.
+
+A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
+until a referee is assigned
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so the drop belongs
+in a break between match weeks; and the ghost claims no slot
+(`fl_backend/app/api/spiele/services.py :: find_slot_claims`), so no double booking among those
+fixtures is ever reported.
 
 ## 13. After a restore from a snapshot
 

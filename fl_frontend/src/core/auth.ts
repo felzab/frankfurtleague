@@ -24,25 +24,15 @@ import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { ENROLMENT_CONFLICT, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
+import { ADMIN_LIFETIME, ADMIN_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "./sessionLifetimes";
 
 import type { BetterAuthOptions, DBTransactionAdapter } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
+import type { Lifetime } from "./sessionLifetimes";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
 const MONGO_DB_NAME = "auth";
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-
-/** How long a session of one kind survives without use, and how long it survives at all. */
-type Lifetime = { readonly idle: number; readonly absolute: number };
-
-// ONE figure for the administrator, written into both halves below: `updatedAt` never precedes
-// `createdAt`, so where the two are equal the idle comparison can never be the one that refuses.
-const ADMIN_WINDOW_MS = 48 * HOUR_MS;
-
-const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_WINDOW_MS, absolute: ADMIN_WINDOW_MS };
 
 // Minutes, which is what WebAuthn practice and the large providers' documented re-authentication
 // ask for. It shrinks the exposure rather than closing it: inside those minutes a stolen cookie
@@ -53,17 +43,11 @@ const STEP_UP_WINDOW_MS = 5 * 60 * 1000;
 // (`docs/frontend/spec.md :: I311`).
 export const PASSKEY_LIMIT = 5;
 
-// A sliding window with no cap means a stolen cookie used weekly never expires, which is why the
-// second figure is here and never redundant (`docs/frontend/spec.md :: I135`).
-const PERSON_LIFETIME: Lifetime = { idle: 30 * DAY_MS, absolute: 90 * DAY_MS };
+const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 
-// Derived, never typed a fifth time: the library configures one lifetime for everybody, so it gets
-// the longest and `fl_frontend/src/core/auth.ts :: withinLifetime` refuses the rest per request.
-const SESSION_EXPIRES_IN_SECONDS =
-  Math.max(ADMIN_LIFETIME.idle, ADMIN_LIFETIME.absolute, PERSON_LIFETIME.idle, PERSON_LIFETIME.absolute) / 1000;
-
-// What the refresh costs, and so how closely `updatedAt` tracks activity: the idle windows above
-// are compared against it, and this is the width of their granularity.
+// What the refresh costs, and so how closely `updatedAt` tracks activity: the idle windows in
+// `fl_frontend/src/core/sessionLifetimes.ts` are compared against it, and this is the width of their
+// granularity.
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
 
 // Far below the plugin's own default: a sign-in link is a bearer credential sitting in an inbox.

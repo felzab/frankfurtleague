@@ -13,17 +13,13 @@ from pydantic import SecretStr
 
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
-from app.shared.schemas.bounds import SAISON_ID_LENGTH
+from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
 # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
 SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
 
 SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
-
-# How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
-# does not count, so the fifth one after it is the last the ban covers.
-SPERRE_DAUER_SAISONS: Final = 5
 
 # One label per purpose: the same master keys a second corpus in a later programme, and a mistake
 # in one must not read the other. Not a rotation scheme (`docs/backend/spec.md :: 1.5`).

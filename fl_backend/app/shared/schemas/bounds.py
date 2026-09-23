@@ -113,6 +113,10 @@ AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
 
+# How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
+# does not count, so the fifth one after it is the last the ban covers.
+SPERRE_DAUER_SAISONS: Final = 5
+
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.

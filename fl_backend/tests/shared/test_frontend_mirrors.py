@@ -48,7 +48,7 @@ class Mirror(NamedTuple):
     python: str
 
 
-# Declared rather than matched by name: four of these pairs are spelled one way on the frontend and
+# Declared rather than matched by name: several of these pairs are spelled one way on the frontend and
 # another in `bounds.py`, so a sweep keyed on the identifier passes over exactly the pairs whose
 # drift nothing else shows.
 MIRRORED_BOUNDS: Final = (
@@ -82,11 +82,14 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
     # These three mirror the published notice's sentences and never a payload schema: each confirmation
-    # view still states the floor off the answer it was served, and neither
+    # view states its floors off the answer it was served, and neither
     # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
     Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
+    # The notice states the ban's length in a word, which its render test holds to this constant; no
+    # payload carries a length at all.
+    Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -94,7 +97,9 @@ MIRRORED_BOUNDS: Final = (
 UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "LIST_LIMIT_DEFAULT": "the page size a read applies for a caller that asks for none",
     "LIST_LIMIT_MAX": "the ceiling on what a caller may ask for; every frontend read sends the size it needs or none",
-    "AKTION_RETENTION_SECONDS": "the log index's own `expireAfterSeconds`; no surface counts a row's age",
+    "AKTION_RETENTION_SECONDS": (
+        "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"
+    ),
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
