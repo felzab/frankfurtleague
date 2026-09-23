@@ -145,6 +145,17 @@
 # what the run competes for rather than splitting the unit or removing work from it. The section
 # itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a row.
 #
+# `scripts`' pytest unit was one module long: `--dist loadfile` hands a module whole to one worker,
+# and `scripts/tests/test_check_docs.py` carried 118.6 s of a 121.8 s run at eight workers against
+# about 65 s of work a worker, while the case loop beside it, one test of 69 s, was dispatched last
+# because xdist orders `loadfile` scopes by how many tests each holds. The net now stands in five
+# modules, `scripts/tests/test_check_docs*.py`, and its cases one test apiece. Measured on
+# 2026-09-22 on the sixteen-core machine at 100 per cent CPU from a fleet of agent sessions, three
+# interleaved rounds of the whole suite in two mirrors of one tree, every run exit 0: the load moved
+# each run's summed item time from 2378 to 3820 s, so the raw walls overlap; simulated on each
+# new-layout run's own item times, which the simulation reproduces within 7 per cent, the old layout
+# costs 649, 534 and 783 s against 466, 399 and 666 s. No figure here moves a row.
+#
 # `docs` gained a check: `check_log_quoting_class.py` costs 97-141 ms end to end, of which about
 # 60 ms is the comparison rather than this interpreter's own start, over two spreads of ten
 # interleaved rounds after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a
