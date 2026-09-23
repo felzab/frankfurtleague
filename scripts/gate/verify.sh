@@ -245,7 +245,6 @@ do_docs_gate() {
 }
 do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
-do_regenerate_spelling() { "$PY" scripts/checks/check_regenerate_spelling.py; }
 do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
@@ -380,7 +379,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(tracked_text docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
+DOCS_POOL=(tracked_text docs_gate commit_messages public_routes log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -963,20 +962,6 @@ reason charging nothing, a declared metadata convention no file serves, or one h
 trailing-slash pair standing without the other." \
     unit_replay public_routes; then
     ok "every route handler is accounted for at the edge"
-  else
-    DOCS_OK=0
-  fi
-
-  # This scope because it is the one every site selects: their own scopes run
-  # `docs format frontend backend db` between them and share `docs` alone.
-
-  step "docs · one spelling of the command that regenerates openapi.json"
-  unit_join regenerate_spelling
-  if run_checker collect "scripts/checks/check_regenerate_spelling.py" "The regenerate command has drifted. Above is a site spelling it differently from the
-declaration, a registered site that has stopped naming it, or a tracked file naming it that the
-register does not cover." \
-    unit_replay regenerate_spelling; then
-    ok "every site spells the regenerate command the declared way"
   else
     DOCS_OK=0
   fi

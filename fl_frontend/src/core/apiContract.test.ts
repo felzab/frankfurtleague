@@ -6,12 +6,10 @@ import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
-const DOCUMENT_PATH = path.resolve(SRC_DIR, "..", "..", "fl_backend", "openapi.json");
-
-const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /**
  * Backend component name → the frontend export mirroring it, where the two names differ.
@@ -178,7 +176,7 @@ function readDocument(): JsonSchema {
   try {
     return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonSchema;
   } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with:  ${REGENERATE}`, { cause });
+    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
   }
 }
 
@@ -357,8 +355,14 @@ const EXPECTED_PAIRS = 228;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
-    assert.ok(Object.keys((document.paths ?? {}) as object).length > 0, `no paths in openapi.json — regenerate with: ${REGENERATE}`);
-    assert.ok(Object.keys(components).length > 0, `no component schemas in openapi.json — regenerate with: ${REGENERATE}`);
+    assert.ok(
+      Object.keys((document.paths ?? {}) as object).length > 0,
+      `no paths in openapi.json — regenerate it with the command ${REGENERATE_CITATION} declares`,
+    );
+    assert.ok(
+      Object.keys(components).length > 0,
+      `no component schemas in openapi.json — regenerate it with the command ${REGENERATE_CITATION} declares`,
+    );
   });
 });
 
@@ -542,7 +546,7 @@ describe("each pair agrees on the wire contract", () => {
         problems,
         [],
         `${component} and ${mirror}Schema (${mirrors.get(mirror)!.module}) disagree:\n  ${problems.join("\n  ")}\n` +
-          `Change both sides in the same commit, then refresh the document:  ${REGENERATE}`,
+          `Change both sides in the same commit, then refresh the document with the command ${REGENERATE_CITATION} declares.`,
       );
     });
   }

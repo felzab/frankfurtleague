@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
+
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 
 import {
   BESTAETIGUNG_ABSAETZE,
@@ -16,9 +17,6 @@ import {
 } from "./einwilligung.ts";
 
 import type { EinwilligungFassung } from "./einwilligung.ts";
-
-const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
-const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 // Frozen when a label is minted and never updated afterwards: a changed digest means the stored
 // words moved, and moved words are a NEW label rather than a new number here.
@@ -62,7 +60,10 @@ function publishedVersionMaxLength(): number {
   };
   const bound = document.components?.schemas?.FLBewerbungEinwilligungPayload?.properties?.text_version?.maxLength;
 
-  assert.ok(typeof bound === "number", `no maxLength on the submitted Kenntnisnahme's text_version — regenerate with: ${REGENERATE}`);
+  assert.ok(
+    typeof bound === "number",
+    `no maxLength on the submitted Kenntnisnahme's text_version — regenerate it with the command ${REGENERATE_CITATION} declares`,
+  );
   return bound;
 }
 

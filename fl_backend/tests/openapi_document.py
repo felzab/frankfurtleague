@@ -13,7 +13,6 @@ DOCUMENT_PATH: Final = Path(__file__).resolve().parents[1] / "openapi.json"
 
 # `uv run` rather than a bare `python`: outside an activated virtualenv the interpreter has neither
 # FastAPI nor this package, so the command fails as a broken import.
-# `scripts/checks/check_regenerate_spelling.py` holds every other site to this exact string.
 REGENERATE: Final = "cd fl_backend && uv run python -m tests.openapi_document --write"
 
 # Both repairs, because the rewrite alone is the wrong one for a narrowing nobody asked for: it

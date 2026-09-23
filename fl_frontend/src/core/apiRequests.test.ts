@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_BY_DEFAULT, KEY_TIER_EXTENSION, KEY_TIERS, keyTierOf } from "@/core/keyTiers.ts";
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import type { KeyTier } from "@/core/keyTiers.ts";
@@ -14,9 +15,6 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const FRONTEND_DIR = path.resolve(SRC_DIR, "..");
 const FEATURES_DIR = path.resolve(SRC_DIR, "features");
 const CLIENT_MODULE = path.resolve(SRC_DIR, "core", "api.ts");
-const DOCUMENT_PATH = path.resolve(FRONTEND_DIR, "..", "fl_backend", "openapi.json");
-
-const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /** Stands in for an interpolated segment, spelled so no literal segment can collide with it. */
 const PATH_PARAM = "<param>";
@@ -34,7 +32,7 @@ function readDocument(): JsonObject {
   try {
     return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonObject;
   } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with:  ${REGENERATE}`, { cause });
+    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
   }
 }
 
@@ -385,7 +383,7 @@ describe("the published document places every path this comparison reads", () =>
     assert.equal(
       versionPrefixes.length,
       1,
-      `expected one /api/v<n> prefix in openapi.json, found [${versionPrefixes}] — refresh it:  ${REGENERATE}`,
+      `expected one /api/v<n> prefix in openapi.json, found [${versionPrefixes}] — refresh it with the command ${REGENERATE_CITATION} declares`,
     );
   });
 
@@ -398,7 +396,10 @@ describe("the published document places every path this comparison reads", () =>
   });
 
   it("publishes operations under the prefix", () => {
-    assert.ok(published.size > 0, `no operations under ${versionPrefix} in openapi.json — refresh it:  ${REGENERATE}`);
+    assert.ok(
+      published.size > 0,
+      `no operations under ${versionPrefix} in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
+    );
   });
 
   it("resolves every published query parameter's schema", () => {
@@ -519,7 +520,7 @@ describe("every request is sent under the key its operation is guarded at", () =
       untiered,
       [],
       `These operations publish no \`${KEY_TIER_EXTENSION}\` this comparison can spell, so nothing holds a call site's tier to them.\n` +
-        `Refresh the document with:  ${REGENERATE}\n  ${untiered.join("\n  ")}`,
+        `Refresh the document with the command ${REGENERATE_CITATION} declares:\n  ${untiered.join("\n  ")}`,
     );
   });
 

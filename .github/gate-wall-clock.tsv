@@ -96,9 +96,9 @@
 # check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
 # each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet
 # of concurrent agent sessions, so both ends are upper bounds reading that contention as much as
-# the check. It is pooled with the docs scope's other six units, so the job pays that span only
-# where the pool cannot start all seven at once, and either way it sits inside the floor the docs
-# row carries, so neither reference nor budget moves and neither takes a new stamp.
+# the check. It is pooled with the docs scope's other units, so the job pays that span only where
+# the pool cannot start them all at once, and either way it sits inside the floor the docs row
+# carries, so neither reference nor budget moves and neither takes a new stamp.
 #
 # `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in
 # `.claude/settings.json` and in `.claude/agents/`, on every event rather than `PreToolUse` alone,
@@ -127,17 +127,6 @@
 # moves and neither takes a new stamp. The figure is a development machine's, which is what the
 # guard's own cost can be measured on: it runs before the tier rather than in it.
 #
-# `docs` gained a check: `check_regenerate_spelling.py` costs 201-243 ms end to end, of which
-# 98-104 ms is the sweep rather than this interpreter's own start, over seven interleaved rounds
-# after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core
-# machine carrying a fleet of concurrent agent sessions, so both ends are upper bounds reading
-# that contention as much as the check; `check_public_routes.py`, interleaved with it, read 117-120
-# ms against the 110-129 ms its own paragraph records, which is what places this machine beside that
-# measurement. The sweep reads every tracked file's bytes, so its span follows the size of the tree
-# rather than of the branch. It is pooled with the docs scope's other six units, so the job pays
-# that span only where the pool cannot start all seven at once, and either way it sits inside the
-# floor the docs row carries, so neither reference nor budget moves and neither takes a new stamp.
-#
 # `scripts`' binding unit measured three ways on 2026-09-07 on the sixteen-core machine: alone and
 # idle, `selfcheck.sh` took 45.2-45.9 s over five runs; inside one full-form run it took 97 s beside
 # the section's pytest, ruff and pyright; under a process spinning every core it took 236 s. The
@@ -161,13 +150,11 @@
 # 60 ms is the comparison rather than this interpreter's own start, over two spreads of ten
 # interleaved rounds after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a
 # sixteen-core machine carrying a fleet of concurrent agent sessions, so both ends are upper
-# bounds reading that contention as much as the check; `check_regenerate_spelling.py`, interleaved
-# with it, read 197-236 ms against the 201-243 ms its own paragraph records, which is what places
-# this machine beside that measurement. It opens two files and expands two character classes, so
-# its span follows neither the size of the tree nor that of the branch. It is pooled with the docs
-# scope's other six units, so the job pays that span only where the pool cannot start all seven at
-# once, and either way it sits inside the floor the docs row carries, so neither reference nor
-# budget moves and neither takes a new stamp.
+# bounds reading that contention as much as the check. It opens two files and expands two
+# character classes, so its span follows neither the size of the tree nor that of the branch. It is
+# pooled with the docs scope's other units, so the job pays that span only where the pool cannot
+# start them all at once, and either way it sits inside the floor the docs row carries, so neither
+# reference nor budget moves and neither takes a new stamp.
 #
 # `docs` gained a check: `section-reference` costs 95-103 ms over the whole corpus of 1045 files,
 # the upper end taken with the page cache cleared beside the check's own, over nine rounds
