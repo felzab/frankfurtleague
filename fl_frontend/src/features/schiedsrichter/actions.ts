@@ -159,7 +159,7 @@ export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSchiedsrichterAction", async () => {
+  return runAdminMutation("postSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -223,7 +223,7 @@ export async function patchSchiedsrichterAction(
   // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
   // a warning on it, and the save landed either way.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
-  return runAdminMutation("patchSchiedsrichterAction", async () => {
+  return runAdminMutation("patchSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -293,7 +293,7 @@ export async function patchSchiedsrichterAction(
  * would leave the referee with no working link and no message.
  */
 export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
-  return runAdminMutation("einladeSchiedsrichterAction", async () => {
+  return runAdminMutation("einladeSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -358,7 +358,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
 export async function deleteSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("deleteSchiedsrichterAction", async () => {
+  return runAdminMutation("deleteSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -404,7 +404,7 @@ export async function deleteSchiedsrichterAction(
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("reactivateSchiedsrichterAction", async () => {
+  return runAdminMutation("reactivateSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -445,7 +445,7 @@ export async function reactivateSchiedsrichterAction(
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("anonymiseSchiedsrichterAction", async () => {
+  return runAdminMutation("anonymiseSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

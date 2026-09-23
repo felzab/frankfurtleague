@@ -74,8 +74,8 @@ const KEINE_EMAIL = "Keine E-Mail";
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
 /**
- * A rejection carries no status and no body, so the write may have committed. A second re-send is safe
- * either way, which is why this one invites it.
+ * A rejected action carries no status and no body, so it says nothing of whether the write
+ * committed. A second re-send is safe either way, which is why this one invites it.
  */
 const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
 
@@ -136,13 +136,10 @@ export function BewerbungBestaetigungStrip({
     // beneath it is stale on exactly the press that says so. A rejected write may have committed too.
     router.refresh();
 
-    if (res === null) {
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ERNEUT_OHNE_ANTWORT });
-      return;
-    }
-
-    if (!res.success) {
-      appToast.danger("Link nicht erneut gesendet", { description: res.error });
+    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
+    // unknown outcome among them, carries its own sentence.
+    if (res === null || !res.success) {
+      appToast.failure("Link nicht erneut gesendet", res ?? { error: ERNEUT_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
@@ -419,10 +416,12 @@ function AdresseKorrigieren({
     const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
     setSendet(false);
 
-    if (res === null) {
-      // Left open: the draft is what a second press sends, and the refreshed row says whether one is owed.
+    // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
+    // sends, and the refreshed row says whether one is owed.
+    if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: KORREKTUR_OHNE_ANTWORT });
+      // Thrown, no answer came back, so this control's repair names the connection.
+      appToast.failure("Adresse nicht korrigiert", res ?? { error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
@@ -436,7 +435,7 @@ function AdresseKorrigieren({
       // time the administrator reads it.
       router.refresh();
       onFertig();
-      appToast.danger("Adresse nicht korrigiert", { description: res.error });
+      appToast.failure("Adresse nicht korrigiert", res);
       return;
     }
 
@@ -598,10 +597,12 @@ function SitzNeuBesetzen({
     const res = await besetzeKontaktSitzAction(payload).catch(() => null);
     setSendet(false);
 
-    if (res === null) {
-      // Left open: the draft is what a second press sends, and the refreshed row says whether one is owed.
+    // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
+    // sends, and the refreshed row says whether one is owed.
+    if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BESETZUNG_OHNE_ANTWORT });
+      // Thrown, no answer came back, so this control's repair names the connection.
+      appToast.failure("Rolle nicht neu besetzt", res ?? { error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
@@ -615,7 +616,7 @@ function SitzNeuBesetzen({
       // time the administrator reads it.
       router.refresh();
       onFertig();
-      appToast.danger("Rolle nicht neu besetzt", { description: res.error });
+      appToast.failure("Rolle nicht neu besetzt", res);
       return;
     }
 

@@ -128,11 +128,19 @@ const sent: Sent[] = [];
 /** What the next call is answered with instead of the records, spent on that one call. */
 let nextAnswer: Response | null = null;
 
+/** Whether the next call is cut off as the client's own timeout cuts it, spent on that one call. */
+let nextTimesOut = false;
+
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   const body = String(init?.body ?? "");
   sent.push({ url: url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body: body });
+
+  if (nextTimesOut) {
+    nextTimesOut = false;
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
 
   if (nextAnswer !== null) {
     const answer = nextAnswer;
@@ -154,6 +162,7 @@ after(() => {
 const { auth, getSignInDestination } = await import("./auth.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+const { APINetworkError } = await import("./errors.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -353,6 +362,19 @@ describe("the request the seam makes", () => {
     });
 
     await assert.rejects(() => getSubjectSession());
+  });
+
+  // A lookup that stores nothing, posted only to keep the address out of the URL: its timeout is a read
+  // that failed, and the API answers its own deadline on it the same way (`stores_nothing`).
+  it("is declared a read, so a timeout on it never reads as a write of unknown outcome", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextTimesOut = true;
+
+    await assert.rejects(
+      () => getSubjectSession(),
+      (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
+    );
   });
 
   it("throws where the answer is a body the mirror refuses", async () => {

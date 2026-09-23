@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
+import pymongo
 import pytest
 from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
@@ -19,6 +20,10 @@ NON_HEX_ID = "z" * 24
 # answers gives each control something other than the failure it asserts.
 UNANSWERED_URI = "mongodb://localhost:1"
 
+# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
+# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
+UNANSWERED_DEADLINE_S = 0.001
+
 # Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
 # the harness's own included.
 UNREACHED_DATABASE = "DB-FAIL-001"
@@ -33,12 +38,13 @@ def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
 
     async def _answered() -> Response:
         app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=UNANSWERED_URI, serverSelectionTimeoutMS=100)
+        app.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
 
         try:
             transport = ASGITransport(app=app, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, params=params, headers=BASE_AUTH)
+                with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                    return await http.get(path, params=params, headers=BASE_AUTH)
         finally:
             await app.state.db_client.close()
 

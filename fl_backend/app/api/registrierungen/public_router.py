@@ -40,6 +40,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 
@@ -83,7 +84,12 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     return einladung_raw
 
 
-@router.post("/einladung/ansicht", response_model=FLEinladungAnsichtResponse, summary="What a registration link opens")
+@router.post(
+    "/einladung/ansicht",
+    response_model=FLEinladungAnsichtResponse,
+    summary="What a registration link opens",
+    dependencies=[Depends(stores_nothing)],
+)
 async def post_einladung_ansicht(
     ansicht_data: Annotated[FLEinladungAnsichtPayload, Body()],
     einladungen_collection: EinladungenCollection,

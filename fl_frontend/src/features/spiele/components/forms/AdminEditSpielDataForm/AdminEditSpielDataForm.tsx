@@ -19,6 +19,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -363,7 +364,8 @@ export function AdminEditSpielDataForm({
     const narrowed = FLPatchSpielDataPayloadSchema.parse(payload);
 
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
 
       if (!res.success) {
         // A field error rather than a toast, so the message lands on the control to change.
@@ -376,9 +378,7 @@ export function AdminEditSpielDataForm({
 
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
-          appToast.danger("Änderung nicht gespeichert", {
-            description: res.error,
-          });
+          appToast.failure("Änderung nicht gespeichert", res);
         }
         return;
       }

@@ -3,6 +3,7 @@ from typing import Annotated
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 # The application's slice owns the two judges, and the rules inside them are the whole idempotency
@@ -63,6 +64,7 @@ async def _apply(
             db_filter={"_id": ziel_id},
             update=compose_ziel_zustellung_update(pfad=pfad, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return True

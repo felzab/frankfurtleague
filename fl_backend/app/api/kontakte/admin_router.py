@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -23,6 +24,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
+from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_actor, verify_access_admin
 
@@ -43,7 +45,9 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
     for row in rows:
         slots = find_matching_slots(row, email)
         update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
-        await patch_one_in_db(collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session)
+        await patch_one_in_db(
+            collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
+        )
         cleared += len(slots)
 
     return cleared
@@ -67,7 +71,12 @@ def _seats_of(rows: Sequence[Mapping[str, Any]], email: str) -> list[FLKontaktSi
     ]
 
 
-@router.post("/erasure/ansicht", response_model=FLKontaktErasureAnsichtResponse, summary="Show whom an erasure would reach")
+@router.post(
+    "/erasure/ansicht",
+    response_model=FLKontaktErasureAnsichtResponse,
+    summary="Show whom an erasure would reach",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_kontakt_erasure_ansicht(
     erasure_data: Annotated[FLKontaktErasurePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,

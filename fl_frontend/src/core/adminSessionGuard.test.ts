@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { actionBodies, actionModules, adminActionModules, opensMutation } from "@/core/actionSources.ts";
+import { actionBodies, actionModules, adminActionModules, mutationOpener } from "@/core/actionSources.ts";
 
 const ACTION_MODULES = actionModules();
 const ADMIN_ACTION_MODULES = adminActionModules();
@@ -13,10 +13,9 @@ const AUTHORIZES_NOBODY = "features/auth/actions.ts";
 const OPENS_ON_GUARD = /^ {4}if \(!\(await getAdminSession\(\)\)\) \{\n/;
 
 function opensOnGuard(name: string, body: string): boolean {
-  const opener = opensMutation(name);
-  const at = body.indexOf(opener);
+  const opener = mutationOpener(body, name);
 
-  return at !== -1 && OPENS_ON_GUARD.test(body.slice(at + opener.length));
+  return opener !== null && OPENS_ON_GUARD.test(body.slice(opener.end));
 }
 
 /* The second of two layers: `fl_frontend/src/proxy.ts` turns an unauthenticated `/admin/:path*` POST
@@ -75,7 +74,7 @@ describe("the session guard every admin server action opens on", () => {
        no count over them separates this reader from one that answers true for anything handed it. */
     const sample = [
       "export async function firstAction(payload: P): Promise<R> {",
-      '  return runAdminMutation("firstAction", async () => {',
+      '  return runAdminMutation("firstAction", { readOnly: false }, async () => {',
       "    if (!(await getAdminSession())) {",
       "      return { success: false, error: ADMIN_FORBIDDEN };",
       "    }",
@@ -84,7 +83,7 @@ describe("the session guard every admin server action opens on", () => {
       "}",
       "",
       "export async function lateAction(payload: P): Promise<R> {",
-      '  return runAdminMutation("lateAction", async () => {',
+      '  return runAdminMutation("lateAction", { readOnly: false }, async () => {',
       "    const validated = Schema.safeParse(payload);",
       "    if (!(await getAdminSession())) {",
       "      return { success: false, error: ADMIN_FORBIDDEN };",
@@ -94,7 +93,7 @@ describe("the session guard every admin server action opens on", () => {
       "}",
       "",
       "export async function openAction(payload: P): Promise<R> {",
-      '  return runAdminMutation("openAction", async () => {',
+      '  return runAdminMutation("openAction", { readOnly: false }, async () => {',
       "    /* the guard this replaced called",
       "    if (!(await getAdminSession())) {}",
       "    */",

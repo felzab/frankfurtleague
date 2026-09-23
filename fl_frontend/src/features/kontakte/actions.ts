@@ -39,7 +39,7 @@ function mapStaleBlockRefusal(error: unknown): string | null {
  * while the club they were reached for still plays.
  */
 export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
-  return runAdminMutation("eraseKontaktpersonAction", async () => {
+  return runAdminMutation("eraseKontaktpersonAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -86,7 +86,7 @@ export async function patchSaisonTeamKontakteAction(
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
-  return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
+  return runAdminMutation("patchSaisonTeamKontakteAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -136,7 +136,7 @@ export async function patchSaisonTeamKontakteAction(
 export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
 ): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
-  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
+  return runAdminMutation("readKontaktErasureAnsichtAction", { readOnly: true }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

@@ -88,7 +88,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
       const res = await eraseKontaktpersonAction({ email });
 
       if (!res.success) {
-        appToast.danger("Kontaktperson nicht gelöscht", { description: res.error });
+        appToast.failure("Kontaktperson nicht gelöscht", res);
         return;
       }
 

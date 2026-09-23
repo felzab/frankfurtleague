@@ -23,6 +23,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -245,10 +246,12 @@ export function AdminTeamEditForm({
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
       const failedNotes: string[] = [];
+      let unklar = false;
 
       // Club half first: it cannot depend on the season half, and its fan-out note leads the toast.
       if (clubDirty) {
-        const res = await patchTeamAction(clubPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchTeamAction(clubPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Stammdaten gespeichert.");
           // Seasons before fixtures: the junction is what the next season copies from, so it is the
@@ -262,11 +265,13 @@ export function AdminTeamEditForm({
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.fieldErrors?.shorthand ?? res.error);
+          unklar ||= res.outcome === "unknown";
         }
       }
 
       if (saisonDirty) {
-        const res = await patchSaisonTeamAction(saisonPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSaisonTeamAction(saisonPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Saison gespeichert.");
           if (austrittTouched) {
@@ -278,14 +283,17 @@ export function AdminTeamEditForm({
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.fieldErrors?.gruppe ?? res.error);
+          unklar ||= res.outcome === "unknown";
         }
       }
 
       if (failedNotes.length > 0) {
         setSubmitFieldErrors(collectedErrors, { team: clubPayload, saisonTeam: saisonPayload });
-        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
-        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
-          description: [...savedParts, ...failedNotes].join(" "),
+        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read. One half
+        // of unknown outcome makes the whole press one, whatever the other half answered.
+        appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
+          error: [...savedParts, ...failedNotes].join(" "),
+          outcome: unklar ? "unknown" : undefined,
         });
         return;
       }

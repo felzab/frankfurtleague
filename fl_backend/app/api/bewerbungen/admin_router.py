@@ -1,6 +1,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
@@ -34,7 +35,7 @@ from app.api.bewerbungen.services import (
     parse_new_club,
     seat_named,
 )
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
@@ -197,6 +198,7 @@ async def annehmen_bewerbung(
             # nothing joins the accepted application to the club it produced.
             update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         return FLAnnehmenBewerbungResponse(
@@ -208,14 +210,13 @@ async def annehmen_bewerbung(
             trikot_farbe=annahme_data.trikot_farbe,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
-    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-    async with db.start_session() as session:
-        accepted = await session.with_transaction(accept_and_enter_the_school)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+        # so a retry after a write conflict judges the season as it stands then rather than as it stood.
+        async with db.start_session() as session:
+            accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
 
@@ -246,6 +247,7 @@ async def ablehnen_bewerbung(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id, "status": "eingereicht"},
             update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            return_document=ReturnDocument.AFTER,
         )
     except DocumentNotFoundException:
         # Three ways here: a decision landed between the read and the write, the row is gone, or the
@@ -310,6 +312,7 @@ async def erneut_einwilligung(
             collection=bewerbungen_collection,
             db_filter={**db_filter, "status": "eingereicht"},
             update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+            return_document=ReturnDocument.BEFORE,
         )
     except DocumentNotFoundException:
         # `REQ-BEWERBUNG-001` rather than a 404, as the decline answers a race here
@@ -390,6 +393,7 @@ async def korrigiere_kontakt_email(
                 seats=seats, email=email_data.email, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
@@ -475,6 +479,7 @@ async def besetze_kontakt_sitz(
                 bestaetigungsfrist=bestaetigungsfrist,
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return FLBewerbungKontaktSitzResponse(rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)

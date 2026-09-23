@@ -3,10 +3,11 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
@@ -195,6 +196,7 @@ async def patch_spieler(
         collection=spieler_collection,
         db_filter={"_id": spieler_id},
         update={"$set": spieler_data.model_dump(mode="json")},
+        return_document=ReturnDocument.AFTER,
     )
 
     return _as_single(updated_raw)
@@ -353,15 +355,14 @@ async def post_saison_spieler(
 
         return document
 
-    # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
-    # makes two writers into one squad contend. `with_transaction` is safe to retry, the callback
-    # re-reading everything it judges.
-    async with db.start_session() as session:
-        entered = await session.with_transaction(add_the_player)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
+        # makes two writers into one squad contend. `with_transaction` is safe to retry, the callback
+        # re-reading everything it judges.
+        async with db.start_session() as session:
+            entered = await session.with_transaction(add_the_player)
 
     return _as_junction(entered)
 
@@ -427,14 +428,14 @@ async def patch_saison_spieler(
                 }
             },
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
-    async with db.start_session() as session:
-        moved = await session.with_transaction(move_the_player)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            moved = await session.with_transaction(move_the_player)
 
     return _as_junction(moved)
 
@@ -532,11 +533,10 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-    async with db.start_session() as session:
-        revived = await session.with_transaction(bring_the_player_back)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            revived = await session.with_transaction(bring_the_player_back)
 
     return _as_junction(revived)

@@ -37,6 +37,8 @@ const refusal = (code: string, status = 409) =>
     statusCode: status,
     serverErrorCode: code,
     endpoint: "/registrierungen",
+    method: "POST",
+    readOnly: false,
     traceId: "kein-echter-trace",
   });
 

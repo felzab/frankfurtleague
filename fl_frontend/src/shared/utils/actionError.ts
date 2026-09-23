@@ -1,7 +1,8 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 
+import type { SentRequest } from "@/core/errors";
 import type { ActionFailure } from "@/shared/types/types";
 
 /**
@@ -22,11 +23,27 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
   "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
+/** A write that may or may not have landed, marked so the toast titles it neither a success nor a failure. */
+const OUTCOME_UNKNOWN: ActionFailure = {
+  success: false,
+  error: buildRefusal({ reason: "Ob die Änderung gespeichert wurde, ist unklar", repair: "Lade die Seite neu und prüfe, ob sie da ist" }),
+  outcome: "unknown",
+};
+
+/**
+ * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
+ * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
+ * error page.
+ */
+export function unansweredAction(): ActionFailure {
+  return { ...OUTCOME_UNKNOWN };
+}
+
 /**
  * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
- * than the failure: the diagnosis is already in the server log, and the toast's title carries that the save is off.
+ * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
-export function toActionErrorResult(error: unknown): ActionFailure {
+export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
   if (error instanceof APIBadStatusError) {
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
       // The form does not offer these shapes, so the request was built against a season that has since moved.
@@ -71,10 +88,23 @@ export function toActionErrorResult(error: unknown): ActionFailure {
     if (error.statusCode === 404) {
       return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
     }
+    if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
+      // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
+      // would repeat it, and the retry then meets its own "already exists".
+      return { ...OUTCOME_UNKNOWN };
+    }
+    // Only `DB-FAIL-001` says the write failed: any other 5xx can follow a commit, an unhandled crash
+    // or a proxy's own answer among them.
+    if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
+
     return { success: false, error: "Der Server hat mit einem Fehler geantwortet. Versuche es erneut." };
   }
 
   if (error instanceof APINetworkError) {
+    // A write whose answer never arrived may have landed, which a retry would repeat: a connection
+    // lost after the send is as silent as a timeout. A read changed nothing, and trying again repairs it.
+    if (mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
+
     return {
       success: false,
       error: error.isTimeout
@@ -84,8 +114,15 @@ export function toActionErrorResult(error: unknown): ActionFailure {
   }
 
   if (error instanceof APIMalformedDataError) {
+    // A 2xx whose body failed its schema: the write landed, and only its answer is unreadable.
+    if (mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
+
     return { success: false, error: "Die Daten kamen fehlerhaft an. Versuche es erneut." };
   }
+
+  // This application's own throw carries no request, so the one its caller answers stands in: thrown
+  // after a write, it leaves the row standing under a failure's title.
+  if (answering !== undefined && mayHaveWritten(answering)) return { ...OUTCOME_UNKNOWN };
 
   return { success: false, error: UNKNOWN_REFUSAL };
 }

@@ -1,11 +1,13 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
+    DELETIONS_LISTED_PER_PASS,
     FLBewerbungSweepAngekuendigtPayload,
     FLBewerbungSweepAngekuendigtResponse,
     FLBewerbungSweepAusstehend,
@@ -18,15 +20,19 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSweepSeat,
 )
 from app.api.bewerbungen.services import (
+    SWEEP_PAGE,
     acceptance_erasure_is_due,
     ansprechperson_mailbox,
     ausstehende_seats,
+    build_deletion_filter,
+    build_erinnerung_filter,
     compose_ankuendigung_update,
     compose_erinnerung_update,
     decline_erasure_is_due,
     deletion_is_due,
     deletion_was_announced,
     group_seats_by_mailbox,
+    latest_decision_due,
     mint_token,
     next_saison_id,
     reminder_link_groups,
@@ -37,7 +43,7 @@ from app.api.bewerbungen.services import (
     undecided_erasure_is_due,
     vorname_of,
 )
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -53,6 +59,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
+from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -61,6 +68,14 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen/sweep",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
+
+# Two commands a row, each costing the round trip plus about 1.1 ms (from whole passes timed locally,
+# 2026-09-23): the two shares together keep a pass inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`
+# up to a 36 ms round trip (`docs/backend/spec.md :: I322`).
+REMINDERS_PER_PASS: Final = 62
+
+# A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
+BLOCKS_CLEARED_PER_PASS: Final = 62
 
 
 async def _club_names(
@@ -157,7 +172,13 @@ async def sweep_saison(
     seats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is
     over. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The
     declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
-    404 where no season has the id. Idempotent per day: a second run finds nothing left to do.
+
+    One call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline
+    first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step
+    of the same call can answer an error in their place.
+
+    404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing
+    left to do.
 
     A season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a
     successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
@@ -177,19 +198,45 @@ async def sweep_saison(
 
     stamp = log_stamp(germany_now)
 
-    async def erase_the_undecided(session: AsyncClientSession) -> tuple[int, int]:
+    async def stamp_the_run(session: AsyncClientSession) -> None:
+        """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
+
+        stale = await pull_many_from_db(
+            collection=saisons_collection,
+            db_filter={"sweep_gelaufen_am": {"$ne": today}},
+            projection=["_id"],
+            limit=LIST_LIMIT_MAX,
+            session=session,
+        )
+        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
+        # matching nothing included, and this runs hourly against every season.
+        if not stale:
+            return
+
+        await patch_many_in_db(
+            collection=saisons_collection,
+            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            # The whole PASS's day, on every stale season at once: it says when the sweep last ran
+            # and never when this season was visited.
+            update={"$set": {"sweep_gelaufen_am": today}},
+            session=session,
+        )
+
+    async def erase_the_undecided(session: AsyncClientSession) -> tuple[int, int, int]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
             db_filter={"saison_id": saison_id, "status": "eingereicht"},
             projection=["status"],
-            limit=LIST_LIMIT_MAX,
+            # One over the page: a full page is a page that may be truncated, and a clock cannot
+            # see what it never read (`docs/backend/spec.md :: I295`).
+            limit=SWEEP_PAGE + 1,
             session=session,
         )
         ids = [row["_id"] for row in rows if undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status)]
         if not ids:
-            return 0, 0
+            return len(rows), 0, 0
 
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
@@ -198,23 +245,29 @@ async def sweep_saison(
             aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
         )
 
-        return result.deleted_count, redacted
+        return len(rows), result.deleted_count, redacted
 
     async def remind(session: AsyncClientSession) -> list[FLBewerbungSweepErinnerung]:
-        """Stamp, mint, then hand back. Everything judged is read in-session, so a retry re-judges it."""
+        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges."""
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "status": "eingereicht"},
-            limit=LIST_LIMIT_MAX,
+            db_filter=build_erinnerung_filter(saison_id=saison_id, today=today),
+            limit=SWEEP_PAGE + 1,
+            # Earliest deadline first, so the application the fourteen-day clock takes soonest is
+            # chased first; `_id` makes the page the same page whichever plan the server picks.
+            sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
             session=session,
         )
+        # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
+        # seat leaves the filter, so a full page is drained by the passes that follow.
         due = [(row, reminder_seats(bewerbung_raw=row, today=today)) for row in rows]
-        due = [(row, seats) for row, seats in due if seats]
-        club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in due], session=session)
+        taken = [(row, seats) for row, seats in due if seats][:REMINDERS_PER_PASS]
+        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+        club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
 
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
-        for row, seats in due:
+        for row, seats in taken:
             per_mailbox = [
                 (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
                 for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
@@ -235,6 +288,7 @@ async def sweep_saison(
                     today=today,
                 ),
                 session=session,
+                return_document=ReturnDocument.BEFORE,
             )
             for email, gruppen in per_mailbox:
                 erinnerungen.append(
@@ -255,21 +309,26 @@ async def sweep_saison(
                     )
                 )
 
+        await stamp_the_run(session)
+
         return erinnerungen
 
-    async def erase_declined(session: AsyncClientSession) -> tuple[int, int]:
+    async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "status": "abgelehnt"},
+            # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
+            # read ahead of a due one, and the stall would refuse the pass.
+            db_filter={"saison_id": saison_id, "status": "abgelehnt", "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}},
             projection=["status", "entscheidung"],
-            limit=LIST_LIMIT_MAX,
+            limit=SWEEP_PAGE + 1,
             session=session,
         )
         ids = [row["_id"] for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)]
         if not ids:
-            return 0, 0
+            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+            return len(rows), 0, 0
 
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys (`docs/backend/spec.md :: I48`).
@@ -280,94 +339,97 @@ async def sweep_saison(
             aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
         )
 
-        return result.deleted_count, redacted
+        return len(rows), result.deleted_count, redacted
 
-    async def erase_accepted_and_clear_the_block(session: AsyncClientSession) -> tuple[int, int, int]:
-        """The season-and-one clock, both halves on one test. Read in-session, so a retry re-judges."""
+    async def erase_accepted(session: AsyncClientSession) -> tuple[int, int, int]:
+        """The season-and-one clock's first half. Read in-session, so a retry re-judges."""
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
             db_filter={"saison_id": saison_id, "status": "angenommen"},
             projection=["status"],
-            limit=LIST_LIMIT_MAX,
+            limit=SWEEP_PAGE + 1,
             session=session,
         )
         ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, next_saison_status=next_saison_status)]
+        if not ids:
+            return len(rows), 0, 0
 
-        erased = 0
-        redacted = 0
-        if ids:
-            result = await erase_many_from_db(
-                collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-            )
-            erased = result.deleted_count
-            redacted += await _redact(
-                aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
-            )
+        result = await erase_many_from_db(
+            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
+        )
+        redacted = await _redact(
+            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        )
+
+        return len(rows), result.deleted_count, redacted
+
+    async def clear_the_blocks(session: AsyncClientSession) -> tuple[int, int]:
+        """The season-and-one clock's second half, a share a pass. Read in-session, so a retry re-judges."""
 
         junction_rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "kontakte": {"$ne": None}},
             projection=["_id"],
-            limit=LIST_LIMIT_MAX,
+            limit=SWEEP_PAGE + 1,
             session=session,
         )
+        # A cleared row leaves the filter, so the rows past the share are the next pass's.
+        taken = junction_rows[:BLOCKS_CLEARED_PER_PASS]
+
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
         # redaction below must match the rows it logs (`app/api/kontakte/admin_router.py :: _clear_each`).
         cleared: list[Any] = []
-        for row in junction_rows:
+        for row in taken:
             await patch_one_in_db(
-                collection=saison_teams_collection, db_filter={"_id": row["_id"]}, update={"$set": {"kontakte": None}}, session=session
+                collection=saison_teams_collection,
+                db_filter={"_id": row["_id"]},
+                update={"$set": {"kontakte": None}},
+                session=session,
+                return_document=ReturnDocument.BEFORE,
             )
             cleared.append(row["_id"])
-        redacted += await _redact(
+        redacted = await _redact(
             aktionen_collection=aktionen_collection, collection=Collection.SAISON_TEAMS, ids=cleared, stamp=stamp, session=session
         )
 
-        return erased, len(cleared), redacted
+        return len(cleared), redacted
 
-    async def stamp_the_run(session: AsyncClientSession) -> int:
-        """One fan-out over every season today has not reached. Everything judged is read in-session, so a retry re-judges it."""
-
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"sweep_gelaufen_am": {"$ne": today}},
-            projection=["_id"],
-            limit=LIST_LIMIT_MAX,
-            session=session,
-        )
-        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
-        # matching nothing included, and this runs hourly against every season.
-        if not stale:
-            return 0
-
-        result = await patch_many_in_db(
-            collection=saisons_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
-            # The whole PASS's day, on every stale season at once: it says when the sweep last ran
-            # and never when this season was visited.
-            update={"$set": {"sweep_gelaufen_am": today}},
-            session=session,
-        )
-
-        return result.modified_count
-
+    # Every transaction before the LAST, which is the reminder's: what that one hands back is owed a
+    # message, and a failure after it would answer this request with an error instead
+    # (`docs/backend/spec.md :: I323`).
     ohne_entscheidung, redacted_undecided = 0, 0
     # AHEAD of the reminder and of the list below, which read the collection after it: a season that
     # has ended leaves nobody to chase, and a notice about an application this pass erased is a
     # notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        async with db.start_session() as session:
-            ohne_entscheidung, redacted_undecided = await session.with_transaction(erase_the_undecided)
+        ohne_entscheidung, redacted_undecided = await drain(
+            db=db, page_of=lambda session: session.with_transaction(erase_the_undecided), page=SWEEP_PAGE
+        )
 
-    async with db.start_session() as session:
-        erinnerungen = await session.with_transaction(remind)
+    abgelehnte, redacted_declined = await drain(db=db, page_of=lambda session: session.with_transaction(erase_declined), page=SWEEP_PAGE)
+
+    angenommene, geleert, redacted_accepted = 0, 0, 0
+    if season_after_has_ended(next_saison_status=next_saison_status):
+        angenommene, redacted_accepted = await drain(db=db, page_of=lambda session: session.with_transaction(erase_accepted), page=SWEEP_PAGE)
+
+        async with db.start_session() as session:
+            geleert, redacted_blocks = await session.with_transaction(clear_the_blocks)
+        redacted_accepted += redacted_blocks
 
     # Reads alone: the notice goes out first, and the erasure is the caller's second call.
     candidates = await pull_many_from_db(
-        collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "status": "eingereicht"}, limit=LIST_LIMIT_MAX
+        collection=bewerbungen_collection,
+        db_filter=build_deletion_filter(saison_id=saison_id, today=today),
+        limit=SWEEP_PAGE + 1,
+        sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
     )
-    due = [row for row in candidates if deletion_is_due(bewerbung_raw=row, today=today)]
+    # A share, because the caller stamps every one it mails through `/angekuendigt` in ONE
+    # transaction; the rest stay due and the passes after this one list them.
+    due = [row for row in candidates if deletion_is_due(bewerbung_raw=row, today=today)][:DELETIONS_LISTED_PER_PASS]
+    refuse_a_stalled_page(read=len(candidates), moved=len(due), page=SWEEP_PAGE, clock="deletion", saison_id=saison_id)
+    # No session, as the candidates' read has none: this list writes nothing, and `/angekuendigt` and
+    # `/loeschen` re-judge every id it names in their own transactions.
     club_names = await _club_names(teams_collection=teams_collection, rows=due, session=None) if due else {}
     loeschungen: list[FLBewerbungSweepLoeschung] = []
     for row in due:
@@ -390,20 +452,10 @@ async def sweep_saison(
             )
         )
 
-    async with db.start_session() as session:
-        abgelehnte, redacted_declined = await session.with_transaction(erase_declined)
-
-    angenommene, geleert, redacted_accepted = 0, 0, 0
-    if season_after_has_ended(next_saison_status=next_saison_status):
+    # The run's day is a season write, which the cache serves.
+    with dropping_the_saison_cache():
         async with db.start_session() as session:
-            angenommene, geleert, redacted_accepted = await session.with_transaction(erase_accepted_and_clear_the_block)
-
-    async with db.start_session() as session:
-        gestempelt = await session.with_transaction(stamp_the_run)
-
-    # Nothing cached reads the day; dropped anyway, so the rule stays "every season write drops it".
-    if gestempelt:
-        invalidate_saison_cache()
+            erinnerungen = await session.with_transaction(remind)
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,
@@ -460,6 +512,7 @@ async def angekuendigt_bewerbungen(
                 db_filter={"_id": row["_id"]},
                 update=compose_ankuendigung_update(today=today),
                 session=session,
+                return_document=ReturnDocument.BEFORE,
             )
             stamped += 1
 

@@ -11,7 +11,7 @@ from typing import Any, Final
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, one_month_after, season_has_ended
+from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, latest_decision_due, one_month_after, season_has_ended
 
 # The window predicate is the invite slice's: one function answers `GET …/einladung`'s `laeuft` and
 # this flow's refusal, so a link and the write it opens cannot disagree about the window.
@@ -521,25 +521,13 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose decision was taken on or before today.
+    """Every declined row whose month is behind it, as `decline_erasure_is_due` judges it.
 
-    Never a month counted backwards: that month CLAMPS to a short month's end, and the clamp would
-    drop a row that is due.
+    In the query: a page of decisions still inside their month would fill the read ahead of a due
+    one, and the stall refuses the pass.
     """
 
-    return {"saison_id": saison_id, "status": DECLINED, "entscheidung.getroffen_am": {"$lte": today}}
-
-
-def refuse_a_stalled_page(*, read: int, moved: int, clock: str, saison_id: str) -> None:
-    """Raise where a full page moved nothing: the same rows come back for ever.
-
-    A page that moved something is drained instead (`docs/backend/spec.md :: I295`).
-    """
-
-    if read > SWEEP_PAGE and moved == 0:
-        raise ValueError(
-            f"season {saison_id} fills the {clock} clock's page of {SWEEP_PAGE} with rows it takes none of, so no pass can make progress"
-        )
+    return {"saison_id": saison_id, "status": DECLINED, "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}}
 
 
 def link_is_unreachable(*, bestaetigung: Any) -> bool:

@@ -1,7 +1,9 @@
 import re
 import secrets
 import time
+from typing import Final
 
+import pymongo
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -13,6 +15,11 @@ TRACEPARENT = re.compile(r"\A00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\Z")
 # Each is invalid by the standard, and a validator admitting one hands every request the same id.
 ZERO_TRACE_ID = "0" * 32
 ZERO_SPAN_ID = "0" * 16
+
+# Under `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` by what the page's clock counts and
+# this one cannot: the hop in, the queue before this runs, the answer's way back
+# (`docs/backend/spec.md :: I320`).
+REQUEST_DEADLINE_S: Final = 10.0
 
 
 def resolve_trace_id(header_value: str | None) -> str:
@@ -45,7 +52,12 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
         try:
             # Nothing is echoed on the response: the failure body carries the trace id, and a
             # response header would put it where nothing reads it.
-            response = await call_next(request)
+
+            # Entered before `call_next`, whose task copies this context at creation. A deadline, not the
+            # client's `timeoutMS`: `with_transaction` retries a transient failure, an unreachable
+            # server's included, for 120 s, and a deadline is the one limit its loop checks sooner.
+            with pymongo.timeout(REQUEST_DEADLINE_S):
+                response = await call_next(request)
 
             self._log_access(request, response.status_code, started, trace_id, span_id)
             return response

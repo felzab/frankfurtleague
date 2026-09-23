@@ -89,7 +89,7 @@ export function AdminBewerbungAnnehmenSection({
 
         // Suppressed where the picker carries the message, so a refusal about the chosen group is
         // not also said in a toast that names no field.
-        if (fieldError === null) appToast.danger("Bewerbung nicht angenommen", { description: res.error });
+        if (fieldError === null) appToast.failure("Bewerbung nicht angenommen", res);
         return;
       }
 

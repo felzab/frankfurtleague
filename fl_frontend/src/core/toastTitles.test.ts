@@ -81,6 +81,18 @@ function optionKeys(text: string, from: number): string[] {
   return argumentList(text, from + opening[0].length).map((entry) => /^(\w+)/.exec(entry.replace(LEADING_COMMENTS, ""))?.[1] ?? "");
 }
 
+/** The `description` a raising's own options object states, `from` at the end of its title argument, or `null`. */
+function descriptionOf(text: string, from: number): string | null {
+  const opening = /^\s*,\s*\{/.exec(text.slice(from));
+  if (opening === null) return null;
+
+  for (const entry of argumentList(text, from + opening[0].length)) {
+    const pair = /^description\s*:\s*([\s\S]+)$/.exec(entry.replace(LEADING_COMMENTS, ""));
+    if (pair?.[1] !== undefined) return pair[1].trim();
+  }
+  return null;
+}
+
 const LITERAL = /^"([^"]*)"$/;
 const PLAIN_TEMPLATE = /^`([^`${]*)`$/;
 const IDENTIFIER = /^\w+$/;
@@ -272,6 +284,10 @@ interface ToastSite {
 
 const VARIANTS = String.raw`success|warning|danger|info|pending`;
 const DIRECT_CALL = new RegExp(String.raw`appToast\.(` + VARIANTS + String.raw`)\(`, "g");
+const FAILURE_CALL = /appToast\.failure\(/g;
+
+/** The name `fl_frontend/src/shared/utils/appToast.ts` gives the title a failure of unknown outcome is raised under. */
+const OUTCOME_UNKNOWN_CONSTANT = "OUTCOME_UNKNOWN_TITLE";
 
 /**
  * A raising whose CALLEE is a local alias — `const raise = flag ? appToast.warning : appToast.success`
@@ -305,6 +321,14 @@ for (const [file, text] of production) {
     record(call[1] as ToastVariant, argument, optionKeys(text, start + argument.length));
   }
 
+  // `appToast.failure` raises a danger with the failure's own sentence as the description, under the
+  // site's title or, where the outcome is unknown, under the one neutral title every such site shares.
+  for (const call of text.matchAll(FAILURE_CALL)) {
+    const argument = argumentText(text, call.index + call[0].length);
+    record("danger", argument, ["description"]);
+    record("danger", OUTCOME_UNKNOWN_CONSTANT, ["description"]);
+  }
+
   for (const alias of text.matchAll(ALIAS_DECLARATION)) {
     const [, name, condition, whenTrue, whenFalse] = alias;
     if (name === undefined || condition === undefined || whenTrue === undefined || whenFalse === undefined) continue;
@@ -331,7 +355,7 @@ for (const [file, text] of production) {
 
   // The declarations come out first, their own `appToast.…` being read above rather than escaping.
   const readable = text.replace(ALIAS_DECLARATION, "");
-  for (const stray of readable.matchAll(new RegExp(String.raw`appToast\.(` + VARIANTS + String.raw`)`, "g"))) {
+  for (const stray of readable.matchAll(new RegExp(String.raw`appToast\.(` + VARIANTS + String.raw`|failure)`, "g"))) {
     const rest = readable.slice(stray.index + stray[0].length);
     // A call is read above, and a backticked mention is a citation in prose (COR-6), which raises
     // nothing. What is left is a reference handed somewhere this cannot follow.
@@ -469,6 +493,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Team reaktiviert": { variant: "success", identifies: "one site" },
   "Team stillgelegt": { variant: "success", identifies: "one site" },
   "Unklar, ob es bei uns angekommen ist": { variant: "danger", identifies: "its description" },
+  "Unklar, ob es gespeichert wurde": { variant: "danger", identifies: "its description" },
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },
   "Vorgangsnummer nicht kopiert": { variant: "danger", identifies: "one site" },
   "Vorschau nicht geladen": { variant: "danger", identifies: "one site" },
@@ -479,6 +504,36 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
 };
 
 const registered = Object.keys(TOAST_TITLES).sort();
+
+/** A failure's own sentence handed on by hand: an action result's, or an answer's, `error`, bare or behind a `??` fallback. */
+const HANDED_ON = /^[A-Za-z_$][\w$]*\.error(?:\s*\?\?[\s\S]+)?$/;
+
+/** Every `appToast.danger` whose description is a failure's `error` handed on by hand, as `<file>: <expression>`. */
+function handWrittenFailures(files: readonly (readonly [string, string])[]): string[] {
+  const found: string[] = [];
+
+  for (const [file, text] of files) {
+    for (const call of text.matchAll(DIRECT_CALL)) {
+      if (call[1] !== "danger") continue;
+      const start = call.index + call[0].length;
+      const description = descriptionOf(text, start + argumentText(text, start).length);
+      if (description !== null && HANDED_ON.test(description)) found.push(`${file}: ${description.replace(/\s+/g, " ")}`);
+    }
+  }
+  return found;
+}
+
+/**
+ * The sites whose failure no FastAPI write words, so none can carry `outcome: "unknown"`, each with
+ * the reason. A public panel's `gesendet` is the transport's own sentence rather than an envelope's,
+ * and is held to files that post one.
+ */
+const RAISED_BY_HAND: Readonly<Record<string, string>> = {
+  "features/passkeys/components/modals/PasskeyModal.tsx: result.error": "the passkey list, a read of the sign-in store",
+  "shared/hooks/useSignOut.ts: result.error": "the sign-out, which Better Auth answers",
+  "features/auth/components/forms/SignInForm.tsx: state.error": "the sign-in link, which Better Auth mints",
+};
+
 const CONFIRMS: readonly ToastVariant[] = ["success", "pending"];
 
 /**
@@ -548,6 +603,41 @@ describe("every toast title the product raises", () => {
       );
       assert.ok(entry.variants.has(row.variant), `"${title}" is registered as ${row.variant} and raised as ${[...entry.variants].join("/")}`);
     }
+  });
+
+  /* `appToast.failure` titles a write of unknown outcome neutrally; a site handing a failure's sentence
+     to `appToast.danger` itself titles it "not done" whatever the marker says. */
+  it("hands an action's failure to `appToast.failure`, never to a danger raised by hand", () => {
+    const byHand = handWrittenFailures(production);
+    const fileOf = (site: string) => site.slice(0, site.indexOf(": "));
+    const transport = byHand.filter((site) => site.endsWith(": gesendet.error"));
+
+    for (const site of transport) {
+      assert.ok((sources.get(fileOf(site)) ?? "").includes("postPublicForm<"), `${site} names a transport answer in a file that posts none`);
+    }
+    assert.deepEqual(
+      byHand.filter((site) => !transport.includes(site)).sort(),
+      Object.keys(RAISED_BY_HAND).sort(),
+      "a site hands a failure's sentence to a danger it titles itself, or an exemption names a site that is gone",
+    );
+  });
+
+  /* The reader held against a sample, since a tree where every site is compliant cannot tell a
+     reader that finds them from one that finds nothing. */
+  it("finds a failure handed on by hand, and passes one handed to `appToast.failure`", () => {
+    const sample = [
+      'if (!res.success) appToast.danger("Team nicht gespeichert", { description: res.error });',
+      'if (!res.success) appToast.failure("Team nicht gespeichert", res);',
+      'appToast.danger("Erst speichern", { description: grund });',
+      "appToast.danger(TITEL, {\n  // the reason\n  description: result.error,\n  timeout: 0,\n});",
+      'appToast.danger("Team nicht gespeichert", { description: res.error ?? "Nicht gespeichert." });',
+    ].join("\n");
+
+    assert.deepEqual(handWrittenFailures([["sample.tsx", sample]]), [
+      "sample.tsx: res.error",
+      "sample.tsx: result.error",
+      'sample.tsx: res.error ?? "Nicht gespeichert."',
+    ]);
   });
 
   it("is told apart the way its row says it is", () => {

@@ -40,6 +40,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
   // German), so naming one here would report a fact nothing judges.
   austritt_eingetragen: "Austritt eingetragen",
   erzeugung_fehlgeschlagen: "Registrierungslink nicht angelegt",
+  erzeugung_ungewiss: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
   kein_kontaktblock: "Keine Kontaktdaten hinterlegt",
   keine_bestaetigte_kontaktperson: "Niemand hat die Kontaktdaten bisher selbst bestätigt",
   bereits_gesendet: "Hat den Link schon bekommen",
@@ -47,9 +48,30 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
 
 /**
  * What the one failure leaves standing, said in the row rather than in a toast that goes: the team's
- * transaction rolled back whole, so nothing was sent AND the link it already had still opens.
+ * transaction rolled back whole, so nothing was sent.
  */
-const FEHLGESCHLAGEN_FOLGE = "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal.";
+const FEHLGESCHLAGEN_FOLGE = "Ein neuer Versand versucht es noch einmal.";
+
+/** Only beside a link the press found, which the rollback left opening: a team that held none must not read about one. */
+const FEHLGESCHLAGEN_BISHERIGER = "Der bisherige Link dieses Teams gilt weiter.";
+
+/**
+ * True in every branch, commit landed or lost, link held or not: a link never mailed carries no delivery
+ * record, so the next press sends one, and it skips a team only while its old link still opens.
+ */
+const UNGEWISS_FOLGE = "Ein neuer Versand schickt dem Team einen Link, wenn sein bisheriger nicht mehr gilt oder es noch keinen bekommen hat.";
+
+/** Only beside a link the press found: a team that held none must not read about one. */
+const UNGEWISS_BISHERIGER = "Der bisherige Link dieses Teams gilt vielleicht nicht mehr.";
+
+/** The two states where the league, not the team, is why nothing reached the team, and what each leaves standing. */
+const folgeSaetze = (zeile: EinladungVersandErgebnis): readonly string[] => {
+  // `true` alone: a null says the press failed before it read the team's link, which is no evidence of one.
+  if (zeile.uebersprungen === "erzeugung_fehlgeschlagen")
+    return zeile.hatte_link === true ? [FEHLGESCHLAGEN_BISHERIGER, FEHLGESCHLAGEN_FOLGE] : [FEHLGESCHLAGEN_FOLGE];
+  if (zeile.uebersprungen === "erzeugung_ungewiss") return zeile.ersetzt_link ? [UNGEWISS_BISHERIGER, UNGEWISS_FOLGE] : [UNGEWISS_FOLGE];
+  return [];
+};
 
 /** Beside the addresses rather than instead of them: this team is written to AND loses what it holds. */
 const ERSETZT_SATZ = "Ersetzt den Link, den dieses Team schon hat";
@@ -111,7 +133,7 @@ export function FormEinladungVersandSection({
     const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut });
 
     if (!res.success) {
-      appToast.danger("Registrierungslinks nicht gesendet", { description: res.error });
+      appToast.failure("Registrierungslinks nicht gesendet", res);
       return;
     }
 
@@ -135,7 +157,7 @@ export function FormEinladungVersandSection({
       const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut });
 
       if (!res.success) {
-        appToast.danger("Vorschau nicht geladen", { description: res.error });
+        appToast.failure("Vorschau nicht geladen", res);
         return;
       }
 
@@ -256,10 +278,10 @@ export function FormEinladungVersandSection({
                       <span className="text-foreground-muted min-w-0 text-right">
                         {/* Graded apart from the other skips: there the league failed the team
                             rather than passing it over. */}
-                        {zeile.uebersprungen === "erzeugung_fehlgeschlagen" ? (
+                        {zeile.uebersprungen !== null && folgeSaetze(zeile).length > 0 ? (
                           <>
                             <span className="text-danger-strong font-bold">{UEBERSPRUNGEN_SATZ[zeile.uebersprungen]}</span>
-                            <span className="block">{FEHLGESCHLAGEN_FOLGE}</span>
+                            <span className="block">{folgeSaetze(zeile).join(" ")}</span>
                           </>
                         ) : zeile.uebersprungen !== null ? (
                           UEBERSPRUNGEN_SATZ[zeile.uebersprungen]

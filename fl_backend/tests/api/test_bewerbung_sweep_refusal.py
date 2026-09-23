@@ -1,10 +1,14 @@
+import ast
+import inspect
+import textwrap
 from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungSweepLoeschenPayload
+from app.api.bewerbungen import sweep_router
+from app.api.bewerbungen.schemas import DELETIONS_LISTED_PER_PASS, FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload
 from app.api.bewerbungen.services import (
     KONTAKT_SEATS,
     TOKEN_HASH_FIELDS,
@@ -28,6 +32,9 @@ from app.api.bewerbungen.services import (
     seat_reminder_is_due,
     vorname_of,
 )
+from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
+from app.core.middlewares import REQUEST_DEADLINE_S
+from app.core.transactions import refuse_a_stalled_page
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
 
 TODAY = "2026-04-01"
@@ -420,3 +427,81 @@ class TestTheErasePayload:
             FLBewerbungSweepLoeschenPayload.model_validate({"bewerbung_ids": [], "saison_id": "2026"})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
+
+
+def ids(count: int) -> list[str]:
+    return [f"6890a1b2c3d4e5f6079{number:05x}" for number in range(count)]
+
+
+@pytest.mark.parametrize("payload", [FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload])
+class TestTheIdPayloadsTakeOnePassList:
+    """Both lists come from one pass's deletion list, so a longer one is no caller of this sweep and would outrun the request's budget."""
+
+    def test_a_whole_list_is_taken(self, payload: type[BaseModel]):
+        payload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS)})
+
+    def test_one_id_past_it_is_refused(self, payload: type[BaseModel]):
+        with pytest.raises(ValidationError) as failure:
+            payload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS + 1)})
+
+        assert [entry["type"] for entry in failure.value.errors()] == ["too_long"]
+
+    def test_the_published_schema_states_the_bound(self, payload: type[BaseModel]):
+        """Published, so `openapi.json` tells the sweep job the bound the route refuses past; enforced alone, it states nothing."""
+
+        assert payload.model_json_schema()["properties"]["bewerbung_ids"]["maxItems"] == DELETIONS_LISTED_PER_PASS
+
+
+# The per-row loops' two commands a row, pinned on the wire by
+# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
+ROUND_TRIPS_A_ROW = 2
+
+
+@pytest.mark.parametrize(
+    ("rows", "other_commands", "per_command_s", "round_trip_s"),
+    [
+        # Other commands and the per-command cost from whole passes timed locally, 2026-09-23.
+        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 18, 0.00135, 0.036, id="the sweep"),
+        pytest.param(DELETIONS_LISTED_PER_PASS, 4, 0.00101, 0.038, id="/angekuendigt"),
+    ],
+)
+def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(
+    rows: int, other_commands: int, per_command_s: float, round_trip_s: float
+):
+    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
+
+    assert (rows * ROUND_TRIPS_A_ROW + other_commands) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S
+
+
+# Named, not derived: the clocks whose read can hold rows their predicate refuses, `sweep_saison` being
+# the handler's own deletion list. The season's-end, acceptance and contact-block clocks read only rows
+# they take, so a full page there always moves something.
+PAGED_CLOCKS = ("remind", "erase_declined", "sweep_saison")
+
+SWEEP_HANDLER = ast.parse(textwrap.dedent(inspect.getsource(sweep_router.sweep_saison))).body[0]
+
+
+def _clock_body(clock: str) -> list[ast.AST]:
+    """The callback's nodes, or the handler's own statements with its nested callbacks left out."""
+
+    if clock == sweep_router.sweep_saison.__name__:
+        pending, nodes = list(ast.iter_child_nodes(SWEEP_HANDLER)), []
+        while pending:
+            node = pending.pop()
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                nodes.append(node)
+                pending.extend(ast.iter_child_nodes(node))
+        return nodes
+
+    callbacks = {node.name: node for node in ast.walk(SWEEP_HANDLER) if isinstance(node, ast.AsyncFunctionDef)}
+
+    return list(ast.walk(callbacks[clock]))
+
+
+@pytest.mark.parametrize("clock", PAGED_CLOCKS)
+def test_each_paged_clock_asks_whether_its_page_moved_anything(clock: str):
+    """A source sweep: a stall shows on the wire only as a season whose page never empties."""
+
+    called = {node.func.id for node in _clock_body(clock) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+
+    assert refuse_a_stalled_page.__name__ in called, f"{clock} weighs a page it read without asking whether the pass can make progress"

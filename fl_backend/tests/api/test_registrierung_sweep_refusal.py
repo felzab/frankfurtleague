@@ -5,13 +5,13 @@ import asyncio
 import inspect
 import textwrap
 from collections.abc import Iterator, Mapping
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token
+from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token, latest_decision_due
 from app.api.registrierungen import sweep_router
 from app.api.registrierungen.services import (
     REGISTRIERUNG_SWEEP_FELD,
@@ -27,11 +27,12 @@ from app.api.registrierungen.services import (
     decline_erasure_is_due,
     erinnerung_is_due,
     link_is_unreachable,
-    refuse_a_stalled_page,
     undecided_erasure_is_due,
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_current_saison
+from app.core.middlewares import REQUEST_DEADLINE_S
+from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
 
 TODAY = "2026-04-01"
@@ -318,14 +319,37 @@ class TestWhatEachClockReads:
             "bestaetigung.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
         }
 
-    def test_the_decline_clock_is_bounded_by_the_decisions_own_day(self):
-        """Never by a month counted backwards: that month CLAMPS to a short month's end, and the clamp would drop a row that is due."""
+    def test_the_decline_clock_reads_the_decisions_whose_month_is_behind_them(self):
+        """Narrowed to the due ones, so a page of decisions still inside their month cannot fill the read ahead of one that is due."""
 
         assert CLOCK_FILTERS["decline"] == {
             "saison_id": SAISON_ID,
             "status": "abgelehnt",
-            "entscheidung.getroffen_am": {"$lte": TODAY},
+            "entscheidung.getroffen_am": {"$lte": "2026-03-01"},
         }
+
+    @pytest.mark.parametrize(
+        ("today", "latest"),
+        [
+            pytest.param("2026-04-01", "2026-03-01", id="a plain month"),
+            # The clamp a month counted back from today gets wrong: the 29th to the 31st of January are
+            # due on the 28th of February, which counting back lands on the 28th of January.
+            pytest.param("2026-02-28", "2026-01-31", id="the end of a short month"),
+            pytest.param("2028-02-29", "2028-01-31", id="the end of a leap February"),
+            pytest.param("2026-03-30", "2026-02-28", id="past a short month's end"),
+        ],
+    )
+    def test_the_last_decision_due_agrees_with_the_clock_at_every_month_end(self, today: str, latest: str):
+        """Both sides of the cutoff, judged by the clock's own predicate: the query and the predicate must take the same rows."""
+
+        def due(getroffen_am: str) -> bool:
+            declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": getroffen_am}}
+            return decline_erasure_is_due(registrierung_raw=declined, today=today)
+
+        day_after = (date.fromisoformat(latest) + timedelta(days=1)).isoformat()
+
+        assert latest_decision_due(today=today) == latest
+        assert (due(latest), due(day_after)) == (True, False)
 
     @pytest.mark.parametrize("clock", sorted(CLOCK_FILTERS))
     def test_every_clock_reads_one_season(self, clock: str):
@@ -362,11 +386,11 @@ class TestThePageIsNeverTruncated:
         """A full page is drained rather than refused: the erasure or the stamp is what shrinks the population that filled it."""
 
         if not raises:
-            assert refuse_a_stalled_page(read=read, moved=moved, clock="deadline", saison_id=SAISON_ID) is None
+            assert refuse_a_stalled_page(read=read, moved=moved, page=SWEEP_PAGE, clock="deadline", saison_id=SAISON_ID) is None
             return
 
         with pytest.raises(ValueError, match=SAISON_ID):
-            refuse_a_stalled_page(read=read, moved=moved, clock="deadline", saison_id=SAISON_ID)
+            refuse_a_stalled_page(read=read, moved=moved, page=SWEEP_PAGE, clock="deadline", saison_id=SAISON_ID)
 
     @pytest.mark.parametrize("callback", CLOCK_CALLBACKS)
     def test_each_clock_reads_one_row_past_the_page(self, callback: str):
@@ -390,12 +414,16 @@ class TestThePageIsNeverTruncated:
 
     @pytest.mark.parametrize("clock", ERASING_CLOCKS)
     def test_each_erasing_clock_is_run_again_until_its_page_is_short(self, clock: str):
-        """The drain, read off the pass's own body: a clock that stopped at one page would stop at the same page every hour."""
+        """The drain, read off the pass's own body: a clock that stopped at one page would stop at the same page every hour.
+
+        A loop of its own, or `drain`, whose loop `fl_backend/tests/core/test_transactions.py` holds.
+        """
 
         drains = [
             node
             for node in ast.walk(PASS_BODY)
             if isinstance(node, ast.While)
+            or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == drain.__name__)
             for call in ast.walk(node)
             if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "with_transaction"
             for named in call.args
@@ -413,6 +441,18 @@ class _Cursor:
 
     def limit(self, limit: int) -> _Cursor:
         return _Cursor(self.rows[:limit])
+
+    def sort(self, keys: list[tuple[str, int]]) -> _Cursor:
+        """Ascending keys alone, which is every order the pass asks for; a missing path sorts first, as the server's does."""
+
+        def value(row: Mapping[str, Any], path: str) -> tuple[bool, str]:
+            found: Any = row
+            for part in path.split("."):
+                found = found.get(part) if isinstance(found, Mapping) else None
+            return (found is not None, str(found))
+
+        assert all(direction == 1 for _, direction in keys)
+        return _Cursor(sorted(self.rows, key=lambda row: [value(row, path) for path, _ in keys]))
 
     async def to_list(self, length: int) -> list[dict[str, Any]]:
         return self.rows[:length]
@@ -603,3 +643,21 @@ class TestTheClocksDrain:
 
         assert registrierungen.rows == [], f"{clock} clock left rows a later pass would read into the same full page"
         assert getattr(response, counted) == OVERFLOW
+
+
+# The reminder's two commands a row, pinned on the wire by
+# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
+ROUND_TRIPS_A_ROW = 2
+
+# The pass's other commands and the per-command cost, from whole passes timed locally, 2026-09-23.
+OTHER_COMMANDS = 12
+PER_COMMAND_S = 0.00107
+
+# The round trip `sweep_router.REMINDERS_PER_PASS`'s comment sizes the share for.
+ROUND_TRIP_S = 0.037
+
+
+def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
+    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
+
+    assert (sweep_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

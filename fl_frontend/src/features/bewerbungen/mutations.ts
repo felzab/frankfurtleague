@@ -87,6 +87,7 @@ export async function postBewerbung(payload: FLPostBewerbungPayload): Promise<FL
 export async function postEinwilligungAnsicht(payload: FLBewerbungEinwilligungAnsichtPayload): Promise<FLBewerbungEinwilligungAnsichtResponse> {
   return apiClient<FLBewerbungEinwilligungAnsichtResponse>("/bewerbungen/einwilligung/ansicht", FLBewerbungEinwilligungAnsichtResponseSchema, {
     method: "POST",
+    readOnly: true,
     authType: "base",
     body: JSON.stringify(payload),
   });

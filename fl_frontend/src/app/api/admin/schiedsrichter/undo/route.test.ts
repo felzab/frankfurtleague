@@ -78,6 +78,8 @@ const aRefusal = (serverErrorCode: string) =>
     statusCode: 409,
     serverErrorCode,
     endpoint: "/schiedsrichter",
+    method: "POST",
+    readOnly: false,
     traceId: "0",
   });
 

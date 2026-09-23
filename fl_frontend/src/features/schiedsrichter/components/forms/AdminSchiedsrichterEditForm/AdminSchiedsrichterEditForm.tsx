@@ -20,6 +20,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -181,10 +182,11 @@ export function AdminSchiedsrichterEditForm({
       const renameTouched = isChanged("name");
 
       const payload = buildPayload();
-      const res = await patchSchiedsrichterAction(payload);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
-        appToast.danger("Änderung nicht gespeichert", { description: res.error });
+        appToast.failure("Änderung nicht gespeichert", res);
         return;
       }
 

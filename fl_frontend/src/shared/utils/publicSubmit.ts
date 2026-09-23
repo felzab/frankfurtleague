@@ -4,7 +4,23 @@ import type { FieldErrors } from "./validation";
  * What every public route answers, `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`
  * carrying it under a 200 whatever the outcome.
  */
-export type PublicEnvelope = { success: boolean; error?: string; fieldErrors?: FieldErrors };
+export type PublicEnvelope = {
+  success: boolean;
+  error?: string;
+  fieldErrors?: FieldErrors;
+  /**
+   * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`'s marker: the write may have
+   * landed, and `error` then carries the administrator's repair, which no visitor can perform.
+   */
+  outcome?: "unknown";
+};
+
+/**
+ * What each of the three link confirmations tells a visitor whose answer may have landed: reopened, a
+ * spent link says so, and a live one takes the answer again.
+ */
+export const ANTWORT_UNKLAR =
+  "Öffne den Link aus Deiner E-Mail noch einmal: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort noch einmal.";
 
 /**
  * Whether this application answered at all. Nothing standing in front of it produces a field error,

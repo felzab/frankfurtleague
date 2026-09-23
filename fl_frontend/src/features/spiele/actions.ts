@@ -93,7 +93,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 }
 
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
-  return runAdminMutation("patchAdminSpielDataAction", async () => {
+  return runAdminMutation("patchAdminSpielDataAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -159,7 +159,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * cached match list on every keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
-  return runAdminMutation("previewAdminSpielDataAction", async () => {
+  return runAdminMutation("previewAdminSpielDataAction", { readOnly: true }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

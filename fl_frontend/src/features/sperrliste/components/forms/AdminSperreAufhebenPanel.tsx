@@ -23,7 +23,7 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
       const res = await deleteSperreAction({ id: sperreId });
 
       if (!res.success) {
-        appToast.danger("Sperre nicht aufgehoben", { description: res.error });
+        appToast.failure("Sperre nicht aufgehoben", res);
         return;
       }
 

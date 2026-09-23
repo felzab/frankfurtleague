@@ -25,7 +25,7 @@ export function useReactivation<TPayload>({
       const res = await action(payload);
 
       if (!res.success) {
-        appToast.danger(`${noun} nicht reaktiviert`, { description: res.error });
+        appToast.failure(`${noun} nicht reaktiviert`, res);
         return;
       }
 

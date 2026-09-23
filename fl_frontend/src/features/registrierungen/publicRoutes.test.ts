@@ -8,11 +8,14 @@ import { describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
+import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { getGermanTodayStr } from "@/shared/utils/date.ts";
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants.ts";
 import { MAIL_ABGEWIESEN } from "./utils.ts";
@@ -110,6 +113,17 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   geburtsdatum: null,
   umfang: null,
   medien: null,
+};
+
+/** A birthdate this many whole years before the German day the page judges by, moved later by `tageSpaeter`. */
+const geborenVor = (jahre: number, tageSpaeter = 0): string =>
+  parseDate(getGermanTodayStr()).subtract({ years: jahre }).add({ days: tageSpaeter }).toString();
+
+/** A stored date as the picker's segments take it typed: day, month, year. */
+const getippt = (datum: string): string => {
+  const [jahr, monat, tag] = datum.split("-");
+
+  return `${tag ?? ""}${monat ?? ""}${jahr ?? ""}`;
 };
 
 const bestaetigungSeite = (ansicht: SpielerBestaetigungGeoeffnet = GEOEFFNET): string =>
@@ -293,6 +307,54 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     // Announced by the move rather than by a toast, which is how every other server refusal this
     // form marks reaches a reader who cannot see the mark.
     assert.ok(document.activeElement === adresse, "the refusal marks the address and leaves the caret where the press left it");
+  });
+});
+
+/* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and
+   neither page can follow it, the invite's and the confirmation's token being gone from the address. */
+describe("what the two public pages tell a pupil whose write may have landed", () => {
+  const UNKLAR = JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
+
+  const unklar = () =>
+    raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description] as [string, string | undefined]);
+
+  it("titles a registration of unknown outcome as unclear, and names the second press as safe", async () => {
+    raised.length = 0;
+    const user = userEvent.setup();
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(UNKLAR, { status: 200 })));
+
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+
+    await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
+    await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
+    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
+    await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+
+    await screen.findByRole("button", { name: /Registrierung abschicken/ });
+    assert.deepEqual(unklar(), [
+      [
+        "Unklar, ob es bei uns angekommen ist",
+        "Schick die Registrierung noch einmal ab. Ist die erste doch angekommen, löscht sie sich ohne Bestätigung nach " +
+          `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`,
+      ],
+    ]);
+  });
+
+  it("titles a confirmation of unknown outcome as unclear, and tells the pupil to reopen the link", async () => {
+    raised.length = 0;
+    const user = userEvent.setup();
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(UNKLAR, { status: 200 })));
+
+    render(h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }));
+
+    await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+
+    await screen.findByRole("button", { name: /Registrierung bestätigen/ });
+    assert.deepEqual(unklar(), [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
   });
 });
 

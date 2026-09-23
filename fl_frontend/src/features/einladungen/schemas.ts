@@ -122,7 +122,14 @@ export type FLEinladungVersandPayload = z.infer<typeof FLEinladungVersandPayload
 export const FLEinladungVersandGrundSchema = z.enum(
   // The withdrawal FIRST, in the endpoint's own order: a skip naming the contact block instead
   // would send somebody to enter contacts for a team with nothing left to register for.
-  ["austritt_eingetragen", "erzeugung_fehlgeschlagen", "kein_kontaktblock", "keine_bestaetigte_kontaktperson", "bereits_gesendet"],
+  [
+    "austritt_eingetragen",
+    "erzeugung_fehlgeschlagen",
+    "erzeugung_ungewiss",
+    "kein_kontaktblock",
+    "keine_bestaetigte_kontaktperson",
+    "bereits_gesendet",
+  ],
   { error: "Diesen Grund gibt es nicht." },
 );
 export type FLEinladungVersandGrund = z.infer<typeof FLEinladungVersandGrundSchema>;
@@ -165,6 +172,8 @@ export type FLEinladungVersandVorschauZeile = z.infer<typeof FLEinladungVersandV
 export const FLEinladungVersandZeileSchema = FLEinladungVersandVorschauZeileSchema.extend({
   einladung_id: CustomObjectIdStringSchema.nullable(),
   token: z.string().nullable(),
+  // Whether the team held a live link when the press read it; null where the press failed before reading.
+  hatte_link: z.boolean().nullable(),
 });
 export type FLEinladungVersandZeile = z.infer<typeof FLEinladungVersandZeileSchema>;
 

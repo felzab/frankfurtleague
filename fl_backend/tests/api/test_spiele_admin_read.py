@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Iterator, Mapping
 from typing import Any
 
+import pymongo
 import pytest
 from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient, Response
@@ -29,9 +30,11 @@ DOCUMENT_NOT_FOUND = "DB-COMMON-001"
 # answers gives each control something other than the failure it asserts.
 UNANSWERED_URI = "mongodb://localhost:1"
 
-# Short for the unreachable URI above, so a control fails in a test's time rather than in the driver's
-# default thirty seconds; ample for a container already accepting connections.
-UNANSWERED_SELECTION_MS = 100
+# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
+# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
+UNANSWERED_DEADLINE_S = 0.001
+
+# Ample for a container already accepting connections.
 CONTAINER_SELECTION_MS = 10_000
 
 SAISON_ID = "2026"
@@ -86,17 +89,18 @@ def junction_row() -> dict[str, Any]:
     return {"saison_id": SAISON_ID, "team_id": AWAY, "gruppe": "A", "austritt": dict(AUSTRITT), "name": "Beta", "shorthand": "BE"}
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int) -> Response:
+def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
 
     async def _answered() -> Response:
         app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
         try:
             transport = ASGITransport(app=app, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(headers))
+                with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+                    return await http.get(path, headers=dict(headers))
         finally:
             await app.state.db_client.close()
 
@@ -135,7 +139,7 @@ GUARD_CASES = [
 def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: str, headers: Mapping[str, str], error_code: str):
     """A base credential reaching the admin read is the failure that matters: it carries the rent and the referee's Honorar."""
 
-    response = answered(UNANSWERED_URI, path, headers, selection_timeout_ms=UNANSWERED_SELECTION_MS)
+    response = answered(UNANSWERED_URI, path, headers)
 
     assert response.status_code == 401
     assert response.json()["error_code"] == error_code
@@ -151,7 +155,7 @@ REACHING_CASES = [
 def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
     """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
 
-    response = answered(UNANSWERED_URI, path, headers, selection_timeout_ms=UNANSWERED_SELECTION_MS)
+    response = answered(UNANSWERED_URI, path, headers)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -163,14 +167,14 @@ def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
 
     path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
 
-    assert answered(UNANSWERED_URI, path, ADMIN_AUTH, selection_timeout_ms=UNANSWERED_SELECTION_MS).status_code == 404
+    assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 
 
 @pytest.mark.db
 def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url: str):
     """The endpoint's whole point: the two figures the editor round-trips arrive, joined as the public read's shape joins them."""
 
-    response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS)
+    response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
 
     assert response.status_code == 200
     spiel = response.json()["spiel"]
@@ -191,7 +195,6 @@ def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
         seeded_url,
         f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/admin",
         ADMIN_AUTH,
-        selection_timeout_ms=CONTAINER_SELECTION_MS,
     )
 
     assert response.status_code == 404

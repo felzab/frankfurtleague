@@ -62,7 +62,7 @@ export function FormAnonymisierenSection({
       const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
 
       if (!res.success) {
-        appToast.danger("Schiedsrichterdaten nicht gelöscht", { description: res.error });
+        appToast.failure("Schiedsrichterdaten nicht gelöscht", res);
         return;
       }
 

@@ -1,3 +1,25 @@
+/**
+ * What an error says about the request it answers. Required on every API error rather than defaulted:
+ * a failed write may have landed and a failed read changed nothing, and
+ * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` tells them apart by it.
+ */
+export type SentRequest = {
+  method: string;
+  /** A call changing nothing whatever its method says, declared where it is made (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  readOnly: boolean;
+};
+
+/**
+ * RFC 9110's safe methods: a request of one changes nothing on the server, however it ended. Its
+ * fourth, TRACE, is one `fetch` refuses to send.
+ */
+const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** Whether a request whose answer went wrong could have changed anything on the server. */
+export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
+  return !SAFE_METHODS.has(method) && !readOnly;
+}
+
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   traceId: string;
@@ -5,6 +27,8 @@ export class APIBadStatusError extends Error {
   serverErrorCode?: string;
   url: string;
   endpoint: string;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
@@ -12,9 +36,11 @@ export class APIBadStatusError extends Error {
     statusCode,
     serverErrorCode,
     endpoint,
+    method,
+    readOnly,
     traceId,
     originalError,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     statusCode: number;
@@ -34,6 +60,8 @@ export class APIBadStatusError extends Error {
     this.serverErrorCode = serverErrorCode;
     this.url = url;
     this.endpoint = endpoint;
+    this.method = method;
+    this.readOnly = readOnly;
   }
 }
 
@@ -43,15 +71,19 @@ export class APIMalformedDataError extends Error {
   statusCode: number;
   url: string;
   endpoint: string;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
     url,
     statusCode,
     endpoint,
+    method,
+    readOnly,
     traceId,
     zodIssues,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     statusCode: number;
@@ -67,6 +99,8 @@ export class APIMalformedDataError extends Error {
     this.statusCode = statusCode;
     this.url = url;
     this.endpoint = endpoint;
+    this.method = method;
+    this.readOnly = readOnly;
   }
 }
 
@@ -75,26 +109,32 @@ export class APINetworkError extends Error {
   traceId: string;
   url: string;
   isTimeout: boolean;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
     url,
+    method,
+    readOnly,
     traceId,
     isTimeout,
     originalError,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     traceId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
+    const errorCause = originalError ? { originalError, traceId, isTimeout, url, method } : { traceId, isTimeout, url, method };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
     this.traceId = traceId;
     this.url = url;
+    this.method = method;
+    this.readOnly = readOnly;
     this.isTimeout = isTimeout;
   }
 }

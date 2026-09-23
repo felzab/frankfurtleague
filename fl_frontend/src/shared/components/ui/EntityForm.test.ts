@@ -16,7 +16,7 @@ import type { ActionResult } from "@/shared/types/types.ts";
 // Replaced at the module boundary: the real toast module hands its raising to HeroUI's queue.
 const APP_TOAST = `const raise = () => () => "0";
 export const UNDO_TIMEOUT_MS = 1;
-export const appToast = { success: raise(), warning: raise(), danger: raise(), info: raise(), pending: raise(), close: () => {}, clear: () => {} };`;
+export const appToast = { success: raise(), warning: raise(), danger: raise(), failure: raise(), info: raise(), pending: raise(), close: () => {}, clear: () => {} };`;
 
 registerHooks({
   load(url, context, nextLoad) {

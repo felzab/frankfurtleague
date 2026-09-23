@@ -164,6 +164,8 @@ describe("the four base-tier public reads", () => {
       url: "http://backend/api/v0/bewerbungen/fenster",
       statusCode: 404,
       endpoint: "/bewerbungen/fenster",
+      method: "GET",
+      readOnly: false,
       traceId: "0123456789abcdef",
     });
 

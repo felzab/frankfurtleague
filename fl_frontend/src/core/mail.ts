@@ -235,6 +235,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
       message: "Mail request failed.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: MAIL_ENDPOINT,
+      method: "POST",
+      readOnly: false,
       traceId: traceId,
       originalError: error,
     });

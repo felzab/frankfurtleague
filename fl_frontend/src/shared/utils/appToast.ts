@@ -1,7 +1,11 @@
 import { toast } from "@heroui/react";
 
+import type { ActionFailure } from "@/shared/types/types";
 import type { ButtonProps } from "@heroui/react";
 import type { ReactNode } from "react";
+
+/** Every failure title says the change did not happen, which is false where nobody can tell. */
+const OUTCOME_UNKNOWN_TITLE = "Unklar, ob es gespeichert wurde";
 
 /**
  * A duration is derived from the text's length, never chosen at the call site; the rate sits above an unhurried
@@ -55,6 +59,12 @@ export const appToast = {
   warning: (title: string, options?: AppToastOptions) => raise("warning", title, options),
   /** It did not happen. Say whether retrying can help. */
   danger: (title: string, options?: AppToastOptions) => raise("danger", title, options),
+  /**
+   * An action answered a failure: `title` says what did not happen, and the failure's own sentence is the
+   * description. Where the server could not tell whether the write landed, the neutral title stands in.
+   */
+  failure: (title: string, failure: Pick<ActionFailure, "error" | "outcome">, options?: Omit<AppToastOptions, "description">) =>
+    raise("danger", failure.outcome === "unknown" ? OUTCOME_UNKNOWN_TITLE : title, { ...options, description: failure.error }),
   /** Neither an outcome nor a failure — a standing fact worth one line. */
   info: (title: string, options?: AppToastOptions) => raise("info", title, options),
 

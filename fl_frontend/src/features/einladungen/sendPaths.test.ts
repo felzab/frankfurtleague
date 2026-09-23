@@ -241,6 +241,7 @@ describe("what the season-wide press answers", () => {
     einladung_id: token === null ? null : teamId,
     token: token,
     ersetzt_link: false,
+    hatte_link: false as boolean | null,
     empfaenger: [{ rolle: "ansprechperson", vorname: "Erika", email: `erika-${teamId}@beispiel.de` }],
   });
 
@@ -285,5 +286,21 @@ describe("what the season-wide press answers", () => {
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
     assert.deepEqual(mails, [], "a team the endpoint skipped was mailed anyway");
+  });
+
+  /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of
+     unknown outcome may have revoked it, and a rolled-back one left it opening, where it existed. */
+  it("carries the endpoint's link facts through a row that mailed nothing", async () => {
+    const res = await pressSeason([
+      { ...zeile("aa", null, "erzeugung_ungewiss"), ersetzt_link: true, hatte_link: true },
+      { ...zeile("bb", null, "erzeugung_fehlgeschlagen"), hatte_link: true },
+      { ...zeile("cc", null, "erzeugung_fehlgeschlagen"), hatte_link: null },
+    ]);
+
+    assert.deepEqual(res.success ? res.zeilen.map((row) => [row.team_id, row.ersetzt_link, row.hatte_link]) : [], [
+      ["aa", true, true],
+      ["bb", false, true],
+      ["cc", false, null],
+    ]);
   });
 });

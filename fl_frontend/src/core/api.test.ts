@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
@@ -33,6 +33,7 @@ registerHooks({
 });
 
 const { apiClient } = await import("./api.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
@@ -42,9 +43,34 @@ const SPAN = "b".repeat(16);
 /** What the doubled transport was asked to send. */
 const sends: { url: string; init: RequestInit }[] = [];
 
+/** The backend's answer to the next call, read once; unset, an empty list. */
+let nextAnswer: Response | undefined;
+
+/** Whether the next call is cut off as the client's own timeout cuts it, read once. */
+let nextTimesOut = false;
+
+/** Whether the next call's headers arrive and its body then never does until the call aborts, read once. */
+let nextStalls = false;
+
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   sends.push({ url: String(input), init: init ?? {} });
-  return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  if (nextTimesOut) {
+    nextTimesOut = false;
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
+  if (nextStalls) {
+    nextStalls = false;
+    const signal = init?.signal;
+    const body = new ReadableStream({
+      start(controller) {
+        signal?.addEventListener("abort", () => controller.error(Object.assign(new Error("aborted"), { name: "AbortError" })));
+      },
+    });
+    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+  }
+  const answer = nextAnswer ?? new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  nextAnswer = undefined;
+  return answer;
 }) as typeof fetch;
 
 function sentTraceparent(): { traceId: string; spanId: string } {
@@ -133,5 +159,82 @@ describe("the two headers this hop sets", () => {
     await apiClient("/saisons", z.array(z.unknown()), { headers: { "X-Test-Passthrough": "kept" } });
 
     assert.equal(new Headers(sends.at(-1)?.init.headers).get("X-Test-Passthrough"), "kept");
+  });
+});
+
+describe("a call the caller declares read-only", () => {
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+  /** Each way a sent call fails, set up for the next call. */
+  const FAILURES: Record<string, () => void> = {
+    "a timeout": () => void (nextTimesOut = true),
+    "a server error": () => void (nextAnswer = json(500, { error_code: "SRV-FAIL-001", trace_id: TRACE })),
+    "a body failing its schema": () => void (nextAnswer = json(200, { nicht: "die Liste" })),
+  };
+
+  /** The mark the call's error carries, and the request the call sent. */
+  async function failureOf(arrange: () => void, options: RequestInit & { readOnly?: true }) {
+    arrange();
+    const thrown: unknown = await apiClient("/x/ansicht", z.array(z.string()), options).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    assert.ok(
+      thrown instanceof APINetworkError || thrown instanceof APIBadStatusError || thrown instanceof APIMalformedDataError,
+      "the failed call threw no API error",
+    );
+
+    return { readOnly: thrown.readOnly, sent: sends.at(-1)?.init ?? assert.fail("the call sent nothing") };
+  }
+
+  for (const [failure, arrange] of Object.entries(FAILURES)) {
+    it(`carries its mark onto ${failure}, and a POST declaring none carries none`, async () => {
+      const read = await failureOf(arrange, { method: "POST", readOnly: true });
+      const write = await failureOf(arrange, { method: "POST" });
+
+      assert.deepEqual([read.readOnly, write.readOnly], [true, false]);
+      // The mark is this client's, and the backend never reads it: the read goes out as the POST it is.
+      assert.equal(read.sent.method, "POST");
+      assert.ok(!("readOnly" in read.sent), "the mark reached the request");
+    });
+  }
+});
+
+describe("the client's own timeout", () => {
+  const TIMEOUT_MS = 1000;
+
+  /* `fetch` resolves on the headers, so a timer cleared there leaves the body's read unbounded and a
+     stalled backend hangs the render. Bounded here, so that regression fails rather than hangs. */
+  it("aborts a body that stalls once the headers have arrived, as a timed-out request", { timeout: 5000 }, async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      nextStalls = true;
+      const pending = apiClient("/x", z.unknown(), { timeoutMs: TIMEOUT_MS }).then(
+        () => assert.fail("the stalled body resolved"),
+        (error: unknown) => error,
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      mock.timers.tick(TIMEOUT_MS);
+
+      const thrown = await pending;
+      assert.ok(thrown instanceof APINetworkError, "the stalled body was not thrown as a network error");
+      assert.equal(thrown.isTimeout, true);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("stops its timer once the answer is read, so nothing aborts a call already done", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      await apiClient("/x", z.unknown(), { timeoutMs: TIMEOUT_MS });
+      const signal = sends.at(-1)?.init.signal ?? assert.fail("the call sent no signal");
+      mock.timers.tick(TIMEOUT_MS);
+
+      assert.equal(signal.aborted, false, "the finished call's timer still fired");
+    } finally {
+      mock.timers.reset();
+    }
   });
 });

@@ -13,6 +13,7 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { blankComments } from "@/core/blankComments";
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -288,6 +289,31 @@ describe("the public application form", () => {
       "the submit posts something other than the composed payload",
     );
     assert.ok(screen.queryByRole("button", { name: "Schickt ab..." }), "the send in flight is not shown on its button");
+  });
+
+  /* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and a
+     second press files a second application for one school. */
+  it("titles an application of unknown outcome as unclear, and asks before a second one", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" })),
+      ),
+    );
+    const { user, container } = renderApplicationPage();
+
+    await fillIn(user, container, COMPLETE_DRAFT);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    assert.deepEqual(
+      appToast.danger.mock.calls.map(({ arguments: [title, options] }) => [title, options]),
+      [
+        [
+          "Unklar, ob es bei uns angekommen ist",
+          { description: `Schick die Bewerbung nicht noch einmal ab, sondern frag uns unter ${KONTAKT_EMAIL}, ob sie angekommen ist.` },
+        ],
+      ],
+    );
   });
 
   /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and

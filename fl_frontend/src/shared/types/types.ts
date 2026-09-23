@@ -56,6 +56,12 @@ export type ActionFailure = {
    * failure body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
    */
   errorCode?: string;
+  /**
+   * Present where nobody can tell whether the write landed, the server or the frontend alike
+   * (`docs/frontend/spec.md :: I326`). `appToast.failure` reads it: a title saying the change was not
+   * saved is then the one false sentence on the toast.
+   */
+  outcome?: "unknown";
 };
 
 export type ActionSuccess<TPayload extends object = object> = TPayload & {

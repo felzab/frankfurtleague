@@ -81,6 +81,8 @@ const aRefusal = (statusCode: number, serverErrorCode: string) =>
     statusCode,
     serverErrorCode,
     endpoint: "/spiele/paarungen",
+    method: "PATCH",
+    readOnly: false,
     traceId: "0",
   });
 

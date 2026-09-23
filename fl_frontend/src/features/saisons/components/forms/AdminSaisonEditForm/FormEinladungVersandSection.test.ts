@@ -101,6 +101,8 @@ beforeEach(() => {
 });
 
 describe("the season's bulk invite send", () => {
+  const zeile = (team_name: string): string => screen.getByText(team_name).closest("li")?.textContent ?? "";
+
   it("reads the preview on the first press and arms on the same gesture, over the rule the press then performs", async () => {
     const user = userEvent.setup();
     answerWith(vorschauAntwort(VORSCHAU));
@@ -328,6 +330,7 @@ describe("the season's bulk invite send", () => {
                 team_name: "Bettinaschule",
                 uebersprungen: "erzeugung_fehlgeschlagen",
                 ersetzt_link: false,
+                hatte_link: true,
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
@@ -357,5 +360,100 @@ describe("the season's bulk invite send", () => {
       "nothing says the failed team keeps the link it had, so somebody will assume it lost one",
     );
     assert.equal(raised[0]?.variant, "success");
+  });
+
+  /* The commit went out and no answer came back, so the row is true of a link revoked and of one
+     that still opens, and says nothing about a previous link to a team that held none. */
+  it("words a mint of unknown outcome apart from a failed one, naming a previous link only where there was one", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    const unklar = (team_id: string, team_name: string, ersetzt_link: boolean) => ({
+      team_id,
+      team_name,
+      uebersprungen: "erzeugung_ungewiss",
+      ersetzt_link,
+      zugestellt: [],
+      unerreichbar: [],
+      zurueckgehalten: [],
+    });
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 0 von 2 Teams.",
+            zeilen: [unklar(ID("a"), "Ernst-Reuter-Schule", true), unklar(ID("f"), "Wöhlerschule", false)],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("Unklar"), "the result rows did not render"));
+    assert.equal(
+      zeile("Ernst-Reuter-Schule"),
+      "Ernst-Reuter-Schule" +
+        "Unklar, ob ein neuer Registrierungslink angelegt wurde" +
+        "Der bisherige Link dieses Teams gilt vielleicht nicht mehr. " +
+        "Ein neuer Versand schickt dem Team einen Link, wenn sein bisheriger nicht mehr gilt oder es noch keinen bekommen hat.",
+    );
+    assert.equal(
+      zeile("Wöhlerschule"),
+      "Wöhlerschule" +
+        "Unklar, ob ein neuer Registrierungslink angelegt wurde" +
+        "Ein neuer Versand schickt dem Team einen Link, wenn sein bisheriger nicht mehr gilt oder es noch keinen bekommen hat.",
+    );
+  });
+
+  /* A rollback leaves the team as it was, and a team that held no link, or whose link the press
+     failed before reading, keeps nothing a sentence may name. */
+  it("says a failed team keeps its link only where the press found one", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    const fehlgeschlagen = (team_id: string, team_name: string, hatte_link: boolean | null) => ({
+      team_id,
+      team_name,
+      uebersprungen: "erzeugung_fehlgeschlagen",
+      ersetzt_link: false,
+      hatte_link,
+      zugestellt: [],
+      unerreichbar: [],
+      zurueckgehalten: [],
+    });
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 0 von 3 Teams.",
+            zeilen: [
+              fehlgeschlagen(ID("a"), "Ernst-Reuter-Schule", true),
+              fehlgeschlagen(ID("f"), "Wöhlerschule", false),
+              fehlgeschlagen(ID("g"), "Bettinaschule", null),
+            ],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("nicht angelegt"), "the result rows did not render"));
+    assert.equal(
+      zeile("Ernst-Reuter-Schule"),
+      "Ernst-Reuter-Schule" +
+        "Registrierungslink nicht angelegt" +
+        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal.",
+    );
+    for (const team_name of ["Wöhlerschule", "Bettinaschule"]) {
+      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es noch einmal.");
+    }
   });
 });

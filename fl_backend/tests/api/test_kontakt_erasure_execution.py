@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -224,8 +224,15 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
     touches another field, whose image is the block as it stands.
     """
 
-    await patch_one_in_db(collection=database[collection], db_filter={"_id": row_id}, update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}})
-    await patch_one_in_db(collection=database[collection], db_filter={"_id": row_id}, update={"$set": {"gruppe": "B"}})
+    await patch_one_in_db(
+        collection=database[collection],
+        db_filter={"_id": row_id},
+        update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
+        return_document=ReturnDocument.BEFORE,
+    )
+    await patch_one_in_db(
+        collection=database[collection], db_filter={"_id": row_id}, update={"$set": {"gruppe": "B"}}, return_document=ReturnDocument.BEFORE
+    )
 
 
 async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) -> None:
@@ -233,8 +240,15 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
 
     collection = database[Collection.BEWERBUNGEN]
 
-    await patch_one_in_db(collection=collection, db_filter={"_id": row_id}, update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}})
-    await patch_one_in_db(collection=collection, db_filter={"_id": row_id}, update={"$set": {"kader.gute_spieler": 4}})
+    await patch_one_in_db(
+        collection=collection,
+        db_filter={"_id": row_id},
+        update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
+        return_document=ReturnDocument.BEFORE,
+    )
+    await patch_one_in_db(
+        collection=collection, db_filter={"_id": row_id}, update={"$set": {"kader.gute_spieler": 4}}, return_document=ReturnDocument.BEFORE
+    )
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
@@ -366,9 +380,13 @@ async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
         collection=collection,
         db_filter={"_id": SWAPPED_ROW_OID},
         update={"$set": {"kontakte.trainer": person(UNREACHED_NACHNAME, UNREACHED_TELEFON)}},
+        return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
-        collection=collection, db_filter={"_id": UNTOUCHED_ROW_OID}, update={"$set": {"kontakte.trainer.telefon": BYSTANDER_TELEFON}}
+        collection=collection,
+        db_filter={"_id": UNTOUCHED_ROW_OID},
+        update={"$set": {"kontakte.trainer.telefon": BYSTANDER_TELEFON}},
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -819,6 +837,7 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
             collection=application,
             db_filter={"_id": LATECOMER_BEWERBUNG_OID},
             update={"$set": {"kontakte": LIVE_BLOCKS[BEWERBUNG_OID]}},
+            return_document=ReturnDocument.BEFORE,
         )
 
         introducing = await log_rows_naming(database, Collection.BEWERBUNGEN, LATECOMER_BEWERBUNG_OID)

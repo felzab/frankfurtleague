@@ -46,9 +46,14 @@ export function actionBodies(text: string): Map<string, string> {
   );
 }
 
-/** The wrapper an admin action opens, which is what puts its own statements at four spaces. */
-export function opensMutation(name: string): string {
-  return `\n  return runAdminMutation("${name}", async () => {\n`;
+/**
+ * The wrapper an admin action opens, which is what puts its own statements at four spaces: where those
+ * statements begin, and whether the action declares itself a read, or `null` where it opens no wrapper.
+ */
+export function mutationOpener(body: string, name: string): { end: number; readOnly: boolean } | null {
+  const match = new RegExp(`\\n {2}return runAdminMutation\\("${name}", \\{ readOnly: (true|false) \\}, async \\(\\) => \\{\\n`).exec(body);
+
+  return match === null ? null : { end: match.index + match[0].length, readOnly: match[1] === "true" };
 }
 
 /**

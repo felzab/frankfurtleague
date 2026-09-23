@@ -6,6 +6,7 @@ import { CircleCheck } from "@gravity-ui/icons";
 
 import { Button, Form } from "@heroui/react";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
@@ -47,6 +48,12 @@ type BewerbungAntwort = PublicEnvelope & { message?: string };
 type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
 
 const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
+
+/**
+ * Never a second press where the first may have landed: a second application for one school is a
+ * pair the triage has to untangle, and its three people would be mailed twice.
+ */
+const BEWERBUNG_UNKLAR = `Schick die Bewerbung nicht noch einmal ab, sondern frag uns unter ${KONTAKT_EMAIL}, ob sie angekommen ist.`;
 
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.
@@ -250,6 +257,12 @@ export function BewerbungForm({
       const antwort = gesendet.body;
 
       if (!antwort.success) {
+        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+          return;
+        }
+
         setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bewerbung: payload });
 
         // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.

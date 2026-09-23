@@ -25,7 +25,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -41,7 +41,7 @@ export type BestaetigungAbschluss =
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand };
+  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand; outcome?: "unknown" };
 
 /** A control, not a link: it arms the objection and navigates nowhere. Named in the information text too. */
 const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
@@ -301,6 +301,13 @@ export function BestaetigungFormPanel({
     const antwort = gesendet.body;
 
     if (!antwort.success) {
+      // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
+      // is an administrator's repair, and a reload of this page has lost its token.
+      if (antwort.outcome === "unknown") {
+        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+        return;
+      }
+
       // The link died between the open and the press: the answer is the panel, never a toast.
       if (antwort.zustand !== undefined) {
         onAbschluss({ zustand: antwort.zustand });

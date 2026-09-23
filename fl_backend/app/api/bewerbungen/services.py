@@ -15,6 +15,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
 )
@@ -874,6 +875,20 @@ def one_month_after(*, day: str) -> str:
     return date(year, month, min(start.day, last_day.day)).isoformat()
 
 
+def latest_decision_due(*, today: str) -> str:
+    """The last decision day whose month is behind it today.
+
+    Found through `one_month_after`, never a month counted back from today: that month CLAMPS to a
+    short month's end and drops the due decisions of the days past it.
+    """
+
+    day = date.fromisoformat(today)
+    while one_month_after(day=day.isoformat()) > today:
+        day -= timedelta(days=1)
+
+    return day.isoformat()
+
+
 def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str) -> bool:
     """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
 
@@ -1011,6 +1026,50 @@ def compose_ankuendigung_update(*, today: str) -> Mapping[str, Any]:
     """The stamp the deletion notice earns, written only where none stands: an existing one is the day that notice was settled."""
 
     return {"$set": {"loeschung_angekuendigt_am": today}}
+
+
+# One read's ceiling, and one past it tells a full page from a truncated one
+# (`docs/backend/spec.md :: I295`, which the registration sweep keeps the same way).
+SWEEP_PAGE: Final = LIST_LIMIT_MAX
+
+
+# The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat leaves the read.
+def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
+    return {
+        f"bestaetigungen.{seat}.verschickt_am": {"$lte": days_after(day=today, days=-BEWERBUNG_ERINNERUNG_TAGE)},
+        f"bestaetigungen.{seat}.erinnert_am": None,
+        f"bestaetigungen.{seat}.abgelehnt_am": None,
+        f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
+    }
+
+
+def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+    """Every application with a seat owed its reminder, as `reminder_seats` judges it.
+
+    In the query: the clock stamps a share a pass, and a read keeping stamped rows hands the next
+    pass the same page.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "status": "eingereicht",
+        # `$not` rather than `$gte`: a row carrying no readable deadline has a link that is not over.
+        "bestaetigungsfrist": {"$not": {"$lt": today}},
+        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_SEATS],
+    }
+
+
+def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+    """Every application `deletion_is_due` takes, as a query: a held one would otherwise fill the page ahead of a due one."""
+
+    return {
+        "saison_id": saison_id,
+        "status": "eingereicht",
+        "bestaetigungsfrist": {"$lt": today},
+        "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_SEATS],
+    }
 
 
 def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:

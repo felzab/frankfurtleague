@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { actionBodies, actionModules, adminActionModules, opensMutation } from "@/core/actionSources.ts";
+import { actionBodies, actionModules, adminActionModules, mutationOpener, sources } from "@/core/actionSources.ts";
+import { blankComments } from "@/core/blankComments.ts";
 
 const ACTION_MODULES = actionModules();
 const ADMIN_ACTION_MODULES = adminActionModules();
@@ -12,8 +13,9 @@ const ADMIN_ACTION_MODULES = adminActionModules();
  */
 
 /**
- * Which of each module's actions moves the admin's page and which only reads. Typed, because nothing
- * in a module says which it is; the modules and their exports come off the tree (PRE-4).
+ * Which of each module's actions moves the admin's page and which only reads. Typed by hand and held
+ * to what each call site declares, two routes to one answer; the modules and their exports come off
+ * the tree (PRE-4).
  */
 const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly string[] }> = {
   "features/bewerbungen/actions.ts": {
@@ -101,6 +103,9 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
   },
 };
 
+/** The declarations outside an actions module: the undo spine's replay, which every undo route writes through. */
+const OUTSIDE_ACTIONS: readonly string[] = ["shared/utils/undoRoute.ts :: route.mutationName :: write"];
+
 const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
 
 describe("every slice's admin writes, and the refresh each one owes", () => {
@@ -138,13 +143,58 @@ describe("every slice's admin writes, and the refresh each one owes", () => {
         const body = bodies.get(name) ?? "";
         const refreshAt = body.search(TOP_LEVEL_REFRESH);
 
-        assert.ok(body.includes(opensMutation(name)), `${file} :: ${name} opens some other callback, so this case's indentation means nothing`);
+        assert.ok(
+          mutationOpener(body, name) !== null,
+          `${file} :: ${name} opens some other callback, so this case's indentation means nothing`,
+        );
         assert.notEqual(refreshAt, -1, `${file} :: ${name} writes and leaves the admin's page standing`);
         assert.ok(refreshAt < body.indexOf("success: true"), `${file} :: ${name}'s success return does not stand after a refresh`);
         swept++;
       }
     }
     assert.ok(swept >= 30, `expected at least 30 admin writes swept, found ${String(swept)}`);
+  });
+
+  /* The declaration decides what a throw inside the action answers: a write's may have left its row
+     standing, and a read's changed nothing (`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`). */
+  it("declares each action a read or a write at its call site, as this roster places it", () => {
+    let declared = 0;
+    for (const { file, bodies } of ADMIN_ACTION_MODULES) {
+      const roster = ROSTERS[file] ?? { writes: [], readOnly: [] };
+      for (const [names, readOnly] of [
+        [roster.writes, false],
+        [roster.readOnly, true],
+      ] as const) {
+        for (const name of names) {
+          const opener = mutationOpener(bodies.get(name) ?? "", name);
+          assert.equal(opener?.readOnly, readOnly, `${file} :: ${name} declares itself other than this roster places it`);
+          declared++;
+        }
+      }
+    }
+    assert.ok(declared >= 34, `expected at least 34 admin actions declared, found ${String(declared)}`);
+  });
+
+  it("places every declaration in the tree: each action's by this roster, and the undo replay's as a write", () => {
+    const calls: string[] = [];
+    const declared: string[] = [];
+    for (const [file, text] of sources()) {
+      if (/\.test\.tsx?$/.test(file)) continue;
+      const bare = blankComments(text);
+      // Past a quote, the name is `fl_frontend/src/core/actionSources.ts :: actionModules`' needle, not a call.
+      calls.push(...[...bare.matchAll(/(?<!")runAdminMutation\(/g)].map(() => file));
+      for (const [, name, readOnly] of bare.matchAll(/runAdminMutation\(\s*"?([\w.]+)"?,\s*\{ readOnly: (true|false) \}/g)) {
+        declared.push(`${file} :: ${name ?? ""} :: ${readOnly === "true" ? "read" : "write"}`);
+      }
+    }
+
+    const placed = Object.entries(ROSTERS).flatMap(([file, { writes, readOnly }]) => [
+      ...writes.map((name) => `${file} :: ${name} :: write`),
+      ...readOnly.map((name) => `${file} :: ${name} :: read`),
+    ]);
+
+    assert.equal(declared.length, calls.length, "a call declares itself in a shape this sweep cannot read, so nothing holds it");
+    assert.deepEqual(declared.sort(), [...placed, ...OUTSIDE_ACTIONS].sort());
   });
 
   it("leaves every action placed as read-only without one", () => {
@@ -163,7 +213,7 @@ describe("every slice's admin writes, and the refresh each one owes", () => {
        same way, so no count over them separates this reader from one that takes the first it finds. */
     const sample = [
       "export async function aAction(payload: P): Promise<R> {",
-      '  return runAdminMutation("aAction", async () => {',
+      '  return runAdminMutation("aAction", { readOnly: false }, async () => {',
       "    /* the shape this replaced called",
       "    refresh();",
       "    */",
@@ -180,7 +230,7 @@ describe("every slice's admin writes, and the refresh each one owes", () => {
       "}",
       "",
       "export async function bAction(payload: P): Promise<R> {",
-      '  return runAdminMutation("bAction", async () => {',
+      '  return runAdminMutation("bAction", { readOnly: false }, async () => {',
       "    refresh();",
       "    return { success: true };",
       "  });",

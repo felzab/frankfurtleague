@@ -18,6 +18,7 @@ import {
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
 
@@ -300,4 +301,23 @@ describe("what a refused press does to the page", () => {
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
     });
   }
+
+  /* A commit whose answer was lost: the route's sentence sends an administrator to reload and check,
+     which this page cannot follow, its token being gone from the address. */
+  it("titles an answer of unknown outcome as unclear, and tells the referee to reopen the link", async () => {
+    doubleFetch({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    assert.deepEqual(
+      toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    );
+  });
 });

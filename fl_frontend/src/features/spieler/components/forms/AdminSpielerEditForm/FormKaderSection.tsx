@@ -111,7 +111,7 @@ export function FormKaderSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen team is not
       // also said in a toast that names no field.
       if (teamError === null) {
-        appToast.danger("Spieler nicht aufgenommen", { description: res.error });
+        appToast.failure("Spieler nicht aufgenommen", res);
       }
     });
   };

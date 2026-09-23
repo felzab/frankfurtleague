@@ -33,8 +33,8 @@ import type { PillTone } from "@/shared/components/ui/badges";
 import type { ReactNode } from "react";
 
 /**
- * A rejection carries no status and no body, so the write may have committed. A second send is safe
- * either way, which is why this one invites it — and the previous link is dead on both readings.
+ * A rejected action says nothing of whether the write committed. A second send is safe either way,
+ * which is why this one invites it — and the previous link is dead on both readings.
  */
 const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
 
@@ -181,13 +181,10 @@ export function FormBestaetigungSection({
     // readout beneath it is stale on exactly the press that says so.
     router.refresh();
 
-    if (res === null) {
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: OHNE_ANTWORT });
-      return;
-    }
-
-    if (!res.success) {
-      appToast.danger("Bestätigungslink nicht gesendet", { description: res.error });
+    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
+    // unknown outcome among them, carries its own sentence.
+    if (res === null || !res.success) {
+      appToast.failure("Bestätigungslink nicht gesendet", res ?? { error: OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 

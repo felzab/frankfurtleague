@@ -6,6 +6,7 @@ from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.core.config import API_VERSION
 from app.core.dependencies import SaisonsCollection, SaisonTeamsCollection, SchiedsrichterCollection, SpielerCollection
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
@@ -18,7 +19,12 @@ router = APIRouter(
 )
 
 
-@router.post("/subjekt", response_model=FLSubjektResponse, summary="Say which league records one mailbox holds")
+@router.post(
+    "/subjekt",
+    response_model=FLSubjektResponse,
+    summary="Say which league records one mailbox holds",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_subjekt(
     subjekt_data: Annotated[FLSubjektPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,

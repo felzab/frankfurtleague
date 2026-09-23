@@ -81,6 +81,8 @@ const aRefusal = (statusCode: number, serverErrorCode: string) =>
     statusCode,
     serverErrorCode,
     endpoint: "/registrierungen",
+    method: "POST",
+    readOnly: false,
     traceId: "0",
   });
 

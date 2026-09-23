@@ -158,6 +158,10 @@ else
       fl_frontend/src/features/saisons/actions.ts| \
       fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx)
         frontend=true; backend=true; db=true; docs=true ;;
+      # `fl_backend/tests/core/test_request_deadline.py` holds the backend's request deadline under
+      # this module's fetch ceiling, so a raised or lowered ceiling would otherwise reach that
+      # comparison no earlier than the push to main.
+      fl_frontend/src/core/api.ts) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats

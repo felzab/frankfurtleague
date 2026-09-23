@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import mint_token
@@ -230,6 +231,7 @@ async def patch_schiedsrichter(
             db_filter=build_referee_filter(schiedsrichter_id),
             update={"$set": {**payload, **(minted or {})}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
 
@@ -403,6 +405,7 @@ async def einladen_schiedsrichter(
             db_filter=build_referee_filter(schiedsrichter_id),
             update={"$set": compose_mint_update(token_hash=token_hash, today=today)},
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return str(email)

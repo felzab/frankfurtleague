@@ -322,20 +322,47 @@ describe("two re-sends running at once", () => {
   });
 });
 
+/** What each toast raised over a write of unknown outcome was titled and said. */
+const unknowns = (): string[][] =>
+  raised.filter((toast) => toast.options?.outcome === "unknown").map((toast) => [toast.title, toast.description ?? ""]);
+
+/** The sentence an admin write's answered unknown outcome carries, which every control shows as it stands. */
+const ANSWERED = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
+
+/**
+ * The two ways a write nobody can tell landed arrives: the action rejecting, which carries no status and no
+ * body, and the action answering that the commit's own answer was lost. One toast for both.
+ */
+const UNCLEAR_ARMS: Record<string, () => Promise<unknown>> = {
+  thrown: () => Promise.reject(new TypeError("Failed to fetch")),
+  answered: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }),
+};
+
+/** What the toast over each arm says: the control's own repair where the action threw, the answer's sentence where it answered. */
+const repairOn = (arm: string, own: string): string => (arm === "thrown" ? own : ANSWERED);
+
 describe("a write whose answer never arrives", () => {
   /* Awaited outside a transition, a rejected action reaches no error boundary: without the catch it
      leaves „Sendet...“ standing for good and says nothing. */
-  it("releases the re-send, refreshes the row and says the outcome is unknown", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip();
+  for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
+    it(`releases the re-send, refreshes the row and says the outcome is unknown, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip();
 
-    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+      await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
-    assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
-    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
+      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.deepEqual(unknowns(), [
+        [
+          "Link nicht erneut gesendet",
+          repairOn(arm, "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
+  }
 
   /* The answered arms beside it, so the catch cannot have swallowed the ordinary outcomes. */
   it("still reports a refused re-send and a sent one as themselves", async () => {
@@ -348,38 +375,53 @@ describe("a write whose answer never arrives", () => {
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
+    assert.deepEqual(unknowns(), [], "a refusal was raised as a write of unknown outcome");
     assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
   });
 
-  it("releases the correction and keeps the box open over its draft", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip();
+  for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
+    it(`releases the correction and keeps the box open over its draft, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip();
 
-    await correctClara(user, "clara.neu@schule.example{Enter}");
+      await correctClara(user, "clara.neu@schule.example{Enter}");
 
-    assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
-    assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
-    assert.equal(seen.refresh, 1);
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
+      assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
+      assert.equal(seen.refresh, 1);
+      assert.deepEqual(unknowns(), [
+        [
+          "Adresse nicht korrigiert",
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
 
-  it("releases the reseat and keeps its box open over the person typed into it", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip({ stands: standsOf(claraStieAus) });
+    it(`releases the reseat and keeps its box open over the person typed into it, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip({ stands: standsOf(claraStieAus) });
 
-    await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
 
-    assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
-    assert.equal(
-      screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
-      "Doreen",
-      "the person a second press would send is gone",
-    );
-    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
+      assert.equal(
+        screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
+        "Doreen",
+        "the person a second press would send is gone",
+      );
+      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.deepEqual(unknowns(), [
+        [
+          "Rolle nicht neu besetzt",
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
+  }
 });
 
 describe("seating another person where one stepped out", () => {

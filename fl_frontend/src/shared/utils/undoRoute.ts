@@ -61,7 +61,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
   let status: 200 | 401 | 403 = 200;
 
-  const result = await runAdminMutation(route.mutationName, async () => {
+  const result = await runAdminMutation(route.mutationName, { readOnly: false }, async () => {
     // Asked only once refused, so an admin's undo pays one session read.
     if (!(await getAdminSession())) {
       // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live

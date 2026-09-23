@@ -49,7 +49,7 @@ function invalidateSpieltage(): void {
 }
 
 export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
-  return runAdminMutation("patchSpieltagAction", async () => {
+  return runAdminMutation("patchSpieltagAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

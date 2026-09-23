@@ -29,6 +29,7 @@ export async function postEinladungAnsicht(payload: FLEinladungAnsichtPayload): 
     // `base`, spelled out: this endpoint is the public tier's, and an over-declared tier succeeds
     // silently.
     method: "POST",
+    readOnly: true,
     authType: "base",
     body: JSON.stringify(payload),
   });
@@ -50,7 +51,7 @@ export async function postBestaetigungAnsicht(
   return apiClient<FLRegistrierungBestaetigungAnsichtResponse>(
     "/registrierungen/bestaetigung/ansicht",
     FLRegistrierungBestaetigungAnsichtResponseSchema,
-    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
   );
 }
 

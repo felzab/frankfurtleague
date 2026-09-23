@@ -75,7 +75,7 @@ export function FormAustragenSection({
         focusOnMountFor = row;
         appToast.success(savedHeading, { description: res.message });
       } else {
-        appToast.danger(failureHeading, { description: res.error });
+        appToast.failure(failureHeading, res);
       }
     });
   };

@@ -29,6 +29,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
@@ -165,11 +166,12 @@ export function AdminKontakteEditForm({
       const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
 
       const payload = buildPayload();
-      const res = await patchSaisonTeamKontakteAction(payload);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
 
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { kontakte: payload });
-        appToast.danger("Änderung nicht gespeichert", { description: res.error });
+        appToast.failure("Änderung nicht gespeichert", res);
         return;
       }
 

@@ -7,13 +7,14 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient, MongoClient
+from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.bewerbungen.sweep_router import get_sweep_saisons
+from app.api.registrierungen import sweep_router as sweep_router_module
 from app.api.registrierungen.services import SWEEP_PAGE
-from app.api.registrierungen.sweep_router import sweep_registrierungen
+from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -164,7 +165,10 @@ def on_a_league(url: str, body: Body, *, status: str = "active") -> Any:
             # One recorded write per row, so every one has a log image holding its person.
             for document in the_corpus():
                 await patch_one_in_db(
-                    collection=database[Collection.REGISTRIERUNGEN], db_filter={"_id": document["_id"]}, update={"$set": {"nummer": "7"}}
+                    collection=database[Collection.REGISTRIERUNGEN],
+                    db_filter={"_id": document["_id"]},
+                    update={"$set": {"nummer": "7"}},
+                    return_document=ReturnDocument.BEFORE,
                 )
 
             return await body(database, client)
@@ -257,6 +261,7 @@ class TestTheReminderClock:
                         }
                     }
                 },
+                return_document=ReturnDocument.BEFORE,
             )
 
             response = await sweep(database, client)
@@ -454,6 +459,159 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         erased, left = on_a_league(mongo_replica_set_url, body, status=status)
 
         assert (erased, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
+
+
+class _Counting(monitoring.CommandListener):
+    """Every command sent while it is on, each one a round trip."""
+
+    def __init__(self) -> None:
+        self.commands = 0
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        self.commands += 1
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        pass
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        pass
+
+
+# Under the driver's first batch, so a page read is one command however many rows it holds.
+FEW = 10
+
+# The update and its log row: the per-row cost each share is sized at.
+ROUND_TRIPS_A_ROW = 2
+
+
+async def commands_sent(url: str, call: Body) -> int:
+    listener = _Counting()
+    counting = AsyncMongoClient(url, event_listeners=[listener])
+    try:
+        await call(counting[DATABASE_NAME], counting)
+    finally:
+        await counting.close()
+
+    return listener.commands
+
+
+async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: int, total: int) -> list[int]:
+    """What each pass took, up to the first that took nothing: a clock that stops making progress fails here rather than spinning."""
+
+    passes = -(-total // share)
+    taken: list[int] = []
+    for _ in range(passes + 1):
+        if not (took := await one_pass()):
+            return taken
+        taken.append(took)
+
+    raise AssertionError(f"{total} rows at {share} a pass take {passes} passes, and pass {passes + 1} still took rows: {taken}")
+
+
+class TestTheReminderClockTakesAShareEachCall:
+    def test_each_pass_stamps_its_share_and_the_passes_reach_every_row(self, mongo_replica_set_url: str):
+        """A whole page in one transaction could outrun the request's deadline, and a transaction that times out stamps nothing, every pass."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], int]:
+            await database[Collection.REGISTRIERUNGEN].delete_many({})
+            await database[Collection.REGISTRIERUNGEN].insert_many(overflowing())
+
+            async def one_pass() -> int:
+                return len((await sweep(database, client)).erinnerungen)
+
+            per_pass = await passes_until_empty(one_pass, share=REMINDERS_PER_PASS, total=OVERFLOW)
+
+            return per_pass, await database[Collection.REGISTRIERUNGEN].count_documents({"bestaetigung.erinnert_am": TODAY})
+
+        per_pass, stamped = on_a_league(mongo_replica_set_url, body)
+        whole, rest = divmod(OVERFLOW, REMINDERS_PER_PASS)
+
+        assert per_pass == [REMINDERS_PER_PASS] * whole + ([rest] if rest else [])
+        assert stamped == OVERFLOW
+
+    def test_the_share_goes_to_the_earliest_deadlines(self, mongo_replica_set_url: str):
+        """The later deadlines are seeded FIRST, so natural order would remind the pupils the deadline clock takes last."""
+
+        later = [registrierung(row["_id"], bestaetigung=bestaetigung(row["_id"], frist="2026-04-06")) for row in overflowing()[:5]]
+        earlier = overflowing()[5:]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[str]:
+            await database[Collection.REGISTRIERUNGEN].delete_many({})
+            await database[Collection.REGISTRIERUNGEN].insert_many([*later, *earlier])
+            response = await sweep(database, client)
+            reminded = {entry.registrierung_id for entry in response.erinnerungen}
+
+            rows = await database[Collection.REGISTRIERUNGEN].find({"_id": {"$in": list(reminded)}}, {"bestaetigung.frist": 1}).to_list(None)
+            return {row["bestaetigung"]["frist"] for row in rows}
+
+        assert on_a_league(mongo_replica_set_url, body) == {"2026-04-05"}
+
+    def test_a_reminded_row_costs_the_round_trips_its_share_is_sized_at(self, mongo_replica_set_url: str):
+        """Counted on the wire, two passes apart by `FEW` rows: `AFTER` at the call site, or a second write a row, turns this red."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(due: int) -> int:
+                await database[Collection.REGISTRIERUNGEN].delete_many({})
+                await database[Collection.REGISTRIERUNGEN].insert_many(overflowing()[:due])
+                # Stamped already, so the run's own stamp costs both passes the same guard read.
+                await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
+
+                return await commands_sent(mongo_replica_set_url, sweep)
+
+            return await counted(FEW), await counted(2 * FEW)
+
+        few, twice = on_a_league(mongo_replica_set_url, body)
+
+        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+
+class TestAnswerAndMessagesCommitTogether:
+    """What the answer hands back is committed by the call's LAST transaction (`docs/backend/spec.md :: I323`)."""
+
+    def test_a_page_owing_notices_ends_the_call_and_the_next_call_takes_the_rest(self, mongo_replica_set_url: str):
+        """Every row confirmed, so each page owes a message: nobody erased is left out of an answer."""
+
+        confirmed = overflowing(geburtsdatum="2008-05-09", einwilligung=einwilligung())
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], int, int]:
+            await database[Collection.REGISTRIERUNGEN].delete_many({})
+            await database[Collection.REGISTRIERUNGEN].insert_many(confirmed)
+
+            async def one_pass() -> int:
+                return len((await sweep(database, client)).benachrichtigt)
+
+            # A page and its one row past are erased together, so each pass takes `SWEEP_PAGE + 1`.
+            told = await passes_until_empty(one_pass, share=SWEEP_PAGE + 1, total=len(confirmed))
+
+            return told, await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID}), len(confirmed)
+
+        told, standing, seeded = on_a_league(mongo_replica_set_url, body, status="past")
+
+        assert told == [SWEEP_PAGE + 1, seeded - SWEEP_PAGE - 1]
+        assert standing == 0
+
+    def test_a_clock_failing_before_the_last_transaction_erases_nobody_owed_a_notice(self, mongo_replica_set_url: str):
+        """The declined clock stalls on a page it takes none of, BEFORE the season's end erases: the pupils owed a message still stand."""
+
+        fresh_decisions = overflowing(status="abgelehnt", entscheidung={"getroffen_am": "2026-03-31", "von": "admin", "grund": None})
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[type[BaseException], Mapping[str, Any] | None]:
+            await database[Collection.REGISTRIERUNGEN].insert_many(fresh_decisions)
+            # The filter narrows to due decisions, so the stall is forced: the cutoff is widened to
+            # admit the fresh ones and the predicate then takes none of them.
+            with pytest.MonkeyPatch.context() as patched:
+                patched.setattr(
+                    sweep_router_module, "build_decline_filter", lambda *, saison_id, today: {"saison_id": saison_id, "status": "abgelehnt"}
+                )
+                with pytest.raises(ValueError) as stalled:
+                    await sweep(database, client)
+
+            return stalled.type, await stored(database, CONFIRMED_OID)
+
+        raised, confirmed = on_a_league(mongo_replica_set_url, body, status="past")
+
+        assert raised is ValueError
+        assert confirmed is not None
 
 
 def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:

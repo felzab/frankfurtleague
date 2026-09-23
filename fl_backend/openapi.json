@@ -345,7 +345,8 @@
             }
           }
         },
-        "x-fl-tier": "admin"
+        "x-fl-tier": "admin",
+        "x-fl-stores-nothing": "dry_run"
       }
     },
     "/api/v0/teams": {
@@ -5060,7 +5061,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "admin"
+        "x-fl-tier": "admin",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/kontakte/erasure": {
@@ -5460,7 +5462,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/bewerbungen/einwilligung": {
@@ -5550,7 +5553,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/registrierungen/bestaetigung/ansicht": {
@@ -5595,7 +5599,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/registrierungen/bestaetigung": {
@@ -5685,7 +5690,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/schiedsrichter/bestaetigung": {
@@ -5761,7 +5767,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing\nleft to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -6009,7 +6015,7 @@
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's registration retention clocks",
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe season's own end comes first: once the season is `past`, every registration still awaiting a decision is erased whatever the\npupil answered, because no admission can be taken for a season that is over. The confirmed ones among them are listed in\n`benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is told neither before nor\nafter, its address never having been confirmed. Then an unconfirmed registration strictly past its deadline is erased with no\nnotice at all, the confirmation mail having named that day. Then one reminder per registration at its reminder age: a fresh link\nis minted and `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and\nthe link already in that inbox stays valid beside the fresh one. A registration whose last message the mail provider refused is\nnot chased at all. Last, a declined registration is erased a month after the decision. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds\nnothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
         "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
         "security": [
           {
@@ -6229,7 +6235,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "system"
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
       }
     },
     "/": {
@@ -8218,6 +8225,7 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 125,
             "title": "Bewerbung Ids"
           }
         },
@@ -8337,6 +8345,7 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 125,
             "title": "Bewerbung Ids"
           }
         },
@@ -9827,6 +9836,7 @@
                 "enum": [
                   "austritt_eingetragen",
                   "erzeugung_fehlgeschlagen",
+                  "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
                   "bereits_gesendet"
@@ -9879,6 +9889,7 @@
                 "enum": [
                   "austritt_eingetragen",
                   "erzeugung_fehlgeschlagen",
+                  "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
                   "bereits_gesendet"
@@ -9915,6 +9926,17 @@
               }
             ],
             "title": "Token"
+          },
+          "hatte_link": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hatte Link"
           }
         },
         "type": "object",
@@ -9925,7 +9947,8 @@
           "uebersprungen",
           "ersetzt_link",
           "einladung_id",
-          "token"
+          "token",
+          "hatte_link"
         ],
         "title": "FLEinladungVersandZeile",
         "description": "One team as the press left it."

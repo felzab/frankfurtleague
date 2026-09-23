@@ -1,5 +1,5 @@
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from bson.errors import InvalidId
@@ -11,8 +11,13 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.exceptions import BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
+from app.core.security import SAFE_METHODS
 
 NO_DATA_TEXT = "//- No Data -//"
+
+# A write that may stand: its own code, because a page told "failed" sends the person to repeat a
+# write that is already there.
+UNKNOWN_OUTCOME = "DB-FAIL-002"
 
 
 def error_response(status_code: int, error_code: str, headers: Mapping[str, str] | None = None) -> JSONResponse:
@@ -93,15 +98,46 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     return match.group(1) if match else None
 
 
+def stores_nothing(request: Request) -> None:
+    """Declared by an operation storing nothing whatever its method.
+
+    A deadline cutting it then answers a failed read rather than a write that may stand.
+    """
+    request.state.stores_nothing = True
+
+
+# Each dependency that calls `stores_nothing` itself once its boolean query flag is true, keyed to
+# that flag, so the condition is published (`app/main.py :: publish_stores_nothing`) rather than kept.
+STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
+
+
+def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
+    def register(dependency: Dependency) -> Dependency:
+        STORES_NOTHING_WHEN[dependency] = flag
+        return dependency
+
+    return register
+
+
+def _may_have_written(request: Request) -> bool:
+    return request.method not in SAFE_METHODS and not getattr(request.state, "stores_nothing", False)
+
+
 async def db_exception_handler(request: Request, exc: PyMongoError):
+    # Unknown where a write may stand: a commit the driver labels so, or any write request the
+    # deadline cut, a write outside a transaction carrying no label (`docs/backend/spec.md :: I321`).
+    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and _may_have_written(request))
+    error_code = UNKNOWN_OUTCOME if unknown else "DB-FAIL-001"
+    what = "Database deadline passed" if exc.timeout else "Database crash"
+
     # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
     # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
     fl_logger.error(
-        f"Database crash ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "DB-FAIL-001"},
+        f"{what} ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
+        extra={"error_code": error_code},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB-FAIL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, error_code)
 
 
 # Walked by NAME and never over every key: a refused value sits under `consideredValue` and can

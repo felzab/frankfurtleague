@@ -62,7 +62,7 @@ function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: Fi
 export async function postEinladungAction(
   rawPayload: FLEinladungKeyPayload,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
-  return runAdminMutation("postEinladungAction", async () => {
+  return runAdminMutation("postEinladungAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -101,7 +101,7 @@ export async function postEinladungAction(
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
 export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
-  return runAdminMutation("mailEinladungAction", async () => {
+  return runAdminMutation("mailEinladungAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -210,7 +210,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
 export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteEinladungAction", async () => {
+  return runAdminMutation("deleteEinladungAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -243,7 +243,7 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
 export async function previewEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
-  return runAdminMutation("previewEinladungVersandAction", async () => {
+  return runAdminMutation("previewEinladungVersandAction", { readOnly: true }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -277,7 +277,7 @@ export async function previewEinladungVersandAction(
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
-  return runAdminMutation("postEinladungVersandAction", async () => {
+  return runAdminMutation("postEinladungVersandAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -306,14 +306,17 @@ export async function postEinladungVersandAction(
        https://resend.com/docs/api-reference/rate-limit.md on 2026-09-21, which answers 429 over
        it), and a season of sixteen clubs fanned out at once would ask for about forty-eight. */
     for (const zeile of versandOperation.zeilen) {
-      const { team_id, team_name, uebersprungen, einladung_id, token, ersetzt_link } = zeile;
+      const { team_id, team_name, uebersprungen, einladung_id, token, ersetzt_link, hatte_link } = zeile;
 
       if (uebersprungen !== null || einladung_id === null || token === null) {
         zeilen.push({
           team_id: team_id,
           team_name: team_name,
           uebersprungen: uebersprungen,
-          ersetzt_link: false,
+          // The endpoint's own values, never a constant here: false on every skip, and on a row of
+          // unknown outcome the link that commit may have revoked.
+          ersetzt_link: ersetzt_link,
+          hatte_link: hatte_link,
           zugestellt: [],
           unerreichbar: [],
           zurueckgehalten: [],
@@ -339,6 +342,7 @@ export async function postEinladungVersandAction(
         team_name: team_name,
         uebersprungen: null,
         ersetzt_link: ersetzt_link,
+        hatte_link: hatte_link,
         zugestellt: outcome.delivered,
         unerreichbar: outcome.unreachable,
         // Carried for the reason the single press reads it: outside production every address is

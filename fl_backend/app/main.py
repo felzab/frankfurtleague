@@ -38,7 +38,7 @@ from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
-from app.core.exception_handlers import register_exception_handlers
+from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
@@ -96,6 +96,8 @@ KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 UNGUARDED_TIER = "none"
 
+STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
+
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     for entry in app.routes:
@@ -119,6 +121,16 @@ def publish_key_tiers(app: FastAPI) -> None:
         # Joined rather than picked: no single key satisfies two guards, so a value equal to no
         # declared tier fails the comparison rather than naming one of the two as the answer.
         route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
+
+
+def publish_stores_nothing(app: FastAPI) -> None:
+    for route in api_routes(app):
+        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
+        # `true`, or the query flag under which it holds: the frontend marks each call it makes to
+        # such an operation a read, and is compared against this (`docs/backend/spec.md :: I327`).
+        declared = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
+        if declared is not None:
+            route.openapi_extra = {**(route.openapi_extra or {}), STORES_NOTHING_EXTENSION: declared}
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -166,5 +178,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so an extension set afterwards never reaches a reader.
     publish_key_tiers(app)
+    publish_stores_nothing(app)
 
     return app

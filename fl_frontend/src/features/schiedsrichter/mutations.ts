@@ -87,7 +87,7 @@ export async function postSchiedsrichterBestaetigungAnsicht(
   return apiClient<FLSchiedsrichterBestaetigungAnsichtResponse>(
     "/schiedsrichter/bestaetigung/ansicht",
     FLSchiedsrichterBestaetigungAnsichtResponseSchema,
-    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
   );
 }
 

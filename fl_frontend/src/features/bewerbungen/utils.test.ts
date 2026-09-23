@@ -385,6 +385,8 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
     endpoint: "/bewerbungen",
+    method: "POST",
+    readOnly: false,
     traceId: "0123456789abcdef",
   });
 

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
@@ -28,6 +29,7 @@ from app.api.registrierungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
@@ -45,7 +47,12 @@ router = APIRouter(
 _PERSONS_READ = 8
 
 
-@router.post("/ansicht", response_model=FLRegistrierungBestaetigungAnsichtResponse, summary="What one registration confirmation link opens")
+@router.post(
+    "/ansicht",
+    response_model=FLRegistrierungBestaetigungAnsichtResponse,
+    summary="What one registration confirmation link opens",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLRegistrierungBestaetigungAnsichtPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
@@ -164,6 +171,7 @@ async def post_bestaetigung(
                 today=today,
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # The payload's own three rather than the updated document's: this answer is what the page

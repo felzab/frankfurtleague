@@ -18,8 +18,13 @@ export type EinladungVersandErgebnis = {
   team_id: string;
   team_name: string;
   uebersprungen: FLEinladungVersandGrund | null;
-  /** Carried through from the endpoint's own row: which teams DID lose a link they already held. */
+  /** The endpoint's own row: a team whose link this press replaced, or on an unknown-outcome row may have replaced. */
   ersetzt_link: boolean;
+  /**
+   * Whether the team held a live link when the press read it, which only a failed row's sentence
+   * reads; `null` where the press failed before reading it.
+   */
+  hatte_link: boolean | null;
   /** Empty outside `production`, where every send is withheld (`docs/frontend/spec.md :: I228`). */
   zugestellt: readonly string[];
   unerreichbar: readonly string[];

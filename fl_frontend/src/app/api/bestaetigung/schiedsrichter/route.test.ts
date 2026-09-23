@@ -73,6 +73,8 @@ const aRefusal = (statusCode: number, serverErrorCode: string) =>
     statusCode,
     serverErrorCode,
     endpoint: "/schiedsrichter/bestaetigung",
+    method: "POST",
+    readOnly: false,
     traceId: "0",
   });
 

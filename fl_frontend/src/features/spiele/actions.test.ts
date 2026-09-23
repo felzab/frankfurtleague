@@ -44,6 +44,8 @@ function sharedAnswer(serverErrorCode: string): string {
     message: "conflict",
     url: "http://backend:8000/api/v0/spiele/x",
     endpoint: "/spiele/{spiel_id}",
+    method: "PATCH",
+    readOnly: false,
     traceId: "ab".repeat(16),
     statusCode: 409,
     serverErrorCode,

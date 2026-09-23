@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
@@ -28,6 +29,7 @@ from app.api.schiedsrichter.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import SCHIEDSRICHTER_MIN_AGE_YEARS
 
@@ -40,7 +42,12 @@ router = APIRouter(
 )
 
 
-@router.post("/ansicht", response_model=FLSchiedsrichterBestaetigungAnsichtResponse, summary="What one Schiedsrichter confirmation link opens")
+@router.post(
+    "/ansicht",
+    response_model=FLSchiedsrichterBestaetigungAnsichtResponse,
+    summary="What one Schiedsrichter confirmation link opens",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLSchiedsrichterBestaetigungAnsichtPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -137,6 +144,7 @@ async def post_bestaetigung(
                 today=today,
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # Read off the document the filter found rather than the update's echo: the echo carries the

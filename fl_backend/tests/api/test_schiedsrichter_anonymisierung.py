@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
@@ -441,6 +441,7 @@ async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) 
         collection=database[Collection.SPIELE],
         db_filter={"_id": spiel_id},
         update={"$set": {"uhrzeit": A_RESCHEDULED_TIME}},
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -1057,6 +1058,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_emptied_too(mongo_replica_set
                     }
                 }
             },
+            return_document=ReturnDocument.BEFORE,
         )
         await call_anonymisation(database, client)
 

@@ -28,9 +28,18 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLEinladungAnsichtResponse } from "../../schemas";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAntwort = { success: true } | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: "ungueltig" };
+type RegistrierungAntwort =
+  { success: true } | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: "ungueltig"; outcome?: "unknown" };
 
 const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche es erneut.";
+
+/**
+ * A second press is the repair where the first may have landed, the write refusing nothing on the
+ * strength of a pending row; the first, never confirmed, lapses on the registration clock.
+ */
+const REGISTRIERUNG_UNKLAR =
+  "Schick die Registrierung noch einmal ab. Ist die erste doch angekommen, löscht sie sich ohne Bestätigung nach " +
+  `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
@@ -94,6 +103,12 @@ export function RegistrierungFormPanel({
       const antwort = gesendet.body;
 
       if (!antwort.success) {
+        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: REGISTRIERUNG_UNKLAR });
+          return;
+        }
+
         // The invite died between the open and the press: the answer is the whole page, never a toast.
         if (antwort.zustand !== undefined) {
           onLinkTot();

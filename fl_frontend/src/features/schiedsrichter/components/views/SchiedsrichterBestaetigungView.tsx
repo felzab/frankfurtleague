@@ -41,7 +41,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
@@ -264,7 +264,7 @@ function antwortPayload(token: string, entwurf: Entwurf): FLSchiedsrichterBestae
 
 type BestaetigungAntwort =
   | ({ success: true } & Omit<Gespeichert, "vorname">)
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: SchiedsrichterLinkZustand };
+  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: SchiedsrichterLinkZustand; outcome?: "unknown" };
 
 /**
  * **The acknowledgement is the press, not a switch**: the five points above the button say what the
@@ -323,6 +323,13 @@ function SchiedsrichterFormPanel({
     const antwort = gesendet.body;
 
     if (!antwort.success) {
+      // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
+      // sentence is an administrator's repair, and a reload of this page has lost its token.
+      if (antwort.outcome === "unknown") {
+        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+        return;
+      }
+
       // The link died between the open and the press: the answer is the panel, never a toast.
       if (antwort.zustand !== undefined) {
         onAbschluss({ zustand: antwort.zustand });

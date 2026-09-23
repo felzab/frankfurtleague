@@ -22,6 +22,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -44,6 +45,7 @@ import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
+import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
@@ -232,35 +234,39 @@ export function AdminSpielerEditForm({
       const transferTouched = isChanged("team_id");
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
-      const failedNotes: string[] = [];
+      const failures: ActionFailure[] = [];
 
       // Person half first: it cannot depend on the squad half.
       if (personDirty) {
-        const res = await patchSpielerAction(personPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSpielerAction(personPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Personendaten gespeichert.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error);
+          failures.push(res);
         }
       }
 
       if (saisonDirty) {
-        const res = await patchSaisonSpielerAction(saisonPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSaisonSpielerAction(saisonPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Kadereintrag gespeichert.");
           if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error);
+          failures.push(res);
         }
       }
 
-      if (failedNotes.length > 0) {
+      if (failures.length > 0) {
         setSubmitFieldErrors(collectedErrors, { spieler: personPayload, saisonSpieler: saisonPayload });
-        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
-        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
-          description: [...savedParts, ...failedNotes].join(" "),
+        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read. One half
+        // of unknown outcome makes the whole press one, whatever the other half answered.
+        appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
+          error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+          outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
         });
         return;
       }

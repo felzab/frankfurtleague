@@ -67,8 +67,8 @@ export interface RaisedToast {
   readonly variant: string;
   readonly title: string;
   readonly description: string | undefined;
-  /** Everything else the call passed, which is where an undo offer keeps its own `onPress`. */
-  readonly options: { description?: string; actionProps?: { onPress?: () => void } } | undefined;
+  /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
+  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: "unknown" } | undefined;
 }
 
 const TOAST_MODULE = "/src/shared/utils/appToast.ts";
@@ -98,16 +98,18 @@ export function doubleToasts(): { raised: RaisedToast[] } {
   const bus = `__flToastDouble${String((toastsRegistered += 1))}`;
   Reflect.set(globalThis, bus, raised);
 
-  // `close` and `clear` stay inert: they raise nothing, and recording them would move the index every
-  // case reading `raised` by position depends on.
+  // `close` and `clear` stay inert, recording them moving every index `raised` is read by; `failure`
+  // records its danger under the SITE's title, which title an unknown outcome swaps in being the real
+  // module's own case.
   const source = `const raise = (variant) => (title, options) => {
   globalThis.${bus}.push({ variant, title, description: options?.description, options });
   return String(globalThis.${bus}.length);
 };
+const fail = (title, failure, options) => raise("danger")(title, { ...options, description: failure?.error, outcome: failure?.outcome });
 const inert = () => undefined;
 export const UNDO_TIMEOUT_MS = 1;
 export const appToast = { ${toastMembers()
-    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : `raise("${name}")`}`)
+    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : name === "failure" ? "fail" : `raise("${name}")`}`)
     .join(", ")} };`;
 
   registerHooks({

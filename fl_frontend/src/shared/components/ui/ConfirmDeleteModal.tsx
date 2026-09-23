@@ -82,9 +82,7 @@ export function ConfirmDeleteModal({
       const res = await onConfirm();
 
       if (!res.success) {
-        appToast.danger(failureMessage, {
-          description: res.error,
-        });
+        appToast.failure(failureMessage, res);
         return;
       }
 

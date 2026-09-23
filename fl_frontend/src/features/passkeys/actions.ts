@@ -32,7 +32,7 @@ const BESTAETIGUNG_ABGELAUFEN = "Die Bestätigung mit dem Passkey ist abgelaufen
 const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
 export async function readPasskeysAction(): Promise<QueryResult<{ passkeys: PasskeyEintrag[]; kannHinzufuegen: boolean }>> {
-  return runAdminMutation("readPasskeysAction", async () => {
+  return runAdminMutation("readPasskeysAction", { readOnly: true }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -56,7 +56,7 @@ export async function readPasskeysAction(): Promise<QueryResult<{ passkeys: Pass
 }
 
 export async function removePasskeyAction(id: string): Promise<ActionResult> {
-  return runAdminMutation("removePasskeyAction", async () => {
+  return runAdminMutation("removePasskeyAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

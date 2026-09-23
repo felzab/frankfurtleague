@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.spielorte.schemas import (
@@ -76,6 +77,7 @@ async def patch_spielort(
             db_filter={"_id": spielort_id},
             update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSpielort(**updated_document_raw)
 

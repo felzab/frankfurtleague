@@ -618,6 +618,8 @@ describe("POST /api/mail/zustellung", () => {
         url: "http://backend:8000",
         statusCode: 404,
         endpoint: "/bewerbungen/zustellung",
+        method: "POST",
+        readOnly: false,
         traceId: "t".repeat(32),
       });
     };
@@ -631,7 +633,14 @@ describe("POST /api/mail/zustellung", () => {
      is lost for good, which reads on the page exactly like a message that arrived. */
   it("answers 503 where the backend could not be reached", async () => {
     recorders.__flZustellungAnswer = () => {
-      throw new APINetworkError({ message: "Request failed.", url: "http://backend:8000", traceId: "t".repeat(32), isTimeout: false });
+      throw new APINetworkError({
+        message: "Request failed.",
+        url: "http://backend:8000",
+        method: "POST",
+        readOnly: false,
+        traceId: "t".repeat(32),
+        isTimeout: false,
+      });
     };
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
@@ -647,6 +656,8 @@ describe("POST /api/mail/zustellung", () => {
         url: "http://backend:8000",
         statusCode: 500,
         endpoint: "/bewerbungen/zustellung",
+        method: "POST",
+        readOnly: false,
         traceId: "t".repeat(32),
       });
     };
@@ -658,7 +669,14 @@ describe("POST /api/mail/zustellung", () => {
      the whole line, so a field added later cannot reopen it. */
   it("names no recipient and no application on any line it writes", async () => {
     recorders.__flZustellungAnswer = () => {
-      throw new APINetworkError({ message: "Request failed.", url: "http://backend:8000", traceId: "t".repeat(32), isTimeout: false });
+      throw new APINetworkError({
+        message: "Request failed.",
+        url: "http://backend:8000",
+        method: "POST",
+        readOnly: false,
+        traceId: "t".repeat(32),
+        isTimeout: false,
+      });
     };
 
     await answerTo(signed(JSON.stringify(eventFor("email.bounced", { bounce: { type: "Permanent" } }))));

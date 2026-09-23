@@ -21,6 +21,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
@@ -1427,6 +1428,29 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
       );
       unmount();
     }
+  });
+
+  /* The route marks a write whose commit went unanswered, and its sentence is the administrator's
+     reload-and-check, which a page whose token is gone from the address cannot follow. */
+  it("titles an answer of unknown outcome as unclear, and tells the visitor to reopen the link", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" })),
+      ),
+    );
+    const { user, unmount } = renderBestaetigung();
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.deepEqual(
+      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    );
+    unmount();
   });
 });
 

@@ -78,7 +78,7 @@ export function AdminBewerbungAblehnenSection({
         const fieldError = res.fieldErrors?.grund ?? null;
         setGrundError(fieldError);
 
-        if (fieldError === null) appToast.danger("Bewerbung nicht abgelehnt", { description: res.error });
+        if (fieldError === null) appToast.failure("Bewerbung nicht abgelehnt", res);
         return;
       }
 
