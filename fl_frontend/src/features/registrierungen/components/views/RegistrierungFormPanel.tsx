@@ -32,12 +32,10 @@ type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: fal
 const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche es erneut.";
 
 /**
- * A second press is the repair where the first may have landed, the write refusing nothing on the
- * strength of a pending row; the first, never confirmed, lapses on the registration clock.
+ * A second press is safe from this panel alone, which holds the key the first one carried
+ * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const REGISTRIERUNG_UNKLAR =
-  "Schick die Registrierung noch einmal ab. Ist die erste doch angekommen, löscht sie sich ohne Bestätigung nach " +
-  `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
+const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
@@ -61,6 +59,8 @@ export function RegistrierungFormPanel({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
+  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
+  const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   const [isEingereicht, setIsEingereicht] = useState(false);
 
   const emailHinweisId = useId();
@@ -87,13 +87,14 @@ export function RegistrierungFormPanel({
     const payload = registrierungPayload(draft, token);
 
     startTransition(async () => {
-      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload);
+      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
         appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
-          description: gesendet.error,
+          // Every arm that may have landed gives the one step the outcome-unknown answer gives.
+          description: gesendet.wroteNothing ? gesendet.error : REGISTRIERUNG_UNKLAR,
         });
         return;
       }
@@ -107,6 +108,11 @@ export function RegistrierungFormPanel({
           return;
         }
 
+        // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
+        // the corrected address is a new registration. A sentence alone keeps its replay
+        // (`docs/frontend/spec.md :: I348`).
+        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
         // The invite died between the open and the press: the answer is the whole page, never a toast.
         if (antwort.zustand !== undefined) {
           onLinkTot();
@@ -118,7 +124,8 @@ export function RegistrierungFormPanel({
           { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
           { registrierung: payload },
           {
-            raise: (shown) => appToast.failure("Registrierung nicht abgeschickt", shown),
+            raise: (shown) =>
+              appToast.failure(antwort.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt", shown),
           },
         );
         return;

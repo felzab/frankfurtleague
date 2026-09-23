@@ -344,9 +344,6 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
 describe("what the two public pages tell a pupil whose write may have landed", () => {
   const UNKLAR = JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
 
-  const unklar = () =>
-    raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description] as [string, string | undefined]);
-
   it("titles a registration of unknown outcome as unclear, and names the second press as safe", async () => {
     raised.length = 0;
     const user = userEvent.setup();
@@ -360,12 +357,8 @@ describe("what the two public pages tell a pupil whose write may have landed", (
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
 
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
-    assert.deepEqual(unklar(), [
-      [
-        "Unklar, ob es bei uns angekommen ist",
-        "Schick die Registrierung noch einmal ab. Ist die erste doch angekommen, löscht sie sich ohne Bestätigung nach " +
-          `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`,
-      ],
+    assert.deepEqual(failureToasts(), [
+      ["Unklar, ob es bei uns angekommen ist", "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht."],
     ]);
   });
 
@@ -383,7 +376,7 @@ describe("what the two public pages tell a pupil whose write may have landed", (
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
 
     await screen.findByRole("button", { name: /Registrierung bestätigen/ });
-    assert.deepEqual(unklar(), [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
+    assert.deepEqual(failureToasts(), [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
   });
 });
 
@@ -415,6 +408,26 @@ describe("what the two public pages say about a refusal no box of theirs can tak
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
 
     await waitFor(() => assert.deepEqual(failureToasts(), [["Registrierung nicht abgeschickt", EIGENER_SATZ]]));
+  });
+
+  /* A repeated press whose details changed is refused, yet the first registration stands: titled
+     „nicht abgeschickt“, the toast would send the pupil to register a second time. */
+  it("titles the refusal of a repeated press as arrived, over the answer's own sentence", async () => {
+    raised.length = 0;
+    const user = userEvent.setup();
+    const SCHON_DA = "Deine Registrierung ist schon angekommen.";
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: false, error: SCHON_DA, schonAngekommen: true }), { status: 200 })),
+    );
+
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+
+    await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
+    await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
+    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
+    await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+
+    await waitFor(() => assert.deepEqual(failureToasts(), [["Registrierung schon angekommen", SCHON_DA]]));
   });
 
   it("puts the confirmation's own sentence under the confirmation's title", async () => {

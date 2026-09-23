@@ -1,7 +1,10 @@
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Header
+from pydantic import UUID4
+from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
@@ -20,21 +23,27 @@ from app.api.bewerbungen.services import (
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
+    build_schluessel_filter,
+    build_wiederholung_filter,
     compose_bestaetigungen,
     compose_kontakte,
+    compose_wiederholung_update,
+    find_abweichender_fingerabdruck_refusal,
     find_already_entered_refusal,
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
     mint_token,
+    payload_fingerabdruck,
     recorded_window,
     saison_nimmt_bewerbungen_an,
 )
 from app.core.config import API_VERSION
-from app.core.crud import post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
+    DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
     TeamsCollection,
@@ -58,6 +67,15 @@ router = APIRouter(
 # triage's (`app/api/bewerbungen/admin_router.py`).
 SUBMITTED = "eingereicht"
 
+# What a replay reads of the application its key found: what the answer echoes and the hashes the
+# filter compares, and nothing about a person.
+WIEDERHOLUNG_PROJECTION = [
+    "saison_id",
+    "eingereicht_am",
+    "bestaetigungsfrist",
+    "idempotenz_fingerabdruck",
+    *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_SEATS),
+]
 
 # What a season read takes on this tier: the window, and the status judging it, never served.
 # `docs/backend/spec.md :: I47` withholds a `future` season, as one taking applications is;
@@ -223,6 +241,44 @@ async def get_trikotfarben(
     return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, vergeben=assigned_trikot_farben(stored=stored))
 
 
+async def _answer_as_the_first(
+    *, bewerbungen_collection: AsyncCollection, stored: Mapping[str, Any], fingerabdruck: str, today: str, session: AsyncClientSession
+) -> FLPostBewerbungResponse:
+    """The answer a stored key gets: the application it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
+
+    refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
+
+    tokens: FLBewerbungBestaetigungTokens | None = None
+    db_filter = build_wiederholung_filter(bewerbung_raw=stored, today=today)
+
+    if db_filter is not None:
+        minted = {seat: mint_token() for seat in KONTAKT_SEATS}
+        try:
+            await patch_one_in_db(
+                collection=bewerbungen_collection,
+                db_filter=db_filter,
+                update=compose_wiederholung_update(
+                    hashes={seat: token_hash for seat, (_, token_hash) in minted.items()}, bestaetigungen=stored.get("bestaetigungen")
+                ),
+                session=session,
+                # `AFTER` would add a re-read nothing here uses.
+                return_document=ReturnDocument.BEFORE,
+            )
+            tokens = FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in minted.items()})
+        except DocumentNotFoundException:
+            # The filter is the judgement: an application whose state holds its links back matches
+            # nothing, and this answer hands none.
+            tokens = None
+
+    return FLPostBewerbungResponse(
+        created_id=stored["_id"],
+        saison_id=str(stored["saison_id"]),
+        eingereicht_am=stored["eingereicht_am"],
+        bestaetigungen=tokens,
+        bestaetigungsfrist=stored["bestaetigungsfrist"],
+    )
+
+
 @router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung")
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
@@ -230,6 +286,11 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    db: DBClient,
+    # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
+    # visitor's own press is then refused as a changed replay.
+    # Optional, so a page loaded before the form sent one still submits, unprotected.
+    idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
 ) -> FLPostBewerbungResponse:
     """
@@ -239,78 +300,107 @@ async def post_bewerbung(
     scope, source and date -- is written here and never taken off the payload. The three raw tokens are answered
     for the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes
     they ever exist.
+
+    An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
+    application it holds and stores none: fresh links where no message to any seat is known to have
+    reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
     """
 
-    # The season first, so a submission arriving after the deadline is refused before anything about
-    # the applicant is looked up. The window is read under the same projection the public GET uses.
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION
-    )
-    refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
+    schluessel = None if idempotency_key is None else str(idempotency_key)
+    fingerabdruck = payload_fingerabdruck(bewerbung_data)
 
-    # Then who is applying, because the two branches below judge different things.
-    refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
+    async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
+        """The replay or the judged insert, in one transaction: either write is the request's only one (`docs/backend/spec.md :: I52`)."""
 
-    # Branched on `schule` rather than on `team_id`, so the narrowing the shorthand read needs is one
-    # the type checker can follow: the refusal above has already made the two branches exclusive.
-    if (schule := bewerbung_data.schule) is not None:
-        # Asked of a NEW school alone: a picked club already holds its own shorthand, and refusing it
-        # for that would make applying impossible.
-
-        # NO `inactive_since` term: `uniq_shorthand` spans retired clubs, so narrowing this to live
-        # ones would pass a submission here that acceptance then fails on a duplicate key.
-        taken = await teams_collection.count_documents({"shorthand": schule.shorthand}, limit=1)
-        refuse(find_shorthand_refusal(taken=taken > 0))
-    else:
-        # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
-        # `REQ-BEWERBUNG-006` rather than answering the 404 a miss would raise.
-        team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1})
-        refuse(find_picked_club_refusal(team_raw=team_raw))
-
-        entered = await saison_teams_collection.count_documents(
-            {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1
+        # Before every judgement: a replay answers what the first request did, whatever has closed since.
+        stored = (
+            None
+            if schluessel is None
+            else await bewerbungen_collection.find_one(build_schluessel_filter(schluessel=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
         )
-        refuse(find_already_entered_refusal(entered=entered > 0))
+        if stored is not None:
+            return await _answer_as_the_first(
+                bewerbungen_collection=bewerbungen_collection, stored=stored, fingerabdruck=fingerabdruck, today=today, session=session
+            )
 
-    # Minted here rather than in the document literal below, so the raw half reaches the response
-    # and the hashed half the database, and the two never sit in one structure.
-    tokens = {seat: mint_token() for seat in KONTAKT_SEATS}
-    bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        # The season first, so a submission arriving after the deadline is refused before anything about
+        # the applicant is looked up. The window is read under the same projection the public GET uses.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION, session=session
+        )
+        refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
-    # Every refusal is behind us, so the write follows with nothing left to judge. No transaction:
-    # one insert into one collection, and the uniqueness the checks narrow is held at acceptance.
-    created = await post_one_to_db(
-        collection=bewerbungen_collection,
-        document={
-            "saison_id": bewerbung_data.saison_id,
-            "eingereicht_am": today,
-            "status": SUBMITTED,
-            # Written EXPLICITLY, both of them: `required` in the `$jsonSchema` means the key is
-            # present, so an omitted null is a validator rejection rather than a stored null.
-            "team_id": bewerbung_data.team_id,
-            "schule": None if schule is None else schule.model_dump(mode="json"),
-            "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
-            "trikot": bewerbung_data.trikot.model_dump(mode="json"),
-            "kader": bewerbung_data.kader.model_dump(mode="json"),
-            # Written explicitly for `wunschgegner`'s reason.
-            "stufengroesse": bewerbung_data.stufengroesse,
-            # Written even where the applicant named nobody, though the validator does not require
-            # it: every application this endpoint creates then carries the key, and only the ones
-            # stored before the field lack it.
-            "wunschgegner": bewerbung_data.wunschgegner,
-            # Null until the triage decides, which is what `status == "eingereicht"` claims.
-            "entscheidung": None,
-            # The deadline and the three hashes, so the sweep and the links have something to
-            # judge; every application stored before this key carries none and is exempt from both.
-            "bestaetigungsfrist": bestaetigungsfrist,
-            "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
-        },
-    )
+        # Then who is applying, because the two branches below judge different things.
+        refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
 
-    return FLPostBewerbungResponse(
-        created_id=created.inserted_id,
-        saison_id=bewerbung_data.saison_id,
-        eingereicht_am=today,
-        bestaetigungen=FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in tokens.items()}),
-        bestaetigungsfrist=bestaetigungsfrist,
-    )
+        # Branched on `schule` rather than on `team_id`, so the narrowing the shorthand read needs is one
+        # the type checker can follow: the refusal above has already made the two branches exclusive.
+        if (schule := bewerbung_data.schule) is not None:
+            # Asked of a NEW school alone: a picked club already holds its own shorthand, and refusing it
+            # for that would make applying impossible.
+
+            # NO `inactive_since` term: `uniq_shorthand` spans retired clubs, so narrowing this to live
+            # ones would pass a submission here that acceptance then fails on a duplicate key.
+            taken = await teams_collection.count_documents({"shorthand": schule.shorthand}, limit=1, session=session)
+            refuse(find_shorthand_refusal(taken=taken > 0))
+        else:
+            # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
+            # `REQ-BEWERBUNG-006` rather than answering the 404 a miss would raise.
+            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
+            refuse(find_picked_club_refusal(team_raw=team_raw))
+
+            entered = await saison_teams_collection.count_documents(
+                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
+            )
+            refuse(find_already_entered_refusal(entered=entered > 0))
+
+        # Minted here rather than in the document literal below, so the raw half reaches the response
+        # and the hashed half the database, and the two never sit in one structure.
+        tokens = {seat: mint_token() for seat in KONTAKT_SEATS}
+        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+
+        # Every refusal is behind us, so the write follows with nothing left to judge. The uniqueness the
+        # checks narrow is held at acceptance.
+        created = await post_one_to_db(
+            collection=bewerbungen_collection,
+            document={
+                "saison_id": bewerbung_data.saison_id,
+                "eingereicht_am": today,
+                "status": SUBMITTED,
+                # Written EXPLICITLY, both of them: `required` in the `$jsonSchema` means the key is
+                # present, so an omitted null is a validator rejection rather than a stored null.
+                "team_id": bewerbung_data.team_id,
+                "schule": None if schule is None else schule.model_dump(mode="json"),
+                "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
+                "trikot": bewerbung_data.trikot.model_dump(mode="json"),
+                "kader": bewerbung_data.kader.model_dump(mode="json"),
+                # Written explicitly for `wunschgegner`'s reason.
+                "stufengroesse": bewerbung_data.stufengroesse,
+                # Written even where the applicant named nobody, though the validator does not require
+                # it: every application this endpoint creates then carries the key, and only the ones
+                # stored before the field lack it.
+                "wunschgegner": bewerbung_data.wunschgegner,
+                # Null until the triage decides, which is what `status == "eingereicht"` claims.
+                "entscheidung": None,
+                # The deadline and the three hashes, so the sweep and the links have something to
+                # judge; every application stored before this key carries none and is exempt from both.
+                "bestaetigungsfrist": bestaetigungsfrist,
+                "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
+                # Left off a keyless press rather than stored null, which the validator's string type refuses.
+                **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
+            },
+            session=session,
+        )
+
+        return FLPostBewerbungResponse(
+            created_id=created.inserted_id,
+            saison_id=bewerbung_data.saison_id,
+            eingereicht_am=today,
+            bestaetigungen=FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in tokens.items()}),
+            bestaetigungsfrist=bestaetigungsfrist,
+        )
+
+    # The key lookup is the transaction's first read: a first press committed before this snapshot is
+    # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
+    async with db.start_session() as session:
+        return await session.with_transaction(store_or_replay)

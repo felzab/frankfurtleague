@@ -508,7 +508,8 @@ class TestWhatAConfirmationWrites:
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
         assert compose_decline_update(seats=("trainer",), today=TODAY) == {
-            "$set": {"kontakte.trainer": None, "bestaetigungen.trainer.abgelehnt_am": TODAY}
+            "$set": {"kontakte.trainer": None, "bestaetigungen.trainer.abgelehnt_am": TODAY},
+            "$unset": {"idempotenz_fingerabdruck": ""},
         }
 
     @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson")])

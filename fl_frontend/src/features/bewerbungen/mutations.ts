@@ -1,4 +1,5 @@
 import { apiClient } from "@/core/api";
+import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
 
 import {
   FLAblehnenBewerbungResponseSchema,
@@ -72,10 +73,11 @@ export async function ablehnenBewerbung({ id, ...fields }: FLAblehnenBewerbungPa
  * Records one school's application, at the base tier as every visitor's write here is: the endpoint
  * is public, and over-declaring the tier succeeds silently.
  */
-export async function postBewerbung(payload: FLPostBewerbungPayload): Promise<FLPostBewerbungResponse> {
+export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLPostBewerbungResponse> {
   return apiClient<FLPostBewerbungResponse>("/bewerbungen", FLPostBewerbungResponseSchema, {
     method: "POST",
     authType: "base",
+    headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey },
     body: JSON.stringify(payload),
   });
 }

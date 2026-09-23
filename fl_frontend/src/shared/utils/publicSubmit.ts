@@ -15,6 +15,11 @@ export type PublicEnvelope = {
    * landed, and `error` then carries the administrator's repair, which no visitor can perform.
    */
   outcome?: "unknown";
+  /**
+   * The refusal saying the first submission under this key stands, with the details it carried: the
+   * form titles it as arrived, since a title saying it was not sent would be false.
+   */
+  schonAngekommen?: true;
 };
 
 /**
@@ -65,18 +70,25 @@ const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
  */
 const KEINE_ANTWORT_VON_UNS = "Die Antwort auf Deine Anfrage kam nicht von uns. Warte einen Moment und versuche es dann noch einmal.";
 
+/** The header a submission's replay key travels in, on both hops (`docs/backend/spec.md :: I346`). */
+export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and
  * the one place that knows which answers are not this application's — a form recognising one itself
  * is a form that can miss one (`docs/frontend/spec.md` §1.3).
  */
-export async function postPublicForm<T extends PublicEnvelope>(endpoint: string, payload: unknown): Promise<PublicAnswer<T>> {
+export async function postPublicForm<T extends PublicEnvelope>(
+  endpoint: string,
+  payload: unknown,
+  { idempotencyKey }: { idempotencyKey?: string } = {},
+): Promise<PublicAnswer<T>> {
   let response: Response;
 
   try {
     response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(idempotencyKey === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey }) },
       body: JSON.stringify(payload),
     });
   } catch {

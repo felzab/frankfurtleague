@@ -2523,11 +2523,30 @@
       },
       "post": {
         "summary": "Submit a Bewerbung",
-        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.",
+        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).",
         "operationId": "post_bewerbung_api_v0_bewerbungen_post",
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid4"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -2770,11 +2789,30 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`).",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid4"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -8370,7 +8408,7 @@
           "stellvertretung"
         ],
         "title": "FLBewerbungBestaetigungTokens",
-        "description": "The three RAW tokens the create minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, the insert logs no image, no read model declares one."
+        "description": "The three RAW tokens the create or its replay minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, and no read model declares one."
       },
       "FLBewerbungBestaetigungen": {
         "properties": {
@@ -12875,7 +12913,14 @@
             "title": "Eingereicht Am"
           },
           "bestaetigungen": {
-            "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "bestaetigungsfrist": {
             "type": "string",
@@ -13001,8 +13046,15 @@
             "title": "Registrierung Id"
           },
           "bestaetigung_token": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bestaetigung Token"
           },
           "frist": {
@@ -13035,7 +13087,7 @@
           "email"
         ],
         "title": "FLPostRegistrierungResponse",
-        "description": "The stored registration and the raw confirmation link, answered here and never again.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
+        "description": "The stored registration and a raw confirmation link, which no read ever answers.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
       },
       "FLPostSaisonPayload": {
         "properties": {

@@ -406,6 +406,14 @@ describe("what a submission's refusal is shown as", () => {
     }
   });
 
+  // The mark the form titles by: the application arrived, so „nicht abgeschickt“ would be false.
+  it("marks the repeated press's refusal as arrived, and no other refusal", () => {
+    assert.equal(refusal("REQ-BEWERBUNG-015")?.schonAngekommen, true);
+    for (const code of ["REQ-BEWERBUNG-004", "REQ-BEWERBUNG-005", "REQ-BEWERBUNG-006", "REQ-BEWERBUNG-007", "REQ-BEWERBUNG-008"]) {
+      assert.equal(refusal(code)?.schonAngekommen, undefined, code);
+    }
+  });
+
   /* A refusal naming a field has to land under the control at fault: as a toast it names a box the
      applicant then has to find, and this form has dozens of them. */
   it("puts each field refusal on the path its own input renders", () => {

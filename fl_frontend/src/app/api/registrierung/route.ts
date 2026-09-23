@@ -7,7 +7,7 @@ import { abgewiesenerVersand, mapRegistrierungSubmitRefusal } from "@/features/r
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { IDEMPOTENCY_KEY_HEADER, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import type { NextRequest } from "next/server";
 
@@ -28,13 +28,20 @@ export async function POST(request: NextRequest) {
 
       let eingang;
       try {
-        eingang = await postRegistrierung(parsed.data);
+        // Passed on as the page sent it, none included: a page loaded before the form sent a key
+        // still submits, and the backend judges the key's shape.
+        eingang = await postRegistrierung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
       } catch (error) {
         const refusal = mapRegistrierungSubmitRefusal(error);
         if (refusal === null) throw error;
 
         return { success: false as const, ...refusal };
       }
+
+      const token = eingang.bestaetigung_token;
+      // A replay whose row is confirmed, or whose link may already be in the inbox, hands none: no live
+      // link for a confirmed row, and no second mail (`docs/backend/spec.md :: I347`).
+      if (token === null) return { success: true as const };
 
       // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
       // production must not mail production links (`docs/frontend/spec.md :: I186`).
@@ -60,7 +67,7 @@ export async function POST(request: NextRequest) {
             teamName: eingang.team,
             saisonId: eingang.saison_id,
             origin: origin,
-            token: eingang.bestaetigung_token,
+            token: token,
             fristTage: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
           }),
       });

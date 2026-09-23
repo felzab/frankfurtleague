@@ -148,4 +148,8 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
     if bestaetigungen:
         cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
 
+        # An application's submission digest was taken over this person's details too, and a hash of
+        # personal data is still personal data (`docs/backend/spec.md :: I346`).
+        return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
+
     return {"$set": cleared}

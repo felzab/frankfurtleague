@@ -172,14 +172,16 @@ class FLPostRegistrierungPayload(BaseModel):
 
 
 class FLPostRegistrierungResponse(BaseAPIResponse):
-    """The stored registration and the raw confirmation link, answered here and never again.
+    """The stored registration and a raw confirmation link, which no read ever answers.
 
     The database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather
     than recovered from any read.
     """
 
     registrierung_id: CustomObjectId
-    bestaetigung_token: CustomNonEmptyString
+    # Null on a replay whose row needs no fresh link (`docs/backend/spec.md :: I347`), and
+    # the caller then mails nothing.
+    bestaetigung_token: CustomNonEmptyString | None
     frist: CustomDateString
     # Both off the invite the token opened, so the confirmation mail addresses the pupil by their
     # team and season without taking either from a body anyone holding the link could type.

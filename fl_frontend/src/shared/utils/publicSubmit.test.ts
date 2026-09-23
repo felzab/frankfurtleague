@@ -194,7 +194,11 @@ describe("where each public form's write is transported", () => {
 
       // The argument is read as any identifier: what this case grades is the call, and a page naming
       // its body something else was being reported as one that spells a write of its own.
-      assert.match(source, /postPublicForm<\w+>\("\/api\/[\w/]+", \w+\)/, `${name}: the write no longer rides the shared helper`);
+      assert.match(
+        source,
+        /postPublicForm<\w+>\("\/api\/[\w/]+", \w+(?:, \{ idempotencyKey: \w+ \})?\)/,
+        `${name}: the write no longer rides the shared helper`,
+      );
       assert.ok(!source.includes('method: "POST"'), `${name}: the form spells a write of its own beside the shared one`);
     }
   });

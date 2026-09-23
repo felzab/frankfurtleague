@@ -87,7 +87,8 @@ export type FLPostRegistrierungPayload = z.infer<typeof FLPostRegistrierungPaylo
  */
 export const FLPostRegistrierungResponseSchema = BaseAPIResponseSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,
-  bestaetigung_token: z.string(),
+  // Null on a replay whose row needs no fresh link, and the handler then mails nothing.
+  bestaetigung_token: z.string().nullable(),
   frist: CustomDateStringSchema,
   email: z.string(),
   // Off the invite the token opened, so the mail addresses a pupil by their team without trusting a

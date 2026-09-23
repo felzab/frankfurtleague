@@ -1,10 +1,11 @@
 import hashlib
+import json
 import secrets
 from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 from typing import Any, Final, cast, get_args
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerbungSaisonbezug, FLKontaktRolle, refuse_age_outside_the_bounds
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
@@ -35,6 +36,7 @@ BEWERBUNG_SEAT_ALREADY_ANSWERED = "REQ-BEWERBUNG-011"
 BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
 BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
 BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
+BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -271,6 +273,100 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
         )
 
     return None
+
+
+# --- The SUBMISSION KEY (`docs/backend/spec.md :: I346`), which the registration's
+# submission takes from here as it takes `mint_token`.
+
+
+def payload_fingerabdruck(payload: BaseModel) -> str:
+    """The digest a replayed key's payload is compared by.
+
+    Over the VALIDATED payload: two spellings the model stores alike, or one body serialised in two
+    key orders, are one request. Keys sorted, so a mapping-typed field cannot reorder it.
+    """
+
+    canonical = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_schluessel_filter(*, schluessel: str) -> Mapping[str, Any]:
+    """The key lookup, carrying the unique index's partial term.
+
+    An equality alone does not imply `$type`, so without the term the planner scans the whole collection.
+    """
+
+    return {"idempotenz_schluessel": {"$eq": schluessel, "$type": "string"}}
+
+
+def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+    """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
+
+    Refused rather than answered as the stored one, which would tell the applicant a changed field
+    had arrived.
+    """
+
+    if gespeichert == fingerabdruck:
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_SCHLUESSEL_ABWEICHEND,
+        message="this submission key already carries an application sent with other details; the first one stands as it was sent",
+    )
+
+
+def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
+    """The state a replay hands fresh links in, as its update's filter; `None` where a seat holds no live entry.
+
+    No seat answered, reminded or on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    """
+
+    block = bewerbung_raw.get("bestaetigungen")
+    entries = {seat: _entry_of(block, seat) for seat in KONTAKT_SEATS}
+
+    terms: dict[str, Any] = {}
+    unerreicht: list[Mapping[str, Any]] = []
+    for seat, entry in entries.items():
+        if entry is None or not isinstance(entry.get("token_hash"), str):
+            return None
+
+        terms[f"bestaetigungen.{seat}.erinnert_am"] = None
+        terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
+
+    # The deadline's own day still takes a link, as `link_is_over` reads it.
+    return {"_id": bewerbung_raw["_id"], "status": "eingereicht", "bestaetigungsfrist": {"$gte": today}, **terms, "$and": unerreicht}
+
+
+# The two states in which no message reached the inbox: the provider refused the address, or never sent
+# to it. `beschwerde` is not one -- that message arrived, and its reader complained about it.
+ZUSTELLUNG_NICHT_ANGEKOMMEN: Final = ("unterdrueckt", "unzustellbar")
+
+
+def zustellung_unerreicht_term(*, pfad: str) -> Mapping[str, Any]:
+    """No message on record under `pfad`, or only one that never arrived: a replay then mails, as the first press would have.
+
+    A refused send left unmailed would answer a receipt promising a mail nobody got.
+    """
+
+    return {"$or": [{pfad: None}, {f"{pfad}.stand": {"$in": list(ZUSTELLUNG_NICHT_ANGEKOMMEN)}}]}
+
+
+def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: Any) -> Mapping[str, Any]:
+    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
+
+    Neither `erinnert_am` nor the deadline moves, a replay being neither a reminder nor a re-send.
+    """
+
+    written: dict[str, Any] = {}
+    for seat, token_hash in hashes.items():
+        entry = _entry_of(bestaetigungen, seat) or {}
+        written[f"bestaetigungen.{seat}.token_hash"] = token_hash
+        written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
+
+    return {"$set": written}
 
 
 def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
@@ -660,7 +756,9 @@ def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, 
         written[f"kontakte.{seat}"] = None
         written[f"bestaetigungen.{seat}.abgelehnt_am"] = today
 
-    return {"$set": written}
+    # The submission's digest was taken over this person's details too, and a hash of personal data is
+    # still personal data. A replay then meets the refusal of other details, which stays true.
+    return {"$set": written, "$unset": {"idempotenz_fingerabdruck": ""}}
 
 
 def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:

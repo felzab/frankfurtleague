@@ -58,7 +58,7 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
  */
 export function mapRegistrierungSubmitRefusal(
   error: unknown,
-): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "ungueltig" } | null {
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "ungueltig"; schonAngekommen?: true } | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
   // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
@@ -83,6 +83,16 @@ export function mapRegistrierungSubmitRefusal(
         error: buildRefusal({
           reason: "Der Kader dieses Teams ist voll",
           repair: "Wende Dich an Dein Team, wenn Du trotzdem mitspielen sollst",
+        }),
+      };
+    // The press this form repeated stands, under the details first sent: a banner rather than a
+    // field, since whichever box changed since then is not the one at fault.
+    case "REQ-REGISTRIERUNG-011":
+      return {
+        schonAngekommen: true,
+        error: buildRefusal({
+          reason: "Deine Registrierung ist schon angekommen, mit den Angaben, die Du zuerst abgeschickt hast",
+          repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and

@@ -6,7 +6,6 @@ import { CircleCheck } from "@gravity-ui/icons";
 
 import { Button, Form } from "@heroui/react";
 
-import { KONTAKT_EMAIL } from "@/core/brand";
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
@@ -49,10 +48,10 @@ type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: bool
 const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
 
 /**
- * Never a second press where the first may have landed: a second application for one school is a
- * pair the triage has to untangle, and its three people would be mailed twice.
+ * A second press is safe from this page alone, which holds the key the first one carried
+ * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const BEWERBUNG_UNKLAR = `Schick die Bewerbung nicht noch einmal ab, sondern frag uns unter ${KONTAKT_EMAIL}, ob sie angekommen ist.`;
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
 
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.
@@ -98,6 +97,8 @@ export function BewerbungForm({
   const [isPending, startTransition] = useTransition();
 
   const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
+  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
+  const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   const [isEingereicht, setIsEingereicht] = useState(false);
   /**
    * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
@@ -245,13 +246,14 @@ export function BewerbungForm({
     const payload = bewerbungPayload(draft);
 
     startTransition(async () => {
-      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload);
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
         appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
-          description: gesendet.error,
+          // Every arm that may have landed gives the one step the outcome-unknown answer gives.
+          description: gesendet.wroteNothing ? gesendet.error : BEWERBUNG_UNKLAR,
         });
         return;
       }
@@ -265,12 +267,18 @@ export function BewerbungForm({
           return;
         }
 
+        // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
+        // nothing, or the refusal saying the first details stand, and either keeps its replay
+        // (`docs/frontend/spec.md :: I348`).
+        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
         // The hook owns the press's one toast: none where a field shows the refusal.
         reportSubmitFailure(
           { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
           { bewerbung: payload },
           {
-            raise: (shown) => appToast.failure("Bewerbung nicht abgeschickt", shown),
+            raise: (shown) =>
+              appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
           },
         );
         return;

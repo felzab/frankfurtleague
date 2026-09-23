@@ -519,7 +519,10 @@ def test_the_clearing_names_the_bookkeeping_only_where_told_to():
     """The pure half: a row holding no block, an application stored before the flow among them, gets no key created."""
 
     assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
-    assert build_clearing_update(("trainer",), bestaetigungen=True) == {"$set": {"kontakte.trainer": None, "bestaetigungen.trainer": None}}
+    assert build_clearing_update(("trainer",), bestaetigungen=True) == {
+        "$set": {"kontakte.trainer": None, "bestaetigungen.trainer": None},
+        "$unset": {"idempotenz_fingerabdruck": ""},
+    }
 
 
 @pytest.mark.db

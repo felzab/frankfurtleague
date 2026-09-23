@@ -16,6 +16,7 @@ import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
@@ -40,7 +41,9 @@ export async function POST(request: NextRequest) {
 
       let eingang;
       try {
-        eingang = await postBewerbung(parsed.data);
+        // Passed on as the page sent it, none included: a page loaded before the form sent a key
+        // still submits, and the backend judges the key's shape.
+        eingang = await postBewerbung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
       } catch (error) {
         // The refusal belongs under the field that caused it, not on the error page.
         const refusal = mapBewerbungSubmitRefusal(error);
@@ -58,9 +61,13 @@ export async function POST(request: NextRequest) {
       // No cache to move: no public read holds an application, and both triage reads are uncached
       // (`docs/frontend/spec.md :: I14` leaves the undo handlers the only route-handler invalidators).
 
+      const seats = eingang.bestaetigungen;
+      // A replay whose links may already be in an inbox hands none, and a second mail would ask each
+      // reader twice (`docs/backend/spec.md :: I347`).
+      if (seats === null) return { success: true as const, message: EINGEGANGEN };
+
       const { kontakte } = parsed.data;
       const fristText = formatSpielDatum(eingang.bestaetigungsfrist);
-      const seats = eingang.bestaetigungen;
       // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
       // production must not mail production links (`docs/frontend/spec.md :: I186`).
       const origin = frontend_config.AUTH_URL;

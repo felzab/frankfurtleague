@@ -354,6 +354,14 @@ _BEWERBUNG_ENTSCHEIDUNG = _object(
 # admits it deletes the row.
 _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 
+# The key a public submission is replayed by, and the digest of the payload it first carried
+# (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
+# before the key carries none.
+_IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
+    "idempotenz_schluessel": {"bsonType": "string"},
+    "idempotenz_fingerabdruck": {"bsonType": "string"},
+}
+
 # The registration's own confirmation bookkeeping, and never `_BEWERBUNG_BESTAETIGUNG`: that one
 # declares the decline a contact seat may give, which a pupil's page does not offer, and carries no
 # deadline of its own, the application's sitting on the application.
@@ -770,6 +778,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # it emptied. The erasure's second condition: without it a failed erasure mails
                 # again every hour. Out of `required` for `wunschgegner`'s reason.
                 "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -909,6 +918,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # row seeded without one still stores. Every submission composes it.
                 "bestaetigung": _REGISTRIERUNG_BESTAETIGUNG,
                 "entscheidung": _REGISTRIERUNG_ENTSCHEIDUNG,
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -963,6 +973,22 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "team_id"),
         "one live invite per team per season",
         partial_filter={"widerrufen_am": {"$type": "null"}},
+    ),
+    # `$type` for the reason above: a missing key indexes as null, so without the filter the second
+    # row stored before the key would collide with the first.
+    UniqueIndex(
+        Collection.BEWERBUNGEN,
+        "uniq_bewerbung_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one application per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+    ),
+    UniqueIndex(
+        Collection.REGISTRIERUNGEN,
+        "uniq_registrierung_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one registration per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
     ),
 )
 

@@ -11,7 +11,14 @@ from typing import Any, Final
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, latest_decision_due, one_month_after, season_has_ended
+from app.api.bewerbungen.services import (
+    ZUSTELLUNG_ABGEWIESEN,
+    days_after,
+    latest_decision_due,
+    one_month_after,
+    season_has_ended,
+    zustellung_unerreicht_term,
+)
 
 # The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
@@ -196,6 +203,61 @@ def compose_bestaetigung(*, token_hash: str, today: str, frist: str) -> dict[str
     """
 
     return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "frist": frist}
+
+
+# --- The SUBMISSION KEY, as the application's submission keeps it
+# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`, `docs/backend/spec.md :: I346`).
+
+REGISTRIERUNG_SCHLUESSEL_ABWEICHEND = "REQ-REGISTRIERUNG-011"
+
+
+def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+    """Why this key cannot be replayed, or `None`: it already carries a registration sent with other details.
+
+    Refused rather than answered as the stored one, which would tell the pupil a changed field had
+    arrived.
+    """
+
+    if gespeichert == fingerabdruck:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
+        message="this submission key already carries a registration sent with other details; the first one stands as it was sent",
+    )
+
+
+def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
+    """The state a replay hands a fresh link in, as its update's filter; `None` where the row holds no live hash.
+
+    Unconfirmed, unreminded and not on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    """
+
+    block = registrierung_raw.get("bestaetigung")
+    token_hash = block.get("token_hash") if isinstance(block, Mapping) else None
+    if not isinstance(token_hash, str):
+        return None
+
+    return {
+        "_id": registrierung_raw["_id"],
+        "status": SUBMITTED,
+        "einwilligung.bestaetigt_am": None,
+        # The deadline's own day still takes a link, as `link_is_over` reads it.
+        "bestaetigung.frist": {"$gte": today},
+        "bestaetigung.erinnert_am": None,
+        **zustellung_unerreicht_term(pfad="bestaetigung.zustellung"),
+    }
+
+
+def compose_wiederholung_update(*, token_hash: str, bestaetigung: Any) -> Mapping[str, Any]:
+    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
+
+    Neither `erinnert_am` nor `frist` moves, a replay being neither a reminder nor a re-send.
+    """
+
+    block = bestaetigung if isinstance(bestaetigung, Mapping) else {}
+
+    return {"$set": {"bestaetigung.token_hash": token_hash, "bestaetigung.token_hash_zuvor": block.get("token_hash")}}
 
 
 def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:

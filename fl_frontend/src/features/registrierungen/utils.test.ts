@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { DECLARED_RULES } from "@/shared/testing/refusalRegister.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
@@ -128,12 +129,30 @@ describe("what one refused submission shows", () => {
     }
   });
 
+  /* The first press stands under a repeated key, and no team can edit a pupil's registration, so the
+     repair is the league's address. */
+  it("sends a pupil whose repeated press changed its details to the league", () => {
+    const answered = mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"));
+
+    assert.match(answered?.error ?? "", new RegExp(`schreib uns an ${KONTAKT_EMAIL.replace(/\./g, "\\.")}`));
+    assert.equal(answered?.fieldErrors, undefined);
+  });
+
+  // The mark the panel titles by: the registration arrived, so „nicht abgeschickt“ would be false.
+  it("marks the repeated press's refusal as arrived, and no other refusal", () => {
+    assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"))?.schonAngekommen, true);
+    for (const code of ["REQ-EINLADUNG-003", "REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-008", "REQ-REGISTRIERUNG-009"]) {
+      assert.equal(mapRegistrierungSubmitRefusal(refusal(code))?.schonAngekommen, undefined, code);
+    }
+  });
+
   /* Both directions against the backend's own register: a code the write path raises and this mapper
      does not know falls through to the 409 fallback, which tells a pupil an equivalent entry exists. */
   it("maps every code the write path declares, and no code it does not", () => {
     const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen")).map((rule) => rule.code);
     const mapped = [
       "REQ-EINLADUNG-003",
+      "REQ-REGISTRIERUNG-011",
       "REQ-REGISTRIERUNG-001",
       "REQ-REGISTRIERUNG-002",
       "REQ-REGISTRIERUNG-003",

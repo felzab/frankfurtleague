@@ -12,7 +12,7 @@ const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: 
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flRegCalls.push({ endpoint, method: options.method, body: options.body });
+  globalThis.__flRegCalls.push({ endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) });
   return schema.parse(globalThis.__flRegAnswer(endpoint));
 };`;
 /* The fan-out rather than `core/mail.ts`: what this handler is judged on is how it READS the
@@ -22,7 +22,7 @@ const NOTIFICATIONS = `export const sendZielMail = async (args) => {
   return globalThis.__flRegOutcome();
 };`;
 
-type ApiCall = { endpoint: string; method?: string; body?: string };
+type ApiCall = { endpoint: string; method?: string; body?: string; headers: Headers };
 type SentMail = { operation: string; auftrag: Record<string, unknown>; recipients: string[]; mail: { subject: string; text: string } };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
@@ -153,6 +153,18 @@ describe("the registration handler", () => {
     assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
   });
 
+  /* The same key over other details: the mark titles the press as the first one having arrived, and
+     no box rides with it, so the panel keeps the key that first press is stored under. */
+  it("carries the mark that the first press stands, and no box, on the changed replay's refusal", async () => {
+    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-011");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+    const body = answer.body as { success: boolean; schonAngekommen?: boolean; fieldErrors?: unknown; unplacedError?: unknown };
+
+    assert.deepEqual([body.success, body.schonAngekommen, body.fieldErrors, body.unplacedError], [false, true, undefined, undefined]);
+    assert.deepEqual(mails, []);
+  });
+
   /* A box the form renders is marked there; the team's link stands beside it for any it does not. */
   it("answers a 422 on the box it names, with the team's link beside it", async () => {
     schreibAntwort = () => refusedPayload([bodyField(["email"])], "/registrierungen");
@@ -215,6 +227,30 @@ describe("the registration handler", () => {
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
+    assert.deepEqual(answer.body, { success: true });
+  });
+
+  /* `docs/backend/spec.md :: I346`: the key is the page's, and the backend is what replays on it. */
+  it("passes the page's submission key on to the write, and none where the page sent none", async () => {
+    const KEY = "9c5b94b1-35ad-49bb-b118-8e8fc24abf80";
+
+    await bodyOf(aRequest(gueltigerKoerper, { "Idempotency-Key": KEY }));
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(
+      calls.map((call) => call.headers.get("Idempotency-Key")),
+      [KEY, null],
+    );
+  });
+
+  /* A replay whose row is confirmed, or whose link may already be in the inbox: no live link for a
+     confirmed row, and no second mail over one the pupil may hold. */
+  it("mails nothing and answers the receipt where the write hands no link", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, bestaetigung_token: null });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper, { "Idempotency-Key": "9c5b94b1-35ad-49bb-b118-8e8fc24abf80" }));
+
+    assert.deepEqual(mails, []);
     assert.deepEqual(answer.body, { success: true });
   });
 

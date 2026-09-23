@@ -29,6 +29,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
+    build_wiederholung_filter,
     compose_einwilligung,
     compose_kontakte,
     find_already_entered_refusal,
@@ -36,6 +37,7 @@ from app.api.bewerbungen.services import (
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
+    payload_fingerabdruck,
     saison_nimmt_bewerbungen_an,
     season_has_ended,
     window_is_running,
@@ -247,6 +249,33 @@ class TestTheWindowDecidesWhetherAnApplicationMayArrive:
 
         assert SAISON_NOT_ENDED_FILTER == {"status": {"$ne": "past"}}
         assert (status != SAISON_NOT_ENDED_FILTER["status"]["$ne"]) is not season_has_ended(saison_status=status)
+
+
+class TestWhatTheSubmissionKeyJudges:
+    """The pure halves of `docs/backend/spec.md :: I346`; the replay itself is driven in the execution suite."""
+
+    def test_one_body_serialised_in_two_key_orders_is_one_request(self):
+        """A client's key order is no change to what was sent, so a replay reordered in transit is still a replay."""
+
+        body = submission()
+        reordered = dict(reversed(list(body.items())))
+
+        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(body)) == payload_fingerabdruck(
+            FLPostBewerbungPayload.model_validate(reordered)
+        )
+
+    def test_one_changed_field_is_another_request(self):
+        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(submission())) != payload_fingerabdruck(
+            FLPostBewerbungPayload.model_validate(submission(stufengroesse=91))
+        )
+
+    def test_an_application_whose_seat_was_emptied_takes_no_fresh_links(self):
+        """An erasure nulls the seat's entry, and a filter over it would hand a link to a person who asked to be forgotten."""
+
+        live = {"token_hash": "a" * 64}
+        stored = {"_id": PICKED_OID, "bestaetigungen": {"trainer": live, "ansprechperson": live, "stellvertretung": None}}
+
+        assert build_wiederholung_filter(bewerbung_raw=stored, today=TODAY) is None
 
 
 # The four combinations of (`team_id` set or null) by (`schule` set or null): exactly one of them

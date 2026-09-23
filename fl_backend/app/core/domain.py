@@ -1876,6 +1876,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestCorrectingOneContactAddress",
     ),
     Rule(
+        code="REQ-BEWERBUNG-015",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a submission key already stored is replayed only over the details it was first sent with",
+        implemented_by="app.api.bewerbungen.services.find_abweichender_fingerabdruck_refusal",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheSubmissionKey",
+    ),
+    Rule(
         code="REQ-PURGE-001",
         operation="DELETE /spieler/{spieler_id}/erasure",
         aggregate="Spieler",
@@ -2002,6 +2010,14 @@ RULES: tuple[Rule, ...] = (
         summary="a consent to publishing photographs, video and interviews is taken only from a pupil of the media age",
         implemented_by="app.api.registrierungen.services.find_medien_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheMediaAge",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-011",
+        operation="POST /registrierungen",
+        aggregate="Registrierung",
+        summary="a submission key already stored is replayed only over the details it was first sent with",
+        implemented_by="app.api.registrierungen.services.find_abweichender_fingerabdruck_refusal",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
 )
 

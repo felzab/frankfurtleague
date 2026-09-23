@@ -1,4 +1,5 @@
 import { apiClient } from "@/core/api";
+import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
 
 import {
   FLEinladungAnsichtResponseSchema,
@@ -36,10 +37,14 @@ export async function postEinladungAnsicht(payload: FLEinladungAnsichtPayload): 
 }
 
 /** Records one pupil's registration and mints the confirmation token in the same transaction. */
-export async function postRegistrierung(payload: FLPostRegistrierungPayload): Promise<FLPostRegistrierungResponse> {
+export async function postRegistrierung(
+  payload: FLPostRegistrierungPayload,
+  idempotencyKey: string | null,
+): Promise<FLPostRegistrierungResponse> {
   return apiClient<FLPostRegistrierungResponse>("/registrierungen", FLPostRegistrierungResponseSchema, {
     method: "POST",
     authType: "base",
+    headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey },
     body: JSON.stringify(payload),
   });
 }

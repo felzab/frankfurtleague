@@ -699,10 +699,10 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
 
 
 class FLBewerbungBestaetigungTokens(BaseModel):
-    """The three RAW tokens the create minted, one per seat.
+    """The three RAW tokens the create or its replay minted, one per seat.
 
     This response and the inboxes are the only places a raw token exists: the database holds
-    hashes, the insert logs no image, no read model declares one.
+    hashes, and no read model declares one.
     """
 
     trainer: str
@@ -720,7 +720,9 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     created_id: CustomObjectId
     saison_id: str
     eingereicht_am: CustomDateString
-    bestaetigungen: FLBewerbungBestaetigungTokens
+    # Null on a replay whose application needs no fresh links (`docs/backend/spec.md :: I347`),
+    # and the caller then mails nothing.
+    bestaetigungen: FLBewerbungBestaetigungTokens | None
     # Echoed so the mail the handler sends names the day the links stop working.
     bestaetigungsfrist: CustomDateString
 

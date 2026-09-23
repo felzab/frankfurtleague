@@ -337,7 +337,8 @@ export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
   created_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   eingereicht_am: CustomDateStringSchema,
-  bestaetigungen: FLBewerbungBestaetigungTokensSchema,
+  // Null on a replay whose application needs no fresh links, and the handler then mails nothing.
+  bestaetigungen: FLBewerbungBestaetigungTokensSchema.nullable(),
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSchema>;

@@ -1,5 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { refusedPayloadAnswer } from "@/shared/utils/actionError";
@@ -140,7 +141,9 @@ export const BEWERBUNG_VERALTET = buildRefusal({
  * A submission refusal as what the form should show, or `null` where the code is none of these: a
  * refusal naming a field lands under the control at fault, and the rest reach the applicant as a sentence.
  */
-export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string } | null {
+export function mapBewerbungSubmitRefusal(
+  error: unknown,
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; schonAngekommen?: true } | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
   // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
@@ -177,6 +180,16 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
       return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit. Wähle eine andere aus, wenn Du Dich vertan hast." } };
     case "REQ-BEWERBUNG-008":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
+    // The press this form repeated stands, under the details first sent: a banner rather than a
+    // field, since whichever box changed since then is not the one at fault.
+    case "REQ-BEWERBUNG-015":
+      return {
+        schonAngekommen: true,
+        error: buildRefusal({
+          reason: "Deine Bewerbung ist schon angekommen, mit den Angaben, die Du zuerst abgeschickt hast",
+          repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
     default:
       return null;
   }

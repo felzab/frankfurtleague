@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -19,11 +20,15 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_FENSTER_GESCHLOSSEN,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
+    BEWERBUNG_SCHLUESSEL_ABWEICHEND,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    build_schluessel_filter,
+    compose_decline_update,
     compose_kontakte,
     hash_token,
 )
+from app.api.kontakte.services import build_clearing_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.dependencies import get_germany_now
@@ -186,13 +191,21 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
     return on_the_seed_loop(_run())
 
 
-async def submit(database: AsyncDatabase, **overrides: Any) -> Any:
+# A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
+SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
+
+
+async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
+    """A fresh key per call unless the case names one, so every other case here is a first press."""
+
     return await post_bewerbung(
         bewerbung_data=FLPostBewerbungPayload.model_validate(payload(**overrides)),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        idempotency_key=schluessel or uuid4(),
+        bewerbungen_collection=bewerbungen if bewerbungen is not None else database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        db=database.client,
         today=TODAY,
     )
 
@@ -391,6 +404,277 @@ class TestWhatTheLogRecords:
             assert submitted not in rendered
 
 
+class _HoldsAfterItsLookup:
+    """A second press held between its real key lookup and its insert until the first press has committed.
+
+    Records each lookup's filter and each insert's failure: what the endpoint asked for, and how the
+    server ordered the two.
+    """
+
+    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
+        self._collection = collection
+        self._committed = committed
+        self.lookups = 0
+        self.lookup_filters: list[Any] = []
+        self.insert_failures: list[str] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        query = kwargs.get("filter", args[0] if args else {})
+        if "idempotenz_schluessel" in query:
+            self.lookups += 1
+            self.lookup_filters.append(query)
+            await self._committed.wait()
+
+        return found
+
+    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await self._collection.insert_one(*args, **kwargs)
+        except Exception as failure:
+            self.insert_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
+            raise
+
+
+# What each state writes over a fresh application: every one means a link may already be in an inbox.
+LINK_MAY_BE_OUT = [
+    pytest.param({"kontakte.trainer.einwilligung.bestaetigt_am": TODAY}, id="a seat confirmed"),
+    pytest.param({"bestaetigungen.stellvertretung.abgelehnt_am": TODAY}, id="a seat declined"),
+    pytest.param({"bestaetigungen.trainer.erinnert_am": TODAY}, id="a seat reminded"),
+    pytest.param(
+        {
+            "bestaetigungen.ansprechperson.zustellung": {
+                "nachricht_id": "msg-1",
+                "stand": "angenommen",
+                "grund": None,
+                "am": f"{TODAY}T10:00:00.000Z",
+            }
+        },
+        id="a message on record",
+    ),
+    pytest.param({"status": "abgelehnt"}, id="decided"),
+    pytest.param({"bestaetigungsfrist": "2026-03-31"}, id="past its deadline"),
+    # A message the provider refused reached nobody, while its seat's neighbours were mailed: one
+    # reached seat is enough to hold every link back.
+    pytest.param(
+        {
+            "bestaetigungen.trainer.zustellung": {
+                "nachricht_id": "",
+                "stand": "unzustellbar",
+                "grund": "abgewiesen",
+                "am": f"{TODAY}T10:00:00.000Z",
+            },
+            "bestaetigungen.ansprechperson.zustellung": {
+                "nachricht_id": "msg-1",
+                "stand": "zugestellt",
+                "grund": None,
+                "am": f"{TODAY}T10:00:00.000Z",
+            },
+        },
+        id="one seat refused, another reached",
+    ),
+]
+
+
+class TestTheSubmissionKey:
+    """`docs/backend/spec.md :: I346` and `:: I347`, over the shipped unique index."""
+
+    def test_a_second_press_stores_no_second_application_and_answers_as_the_first(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            first = await submit(database, schluessel=SCHLUESSEL)
+            second = await submit(database, schluessel=SCHLUESSEL)
+
+            return first, second, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        first, second, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored == 1
+        assert (second.created_id, second.saison_id, second.eingereicht_am, second.bestaetigungsfrist) == (
+            first.created_id,
+            first.saison_id,
+            first.eingereicht_am,
+            first.bestaetigungsfrist,
+        )
+
+    def test_a_replay_with_nothing_on_record_hands_fresh_links_and_keeps_the_first_ones_live(self, mongo_replica_set_url: str):
+        """The route died before its mail: the replay is the only way the three links ever go out."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            first = await submit(database, schluessel=SCHLUESSEL)
+            second = await submit(database, schluessel=SCHLUESSEL)
+
+            return first, second, await database[Collection.BEWERBUNGEN].find_one({})
+
+        first, second, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert second.bestaetigungen is not None
+        for seat, raw in second.bestaetigungen.model_dump().items():
+            before = getattr(first.bestaetigungen, seat)
+            assert raw != before
+            assert stored["bestaetigungen"][seat]["token_hash"] == hash_token(raw)
+            assert stored["bestaetigungen"][seat]["token_hash_zuvor"] == hash_token(before)
+            # Neither a reminder nor a re-send: the chase and the deadline stand where the create put them.
+            assert (stored["bestaetigungen"][seat]["verschickt_am"], stored["bestaetigungen"][seat]["erinnert_am"]) == (TODAY, None)
+
+    def test_a_replay_answers_after_the_window_has_closed(self, mongo_replica_set_url: str):
+        """Looked up before every judgement: the first press arrived in time, and its answer does not expire with the window."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            first = await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.offen": False}})
+            second = await submit(database, schluessel=SCHLUESSEL)
+
+            return first.created_id, second.created_id
+
+        first, second = on_a_league(mongo_replica_set_url, body)
+
+        assert first == second
+
+    def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            with pytest.raises(DocumentConflictException) as refused:
+                await submit(database, schluessel=SCHLUESSEL, stufengroesse=91)
+
+            return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_SCHLUESSEL_ABWEICHEND, 1)
+
+    @pytest.mark.parametrize("moved", LINK_MAY_BE_OUT)
+    def test_a_replay_hands_no_link_once_one_may_be_out(self, mongo_replica_set_url: str, moved: Mapping[str, Any]):
+        """No second mail over a link somebody may hold, and the stored row left exactly as it was."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": dict(moved)})
+            before = await database[Collection.BEWERBUNGEN].find_one({})
+            second = await submit(database, schluessel=SCHLUESSEL)
+
+            return second, before, await database[Collection.BEWERBUNGEN].find_one({})
+
+        second, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert second.bestaetigungen is None
+        assert after == before
+
+    @pytest.mark.parametrize(
+        "zustellung",
+        [
+            pytest.param({"nachricht_id": "", "stand": "unzustellbar", "grund": "abgewiesen", "am": f"{TODAY}T10:00:00.000Z"}, id="refused"),
+            pytest.param({"nachricht_id": "msg-1", "stand": "unterdrueckt", "grund": None, "am": f"{TODAY}T10:00:00.000Z"}, id="suppressed"),
+        ],
+    )
+    def test_a_replay_after_mails_that_all_never_arrived_hands_fresh_links(self, mongo_replica_set_url: str, zustellung: Mapping[str, Any]):
+        """Nobody holds a link, so none handed would leave an application nobody can confirm until the reminder."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {},
+                {"$set": {f"bestaetigungen.{seat}.zustellung": dict(zustellung) for seat in ("trainer", "ansprechperson", "stellvertretung")}},
+            )
+
+            return await submit(database, schluessel=SCHLUESSEL)
+
+        assert on_a_league(mongo_replica_set_url, body).bestaetigungen is not None
+
+    @pytest.mark.parametrize(
+        "emptying",
+        [
+            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY), id="a Widerspruch"),
+            pytest.param(build_clearing_update(("stellvertretung",), bestaetigungen=True), id="a contact erasure"),
+        ],
+    )
+    def test_emptying_a_seat_takes_the_digest_with_it(self, mongo_replica_set_url: str, emptying: Mapping[str, Any]):
+        """The digest was taken over that person's details too; a replay then meets the refusal of other details, which stays true."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
+            stored = await database[Collection.BEWERBUNGEN].find_one({})
+            with pytest.raises(DocumentConflictException) as refused:
+                await submit(database, schluessel=SCHLUESSEL)
+
+            return stored, refused.value.error_code
+
+        stored, code = on_a_league(mongo_replica_set_url, body)
+
+        assert "idempotenz_fingerabdruck" not in stored
+        assert code == BEWERBUNG_SCHLUESSEL_ABWEICHEND
+
+    def test_applications_stored_before_the_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
+        """The partial filter: two rows carrying no key would otherwise both index as null and collide."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_many([_application_without_a_wish(), _application_without_a_wish()])
+            before = await database[Collection.BEWERBUNGEN].find({}).sort("_id", 1).to_list(length=None)
+            await submit(database, schluessel=SCHLUESSEL)
+            after = (
+                await database[Collection.BEWERBUNGEN].find({"idempotenz_schluessel": {"$exists": False}}).sort("_id", 1).to_list(length=None)
+            )
+
+            return before, after, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        before, after, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (after, stored) == (before, 3)
+
+    def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
+        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the insert as a write conflict."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            committed = asyncio.Event()
+            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            second = asyncio.create_task(submit(database, schluessel=SCHLUESSEL, bewerbungen=held))
+            while held.lookups == 0:
+                await asyncio.sleep(0.01)
+
+            first = await submit(database, schluessel=SCHLUESSEL)
+            committed.set()
+            answered = await second
+
+            return (
+                first.created_id,
+                answered.created_id,
+                held.lookups,
+                held.insert_failures,
+                await database[Collection.BEWERBUNGEN].count_documents({}),
+            )
+
+        first, second, lookups, failures, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (second, stored) == (first, 1)
+        # 112 is `WriteConflict`, which `with_transaction` retries: the second run's lookup finds the row.
+        assert (lookups, failures) == (2, ["OperationFailure:112"])
+
+    def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
+        """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            # Set before the press, so the wrapper records the lookup and holds nothing back.
+            committed = asyncio.Event()
+            committed.set()
+            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            await submit(database, schluessel=SCHLUESSEL, bewerbungen=held)
+
+            return held.lookup_filters
+
+        assert on_a_league(mongo_replica_set_url, body) == [build_schluessel_filter(schluessel=str(SCHLUESSEL))]
+
+    def test_two_presses_at_once_store_one_application(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            answers = await asyncio.gather(submit(database, schluessel=SCHLUESSEL), submit(database, schluessel=SCHLUESSEL))
+
+            return {answer.created_id for answer in answers}, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        ids, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (len(ids), stored) == (1, 1)
+
+
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> DocumentConflictException:
     """One submission expected to be refused, with the exception it raised."""
 
@@ -498,10 +782,11 @@ class Submitted:
 
     response: Response
     stored: int
+    keyed: int
     log_rows: list[Mapping[str, Any]]
 
 
-def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, str] | None = None) -> Submitted:
+def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, str] | None = None, schluessel: str | None = None) -> Submitted:
     """One submission over the wire, so the guard, the actor binder and the response model all run."""
 
     database_name = build_test_config().db_base_name
@@ -529,11 +814,11 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
             try:
                 transport = ASGITransport(app=app, raise_app_exceptions=False)
                 async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    return await http.post(
-                        f"/api/v{API_VERSION}/bewerbungen",
-                        json=dict(body),
-                        headers=dict(BASE_AUTH if headers is None else headers),
-                    )
+                    sent = dict(BASE_AUTH if headers is None else headers)
+                    # A fresh key unless the case names one, an empty one standing for none sent.
+                    if schluessel != "":
+                        sent["Idempotency-Key"] = schluessel or str(uuid4())
+                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
             finally:
                 await app.state.db_client.close()
 
@@ -544,6 +829,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         return Submitted(
             response=response,
             stored=database[Collection.BEWERBUNGEN].count_documents({}),
+            keyed=database[Collection.BEWERBUNGEN].count_documents({"idempotenz_schluessel": {"$exists": True}}),
             log_rows=list(database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)})),
         )
     finally:
@@ -607,6 +893,31 @@ class TestASubmissionMadeOverTheWire:
 
         assert submitted.response.status_code == 422
         assert submitted.stored == 0
+
+    @pytest.mark.parametrize(
+        "schluessel",
+        [
+            pytest.param("not-a-uuid", id="not a uuid"),
+            # Version 1, which carries its host's clock: a guessable key lets a stranger store other details under it first.
+            pytest.param("6fa459ea-ee8a-11ca-8d6b-0800200c9a66", id="a time-based uuid"),
+            # The IETF draft's structured-field string: the bare token is this API's form (`docs/backend/spec.md :: I350`).
+            pytest.param('"1b4e28ba-2fa1-4d2b-883f-0016d3cca427"', id="the draft's quoted form"),
+        ],
+    )
+    def test_a_key_that_is_not_version_4_is_a_422_storing_nothing(self, mongo_replica_set_url: str, schluessel: str):
+        submitted = through_the_app(mongo_replica_set_url, payload(), schluessel=schluessel)
+
+        assert submitted.response.status_code == 422
+        assert submitted.stored == 0
+
+    def test_a_press_carrying_no_key_is_still_taken(self, mongo_replica_set_url: str):
+        """A page loaded before the form sent one: stored, unprotected, and outside the unique index."""
+
+        submitted = through_the_app(mongo_replica_set_url, payload(), schluessel="")
+
+        assert submitted.response.status_code == 200
+        assert submitted.stored == 1
+        assert submitted.keyed == 0
 
     def test_a_refusal_is_a_409_carrying_its_code(self, mongo_replica_set_url: str):
         """The contract a client maps to German: the code reaches the body, not just the status."""
