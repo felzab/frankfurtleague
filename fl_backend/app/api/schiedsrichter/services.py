@@ -8,6 +8,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
+from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -379,12 +380,19 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     with no address would record a message that was never composed.
     """
 
+    # A stored value the fold cannot canonicalise is no address either: the placeholder under
+    # `.invalid` a row without one is given, which the ban-list hash would otherwise meet as a 500.
     if email is not None:
-        return None
+        try:
+            canonical_address(str(email))
+        except ValueError:
+            pass
+        else:
+            return None
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_KEINE_ADRESSE,
-        message="this referee has no email address, so no confirmation link can be sent; enter one first",
+        message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
 
@@ -400,7 +408,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     )
 
 
-def find_korrektur_mint(*, stored: Mapping[str, Any], payload_email: Any, token_hash: str, today: str) -> dict[str, Any] | None:
+def find_korrektur_mint(*, stored: Mapping[str, Any], payload_email: str, token_hash: str, today: str) -> dict[str, Any] | None:
     """The `$set` fragment a corrected address owes, or `None`.
 
     An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
@@ -409,13 +417,49 @@ def find_korrektur_mint(*, stored: Mapping[str, Any], payload_email: Any, token_
 
     # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
     # them the address moved (`docs/ops/runbooks.md` §5).
-    if payload_email is None or is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
         return None
 
-    if payload_email == (stored.get("kontakt") or {}).get("email"):
+    # One inbox rather than one string: a row stored before the address rule holds its domain in
+    # Unicode, which the payload now stores in punycode, so a raw compare re-mails an address nobody moved.
+    stored_email = (stored.get("kontakt") or {}).get("email")
+    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
         return None
 
     return compose_mint_update(token_hash=token_hash, today=today)
+
+
+def compose_korrektur_update(
+    *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
+) -> tuple[dict[str, Any], bool]:
+    """The save's update, and whether it minted.
+
+    A RETIRED referee's new address is stored and mailed nothing, and their old link goes, its
+    mailbox replaced; the reactivation is what asks them.
+    """
+
+    minted = find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=token_hash, today=today)
+
+    if minted is None:
+        return {"$set": dict(payload)}, False
+
+    if stored.get("inactive_since") is not None:
+        return {"$set": dict(payload), "$unset": {BESTAETIGUNG_FELD: ""}}, False
+
+    return {"$set": {**payload, **minted}}, True
+
+
+def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
+    """Whether bringing this referee back mints them a link: retired, unanswered, and holding an address a link can go to.
+
+    A row with no such address comes back unasked; entering one is the save that mints.
+    """
+
+    return (
+        stored.get("inactive_since") is not None
+        and not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD))
+        and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
+    )
 
 
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest

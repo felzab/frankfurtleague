@@ -93,6 +93,35 @@ describe("the referee row's copy control", () => {
     );
   });
 
+  /* A row stored before the address rule holds a real address no payload takes now: shown as none,
+     the administrator who has to replace it never sees it. */
+  it("shows and offers to copy an address that predates the address rule", () => {
+    const html = table([{ ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800006", kontakt: { telefon: null, email: "jürgen@schule.de" } }]);
+
+    assert.ok(textOf(html).includes("jürgen@schule.de"), "the address is shown as none");
+    assert.notDeepEqual(
+      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
+      [],
+      "the row offers nothing to copy for an address it holds",
+    );
+  });
+
+  /* The placeholder a row without an address holds reaches nobody: shown as the row's address and
+     copied onto the clipboard, it reads as a way to write to the person. */
+  it("shows the placeholder address as none, and offers nothing to copy for it", () => {
+    const html = table([
+      { ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800005", kontakt: { telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" } },
+    ]);
+
+    assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
+    assert.ok(textOf(html).includes("Keine E-Mail"), "the row holding the placeholder does not say it holds no address");
+    assert.deepEqual(
+      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
+      [],
+      "the row holding only the placeholder offers to copy it as a contact detail",
+    );
+  });
+
   /* The rest of the row survives an empty one, so a change that dropped every control would pass the
      case above for the wrong reason. */
   it("leaves the nameless row its other controls", () => {

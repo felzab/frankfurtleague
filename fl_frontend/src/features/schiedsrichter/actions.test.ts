@@ -80,8 +80,7 @@ const RENAME_ACTION = sliceBetween(
 
 /* The first mapper in the module, so its slice ends where the retire's begins. */
 const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
-const GESPERRT_MAP = sliceBetween(ACTIONS, "function mapGesperrteAdresseRefusal", "const STILLGELEGT_OHNE_LINK");
-const STILLGELEGT_MAP = sliceBetween(ACTIONS, "function mapStillgelegtRefusal", "function mapEinladenRefusal");
+const GESPERRT_MAP = sliceBetween(ACTIONS, "function mapGesperrteAdresseRefusal", "function mapEinladenRefusal");
 const EINLADEN_MAP = sliceBetween(ACTIONS, "function mapEinladenRefusal", "const SCHON_BESTAETIGT");
 /** The referee's OWN link is read rather than written by an admin action, so its German sits here. */
 const QUERIES = readFileSync(path.resolve(import.meta.dirname, "queries.ts"), "utf8");
@@ -136,11 +135,10 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
-  /* The reactivation declares nothing and the undo replays the save: a rule added to either and left
-     unmapped reaches the admin as the 409 fallback, which names an entry rather than a rule. */
-  it("leaves the reactivation with no refusal of its own to word", () => {
-    assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), []);
-    assert.ok(!REACTIVATE_ACTION.includes("serverErrorCode"), "the reactivation words a refusal its endpoint no longer declares");
+  /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
+     does; left unmapped it reaches the admin as the 409 fallback, which names an entry rather than a rule. */
+  it("words the one refusal the reactivation declares", () => {
+    assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), ["REQ-SCHIEDSRICHTER-007"]);
   });
 
   /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
@@ -155,18 +153,14 @@ describe("the anonymisation against the backend's refusal register", () => {
      for the box that holds the value the list refused. */
   it("maps every refusal the create and the save declare, on the box that owes the link", () => {
     assert.deepEqual(declaredCodes("POST /schiedsrichter"), ["REQ-SCHIEDSRICHTER-007"]);
-    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-007"]);
+    // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
+    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), ["REQ-SCHIEDSRICHTER-007"]);
 
     assert.ok(
       GESPERRT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-007"`),
       "the banned address reaches the admin as an unhandled conflict",
     );
     assert.ok(GESPERRT_MAP.includes(`"kontakt.email"`), "the ban lands anywhere but the box that holds the refused address");
-    assert.ok(
-      STILLGELEGT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-001"`),
-      "the retirement reaches the admin as an unhandled conflict",
-    );
-    assert.ok(STILLGELEGT_MAP.includes(`"kontakt.email"`), "the retirement lands anywhere but the box whose change owes the link");
   });
 
   /* Every refusal the re-send declares, worded at the panel: nothing there is a form, so each is a

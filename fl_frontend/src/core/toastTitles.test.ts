@@ -428,6 +428,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Link nicht zurückgezogen": { variant: "danger", identifies: "one site" },
   "Link zurückgezogen": { variant: "success", identifies: "one site" },
   "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
+  "Mit Folgen reaktiviert": { variant: "warning", identifies: "one site" },
   "Mit Folgen zurückgenommen": { variant: "warning", identifies: "one site" },
   "Nicht abgemeldet": { variant: "danger", identifies: "its description" },
   "Nicht angemeldet": { variant: "danger", identifies: "one site" },

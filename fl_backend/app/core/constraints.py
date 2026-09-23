@@ -713,11 +713,13 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
-                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: a referee
-                # entered with no address is mailed nothing, so that create composes no key here.
+                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: the ghost and
+                # a row never minted a link carry none, and correcting a retired referee's address
+                # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
-                # Out of `required` for `bestaetigung`'s reason, and nullable besides: only the
-                # person's own confirmation writes it, so a live row awaiting one carries null.
+                # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
+                # besides: only the person's own confirmation writes it, so a live row awaiting one
+                # carries null.
                 "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
                 # Out of `required` for `saisons.spielplan`'s reason. The person's own to enter, as
                 # a contact seat's is: no admin payload carries it.

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Form } from "@heroui/react";
 
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
+import { bestehtSchreibregel, FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
@@ -33,7 +33,11 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
+import type {
+  FLPatchSchiedsrichterPayload,
+  FLSchiedsrichterBestaetigung,
+  FLSchiedsrichterPayloadDraft,
+} from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -47,6 +51,15 @@ import type { FLKontakt } from "@/shared/schemas";
 const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
   reason: "Vor dem Speichern war zu diesem Eintrag kein Name hinterlegt, und ohne Namen lässt er sich nicht zurückschreiben",
   repair: "Öffne den Eintrag erneut, wenn der Name falsch ist",
+});
+
+/**
+ * The same refusal for a row whose address this save replaced when it was none a payload takes: no
+ * address at all, or the placeholder under `.invalid`, neither of which may be written back.
+ */
+const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
+  reason: "Vor dem Speichern war zu diesem Eintrag keine echte E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
+  repair: "Öffne den Eintrag erneut, wenn die neue Adresse falsch ist",
 });
 
 /**
@@ -87,6 +100,10 @@ export function AdminSchiedsrichterEditForm({
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
 
+  // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
+  // link can go and no undo may write back.
+  const gespeicherteAdresseGilt = bestehtSchreibregel(schiedsrichter.kontakt.email);
+
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
@@ -96,12 +113,11 @@ export function AdminSchiedsrichterEditForm({
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
-  // The widening `fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterPayloadDraft` states in full.
-  type SchiedsrichterPatchDraft = Omit<FLPatchSchiedsrichterPayload, "default_payment"> & { default_payment: number | null };
+  type SchiedsrichterPatchDraft = FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>;
 
-  // The STORED record replayed as it stood, which the payload type cannot hold: an undo restoring a
-  // nameless row is refused at the offer rather than being sent as a body no schema admits.
-  type SchiedsrichterUndoBody = Omit<FLPatchSchiedsrichterPayload, "name"> & { name: string | null };
+  // The STORED record replayed as it stood, which the payload type cannot hold: a restore no schema
+  // admits is refused at the offer below rather than sent.
+  type SchiedsrichterUndoBody = Omit<FLPatchSchiedsrichterPayload, "name" | "kontakt"> & { name: string | null; kontakt: FLKontakt };
 
   const buildPayload = (): SchiedsrichterPatchDraft => ({
     id: schiedsrichter.id,
@@ -209,7 +225,7 @@ export function AdminSchiedsrichterEditForm({
         fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
         // Judged here and not left to the undo route: the shared spine can only answer a body the
         // schema refuses with a reload nothing would change.
-        unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : null,
+        unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
         router,
       });
 
@@ -263,7 +279,7 @@ export function AdminSchiedsrichterEditForm({
               the save bar has not committed is nowhere a message can reach. */}
           <FormBestaetigungSection
             schiedsrichterId={schiedsrichter.id}
-            hatAdresse={schiedsrichter.kontakt.email !== null}
+            hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}
             bestaetigung={schiedsrichter.bestaetigung}
             einwilligung={schiedsrichter.einwilligung}

@@ -186,16 +186,19 @@ describe("FLKontaktSchema", () => {
   });
 });
 
+/** A valid address, so a case about the telephone is judged on the telephone alone: the address is required. */
+const ADRESSE = "kontakt@example.de";
+
 describe("FLKontaktPayloadSchema", () => {
   it("accepts common German phone formats", () => {
     for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, true, `expected "${telefon}" to be accepted`);
     }
   });
 
   it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
     for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, false, `expected "${telefon}" to be rejected`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, false, `expected "${telefon}" to be rejected`);
     }
   });
 
@@ -204,24 +207,35 @@ describe("FLKontaktPayloadSchema", () => {
   it("rejects a phone number carrying a control character, which the backend rejects too", () => {
     for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
       assert.equal(
-        FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success,
+        FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success,
         false,
         `expected ${JSON.stringify(telefon)} to be rejected`,
       );
     }
   });
 
-  // Both fields accept null (not supplied) and "" (supplied but cleared); the two are distinct
-  // states in the admin forms, so both must stay valid.
-  it("accepts null and empty string for both fields", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: null }).success, true);
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: "" }).success, true);
+  // The telephone takes null (not supplied) and "" (supplied but cleared), two distinct states in
+  // the admin forms.
+  it("accepts null and empty string for the telephone", () => {
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: ADRESSE }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: ADRESSE }).success, true);
+  });
+
+  // The address is how a referee learns an administrator entered them. Both referee forms fold a
+  // cleared box to null, so this one sentence is what an empty box says.
+  it("refuses a missing address with the one sentence an empty box shows", () => {
+    const refused = FLKontaktPayloadSchema.safeParse({ telefon: null, email: null });
+    assert.deepEqual(
+      refused.error?.issues.map((issue) => issue.message),
+      ["Bitte gib eine E-Mail-Adresse ein."],
+    );
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "" }).success, false);
   });
 
   // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
   // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
   it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: null }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: ADRESSE }).success, true);
   });
 
   // Each is a value the API takes and stores: an umlaut host it converts to punycode, an atext
@@ -351,10 +365,10 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
 
     const over = FLKontaktPayloadSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
     assert.equal(over.success, false, "one over the cap");
-    // The union carries the message, so the ceiling must not have moved it to zod's own English.
+    // No union carries the message, so the box names the ceiling rather than calling the address invalid.
     assert.deepEqual(
       over.error?.issues.map((issue) => issue.message),
-      ["Bitte gib eine gültige E-Mail-Adresse ein."],
+      [`Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`],
     );
   });
 

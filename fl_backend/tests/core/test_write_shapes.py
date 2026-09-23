@@ -854,6 +854,9 @@ STAMPED_FOR_THE_CALLER: frozenset[str] = frozenset({"inactive_since", "_id"})
 #: and a create that stopped using it would drop out of this sweep -- which the floor below catches.
 CREATE_HELPER = "insert_live"
 
+#: Asserted equal to what the sweep resolves, for `UNREADABLE_CREATES`' reason.
+RESOLVED_CREATES: frozenset[str] = frozenset({"post_team", "post_spielort", "post_schiedsrichter"})
+
 #: Asserted equal to what the sweep finds, so a create that stops being readable fails rather than
 #: leaving the population.
 UNREADABLE_CREATES: frozenset[str] = frozenset(
@@ -1018,9 +1021,9 @@ class TestEveryCreateCarriesWhatItsValidatorRequires:
 
     def test_the_sweep_reaches_every_create_the_routers_make(self) -> None:
         composed, unreadable = creations()
-        # A floor rather than non-emptiness: a create that stops going through `insert_live`, or a
-        # call this reader stops resolving, shrinks the population and the assertion together.
-        assert len(composed) >= 4, f"only {len(composed)} create(s) resolved: {[creation.endpoint for creation in composed]}"
+        # The set rather than a count: a create that stops going through `insert_live`, or a call this
+        # reader stops resolving, drops a name, and one another change adds stays tight too.
+        assert {creation.endpoint for creation in composed} == RESOLVED_CREATES, f"the creates this reader resolves moved: {composed}"
         assert unreadable == UNREADABLE_CREATES, f"the set this reader cannot follow moved: {sorted(unreadable)}"
 
     def test_each_create_composes_every_key_its_collection_requires(self) -> None:

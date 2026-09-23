@@ -145,7 +145,8 @@ export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 export { KONTAKT_EMAIL_MAX_LENGTH };
 
 const addressBox = z
-  .string()
+  // What a cleared box answers where its form submits `null` for one.
+  .string({ error: "Bitte gib eine E-Mail-Adresse ein." })
   // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
   .trim();
 
@@ -190,6 +191,12 @@ export const FLKontaktSchema = z.object({
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;
 
+/**
+ * The address a referee row without one is given, under RFC 6761's `.invalid`, which the API refuses
+ * among its special-use names.
+ */
+export const isPlaceholderAddress = (email: string): boolean => email.toLowerCase().endsWith(".invalid");
+
 /** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
 export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
@@ -199,11 +206,11 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
       error: "Bitte gib eine gültige Telefonnummer ein.",
     })
     .nullable(),
-  // The empty branch is what a cleared box submits, and the union's message covers both: a branch's
-  // own sentence is unreachable once the union carries one, the ceiling's among them.
-  email: z
-    .union([KontaktEmailSchema, z.string().trim().length(0)], {
-      error: "Bitte gib eine gültige E-Mail-Adresse ein.",
-    })
-    .nullable(),
+  // Required where the telephone is not: an administrator enters a referee, and the address is how
+  // that person learns of it.
+  email: KontaktEmailSchema
+    // Named here, the box says why rather than the save failing whole.
+    .refine((email) => !isPlaceholderAddress(email), {
+      error: "Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein.",
+    }),
 });

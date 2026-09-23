@@ -19,15 +19,16 @@ export const SCHIEDSRICHTER_CRUD_COPY = {
 // Not a first name, which beside a date and a club still identifies one person in a league this
 // size, and not „Schiedsrichter“, which reads oddly in a column already headed with it.
 /**
- * What a reader is shown where the erasure nulled the name. It lives here and in no stored document,
- * so rewording it reaches every surface at once and moves no data.
+ * What a reader is shown where an erasure, or the one-off drop of the referee rows older than the
+ * confirmation link, nulled the name. Stored nowhere, so a rewording reaches every surface at once and
+ * moves no data.
  */
 export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
 
 /**
- * The one row an erasure repoints its fixtures at, mirroring
- * `fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`. Every admin by-id route answers 404
- * for it, so nothing reads it back: it names the fixtures of erased referees, in one link.
+ * The one row an erasure, and the one-off drop of the referee rows older than the confirmation link,
+ * repoint fixtures at, mirroring `fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`. Every
+ * admin by-id route answers 404 for it, so nothing reads it back.
  */
 export const GHOST_SCHIEDSRICHTER_ID = "000000000000000000000000";
 

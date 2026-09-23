@@ -489,6 +489,18 @@ async def call_anonymisation(
     )
 
 
+async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> Any:
+    return await reactivate_schiedsrichter(
+        schiedsrichter_id=schiedsrichter_id,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+        config=CONFIG,
+        today=TODAY,
+    )
+
+
 async def call_retirement(database: AsyncDatabase, client: AsyncMongoClient, *, today: str) -> FLSchiedsrichterWriteResponse:
     """Every seeded fixture of this referee is PLAYED, so `find_referee_retire_refusal` refuses nothing and a case below fails on the date."""
 
@@ -756,10 +768,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     today=A_LATER_PRESS,
                 )
             else:
-                await reactivate_schiedsrichter(
-                    schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID,
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                )
+                await call_reactivation(database, client, GHOST_SCHIEDSRICHTER_ID)
 
         return (await stored_referees(database))[GHOST_SCHIEDSRICHTER_ID], await stored_fixtures(database)
 
@@ -781,9 +790,7 @@ def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url
         await database[Collection.SCHIEDSRICHTER].update_one(
             {"_id": OTHER_SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": AN_EARLIER_RETIREMENT}}
         )
-        response = await reactivate_schiedsrichter(
-            schiedsrichter_id=OTHER_SCHIEDSRICHTER_OID, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER]
-        )
+        response = await call_reactivation(database, client, OTHER_SCHIEDSRICHTER_OID)
 
         return response.updated_document.inactive_since
 

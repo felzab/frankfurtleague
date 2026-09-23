@@ -25,6 +25,7 @@ import {
   FLPostSchiedsrichterPayloadSchema,
   FLSchiedsrichterEinladenPayloadSchema,
   FLSchiedsrichterKeyPayloadSchema,
+  hatAdresse,
 } from "./schemas";
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
@@ -91,7 +92,7 @@ function mapAnonymiseRefusal(error: unknown): string | null {
  */
 const ADRESSE_GESPERRT = buildRefusal({
   reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder nimm die Sperre auf /admin/sperrliste zurück",
+  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /admin/sperrliste auf",
 });
 
 /** `null` where the 409 is something else. It lands on the address box, which is the value the list refused. */
@@ -99,22 +100,6 @@ function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErro
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": ADRESSE_GESPERRT } } : null;
-}
-
-/**
- * The save's own refusal of a retired row, which it reaches only through the mint a moved address
- * owes: the endpoint declines to collect consent for a role nobody can give this person.
- */
-const STILLGELEGT_OHNE_LINK = buildRefusal({
-  reason: "Diese Person ist stillgelegt, und eine neue E-Mail-Adresse bräuchte einen neuen Bestätigungslink",
-  repair: "Reaktiviere den Eintrag, bevor Du die Adresse änderst",
-});
-
-/** `null` where the 409 is something else. It lands on the address box, the field whose change owes the link. */
-function mapStillgelegtRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-001" ? { fieldErrors: { "kontakt.email": STILLGELEGT_OHNE_LINK } } : null;
 }
 
 /** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
@@ -151,7 +136,7 @@ const SCHON_BESTAETIGT = buildRefusal({
 
 /** Raised at the action as well, where the row already says so: a round trip to be told what the page can see is one nobody owes. */
 const KEINE_ADRESSE = buildRefusal({
-  reason: "Für diese Person ist keine E-Mail-Adresse hinterlegt",
+  reason: "Für diese Person ist keine verwendbare E-Mail-Adresse hinterlegt",
   repair: "Trage oben eine E-Mail-Adresse ein und speichere",
 });
 
@@ -190,29 +175,22 @@ export async function postSchiedsrichterAction(
 
     refresh();
 
-    // Null exactly where the create carried no address, which mails nothing and can mail nothing:
-    // the re-send is what mails one once an address is entered.
     const mint = postOperation.bestaetigung;
     // The address the MINT names, never the one this caller sent: only the mint's own transaction
     // can say which mailbox the credential was made for.
-    const versand =
-      mint === null
-        ? null
-        : await mailSchiedsrichterLink({
-            operation: "postSchiedsrichterAction",
-            schiedsrichterId: postOperation.created_id,
-            email: mint.email,
-            name: validated.data.name,
-            mint: mint,
-            anlass: "empfang",
-          });
+    const versand = await mailSchiedsrichterLink({
+      operation: "postSchiedsrichterAction",
+      schiedsrichterId: postOperation.created_id,
+      email: mint.email,
+      name: validated.data.name,
+      mint: mint,
+      anlass: "empfang",
+    });
 
     return {
       success: true,
       created_id: postOperation.created_id,
-      // The form's own title, repeated on purpose: `ui/EntityForm.tsx` drops a description equal to
-      // the title it raises, and `ActionSuccess.message` admits no way to send none.
-      message: mint === null || versand === null ? "Schiedsrichter angelegt" : describeLinkMail(mint.email, versand),
+      message: describeLinkMail(mint.email, versand),
     };
   });
 }
@@ -243,7 +221,7 @@ export async function patchSchiedsrichterAction(
     try {
       postOperation = await patchSchiedsrichter(validated.data);
     } catch (error) {
-      const refusal = mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error) ?? mapStillgelegtRefusal(error);
+      const refusal = mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -313,8 +291,9 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
     }
 
-    const email = gelesen.schiedsrichter.kontakt.email;
-    if (email === null) {
+    // No address, or the placeholder a row without one is given, rather than making the round trip to
+    // be told so. Whether a link may go to a real one is the API's to judge.
+    if (!hatAdresse(gelesen.schiedsrichter.kontakt.email)) {
       return { success: false, error: KEINE_ADRESSE };
     }
 
@@ -403,7 +382,9 @@ export async function deleteSchiedsrichterAction(
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+  // The save's flag, for the save's reason: the reactivation landed either way, and the row grades
+  // its toast a warning where the link it minted did not leave.
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("reactivateSchiedsrichterAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -419,9 +400,16 @@ export async function reactivateSchiedsrichterAction(
       };
     }
 
-    // No mapper stands here: the endpoint declares no refusal of its own, so an unexpected 409 takes
-    // the shared conflict wording rather than a sentence this slice invents for it.
-    const reactivateOperation = await reactivateSchiedsrichter(validated.data);
+    // The one refusal: the link an unanswered referee is minted on return would go to a banned address.
+    let reactivateOperation;
+    try {
+      reactivateOperation = await reactivateSchiedsrichter(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-SCHIEDSRICHTER-007") {
+        return { success: false, error: ADRESSE_GESPERRT };
+      }
+      throw error;
+    }
 
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
@@ -429,10 +417,26 @@ export async function reactivateSchiedsrichterAction(
 
     refresh();
 
+    // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
+    // coming back is what asks them. The address is the one the mint read.
+    const mint = reactivateOperation.bestaetigung;
+    const versand =
+      mint === null
+        ? null
+        : await mailSchiedsrichterLink({
+            operation: "reactivateSchiedsrichterAction",
+            schiedsrichterId: validated.data.id,
+            email: mint.email,
+            name: reactivateOperation.updated_document.name,
+            mint: mint,
+            anlass: "erneut",
+          });
+
     return {
       success: true,
       updated_document: reactivateOperation.updated_document,
-      message: "Schiedsrichter reaktiviert",
+      message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
+      versandFehlgeschlagen: versand === false,
     };
   });
 }

@@ -3,6 +3,7 @@
 import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { emptyAsNull } from "@/shared/utils/draftStatus";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -54,10 +55,11 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
       </TextField>
 
       <TextField
+        isRequired
         type="email"
         name="kontakt.email"
         value={draft.kontakt.email ?? ""}
-        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: next } })}
+        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: emptyAsNull(next) } })}
         isInvalid={errors?.["kontakt.email"] ? true : undefined}>
         <Label className={FIELD_LABEL}>E-Mail</Label>
         <Input

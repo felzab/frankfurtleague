@@ -35,6 +35,7 @@ from app.api.schiedsrichter.services import (
     compose_bestaetigung,
     compose_confirmation_update,
     compose_einwilligung,
+    compose_korrektur_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
@@ -45,6 +46,7 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     find_unknown_token_refusal,
     frist_of,
+    owes_reactivation_mint,
     vorname_of,
     zustand_of,
 )
@@ -69,6 +71,10 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
+
+# One mailbox: as a row stored before the address rule holds it, and as a save of it stores it now.
+UNICODE_STORED = "anna@müller.de"
+PUNYCODE_SAVED = "anna@xn--mller-kva.de"
 
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
@@ -390,21 +396,60 @@ class TestARetiredRefereeTakesNoFreshLink:
     def test_the_re_send_reads_the_state_it_judges(self):
         assert "inactive_since" in EINLADEN_FIELDS
 
-    def test_the_save_that_re_mints_reads_it_too(self):
-        """A corrected address mails a fresh link, so the save meets this refusal on the mint's own reason.
-
-        Left out, the one mint that never asked whether they still officiate mails them a consent
-        link, and nothing fails.
-        """
+    def test_the_save_stores_a_retired_referees_new_address_and_mints_nothing(self):
+        """Refusing it instead locks the row, every save carrying an address. The old link goes, the mailbox it reached being replaced."""
 
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        minted = find_korrektur_mint(stored=stored, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY)
+        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
 
-        assert minted is not None
-        refusal = find_retired_refusal(inactive_since=stored["inactive_since"])
+        update, minted = compose_korrektur_update(
+            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
+        )
 
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_RETIRED
+        assert minted is False
+        assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
+
+    def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
+        stored = {"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
+        payload = {"kontakt": {"telefon": None, "email": PUNYCODE_SAVED}}
+
+        update, minted = compose_korrektur_update(
+            stored=stored, payload=payload, payload_email=PUNYCODE_SAVED, token_hash=TOKEN_HASH, today=TODAY
+        )
+
+        assert (update, minted) == ({"$set": payload}, False)
+
+    def test_a_live_referees_new_address_is_minted_for(self):
+        stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
+        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
+
+        update, minted = compose_korrektur_update(
+            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
+        )
+
+        assert minted is True
+        assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
+
+
+class TestTheReactivationAsks:
+    """The mint the retired save withholds is owed here, and only where a link can go and nobody has answered."""
+
+    @pytest.mark.parametrize(
+        ("stored", "owed"),
+        [
+            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, True),
+            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": None}, False),
+            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+        ],
+        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder"],
+    )
+    def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
+        assert owes_reactivation_mint(stored=stored) is owed
+
+    def test_the_reactivation_reads_every_field_it_judges(self):
+        assert {"inactive_since", "kontakt.email", f"{EINWILLIGUNG_FELD}.bestaetigt_am"} <= set(EINLADEN_FIELDS)
 
 
 class TestARefereeWithNoAddress:
@@ -415,6 +460,14 @@ class TestARefereeWithNoAddress:
         """Refused at the write and not at the calling surface alone: a stamped `verschickt_am` would record a message never composed."""
 
         refusal = find_missing_address_refusal(email=None)
+
+        assert refusal is not None
+        assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
+
+    def test_the_placeholder_under_the_reserved_domain_is_refused_as_none(self):
+        """The value a row without an address is given, which no payload takes and the ban-list hash cannot key."""
+
+        refusal = find_missing_address_refusal(email="adresse-fehlt@frankfurtleague.invalid")
 
         assert refusal is not None
         assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
@@ -441,9 +494,12 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com"),
+            # Two inboxes to RFC 5321, whose local part is case-sensitive, though one sign-in.
+            ({"kontakt": {"email": "Old@example.com"}, EINWILLIGUNG_FELD: None}, "old@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
+            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
         ],
-        ids=["address-moved", "address-entered"],
+        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         minted = find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=TOKEN_HASH, today=TODAY)
@@ -454,18 +510,18 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
+            ({"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None}, PUNYCODE_SAVED),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
-            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, None),
         ],
-        ids=["address-unchanged", "already-confirmed", "address-cleared"],
+        ids=["address-unchanged", "address-unchanged-but-stored-before-the-address-rule", "already-confirmed"],
     )
-    def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: Any):
+    def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
         assert find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=TOKEN_HASH, today=TODAY) is None
 
     def test_a_confirmed_referees_corrected_address_is_stopped_here_and_by_no_refusal(self):
         """The already-answered half of the save's mint is this early return, which the two refusals beside it never reach.
 
-        Named because the invariant over all three mints reads as though a refusal carried every half.
+        Named because the invariant over every mint reads as though a refusal carried every half.
         """
 
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": None}

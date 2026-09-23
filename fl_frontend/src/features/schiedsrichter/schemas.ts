@@ -11,11 +11,14 @@ import {
   CustomObjectIdStringSchema,
   FLKontaktPayloadSchema,
   FLKontaktSchema,
+  isPlaceholderAddress,
   PersonNameSchema,
 } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb } from "./constants";
+
+import type { FLKontakt } from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
   name: PersonNameSchema,
@@ -35,12 +38,29 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
 /**
- * Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit.
- * `Omit`, not a plain intersection -- `T & { default_payment: number | null }` stays assignable to `T`,
- * so the `null` never reaches a caller's view.
+ * Whether a row holds an address rather than none or the placeholder a row without one is given, as
+ * a surface shows the row and files it: a surface reading the bare value files the placeholder as reached.
  */
-export type FLSchiedsrichterPayloadDraft<T extends { default_payment: number }> = Omit<T, "default_payment"> & {
+// Never the write rule below: a row stored before the address rule fails it, yet holds a real
+// address an administrator has to see in order to replace it.
+export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "" && !isPlaceholderAddress(email);
+
+/**
+ * Whether a stored address passes the payload's own rule: the editor's question alone, asked for whether
+ * an undo may write it back and whether its panel offers the re-send.
+ */
+export const bestehtSchreibregel = (email: string | null): boolean => FLKontaktPayloadSchema.shape.email.safeParse(email).success;
+
+/**
+ * Widened at each field whose emptied box holds `null`, which the schema above refuses at the submit. `Omit`, not an intersection: `T & { default_payment: number | null }` stays
+ * assignable to `T`, hiding the `null` from every caller.
+ */
+export type FLSchiedsrichterPayloadDraft<T extends { default_payment: number; kontakt: { email: string } }> = Omit<
+  T,
+  "default_payment" | "kontakt"
+> & {
   default_payment: number | null;
+  kontakt: FLKontakt;
 };
 
 /** The retire and its reactivate: an id in the path, no request body. */
@@ -126,9 +146,8 @@ export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSing
 
 export const FLPostSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
   created_id: CustomObjectIdStringSchema,
-  // Non-null exactly where the create carried an address. Null is "this referee has no address",
-  // an ordinary state, and never a mint that failed.
-  bestaetigung: FLSchiedsrichterMintSchema.nullable(),
+  // Never null, unlike the patch's: the payload requires an address, and entering a referee is the invitation.
+  bestaetigung: FLSchiedsrichterMintSchema,
 });
 export type FLPostSchiedsrichterResponse = z.infer<typeof FLPostSchiedsrichterResponseSchema>;
 
@@ -148,20 +167,27 @@ export const FLSchiedsrichterEinladenPayloadSchema = z.object({
 });
 export type FLSchiedsrichterEinladenPayload = z.infer<typeof FLSchiedsrichterEinladenPayloadSchema>;
 
-/** The re-send's echo. Never null, unlike the two above: this endpoint exists to mint, so a row it cannot mint for is refused. */
+/** The re-send's echo. Never null, as the create's is and unlike the patch's: this endpoint exists to mint, so a row it cannot mint for is refused. */
 export const FLSchiedsrichterMintResponseSchema = BaseAPIResponseSchema.extend({
   bestaetigung: FLSchiedsrichterMintSchema,
 });
 export type FLSchiedsrichterMintResponse = z.infer<typeof FLSchiedsrichterMintResponseSchema>;
 
 /**
- * What the retire, the reactivate and the erasure echo: one model for the three. The erasure's own
- * row is deleted by then, so what it echoes is the GHOST — never the person, and never a state.
+ * What the retire and the erasure echo: one model for the two. The erasure's own row is deleted by
+ * then, so what it echoes is the GHOST — never the person, and never a state.
  */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,
 });
 export type FLSchiedsrichterWriteResponse = z.infer<typeof FLSchiedsrichterWriteResponseSchema>;
+
+/** The reactivation's own echo: of the pair, only coming back can mint, an unanswered referee being asked on return. */
+export const FLSchiedsrichterReactivateResponseSchema = BaseAPIResponseSchema.extend({
+  updated_document: FLSchiedsrichterSchema,
+  bestaetigung: FLSchiedsrichterMintSchema.nullable(),
+});
+export type FLSchiedsrichterReactivateResponse = z.infer<typeof FLSchiedsrichterReactivateResponseSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";

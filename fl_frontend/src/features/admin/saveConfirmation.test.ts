@@ -150,7 +150,8 @@ const EDITORS: Record<string, Editor> = {
             id: "68c1f0a2b3c4d5e6f7a8b9d1",
             name: "Pia Kraft",
             schule: null,
-            kontakt: { email: null, telefon: null },
+            // A real address: the payload requires one, so a row stored without it refuses every save at the box.
+            kontakt: { email: "pia@example.org", telefon: null },
             default_payment: 25,
             geburtsdatum: null,
             einwilligung: null,

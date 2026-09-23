@@ -324,12 +324,14 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation is the one removal, and it CASCADES rather than being refused: a request to be forgotten "
-            "is not something a booking may block, so the row is deleted and every fixture naming it is repointed at the "
-            "ghost in the same transaction, each keeping its own `payment`. The ghost is permanently retired, so a "
-            "fixture holding it takes no new booking and is refused a save putting it back among those still to be "
-            "played; one a bracket resolution or a Spieltag release reopens keeps it and is reported as a retired "
-            "booking, exactly as a merely retired referee is. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`). "
+            "The anonymisation is the one removal an endpoint performs, and it CASCADES rather than being refused: a request "
+            "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
+            "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
+            "never-asked referees repoints the same way, emptying the name as the anonymisation does. The ghost is "
+            "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
+            "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
+            "reported as a retired booking, exactly as a merely retired referee is. Erasing the ghost itself is refused "
+            "(`REQ-ANONYMISE-004`). "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -1049,11 +1051,21 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
+        "kontakt.email",
+        Editability.EDITABLE,
+        "required on both payloads with no default, so a create or a save without an address is a 422: an administrator "
+        "enters a referee, and the address is the one route by which that person learns of it. Nullable on the stored row "
+        "all the same, for the ghost, which stands behind nobody",
+        "app.shared.schemas.kontakt.FLKontaktPayload",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
         "bestaetigung",
         Editability.CONTROL_ONLY,
-        "no payload carries the block. Three controls replace it WHOLE, each answering the raw token once -- the create where "
-        "an address was given, the save that corrects an unconfirmed referee's address, and `POST "
-        "/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- so the link a replaced block held stops working at once "
+        "no payload carries the block. Four controls replace it WHOLE, each answering the raw token once -- every "
+        "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
+        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting a RETIRED referee's address "
+        "removes it and mints nothing, so the link a replaced block held stops working at once "
         "and the delivery state of the message it went out in goes with it. `POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
@@ -1641,7 +1653,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-001",
-        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen · PATCH /schiedsrichter/{schiedsrichter_id}",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
         aggregate="Schiedsrichter",
         summary="a retired referee is sent no confirmation link, there being no role left to collect a consent for",
         implemented_by="app.api.schiedsrichter.services.find_retired_refusal",
@@ -1683,7 +1695,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SCHIEDSRICHTER-006",
         operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
         aggregate="Schiedsrichter",
-        summary="a referee carrying no email address is sent no link, and no send is stamped on their entry",
+        summary="a referee carrying no usable email address is sent no link, and no send is stamped on their entry",
         implemented_by="app.api.schiedsrichter.services.find_missing_address_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestARefereeWithNoAddress",
     ),
@@ -1691,6 +1703,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SCHIEDSRICHTER-007",
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
         ),
         aggregate="Schiedsrichter",
         summary="no confirmation link is minted for an address the ban list still holds",

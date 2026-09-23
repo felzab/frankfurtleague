@@ -1888,7 +1888,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee, and mint their confirmation link where the entry carries an email address.\n\n`inactive_since` is set to null here and is on no payload. **Entering an address IS the\ninvitation**: there is no second press deciding whether this person is asked, because a referee\nnobody asked is a name nobody consented to publish. The raw token is answered once, for the\ncaller to mail, and the row stores only its hash; an entry with no address answers\n`bestaetigung: null` and mails nothing.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
+        "description": "Create a referee and mint their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The raw token is answered once, for the caller to mail, and the row stores only its hash.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -1977,7 +1977,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\nWhere a fresh link would be minted, two refusals apply that a plain rename never meets: a RETIRED\nreferee is refused `REQ-SCHIEDSRICHTER-001`, no consent being collected for a role nobody can\ngive them, and a banned new address `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\n**A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for\na role nobody gives them. Their old link is retired all the same, and the reactivation mints the\nfresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -4465,7 +4465,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is minted a fresh link**, answered once for the caller\nto mail: a retired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -4489,7 +4489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                  "$ref": "#/components/schemas/FLSchiedsrichterReactivateResponse"
                 }
               }
             }
@@ -10501,16 +10501,9 @@
             "title": "Telefon"
           },
           "email": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 254,
-                "format": "email"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
             "title": "Email"
           }
         },
@@ -12192,14 +12185,7 @@
             "default": 1
           },
           "bestaetigung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchiedsrichterMint"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
           },
           "created_id": {
             "type": "string",
@@ -12208,6 +12194,7 @@
         },
         "type": "object",
         "required": [
+          "bestaetigung",
           "created_id"
         ],
         "title": "FLPostSchiedsrichterResponse"
@@ -14231,7 +14218,7 @@
           "email"
         ],
         "title": "FLSchiedsrichterMint",
-        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — the three mints answering it are all on `app/api/schiedsrichter/admin_router.py`."
+        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`."
       },
       "FLSchiedsrichterMintResponse": {
         "properties": {
@@ -14254,6 +14241,38 @@
         ],
         "title": "FLSchiedsrichterMintResponse",
         "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead."
+      },
+      "FLSchiedsrichterReactivateResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSchiedsrichterReactivateResponse",
+        "description": "The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
@@ -14296,7 +14315,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+        "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
       },
       "FLSperrlisteEintrag": {
         "properties": {
