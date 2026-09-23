@@ -214,6 +214,15 @@
 # identical in each interleaved round. Neither the reference nor the budget moves and neither takes
 # a new stamp.
 #
+# `format` measured two ways of skipping the walk under `..`, which lists `fl_frontend/node_modules`
+# and `.git` because prettier's own exclusions do not match there, and rejected both on their
+# verdicts rather than their clocks. Prettier's fast CLI (`--experimental-cli`, prettier 3.9.6)
+# checked the same files and passed a planted import-order swap the legacy CLI fails. Running the
+# legacy CLI from the repository root, with `.prettierrc.json` naming its plugins by path, checked
+# the same 1055 files and passed the same swap: prettier-plugin-tailwindcss runs the import sorter
+# only when it can resolve that plugin by its package name, which it cannot from the root. Measured
+# locally on 2026-09-22 and 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions.
+#
 # `backend-db` gained the interleaved race cases and moved no figure. Two of them had parked a
 # reopening at its first read of the referee, past its own write of the reopened fixture, so the
 # erasure landing inside it waited out the transaction's sixty-second lifetime: 90 s and 73 s of a

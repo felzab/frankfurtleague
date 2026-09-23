@@ -615,9 +615,9 @@ pointed `core.hooksPath` at it has no hook at all, and this scope and CI are wha
 formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
 change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
 because a plugin moves only through the lockfile and CI runs uncached either way. **What the cache
-spares is the parse and never the walk**: prettier reads every file under a directory argument
-before it consults the cache, so `.prettierignore` sets this scope's floor, and a tool cache that
-file does not name is read on every run.
+spares is the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and
+`.git` included, before it asks `.prettierignore` which files to read, so a tool cache that file does
+not name is read on every run.
 
 **An editor formats earlier still, and binds no more than the hook does**: `.vscode/settings.json`
 names the module, the configuration and the ignore file the gate itself reads, and a developer
