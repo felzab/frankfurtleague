@@ -1,5 +1,7 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { APIBadStatusError } from "@/core/errors";
+import { refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
@@ -54,19 +56,14 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
  *
  * A refusal naming a field takes that field's own path, so it lands under the control at fault.
  */
-export function mapRegistrierungSubmitRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; zustand?: "ungueltig" } | null {
+export function mapRegistrierungSubmitRefusal(
+  error: unknown,
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "ungueltig" } | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // Every body rule the form can break is mirrored, so reaching this means a drifted client, which a
-  // reload replaces. `REQ-VAL-001` names no field, so nothing here may point at one either.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({
-        reason: "Einzelne Angaben konnten wir nicht übernehmen",
-        repair: "Lade die Seite neu und versuche es noch einmal",
-      }),
-    };
-  }
+  // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
+  // client, which the team's link replaces.
+  if (error.statusCode === 422) return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
 
   if (error.statusCode !== 409) return null;
 
@@ -75,18 +72,12 @@ export function mapRegistrierungSubmitRefusal(error: unknown): { error?: string;
     // banner over a form nothing accepts invites a second attempt.
     case "REQ-EINLADUNG-003":
       return { zustand: "ungueltig" };
+    // Each reachable only where the season moved after this page loaded, and the team's link reopens
+    // onto a page read since: the window's or the team's own panel, or the Stufen offered now.
     case "REQ-REGISTRIERUNG-001":
-      return {
-        error: buildRefusal({ reason: "Für diese Saison werden gerade keine Registrierungen angenommen", repair: "Lade die Seite neu" }),
-      };
-    // Reachable only for a team the season dropped after this page loaded. The reload leads to the
-    // state's own page, which says so in its own words.
     case "REQ-REGISTRIERUNG-002":
-      return {
-        error: buildRefusal({ reason: "Dieses Team spielt in dieser Saison nicht mehr mit", repair: "Lade die Seite neu" }),
-      };
     case "REQ-REGISTRIERUNG-003":
-      return { fieldErrors: { stufe: "Diese Stufe ist für diese Saison nicht vorgesehen. Lade die Seite neu und wähle erneut." } };
+      return { error: REGISTRIERUNG_NEU_OEFFNEN };
     case "REQ-REGISTRIERUNG-008":
       return {
         error: buildRefusal({
@@ -128,12 +119,7 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 }
 
 /** What one refused confirmation asks its caller to do. */
-export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: SpielerLinkZustand };
-
-/** An answer only a page older than the running one could have sent, which a reload replaces. */
-const VERALTETE_SEITE: BestaetigungRefusal = {
-  error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
-};
+export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
 // A THUNK and never a resolved number: three of the four codes below are link states, and a
 // caller reading the floor in front of the switch spends a second backend read on every one of
@@ -147,16 +133,17 @@ const VERALTETE_SEITE: BestaetigungRefusal = {
 export async function mapBestaetigungRefusal(error: unknown, mindestalter: () => Promise<number | null>): Promise<BestaetigungRefusal | null> {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
-  if (error.statusCode === 422) return VERALTETE_SEITE;
+  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+  // mail's link replaces.
+  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
 
   if (error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
     // The page offers no media switch below the served age, so only a page older than that rule
-    // sends this answer, and a reload is its repair as it is the 422's.
+    // sends this answer, and its repair is the 422's.
     case "REQ-REGISTRIERUNG-010":
-      return VERALTETE_SEITE;
+      return { error: ANTWORT_NEU_OEFFNEN };
     case "REQ-REGISTRIERUNG-004":
       return { zustand: "ungueltig" };
     case "REQ-REGISTRIERUNG-005":

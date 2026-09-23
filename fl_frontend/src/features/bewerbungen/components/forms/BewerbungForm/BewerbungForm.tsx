@@ -21,7 +21,6 @@ import {
 import { formButton } from "@/shared/components/ui/formButtons";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
@@ -112,8 +111,11 @@ export function BewerbungForm({
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { bewerbung: FLPostBewerbungPayloadSchema },
+    // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
+    // made, and two titles for one failure read as two failures.
+    failureTitle: "Bewerbung nicht abgeschickt",
   });
 
   // Above the „eingegangen“ return, as every hook here is: the panel it renders holds no form, and a
@@ -263,12 +265,14 @@ export function BewerbungForm({
           return;
         }
 
-        setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bewerbung: payload });
-
-        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
-        if (!hasFieldErrors(antwort.fieldErrors)) {
-          appToast.danger("Bewerbung nicht abgeschickt", { description: antwort.error ?? NICHT_ABGESCHICKT });
-        }
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { bewerbung: payload },
+          {
+            raise: (shown) => appToast.failure("Bewerbung nicht abgeschickt", shown),
+          },
+        );
         return;
       }
 

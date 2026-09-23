@@ -7,6 +7,7 @@ import { frontend_config } from "./config";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
 import { logger } from "./logging";
 import { getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { SentRequest } from "./errors";
@@ -85,17 +86,21 @@ const handleFetchResponse = async ({
   }
 
   // Read defensively: an unparseable failure body must not compound a bad status.
-  const serverErrorCode = await res
+  const body: unknown = await res
     .clone()
     .json()
-    .then((body: unknown) => (body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined))
     .catch(() => undefined);
+  const serverErrorCode = body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined;
+  // All or nothing: a list that fails its shape marks no field, rather than one this parse invented.
+  const refusedFields =
+    body && typeof body === "object" && "fields" in body ? FLRefusedPayloadBodySchema.shape.fields.safeParse(body.fields) : undefined;
 
   throw new APIBadStatusError({
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
     serverErrorCode: serverErrorCode,
+    refusedFields: refusedFields?.success ? refusedFields.data : [],
     endpoint: endpoint,
     ...sent,
     traceId: traceId,

@@ -98,14 +98,14 @@ export function doubleToasts(): { raised: RaisedToast[] } {
   const bus = `__flToastDouble${String((toastsRegistered += 1))}`;
   Reflect.set(globalThis, bus, raised);
 
-  // `close` and `clear` stay inert, recording them moving every index `raised` is read by; `failure`
-  // records its danger under the SITE's title, which title an unknown outcome swaps in being the real
-  // module's own case.
+  // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.
+  // `failure` keeps the site's title: the real module swaps in the neutral one, and
+  // `fl_frontend/src/shared/utils/appToast.test.ts` pins that.
   const source = `const raise = (variant) => (title, options) => {
   globalThis.${bus}.push({ variant, title, description: options?.description, options });
   return String(globalThis.${bus}.length);
 };
-const fail = (title, failure, options) => raise("danger")(title, { ...options, description: failure?.error, outcome: failure?.outcome });
+const fail = (title, failure) => raise("danger")(title, { description: failure?.unplacedError ?? failure?.error, outcome: failure?.outcome });
 const inert = () => undefined;
 export const UNDO_TIMEOUT_MS = 1;
 export const appToast = { ${toastMembers()

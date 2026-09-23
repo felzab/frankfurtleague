@@ -12,12 +12,11 @@ import {
 } from "@/features/bewerbungen/notifications";
 import { getBewerbungSchulen } from "@/features/bewerbungen/queries";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
-import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
+import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
@@ -37,9 +36,7 @@ export async function POST(request: NextRequest) {
       const body: unknown = await request.json().catch(() => null);
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
-      if (!parsed.success) {
-        return { success: false as const, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
-      }
+      if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };
 
       let eingang;
       try {

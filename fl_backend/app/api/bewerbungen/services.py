@@ -524,8 +524,8 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a bare `REQ-VAL-001`, which
-    lets the page mark its one field. Judged BEFORE any write, so a mistyped year spends nothing.
+    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a `REQ-VAL-001`, whose mark on
+    the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
     """
 
     try:

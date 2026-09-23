@@ -409,8 +409,8 @@ const TELEFON_LAENDERVORWAHLEN = ["0049", "49"] as const;
 
 /**
  * One spelling per number, mirroring `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon`.
- * Compared raw, the form accepts a pair the backend refuses as a 422 that names no field — so the
- * applicant is told to retry what cannot succeed.
+ * Compared raw, the form accepts a pair the backend refuses as a 422 naming the contact block rather
+ * than a box — so the applicant is told to retry what cannot succeed.
  */
 function normalisiereTelefon(value: string): string {
   const ziffern = value.replace(/[^0-9]/g, "");
@@ -750,7 +750,6 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       text_version: z
         .string()
         .trim()
-        .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
         .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
           error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
         }),

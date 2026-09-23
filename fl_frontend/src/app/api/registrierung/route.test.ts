@@ -58,7 +58,10 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { MAIL_ABGEWIESEN } = await import("@/features/registrierungen/utils.ts");
+const { MAIL_ABGEWIESEN, mapRegistrierungSubmitRefusal } = await import("@/features/registrierungen/utils.ts");
+const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const TOKEN = "abc123";
 const ADRESSE = "mira@beispiel.test";
@@ -139,6 +142,27 @@ describe("the registration handler", () => {
     assert.deepEqual(mails, []);
   });
 
+  /* The squad filled between the page loading and the press: the pupil is told so in the slice's
+     own banner, never the generic failure. */
+  it("answers a 409 with the refusal its slice maps", async () => {
+    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-008");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal(409, "REQ-REGISTRIERUNG-008")) });
+    assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
+  });
+
+  /* A box the form renders is marked there; the team's link stands beside it for any it does not. */
+  it("answers a 422 on the box it names, with the team's link beside it", async () => {
+    schreibAntwort = () => refusedPayload([bodyField(["email"])], "/registrierungen");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, fieldErrors: { email: FELD_ABGELEHNT }, unplacedError: REGISTRIERUNG_NEU_OEFFNEN });
+    assert.deepEqual(mails, []);
+  });
+
   /* The message carries a token minted for this one row, so a key over it would be refused rather
      than collapsed the moment a second send composed a different body. */
   it("tags the row and passes no idempotency key", async () => {
@@ -194,10 +218,14 @@ describe("the registration handler", () => {
     assert.deepEqual(answer.body, { success: true });
   });
 
-  it("refuses a body no schema admits without reaching the endpoint", async () => {
+  /* Only a page older than the deploy sends a body its own schema refuses, so the answer is the
+     slice's way back through the team's link rather than a retry that resends the same body. */
+  it("refuses a body no schema admits without reaching the endpoint, in the slice's own sentence", async () => {
     const answer = await bodyOf(aRequest({ token: TOKEN }));
+    const body = answer.body as { success: boolean; unplacedError?: string };
 
-    assert.equal((answer.body as { success: boolean }).success, false);
+    assert.equal(body.success, false);
+    assert.equal(body.unplacedError, REGISTRIERUNG_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
   });
 

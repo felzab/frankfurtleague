@@ -22,6 +22,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -52,6 +53,7 @@ import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
+import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -116,7 +118,7 @@ export function AdminTeamEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
   });
 
@@ -245,8 +247,7 @@ export function AdminTeamEditForm({
       const austrittTouched = isChanged("austritt");
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
-      const failedNotes: string[] = [];
-      let unklar = false;
+      const failures: ActionFailure[] = [];
 
       // Club half first: it cannot depend on the season half, and its fan-out note leads the toast.
       if (clubDirty) {
@@ -264,8 +265,7 @@ export function AdminTeamEditForm({
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.fieldErrors?.shorthand ?? res.error);
-          unklar ||= res.outcome === "unknown";
+          failures.push({ ...res, error: res.fieldErrors?.shorthand ?? res.error });
         }
       }
 
@@ -282,19 +282,29 @@ export function AdminTeamEditForm({
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.fieldErrors?.gruppe ?? res.error);
-          unklar ||= res.outcome === "unknown";
+          failures.push({ ...res, error: res.fieldErrors?.gruppe ?? res.error });
         }
       }
 
-      if (failedNotes.length > 0) {
-        setSubmitFieldErrors(collectedErrors, { team: clubPayload, saisonTeam: saisonPayload });
-        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read. One half
-        // of unknown outcome makes the whole press one, whatever the other half answered.
-        appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
-          error: [...savedParts, ...failedNotes].join(" "),
-          outcome: unklar ? "unknown" : undefined,
-        });
+      if (failures.length > 0) {
+        // One press, one failure: the half that saved leads each sentence, and one half of unknown
+        // outcome makes the whole press one, whatever the other half answered.
+        reportSubmitFailure(
+          {
+            success: false,
+            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+            fieldErrors: collectedErrors,
+            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+          },
+          { team: clubPayload, saisonTeam: saisonPayload },
+          {
+            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+            // said nowhere else.
+            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+          },
+        );
         return;
       }
 

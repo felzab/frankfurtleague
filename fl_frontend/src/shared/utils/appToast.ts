@@ -61,10 +61,12 @@ export const appToast = {
   danger: (title: string, options?: AppToastOptions) => raise("danger", title, options),
   /**
    * An action answered a failure: `title` says what did not happen, and the failure's own sentence is the
-   * description. Where the server could not tell whether the write landed, the neutral title stands in.
+   * description. Where nobody can tell whether the write landed, the neutral title stands in.
    */
-  failure: (title: string, failure: Pick<ActionFailure, "error" | "outcome">, options?: Omit<AppToastOptions, "description">) =>
-    raise("danger", failure.outcome === "unknown" ? OUTCOME_UNKNOWN_TITLE : title, { ...options, description: failure.error }),
+  failure: (title: string, failure: Pick<ActionFailure, "error" | "unplacedError" | "outcome">) =>
+    // A toast marks nothing, so a refused payload speaks its sentence for a map no control shows
+    // (`docs/frontend/spec.md :: I344`).
+    raise("danger", failure.outcome === "unknown" ? OUTCOME_UNKNOWN_TITLE : title, { description: failure.unplacedError ?? failure.error }),
   /** Neither an outcome nor a failure — a standing fact worth one line. */
   info: (title: string, options?: AppToastOptions) => raise("info", title, options),
 

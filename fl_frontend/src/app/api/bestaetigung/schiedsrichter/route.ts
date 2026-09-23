@@ -1,13 +1,13 @@
 import { revalidateTag } from "next/cache";
 
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
-import { stampEinwilligungFassung } from "@/features/bewerbungen/utils";
+import { nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
-import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import type { NextRequest } from "next/server";
 
@@ -36,16 +36,14 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Stamped BEFORE the parse, through the helper all three confirmation handlers share: the
-      // label is this server's to write, so judging the browser's own would refuse a body on
-      // `text_version`, which no control renders and no reader would see.
-      const gestempelt =
-        typeof body === "object" && body !== null ? stampEinwilligungFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion) : body;
-      const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(gestempelt);
+      // Judged BEFORE the parse, by the check all three confirmation handlers share: a page opened
+      // before a deploy moved the label posts the words its reader saw, and only the mail's link
+      // reopens the page on the running ones.
+      if (!nenntLaufendeFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
 
-      if (!parsed.success) {
-        return { success: false as const, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
-      }
+      const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
+
+      if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
       let antwort;
       try {

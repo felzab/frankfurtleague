@@ -81,7 +81,7 @@ export function settledErasureAnsicht(
   if (res.success && res.ansicht !== undefined) return { email, status: "read", sitze: res.ansicht };
 
   // A field map with no field to lay it on: the address came off the stored record, so
-  // `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` would send the reader to a
+  // `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED` would send the reader to a
   // box this panel does not render.
   const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
 

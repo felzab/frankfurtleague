@@ -5,16 +5,11 @@ import { logger } from "@/core/logging";
 
 import { toActionErrorResult } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
+import { VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
-
-/**
- * The generic banner for a payload the schema refused, declared once, in the refusal format §1.12 of
- * `docs/frontend/spec.md` sets. The field messages beside it carry the specifics.
- */
-export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
 /**
  * What every admin write answers when the session carries no admin role. It becomes `FormState.error` and reaches a

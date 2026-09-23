@@ -37,7 +37,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -45,7 +44,7 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -251,8 +250,8 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /**
- * What the press sends. `text_version` is stamped here as well as at the handler, which overwrites
- * it: the draft the page validates has to carry every path the payload declares.
+ * What the press sends. `text_version` is the label this page rendered, which the handler admits only
+ * where it is still the one it serves.
  */
 function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterBestaetigungPayload {
   return {
@@ -269,8 +268,7 @@ function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolea
 }
 
 type BestaetigungAntwort =
-  | ({ success: true } & Omit<Gespeichert, "vorname">)
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: SchiedsrichterLinkZustand; outcome?: "unknown" };
+  ({ success: true } & Omit<Gespeichert, "vorname">) | (PublicEnvelope & { success: false; zustand?: SchiedsrichterLinkZustand });
 
 /**
  * **The acknowledgement is the press, not a switch**: the five points above the button say what the
@@ -304,7 +302,7 @@ function SchiedsrichterFormPanel({
   // would let the press through at a number the endpoint refuses.
   const antwortSchema = useMemo(() => buildSchiedsrichterBestaetigungPayloadSchema(mindestalter), [mindestalter]);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { bestaetigung: antwortSchema },
     failureTitle: ANTWORT_NICHT_GESPEICHERT,
   });
@@ -350,13 +348,12 @@ function SchiedsrichterFormPanel({
         return;
       }
 
-      setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bestaetigung: payload });
-
-      // For a failure belonging to no field alone: a field's refusal speaks at it, and one naming only
-      // paths no control renders is announced by `useServerFieldErrors`, which a second toast would repeat.
-      if (!hasFieldErrors(antwort.fieldErrors)) {
-        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: antwort.error ?? NICHT_GESPEICHERT });
-      }
+      // The hook owns the press's one toast: none where a field shows the refusal.
+      reportSubmitFailure(
+        { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+        { bestaetigung: payload },
+        { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+      );
       return;
     }
 

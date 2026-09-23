@@ -17,7 +17,6 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -148,7 +147,7 @@ export function AdminEditSpielDataForm({
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
   // server would have produced.
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { spiel: FLPatchSpielDataPayloadSchema },
   });
 
@@ -370,16 +369,10 @@ export function AdminEditSpielDataForm({
       if (!res.success) {
         // A field error rather than a toast, so the message lands on the control to change.
         const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
-        const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
-        setSubmitFieldErrors(fieldErrorsFromServer, { spiel: payload });
+        reportSubmitFailure({ ...res, fieldErrors: { ...(res.fieldErrors ?? {}), ...occupantErrors } }, { spiel: payload });
 
         // The remedies the field's one sentence has no room for, keyed to the draft just judged.
         setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
-
-        // Only for failures no single field owns.
-        if (!hasFieldErrors(fieldErrorsFromServer)) {
-          appToast.failure("Änderung nicht gespeichert", res);
-        }
         return;
       }
 

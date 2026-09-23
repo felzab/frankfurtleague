@@ -6,8 +6,9 @@ import { headers } from "next/headers";
 import { getAuthenticatorName } from "@better-auth/passkey";
 
 import { auth, getAdminSession, isRecentlyAsserted, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
+import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { PasskeyEintrag } from "./types";

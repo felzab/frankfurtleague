@@ -29,6 +29,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -38,6 +39,7 @@ import type { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
+import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -391,7 +393,7 @@ function AdresseKorrigieren({
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
@@ -422,26 +424,27 @@ function AdresseKorrigieren({
     const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
     setSendet(false);
 
+    // One raise for every arm below, so the title has one site.
+    const nichtKorrigiert: RaiseFailure = (shown) => appToast.failure("Adresse nicht korrigiert", shown);
+
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
     // sends, and the refreshed row says whether one is owed.
     if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
       // Thrown, no answer came back, so this control's repair names the connection.
-      appToast.failure("Adresse nicht korrigiert", res ?? { error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
+      nichtKorrigiert(res ?? { success: false, error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
     if (!res.success) {
-      if (res.fieldErrors !== undefined) {
-        setSubmitFieldErrors(res.fieldErrors, { korrektur: payload });
-        return;
+      // A refusal carrying a map leaves the box open, and the hook says whether the box took it.
+      if (!hasFieldErrors(res.fieldErrors)) {
+        // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
+        // time the administrator reads it.
+        router.refresh();
+        onFertig();
       }
-
-      // Every mapped refusal ends in „Lade die Seite neu", so the refresh has already run by the
-      // time the administrator reads it.
-      router.refresh();
-      onFertig();
-      appToast.failure("Adresse nicht korrigiert", res);
+      reportSubmitFailure(res, { korrektur: payload }, { raise: nichtKorrigiert });
       return;
     }
 
@@ -560,7 +563,7 @@ function SitzNeuBesetzen({
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
@@ -590,26 +593,27 @@ function SitzNeuBesetzen({
     const res = await besetzeKontaktSitzAction(payload).catch(() => null);
     setSendet(false);
 
+    // One raise for every arm below, so the title has one site.
+    const nichtBesetzt: RaiseFailure = (shown) => appToast.failure("Rolle nicht neu besetzt", shown);
+
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
     // sends, and the refreshed row says whether one is owed.
     if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
       // Thrown, no answer came back, so this control's repair names the connection.
-      appToast.failure("Rolle nicht neu besetzt", res ?? { error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
+      nichtBesetzt(res ?? { success: false, error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
     if (!res.success) {
-      if (res.fieldErrors !== undefined) {
-        setSubmitFieldErrors(res.fieldErrors, { neubesetzung: payload });
-        return;
+      // A refusal carrying a map leaves the box open, and the hook says whether the box took it.
+      if (!hasFieldErrors(res.fieldErrors)) {
+        // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
+        // time the administrator reads it.
+        router.refresh();
+        onFertig();
       }
-
-      // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
-      // time the administrator reads it.
-      router.refresh();
-      onFertig();
-      appToast.failure("Rolle nicht neu besetzt", res);
+      reportSubmitFailure(res, { neubesetzung: payload }, { raise: nichtBesetzt });
       return;
     }
 

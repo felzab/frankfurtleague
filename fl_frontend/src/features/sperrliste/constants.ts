@@ -1,7 +1,7 @@
 /**
  * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py` and paired with it by
  * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Bound here too because the
- * endpoint refuses a length with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
+ * endpoint's `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
 

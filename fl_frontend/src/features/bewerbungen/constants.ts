@@ -70,7 +70,7 @@ export const KUERZEL_LAENGE = 2;
 
 /**
  * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
- * the public endpoint refuses a length with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
+ * the public endpoint's `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
 export const BEWERBUNG_KADER_GROESSE_MAX = 200;
@@ -126,8 +126,8 @@ export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
  * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two
- * consent payloads because a link mangled longer than any mint answers a bare `REQ-VAL-001`, which
- * tells a visitor nothing about their link.
+ * consent payloads because a link mangled longer than any mint answers a `REQ-VAL-001` naming the
+ * token, which no control renders, so it tells a visitor nothing about their link.
  */
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
 

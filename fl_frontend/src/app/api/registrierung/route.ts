@@ -5,9 +5,9 @@ import { postRegistrierung } from "@/features/registrierungen/mutations";
 import { FLPostRegistrierungPayloadSchema } from "@/features/registrierungen/schemas";
 import { abgewiesenerVersand, mapRegistrierungSubmitRefusal } from "@/features/registrierungen/utils";
 import { sendZielMail } from "@/features/zustellung/notifications";
-import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import type { NextRequest } from "next/server";
 
@@ -24,9 +24,7 @@ export async function POST(request: NextRequest) {
       const body: unknown = await request.json().catch(() => null);
       const parsed = FLPostRegistrierungPayloadSchema.safeParse(body);
 
-      if (!parsed.success) {
-        return { success: false as const, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
-      }
+      if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, REGISTRIERUNG_NEU_OEFFNEN) };
 
       let eingang;
       try {

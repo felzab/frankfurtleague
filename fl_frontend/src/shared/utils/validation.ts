@@ -7,6 +7,12 @@ import type { ZodError } from "zod";
 export type FieldErrors = Record<string, string>;
 
 /**
+ * The generic banner for a payload the schema or the API refused, declared once, in the refusal format §1.12 of
+ * `docs/frontend/spec.md` sets. The field messages beside it carry the specifics.
+ */
+export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
+
+/**
  * One message per field: zod reports every failed check, and the first describes the value actually typed. An issue
  * with an empty path has no field to attach to, and stays with the generic error the action already returns.
  */

@@ -32,7 +32,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -41,7 +40,7 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -219,7 +218,7 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
 
 type Antwort =
   | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean }
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: SpielerLinkZustand; outcome?: "unknown" };
+  | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
  * The pupil's own confirmation.
@@ -372,7 +371,7 @@ function SpielerBestaetigungForm({
   const klickPunkteId = useId();
   const panel = formPanel();
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     // Built from the floor the link answered, never the module's own: the endpoint judges this
     // person, so a schema on a constant would let the press through at the wrong number.
     schemas: { bestaetigung: buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter) },
@@ -446,11 +445,12 @@ function SpielerBestaetigungForm({
           return;
         }
 
-        setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bestaetigung: body });
-
-        if (!hasFieldErrors(antwort.fieldErrors)) {
-          appToast.danger("Antwort nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
-        }
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { bestaetigung: body },
+          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+        );
         return;
       }
 

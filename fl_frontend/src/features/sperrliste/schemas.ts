@@ -45,8 +45,8 @@ export const FLPostSperrlistePayloadSchema = z.object({
   // converts: an address this turned away is one that would never have been banned.
   email: KontaktEmailSchema,
   // Trimmed before either bound counts it, as the API is: it refuses a reason of spaces alone, and
-  // one over the ceiling, with a bare `REQ-VAL-001` carrying no field detail, so a looser mirror
-  // marks no box.
+  // one over the ceiling, with a `REQ-VAL-001` marking the box with a generic sentence, so a looser
+  // mirror loses the bound's German.
   grund: z
     .string()
     .trim()

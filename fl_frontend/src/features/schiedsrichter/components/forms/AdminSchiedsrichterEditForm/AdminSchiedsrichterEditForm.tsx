@@ -21,7 +21,6 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
@@ -107,7 +106,7 @@ export function AdminSchiedsrichterEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
   });
 
@@ -201,8 +200,7 @@ export function AdminSchiedsrichterEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
       if (!res.success) {
-        setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
-        appToast.failure("Änderung nicht gespeichert", res);
+        reportSubmitFailure(res, { schiedsrichter: payload });
         return;
       }
 

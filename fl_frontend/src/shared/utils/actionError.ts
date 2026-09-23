@@ -1,9 +1,66 @@
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
+import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
 import type { ActionFailure } from "@/shared/types/types";
+import type { ZodError } from "zod";
+import type { FieldErrors } from "./validation";
+
+/**
+ * Under a box whose value only the API refused. Never the form's own message for that box: the form's
+ * rules passed the value, so each of those describes a rule it already met.
+ */
+export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
+
+/**
+ * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
+ * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
+ */
+const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: "Lade die Seite neu" });
+
+/**
+ * The body fields a `REQ-VAL-001` names, keyed as the inputs are named, or `null` where it names none. A
+ * form showing nothing under any of them is `useServerFieldErrors`'s to announce, never this map's.
+ */
+function refusedFieldErrors(error: unknown): FieldErrors | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 422) return null;
+
+  const fieldErrors: FieldErrors = {};
+  for (const field of error.refusedFields) {
+    // A query or header value belongs to no control, and an empty path is the body as a whole.
+    if (field.in !== "body" || field.path.length === 0) continue;
+
+    fieldErrors[field.path.join(".")] = FELD_ABGELEHNT;
+  }
+
+  return Object.keys(fieldErrors).length === 0 ? null : fieldErrors;
+}
+
+/**
+ * Where no rendered box takes the refusal, the slice's own sentence stands and never
+ * `UNHANDLED_FIELD_REFUSAL`, whose retry resends the body just refused (`docs/frontend/spec.md :: I344`).
+ */
+export function refusedPayloadAnswer(error: APIBadStatusError, sentence: string): RefusedAnswer {
+  return answerBeside(refusedFieldErrors(error), sentence);
+}
+
+/**
+ * A public route's own parse refusing the body, answered as the API's refusal of it is: the parse
+ * shares the running API's rules, so a path it names and no control renders comes from an older page.
+ */
+export function refusedDraftAnswer(error: ZodError, sentence: string): RefusedAnswer {
+  const fieldErrors = toFieldErrors(error);
+
+  return answerBeside(Object.keys(fieldErrors).length === 0 ? null : fieldErrors, sentence);
+}
+
+type RefusedAnswer = { error: string } | { fieldErrors: FieldErrors; unplacedError: string };
+
+function answerBeside(fieldErrors: FieldErrors | null, sentence: string): RefusedAnswer {
+  return fieldErrors === null ? { error: sentence } : { fieldErrors, unplacedError: sentence };
+}
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
@@ -45,6 +102,12 @@ export function unansweredAction(): ActionFailure {
  */
 export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
   if (error instanceof APIBadStatusError) {
+    const fieldErrors = refusedFieldErrors(error);
+    if (fieldErrors !== null) return { success: false, error: VALIDATION_FAILED, fieldErrors, unplacedError: EINZELNE_ANGABEN_ABGELEHNT };
+    // Naming only a query parameter or the body whole, it is still a request the running API no
+    // longer takes, and the page that fits it comes with a reload.
+    if (error.statusCode === 422) return { success: false, error: EINZELNE_ANGABEN_ABGELEHNT };
+
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
       // The form does not offer these shapes, so the request was built against a season that has since moved.
       return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };

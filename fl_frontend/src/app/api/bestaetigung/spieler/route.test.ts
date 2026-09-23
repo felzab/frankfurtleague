@@ -45,6 +45,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
 
 const TOKEN = "abc123";
 
@@ -78,8 +79,14 @@ const aRefusal = (statusCode: number, serverErrorCode: string) =>
     traceId: "0",
   });
 
-/** The body a browser sends, with nothing added: the handler stamps the wording itself. */
-const gueltigerKoerper = { token: TOKEN, geburtsdatum: "2008-09-01", umfang: "intern", medien: false };
+/** The body a browser sends, naming the label the page rendered. */
+const gueltigerKoerper = {
+  token: TOKEN,
+  geburtsdatum: "2008-09-01",
+  umfang: "intern",
+  medien: false,
+  text_version: SPIELER_EINWILLIGUNG.textVersion,
+};
 
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
   return {
@@ -119,19 +126,30 @@ beforeEach(() => {
 });
 
 describe("the pupil's confirmation handler", () => {
-  it("stamps the wording this server rendered rather than the one the browser sent", async () => {
-    await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
+  /* A page opened before a deploy moved the label shows words the running build does not serve, and
+     filing the answer under the new label would record a consent to a text nobody was shown. */
+  it("refuses a label other than the one this server renders, before the endpoint", async () => {
+    const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
+    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(calls, []);
+  });
+
+  /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
+     marks on boxes whose values may be right. */
+  it("answers a body carrying no label with that same sentence", async () => {
+    const { text_version: _fassung, ...ohneFassung } = gueltigerKoerper;
+    const answer = await bodyOf(aRequest(ohneFassung));
+
+    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(calls, []);
+  });
+
+  it("files the answer under the label this server renders, echoing what was stored", async () => {
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === "/registrierungen/bestaetigung");
 
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, SPIELER_EINWILLIGUNG.textVersion);
-  });
-
-  /* Stamped BEFORE the parse: after it, a body carrying no label is refused on a path no control
-     renders, and the refusal reaches the reader as nothing at all. */
-  it("stamps a body that carries no label rather than refusing it", async () => {
-    const answer = await bodyOf(aRequest(gueltigerKoerper));
-
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: "intern", medien: false });
   });
 
@@ -182,9 +200,12 @@ describe("the pupil's confirmation handler", () => {
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {
-    const answer = await bodyOf(aRequest({ token: TOKEN }));
+    const answer = await bodyOf(aRequest({ token: TOKEN, text_version: SPIELER_EINWILLIGUNG.textVersion }));
 
     assert.equal((answer.body as { success: boolean }).success, false);
+    // Beside the boxes it names, the sentence for any this page does not render: only an older page
+    // sends such a body, and only the mail's link reopens this one.
+    assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
   });
 

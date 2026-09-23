@@ -139,8 +139,8 @@ export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 
 /**
  * Re-exported from `core`, where the administrator allowlist can reach it: applied here so an
- * over-long address is refused in German at the keystroke, the API refusing it with a bare
- * `REQ-VAL-001` and no field detail that would mark the box.
+ * over-long address is refused in German at the keystroke, the API's `REQ-VAL-001` marking the box
+ * with a generic sentence rather than the ceiling's own.
  */
 export { KONTAKT_EMAIL_MAX_LENGTH };
 

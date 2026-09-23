@@ -93,8 +93,8 @@ describe("what the public submission schema accepts", () => {
     assert.deepEqual(refusedPaths(withAddress("käthe@beispiel.de")), ["kontakte.trainer.email"]);
   });
 
-  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so the box
-     the applicant has to change would be marked by nothing. */
+  /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
+     sentence, which never tells the applicant what to change. */
   it("refuses a contact address the API would refuse, on that seat's own box", () => {
     const draft = validDraft();
     const brokenDraft = validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email: "tim@ab-.de" }) } });
@@ -254,8 +254,8 @@ describe("the three people have to be tellable apart", () => {
 
 describe("two spellings of one telephone number are one number", () => {
   /* `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon` compares digits and folds both
-     country codes. Compared as raw text here, the form accepts a pair the backend refuses as a 422,
-     which names no field to land the answer under. */
+     country codes. Compared as raw text here, the form accepts a pair the backend refuses as a 422
+     naming the contact block rather than a box, so no box carries the answer. */
   const sharedNumber = (eine: string, andere: string) => {
     const basis = validDraft();
 
@@ -831,8 +831,8 @@ describe("the ceiling on the confirmation link's own token", () => {
     FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody }),
   ];
 
-  /* No control renders the token, and past `CustomBewerbungToken`'s ceiling the endpoint refuses with
-     a bare `REQ-VAL-001` naming no field, so the page can only report a failed save. */
+  /* No control renders the token, so past `CustomBewerbungToken`'s ceiling the endpoint's
+     `REQ-VAL-001` naming it marks nothing, and the page can only report a failed save. */
   it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
     for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1))) {
       assert.equal(parsed.success, false);

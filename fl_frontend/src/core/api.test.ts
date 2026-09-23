@@ -162,6 +162,54 @@ describe("the two headers this hop sets", () => {
   });
 });
 
+describe("a refused payload's fields", () => {
+  const refusedWith = (body: unknown) => new Response(JSON.stringify(body), { status: 422, headers: { "content-type": "application/json" } });
+
+  async function thrownBy(body: unknown): Promise<InstanceType<typeof APIBadStatusError>> {
+    nextAnswer = refusedWith(body);
+    const thrown: unknown = await apiClient("/schiedsrichter", z.unknown(), { method: "POST" }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    assert.ok(thrown instanceof APIBadStatusError, "the 422 was not thrown as a bad status");
+    return thrown;
+  }
+
+  it("reach the error as the backend named them, the code beside them", async () => {
+    const fields = [
+      { in: "body", path: ["kontakt", "email"], kind: "value_error" },
+      { in: "body", path: ["namen", 1], kind: "string_too_long" },
+    ];
+
+    const thrown = await thrownBy({ error_code: "REQ-VAL-001", trace_id: TRACE, fields });
+
+    assert.equal(thrown.serverErrorCode, "REQ-VAL-001");
+    assert.deepEqual(thrown.refusedFields, fields);
+  });
+
+  // All or nothing: one entry out of shape drops the list, so no field is marked on a path this
+  // client guessed at, and the form falls back to the refusal naming none.
+  it("are none where any entry is out of shape", async () => {
+    const thrown = await thrownBy({
+      error_code: "REQ-VAL-001",
+      trace_id: TRACE,
+      fields: [
+        { in: "body", path: ["kontakt", "email"], kind: "value_error" },
+        { in: "body", path: "kontakt.email" },
+      ],
+    });
+
+    assert.equal(thrown.serverErrorCode, "REQ-VAL-001");
+    assert.deepEqual(thrown.refusedFields, []);
+  });
+
+  it("are none where the body carries no list", async () => {
+    const thrown = await thrownBy({ error_code: "REQ-VAL-001", trace_id: TRACE });
+
+    assert.deepEqual(thrown.refusedFields, []);
+  });
+});
+
 describe("a call the caller declares read-only", () => {
   const json = (status: number, body: unknown) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

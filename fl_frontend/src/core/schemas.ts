@@ -11,6 +11,19 @@ import { CustomObjectIdStringSchema } from "./objectId";
 export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]) });
 export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
 
+/** Every failure's body, mirroring the backend's `FLFailureBody` (`docs/logging/spec.md :: L4`). */
+export const FLFailureBodySchema = z.object({ error_code: z.string(), trace_id: z.string() });
+
+/** One refusal a `REQ-VAL-001` names; `kind` is pydantic's error `type`. */
+export const FLRefusedFieldSchema = z.object({
+  in: z.enum(["body", "query", "path", "header", "cookie"]),
+  path: z.array(z.union([z.string(), z.number().int()])),
+  kind: z.string(),
+});
+export type FLRefusedField = z.infer<typeof FLRefusedFieldSchema>;
+
+export const FLRefusedPayloadBodySchema = FLFailureBodySchema.extend({ fields: z.array(FLRefusedFieldSchema) });
+
 /**
  * Which mailbox `POST /identitaet/subjekt` is asked about, folded
  * (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). No length or alphabet is restated

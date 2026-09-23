@@ -298,6 +298,28 @@ describe("the address correction", () => {
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
   });
+
+  it("reports a refusal, a sent link and an address corrected behind a message that did not go", async () => {
+    const user = userEvent.setup();
+
+    for (const answer of [
+      { success: false, error: "Die Bewerbung ist entschieden." },
+      { success: true, verschickt: false, message: "Der Link ging nicht raus." },
+      { success: true, verschickt: true, message: "Der Link ging an clara.neu@schule.example." },
+    ]) {
+      const { unmount } = renderStrip();
+      answerWith(() => Promise.resolve(answer));
+
+      await correctClara(user, "clara.neu@schule.example{Enter}");
+      unmount();
+    }
+
+    // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
+    // refusal would otherwise reach through the hook's default raise.
+    assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
+    assert.deepEqual(titles("warning"), ["Link nicht gesendet"]);
+    assert.deepEqual(titles("success"), ["Adresse korrigiert"]);
+  });
 });
 
 describe("where focus goes as the correction box opens and closes", () => {

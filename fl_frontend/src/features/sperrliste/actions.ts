@@ -7,9 +7,9 @@ import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";

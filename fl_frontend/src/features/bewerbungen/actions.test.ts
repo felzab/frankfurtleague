@@ -514,8 +514,8 @@ describe("the sentence both entry surfaces render for one code", () => {
 });
 
 describe("the decline's bound", () => {
-  /* Mirrored, never recalled: past the backend's ceiling the API answers a bare `REQ-VAL-001` with no
-     field detail, so nothing would mark the box. */
+  /* Mirrored, never recalled: past the backend's ceiling the API's `REQ-VAL-001` marks the box with a
+     generic sentence rather than the bound's German. */
   it("caps the reason at the number the backend states", () => {
     const backend = /^BEWERBUNG_GRUND_MAX_LENGTH: Final = (\d+)$/m.exec(BOUNDS)?.[1] ?? "";
     const frontend = /^export const BEWERBUNG_GRUND_MAX_LENGTH = (\d+);$/m.exec(CONSTANTS)?.[1] ?? "";

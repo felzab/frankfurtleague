@@ -52,8 +52,13 @@ export type ActionFailure = {
   /** Keyed by the field's dotted payload path. `error` stays the transport-level fallback: a 500 belongs to no field. */
   fieldErrors?: FieldErrors;
   /**
+   * What the press says where no rendered control takes `fieldErrors`, in place of `error`, which then
+   * points at marks nobody can see (`docs/frontend/spec.md :: I344`).
+   */
+  unplacedError?: string;
+  /**
    * The backend's code for a failure a field can own; the form places the message, holding the payload it submitted. A
-   * failure body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
+   * 409's body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
    */
   errorCode?: string;
   /**

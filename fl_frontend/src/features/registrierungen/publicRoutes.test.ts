@@ -9,12 +9,13 @@ import { describe, it, mock } from "node:test";
 import { createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
@@ -32,6 +33,9 @@ const fetchMock = mock.fn<(input?: RequestInfo | URL, init?: RequestInit) => Pro
 globalThis.fetch = ((input, init) => fetchMock(input, init)) as typeof fetch;
 
 const { raised } = doubleToasts();
+
+const failureToasts = () =>
+  raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description] as [string, string | undefined]);
 
 /*
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
@@ -380,6 +384,56 @@ describe("what the two public pages tell a pupil whose write may have landed", (
 
     await screen.findByRole("button", { name: /Registrierung bestätigen/ });
     assert.deepEqual(unklar(), [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
+  });
+});
+
+/* Each page is handed the answer the route sends for a `REQ-VAL-001` naming only a path none of its
+   controls renders, and has to announce the sentence the answer brings rather than the generic one. */
+describe("what the two public pages say about a refusal no box of theirs can take", () => {
+  const EIGENER_SATZ = "Der Satz, den die Antwort für diesen Fall mitbringt.";
+
+  const answeredWith = (path: string) =>
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, fieldErrors: { [path]: FELD_ABGELEHNT }, unplacedError: EIGENER_SATZ }), {
+          status: 200,
+        }),
+      ),
+    );
+
+  it("puts the registration's own sentence under the registration's title", async () => {
+    raised.length = 0;
+    const user = userEvent.setup();
+    answeredWith("token");
+
+    const { container } = render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    assert.ok(container.querySelector('[name="token"]') === null, "the case's path is one a control renders");
+
+    await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
+    await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
+    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
+    await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+
+    await waitFor(() => assert.deepEqual(failureToasts(), [["Registrierung nicht abgeschickt", EIGENER_SATZ]]));
+  });
+
+  it("puts the confirmation's own sentence under the confirmation's title", async () => {
+    raised.length = 0;
+    const user = userEvent.setup();
+    answeredWith("text_version");
+
+    const { container } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }),
+    );
+    assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
+
+    await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+
+    await waitFor(() => assert.deepEqual(failureToasts(), [["Antwort nicht gespeichert", EIGENER_SATZ]]));
   });
 });
 

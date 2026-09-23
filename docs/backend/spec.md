@@ -328,13 +328,25 @@ cache tags in the same action — the data it caches changed even though no team
 
 ### 1.4 Error codes and failure responses
 
-**Every failure response body is `{error_code, trace_id}`** — the full code table and the body's
-field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the trace-id
-design in [`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must
-follow them.
+**Every failure response body is `{error_code, trace_id}`**, a refused payload's adding `fields` —
+the full code table is in [`docs/logging/error-codes.md`](../logging/error-codes.md), each entry of
+`fields` is `fl_backend/app/shared/schemas/responses.py :: FLRefusedField`, the trace-id design in
+[`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must follow them.
 The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
 (`fl_backend/app/core/exceptions.py :: BaseAPIException`), checked by
-`fl_backend/tests/api/test_error_responses.py`.
+`fl_backend/tests/api/test_error_responses.py`. **`fl_backend/openapi.json` declares both bodies**
+(I345), so a client generated from it reads the envelope rather than FastAPI's default
+`HTTPValidationError`, a body this API never sends.
+
+**A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
+(`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never
+pydantic's English message. Three shapes name no control, and
+the form answers each with the public slice's own sentence, or the generic one where it has none
+(`docs/frontend/spec.md :: I344`):
+
+- a refusal inside a union carries pydantic's member tag in its path, which no payload key spells
+- a whole-record rule carries the path of the model that holds it — empty for the body itself
+- an undecodable body carries an empty path, where FastAPI's own report holds a character offset
 
 **A `DuplicateKeyError` maps to a 409 through a dedicated handler**: a natural-key
 collision on a create is an ordinary outcome rather than a server fault. Starlette resolves handlers by
@@ -372,7 +384,7 @@ one of these, where the season has not moved at all.
 | `REQ-BOOKING-001`     | A venue or referee NEWLY assigned, or kept on a fixture the save makes unplayed again, that the league lacks or holds retired                                                          |
 | `REQ-CLASH-001`       | A venue or referee claim the fixture did not already make, less than four hours from another fixture's claim                                                                           |
 
-**One code per rule, never one per side.** The failure body is `{error_code, trace_id}` and
+**One code per rule, never one per side.** A refusal's body is `{error_code, trace_id}` and
 nothing else (L4), so the code is the only channel — and "team1 has left the season" and "team2 has
 left the season" are one failure mode, which is what the code table's own rule keys on.
 
@@ -878,6 +890,7 @@ rather than by the handler remembering to conceal one.
 | I322 | Each capped sweep loop takes a fixed share per call, leaving the rest due: a whole page past the deadline would write nothing, every call                                                                                                                                       | `fl_backend/app/api/registrierungen/sweep_router.py :: REMINDERS_PER_PASS`, `fl_backend/app/api/bewerbungen/sweep_router.py :: REMINDERS_PER_PASS` and `:: BLOCKS_CLEARED_PER_PASS`, `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS`; `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`, `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachCappedClockMakesProgressAcrossPasses`                                             |
 | I323 | A sweep call runs the transaction whose rows it hands back last, so no later step's error answers after a commit owing a message                                                                                                                                                | `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` and `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`; `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestAnswerAndMessagesCommitTogether`                                                                                                                                                                                                                                                                      |
 | I324 | A season write drops the cache however it ends, a raised write included: one whose answer was lost may have landed                                                                                                                                                              | `fl_backend/app/api/saisons/cache.py :: dropping_the_saison_cache`; `fl_backend/tests/api/test_saison_cache.py :: TestEverySeasonWriteDropsIt` and `:: TestTheDropRunsHoweverTheWriteEnds`                                                                                                                                                                                                                                                                                                                                   |
+| I345 | Every operation publishes `FLFailureBody` for its failures, and each taking input `FLRefusedPayloadBody` for its 422, never FastAPI's own                                                                                                                                       | `fl_backend/app/main.py :: publish_failure_bodies`; `fl_backend/tests/api/test_error_responses.py :: TestThePublishedFailureBodies`; `fl_frontend/src/core/apiContract.test.ts` against the `fl_frontend/src/core/schemas.ts` mirrors                                                                                                                                                                                                                                                                                        |
 | I327 | An operation storing nothing whatever its method publishes `x-fl-stores-nothing`: `true`, or the boolean query flag under which it stores nothing                                                                                                                               | `fl_backend/app/main.py :: publish_stores_nothing`, from `fl_backend/app/core/exception_handlers.py :: stores_nothing` and `:: stores_nothing_when`; `fl_backend/tests/core/test_request_deadline.py :: TestTheDeclarationIsPublished`                                                                                                                                                                                                                                                                                       |
 | I328 | A mailing's team row whose commit the driver labels of unknown outcome says `erzeugung_ungewiss`                                                                                                                                                                                | `fl_backend/app/api/saisons/admin_router.py :: _mail_one_team`; `fl_backend/tests/core/test_request_deadline.py :: TestTheSendPastItsDeadline`                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -987,6 +1000,10 @@ rather than by the handler remembering to conceal one.
 | No endpoint writes a `spieler` row                                       | Open — no route creates a pupil, and the admission that will is the next programme's; the rows standing are those already there (I12)                                                                                                                                              |
 | A ban past the list's read cap is unreachable                            | Open — `GET /sperrliste` serves `LIST_LIMIT_DEFAULT` rows and takes no paging control, so past that count `anzahl_gesamt` alone reports a ban nothing reaches                                                                                                                      |
 
+- **An address only the API refuses is marked with the generic field sentence**
+  (`fl_frontend/src/shared/utils/actionError.ts :: FELD_ABGELEHNT`), never its reason: a reserved or
+  special-use domain (`.test`, `.local`) and a domain IDNA 2008 disallows pass the form's rule and
+  reach the box as a `kind` the page does not word. No real address falls in either class.
 - **The two runtimes convert a Unicode domain on their own Unicode tables**, so a label holding a
   code point newer than one runtime's release converts on one side alone; no registry issues such a
   label yet, and `fl_backend/tests/shared/email_addresses.json` holds the two to one answer on the

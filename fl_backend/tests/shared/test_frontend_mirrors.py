@@ -172,7 +172,7 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
 
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
-    """Past the backend's ceiling the API answers a bare `REQ-VAL-001` carrying no field detail, so a looser mirror marks no box."""
+    """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
     found = re.search(rf"^export const {mirror.typescript} = (\d+);$", _source(mirror.module), re.MULTILINE)
 

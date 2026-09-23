@@ -21,6 +21,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -95,7 +96,7 @@ export function AdminSpielerEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
   });
 
@@ -254,13 +255,24 @@ export function AdminSpielerEditForm({
       }
 
       if (failures.length > 0) {
-        setSubmitFieldErrors(collectedErrors, { spieler: personPayload, saisonSpieler: saisonPayload });
-        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read. One half
-        // of unknown outcome makes the whole press one, whatever the other half answered.
-        appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
-          error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
-          outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
-        });
+        // One press, one failure: the half that saved leads each sentence, and one half of unknown
+        // outcome makes the whole press one, whatever the other half answered.
+        reportSubmitFailure(
+          {
+            success: false,
+            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+            fieldErrors: collectedErrors,
+            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+          },
+          { spieler: personPayload, saisonSpieler: saisonPayload },
+          {
+            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+            // said nowhere else.
+            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+          },
+        );
         return;
       }
 

@@ -20,13 +20,19 @@ NO_DATA_TEXT = "//- No Data -//"
 UNKNOWN_OUTCOME = "DB-FAIL-002"
 
 
-def error_response(status_code: int, error_code: str, headers: Mapping[str, str] | None = None) -> JSONResponse:
-    """The one failure body shape every handler returns: the code, and the id to quote."""
-    return JSONResponse(
-        status_code=status_code,
-        content={"error_code": error_code, "trace_id": trace_id_var.get()},
-        headers=headers,
-    )
+def error_response(
+    status_code: int,
+    error_code: str,
+    headers: Mapping[str, str] | None = None,
+    *,
+    fields: list[dict[str, Any]] | None = None,
+) -> JSONResponse:
+    """The one failure body shape every handler returns: the code, the id to quote, and a refused payload's `fields`."""
+    content: dict[str, Any] = {"error_code": error_code, "trace_id": trace_id_var.get()}
+    if fields is not None:
+        content["fields"] = fields
+
+    return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
 async def base_api_exception_handler(request: Request, exc: BaseAPIException):
@@ -50,12 +56,34 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
     fl_logger.warning(
-        f"Payload validation failed: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
+        f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
         extra={"error_code": "REQ-VAL-001"},
     )
 
-    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001")
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001", fields=refused_fields_of(errors))
+
+
+def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """Where each refusal sits and pydantic's machine-readable `type` for it, so a form can mark the field.
+
+    Never `msg`, English no visitor reads, and never `input`: the wire carries no value the log
+    itself withholds (`docs/logging/spec.md :: L4`, `:: L9`).
+    """
+
+    return [_refused_field(error) for error in errors]
+
+
+def _refused_field(error: Any) -> dict[str, Any]:
+    # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
+    location, *path = error["loc"]
+    # FastAPI's undecodable body reports the character offset parsing stopped at, which a caller
+    # would read as a list index.
+    if error["type"] == "json_invalid":
+        path = []
+
+    return {"in": str(location), "path": path, "kind": error["type"]}
 
 
 def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:

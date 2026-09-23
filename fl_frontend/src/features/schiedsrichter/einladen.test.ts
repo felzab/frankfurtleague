@@ -52,6 +52,8 @@ registerHooks({
 const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsrichterAction, reactivateSchiedsrichterAction } =
   await import("./actions.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
+const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -225,10 +227,24 @@ describe("what the create tells the administrator", () => {
     assert.equal(res.success ? undefined : res.fieldErrors?.["kontakt.email"], "Bitte gib eine E-Mail-Adresse ein.");
     assert.deepEqual(mails, []);
   });
+
+  /* A reserved domain passes the form's rule and only the API refuses it: its 422 names the box, and
+     the create answers there rather than in a toast naming no field. */
+  it("puts an address only the API refuses on the address box, mailing nothing", async () => {
+    recorders.__flEinladenCreate = () => {
+      throw refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter");
+    };
+
+    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@beispiel.test", telefon: null } });
+
+    assert.equal(res.success, false);
+    assert.deepEqual(res.success ? undefined : res.fieldErrors, { "kontakt.email": FELD_ABGELEHNT });
+    assert.deepEqual(mails, []);
+  });
 });
 
-/* The placeholder a row without an address is given, which the API refuses with a bare 422 naming no
-   field: refused here instead, the save of such a row names the box that has to change. */
+/* The placeholder a row without an address is given, which the API refuses with a 422 whose box gets
+   only the generic sentence: refused here instead, the box says the placeholder is what has to change. */
 describe("a save still carrying the placeholder address", () => {
   it("is refused on the address box in German, before the endpoint", async () => {
     recorders.__flEinladenSave = () => {

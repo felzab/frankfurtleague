@@ -16,7 +16,6 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
 
@@ -24,12 +23,11 @@ import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
 import { FLPostRegistrierungPayloadSchema } from "../../schemas";
 import { registrierungPayload } from "../../utils";
 
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { FLEinladungAnsichtResponse } from "../../schemas";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAntwort =
-  { success: true } | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: "ungueltig"; outcome?: "unknown" };
+type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
 
 const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche es erneut.";
 
@@ -68,7 +66,7 @@ export function RegistrierungFormPanel({
   const emailHinweisId = useId();
   const eingereichtRef = useRef<HTMLElement>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { registrierung: FLPostRegistrierungPayloadSchema },
     // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
     // made, and two titles for one failure read as two failures.
@@ -115,12 +113,14 @@ export function RegistrierungFormPanel({
           return;
         }
 
-        setSubmitFieldErrors(antwort.fieldErrors ?? {}, { registrierung: payload });
-
-        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
-        if (!hasFieldErrors(antwort.fieldErrors)) {
-          appToast.danger("Registrierung nicht abgeschickt", { description: antwort.error ?? NICHT_ABGESCHICKT });
-        }
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { registrierung: payload },
+          {
+            raise: (shown) => appToast.failure("Registrierung nicht abgeschickt", shown),
+          },
+        );
         return;
       }
 

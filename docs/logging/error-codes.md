@@ -3,9 +3,10 @@
 **Scope:** every `error_code` value either service emits, live and retired, and which of them a
 response body carries.
 
-**A failure answers `{error_code, trace_id}` and nothing else** ([`spec.md`](spec.md#2-invariants) L4):
-the message, the validation detail and the stack trace reach the log and never the wire, so a code seen on a
-response is followed by finding the log line carrying that same code under that trace id.
+**A failure answers `{error_code, trace_id}`, and a refused payload adds where each refusal sits**
+([`spec.md`](spec.md#2-invariants) L4): the message, the refused value and the stack trace reach the log and
+never the wire, so a code seen on a response is followed by finding the log line carrying that same code
+under that trace id.
 
 **A code is `<AREA>-<SUBJECT>-<NNN>`, and each segment is allocated under a rule of its own:**
 
@@ -105,11 +106,12 @@ operations the cell names the FIRST**, so a code gaining an endpoint gains no se
 choice is derivable rather than remembered. The check holds neither of those two: both are read by a
 person. A row outside `RULES` carries `—`, which
 `scripts/checks/docs_gate/error_codes.py :: _check_wording` refuses to see filled: an authentication,
-validation or ObjectId failure reaches German chosen by HTTP status, and a per-code sentence for a failed 500
-would name a repair that does not exist. **Two such codes are worded per code, so their German is found at
-the arm and never through this column**: `DB-COMMON-002`, a unique index refusing a value a form can point
-at, which a slice words; and `DB-FAIL-002`, a 500 whose repair is checking whether the write stood
-(`fl_frontend/src/shared/utils/actionError.ts :: OUTCOME_UNKNOWN`).
+validation or ObjectId failure reaches German chosen by HTTP status, a field a `REQ-VAL-001` names
+carrying `fl_frontend/src/shared/utils/actionError.ts :: FELD_ABGELEHNT`, and a per-code sentence for a
+failed 500 would name a repair that does not exist. **Two such codes are worded per code, so their
+German is found at the arm and never through this column**: `DB-COMMON-002`, a unique index refusing
+a value a form can point at, which a slice words; and `DB-FAIL-002`, a 500 whose repair is checking
+whether the write stood (`fl_frontend/src/shared/utils/actionError.ts :: OUTCOME_UNKNOWN`).
 
 | Code                     | Status | Meaning                                                                                                                                                                                                                                                                                                                                                                                                             | Worded by                                                                                    |
 | ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |

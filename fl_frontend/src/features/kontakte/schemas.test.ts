@@ -22,8 +22,8 @@ describe("FLKontaktErasurePayloadSchema", () => {
     }
   });
 
-  /* The endpoint answers these with a bare REQ-VAL-001 naming no field, and this payload is typed into
-     a danger panel, where an unmarked box reads as a deletion that ran. */
+  /* The endpoint answers these with a REQ-VAL-001 whose mark names no rule, and this payload is typed
+     into a danger panel, where the box has to say what is wrong with the address it holds. */
   it("refuses what the API's lookup refuses, so the box carries the message", () => {
     for (const email of ["", "   ", "erika.example.de", `${"a".repeat(250)}@schule.de`]) {
       assert.equal(refused(email), true, `expected "${email}" to be rejected`);

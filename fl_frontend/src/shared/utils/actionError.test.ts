@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
+import { z } from "zod";
 
-import { toActionErrorResult } from "./actionError.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
+import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+
+import { FELD_ABGELEHNT, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
+import { VALIDATION_FAILED } from "./validation.ts";
 
 const base = { url: "http://backend:8000/api/v0/x", endpoint: "/x", traceId: "ab".repeat(16) };
 
@@ -25,7 +29,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
-    // The code is the only channel a failure body has (`docs/logging/spec.md`, L4), so it has to
+    // The code is the only channel a 409's body has (`docs/logging/spec.md`, L4), so it has to
     // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
     const refusals: [string, RegExp][] = [
@@ -243,5 +247,64 @@ describe("toActionErrorResult", () => {
 
     assert.equal(result.success, false);
     assert.equal(typeof result.error, "string");
+  });
+});
+
+describe("a payload the API refused", () => {
+  const refused = (fields: Parameters<typeof refusedPayload>[0]) => toActionErrorResult(refusedPayload(fields));
+
+  /* The address box's own messages describe rules the value already passed, so the box says only
+     that this value was not taken; the path is the input's `name`, which `Form` distributes by. */
+  it("lands on the box the refusal names, keyed by its dotted path", () => {
+    const result = refused([bodyField(["kontakt", "email"])]);
+
+    assert.deepEqual(result, {
+      success: false,
+      error: VALIDATION_FAILED,
+      // Spelled out once: the sentence is ruled, and every other case reads the constant.
+      fieldErrors: { "kontakt.email": "Diese Angabe wurde so nicht übernommen." },
+      unplacedError: "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.",
+    });
+  });
+
+  it("names a list entry by its index, as the entry's input is named", () => {
+    const result = refused([bodyField(["namen", 1, "vorname"], "string_pattern_mismatch")]);
+
+    assert.deepEqual(result.fieldErrors, { "namen.1.vorname": FELD_ABGELEHNT });
+  });
+
+  it("keeps the failure naming no field where nothing it names is inside the body, and answers the reload", () => {
+    const result = refused([
+      { in: "query", path: ["limit"], kind: "int_parsing" },
+      { in: "body", path: [], kind: "json_invalid" },
+    ]);
+
+    // No control carries a query parameter or the body as a whole, so a map holding either would be
+    // announced as a refusal the form cannot show rather than as the failure it is.
+    assert.equal(result.fieldErrors, undefined);
+    // The running API refuses the request as sent, so a retry sends it again and a reload is the repair.
+    assert.equal(result.error, "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
+  });
+});
+
+describe("a public route's own parse refusing the body", () => {
+  const SATZ = "Der Satz der Seite.";
+  const refusal = (body: unknown) => {
+    const parsed = z.object({ vorname: z.string() }).safeParse(body);
+    assert.equal(parsed.success, false, "the probe body parsed");
+
+    return refusedDraftAnswer(parsed.error ?? assert.fail(), SATZ);
+  };
+
+  it("carries the page's sentence beside the map, for a path no control on an older page renders", () => {
+    const answer = refusal({ vorname: 7 });
+
+    assert.ok("fieldErrors" in answer, "a refusal naming a path came back with no map");
+    assert.deepEqual(Object.keys(answer.fieldErrors), ["vorname"]);
+    assert.equal(answer.unplacedError, SATZ);
+  });
+
+  it("answers the sentence alone where the refusal names no path, which no control could mark", () => {
+    assert.deepEqual(refusal("kein Objekt"), { error: SATZ });
   });
 });

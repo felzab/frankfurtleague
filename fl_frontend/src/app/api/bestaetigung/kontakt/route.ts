@@ -7,11 +7,11 @@ import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapEinwilligungRefusal, stampEinwilligungFassung } from "@/features/bewerbungen/utils";
-import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { mapEinwilligungRefusal, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
+import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
@@ -82,15 +82,14 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Stamped BEFORE the parse: the label is this server's to write, so judging the browser's own
-      // would refuse a body on `text_version`, which no control renders and no reader would see.
-      const gestempelt =
-        typeof body === "object" && body !== null ? stampEinwilligungFassung(body, BESTAETIGUNG_KENNTNISNAHME.textVersion) : body;
-      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(gestempelt);
+      // Judged BEFORE the parse, by the check all three confirmation handlers share: a page opened
+      // before a deploy moved the label posts the words its reader saw, and only the mail's link
+      // reopens the page on the running ones.
+      if (!nenntLaufendeFassung(body, BESTAETIGUNG_KENNTNISNAHME.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
 
-      if (!parsed.success) {
-        return { success: false as const, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
-      }
+      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
+
+      if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
       let antwort;
       try {

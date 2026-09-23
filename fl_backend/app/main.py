@@ -1,9 +1,12 @@
 from collections.abc import Iterator
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
+from pydantic.json_schema import models_json_schema
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
@@ -42,6 +45,7 @@ from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 # Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
 # `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
@@ -99,6 +103,14 @@ UNGUARDED_TIER = "none"
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
 
 
+# Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
+# a refused payload's adds `fields`; FastAPI's default 422, `HTTPValidationError`, is a body this API
+# never sends (`docs/backend/spec.md :: I345`).
+FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
+FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
+COMPONENT_REF = "#/components/schemas/{model}"
+
+
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     for entry in app.routes:
         # `include_router` appends a wrapper holding the original router rather than copying its
@@ -131,6 +143,40 @@ def publish_stores_nothing(app: FastAPI) -> None:
         declared = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
         if declared is not None:
             route.openapi_extra = {**(route.openapi_extra or {}), STORES_NOTHING_EXTENSION: declared}
+
+
+def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
+    return {"description": description, "content": {"application/json": {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
+
+
+def publish_failure_bodies(app: FastAPI) -> None:
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        # `generate` caches the document it builds on the app, so the edit below is made once and
+        # every later call reads it.
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        document = generate()
+        schemas = document.setdefault("components", {}).setdefault("schemas", {})
+        for name in FASTAPI_VALIDATION_BODIES:
+            schemas.pop(name, None)
+        schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
+        # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
+        document["components"]["schemas"] = dict(sorted(schemas.items()))
+
+        for operations in document["paths"].values():
+            for operation in operations.values():
+                # FastAPI's own placement, on every operation taking input, is what is kept: a
+                # `default` declared to FastAPI instead suppresses it everywhere.
+                if "422" in operation["responses"]:
+                    operation["responses"]["422"] = body_response(FLRefusedPayloadBody, "Validation Error")
+                operation["responses"]["default"] = body_response(FLFailureBody, "Failure")
+
+        return document
+
+    app.openapi = openapi
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -176,8 +222,9 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         return "Hello World"
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
-    # caches what it builds, so an extension set afterwards never reaches a reader.
+    # caches what it builds, so an extension or an edit made afterwards never reaches a reader.
     publish_key_tiers(app)
     publish_stores_nothing(app)
+    publish_failure_bodies(app)
 
     return app

@@ -31,4 +31,15 @@ describe("appToast.failure", () => {
     assert.deepEqual(raisedTitles(), ["Unklar, ob es gespeichert wurde"]);
     assert.deepEqual(raisedDescriptions(), [error]);
   });
+
+  /* A toast marks nothing, so „Überprüfe Deine Eingaben.“ would point at marks nobody can see on
+     every control that raises one over a refused payload. */
+  it("speaks a refused payload's sentence for a map no control shows", () => {
+    appToast.failure("Gruppen nicht getauscht", {
+      error: "Überprüfe Deine Eingaben.",
+      unplacedError: "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.",
+    });
+
+    assert.deepEqual(raisedDescriptions(), ["Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
+  });
 });

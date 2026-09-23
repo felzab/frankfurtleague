@@ -7,7 +7,7 @@ import { afterEach, describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
@@ -34,6 +34,7 @@ const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
+const { UNHANDLED_FIELD_REFUSAL } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
 /** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
@@ -336,6 +337,34 @@ describe("what a refused press does to the page", () => {
       assert.ok(screen.getByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
       assert.ok(screen.queryByRole("button", { name: "Eintrag bestätigen" }) === null);
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
+    });
+  }
+
+  /* A refusal naming only a path no control renders: the sentence the answer brings is the one
+     announced, and the generic one only where the answer brings none. */
+  const EIGENER_SATZ = "Der Satz, den die Antwort für diesen Fall mitbringt.";
+  for (const [angesagt, mitgebracht, erwartet] of [
+    ["the answer's own sentence", { unplacedError: EIGENER_SATZ }, EIGENER_SATZ],
+    ["the generic sentence where the answer brings none", {}, UNHANDLED_FIELD_REFUSAL],
+  ] as const) {
+    it(`announces a refusal no box can take with ${angesagt}`, async () => {
+      doubleFetch({ success: false, fieldErrors: { text_version: "abgelehnt" }, ...mitgebracht });
+
+      const { container } = render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+      assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+      await user.keyboard("01011990");
+      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+          [["danger", "Antwort nicht gespeichert", erwartet]],
+        ),
+      );
     });
   }
 

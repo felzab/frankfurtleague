@@ -25,6 +25,9 @@ const { alterAusserhalb: kontaktSatz } = await import("@/features/bewerbungen/co
 const { schiedsrichterVorname } = await import("./constants.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
+const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const MINDESTALTER = 16;
 
@@ -86,11 +89,22 @@ describe("what one refused confirmation asks the referee's page to show", () => 
     assert.equal(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-005"), noFloor), null);
   });
 
-  it("asks for a reload where the body itself was refused", async () => {
-    const refusal = await mapSchiedsrichterBestaetigungRefusal(aRefusal(422, ""), floor);
+  it("puts a body refusal naming a field on that field's box, with the mail's link for a box the page lacks", async () => {
+    const refused = refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], "/schiedsrichter/bestaetigung");
 
-    assert.match(refusal?.error ?? "", /Lade die Seite neu/);
-    assert.equal(refusal?.zustand, undefined);
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refused, floor), {
+      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      unplacedError: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
+  /* The page strips its token from the address bar, so a reload lands a live link on the panel
+     calling it void; only the mail's link reopens it. */
+  it("sends the referee back to the mail's link where the body, or a media yes only an older page offers, was refused", async () => {
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(422, ""), floor), { error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-008"), floor), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
   });
 
   it("answers nothing for a code it does not word, so the caller reports a failure rather than a state", async () => {

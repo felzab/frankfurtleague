@@ -1,3 +1,5 @@
+import type { FLRefusedField } from "./schemas";
+
 /**
  * What an error says about the request it answers. Required on every API error rather than defaulted:
  * a failed write may have landed and a failed read changed nothing, and
@@ -37,6 +39,7 @@ export class APIBadStatusError extends Error {
   traceId: string;
   statusCode: number;
   serverErrorCode?: string;
+  refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
   method: string;
@@ -47,6 +50,7 @@ export class APIBadStatusError extends Error {
     url,
     statusCode,
     serverErrorCode,
+    refusedFields = [],
     endpoint,
     method,
     readOnly,
@@ -57,6 +61,7 @@ export class APIBadStatusError extends Error {
     url: string;
     statusCode: number;
     serverErrorCode?: string;
+    refusedFields?: readonly FLRefusedField[];
     endpoint: string;
     traceId: string;
     originalError?: unknown;
@@ -70,6 +75,7 @@ export class APIBadStatusError extends Error {
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
+    this.refusedFields = refusedFields;
     this.url = url;
     this.endpoint = endpoint;
     this.method = method;

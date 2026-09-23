@@ -208,8 +208,9 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
     # rejected value into the log (`docs/logging/spec.md :: L9`).
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        # German, as `refuse_reversed_span` beside it is: the 422 answers a bare REQ-VAL-001, so
-        # this sentence reaches the log and any form mirroring it, never the response body.
+        # German, as `refuse_reversed_span` beside it is: the 422 answers REQ-VAL-001 with where the
+        # field sits and pydantic's error type, never a sentence, so this one reaches the log and any
+        # form mirroring it, never the response body.
         raise ValueError(f"Die Saison-ID muss ein Jahr zwischen {FIRST_SAISON_YEAR} und {newest} sein.")
 
     return value

@@ -8,6 +8,8 @@ import { appToast } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { BlockingBanners, RailBanner } from "@/shared/components/ui/railBanner";
+import type { FailureAnnouncement } from "@/shared/hooks/useServerFieldErrors";
+import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ZodType } from "zod";
 
@@ -269,7 +271,7 @@ export function useDraftFieldErrors<TSchema extends string>({
   /** What this form calls a failed save, where the admin editors' „Änderung nicht gespeichert“ is not its word. */
   failureTitle?: string;
 }) {
-  const { fieldErrors: submitErrors, setFieldErrors, formRef } = useServerFieldErrors(failureTitle);
+  const { fieldErrors: submitErrors, setFieldErrors, answerFailure, formRef } = useServerFieldErrors(failureTitle);
 
   const [verdicts, setVerdicts] = useState<FieldVerdicts>({});
 
@@ -313,6 +315,20 @@ export function useDraftFieldErrors<TSchema extends string>({
     // Stable, so a caller reading a server result from an effect can depend on it without re-running
     // that effect — and re-moving focus — on every render. It closes over setters and a ref alone.
     [setFieldErrors],
+  );
+
+  /**
+   * A failed write, marked as `setSubmitFieldErrors` marks it and announced in the one toast the press
+   * owes (`fl_frontend/src/shared/hooks/useServerFieldErrors.ts :: useServerFieldErrors`).
+   */
+  const reportSubmitFailure = useCallback(
+    (failure: ActionFailure, judged: Readonly<Partial<Record<TSchema, unknown>>>, announcement?: FailureAnnouncement) => {
+      submittedPayloads.current = { ...judged };
+      setHasAttemptedSubmit(true);
+      setVerdicts({});
+      answerFailure(failure, announcement);
+    },
+    [answerFailure],
   );
 
   /**
@@ -394,6 +410,7 @@ export function useDraftFieldErrors<TSchema extends string>({
      */
     fieldErrors: mergeFieldVerdicts(submitErrors, verdicts),
     setSubmitFieldErrors,
+    reportSubmitFailure,
     guardSubmit,
     validatePaths,
     useForgiveFixed,

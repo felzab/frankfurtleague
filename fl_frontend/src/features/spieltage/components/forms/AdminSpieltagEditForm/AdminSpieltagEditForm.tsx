@@ -64,7 +64,7 @@ export function AdminSpieltagEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     // The span rule is the edited season's, so the schema is built per instance rather than imported.
     schemas: { spieltag: buildPatchSpieltagPayloadSchema(saisonSpan) },
   });
@@ -133,8 +133,7 @@ export function AdminSpieltagEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSpieltagAction(payload).catch(unansweredAction);
       if (!res.success) {
-        setSubmitFieldErrors(res.fieldErrors ?? {}, { spieltag: payload });
-        appToast.failure("Änderung nicht gespeichert", res);
+        reportSubmitFailure(res, { spieltag: payload });
         return;
       }
 

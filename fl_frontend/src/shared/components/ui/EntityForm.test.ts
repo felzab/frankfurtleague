@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
@@ -11,20 +10,14 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+
 import type { ActionResult } from "@/shared/types/types.ts";
 
 // Replaced at the module boundary: the real toast module hands its raising to HeroUI's queue.
-const APP_TOAST = `const raise = () => () => "0";
-export const UNDO_TIMEOUT_MS = 1;
-export const appToast = { success: raise(), warning: raise(), danger: raise(), failure: raise(), info: raise(), pending: raise(), close: () => {}, clear: () => {} };`;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FieldError, Input, Label, TextField } = await import("@heroui/react");
@@ -86,5 +79,38 @@ describe("the create form", () => {
       assert.equal(button.getAttribute("data-pending"), "true", `„${name}“ still takes a press while the write runs`);
       assert.equal(button.disabled, false, `„${name}“ is closed as though something refused it`);
     }
+  });
+
+  /* Only a page older than the running API sends a body no box can take: the dialog says the reload once,
+     and never the retry that resends the refused body. */
+  it("announces a refusal no box shows once, in the answer's own sentence", async () => {
+    const user = userEvent.setup();
+    renderTrimmingCaller(async () => toActionErrorResult(refusedPayload([bodyField(["nicht_gerendert"])])));
+    raised.length = 0;
+
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    assert.deepEqual(
+      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Änderung nicht gespeichert", "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]],
+    );
+  });
+
+  /* A dropped connection rejects the action after the POST may have reached the server: uncaught
+     inside the transition, it replaces the dialog with the error page and says nothing. */
+  it("stays open over a rejected action and raises one toast of unknown outcome", async () => {
+    const user = userEvent.setup();
+    renderTrimmingCaller(() => Promise.reject(new TypeError("Failed to fetch")));
+    raised.length = 0;
+
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
+      [["danger", "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.", "unknown"]],
+    );
+    assert.ok(screen.queryByRole("textbox", { name: "Name" }) !== null, "the rejection took the dialog off the page");
   });
 });
