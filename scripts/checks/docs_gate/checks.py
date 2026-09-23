@@ -316,8 +316,9 @@ TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("FE", ("fl_frontend/",)),
     ("BE", ("fl_backend/",)),
     ("DB", ("fl_backend/app/core/crud.py",)),
-    # `.claude/hooks/` sits under `Docs`' prefix as well, and a hook is a guard rather than a page:
-    # derived as documentation alone it is invisible to the filter its own work answers to.
+    # `.claude/hooks/` sits under `Docs`' prefix as well, and a hook is a script the gate probes
+    # rather than a page: derived as documentation alone it is invisible to the filter its own work
+    # answers to.
     ("Ops", ("scripts/", "nginx/", ".githooks/", ".claude/hooks/")),
     # A `corpus` row's paths would be this row's exactly, which is one fact stated twice (COR-2).
     ("Docs", ("docs/", ".claude/")),

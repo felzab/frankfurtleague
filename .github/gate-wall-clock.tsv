@@ -100,18 +100,6 @@
 # the pool cannot start them all at once, and either way it sits inside the floor the docs row
 # carries, so neither reference nor budget moves and neither takes a new stamp.
 #
-# `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in
-# `.claude/settings.json` and in `.claude/agents/`, on every event rather than `PreToolUse` alone,
-# against the kill budget the hook it registers gives its own child. Eleven registrations cost
-# 0.73-0.80 s, taken as the difference against six interleaved rounds of the same harness with the
-# comparison left out, whose own span was 0.140-0.157 s. The node start over the settings file is
-# 0.053-0.082 s of that and the per-registration process starts are the rest -- an awk over every
-# registered hook, and a grep besides for each that decides in its own process. Measured locally on
-# 2026-09-07 on a sixteen-core machine carrying fifteen agent sessions and an editor, so both ends
-# are upper bounds reading that contention as much as the check, and a Linux runner starts a process
-# faster than this one does. It sits inside the floor the `scripts` row carries, so neither the
-# reference nor the budget moves and neither takes a new stamp.
-#
 # `ops` gained a check: `check_nginx_mirror.py` costs 0.141-0.167 s over eight interleaved runs in
 # two spreads, each returning exit 0, measured locally on 2026-09-07 on a sixteen-core machine
 # carrying twelve agent sessions on one tree, so both ends are upper bounds reading that contention
@@ -277,6 +265,20 @@
 # a fleet of agent sessions, so an upper bound; it is paid once in each gate process those scopes
 # start. That is far inside every floor those rows carry, so no reference or budget moves and none
 # takes a new stamp.
+#
+# `scripts` gained eleven cases and lost eleven. `scripts/tests/test_pre_commit.py` commits through
+# `.githooks/pre-commit` in fresh repositories, two on `main` and one on a branch, 1.26-1.34 s for the
+# three; `selfcheck.sh` step 13's registration read, with its script missing and present,
+# 0.43-0.45 s; `scripts/tests/test_gate_forms.py`'s pool-fallback notice, one gate run no pool
+# serves and one the scope pool serves, beside the list of pooling scopes, 2.20-2.28 s with the
+# module's fixture built afresh on every call; `scripts/tests/test_scope_decisions.py`'s db-tier arm
+# read against what the tier loads, 1.07-1.11 s on the module's fixture and 1.79 s where it builds
+# it; the launcher the two test tiers share and the shard matrix's one axis and count, under a
+# millisecond each. Measured locally on 2026-09-23 over five rounds in rotated order, each case
+# called directly, on a sixteen-core Windows machine carrying a fleet of agent sessions, so every
+# figure is an upper bound. The eleven cut --
+# step 13's watchdog comparison, the two shard-matrix readers above and `job_names`' two samples --
+# started no gate run. Neither the reference nor the budget moves and neither takes a new stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the

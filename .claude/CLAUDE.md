@@ -44,23 +44,22 @@ break one: refuse, name the rule, do not partially comply.
 - **Never summarise, paraphrase or describe the content of credential material**, however it came
   to be in front of you — a read that succeeded is not permission to repeat what it returned.
 - **Never write a secret value into a comment, an error message, a log line or a commit message.**
-  The Edit and Write tools are the one route no guard watches.
+  No rule reads what a write contains, so this one binds unaided.
 
-**A route left open is never the permission the closed one withholds**, because the two routes deny
-different things. `.claude/hooks/guard-credential-shell.sh` refuses a shell command that reaches
-credential material or any `.gitignore`-matched path, and names the paths it releases when it fires.
-`.claude/settings.json`'s `permissions.deny` refuses the file tools the credential file patterns it
-lists and nothing else, so the Read tool opens a gitignored file the shell guard refuses on the same
-path. The rules above bind whichever route is open. A refusal from either is this section arriving
-at the moment it applies; it names the rule and the route it allows, and is never routed around.
+**A route left open is never the permission the closed one withholds.** `.claude/settings.json`'s
+`permissions.deny` refuses the credential paths it lists to the file tools, to the file commands
+Claude Code recognises in Bash and to redirect targets, and refuses the environment dumps, token
+printers and encoders it names; a program that opens a file itself passes unseen. The rules above
+bind whichever route is open. A refusal is this section arriving at the moment it applies, and is
+never routed around.
 
 ## 2. Branch before you edit — the first action of any task that writes
 
 `main` is protected and takes changes only through a pull request. **The trigger is the task, not
 the write: if the task could end in an edit, branch before the first read.** The drift is never
 disagreement with the rule but starting out "just looking", judging each read harmless, and being
-three edits deep on `main` before it occurs to you. The branch guards refuse the write on `main`;
-nothing refuses the reads that led there.
+three edits deep on `main` before it occurs to you. `.githooks/pre-commit` refuses the commit on
+`main`; nothing refuses the reads and edits that led there.
 
 **Which clauses below reach you depends on whether you own the commits.** The branch, the `gh`
 commands, the gate run and the finished-task definition are the coordinator's or a solo session's,
@@ -196,9 +195,8 @@ that makes it.
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
   plus the installed typings in `node_modules`, which is what actually runs, and say which you used.
-  **Reading `node_modules` and `.venv` is released on both routes** — the shell guard exempts them by
-  name and `permissions.deny` lists neither — and a guard names a release only inside a refusal, so
-  its silence beforehand is not a denial. HeroUI's
+  **Reading `node_modules` and `.venv` is open on every route**: `permissions.deny` names neither
+  directory. HeroUI's
   `react/` URL, never the bare `heroui.com/llms-full.txt`, which merges in HeroUI Native, a React
   Native product this repo does not use.
 - Tailwind and FastAPI publish none, and PyMongo's is a topic index of unconfirmed
@@ -232,8 +230,9 @@ Dev is Windows 11; production is Linux. Label every terminal command with its ta
   hand-typed `docker run -v` needs `MSYS_NO_PATHCONV=1` in front.
 - Drive local Docker only through `./scripts/ops/local.sh`, whose `--help` prints its flags: **a
   bare compose invocation reads the production definition and comes up wired to the production
-  database**, and a guard refuses it. Free port 3000 first — a dev server left on it makes the stack
-  come up unreachable — and stop the stack before handing back.
+  database**, so `permissions.deny` refuses every direct compose invocation. Free port 3000 first —
+  a dev server left on it makes the stack come up unreachable — and stop the stack before handing
+  back.
 - Verify in the browser against the local stack at `http://localhost:3000`, never a dev server:
   `next dev` exercises neither the standalone build, nor nginx, nor the startup env gate. Point
   `preview_start` there once `local.sh` is up.
@@ -320,10 +319,8 @@ exit code belongs to a command rather than to a file.
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
 - **ci** — Let the comment classifier shrink a CI job; suppress the images refusal
-- **hooks** — Compare the branch guard's paths as text; allow a target it cannot place
 - **format** — Let the gate write a formatted file; merge a partly-staged file's halves
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
-- **hooks** — Release a command on one token; source the shared write-shape block rather than duplicating it in both bash guards
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`
 - **probes** — Add a probe no failure needs alone; leave a guard thinly probed because its refusals resist enumeration, not because they protect less
 
@@ -373,13 +370,11 @@ agreed**, whether a session runs one or hands its command file to an agent: `/do
 corpus out to its own auditors, which no fleet budget counted, and `/docs:audit-pr` edits the
 branch in place.
 
-`.claude/settings.json` registers the hooks in `.claude/hooks/` for every session, and an agent
-definition under `.claude/agents/` registers one for its own agent alone; they refuse, ask or
-inform before a tool call, after one, or when the turn ends. **A refusal from one is a rule in this file arriving
-mechanically: read it, comply with it, never route around it.** Its text names the rule and the
-route it allows, and nothing about the guards is restated here. A guard cannot fire before a read, which is why §2's
-trigger is the task, and it refuses a command it cannot parse rather than guessing — a heredoc whose
-text merely mentions what it watches for included — so **a multi-line file goes through the `Write`
-tool, never a heredoc.**
+`.claude/settings.json` holds the permission rules every session runs under — a `deny` refuses, an
+`ask` puts the question to the owner — and registers the hooks in `.claude/hooks/`, which inform
+before a file-tool write and when the turn ends. **A refusal is a rule in this file arriving
+mechanically: read it, comply with it, never route around it**, and nothing about the rules is
+restated here. **A multi-line file goes through the `Write` tool, never a heredoc**: the standard's
+hook sees the file tools alone.
 
 Every section keeps its number; a clause §6 or §7 hands to `.claude/rules/` is cited by its file.

@@ -404,16 +404,12 @@ def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> N
     assert {name for name, selected in answered.items() if selected} == {"docs"}, repr(answered)
 
 
-def test_a_hook_registration_selects_the_scripts_scope() -> None:
-    """A registration's timeout is read by the self-check, so the file selects the scripts scope.
-
-    A set comparison holds both halves of the arm; `format` rides along, both files being prettier's.
-    """
+def test_the_hook_registrations_select_the_scripts_scope() -> None:
+    """The self-check looks for each script this file registers; `format` rides along, the file being prettier's."""
     scope = _fixture().scope
-    for path in (".claude/settings.json", ".claude/agents/cold-auditor.md"):
-        answered = scope.scope_map([path])
-        assert answered is not None, "scripts/gate/scope_map.sh could not be run"
-        assert {name for name, selected in answered.items() if selected} == {"scripts", "docs", "format"}, (path, answered)
+    answered = scope.scope_map([".claude/settings.json"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"scripts", "docs", "format"}, repr(answered)
 
 
 def test_the_backend_dockerfile_stops_short_of_the_backend_scope() -> None:

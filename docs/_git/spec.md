@@ -51,6 +51,11 @@ git pull --ff-only origin main
 git checkout -b short-kebab-name
 ```
 
+**`.githooks/pre-commit` refuses a commit on `main`**, the one a forgotten branch makes, and is
+convenience rather than the enforcement. A clone without §1.3's `core.hooksPath` line has no hook;
+on `main`, a clean merge, cherry-pick or revert runs none, and a rebase passes it even through a
+conflict. Each of those meets the ruleset's refusal at the push (I1).
+
 **A branch that lives for days merges `main` into itself continuously.** One touching shared
 documentation conflicts on every shared page, and the cost compounds until it is paid.
 

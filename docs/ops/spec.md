@@ -613,8 +613,8 @@ measurements behind the trade are in the body of the commit that moved the cache
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
-commit time instead: `.githooks/pre-commit` formats what is staged and re-stages it, and refuses a
-file staged in part. The hook is convenience and never the enforcement — a clone that has not
+commit time instead: `.githooks/pre-commit` refuses a commit on `main`, formats what is staged and
+re-stages it, and refuses a file staged in part. The hook is convenience and never the enforcement — a clone that has not
 pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
 formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
 change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
@@ -1030,7 +1030,7 @@ file (§1.5).
 
 **A script whose output only a machine reads is exempt, and the interface is what decides, never the
 folder.** `scripts/gate/scope_map.sh` writes `$GITHUB_OUTPUT`'s `key=value` lines and the assistant hooks
-answer with a JSON verdict, so a heading, a fold marker or a colour code in either is a corrupt answer
+answer in JSON, so a heading, a fold marker or a colour code in either is a corrupt answer
 rather than a nicer log. `scope_map.sh` accordingly takes no `--verbose`, and puts its
 human-readable line on stderr, where it cannot reach the outputs.
 

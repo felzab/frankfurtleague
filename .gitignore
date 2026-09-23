@@ -4,9 +4,9 @@
 # be committable from this repository.
 certs/
 
-# Mirrors the deny list in .claude/settings.json, because those tools are not the only route into
-# a commit -- a shell command, an installer or an external editor is git's problem alone.
-# Unanchored: a private key is one wherever it lands.
+# The checkout's share of the deny list in .claude/settings.json, because those tools are not the
+# only route into a commit -- a shell command, an installer or an external editor is git's problem
+# alone. Unanchored: a private key is one wherever it lands.
 .env*
 *.pem
 *.key
@@ -16,11 +16,17 @@ certs/
 *.pfx
 *.p8
 *.pk8
+*.jks
+*.keystore
+*.ppk
+*.kdbx
 id_rsa*
+id_dsa*
 id_ed25519*
 id_ecdsa*
 credentials.json
-*-service-account*.json
+*service-account*.json
+*service_account*.json
 kubeconfig
 secrets/
 
@@ -34,8 +40,7 @@ secrets/
 .npmrc
 
 # What a run leaves in the checkout: the gate's fixtures, whose EXIT trap misses Ctrl-C, and a mail
-# sink holding magic links. Unignored, a leftover is an untracked change a scoped run refuses over
-# and guard-branch-bash.sh denies on main.
+# sink holding magic links. Unignored, a leftover is an untracked change a scoped run refuses over.
 .tmp-*/
 
 # Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path

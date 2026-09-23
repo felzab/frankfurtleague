@@ -1,7 +1,7 @@
 """SCRIPTS · the guards inside selfcheck.sh, driven rather than read.
 
-Every one of these fails silently in the direction of a pass: a crashed hook reads as one that
-allowed, a verdict with no trailing newline is dropped, and a helper the call reader cannot see
+Every one of these fails silently in the direction of a pass: a verdict with no trailing newline
+is dropped, a registration naming no script runs nothing, and a helper the call reader cannot see
 resolves for nobody. Each function is lifted out of the script rather than copied here, so a
 regression in the gate's own copy is what fails.
 """
@@ -51,11 +51,7 @@ def _function(name: str, indent: str = "") -> str:
 
 
 def _bash(lines: tuple[str, ...], cwd: Path) -> tuple[int, str, str]:
-    """The harness handed to bash as a path, its two streams read apart.
-
-    A hook's stderr is a verdict of its own here, so it may not be merged into the stdout the
-    verdicts are counted from.
-    """
+    """The harness handed to bash as a path, its two streams read apart."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     done = run_shell(BASH, write_shell(cwd / "drive.sh", "\n".join((*lines, ""))), cwd=cwd)
     return done.returncode, done.stdout, done.stderr
@@ -68,171 +64,6 @@ def _reader(tmp_path: Path) -> Path:
     reader = tmp_path / "reader.awk"
     reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
     return reader
-
-
-# The verdict shape a guard prints on the way to refusing something.
-REFUSAL: Final = '{"hookSpecificOutput":{"permissionDecision":"deny"}}'
-
-# Each fake hook fails in a way that leaves stdout empty, which is also how a hook says "allowed" --
-# apart from the last, whose stdout carries a correct refusal and whose status says it died.
-FAKE_HOOKS: Final[tuple[tuple[str, str, bool], ...]] = (
-    ("syntaxerr.sh", "if [\n", True),
-    ("exit2.sh", "#!/usr/bin/env bash\nexit 2\n", True),
-    ("onstderr.sh", "#!/usr/bin/env bash\nprintf deny >&2\nexit 0\n", True),
-    ("allows.sh", "#!/usr/bin/env bash\nexit 0\n", False),
-    ("refuses_then_dies.sh", "#!/usr/bin/env bash\nprintf '" + REFUSAL + "'\nexit 3\n", True),
-)
-
-# Driven beside the hooks above and written nowhere: an absent file is silent the way each of them
-# is, and it is the one case no fixture body can produce.
-ABSENT_HOOK: Final[tuple[str, bool]] = ("absent.sh", True)
-
-# The escaping is the probe's own, so a hand copy here would keep grading a payload the script has
-# stopped writing (`.claude/rules/ops.md`'s miniatures clause).
-PAYLOAD_FNS: Final[tuple[str, ...]] = (_function("json_string", "  "), _function("cmd_payload", "  "))
-
-
-def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
-    """A hook allows by printing nothing, and every failure of one looks the same.
-
-    The row that refuses and then dies is the other half: graded by its stdout, a crash reads as
-    the refusal it printed.
-    """
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    for name, body, _ in FAKE_HOOKS:
-        (hooks / name).write_text(body, encoding="utf-8", newline="\n")
-    (tmp_path / "repo").mkdir()
-    probes = [(name, crashes) for name, _, crashes in FAKE_HOOKS] + [ABSENT_HOOK]
-    names = [name for name, _ in probes]
-    _, out, err = _bash(
-        (
-            SHEBANG,
-            f"source {LIB.as_posix()!r}",
-            f"HOOKS_DIR={hooks.as_posix()!r}",
-            f"HOOK_REPO={(tmp_path / 'repo').as_posix()!r}",
-            'SELFCHECK_TMP="$(mktemp -d)"',
-            "PROBE_HOOK=(" + " ".join(names) + ")",
-            "PROBE_WANT=(" + " ".join(["allowed"] * len(names)) + ")",
-            "PROBE_KIND=(" + " ".join(["cmd"] * len(names)) + ")",
-            "PROBE_SUBJ=(" + " ".join(["x"] * len(names)) + ")",
-            *PAYLOAD_FNS,
-            _function("unit_probe", "  "),
-            f'for (( i = 0; i < {len(names)}; i++ )); do unit_probe "$i" "" "probe-${{i}}"; done',
-        ),
-        tmp_path,
-    )
-    graded = [line for line in out.splitlines() if "\t" in line]
-    assert len(graded) == len(probes), f"{out!r} {err!r}"
-    for (name, crashes), line in zip(probes, graded, strict=True):
-        verb, verdict = line.split("\t", 1)
-        # Read off the verb as well as the text: every probe here wants `allowed`, so a fail line
-        # quotes the word `allowed` back and a substring test alone would clear a wrong grade.
-        crashed = verb == "fail" and "crashed" in verdict
-        assert crashed is crashes, f"{name}: {line!r} {err!r}"
-
-
-# The clean refusal `FAKE_HOOKS` holds none of: the probe below has to tell it apart from the row
-# printing that same verdict on its way out.
-REFUSES_CLEANLY: Final[tuple[str, str]] = ("refuses.sh", "#!/usr/bin/env bash\nprintf '" + REFUSAL + "'\n")
-
-
-def _blind(hook: str, tmp_path: Path) -> tuple[str, str]:
-    """The git-blind probe over one fake hook, its verdict read off the two streams apart.
-
-    `note_fail` is lifted beside it because the probe grades through it, and a stub here would be
-    green over a `fail` that had stopped counting.
-    """
-    hooks = tmp_path / "hooks"
-    hooks.mkdir(exist_ok=True)
-    for name, body in [(name, body) for name, body, _ in FAKE_HOOKS] + [REFUSES_CLEANLY]:
-        (hooks / name).write_text(body, encoding="utf-8", newline="\n")
-    (tmp_path / "repo").mkdir(exist_ok=True)
-    _, out, err = _bash(
-        (
-            SHEBANG,
-            f"source {LIB.as_posix()!r}",
-            f"HOOKS_DIR={hooks.as_posix()!r}",
-            f"HOOK_REPO={(tmp_path / 'repo').as_posix()!r}",
-            'SELFCHECK_TMP="$(mktemp -d)"',
-            "FAILURES=0",
-            *PAYLOAD_FNS,
-            _function("note_fail"),
-            _function("blind_probe", "    "),
-            f"blind_probe /nonexistent {hook}",
-        ),
-        tmp_path,
-    )
-    return out, err
-
-
-def test_the_git_blind_probe_grades_a_refusal_that_then_dies_as_a_crash(tmp_path: Path) -> None:
-    """This is the only case standing behind the branch guard's refusal where git cannot be reached.
-
-    Read for the status, which a hook printing a correct deny on its way out is otherwise credited with.
-    """
-    out, err = _blind("refuses_then_dies.sh", tmp_path)
-
-    assert "crashed (exit 3)" in err, f"{out!r} {err!r}"
-
-
-def test_the_git_blind_probe_reads_a_refusal_that_exits_cleanly_as_the_refusal(tmp_path: Path) -> None:
-    out, err = _blind(REFUSES_CLEANLY[0], tmp_path)
-
-    assert "denied" in out and "crashed" not in err, f"{out!r} {err!r}"
-    assert REFUSES_CLEANLY[0] in out, out
-
-
-def _build_hook_fixture(repo: Path, tmp_path: Path) -> tuple[str, str]:
-    """The builder run from the script's own calling position, an `if !`.
-
-    Bash disarms errexit for everything a compound command there runs, so a status not carried by
-    hand never reaches the caller.
-    """
-    _, out, err = _bash(
-        (
-            SHEBANG,
-            f"source {LIB.as_posix()!r}",
-            f"HOOK_REPO={repo.as_posix()!r}",
-            _function("build_hook_fixture", "  "),
-            "if ! quietly build_hook_fixture; then printf 'REPORTED\\n'; else printf 'SILENT\\n'; fi",
-        ),
-        tmp_path,
-    )
-    return out, err
-
-
-# The builder's own list, so a path added to it is covered here without this file being touched.
-TRACKED_LIST_RE: Final = re.compile(r"for tracked in (.*?); do", re.DOTALL)
-
-
-def test_the_hook_fixture_holds_every_file_its_list_names(tmp_path: Path) -> None:
-    """Nothing downstream asks whether a probe's subject is on disk: `git check-ignore` answers for a path nobody wrote.
-
-    The probes on the tracked half of each pair then run against a fixture that has none.
-    """
-    listed = TRACKED_LIST_RE.search(_function("build_hook_fixture", "  "))
-    assert listed is not None, "build_hook_fixture no longer lists the files it writes"
-    repo = tmp_path / "repo"
-    out, err = _build_hook_fixture(repo, tmp_path)
-    assert "REPORTED" not in out, f"{out!r} {err!r}"
-    absent = [name for name in listed.group(1).replace("\\", " ").split() if not (repo / name).is_file()]
-    assert not absent, f"{absent} -- {out!r} {err!r}"
-
-
-def test_the_hook_fixture_reports_a_file_it_could_not_write(tmp_path: Path) -> None:
-    """A blocked write otherwise leaves the caller told the fixture was built.
-
-    Its own `set -e` cannot report it from the position it is called in, so the status is carried
-    out of the loop by hand.
-    """
-    repo = tmp_path / "repo"
-    (repo / "scripts").mkdir(parents=True)
-    # A file where the builder must make a directory: `mkdir -p` refuses it, and the tracked file
-    # underneath it cannot be written.
-    write_shell(repo / "scripts" / "gate", "blocked\n")
-    out, err = _build_hook_fixture(repo, tmp_path)
-    assert "REPORTED" in out, f"{out!r} {err!r}"
 
 
 def _par_run_harness(body: tuple[str, ...], tmp_path: Path) -> tuple[int, str, str]:
@@ -248,7 +79,7 @@ def _par_run_harness(body: tuple[str, ...], tmp_path: Path) -> tuple[int, str, s
             "note_skip() { printf 'SKIP %s\\n' \"$*\"; }",
             "note_warn() { printf 'WARN %s\\n' \"$*\"; }",
             "info() { printf 'INFO %s\\n' \"$*\"; }",
-            "PAR_ITEMS=(); PAR_LABELS=(); PROBE_HOOK=(); PROBE_WANT=(); PROBE_KIND=(); PROBE_SUBJ=()",
+            "PAR_ITEMS=(); PAR_LABELS=()",
             _function("par_reset"),
             _function("par_add"),
             _function("par_run"),
@@ -409,231 +240,48 @@ def test_a_helper_the_sheet_names_and_the_library_dropped_is_a_finding(tmp_path:
         assert "FAIL" in out and renamed in out, f"{renamed}: {out!r}"
 
 
-# A guard in the shape the comparison reads: a decision handed to a child under a kill budget.
-FIXTURE_GUARD: Final = '#!/usr/bin/env bash\nanswer="$(timeout -s KILL 15 bash "$0" --decide)"\n'
-
-
-def _guard(dispatch: str) -> str:
-    """One guard whose child is spelled the way the row under test spells it, or run under nothing at all."""
-    run = f"{dispatch} " if dispatch else ""
-    return f'#!/usr/bin/env bash\nanswer="$({run}bash "$0" --decide)"\n'
-
-
-def _registration(seconds: int, event: str = "PreToolUse", hook: str = "guard.sh") -> str:
+def _registration(hook: str, event: str = "PreToolUse") -> str:
     """One entry, spelled as `.claude/settings.json` spells one."""
     command = 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/' + hook + '"'
-    entry = {"type": "command", "command": command, "timeout": seconds}
+    entry = {"type": "command", "command": command, "timeout": 10}
     return json.dumps({"hooks": {event: [{"matcher": "Bash", "hooks": [entry]}]}})
 
 
-def _agent_definition(seconds: int | None, hook: str = "guard.sh") -> str:
-    """One agent's own registration, in the frontmatter shape `.claude/agents/` carries it.
-
-    `None` leaves the timeout line out, which the frontmatter allows and the harness reads as no
-    bound of its own.
-    """
-    command = '          command: bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/' + hook + '"'
-    lines = [
-        "---",
-        "name: fixture",
-        "hooks:",
-        "  PreToolUse:",
-        '    - matcher: "Write"',
-        "      hooks:",
-        "        - type: command",
-        command,
-    ]
-    if seconds is not None:
-        lines.append(f"          timeout: {seconds}")
-    lines += ["---", ""]
-    return "\n".join(lines)
-
-
-def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path, agents: Path | None = None) -> str:
-    """The step-14 comparison over a fixture pair, its verbs stubbed.
-
-    The default agents directory is there and empty, which registers nothing: a directory that is
-    not there is a finding of its own.
-    """
-    if agents is None:
-        agents = tmp_path / "no-agents"
-        agents.mkdir(exist_ok=True)
+def _check_registrations(settings: Path, hooks: Path, tmp_path: Path) -> str:
+    """The step-13 registration read over a fixture pair, its verbs stubbed."""
     _, out, err = _bash(
         (
             SHEBANG,
             f"source {LIB.as_posix()!r}",
             "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
             "info() { printf 'INFO %s\\n' \"$*\"; }",
-            _function("hook_child_budgets", "  "),
-            _function("hook_reenters", "  "),
-            _function("agent_registrations", "  "),
-            _function("compare_hook_budgets", "  "),
-            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r} {agents.as_posix()!r}",
+            _function("check_hook_registrations", "  "),
+            f"check_hook_registrations {settings.as_posix()!r} {hooks.as_posix()!r}",
         ),
         tmp_path,
     )
     return out + err
 
 
-def test_a_registration_that_does_not_stand_clear_of_its_guards_budget_is_a_finding(tmp_path: Path) -> None:
-    """The equal case is the one worth spelling: at the same number the harness may kill the hook first.
-
-    A killed hook prints nothing and has allowed the command, and lowering a registration reads as
-    tuning a timeout.
-    """
+def test_a_registration_whose_script_is_missing_is_a_finding(tmp_path: Path) -> None:
+    """The harness runs nothing for it and says nothing, so the hook reads as one with nothing to say."""
     hooks = tmp_path / "hooks"
     hooks.mkdir()
-    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
-    # The last row is the widening: before it, only `PreToolUse` was walked, and a hook registered on
-    # any other event was compared against nothing.
-    for seconds, event, said in (
-        (30, "PreToolUse", "INFO guard.sh: a 15s child under a 30s PreToolUse registration"),
-        (15, "PreToolUse", "FAIL guard.sh decides under 15s"),
-        (10, "PreToolUse", "FAIL guard.sh decides under 15s"),
-        (10, "PostToolUse", "FAIL guard.sh decides under 15s"),
-    ):
-        settings = write_shell(tmp_path / "settings.json", _registration(seconds, event))
-        out = _compare_budgets(settings, hooks, tmp_path)
-        assert _said(said) in out, f"{seconds}s on {event}: {out!r}"
+    settings = write_shell(tmp_path / "settings.json", _registration("gone.sh", "Stop"))
+    out = _check_registrations(settings, hooks, tmp_path)
+    assert _said(f"FAIL {settings.as_posix()} registers gone.sh on Stop, and it is not in {hooks.as_posix()}") in out, out
 
 
-def test_a_guard_with_no_child_is_reported_rather_than_compared(tmp_path: Path) -> None:
-    """A guard deciding in the hook process has one number, and comparing it against itself would fail every such hook."""
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    write_shell(hooks / "guard.sh", "#!/usr/bin/env bash\nexit 0\n")
-    settings = write_shell(tmp_path / "settings.json", _registration(10))
-    out = _compare_budgets(settings, hooks, tmp_path)
-    assert _said("INFO guard.sh: decides in the hook process") in out, out
-
-
-# The load-bearing rows are the seven that are not `-s KILL 15`: a reader keyed to that one spelling
-# calls each of them a guard with no child, which is an `info` on the hook whose watchdog it lost.
-DISPATCHES: Final[tuple[tuple[str, str], ...]] = (
-    ("timeout -s KILL 15", "FAIL guard.sh decides under 15s"),
-    ("timeout --signal=KILL 15", "FAIL guard.sh decides under 15s"),
-    ("timeout --signal KILL 15", "FAIL guard.sh decides under 15s"),
-    ("timeout -sKILL 15", "FAIL guard.sh decides under 15s"),
-    ("timeout -k 5 15", "FAIL guard.sh decides under 15s"),
-    ("timeout --kill-after=5 15", "FAIL guard.sh decides under 15s"),
-    ("timeout 15s", "FAIL guard.sh decides under 15s"),
-    ("timeout 15", "FAIL guard.sh decides under 15s"),
-    # Neither is a watchdog this can hold against a registration, and reporting either as a readable
-    # one is the same silence under a number nobody checked.
-    ('timeout -s KILL "$BUDGET"', "FAIL guard.sh gives a child a duration this cannot read as whole seconds — line 2"),
-    ("timeout -s KILL 2m", "FAIL guard.sh gives a child a duration this cannot read as whole seconds — line 2"),
-)
-
-
-def test_every_spelling_of_one_watchdog_is_compared_and_no_other_is_read_as_seconds(tmp_path: Path) -> None:
-    """Each row runs the same child under the same 15 seconds, so a row answering differently answers on the spelling."""
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    settings = write_shell(tmp_path / "settings.json", _registration(10))
-    for dispatch, said in DISPATCHES:
-        write_shell(hooks / "guard.sh", _guard(dispatch))
-        out = _compare_budgets(settings, hooks, tmp_path)
-        assert _said(said) in out, f"{dispatch!r}: {out!r}"
-
-
-# The last two rows are load-bearing: a reader keyed to `$0` and `--decide` reads a guard spelling
-# `${BASH_SOURCE[0]}` under a sentinel of its own as one deciding in process, which is an `info`.
-RE_ENTRIES: Final[tuple[str, ...]] = (
-    'bash "$0" --decide',
-    'bash "$0" --verdict',
-    'bash "${BASH_SOURCE[0]}" --decide',
-    'bash "${BASH_SOURCE[0]}" --verdict',
-    'sh "$BASH_SOURCE" --verdict',
-)
-
-
-def test_a_guard_that_re_enters_itself_under_no_watchdog_is_a_finding(tmp_path: Path) -> None:
-    """Deleting the dispatch is the cheapest way to leave this comparison green, and nothing else asks whether a guard has a watchdog.
-
-    Every row re-enters under nothing at all, so a row answering differently answers on the spelling.
-    """
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    settings = write_shell(tmp_path / "settings.json", _registration(10))
-    for re_entry in RE_ENTRIES:
-        write_shell(hooks / "guard.sh", f'#!/usr/bin/env bash\nanswer="$({re_entry})"\n')
-        out = _compare_budgets(settings, hooks, tmp_path)
-        assert _said("FAIL guard.sh hands its decision to a child under no timeout of its own") in out, f"{re_entry!r}: {out!r}"
-
-
-def test_a_hook_an_agent_definition_registers_is_compared_like_a_settings_one(tmp_path: Path) -> None:
-    """An agent's frontmatter is the one registration surface no settings file carries, and its hooks are killed the same way."""
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
-    write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
-    write_shell(agents / "fixture.md", _agent_definition(10))
-    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
-    out = _compare_budgets(settings, hooks, tmp_path, agents)
-    # The whole line, its verb included: read from the middle it is satisfied by the same words
-    # downgraded to an `info`. The event names the price a kill costs, which a bare frontmatter key
-    # read as one gets wrong.
-    said = (
-        f"FAIL guard.sh decides under 15s while {agents.as_posix()}/fixture.md gives the hook 10s on PreToolUse, "
-        "so the harness kills it first and the silence reads as permission."
-    )
-    assert _said(said) in out, out
-    assert _said("INFO plain.sh: decides in the hook process") in out, out
-
-
-def test_an_agent_registration_carrying_no_timeout_is_named_rather_than_dropped(tmp_path: Path) -> None:
-    """The one shape the two readers answered differently: node prints `undefined` and the loop fails it.
-
-    A dropped entry takes its hook out of every finding, so a registration bounding nothing reads
-    like one nobody wrote.
-    """
-    hooks = tmp_path / "hooks"
-    hooks.mkdir()
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
-    write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
-    write_shell(agents / "fixture.md", _agent_definition(None))
-    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
-    out = _compare_budgets(settings, hooks, tmp_path, agents)
-    said = f"FAIL {agents.as_posix()}/fixture.md gives guard.sh no readable timeout on PreToolUse"
-    assert _said(said) in out, out
-
-
-# What an agent read answers with when it read nothing: no directory at all, a definition renamed off
-# the suffix the glob names, and a directory holding neither.
-AGENT_READS: Final[tuple[tuple[str, str | None], ...]] = (
-    ("gone", None),
-    ("renamed", "fixture.markdown"),
-    ("empty", ""),
-)
-
-
-def test_an_agent_read_that_answered_nothing_is_named_rather_than_left_at_zero(tmp_path: Path) -> None:
-    """A definition renamed off `.md` drops every hook an agent registers, and reads as a tree carrying none.
-
-    The empty row is the control: failing a directory that registers nothing would fail every
-    fixture here carrying no agent.
-    """
+def test_a_registration_whose_script_is_there_passes(tmp_path: Path) -> None:
+    """The contrast the case above needs: a read failing every registration would pass it."""
     hooks = tmp_path / "hooks"
     hooks.mkdir()
     write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
-    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
-    for label, entry in AGENT_READS:
-        agents = tmp_path / label
-        if entry is not None:
-            agents.mkdir()
-        if entry:
-            write_shell(agents / entry, _agent_definition(10))
-        out = _compare_budgets(settings, hooks, tmp_path, agents)
-        said = f"FAIL no agent registration was read out of {agents.as_posix()}"
-        if entry == "":
-            assert said not in out, f"{label}: {out!r}"
-            assert _said("INFO plain.sh: decides in the hook process") in out, f"{label}: {out!r}"
-        else:
-            assert _said(said) in out, f"{label}: {out!r}"
+    settings = write_shell(tmp_path / "settings.json", _registration("plain.sh"))
+    out = _check_registrations(settings, hooks, tmp_path)
+    assert _said("INFO plain.sh: registered on PreToolUse, and there") in out, out
+    if NODE:
+        assert "FAIL" not in out, out
 
 
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of

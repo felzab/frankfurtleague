@@ -49,7 +49,7 @@ closing commit's trailer names it.
 **`BE` reaches the whole package rather than its `app/`**, because a backend test otherwise carries
 `tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: both trees are
 documentation to the reader filtering on it. A hook under `.claude/hooks/` earns `Ops` and `gate`
-beside it, being a guard the gate probes. `DB` and `versions` are the two a path
+beside it, being a script the gate probes rather than a page. `DB` and `versions` are the two a path
 need not produce — a collection name and a manifest are named in prose — so either may stand where
 no path derives it, and neither may be missing where one does.
 
