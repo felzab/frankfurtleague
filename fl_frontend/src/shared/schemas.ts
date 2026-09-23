@@ -1,10 +1,12 @@
 import { z } from "zod";
 
-import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
+import { hasAsciiLocalPart, isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
-// `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie. A pattern
-// is outside `fl_frontend/src/core/apiContract.test.ts`, so
+// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`,
+// `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
+// `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
+
+// A pattern is outside `fl_frontend/src/core/apiContract.test.ts`, so
 // `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` is where one is held to its twin.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
@@ -142,24 +144,48 @@ export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
  */
 export { KONTAKT_EMAIL_MAX_LENGTH };
 
-/**
- * Every address anybody types is judged here, a school's application and the sign-in box alike.
- * `z.email()` cannot be it: its alphabet refuses the umlaut local part and the unicode host
- * `EmailStr` stores, so a school with either could not apply.
- */
-export const KontaktEmailSchema = z
+const addressBox = z
   .string()
   // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
-  .trim()
-  .refine(isDeliverableAddress, { error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-  .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` });
+  .trim();
+
+/**
+ * An address box judged by `accepts`: the erasure's lookup accepts more than a write does, and the
+ * messages are one set, so a rewording reaches both.
+ */
+export function addressSchema(accepts: (address: string) => boolean, box: z.ZodString = addressBox) {
+  return (
+    box
+      // Ahead of `accepts` and ending the judgement: `isDeliverableAddress` holds the same ceiling in
+      // octets, so a long address would otherwise carry the generic sentence beside this one.
+      .max(KONTAKT_EMAIL_MAX_LENGTH, {
+        error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
+        abort: true,
+      })
+      .refine(accepts, { error: "Bitte gib eine gültige E-Mail-Adresse ein." })
+  );
+}
+
+/**
+ * Every address typed to be stored or signed in with is judged here. `z.email()` cannot be it: no
+ * pattern of its converts an umlaut domain, and its `html5Email` takes the doubled dot the API refuses.
+ */
+export const KontaktEmailSchema = addressSchema(
+  isDeliverableAddress,
+  // First and alone: the one refusal nobody can read out of the generic sentence. It asks for another
+  // address and never a retyped one: the same mailbox spelled without its umlaut is a stranger's.
+  addressBox.refine(hasAsciiLocalPart, {
+    error: "Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen.",
+    abort: true,
+  }),
+);
 
 export const FLKontaktSchema = z.object({
   // Judged on the payload alone, as `email` is: `PHONE_REGEX` now wants a final digit, so a read stating
   // it refuses a stored number the old rule took -- and one such row fails the whole referee list's parse.
   telefon: z.string().nullable(),
-  // Judged on the payload alone: `EmailStr` normalises a punycode host to unicode and takes an umlaut
-  // local part, so a read stating an address rule refuses a value the API stored.
+  // Judged on the payload alone: a row stored before the address rule may hold a Unicode host or an
+  // umlaut local part, so a read stating the rule refuses a value the API stored.
   email: z.string().nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;

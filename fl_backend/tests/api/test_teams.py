@@ -310,7 +310,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     -- and `GET /teams/memberships` is the only route to repairing the row.
     """
 
-    # A title's `.`, an address `EmailStr` refuses, and 21 characters where `PHONE_REGEX` allows 20
+    # A title's `.`, an address the address rule refuses, and 21 characters where `PHONE_REGEX` allows 20
     # -- one per bound the payload adds, so no case below passes on another's refusal.
     REFUSED = {"nachname": "Dr. Koerner", "email": "not an address", "telefon": "+49 170 1234567 890 12"}
 

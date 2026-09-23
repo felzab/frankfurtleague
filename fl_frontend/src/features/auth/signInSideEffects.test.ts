@@ -335,15 +335,14 @@ describe("what the press under the mailed link leaves in the cookie store", () =
 });
 
 describe("which administrator two spellings of one address reach", () => {
-  /* The library folds CASE and nothing else, on the row it stores: an NFKC-equivalent spelling that
-     the allowlist admits would otherwise verify into a second `user` row -- a second administrator,
-     with a passkey of their own to enrol. */
+  /* The library folds CASE alone, on the row it stores: a spelling whose domain only the fold converts
+     would otherwise verify into a second `user` row -- a second administrator, with a passkey of their own. */
   it("writes one user row for two spellings the allowlist reads as one address", async () => {
     await signInWith(ALLOWLISTED);
     await followTheLastLink();
 
-    // NFKC folds the fullwidth letter to the allowlisted spelling; `toLowerCase` alone does not.
-    await signInWith(`Ｖ${ALLOWLISTED.slice(1)}`);
+    // The fold makes the half-width ideographic full stop a dot; `toLowerCase` alone does not.
+    await signInWith(ALLOWLISTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61)));
     await followTheLastLink();
 
     // The whole store, not a slice: no other address here is ever mailed a link, so a second row

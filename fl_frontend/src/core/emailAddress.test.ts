@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
-import { isDeliverableAddress, withAsciiDomain } from "@/core/emailAddress";
+import { z } from "zod";
+
+import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, mailboxKey, withAsciiDomain } from "@/core/emailAddress";
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de` (I226). */
 const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
@@ -41,16 +47,77 @@ describe("the host alphabet an address is held to", () => {
   });
 });
 
-/** Built rather than spelled: written into the source it would attach to the quote in front of it. */
-const COMBINING_ACUTE = String.fromCharCode(0x301);
+/** An address of `local@` and thirteen umlaut labels, `pad` ASCII letters, then `.de`: 164 characters at five, 255 octets punycoded. */
+const umlautAddressOf = (pad: number): string => `${"a".repeat(64)}@${"müller.".repeat(13)}${"b".repeat(pad)}.de`;
 
-describe("where the local part admits a combining mark", () => {
-  /* Both directions, or a guard banning the mark everywhere passes too: the mark is atext above
-     ASCII like any other, and its OPENING position alone is what the refusal is about. */
-  it("refuses one that opens the local part, and takes one inside it", () => {
-    assert.equal(isDeliverableAddress(`${COMBINING_ACUTE}vorstand@schule.de`), false);
-    assert.equal(isDeliverableAddress(`vorstand${COMBINING_ACUTE}@schule.de`), true);
+/* The API measures the whole address with its host punycoded, where each `müller` costs thirteen
+   octets rather than six characters: read as typed, the refused one is ninety characters short. */
+describe("the whole-address ceiling an umlaut domain reaches", () => {
+  it("takes the address whose punycoded form is 254 octets and refuses the one at 255", () => {
+    assert.equal(isDeliverableAddress(umlautAddressOf(4)), true);
+    assert.equal(isDeliverableAddress(umlautAddressOf(5)), false);
+    assert.ok(umlautAddressOf(5).length < 254, "the refused address is already over the ceiling as typed, so this compares nothing");
   });
+
+  /* A label of one repeated umlaut punycodes to about an octet a letter and takes two in UTF-8, so
+     here the address as typed is what the API refuses, the punycoded form sitting well inside. */
+  it("refuses an address whose typed form alone passes the ceiling in UTF-8 octets", () => {
+    const address = `a@${Array.from({ length: 3 }, () => "ä".repeat(57)).join(".")}.de`;
+
+    assert.equal(new TextEncoder().encode(address).length, 349);
+    assert.ok(address.length < 254, "the address is over the ceiling in characters, so this compares nothing");
+    assert.equal(isDeliverableAddress(address), false);
+  });
+});
+
+/* Built from code points, so no editor normalises one into the ASCII the case must not compare: the
+   full-width a and the no-break space pass for ASCII, and the accent stays uncomposed. */
+const BEYOND_ASCII = [
+  `j${String.fromCodePoint(0xfc)}rgen@schule.de`,
+  `${String.fromCodePoint(0xff41)}nna@schule.de`,
+  `vorstand${String.fromCodePoint(0x301)}@schule.de`,
+  `an${String.fromCodePoint(0xa0)}na@schule.de`,
+];
+
+describe("a local part above ASCII", () => {
+  it("is refused wherever the character stands, and worded apart from every other refusal", () => {
+    for (const address of BEYOND_ASCII) {
+      assert.equal(isDeliverableAddress(address), false, `expected ${JSON.stringify(address)} to be refused`);
+      assert.equal(hasAsciiLocalPart(address), false, `expected ${JSON.stringify(address)} to be worded as its local part`);
+    }
+  });
+
+  /* The control: a rule refusing every character above ASCII fails here rather than passing the case above. */
+  it("is told apart from one whose domain alone is above ASCII", () => {
+    assert.equal(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`), true);
+    assert.equal(hasAsciiLocalPart(`anna@m${String.fromCodePoint(0xfc)}ller.de`), true);
+  });
+
+  it("leaves a value without an at sign to the generic refusal", () => {
+    assert.equal(hasAsciiLocalPart(`j${String.fromCodePoint(0xfc)}rgen`), true);
+  });
+});
+
+/** One table both suites run their own rule and fold over; `fl_backend/tests/shared/test_email_address.py` holds the API's half. */
+const ROWS = z
+  .array(z.object({ case: z.string(), typed: z.string(), stored: z.string().nullable(), folded: z.string() }))
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
+
+/* Each runtime converts a Unicode domain with its own tables: this table is where the two are held to one answer. */
+describe("the address table the API is held to as well", () => {
+  for (const row of ROWS) {
+    it(`answers ${row.case} as the API does`, () => {
+      // Trimmed first, as the address box trims before the rule reads the value.
+      const typed = row.typed.trim();
+      assert.equal(isDeliverableAddress(typed), row.stored !== null);
+      assert.equal(asSignInIdentifier(row.typed), row.folded);
+      if (row.stored !== null) {
+        // The domain converted as the API stores it, the local part untouched.
+        assert.equal(mailboxKey(typed), row.stored);
+        assert.equal(asSignInIdentifier(row.stored), row.folded);
+      }
+    });
+  }
 });
 
 /* Every row carries a character above ASCII as well: an ASCII host is handed back byte for byte

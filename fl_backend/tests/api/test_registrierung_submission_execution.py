@@ -18,9 +18,10 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id, sperrliste_identifier
+from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -524,7 +525,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code
 
-        assert sperrliste_identifier(BANNED_EMAIL.upper()) == sperrliste_identifier(BANNED_EMAIL)
+        assert canonical_address(BANNED_EMAIL.upper()) == canonical_address(BANNED_EMAIL)
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == REGISTRIERUNG_ADRESSE_GESPERRT
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):

@@ -224,10 +224,10 @@ describe("FLKontaktPayloadSchema", () => {
     assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: null }).success, true);
   });
 
-  // Each is a value `EmailStr` takes and stores: a punycode host normalised to unicode, an umlaut
-  // local part, an atext character outside zod's class, and a local part past RFC 5321's 64.
+  // Each is a value the API takes and stores: an umlaut host it converts to punycode, an atext
+  // character outside zod's class, and a local part past RFC 5321's 64.
   it("takes every address the API stores, whose rule no zod pattern spells", () => {
-    for (const email of ["kaethe@käthe-schule.example", "käthe@example.de", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
+    for (const email of ["kaethe@käthe-schule.example", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
       assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
     }
   });
@@ -240,11 +240,10 @@ describe("FLKontaktPayloadSchema", () => {
 describe("KontaktEmailSchema", () => {
   const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
 
-  // Each is a value `EmailStr` takes and stores unchanged, and `z.email()`'s alphabet refuses: a
-  // school whose contact address holds one could not submit an application at all.
-  it("takes every address the API stores, umlauts and atext characters and all", () => {
+  // Each is a value the API takes, and `z.email()`'s alphabet refuses the umlaut domain and the atext
+  // character: a school whose contact address holds one could not submit an application at all.
+  it("takes every address the API stores, umlaut domains and atext characters and all", () => {
     const addresses = [
-      "käthe@example.de",
       "kaethe@käthe-schule.example",
       "kaethe@xn--kthe-schule-l8a.example",
       "a!b@example.de",
@@ -299,6 +298,18 @@ describe("KontaktEmailSchema", () => {
   // screen for the applicant to delete, where a quiet rewrite would submit what nobody typed.
   it("refuses an address wrapped in a display name rather than unwrapping it", () => {
     assert.equal(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success, false);
+  });
+
+  // A person can repair only what the sentence names, and the generic one names nothing an umlaut
+  // domain does not share. The full-width at sign is built from its code point, rendering as the ASCII one.
+  it("refuses, in a sentence of its own, a local part above ASCII", () => {
+    for (const email of ["käthe@schule.de", `erika${String.fromCharCode(0xff20)}x@schule.de`]) {
+      assert.deepEqual(
+        refusals(email),
+        ["Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen."],
+        email,
+      );
+    }
   });
 
   it("carries one German sentence per fault", () => {

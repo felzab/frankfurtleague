@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 # The delivery state is the application slice's declaration, stored at every home the register names
 # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -10,7 +10,6 @@ from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, FLSpie
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_EMAIL_MAX_LENGTH,
     KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -24,6 +23,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
@@ -89,7 +89,7 @@ class FLRegistrierung(BaseModel):
     status: FLRegistrierungStatus
     vorname: CustomNonEmptyString
     nachname: CustomNonEmptyString
-    # AS TYPED, where a person's own `email` is stored folded: the address is what the confirmation
+    # UNFOLDED, where a person's own `email` is stored folded: the address is what the confirmation
     # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
@@ -162,8 +162,7 @@ class FLPostRegistrierungPayload(BaseModel):
     nachname: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
     ]
-    # The ceiling is stated rather than left to email-validator, whose refusal names no field.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
     # Each NULLABLE with the caller stating the null rather than omitting it, as a squad payload's
     # three are: the answer is then the pupil's and not a default nobody chose.
     position: FLSpielerPosition | None

@@ -94,7 +94,7 @@ def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
 
     # `collection` first, the one half an index serves — nothing indexes inside `before`, as the
     # contact erasure's orphan sweep also finds
-    # (`app/api/kontakte/services.py :: build_orphaned_image_filter`). A `delete_many` row's image is
+    # (`app/api/kontakte/services.py :: build_orphaned_images_pipeline`). A `delete_many` row's image is
     # an ARRAY, matched on its members.
     return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
 

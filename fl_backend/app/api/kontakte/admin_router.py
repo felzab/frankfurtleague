@@ -17,8 +17,10 @@ from app.api.kontakte.services import (
     build_clearing_update,
     build_matching_rows_pipeline,
     build_matching_seats_pipeline,
-    build_orphaned_image_filter,
+    build_orphaned_images_pipeline,
     find_matching_slots,
+    images_holding,
+    rows_naming,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -27,6 +29,7 @@ from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBC
 from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/kontakte",
@@ -34,7 +37,7 @@ router = APIRouter(
 )
 
 
-async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], email: str, session: AsyncClientSession) -> int:
+async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
     """Null this person's slots row by row, and answer how many slots.
 
     `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`
@@ -43,7 +46,7 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
 
     cleared = 0
     for row in rows:
-        slots = find_matching_slots(row, email)
+        slots = find_matching_slots(row, identifier)
         update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
         await patch_one_in_db(
             collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
@@ -53,7 +56,7 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
     return cleared
 
 
-def _seats_of(rows: Sequence[Mapping[str, Any]], email: str) -> list[FLKontaktSitz]:
+def _seats_of(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[FLKontaktSitz]:
     """Every seat these rows hold for the address.
 
     `find_matching_slots` and not a second reading of the projection: a reveal deciding which slots
@@ -67,7 +70,7 @@ def _seats_of(rows: Sequence[Mapping[str, Any]], email: str) -> list[FLKontaktSi
             {"saison_id": row.get("saison_id"), "rolle": slot, **{field: row["kontakte"][slot].get(field) for field in ("vorname", "nachname")}}
         )
         for row in rows
-        for slot in find_matching_slots(row, email)
+        for slot in find_matching_slots(row, identifier)
     ]
 
 
@@ -88,14 +91,16 @@ async def get_kontakt_erasure_ansicht(
     Stores nothing, and takes that write's own payload: a confirmation cannot then be shown for one address and performed for another.
     """
 
-    email = str(erasure_data.email)
+    identifier = sign_in_identifier(str(erasure_data.email))
 
     # Unbounded, as the erasure's own reads are: a capped reveal names fewer people than the write
     # clears, which is the confirmation reading best exactly where it is least complete.
-    saison_team_rows = await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_matching_seats_pipeline(email))
-    bewerbung_rows = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_seats_pipeline(email))
+    saison_team_rows = await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_matching_seats_pipeline(identifier))
+    bewerbung_rows = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_seats_pipeline(identifier))
 
-    return FLKontaktErasureAnsichtResponse(saison_teams=_seats_of(saison_team_rows, email), bewerbungen=_seats_of(bewerbung_rows, email))
+    return FLKontaktErasureAnsichtResponse(
+        saison_teams=_seats_of(saison_team_rows, identifier), bewerbungen=_seats_of(bewerbung_rows, identifier)
+    )
 
 
 @router.post("/erasure", response_model=FLKontaktErasureResponse, summary="Erase a Kontaktperson's records")
@@ -117,20 +122,24 @@ async def erase_kontaktperson(
     async def clear_the_person_and_their_record(session: AsyncClientSession) -> FLKontaktErasureResponse:
         """Find, then clear, then redact. Everything judged is read in-session, so a retry re-reads it."""
 
-        email = str(erasure_data.email)
+        identifier = sign_in_identifier(str(erasure_data.email))
 
         # BOTH reads before either write, and unbounded: the `$set` below stops the address matching,
         # and a capped read would leave rows holding the person with nothing left to find them by
         # (`app/api/spieler/admin_router.py :: erase_spieler` does the same).
-        saison_team_rows = await aggregate_many_from_db(
-            collection=saison_teams_collection, pipeline=build_matching_rows_pipeline(email), session=session
+        saison_team_rows = rows_naming(
+            await aggregate_many_from_db(
+                collection=saison_teams_collection, pipeline=build_matching_rows_pipeline(identifier), session=session
+            ),
+            identifier,
         )
-        bewerbung_rows = await aggregate_many_from_db(
-            collection=bewerbungen_collection, pipeline=build_matching_rows_pipeline(email), session=session
+        bewerbung_rows = rows_naming(
+            await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_rows_pipeline(identifier), session=session),
+            identifier,
         )
 
-        cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, email, session)
-        cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, email, session)
+        cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, identifier, session)
+        cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, identifier, session)
 
         # ONE stamp for both passes below, so a row cannot say which of the two reached it.
         stamp = log_stamp(germany_now)
@@ -150,12 +159,19 @@ async def erase_kontaktperson(
             session=session,
         )
 
-        # The rows no id above can name: a swap left this person in a pre-image of a row that has
-        # since stopped naming them. SECOND, so the pass above has already nulled `before` on
-        # everything it took and the two counts below can never cover one row twice.
+        # SECOND, so the pass above has already nulled `before` on everything it took and the counts
+        # never cover one row twice: what is left is a swap's orphan, an image of a row that has since
+        # stopped naming this person.
+        orphaned_candidates = await aggregate_many_from_db(
+            collection=aktionen_collection,
+            pipeline=build_orphaned_images_pipeline(identifier),
+            session=session,
+        )
         orphaned = await patch_many_in_db(
             collection=aktionen_collection,
-            db_filter=build_orphaned_image_filter(email),
+            # Judged before the patch: the pre-filter's `i` ignores case beyond ASCII (ſ for s), the
+            # fold lowers ASCII alone, and only the fold may say whose each image is.
+            db_filter={"_id": {"$in": images_holding(orphaned_candidates, identifier)}},
             update=build_redaction_update(at=stamp),
             session=session,
         )

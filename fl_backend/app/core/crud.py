@@ -11,6 +11,7 @@ matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find
 directly -- and a write shaped like one of those would escape the log.
 """
 
+import re
 from collections.abc import Mapping, Sequence, Set
 from typing import Any
 
@@ -306,6 +307,16 @@ def build_sort(*, sort_by: str, order: str, chain: Sequence[tuple[str, int]] = (
     direction = 1 if order == "asc" else -1
 
     return [(sort_by, direction), *((field, tie_direction) for field, tie_direction in chain if field != sort_by)]
+
+
+def literal_pattern(value: str) -> str:
+    """`value` as a `$regex` fragment matching exactly it.
+
+    `re.escape` leaves a NUL raw, and the server refuses a pattern holding one: a 500 where the lookup
+    owes an empty match.
+    """
+
+    return re.escape(value).replace("\x00", r"\x00")
 
 
 # Section 3, what a write does beyond the driver call: a refusal becomes the 409 it means, and a

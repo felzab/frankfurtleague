@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
@@ -16,6 +16,7 @@ from app.api.teams.schemas import (
     _KontaktpersonWritablePayload,
 )
 from app.shared.alter import whole_years_between
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -27,7 +28,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_EMAIL_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -45,6 +45,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
@@ -482,9 +483,9 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
         seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
         people: list[FLBewerbungKontaktpersonPayload] = [getattr(self, seat) for seat in seats]
 
-        # Case-insensitively: a mailbox is addressed the same however the local part is capitalised,
-        # and two seats spelled differently would otherwise pass as two people.
-        emails = [person.email.casefold() for person in people]
+        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
+        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
+        emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
             raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
 
@@ -876,7 +877,7 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
 
     # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
     # public form refused too and a correction cannot store what a submission could not.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):

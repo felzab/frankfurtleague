@@ -1,3 +1,4 @@
+import { asSignInIdentifier } from "@/core/emailAddress";
 import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -156,10 +157,11 @@ export function emptiedSeatLabels(stored: SaisonTeamKontakteDraft | null, draft:
 
 /** Who holds a seat, by the three fields `fl_backend/app/api/teams/services.py :: SEAT_IDENTITY_FIELDS` names. */
 function seatIdentity(seat: KontaktpersonDraft): readonly string[] {
-  // JavaScript has no `casefold`: lower-casing alone parts „Weiß“ from „Weiss“, which the server folds
-  // equal, so the banner would warn over a stamp the save keeps. Nothing normalises here, the server
-  // not normalising either.
-  return [seat.email, seat.vorname, seat.nachname].map((wert) => wert.trim().split(/\s+/).join(" ").toUpperCase().toLowerCase());
+  // The server's two folds, so the banner warns over exactly the stamps the save drops: the address as
+  // sign-in folds it, and a name composed and lower-cased, „Weiß“ staying apart from „Weiss“.
+  const name = (wert: string): string => wert.normalize("NFC").trim().split(/\s+/).join(" ").toLowerCase();
+
+  return [asSignInIdentifier(seat.email), name(seat.vorname), name(seat.nachname)];
 }
 
 /** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */

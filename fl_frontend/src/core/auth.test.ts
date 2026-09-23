@@ -638,7 +638,7 @@ describe("the second factor, judged at the same guard", () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the allowlisted address");
-    held.email = `Ｖ${ADMIN_EMAIL.slice(1)}`;
+    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
     const step = await getPasskeyStep();
@@ -1459,9 +1459,9 @@ describe("which spelling of an administrator a write is attributed to", () => {
 
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the allowlisted address");
-    // NFKC folds this spelling to the allowlisted one, so the guard admits a session whose stored
-    // address is not the one the allowlist carries.
-    held.email = `Ｖ${ADMIN_EMAIL.slice(1)}`;
+    // The fold converts this spelling's domain to the allowlisted one, so the guard admits a session
+    // whose stored address is not the one the allowlist carries.
+    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
     const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {

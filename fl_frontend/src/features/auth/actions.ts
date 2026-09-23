@@ -57,7 +57,8 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // Folded HERE, which is the boundary: below this line the verification row, the mailed
     // recipient, the allowlist gate and the stored `user` row all carry one string.
 
-    // The library folds CASE alone, so two NFKC spellings would verify into two administrators.
+    // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
+    // one to is the only spelling in which that administrator signs in at all.
     const email = asSignInIdentifier(validated.data.email);
 
     // The whole call, behind the response: the allowlist gate, the token write and the send all

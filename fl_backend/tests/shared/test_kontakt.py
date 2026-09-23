@@ -46,7 +46,7 @@ def test_rejects_an_address_one_character_over_the_length_ceiling(kontakt):
 
 
 def test_publishes_the_ceiling_the_zod_mirror_copies():
-    """`EmailStr` alone refuses 255 without stating a bound, and a mirror copies a number only from a PUBLISHED one."""
+    """`email-validator` alone refuses 255 without stating a bound, and a mirror copies a number only from a PUBLISHED one."""
     email = FLKontaktPayload.model_json_schema()["properties"]["email"]
 
     assert [option["maxLength"] for option in email["anyOf"] if "maxLength" in option] == [KONTAKT_EMAIL_MAX_LENGTH]
@@ -54,7 +54,7 @@ def test_publishes_the_ceiling_the_zod_mirror_copies():
 
 @pytest.mark.parametrize("local_part_length", [64, 65])
 def test_accepts_a_local_part_at_and_over_rfc_5321s_64_octets(kontakt, local_part_length):
-    """email-validator applies that cap only under `strict`, which `EmailStr` does not pass.
+    """email-validator applies that cap only under `strict`, which `league_address` does not pass.
 
     Pinned because the zod mirror matches deliberately: bounding it there alone would refuse an
     address the API stores.

@@ -318,10 +318,10 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
   The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
   after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
-  never the entry. An umlaut is the case that turns up, and the two halves of an address differ:
-  a domain one is entered in its punycoded spelling, which that administrator then has to type at the
-  sign-in box as well, while an umlaut in the local part has no such form — that person needs a
-  mailbox the sign-in box will accept before there is anything to allowlist.
+  never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  such address, so that person needs a mailbox it will accept before there is anything to allowlist.
+  An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
+  to punycode.
 - **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.
@@ -557,7 +557,13 @@ agreed, the only reliable form it can take here is removing the data, which is t
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
 keyed on an email address, so it clears every seat that address holds, in every season and both
-collections. **Read the armed panel's list before pressing**: it names every one of those seats, by
+collections. **The erasure takes the address the seat it is pressed on stores, and reaches another
+seat only where that one's address folds to the same spelling**: the match lowers the 26 ASCII
+capitals alone (`fl_backend/app/shared/folding.py :: sign_in_identifier`), so a seat stored before
+the address rule with a letter above ASCII before the @, in another case, is not on the list. Where
+the person's address carries such a letter, check the list against every seat found under their
+name, and erase one it misses from that seat's own panel where it has one. **Read the armed panel's
+list before pressing**: it names every one of those seats, by
 person and by the season or application it sits in, and the press stays shut until that list is on
 screen
 (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),

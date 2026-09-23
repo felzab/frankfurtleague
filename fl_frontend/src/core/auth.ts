@@ -289,7 +289,7 @@ export function isUserAdmin(email?: string | null): boolean {
   if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
 
   // Folded here because the library folds only CASE, and only on the row it stores: the address a
-  // send is judged on arrives exactly as it was typed, and an allowlist entry is stored NFKC-folded
+  // send is judged on arrives exactly as it was typed, and an allowlist entry is stored folded
   // (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
   return frontend_config.ALLOWED_ADMIN_EMAILS.includes(asSignInIdentifier(email));
 }

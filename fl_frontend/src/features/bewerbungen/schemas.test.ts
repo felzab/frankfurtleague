@@ -20,6 +20,7 @@ import {
   FLBewerbungZustellungEreignisPayloadSchema,
   FLPostBewerbungPayloadSchema,
   gleicheAdresse,
+  gleichesPostfach,
   ZUSTELLUNG_GRUND_MAX_LENGTH,
   ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
@@ -82,14 +83,14 @@ describe("what the public submission schema accepts", () => {
     assert.deepEqual(refusedPaths(validDraft()), []);
   });
 
-  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a school whose
-     contact address holds either has to be able to apply. */
-  it("accepts a submission whose contact address carries an umlaut, in either part", () => {
-    for (const email of ["käthe@beispiel.de", "erika@käthe-schule.example"]) {
-      const draft = validDraft();
+  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
+     one school applies and the other is told so at the box. */
+  it("accepts a contact address with an umlaut domain and refuses one with an umlaut before the at sign", () => {
+    const draft = validDraft();
+    const withAddress = (email: string) => validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } });
 
-      assert.deepEqual(refusedPaths(validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } })), [], email);
-    }
+    assert.deepEqual(refusedPaths(withAddress("erika@käthe-schule.example")), []);
+    assert.deepEqual(refusedPaths(withAddress("käthe@beispiel.de")), ["kontakte.trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so the box
@@ -666,20 +667,44 @@ describe("the one field of a submitted application an administrator may move", (
     assert.ok(refusalFor({ ...CORRECTION, email: "" })["email"] !== undefined);
   });
 
-  /* The correction exists to reach a mailbox the submission could not, so an address `EmailStr` stores
+  /* The correction exists to reach a mailbox the submission could not, so an address the API stores
      has to pass here: refused, the seat stays unreachable and no other route moves it. */
   it("takes every address the API stores, so any mailbox can be corrected to", () => {
-    for (const email of ["käthe@schule.de", "erika@käthe-schule.example", "a!b@schule.de"]) {
+    for (const email of ["erika@käthe-schule.example", "a!b@schule.de"]) {
       assert.deepEqual(refusalFor({ ...CORRECTION, email }), {}, email);
     }
   });
 
-  /* Exported for the editor, which closes its own press on an address that has not moved: two
-     spellings of one rule would let a press through that the submission's own comparison refuses. */
+  /* Exported for the editor, which refuses another person's address at the field: two spellings of one
+     rule would let a correction through that the submission's own comparison refuses. */
   it("compares two spellings of one address the way the submission does", () => {
     assert.equal(gleicheAdresse(" Erika@Schule.de ", "erika@schule.de"), true);
     assert.equal(gleicheAdresse("erika@schule.de", "mira@schule.de"), false);
-    assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would close the press on a seat that has none");
+    assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would refuse a seat that has none");
+  });
+
+  /* The editor's other question, whether a correction moves the delivery target: the mail goes to the
+     bytes stored, so a full-width letter's ASCII repair (built from its code point) moves it. */
+  it("reads a correction as unmoved only where the mailbox is the same one", () => {
+    assert.equal(gleichesPostfach(" erika@Schule.de ", "erika@schule.de"), true);
+    assert.equal(gleichesPostfach(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de"), false);
+    assert.equal(gleichesPostfach("Erika@schule.de", "erika@schule.de"), false, "a corrected case is another mailbox to the send");
+    assert.equal(gleichesPostfach("", ""), false, "two empty boxes read as one mailbox, which would close the press on a seat that has none");
+  });
+
+  /* The sign-in fold, as the API compares: an umlaut domain is its punycode, a full-width „e“ before the
+     at sign is another address (built from its code point, rendering as the ASCII one), and „strasse“
+     is not „straße“. */
+  it("folds as sign-in folds, never as a case-fold would", () => {
+    assert.equal(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de"), true);
+    assert.equal(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de"), false);
+    assert.equal(gleicheAdresse("erika@straße.de", "erika@strasse.de"), false);
+  });
+
+  /* A row stored before the address rule holds its domain in Unicode, and the send compares it with
+     the punycode a correction stores now; how each spelling converts is the address table's. */
+  it("reads a mailbox stored with a Unicode domain as the one its punycode names", () => {
+    assert.equal(gleichesPostfach("anna@xn--mller-kva.de", "anna@müller.de"), true);
   });
 });
 

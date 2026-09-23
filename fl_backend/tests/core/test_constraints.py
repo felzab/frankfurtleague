@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -544,8 +544,6 @@ BSON_TYPES: Mapping[Any, str] = {
     # field that needs one is annotated for it and takes its own row, rather than widening this one.
     int: "int",
     str: "string",
-    # A marker class rather than an alias of `str`, so no other row here answers it.
-    EmailStr: "string",
     type(None): "null",
 }
 

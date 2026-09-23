@@ -1,0 +1,170 @@
+[
+  {
+    "case": "a plain address",
+    "typed": "anna@schule.de",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "capitals on both sides of the at sign",
+    "typed": "Anna.Mueller@Schule.DE",
+    "stored": "Anna.Mueller@schule.de",
+    "folded": "anna.mueller@schule.de"
+  },
+  {
+    "case": "ASCII whitespace around it",
+    "typed": "  anna@schule.de\t",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "a no-break and an ideographic space around it",
+    "typed": "\u00a0anna@schule.de\u3000",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "an umlaut domain",
+    "typed": "anna@m\u00fcller.de",
+    "stored": "anna@xn--mller-kva.de",
+    "folded": "anna@xn--mller-kva.de"
+  },
+  {
+    "case": "an umlaut domain typed decomposed",
+    "typed": "anna@mu\u0308ller.de",
+    "stored": "anna@xn--mller-kva.de",
+    "folded": "anna@xn--mller-kva.de"
+  },
+  {
+    "case": "a zero-width no-break space before it",
+    "typed": "\ufeffanna@schule.de",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "a next-line character after it",
+    "typed": "anna@schule.de\u0085",
+    "stored": null,
+    "folded": "anna@schule.de\u0085"
+  },
+  {
+    "case": "an umlaut domain in capitals",
+    "typed": "anna@M\u00dcLLER.DE",
+    "stored": "anna@xn--mller-kva.de",
+    "folded": "anna@xn--mller-kva.de"
+  },
+  {
+    "case": "the umlaut domain's punycode",
+    "typed": "anna@xn--mller-kva.de",
+    "stored": "anna@xn--mller-kva.de",
+    "folded": "anna@xn--mller-kva.de"
+  },
+  {
+    "case": "the punycode in capitals",
+    "typed": "Anna@XN--MLLER-KVA.DE",
+    "stored": "Anna@xn--mller-kva.de",
+    "folded": "anna@xn--mller-kva.de"
+  },
+  {
+    "case": "a sharp s in the domain",
+    "typed": "anna@stra\u00dfe.de",
+    "stored": "anna@xn--strae-oqa.de",
+    "folded": "anna@xn--strae-oqa.de"
+  },
+  {
+    "case": "the double s the sharp s is not",
+    "typed": "anna@strasse.de",
+    "stored": "anna@strasse.de",
+    "folded": "anna@strasse.de"
+  },
+  {
+    "case": "a capital sharp s in the domain",
+    "typed": "anna@STRA\u1e9eE.de",
+    "stored": "anna@xn--strae-oqa.de",
+    "folded": "anna@xn--strae-oqa.de"
+  },
+  {
+    "case": "full-width letters and a half-width stop in the domain",
+    "typed": "anna@\uff53chule\uff61de",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "an ideographic full stop in the domain",
+    "typed": "anna@schule\u3002de",
+    "stored": "anna@schule.de",
+    "folded": "anna@schule.de"
+  },
+  {
+    "case": "Cherokee capitals in the domain",
+    "typed": "anna@\u13a0\u13a1.de",
+    "stored": "anna@xn--58dc.de",
+    "folded": "anna@xn--58dc.de"
+  },
+  {
+    "case": "Cherokee small letters in the domain",
+    "typed": "anna@\uab70\uab71.de",
+    "stored": "anna@xn--58dc.de",
+    "folded": "anna@xn--58dc.de"
+  },
+  {
+    "case": "Greek capitals in the domain",
+    "typed": "x@\u0391\u03a3.de",
+    "stored": "x@xn--mxa0b.de",
+    "folded": "x@xn--mxa0b.de"
+  },
+  {
+    "case": "an umlaut in the local part",
+    "typed": "j\u00fcrgen@schule.de",
+    "stored": null,
+    "folded": "j\u00fcrgen@schule.de"
+  },
+  {
+    "case": "an umlaut in a capitalised local part",
+    "typed": "J\u00dcRGEN@schule.de",
+    "stored": null,
+    "folded": "j\u00dcrgen@schule.de"
+  },
+  {
+    "case": "a full-width letter in the local part",
+    "typed": "\uff41nna@schule.de",
+    "stored": null,
+    "folded": "\uff41nna@schule.de"
+  },
+  {
+    "case": "a dotted capital I in the local part",
+    "typed": "\u0130lknur@schule.de",
+    "stored": null,
+    "folded": "\u0130lknur@schule.de"
+  },
+  {
+    "case": "a combining accent in the local part",
+    "typed": "vorstand\u0301@schule.de",
+    "stored": null,
+    "folded": "vorstand\u0301@schule.de"
+  },
+  {
+    "case": "a display name around the address",
+    "typed": "Erika <erika@example.de>",
+    "stored": null,
+    "folded": "erika <erika@example.de>"
+  },
+  {
+    "case": "two dots in a row",
+    "typed": "anna..mueller@schule.de",
+    "stored": null,
+    "folded": "anna..mueller@schule.de"
+  },
+  {
+    "case": "a domain without a dot",
+    "typed": "anna@schule",
+    "stored": null,
+    "folded": "anna@schule"
+  },
+  {
+    "case": "an umlaut domain one octet past the ceiling once punycoded",
+    "typed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.bbbbb.de",
+    "stored": null,
+    "folded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.bbbbb.de"
+  }
+]

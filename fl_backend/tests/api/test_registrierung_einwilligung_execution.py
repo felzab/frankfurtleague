@@ -48,7 +48,7 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
 
-# As the pupil typed it. `spieler.email` holds the fold of it, which is what the person join asks on.
+# Unfolded, as the payload stores it. `spieler.email` holds the fold of it, which is what the person join asks on.
 TYPED_EMAIL = "Quillhilde@Example.com"
 FOLDED_EMAIL = "quillhilde@example.com"
 
@@ -244,13 +244,28 @@ class TestWhatALinkOpens:
         assert response.text_version == AN_OLDER_LABEL
 
     def test_the_join_asks_on_the_folded_address(self, mongo_replica_set_url: str):
-        """The registration stores the address as typed; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
+        """The registration stores the address unfolded; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
 
         capitalised = spieler_document(SPIELER_OID, email="QUILLHILDE@EXAMPLE.COM")
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
 
         assert response.geburtsdatum is None
+
+    def test_the_join_reaches_a_pupil_whose_domain_was_stored_in_unicode(self, mongo_replica_set_url: str):
+        """A registration stores the punycode, and a pupil stored before the address rule the decoded domain.
+
+        An equality on one spelling shows this pupil nothing.
+        """
+
+        typed = registrierung_document(email="quillhilde@xn--exmple-cua.com")
+        stored_before = spieler_document(SPIELER_OID, email="quillhilde@exämple.com")
+
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[typed], spieler=[stored_before]
+        )
+
+        assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
 
     def test_a_differently_named_pupil_at_the_same_mailbox_is_shown_nothing(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
@@ -290,6 +305,27 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=household)
 
         assert response.geburtsdatum == A_TWINS_BIRTHDATE
+
+    def test_a_household_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
+        """Nine rows at one mailbox, the pupil's two namesakes seeded last: a read capped at eight reaches one of them and shows it as sole."""
+
+        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796003{n}"), vorname=f"Geschwister{n}") for n in range(7)]
+        namesakes = [spieler_document(ObjectId("6890a1b2c3d4e5f607960038")), spieler_document(ObjectId("6890a1b2c3d4e5f607960039"))]
+
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, *namesakes])
+
+        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
+
+    def test_a_household_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
+        """The bound's own rule: nine rows holding ONE namesake, whom the narrowing alone would show as sole."""
+
+        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796004{n}"), vorname=f"Geschwister{n}") for n in range(8)]
+
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, spieler_document(SPIELER_OID)]
+        )
+
+        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:

@@ -275,6 +275,17 @@ describe("the address correction", () => {
     );
   });
 
+  /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
+     capital before the at sign is a repair to send. */
+  it("sends a correction whose only change the sign-in fold would erase", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "Clara@schule.example") } }) });
+
+    await correctClara(user, "clara@schule.example{Enter}");
+
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
+  });
+
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,
      and a second correction to an address already stored is refused. */
   it("sends one correction however often Enter is pressed while it runs", async () => {

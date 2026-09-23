@@ -12,7 +12,12 @@ import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
-import { FLBewerbungKontaktEmailPayloadSchema, FLBewerbungKontaktSitzPayloadSchema, gleicheAdresse } from "@/features/bewerbungen/schemas";
+import {
+  FLBewerbungKontaktEmailPayloadSchema,
+  FLBewerbungKontaktSitzPayloadSchema,
+  gleicheAdresse,
+  gleichesPostfach,
+} from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -401,7 +406,7 @@ function AdresseKorrigieren({
 
   // A press that corrects nothing is a re-send wearing another name, and the re-send has its own
   // control. The refusal on it says what opens it.
-  const unveraendert = email.trim() === "" || gleicheAdresse(email, gespeicherteAdresse ?? "");
+  const unveraendert = email.trim() === "" || gleichesPostfach(email, gespeicherteAdresse ?? "");
 
   const schreibe = async () => {
     // The submission's own rule, judged here so the administrator is told at the field rather than

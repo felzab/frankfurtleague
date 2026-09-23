@@ -358,6 +358,21 @@ class TestWhoseAnswersThePagePresents:
 
         assert named == []
 
+    def test_a_sharp_s_surname_and_its_ss_spelling_are_two_pupils(self):
+        """„Weiß“ and „Weiss“ at one family mailbox are two families' children, whom `casefold` would show each other's record."""
+
+        stored = {**self.PERSON, "nachname": "Weiß"}
+
+        assert persons_named([stored], vorname="Quillhilde", nachname="WEISS") == []
+
+    def test_a_decomposed_umlaut_is_the_name_it_renders_as(self):
+        """The same surname typed on another keyboard, which a fold normalising nothing would hide from its own pupil."""
+
+        # Built from code points: the two spellings render identically.
+        stored = {**self.PERSON, "nachname": f"Mu{chr(0x308)}ller"}
+
+        assert persons_named([stored], vorname="Quillhilde", nachname=f"M{chr(0xFC)}ller") == [stored]
+
     @pytest.mark.parametrize(
         ("rows", "found"),
         [

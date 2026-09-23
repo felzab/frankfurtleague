@@ -20,6 +20,7 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
+from app.shared.folding import person_name_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
@@ -166,8 +167,9 @@ def compose_registrierung(
         "status": SUBMITTED,
         "vorname": vorname,
         "nachname": nachname,
-        # AS TYPED, where a person's own `email` is stored folded: the confirmation link goes to
-        # this address, and the admission is what folds it onto the person it writes.
+        # UNFOLDED -- its domain in punycode and its local part as typed (`docs/backend/spec.md :: I332`)
+        # -- where a person's own `email` is folded: the link goes to this address, and the admission
+        # folds it onto the person it writes.
         "email": email,
         # Written EXPLICITLY, all three: `required` in the `$jsonSchema` means the key is present,
         # so an omitted null is a validator rejection rather than a stored null.
@@ -375,16 +377,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
 PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 
 
-def folded_identity(value: Any) -> str:
-    """One spelling of a name, so „ida“ and „ Ida“ are one person.
-
-    Case and inner whitespace, which is the seat editor's fold
-    (`app/api/teams/services.py :: _identity_of`) and the erasure's before it.
-    """
-
-    return " ".join(str(value or "").split()).casefold()
-
-
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
@@ -393,9 +385,11 @@ def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: 
     birthdate.
     """
 
-    wanted = tuple(folded_identity(value) for value in (vorname, nachname))
+    # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
+    # one family mailbox are two pupils and neither is shown the other's record.
+    wanted = tuple(person_name_key(value) for value in (vorname, nachname))
 
-    return [row for row in rows if tuple(folded_identity(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
+    return [row for row in rows if tuple(person_name_key(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
 
 
 def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:

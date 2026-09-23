@@ -15,11 +15,10 @@ const NEXT_SUBPATH = /^next\/[\w-]+$/;
 const ADMIN_EMAIL = "vorstand@example.org";
 /** Allowlisted by nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
-/* Decomposed as well as mixed in case, because the sign-in library lower-cases what it stores and
-   normalises nothing: a case-only address is folded before the guard ever sees it, and a case-only
-   case here would pass with the fold deleted. */
-const DECOMPOSED_EMAIL = "Anna.Müller@Schule.DE";
-const FOLDED_DECOMPOSED = "anna.müller@schule.de";
+/* A half-width ideographic full stop as well as capitals: the sign-in library lower-cases what it
+   stores, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
+const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
+const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";
 const API_VERSION = 0;
@@ -117,7 +116,7 @@ const PUPIL = { spieler_id: "b".repeat(24) };
 const RECORDS = new Map<string, Subjekt>([
   [ADMIN_EMAIL, { ...empty(), sitze: [SEAT] }],
   [PERSON_EMAIL, { ...empty(), spieler: [PUPIL] }],
-  [FOLDED_DECOMPOSED, { ...empty(), spieler: [PUPIL] }],
+  [FOLDED_EMAIL, { ...empty(), spieler: [PUPIL] }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -303,27 +302,27 @@ describe("who the seam answers for", () => {
   /* One spelling per person, or a seat holder is answered no Funktion and shown the forbidden
      panel while an erasure is audited against an address the join never reaches. */
   it("folds a session's own spelling into the one the join, the answer and the scope share", async () => {
-    const { cookie } = await signIn(DECOMPOSED_EMAIL);
+    const { cookie } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
 
     // Asserted before the folding is: a session the library already stored folded would carry every
     // case below with the fold deleted.
     const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
     assert.ok(held, "the sign-in minted no session, so the comparison below passes on a null address");
-    assert.notEqual(held.user.email, FOLDED_DECOMPOSED, `the session already holds ${String(held.user.email)}`);
+    assert.notEqual(held.user.email, FOLDED_EMAIL, `the session already holds ${String(held.user.email)}`);
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer?.email, FOLDED_DECOMPOSED);
-    assert.equal(actor, FOLDED_DECOMPOSED);
-    assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_DECOMPOSED);
+    assert.equal(answer?.email, FOLDED_EMAIL);
+    assert.equal(actor, FOLDED_EMAIL);
+    assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_EMAIL);
     assert.deepEqual(answer?.subjekt.spieler, [PUPIL], "the lookup was asked about a mailbox the league holds nothing for");
   });
 });
 
 describe("the request the seam makes", () => {
   it("carries the identifier in the body and on no part of the url", async () => {
-    const { cookie } = await signIn(DECOMPOSED_EMAIL);
+    const { cookie } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
 
     await getSubjectSession();

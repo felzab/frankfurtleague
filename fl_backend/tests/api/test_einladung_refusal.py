@@ -180,6 +180,13 @@ class TestWhoALinkIsMailedTo:
 
         assert bestaetigte_empfaenger(kontakte=block) == []
 
+    def test_an_empty_stamp_confirms_nobody(self):
+        """The validator admits any string as the stamp; `fl_frontend/src/features/einladungen/empfaenger.ts` passes over this seat too."""
+
+        block = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=""))
+
+        assert bestaetigte_empfaenger(kontakte=block) == []
+
 
 class TestWhetherAnythingWasEverMailed:
     def test_a_row_carrying_a_delivery_record_was_mailed(self):

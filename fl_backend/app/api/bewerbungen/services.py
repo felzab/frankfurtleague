@@ -10,7 +10,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import mailbox_key
+from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
@@ -672,11 +672,11 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
     # The seats this correction writes are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
     others = [slots.get(seat) for seat in KONTAKT_SEATS if seat not in seats]
-    # Case-INSENSITIVELY over the whole address, as `FLBewerbungKontaktePayload` compares it: a third
-    # spelling of "one mailbox" here would refuse where the form accepted, or the reverse.
-    held = {str(slot.get("email") or "").casefold() for slot in others if isinstance(slot, Mapping)}
+    # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
+    # mailbox" here would refuse where the form accepted, or the reverse.
+    held = {sign_in_identifier(str(slot.get("email") or "")) for slot in others if isinstance(slot, Mapping)}
 
-    if email.casefold() in held:
+    if sign_in_identifier(email) in held:
         return WriteRefusal(
             error_code=BEWERBUNG_KONTAKT_EMAIL_TAKEN,
             message="another contact person on this application is reached at this address; two different people share no mailbox",

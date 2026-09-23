@@ -500,6 +500,23 @@ class TestTheThreeSeatsAreThreePeople:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
 
+    def test_an_email_repeated_with_a_full_width_letter_in_its_domain_is_still_one_address(self):
+        """The domain's conversion makes it ASCII, so a second person here is one sign-in reaching two seats."""
+
+        # Built from its code point: the full-width „e“ renders as the ASCII one the conversion makes it.
+        other = person(vorname="Andere", email=f"quillhilde@{chr(0xFF45)}xample.com", telefon="+49 170 9999999")
+
+        with pytest.raises(ValidationError):
+            FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
+
+    def test_a_domain_spelled_with_ss_where_another_seat_holds_sharp_s_is_another_address(self):
+        """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains, where `casefold` made them one."""
+
+        trainer = person(email="quillhilde@straße.de")
+        other = person(vorname="Andere", email="quillhilde@strasse.de", telefon="+49 170 9999999")
+
+        assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
+
     @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
         """The whole reason `normalise_telefon` exists: `PHONE_REGEX` admits many spellings of one line.

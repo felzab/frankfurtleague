@@ -217,8 +217,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     throw new MailWithheldError();
   }
 
-  // At the send and never at entry: the API stores the unicode spelling back, so a domain converted
-  // on the way in is converted away again before any message is composed.
+  // At the send as well as at entry: a row stored before the address rule can still carry its domain
+  // in Unicode (`docs/backend/spec.md :: I333`).
   const recipient = withAsciiDomain(to);
 
   // Above the timer below, which a throw from here would leave running for the whole budget.

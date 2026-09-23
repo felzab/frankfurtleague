@@ -8,7 +8,6 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
-    EmailStr,
     Field,
     RootModel,
     StringConstraints,
@@ -19,7 +18,6 @@ from pydantic import (
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_EMAIL_MAX_LENGTH,
     KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -41,6 +39,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
@@ -251,8 +250,7 @@ class _KontaktpersonWritablePayload(BaseModel):
     nachname: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
     ]
-    # The ceiling is stated rather than left to email-validator, whose refusal names no field.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.
     telefon: str = Field(pattern=PHONE_REGEX)

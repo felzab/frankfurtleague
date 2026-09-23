@@ -26,6 +26,7 @@ from app.api.teams.schemas import (
 from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
+from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "saison_data"
@@ -865,9 +866,13 @@ SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     """Who this seat holds, folded so two spellings of one person compare equal."""
 
-    # Case and inner whitespace folded, so re-typing „ida“ as „Ida“ costs nobody a fresh confirmation;
-    # the fold is the erasure's (`app/api/kontakte/services.py :: find_matching_slots`).
-    return tuple(" ".join(str(seat.get(field) or "").split()).casefold() for field in SEAT_IDENTITY_FIELDS)
+    # The address as sign-in folds it, so a stamp never crosses to a domain the sign-in fold reads as
+    # another inbox, „strasse“ for „straße“ among them; re-typing „ida“ as „Ida“ still costs nobody a
+    # fresh confirmation.
+    return tuple(
+        sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
+        for field in SEAT_IDENTITY_FIELDS
+    )
 
 
 def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:

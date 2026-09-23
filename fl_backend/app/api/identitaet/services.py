@@ -6,35 +6,18 @@ Here rather than in `crud.py`, which opens collections: a services module is wha
 so a judgement left beside a handle is one nothing stops from growing a read of its own.
 """
 
-import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from app.api.kontakte.services import KONTAKT_SLOTS
-from app.shared.folding import sign_in_identifier
-
-
-def _same_address(identifier: str) -> Mapping[str, Any]:
-    """The pre-filter, which narrows; `folds_to` is what decides.
-
-    Its own copy rather than `app/api/kontakte/services.py :: _same_address`, which is the whole of
-    that erasure's decision: one name over a narrowing and a decision lets either move for the
-    other's reason.
-    """
-
-    # Case is not the fold's rule but a wider one: MongoDB's `i` holds U+0345 equal to an iota,
-    # where the fold leaves them two addresses. So this admits rows the fold then refuses.
-
-    # Accepted as a scan: a `strength: 2` collation is index-backed and keeps the „ß“ decision, and
-    # four indexes buy a scan of rows a league counts in hundreds. Tens of thousands would change that.
-    return {"$regex": f"^{re.escape(identifier)}$", "$options": "i"}
+from app.api.kontakte.services import KONTAKT_SLOTS, same_address
+from app.shared.folding import sign_in_identifier, stored_spellings
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every junction row whose block may name the address."""
 
     return [
-        {"$match": {"$or": [{f"kontakte.{slot}.email": _same_address(identifier)} for slot in KONTAKT_SLOTS]}},
+        {"$match": {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}},
         # `name` rides along free, this read opening the row anyway, and it is the row's own rather
         # than the club's (`docs/backend/spec.md :: I13`).
         {"$project": {"saison_id": 1, "team_id": 1, "name": 1, **{f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}}},
@@ -47,13 +30,13 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The stored address rides along so `folds_to` can judge it; nothing else of the person does."""
 
-    return [{"$match": {"kontakt.email": _same_address(identifier)}}, {"$project": {"kontakt.email": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": {"kontakt.email": same_address(identifier)}}, {"$project": {"kontakt.email": 1}}, {"$sort": {"_id": 1}}]
 
 
 def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Equality and no pattern: `spieler.email` stores the folded form, so the identifier IS the stored value."""
+    """Equality and no pattern: `spieler.email` stores the folded form, in one of the spellings `stored_spellings` names."""
 
-    return [{"$match": {"email": identifier}}, {"$project": {"_id": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": {"email": {"$in": list(stored_spellings(identifier))}}}, {"$project": {"_id": 1}}, {"$sort": {"_id": 1}}]
 
 
 def folds_to(stored: Any, identifier: str) -> bool:

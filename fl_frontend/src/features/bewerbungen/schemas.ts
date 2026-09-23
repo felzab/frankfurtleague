@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { asSignInIdentifier, mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
@@ -390,8 +391,17 @@ const KONTAKT_PAARE = [
   ["stellvertretung", "trainer"],
 ] as const;
 
-/** A person retyping their own address is the same person, whatever the case and the surrounding space. */
-export const gleicheAdresse = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase() && a.trim() !== "";
+/**
+ * One address on the sign-in fold, as the API compares two seats: an umlaut domain is its punycode,
+ * and „strasse“ beside „straße“ is two domains to sign-in and to IDNA 2008.
+ */
+export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
+
+/**
+ * Whether a correction leaves the delivery target where it was, as every send compares two mailboxes.
+ * Never `gleicheAdresse`, whose fold reads a local part's corrected case as no change.
+ */
+export const gleichesPostfach = (a: string, b: string): boolean => mailboxKey(a.trim()) === mailboxKey(b.trim()) && a.trim() !== "";
 
 // Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 // start with `49` -- so the order carries nothing.

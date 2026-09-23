@@ -31,7 +31,7 @@ from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, 
 from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import sign_in_identifier, stored_spellings
 from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
@@ -88,18 +88,21 @@ async def get_bestaetigung_ansicht(
     # paragraph missing its subject reads as finished.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": raw.get("team_id")}, projection=["name", "full_name"])
 
-    # An equality on the folded form, which is what `spieler.email` stores
-    # (`app/shared/folding.py :: sign_in_identifier`).
+    # An equality on the folded form, which is what `spieler.email` stores, in either spelling a row
+    # may hold it in (`app/shared/folding.py :: stored_spellings`).
     persons = await pull_many_from_db(
         collection=spieler_collection,
-        db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        limit=_PERSONS_READ,
+        db_filter={"email": {"$in": list(stored_spellings(sign_in_identifier(str(raw.get("email") or ""))))}},
+        # One PAST the bound, so a larger household is seen to be larger: capped at the bound, the read
+        # answers a subset of a larger household, and a namesake left outside it makes the other look sole.
+        limit=_PERSONS_READ + 1,
         projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
     )
+    household = persons if len(persons) <= _PERSONS_READ else []
 
     # Narrowed by the NAME before anything is shown back: a mailbox a family shares stands behind
-    # more than one pupil, and `_PERSONS_READ` bounds the read so a larger household shows nothing.
-    named = persons_named(persons, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
+    # more than one pupil.
+    named = persons_named(household, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}

@@ -9,11 +9,10 @@ import hashlib
 import hmac
 from typing import Final
 
-from email_validator import EmailNotValidError, validate_email
 from pydantic import SecretStr
 
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
@@ -37,31 +36,6 @@ def _sub_key(master: SecretStr) -> bytes:
     return hmac.new(master.get_secret_value().encode("utf-8"), SPERRLISTE_SCHLUESSEL_VERSION.encode("utf-8"), hashlib.sha256).digest()
 
 
-def sperrliste_identifier(address: str) -> str:
-    """The one canonical form a ban is keyed on (`docs/backend/spec.md :: I269`).
-
-    Raises `ValueError` where the value is no address at all.
-    """
-
-    # FIRST, so the trim and the case-fold are the ones the frontend runs: `validate_email` refuses
-    # the trailing space a paste out of a mail client carries, where the fold takes it off.
-    folded = sign_in_identifier(address)
-
-    try:
-        # pydantic's own call, so a payload-validated address canonicalises to the value it already
-        # holds: `check_deliverability=False`, and the normalisation is idempotent.
-        normalised = validate_email(folded, check_deliverability=False).normalized
-    except EmailNotValidError:
-        # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
-        # the library's message quotes the value it rejected, and this slice keeps addresses out of
-        # every traceback and log line.
-        raise ValueError("this keying canonicalises an email address, and the value handed to it is not one") from None
-
-    # AGAIN, because the normalisation recomposes a decoded domain: what a later check compares has
-    # to be in the fold's own form (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
-    return sign_in_identifier(normalised)
-
-
 def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
     """The form a ban is stored in.
 
@@ -69,7 +43,9 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
     word, so an unkeyed digest confirms a guess at one hash per row.
     """
 
-    return hmac.new(_sub_key(schluessel), sperrliste_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
+    # address a payload admitted keys a ban rather than answering 500.
+    return hmac.new(_sub_key(schluessel), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:

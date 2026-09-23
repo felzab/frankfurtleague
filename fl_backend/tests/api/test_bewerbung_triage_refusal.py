@@ -186,11 +186,26 @@ class TestCorrectingOneContactAddress:
 
         assert refusal is not None and refusal.error_code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
 
-    @pytest.mark.parametrize("email", ["STELLAN@example.com", "stellan@EXAMPLE.com"])
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "STELLAN@example.com",
+            "stellan@EXAMPLE.com",
+            # Built from its code point: a full-width „e“ renders as the ASCII one the domain's conversion makes it.
+            pytest.param(f"stellan@{chr(0xFF45)}xample.com", id="a full-width letter in the domain"),
+        ],
+    )
     def test_another_spelling_of_that_address_is_the_same_mailbox(self, email: str):
-        """Case-insensitively over the WHOLE address, as `FLBewerbungKontaktePayload` compares it: a third rule parts the two tiers."""
+        """On the sign-in fold over the WHOLE address, as `FLBewerbungKontaktePayload` compares it: a third rule parts the two tiers."""
 
         assert find_kontakt_email_refusal(kontakte=seats(), seats=("ansprechperson",), email=email) is not None
+
+    def test_a_domain_spelled_with_ss_where_another_seat_holds_sharp_s_is_another_mailbox(self):
+        """„strasse“ and „straße“ are two domains to IDNA 2008 and to sign-in, so the correction is two people's addresses, not one."""
+
+        held = {**seats(), "stellvertretung": {**seat("Stellan", bestaetigt_am=None), "email": "stellan@straße.de"}}
+
+        assert find_kontakt_email_refusal(kontakte=held, seats=("ansprechperson",), email="stellan@strasse.de") is None
 
     def test_the_seats_this_correction_writes_do_not_collide_with_themselves(self):
         """One person on two seats moves to one new address, and comparing them against each other would refuse every such correction."""

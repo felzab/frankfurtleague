@@ -1202,7 +1202,7 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
     "app/shared/schemas/custom.py :: DOMAIN_REGEX": "byte-for-byte `z.regexes.domain`, which the frontend reads off zod rather than retyping",
     "app/core/config.py :: HOSTNAME": "the shape `TrustedHostMiddleware` reads an allowlist entry in, which no request carries",
     "app/core/config.py :: ORIGIN": "the shape `CORSMiddleware` reads an allowlist entry in; the browser composes what it grades",
-    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, where the frontend mirrors `EmailStr` instead",
+    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, the frontend mirroring the address rule instead",
 }
 
 

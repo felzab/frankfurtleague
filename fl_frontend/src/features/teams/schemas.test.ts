@@ -196,14 +196,13 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
   });
 
-  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a seat whose person
-     holds one has to save here rather than meet a field message no repair answers. */
-  it("takes a seat whose address carries an umlaut, in either part", () => {
-    for (const email of ["käthe@beispiel.de", "kaethe@käthe-schule.example"]) {
-      const seat = kontaktpersonPayload({ email });
+  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
+     one seat saves here and the other is marked at its box rather than failing the save whole. */
+  it("takes a seat whose address carries an umlaut domain, and marks one with an umlaut before the at sign", () => {
+    const withAddress = (email: string) => kontaktePayload({ trainer: kontaktpersonPayload({ email }) });
 
-      assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: seat })), [], email);
-    }
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example")), []);
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de")), ["trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so nothing

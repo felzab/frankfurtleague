@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import re
 from collections.abc import Mapping
 from typing import Any, cast
 
@@ -11,7 +12,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.helpers_shared import _index_document
 
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort, patch_one_in_db, pull_one_from_db
+from app.core.crud import build_query, build_sort, literal_pattern, patch_one_in_db, pull_one_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
 
@@ -94,6 +95,22 @@ class TestBuildSort:
 
         guarded = build_sort(sort_by="beginn", order="desc", chain=(("beginn", 1), ("_id", 1)))
         assert _index_document(guarded) == {"beginn": -1, "_id": 1}
+
+
+# A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
+# pinned against a real mongod by `fl_backend/tests/api/test_kontakt_erasure_execution.py`'s NUL case.
+LITERAL = "a\x00.*+?^$()[]{}|\\/ -#b"
+
+
+class TestLiteralPattern:
+    def test_the_pattern_holds_no_raw_nul(self):
+        assert "\x00" not in literal_pattern(LITERAL)
+
+    def test_the_pattern_matches_the_value_and_nothing_wider(self):
+        pattern = re.compile(literal_pattern(LITERAL))
+
+        assert pattern.fullmatch(LITERAL)
+        assert not pattern.fullmatch(LITERAL.replace(".", "x"))
 
 
 FILTER: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID)}

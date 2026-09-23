@@ -805,12 +805,9 @@ def test_a_reach_that_names_no_single_file_is_one_this_check_declares() -> None:
     )
 
 
-# The two suites that retype a frontend module's own constants and compare them, which is the reach
+# The suites that retype a frontend module's own constants and compare them, which is the reach
 # `UNNAMEABLE` above spares from the equality: each names its modules as plain strings.
-MIRROR_REGISTERS: Final[tuple[str, ...]] = (
-    "fl_backend/tests/shared/test_frontend_mirrors.py",
-    "fl_backend/tests/shared/test_folding_mirror.py",
-)
+MIRROR_REGISTERS: Final[tuple[str, ...]] = ("fl_backend/tests/shared/test_frontend_mirrors.py",)
 
 # The comment opening the arm those modules sit in, so the block is found without a line number.
 MIRROR_ARM_OPENER: Final = "# The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are"
@@ -824,7 +821,7 @@ FRONTEND_MODULE_RE: Final = re.compile(re.escape(FRONTEND_SRC) + r"[\w/.-]+\.tsx
 
 
 def _mirrored_modules() -> set[str]:
-    """Every frontend module the two registers name, read out of their source rather than listed here.
+    """Every frontend module a register names, read out of its source rather than listed here.
 
     A test module is not one: a register naming one names where a pairing is held rather than a
     mirror.

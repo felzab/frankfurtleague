@@ -1,14 +1,12 @@
-from typing import Annotated
-
-from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
+from pydantic import BaseModel, ConfigDict
 
 # The wire's spelling of the three seats, imported rather than restated as
 # `app/api/kontakte/schemas.py` imports it: a second closed set here would name a seat no other
 # endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.saisons.schemas import FLSaisonStatus
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -19,7 +17,7 @@ class FLSubjektPayload(BaseModel):
 
     # In the BODY and on no path or query: an address in a URL reaches the edge's access line, which
     # `docs/logging/spec.md :: L11` keeps a credential out of and an identifier is no better in.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
 
 
 class FLSubjektSitz(BaseModel):
