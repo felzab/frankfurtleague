@@ -523,9 +523,11 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
       saisonId: bewerbung.saison_id,
-      person: person,
+      // The address and the seats the WRITE matched, never the read above: a correction landing
+      // between the two moved the mailbox, and this link replaces the one the correction mailed.
+      person: { vorname: person.vorname, email: erneutOperation.email },
       benanntesTeam: benanntesTeam,
-      sitze: gepaarteSitze(bewerbung, validated.data.rolle),
+      sitze: erneutOperation.rollen,
       token: erneutOperation.token,
     });
 

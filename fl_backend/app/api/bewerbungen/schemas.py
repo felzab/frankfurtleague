@@ -844,6 +844,10 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
 
     token: str
     rolle: FLKontaktRolle
+    # Off the image the write replaced, never the caller's earlier read: a correction landing between
+    # the two moved the address this link has to go to.
+    email: str
+    rollen: list[FLKontaktRolle]
     bestaetigungsfrist: CustomDateString
 
 

@@ -821,6 +821,8 @@ export type FLEinwilligungErneutPayload = z.infer<typeof FLEinwilligungErneutPay
 export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema.extend({
   token: z.string(),
   rolle: FLKontaktRolleSchema,
+  email: z.string(),
+  rollen: z.array(FLKontaktRolleSchema),
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;

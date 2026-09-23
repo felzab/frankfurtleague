@@ -777,6 +777,18 @@ describe("the re-sent confirmation link", () => {
     );
   });
 
+  /* A correction landing between the page's read and this write moves the mailbox, and only the
+     write's own image knows it: the read would mail the address the correction replaced. */
+  it("mails the address and the seats the write itself answered", () => {
+    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+
+    assert.notEqual(notified, -1, "the re-send sends no message at all");
+    assert.match(ERNEUT_ACTION.slice(notified), /email: erneutOperation\.email/, "the re-send mails the address its own read held");
+    assert.match(ERNEUT_ACTION.slice(notified), /sitze: erneutOperation\.rollen/, "the re-send names seats its own read paired");
+    assert.ok(!ERNEUT_ACTION.includes("gepaarteSitze("), "the re-send recomputes the pair off the page it was drawn from");
+    assert.match(SCHEMAS, /FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema\.extend\(\{[^}]*email: z\.string\(\)/);
+  });
+
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", () => {

@@ -661,6 +661,22 @@ def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, 
     return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist}}
 
 
+def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
+    """`seat_is_answered` negated per seat, as the re-send's own filter.
+
+    The re-send reads outside any transaction and replaces the WHOLE entry, so an answer or an
+    erasure committed after its read would otherwise lose its record under a live link.
+    """
+
+    unanswered: dict[str, Any] = {}
+    for seat in seats:
+        unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
+        unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+
+    return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
+
+
 def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
     """Why this address cannot be the seat's, or `None`.
 
