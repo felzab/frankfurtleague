@@ -21,6 +21,7 @@ from typing import Final
 
 from conftest import git, write
 from test_check_docs import (
+    BACKEND_SPEC,
     BE_DERIVATION_ROW,
     BLOCKED_ENTRY,
     BLOCKED_FIELDS,
@@ -31,19 +32,23 @@ from test_check_docs import (
     EDGE_DERIVATION_ROW,
     GATE_DERIVATION_ROW,
     HASH,
+    INVARIANT_ROW,
     NEWLINE,
     NOTES,
     ORPHAN_ENTRY,
+    PARAGRAPH_CELL,
     QUALIFIED_BE_ROW,
     QUOTES,
     ROADMAP,
     ROADMAP_TAIL,
+    SAMPLE,
     SCRIPTS_COPY,
     SHORT_FORM,
     SLICE_DONE,
     SLICE_ROW,
     SLICE_STRAY,
     SPIELER_PANEL,
+    STANDARD,
     UNDECODABLE_BYTES,
     UNHELD_FILE_ROW,
     UNHELD_SUBTREE_ROW,
@@ -53,12 +58,14 @@ from test_check_docs import (
     VOCAB_ROW,
     WIDENED_GATE_ROW,
     Reported,
+    _about,
     _append,
     _assert_corpus_restored,
     _clear_caches,
     _gate,
     _heading,
     _module,
+    _output,
     _page,
     _read,
     _replace,
@@ -406,3 +413,137 @@ def test_a_skipped_folder_is_skipped_at_every_depth() -> None:
     assert kernel._skipped(root / "fl_frontend" / "node_modules" / "pkg" / "readme.md")
     assert kernel._skipped(root / "docs" / "audit" / "notes.md")
     assert not kernel._skipped(root / NOTES)
+
+
+# --- the spans and cells a renderer reads differently from a pipe or a tick counted one by one -----
+
+
+def test_an_escaped_pipe_parts_no_cell_of_an_invariant_row() -> None:
+    """GFM parts a row at an unescaped pipe alone, a code span's included, so counting every pipe fails a row the page draws in three cells."""
+    _reset()
+    _replace(BACKEND_SPEC, INVARIANT_ROW, "| I1 | The write path validates `a \\| b` as one input | The sample module's own suite |")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not _about("invariant-row", reported), _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_cell_an_escaped_pipe_sits_in_is_measured_whole() -> None:
+    """Parted at that pipe, a paragraph reads as two cells under OUT-4's bound, and the one cell the page draws passes unmeasured."""
+    _reset()
+    cell = PARAGRAPH_CELL.replace("anything,", "anything, `a \\| b`", 1)
+    _replace(BACKEND_SPEC, INVARIANT_ROW, "| I1 | " + cell + " | The sample module's own suite |")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "cell-prose", BACKEND_SPEC)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_span_two_backticks_open_closes_on_two_and_what_follows_it_is_read() -> None:
+    """CommonMark closes a span on a run of its opener's length.
+
+    Pairing single ticks inverts the rest of the line, and a dead path after the span reads as prose.
+    """
+    _reset()
+    _append(NOTES, "A span holding a tick, ``a`b``, and after it `docs/gone-past-a-double-span.md`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "path", NOTES)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_span_opening_straight_after_an_escaped_tick_is_read() -> None:
+    """CommonMark consumes the escaped tick as text, and the run after it opens a span as any other would."""
+    _reset()
+    _append(NOTES, "An escaped tick \\``docs/gone-after-an-escaped-tick.md` and the span after it.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "path", NOTES)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_path_between_two_escaped_ticks_is_read_as_the_bare_path_it_renders_as() -> None:
+    """An escaped tick is text, so no span holds the path, and in a comment the bare-path reader is the one left to read it."""
+    _reset()
+    _append(SAMPLE, HASH + " Between escaped ticks \\`docs/gone-between-escaped-ticks.md\\` stands a path.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "bare-path", SAMPLE)] == 1, _shape(reported)
+    assert reported[("fail", "path", SAMPLE)] == 0, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_escaped_tick_opens_no_span_even_where_a_tick_closes_one_later() -> None:
+    """Read as an opener, the escaped tick would pair with the plain one and hide the path in a span the page never draws."""
+    _reset()
+    _append(SAMPLE, HASH + " An escaped opener \\`docs/gone-behind-an-escaped-opener.md` with a plain tick after it.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "path", SAMPLE)] == 0, _shape(reported)
+    assert reported[("fail", "bare-path", SAMPLE)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_check_name_is_read_off_the_spans_the_field_draws() -> None:
+    """An unclosed double run leaves its ticks as text, and pairing one tick at a time names a check nobody wrote and hides the one written."""
+    _reset()
+    _replace(STANDARD, "_Enforced by_ `glossary-entry`.", "_Enforced by_ `glossary-entry` and ``x`no-such-check`.")
+    try:
+        _, output = _output()
+    finally:
+        _reset()
+    assert "gate check `no-such-check`, which this gate does not emit" in output, output
+    assert "gate check `x`," not in output, output
+    _assert_corpus_restored()
+
+
+def test_a_prose_sha_is_read_off_the_spans_the_page_draws() -> None:
+    """Paired one tick at a time, an unclosed double run swallows the opening tick of the span after it."""
+    _reset()
+    _append(NOTES, "Named ``abcdefa`abc1234` in passing.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "sha", NOTES)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+# A module the comment reader lexes: a regex literal's quotes and slashes are not a string or a comment.
+LEXED_MODULE: Final = "fl_frontend/src/lexed.ts"
+
+
+def test_a_comment_below_a_regex_literal_holding_a_tick_is_read() -> None:
+    """Read as a template's opener, the tick hides every comment below it, and the gate passes whatever they say."""
+    _reset()
+    write(_gate().root, LEXED_MODULE, _page("export const TICKED = /`/;", "// The owner reads this comment.", "export const AFTER = 1;"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "owner-voice", LEXED_MODULE)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_code_after_a_regex_literal_ending_in_an_escaped_slash_is_not_read_as_a_comment() -> None:
+    """The regex's escaped slash and its closing one read as a line comment's opener, and the code after them as prose."""
+    _reset()
+    write(_gate().root, LEXED_MODULE, _page("export const SLASHED = /a\\//; export const CODE = `COR-99`;"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not [key for key in reported if key[2] == LEXED_MODULE], _shape(reported)
+    _assert_corpus_restored()

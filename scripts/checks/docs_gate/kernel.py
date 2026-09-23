@@ -12,6 +12,7 @@ from __future__ import annotations
 import ast
 import io
 import os
+import posixpath
 import re
 import tokenize
 from bisect import bisect_right
@@ -38,9 +39,8 @@ SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs",
 # selectors as prose.
 CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".css")
 
-# What opens a string in each kind the scanner reads. Quoting alone: telling a regex literal's `/`
-# from a division needs a parser, and a node launch per file is the cost this reader exists to
-# refuse.
+# What opens a string in each kind the scanner reads; a regex literal is `REGEX_LEAD_RE`'s to tell
+# from a division, a parser costing a node launch per file, the cost this reader exists to refuse.
 TEMPLATE_QUOTE: Final = "`"
 CSTYLE_QUOTES: Final = "\"'" + TEMPLATE_QUOTE
 JSON_QUOTES: Final = '"'
@@ -86,10 +86,18 @@ def has_name(path: str, names: tuple[str, ...]) -> bool:
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
-BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
+# A run opens only where no plain tick stands before it: a longer run is one opener, and read again
+# from its second tick it would pair with a run it never closes on.
+SPAN_AFTER_A_RUN: Final = r"(?<!(?<!\\)`)"
+# A backslash makes the tick after it text, as CommonMark escapes it, so that tick opens nothing and
+# the run after it opens as any other would.
+SPAN_UNESCAPED: Final = r"(?<!(?<!\\)\\)"
+# CommonMark's pairing: a span closes only on a run as long as its opener, so paired one tick at a
+# time, a span holding a tick inverts every span after it on its line.
+CODE_SPAN_RE: Final = re.compile(SPAN_AFTER_A_RUN + SPAN_UNESCAPED + r"(?P<run>`+)(?!`)(?P<code>[^\n]*?[^`\n])(?P=run)(?!`)")
 # What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
 # rule itself does, is a mention rather than a use.
-QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
+QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|" + CODE_SPAN_RE.pattern + r"|“[^”\n]*”")
 # Both bands (OUT-4): a citation crosses surfaces, and an allocation reads whichever band its row
 # is in. Section-blind, for a reader of diff lines; `invariant_rows` is what confines a match to
 # the table.
@@ -114,7 +122,31 @@ INLINE_LINK_RE: Final = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 SLUG_DROP_RE: Final = re.compile(r"[^\w\- ]")
 
 
-BACKTICK_RE: Final = re.compile(r"`([^`\n]+?)`")
+def code_spans(text: str) -> list[str]:
+    return [match["code"] for match in CODE_SPAN_RE.finditer(text)]
+
+
+def table_cells(inner: str) -> list[str]:
+    """GFM's split of the text between a row's outer pipes: a backslash escapes the next character, a code span's pipe included.
+
+    Every other pipe ends a cell, and counting every pipe misreads a row the page draws whole.
+    """
+    if "\\" not in inner:
+        return [cell.strip() for cell in inner.split("|")]
+    cells: list[str] = []
+    cell: list[str] = []
+    escaped = False
+    for char in inner:
+        if char == "|" and not escaped:
+            cells.append("".join(cell).strip())
+            cell = []
+        else:
+            cell.append(char)
+        escaped = char == "\\" and not escaped
+    cells.append("".join(cell).strip())
+    return cells
+
+
 # Built from the directories rather than written out, so the glob selecting a page, the page a
 # check names and a finding's own file cannot drift apart.
 DOCS_DIR: Final = "docs"
@@ -603,12 +635,58 @@ def _python_prose(text: str) -> tuple[dict[int, int], set[int]] | None:
     return spans, comments
 
 
-@cache
-def _marker_re(quotes: str) -> re.Pattern[str]:
-    """A comment marker, or a whole string literal of one kind, whichever comes first.
+# `copy_rules.py :: JSX_LEAD_RE` is built from this, adding a JSX tag's closing `>`. The keywords and
+# arrow are acorn's `beforeExpr` set (`acorn/dist/acorn.js`, read at 8.18.0 on 2026-09-23), which
+# moves without us.
 
-    One alternation for both, so the scan needs no second pattern to find where a string it
-    opened ends.
+# A keyword after a `.` is a property, as acorn reads it, and one inside an identifier is no keyword.
+REGEX_LEAD_RE: Final = re.compile(
+    r"(?:[(,={};:?&|\[!]|=>|(?<![\w$.])(?:case|default|delete|do|else|extends|in|instanceof|new|return|throw|typeof|void))\Z"
+)
+# The longest keyword above, `instanceof`, and the character before it, which the lookbehind reads:
+# without it an identifier ending in a keyword reads as that keyword.
+LEAD_WINDOW: Final = 11
+
+
+@dataclass(slots=True)
+class _Lead:
+    """The last code characters before the cursor, whitespace and comments dropped.
+
+    Carried, never read back out of the file: JSX indents past any window, and a comment before an
+    element hides what precedes it. Both would read as a bare `<`.
+    """
+
+    text: str = ""
+
+    def push(self, piece: str) -> None:
+        kept = piece.rstrip()
+        if kept:
+            self.text = kept[-LEAD_WINDOW:]
+
+
+def _skip_regex(text: str, start: int) -> int:
+    """Past a regex literal, or past the slash alone where the line closes none."""
+    index = start + 1
+    while index < len(text) and text[index] != "\n":
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == "[":
+            while index < len(text) and text[index] not in "]\n":
+                index += 2 if text[index] == "\\" else 1
+        if index < len(text) and text[index] == "/":
+            return index + 1
+        index += 1
+    return start + 1
+
+
+@cache
+def _marker_re(quotes: str, *, regex: bool) -> re.Pattern[str]:
+    """A comment marker, a whole string literal of one kind, or a lone slash, whichever comes first.
+
+    One alternation for all, so the scan needs no second pattern to find where a string it opened
+    ends.
     """
     arms = ["//", r"/\*"]
     for quote in quotes:
@@ -616,6 +694,9 @@ def _marker_re(quotes: str) -> re.Pattern[str]:
         # comment up to the next. Unambiguous on its first character, so the star cannot backtrack.
         closed = "" if quote == TEMPLATE_QUOTE else r"\n"
         arms.append(quote + r"(?:\\[\s\S]|[^" + quote + r"\\" + closed + r"])*" + quote + "?")
+    if regex:
+        # Last, so a comment's two characters win at the same offset.
+        arms.append("/")
     return re.compile("|".join(arms))
 
 
@@ -627,7 +708,7 @@ def _line_starts(text: str) -> list[int]:
     return starts
 
 
-def _cstyle_comments(text: str, quotes: str) -> str:
+def _cstyle_comments(text: str, quotes: str, *, regex: bool = False) -> str:
     """Comments only, line count and column preserved.
 
     Read by line, a marker inside a string value opens a block running to the next `*/`, and the
@@ -635,12 +716,21 @@ def _cstyle_comments(text: str, quotes: str) -> str:
     """
     starts = _line_starts(text)
     keep = [""] * len(starts)
-    pattern = _marker_re(quotes)
+    pattern = _marker_re(quotes, regex=regex)
+    lead = _Lead()
     index = 0
     while (found := pattern.search(text, index)) is not None:
+        lead.push(text[index : found.start()])
         index, marker = found.start(), found.group(0)
         if marker[0] in quotes:
+            lead.push(marker[0])
             index = found.end()
+            continue
+        if marker == "/":
+            # A regex literal's quote would open a string hiding every comment below it, and its
+            # `//` would open a comment reading the code after it as prose.
+            index = _skip_regex(text, index) if REGEX_LEAD_RE.search(lead.text) else index + 1
+            lead.push("/")
             continue
         block = marker == "/*"
         end = text.find("*/" if block else "\n", index + 2)
@@ -663,7 +753,8 @@ def comments_only(text: str, suffix: str) -> str:
     if suffix == ".json":
         return _cstyle_comments(text, JSON_QUOTES)
     if suffix in CSTYLE_SUFFIXES:
-        return _cstyle_comments(text, CSTYLE_QUOTES)
+        # CSS writes a slash after `(` and `:` as a path or a ratio, never a regex literal.
+        return _cstyle_comments(text, CSTYLE_QUOTES, regex=suffix != ".css")
     return _python_comments(text)
 
 
@@ -1157,6 +1248,11 @@ def gitignored(tokens: Iterable[str]) -> frozenset[str]:
     """
     asked = set(tokens)
     wanted = sorted(token for token in asked if token not in _IGNORED)
+    # A path climbing out of the root, or rooted anywhere, is outside the repository, which git
+    # refuses with the whole batch rather than with that one path.
+    for token in [token for token in wanted if posixpath.normpath(token).split("/")[0] in ("..", "")]:
+        _IGNORED[token] = False
+        wanted.remove(token)
     if wanted:
         # `-z` both ways, for `_listed`'s reason: each spelling maps back onto its token exactly.
         listing = "\0".join(spelling for token in wanted for spelling in (token, f"{token}/"))
@@ -1209,16 +1305,28 @@ def repo_path(token: str) -> str | None:
 # --- what a cited anchor has to be, in a file whose definitions can be listed exactly ------------
 
 
-def _python_names(text: str) -> frozenset[str] | None:
-    """Every name a Python module binds, or None where it does not parse.
+@cache
+def python_tree(path: Path) -> ast.Module | None:
+    """One module's syntax tree, or None where it cannot be read or will not parse.
+
+    Parsed once a run for every reader naming the module by path, so none may alter the tree it is
+    handed.
+    """
+    text = _read_text(path)[0]
+    if text is None:
+        return None
+    try:
+        return ast.parse(text)
+    except UNPARSEABLE:
+        return None
+
+
+def _python_names(tree: ast.Module) -> frozenset[str]:
+    """Every name a Python module binds.
 
     A string constant counts: a table of index names, refusal codes or check names is cited by the
     row's own spelling, and the row is where that name is defined.
     """
-    try:
-        tree = ast.parse(text)
-    except UNPARSEABLE:
-        return None
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -1242,9 +1350,9 @@ def defined_symbols(path: Path) -> frozenset[str] | None:
     Python alone, and by `ast`: a hand-written grammar answers a FAILING finding when it misses,
     and a stale citation costs less than a red gate on a correct one.
     """
-    if not has_suffix(path.name, (".py",)) or (text := _read_text(path)[0]) is None:
+    if not has_suffix(path.name, (".py",)) or (tree := python_tree(path)) is None:
         return None
-    return _python_names(text)
+    return _python_names(tree)
 
 
 # What names a test case: a string somebody typed, in the argument every runner takes it as. A plain
@@ -1278,16 +1386,12 @@ def _script_cases(text: str, image: str) -> Counter[str]:
     return found
 
 
-def _python_cases(text: str) -> Counter[str]:
+def _python_cases(tree: ast.Module) -> Counter[str]:
     """Every case a Python module declares, counted, at any class depth.
 
     Two classes of one module hold a method of one name without Python minding, which is the shape a
     cited case name resolves twice through.
     """
-    try:
-        tree = ast.parse(text)
-    except UNPARSEABLE:
-        return Counter()
     found: Counter[str] = Counter()
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name.startswith(CASE_CLASS_PREFIX):
@@ -1308,7 +1412,8 @@ def declared_cases(path: Path) -> Mapping[str, int]:
     if text is None:
         return MappingProxyType({})
     if has_suffix(path.name, (".py",)):
-        return MappingProxyType(dict(_python_cases(text)))
+        tree = python_tree(path)
+        return MappingProxyType({} if tree is None else dict(_python_cases(tree)))
     if has_suffix(path.name, CSTYLE_SUFFIXES):
         # `_scan_body`'s image, which every other check already paid for over this same file.
         return MappingProxyType(dict(_script_cases(text, _scan_body(path))))

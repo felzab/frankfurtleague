@@ -18,7 +18,7 @@ import re
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _read_text, _readable, _scan_body, tracked_glob, tracked_page
+from .kernel import REPO_ROOT, Finding, _read_text, _readable, _scan_body, table_cells, tracked_glob, tracked_page
 
 ERROR_CODES_CHECK: Final = "error-codes"
 ERROR_CODES_PAGE: Final = "docs/logging/error-codes.md"
@@ -127,7 +127,7 @@ def _cells(line: str) -> list[str]:
     stripped = line.strip()
     if not stripped.startswith("|"):
         return []
-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+    return table_cells(stripped.strip("|"))
 
 
 def _wording_cells(text: str) -> dict[str, str | None]:

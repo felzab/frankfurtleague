@@ -36,13 +36,13 @@ from .branch import (
     check_history_phrases,
     check_prose_shas,
     fork_page,
+    run_fork,
 )
 from .copy_rules import check_copy_rules
 from .error_codes import ERROR_CODES_PAGE, check_error_codes
 from .kernel import (
-    BACKTICK_RE,
-    BACKTICK_SPAN_RE,
     CHECKS,
+    CODE_SPAN_RE,
     CSTYLE_SUFFIXES,
     DIRECTIVE_RE,
     DOCS_DIR,
@@ -78,11 +78,13 @@ from .kernel import (
     _untracked_index,
     anchors_of,
     atx_heading,
+    code_spans,
     comment_runs,
     comment_style,
     declared_cases,
     defined_symbols,
     fenced_lines,
+    gitignored,
     has_name,
     has_suffix,
     holds_file,
@@ -94,11 +96,13 @@ from .kernel import (
     is_prose,
     line_of,
     navigable_anchors_of,
+    python_tree,
     repo_path,
     repo_prefixes,
     scanned_files,
     section_numbers_of,
     strip_fences,
+    table_cells,
     tracked_glob,
     tracked_page,
     unlisted,
@@ -182,9 +186,9 @@ RULE_INDEX_RE: Final = RulePattern(
 # the claim unresolved from the first format run rather than from the moment it was written.
 INDEX_ENFORCED_RE: Final = re.compile(r"[*_]Enforced by[*_](.*)", re.DOTALL)
 
-# PRE-4 closes the `Enforced by` field's vocabulary, so a bare backticked lower-case token in it
-# names a check.
-CHECK_NAME_RE: Final = re.compile(r"`([a-z][a-z0-9-]*)`")
+# PRE-4 closes the `Enforced by` field's vocabulary, so a code span holding one lower-case token
+# in it names a check.
+CHECK_NAME_RE: Final = re.compile(r"[a-z][a-z0-9-]*")
 
 SEGMENT_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Segment\s*\|\s*Globs\s*\|", re.MULTILINE)
 EXCLUDED_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Excluded\s*\|\s*Why\s*\|", re.MULTILINE)
@@ -469,7 +473,7 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
                 # Backticked spans come out first: a rule quoting a label to name it is a mention,
                 # not a second entry. Re-matched on the scrubbed line, removing a span having
                 # moved every offset after it.
-                scrubbed = BACKTICK_SPAN_RE.sub("", lines[index])
+                scrubbed = CODE_SPAN_RE.sub("", lines[index])
                 opening = METADATA_LINE_RE.match(scrubbed)
                 if opening and (joined := METADATA_JOIN_RE.search(scrubbed, opening.end())):
                     written = "the characters \\n" if joined.group(1) else "nothing at all"
@@ -547,7 +551,7 @@ def _table_rows(text: str) -> list[list[str]]:
     rows: list[list[str]] = []
     for line in text.split("\n"):
         if (match := TABLE_LINE_RE.match(line)) is not None:
-            rows.append([cell.strip() for cell in match.group(1).split("|")])
+            rows.append(table_cells(match.group(1)))
     return rows
 
 
@@ -720,7 +724,7 @@ def _unheld_sources(prefixes: frozenset[str], cell: str) -> list[str]:
     resolving nowhere derives the tag from a path nothing here holds.
     """
     dropped: set[str] = set()
-    for token in BACKTICK_RE.findall(cell):
+    for token in code_spans(cell):
         if token.startswith(repo_prefixes()) or is_placeholder(token):
             continue
         # A slash or a scanned suffix is what parts a path from the prose this column carries
@@ -753,7 +757,7 @@ def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
             continue
         tag = cells[columns[0]].strip("*` ")
         if tag in held:
-            written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(repo_prefixes()))
+            written[tag] = frozenset(token for token in code_spans(cells[columns[1]]) if token.startswith(repo_prefixes()))
             unheld[tag] = _unheld_sources(written[tag], cells[columns[1]])
 
     found: list[Finding] = []
@@ -794,7 +798,7 @@ def _check_batches(rel: str, valid: set[str], paired: list[tuple[str, str]]) -> 
 
 def _row_cells(rest: str) -> list[str]:
     """One index row's cells past the id, the closing pipe's empty half dropped."""
-    cells = [cell.strip() for cell in rest.split("|")]
+    cells = table_cells(rest)
     return cells[:-1] if cells and not cells[-1] else cells
 
 
@@ -849,7 +853,7 @@ def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tup
                 detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
         cell = fields.get(DEPENDS_COLUMN, "")
-        named = BACKTICK_RE.findall(cell) or [cell.strip()]
+        named = code_spans(cell) or [cell.strip()]
         # Ahead of the status fork: a dependency on oneself never clears, whatever the status says,
         # and the `Blocked` arm below would read it as a blocker filed.
         if token in named:
@@ -906,7 +910,7 @@ def _named_paths(section: str) -> frozenset[str]:
     rather than a path the derivation below silently missed.
     """
     found: set[str] = set()
-    for token in BACKTICK_RE.findall(section):
+    for token in code_spans(section):
         if (rel := repo_path(token.split(" :: ")[0].strip())) is not None:
             found.add(rel)
     return frozenset(found)
@@ -1059,7 +1063,7 @@ def check_spec_sheets() -> list[Finding]:
 
 def _separator_row(line: str) -> bool:
     """Whether a table row is the dashes parting a header from the rows beneath it."""
-    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    cells = table_cells(line.strip().strip("|"))
     return bool(cells) and all(cell and set(cell) <= set("-:") for cell in cells)
 
 
@@ -1104,7 +1108,7 @@ def check_invariant_tables() -> list[Finding]:
             if invariant in seen:
                 found.append(Finding("fail", "invariant-row", rel, f"{invariant} numbers two rows -- OUT-4 makes a number permanent"))
             seen.add(invariant)
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            cells = table_cells(line.strip().strip("|"))
             if len(cells) != SPEC_COLUMNS:
                 found.append(Finding("fail", "invariant-row", rel, f"{invariant} has {len(cells)} cells, not OUT-4's {SPEC_COLUMNS}"))
         for cited in sorted(set(INVARIANT_REF_RE.findall(body)) - defined):
@@ -1321,7 +1325,7 @@ def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
         if (claim := INDEX_ENFORCED_RE.search(block)) is None:
             continue
         field = " ".join(claim.group(1).split())
-        for name in CHECK_NAME_RE.findall(field):
+        for name in (span for span in code_spans(field) if CHECK_NAME_RE.fullmatch(span)):
             if name in CHECKS:
                 named.setdefault(name, set()).add(rule_id)
             else:
@@ -1342,12 +1346,8 @@ def _registry_rows() -> dict[str, frozenset[int]]:
     A row spells its contract inside a string, never as a citation, so a text match finds no citing
     line and certifies its own claim.
     """
-    text = _read_text(REPO_ROOT / KERNEL_PAGE)[0]
-    if text is None:
-        return {}
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
+    tree = python_tree(REPO_ROOT / KERNEL_PAGE)
+    if tree is None:
         return {}
     rows: dict[str, frozenset[int]] = {}
     for node in ast.walk(tree):
@@ -1457,11 +1457,11 @@ def _glob_table(text: str, header: re.Pattern[str], glob_cell: int = 1) -> dict[
     for line in text[opening.end() :].split("\n")[1:]:
         if not line.lstrip().startswith("|"):
             break
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        cells = table_cells(line.strip().strip("|"))
         # The separator row carries no name and no globs; anything else with a name is a row.
         if len(cells) < 2 or not (name := cells[0].strip("`")) or set(name) <= set("-: "):
             continue
-        rows[name] = BACKTICK_RE.findall(cells[glob_cell])
+        rows[name] = code_spans(cells[glob_cell])
     return rows
 
 
@@ -1712,7 +1712,9 @@ def bare_path_re() -> re.Pattern[str]:
     Matches nothing where the listing named no directory: an empty alternation matches everywhere.
     """
     prefixes = "|".join(re.escape(prefix) for prefix in repo_prefixes())
-    return re.compile((r"(?<![\w`/.\-])(?:" + prefixes + r")[\w./\-]*[\w/]") if prefixes else r"(?!)")
+    # A tick before the path is a span's, which `path` reads; one a backslash escapes is text, and
+    # leaves the path to this reader.
+    return re.compile((r"(?<![\w/.\-])(?<!(?<!\\)`)(?:" + prefixes + r")[\w./\-]*[\w/]") if prefixes else r"(?!)")
 
 
 # The fragment is captured rather than discarded: dropping it lets a link to a heading nobody has
@@ -1720,13 +1722,23 @@ def bare_path_re() -> re.Pattern[str]:
 LINK_RE: Final = re.compile(r"""(?<!!)\[[^\]]*\]\(([^)\s#]*)(#[^)\s]*)?(?:[ \t]+"[^"\n]*"|[ \t]+'[^'\n]*')?\)""")
 
 
-# A citation is a single backticked run containing exactly one " :: " (COR-6). Read it through
-# `unwrapped`, never off the raw body: a code span may wrap, and this stops at the newline.
-CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
+# A citation is a code span whose whole text carries " :: " (COR-6). Read it through `unwrapped`,
+# never off the raw body: a code span may wrap, and `kernel.py :: CODE_SPAN_RE` stops at the
+# newline.
+CITATION_TEXT_RE: Final = re.compile(r"[^`\n]+? :: [^`\n]+?")
 # The continuation form: a page names a file once, then cites its symbols with the separator and
-# the anchor alone. `CITATION_RE` needs a left half, so without this the form matches nothing and
-# every claim it makes goes unresolved (INC-6).
-CONTINUATION_RE: Final = re.compile(r"`:: ([^`\n]+?)`")
+# the anchor alone. `CITATION_TEXT_RE` needs a left half, so without this the form matches nothing
+# and every claim it makes goes unresolved (INC-6).
+CONTINUATION_TEXT_RE: Final = re.compile(r":: ([^`\n]+?)")
+
+
+def spans_reading(text: str, pattern: re.Pattern[str]) -> list[tuple[re.Match[str], re.Match[str]]]:
+    """Every code span whose whole text the pattern matches.
+
+    Run over spans rather than as a pattern of its own, which pairs ticks one at a time and reads a
+    run inside a longer span.
+    """
+    return [(span, read) for span in CODE_SPAN_RE.finditer(text) if (read := pattern.fullmatch(span["code"])) is not None]
 
 
 # One line break inside a paragraph, which a renderer joins to a space. The blank line is excluded
@@ -1755,12 +1767,13 @@ def continuation_markers(style: str) -> tuple[str, ...]:
 def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
     """A backticked span whole on its line, or one parted by a wrap, with the continuation's marker off."""
     tail = "(?:(?:" + "|".join(re.escape(m) for m in markers) + ")+[ \t]*)?" if markers else ""
-    return re.compile(r"`[^`\n]*`|`([^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"([^`\n]*)`")
+    wrapped = r"(?<!`)(?<!(?<!\\)\\)`(?P<head>[^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"(?P<tail>[^`\n]*)`(?!`)"
+    return re.compile(CODE_SPAN_RE.pattern + "|" + wrapped)
 
 
 def _reads_as_path(token: str) -> bool:
     """Whether `path` would judge this token, asked of one that check cannot see."""
-    return token.startswith(repo_prefixes()) and LINE_CITATION_RE.fullmatch(f"`{token}`") is None and not is_gitignored(token)
+    return token.startswith(repo_prefixes()) and LINE_CITATION_TEXT_RE.fullmatch(token) is None and not is_gitignored(token)
 
 
 def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
@@ -1771,14 +1784,14 @@ def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[F
     """
     found: list[Finding] = []
     for match in _span_re(markers).finditer(body):
-        head = (match.group(1) or "").rstrip()
+        head = (match["head"] or "").rstrip()
         # Inside the path alone: a citation parted at its separator still names its file whole.
-        if match.group(1) is None or not head or "::" in head:
+        if match["head"] is None or not head or "::" in head:
             continue
-        token = (head + match.group(2).lstrip()).partition(" :: ")[0]
+        token = (head + match["tail"].lstrip()).partition(" :: ")[0]
         if is_placeholder(token):
             continue
-        rendered = head + " " + match.group(2).lstrip()
+        rendered = head + " " + match["tail"].lstrip()
         if repo_path(token) is not None:
             detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
         elif _reads_as_path(token):
@@ -1796,7 +1809,6 @@ SECTION_REF_RE: Final = re.compile(r"§(\d+(?:\.\d+)*)")
 # What may stand immediately before a reference and name the page it points into. The third names
 # one nothing here can resolve, and is read so that the containing page cannot answer for it.
 ADJACENT_LINK_RE: Final = re.compile(r"\[[^\]\n]*\]\(([^)\s]*)\)\s*$")
-ADJACENT_PATH_RE: Final = re.compile(r"`([^`\n]+)`\s*$")
 ADJACENT_PAGE_NAME_RE: Final = re.compile(r"[\w./-]+\.md\s*$", re.IGNORECASE)
 # A reference inside a link's own text, which is the shape a contents row cites a section with.
 ENCLOSING_LINK_RE: Final = re.compile(r"\[[^\]\n]*\]\(([^)\s]*)\)")
@@ -1814,9 +1826,14 @@ def _linked_page(rel: str, raw_target: str) -> Path | None:
     return REPO_ROOT / joined if holds_path(joined) else None
 
 
+def _ending_span(text: str) -> str | None:
+    spans = list(CODE_SPAN_RE.finditer(text))
+    return spans[-1]["code"] if spans and not text[spans[-1].end() :].strip() else None
+
+
 def _names_a_page(line: str) -> bool:
     """Whether a line ends on something naming a page, which is what a wrap parts from the reference below it."""
-    return any(pattern.search(line) is not None for pattern in (ADJACENT_LINK_RE, ADJACENT_PATH_RE, ADJACENT_PAGE_NAME_RE))
+    return any(pattern.search(line) is not None for pattern in (ADJACENT_LINK_RE, ADJACENT_PAGE_NAME_RE)) or _ending_span(line) is not None
 
 
 def _referenced_page(rel: str, line: str, at: int, above: str) -> Path | None:
@@ -1827,8 +1844,8 @@ def _referenced_page(rel: str, line: str, at: int, above: str) -> Path | None:
     before = line[:at]
     if (linked := ADJACENT_LINK_RE.search(before)) is not None:
         return _linked_page(rel, linked.group(1))
-    if (ticked := ADJACENT_PATH_RE.search(before)) is not None:
-        matches = _resolve(ticked.group(1).strip())
+    if (ticked := _ending_span(before)) is not None:
+        matches = _resolve(ticked.strip())
         return matches[0] if len(matches) == 1 else None
     # Neither leaves the containing page free to answer in another's place: a plain-text page name
     # is one route short of resolving, and a reference opening its line's text may be the tail of a
@@ -1884,7 +1901,7 @@ CITABLE_SUFFIXES: Final[tuple[str, ...]] = (".md", ".css", ".svg", ".lock", *SCA
 # Case-insensitive for `kernel.py :: has_suffix`' reason: an exact alternation reads a capitalised
 # suffix as prose, drawing no finding.
 _CITABLE_SUFFIX_RE: Final = "(?i:" + "|".join(re.escape(suffix) for suffix in sorted(set(CITABLE_SUFFIXES), key=len, reverse=True)) + ")"
-LINE_CITATION_RE: Final = re.compile(rf"`([^`\n]*(?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)`")
+LINE_CITATION_TEXT_RE: Final = re.compile(rf"[^`\n]*(?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?")
 # The same citation with no backticks, which is how a comment usually carries one. The directory
 # run sits inside the capture, the guard rejecting a start after `/` or `.` holding a URL out.
 BARE_LINE_CITATION_RE: Final = re.compile(rf"(?<![/`\w.])((?:[\w.-]+/)*[\w.-]*[\w-](?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)\b")
@@ -2010,12 +2027,44 @@ def _uncited_lines(path: Path) -> tuple[str, ...]:
     at = _source_offset(raw, markers)
     joined = unwrapped(raw, markers)
     kept = list(raw)
-    for pattern in (CITATION_RE, CONTINUATION_RE):
-        for match in pattern.finditer(joined):
+    for pattern in (CITATION_TEXT_RE, CONTINUATION_TEXT_RE):
+        for match, _ in spans_reading(joined, pattern):
             for offset in range(at(match.start()), at(match.end() - 1) + 1):
                 if kept[offset] != "\n":
                     kept[offset] = " "
     return tuple("".join(kept).split("\n"))
+
+
+# One JSX text run: what an element renders between two tags. A tag or an expression ends it, the
+# page showing two texts across either rather than one sentence.
+JSX_TEXT_RE: Final = re.compile(r">([^<>{}]+)<")
+# A run's paragraphs: a blank line parts two texts as a tag does.
+TEXT_PARAGRAPH_RE: Final = re.compile(r"[^\n]*\S[^\n]*(?:\n[^\n]*\S[^\n]*)*")
+
+
+def _jsx_text_lines(text: str, sought: str) -> set[int]:
+    """Every line of a JSX text run carrying the fragment once the run's line breaks read as spaces.
+
+    Prettier re-wraps JSX text at its own width, so a quoted sentence parted across two lines still
+    renders whole.
+    """
+    found: set[int] = set()
+    for run in JSX_TEXT_RE.finditer(text):
+        for paragraph in TEXT_PARAGRAPH_RE.finditer(run.group(1)):
+            if sought in " ".join(paragraph.group().split()):
+                start = run.start(1) + paragraph.start()
+                found.update(range(line_of(text, start), line_of(text, start + len(paragraph.group()) - 1) + 1))
+    return found
+
+
+def _lines_carrying(text: str, sought: str, *, rendered: bool) -> set[int]:
+    """Every line spelling the fragment, a JSX text run's wrapped lines too where the file renders one.
+
+    A line first: the run is read only for a fragment no single line holds.
+    """
+    return {number for number, line in enumerate(text.split("\n"), start=1) if sought in line} or (
+        _jsx_text_lines(text, sought) if rendered else set()
+    )
 
 
 def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
@@ -2095,7 +2144,10 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
     # The quotes mark a fragment rather than belonging to it, so the page carries the run inside them.
     sought = anchor[1:-1] if quoted else anchor
     lines = content.split("\n")
-    spellings = {number for number, line in enumerate(lines, start=1) if sought in line}
+    # A quoted fragment of a `.tsx` file alone is read across a wrap: a case name, a symbol and a
+    # comment render nowhere, and read across a wrap a dead one resolves.
+    rendered = quoted and has_suffix(where, (".tsx",))
+    spellings = _lines_carrying(content, sought, rendered=rendered)
     if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
@@ -2105,8 +2157,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
-        uncited = _uncited_lines(target)
-        if not any(sought in uncited[number - 1] for number in spellings - on):
+        if not _lines_carrying("\n".join(_uncited_lines(target)), sought, rendered=rendered) - on:
             detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
             return [Finding("fail", "citation", rel, detail)]
     return []
@@ -2118,9 +2169,10 @@ def _files_named(joined: str) -> list[tuple[int, str]]:
     A full citation and a backticked repository path. Deliberately not a markdown LINK: over this
     corpus one displaces the file the sentence is about.
     """
-    named: list[tuple[int, str]] = [(match.start(), match.group(1).partition(" :: ")[0].strip()) for match in CITATION_RE.finditer(joined)]
-    for match in BACKTICK_RE.finditer(joined):
-        token = match.group(1)
+    cited = spans_reading(joined, CITATION_TEXT_RE)
+    named: list[tuple[int, str]] = [(span.start(), span["code"].partition(" :: ")[0].strip()) for span, _ in cited]
+    for match in CODE_SPAN_RE.finditer(joined):
+        token = match["code"]
         if " :: " not in token and (resolved := repo_path(token)) is not None:
             named.append((match.start(), resolved))
     return sorted(named)
@@ -2133,9 +2185,9 @@ def _continuations(joined: str, rel: str, invariants: dict[str, list[str]], sour
     which is how a table cell lists two modules of one folder.
     """
     carried = [
-        (match.start(1), match.end(1), match.group(1).strip())
-        for match in CONTINUATION_RE.finditer(joined)
-        if not is_placeholder(match.group(1))
+        (span.start("code") + read.start(1), span.end("code"), read.group(1).strip())
+        for span, read in spans_reading(joined, CONTINUATION_TEXT_RE)
+        if not is_placeholder(read.group(1))
     ]
     if not carried:
         return []
@@ -2228,10 +2280,10 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         if cites:
             source_line = _source_line(body, markers)
             citing: dict[str, set[int]] = {}
-            for match in CITATION_RE.finditer(joined):
-                if not is_placeholder(match.group(1)):
-                    lines = range(source_line(match.start(1)), source_line(match.end(1) - 1) + 1)
-                    citing.setdefault(match.group(1), set()).update(lines)
+            for span, _ in spans_reading(joined, CITATION_TEXT_RE):
+                if not is_placeholder(span["code"]):
+                    lines = range(source_line(span.start("code")), source_line(span.end("code") - 1) + 1)
+                    citing.setdefault(span["code"], set()).update(lines)
             for citation in sorted(citing):
                 found.extend(_check_citation(citation, rel, invariants, frozenset(citing[citation])))
             found.extend(_continuations(joined, rel, invariants, source_line))
@@ -2239,7 +2291,8 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
         # it names, so it has to be caught at the form.
         if cites_lines:
-            cited_lines = set(LINE_CITATION_RE.findall(joined)) | set(BARE_LINE_CITATION_RE.findall(joined))
+            ticked = {span["code"] for span, _ in spans_reading(joined, LINE_CITATION_TEXT_RE)}
+            cited_lines = ticked | set(BARE_LINE_CITATION_RE.findall(joined))
             for citation in sorted(cited_lines):
                 if is_placeholder(citation):
                     continue
@@ -2272,19 +2325,31 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         if anchor and has_suffix(target.name, (".md",)) and (reachable := anchors_of(target)) is not None and anchor not in reachable:
             found.append(Finding("fail", "anchor", rel, f"no heading in {raw_target} yields #{anchor}"))
 
-    for token in sorted(set(BACKTICK_RE.findall(body))):
-        # Already reported above, and letting the path check fire too would give one defect two
-        # findings.
-        if " :: " in token or is_placeholder(token) or not token.startswith(repo_prefixes()):
-            continue
-        if LINE_CITATION_RE.fullmatch(f"`{token}`"):
-            continue
-        # Placed by the resolver rather than by a second `exists`, so this arm answers for a
-        # spelling the day the resolver does, and refuses a traversal it would.
-        if repo_path(token) is None and not is_gitignored(token):
+    for token in _unplaced_paths(body):
+        if not is_gitignored(token):
             found.append(Finding("fail", "path", rel, f"path named but not present: {token}"))
 
     return found
+
+
+def _unplaced_paths(body: str) -> list[str]:
+    """The backticked repository paths in one file's scanned half that resolve to nothing, in order.
+
+    `main` asks git about every file's set in one batch before the checks read them one at a time.
+    """
+    unplaced: list[str] = []
+    for token in sorted(set(code_spans(body))):
+        # Already reported by the citation check, and letting the path check fire too would give
+        # one defect two findings.
+        if " :: " in token or is_placeholder(token) or not token.startswith(repo_prefixes()):
+            continue
+        if LINE_CITATION_TEXT_RE.fullmatch(token):
+            continue
+        # Placed by the resolver rather than by a second `exists`, so this arm answers for a
+        # spelling the day the resolver does, and refuses a traversal it would.
+        if repo_path(token) is None:
+            unplaced.append(token)
+    return unplaced
 
 
 def check_bare_paths(rel: str, body: str) -> list[Finding]:
@@ -2297,7 +2362,7 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     prefixes = ["", *(f"{parent.as_posix()}/" for parent in Path(rel).parents if parent.as_posix() != ".")]
     # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
     # span holds no newline, so removing one moves an offset along its line and never off it.
-    scrubbed = BACKTICK_SPAN_RE.sub("", body)
+    scrubbed = CODE_SPAN_RE.sub("", body)
     first_seen: dict[str, int] = {}
     for match in bare_path_re().finditer(scrubbed):
         first_seen.setdefault(match.group(0), match.start())
@@ -2384,8 +2449,8 @@ def check_cell_prose() -> list[Finding]:
         for number, line in enumerate(body.split("\n"), start=1):
             if (match := TABLE_LINE_RE.match(line)) is None:
                 continue
-            for cell in (piece.strip() for piece in match.group(1).split("|")):
-                bare = QUOTED_SPAN_RE.sub("", BACKTICK_SPAN_RE.sub("", cell))
+            for cell in table_cells(match.group(1)):
+                bare = QUOTED_SPAN_RE.sub("", CODE_SPAN_RE.sub("", cell))
                 if word_count(bare) <= VERBATIM_REMAINDER:
                     continue
                 if (words := word_count(cell)) > CELL_PROSE_WORD_CAP:
@@ -2492,12 +2557,15 @@ def main() -> int:
 
     # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers
     # the remote-tracking ref: a stale local one reads another branch's commits as this one's.
-    branch = Branch(checker_kernel.DEFAULT_BASE, checker_kernel.resolve_base())
+    branch = Branch(checker_kernel.DEFAULT_BASE, run_fork())
 
     existing_rules = rule_ids()
     existing_invariants = invariant_ids()
     additions = branch_additions(branch)
     findings: list[Finding] = []
+    # One `check-ignore` for the whole corpus: asked file by file, it is a git process for nearly
+    # every file naming a gitignored path.
+    gitignored(token for path in files for token in _unplaced_paths(_scan_body(path)))
     for path in files:
         findings.extend(check_file(path, existing_rules, existing_invariants))
     findings.extend(check_branch_diff(branch))

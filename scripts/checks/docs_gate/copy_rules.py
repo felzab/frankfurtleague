@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
-from .kernel import REPO_ROOT, Finding, _read_text, tracked_glob
+from .kernel import REGEX_LEAD_RE, REPO_ROOT, Finding, _Lead, _read_text, _skip_regex, tracked_glob
 
 # Where a reader's German lives. The backend holds none: its refusals are mapped to German on this
 # side, and the German it spells itself is a line to the log rather than copy
@@ -150,11 +150,9 @@ class _Frame:
 CODE_STOP_RE: Final = re.compile(r"[\"'`<>{}/]")
 JSX_STOP_RE: Final = re.compile(r"[<{}]")
 TEMPLATE_STOP_RE: Final = re.compile(r"[`\\]|\$\{")
-# What may stand before a JSX element, read off the last code characters ahead of the `<`.
-JSX_LEAD_RE: Final = re.compile(r"(?:[(,={};:?&|>\[!]|\breturn|\bcase)\Z")
-# What may stand before a regex literal: the same set without `>`, which closes a JSX tag.
-REGEX_LEAD_RE: Final = re.compile(r"[(,={};:?&|\[!]\Z")
-LEAD_WINDOW: Final = 8
+# What may stand before a JSX element, read off the last code characters ahead of the `<`: a regex
+# literal's lead, built from it so the two cannot part, plus the `>` closing a tag.
+JSX_LEAD_RE: Final = re.compile(r">\Z|" + REGEX_LEAD_RE.pattern)
 
 # `x || "-"` names an absent value with a dash, which §1.12 forbids. Read off the operator, never
 # off the literal alone: `split("-")` renders none of the dash it spells, and an argument is where
@@ -162,22 +160,6 @@ LEAD_WINDOW: Final = 8
 FALLBACK_LEADS: Final[tuple[str, ...]] = ("||", "??")
 # `{/* … */}` puts nothing on screen, so it is no value and leaves no `HOLE` behind.
 JSX_COMMENT_RE: Final = re.compile(r"/\*(?:(?!\*/).)*\*/", re.DOTALL)
-
-
-@dataclass(slots=True)
-class _Lead:
-    """The last code characters before the cursor, whitespace and comments dropped.
-
-    Carried, never read back out of the file: JSX indents past any window, and a comment before an
-    element hides what precedes it. Both would read as a bare `<`.
-    """
-
-    text: str = ""
-
-    def push(self, piece: str) -> None:
-        kept = piece.rstrip()
-        if kept:
-            self.text = kept[-LEAD_WINDOW:]
 
 
 def _jsx_text(raw: str) -> str:
@@ -210,23 +192,6 @@ def _string_end(text: str, start: int) -> int:
             return index
         index += 1
     return len(text)
-
-
-def _skip_regex(text: str, start: int) -> int:
-    """Past a regex literal, or past the slash alone where the line closes none."""
-    index = start + 1
-    while index < len(text) and text[index] != "\n":
-        char = text[index]
-        if char == "\\":
-            index += 2
-            continue
-        if char == "[":
-            while index < len(text) and text[index] not in "]\n":
-                index += 2 if text[index] == "\\" else 1
-        if index < len(text) and text[index] == "/":
-            return index + 1
-        index += 1
-    return start + 1
 
 
 def _close_hole(frames: list[_Frame], text: str, index: int) -> None:

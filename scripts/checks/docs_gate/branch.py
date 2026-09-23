@@ -25,6 +25,7 @@ from .kernel import (
     _read_text,
     _scan_body,
     _skipped,
+    code_spans,
     comment_runs,
     comment_style,
     has_name,
@@ -311,9 +312,8 @@ HUNK_HEADER_RE: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 # An asset digest read as a commit switches off the check that pins it: an action's `@<sha>` and
-# an image's `sha256:` digest are longer than this window, and the backticks are what stop either
-# matching inside one.
-PROSE_SHA_RE: Final = re.compile(r"`([0-9a-f]{7,8})`")
+# an image's `sha256:` digest are longer than this window, and a span's whole text must match it.
+PROSE_SHA_RE: Final = re.compile(r"[0-9a-f]{7,8}")
 
 
 REVIEW_REF_RE: Final = re.compile(
@@ -424,15 +424,22 @@ def _spec_sheet(rel: str) -> bool:
 
 
 @cache
+def run_fork() -> str | None:
+    """The default base's fork, resolved once a run for `main`'s `Branch` and for `fork_page` alike.
+
+    The default base is the one base a run can be given: the checker takes no base argument.
+    """
+    return resolve_base()
+
+
+@cache
 def fork_page(rel: str) -> str | None:
     """One page as the branch's fork holds it, or None where fork or page will not resolve.
 
     Resolved here rather than taken from `Branch`: the reader wanting one runs where no check has
     it in hand.
     """
-    # The default base is the one base a run can be given: the checker takes no base argument, so
-    # nothing supplies another for a reader here to thread through.
-    fork = resolve_base()
+    fork = run_fork()
     return None if fork is None else git("show", f"{fork}:{rel}")
 
 
@@ -569,7 +576,11 @@ def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
         rel = path.relative_to(REPO_ROOT).as_posix()
         # A run of hex alone is a value; one carrying both a digit and a letter is what a short SHA
         # looks like, and what an ordinary word or a decimal is not.
-        named = {sha for sha in PROSE_SHA_RE.findall(_scan_body(path)) if any(c.isdigit() for c in sha) and any(c.isalpha() for c in sha)}
+        named = {
+            sha
+            for sha in code_spans(_scan_body(path))
+            if PROSE_SHA_RE.fullmatch(sha) and any(c.isdigit() for c in sha) and any(c.isalpha() for c in sha)
+        }
         found.extend(
             Finding("fail", "sha", rel, f"commit {sha} is named here -- COR-6 reaches the argument with `git log -S` on the constraint instead")
             for sha in sorted(named)

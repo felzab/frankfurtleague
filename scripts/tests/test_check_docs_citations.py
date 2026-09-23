@@ -15,6 +15,7 @@ A planted violation never shares a line of THIS file with a hash or a triple quo
 from __future__ import annotations
 
 from collections import Counter
+from typing import Final
 
 from conftest import write
 from test_check_docs import (
@@ -37,6 +38,7 @@ from test_check_docs import (
     IGNORED_MODULE,
     IGNORED_PAGE,
     KERNEL,
+    MARKER_TSX,
     NOTES,
     OTHER_SPELLING,
     QUOTE,
@@ -79,6 +81,9 @@ from test_check_docs import (
     _tick,
     _undo_enforced_by,
 )
+
+# A suite whose comment is the only place an old case name survives, parted across two lines.
+WRAPPED_CASE_MODULE: Final = "fl_frontend/src/wrapped.test.ts"
 
 
 def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first() -> None:
@@ -389,6 +394,66 @@ def test_a_quoted_fragment_of_a_page_is_proved_by_the_sentence_carrying_it() -> 
     gone = QUOTE + "a sentence the page never carried" + QUOTE
     found = [finding.check for finding in checks._check_citation(NOTES + " :: " + gone, TWIN_NOTES, {})]
     assert found == ["citation"], "a quoted fragment the page lacks resolved: " + repr(found)
+    _assert_corpus_restored()
+
+
+def test_a_quoted_fragment_a_wrap_parts_in_the_cited_file_is_still_carried() -> None:
+    """Prettier re-wraps JSX text at its own width, and a sentence parted across two source lines still renders whole."""
+    _reset()
+    notice = ("export const Notice = () => (", "  <p>", "    A sentence the formatter wrapped", "    across two lines.", "  </p>", ");")
+    _append(MARKER_TSX, *notice)
+    _append(NOTES, "The notice says `" + MARKER_TSX + " :: " + QUOTE + "the formatter wrapped across two lines" + QUOTE + "`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 0, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_fragment_the_page_parts_with_a_blank_line_or_a_tag_is_not_carried() -> None:
+    """Across either the page shows two texts rather than one sentence, so the join stops at both."""
+    _reset()
+    notice = (
+        "export const Parted = () => (",
+        "  <div>",
+        "    <p>",
+        "      Words before a blank",
+        "",
+        "      line, then",
+        "    </p>",
+        "    <p>",
+        "      words after",
+        "      a tag.",
+        "    </p>",
+        "  </div>",
+        ");",
+    )
+    _append(MARKER_TSX, *notice)
+    for fragment in ("before a blank line, then", "then words after"):
+        _append(NOTES, "The notice says `" + MARKER_TSX + " :: " + QUOTE + fragment + QUOTE + "`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 2, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_renamed_case_surviving_only_in_a_wrapped_comment_is_still_dead() -> None:
+    """The join reads rendered text alone: a comment parted across two lines is no case, and a case name is no quoted fragment."""
+    _reset()
+    write(
+        _gate().root,
+        WRAPPED_CASE_MODULE,
+        _page("// once named a case the suite", "// declared under its old name", 'it("a case under its new name", () => {});'),
+    )
+    _append(NOTES, "The case `" + WRAPPED_CASE_MODULE + " :: a case the suite declared under its old name` is gone.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
     _assert_corpus_restored()
 
 
