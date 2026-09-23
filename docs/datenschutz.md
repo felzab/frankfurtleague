@@ -603,13 +603,13 @@ Where an entry is still open, what is left to do is its own `Status` in
 [`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives, and
 the `Entry` column carries a token only where one still resolves in that file.
 
-| Entry       | Decision                                                                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
-| —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
-| —           | The toast clause's first half is [`frontend/spec.md`](frontend/spec.md) I57's; its second half stands in `.claude/rules/frontend.md`                                                                                |
-| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
-| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
+| Entry | Decision                                                                                                                                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| —     | Narrow the refusal's sentence to the window in which the undraw it recommends is possible ([`logging/error-codes.md`](logging/error-codes.md#1-backend-codes) on `REQ-RULES-011`)                                   |
+| —     | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
+| —     | The toast clause's first half is [`frontend/spec.md`](frontend/spec.md) I57's; its second half stands in `.claude/rules/frontend.md`                                                                                |
+| —     | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
+| —     | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 
 ## 11. Open, and owed a decision
 

@@ -58,8 +58,9 @@ a longer word meaning something else: `spiele` sits inside `spieler`, and both a
 large trees, so a substring match tags every `spieler` path as the most-used slice in the repository.
 The segment matches anywhere in a path rather than under the two roots alone, so
 `fl_frontend/src/app/admin/aktionen/` earns `aktionen` from the route tree as well as from the
-feature package. Eleven slices are spelled the same on both sides; `admin`, `auth`, `dashboard` and
-`meta` exist on the frontend alone. **An entry naming no path carries no tag**, and that is a finding
+feature package. The set is whatever `scripts/checks/docs_gate/checks.py :: slice_names` walks off the
+two roots, so a package under either one is a slice whether or not the other holds its twin. **An entry
+naming no path carries no tag**, and that is a finding
 rather than a default: an entry nobody can place is one whose subject is not stated.
 
 **A status is derived, never chosen**, by the first matching row of
@@ -77,22 +78,22 @@ deliverable.
 
 ## The items at a glance
 
-| Token       | Item                                                                                                                         | Tags                                                                        | Status   |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Skipped  |
-| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, tests, meta                                                   | Blocked  |
-| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
-| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                          | FE, BE, meta, schiedsrichter                                                | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
+| Token       | Item                                                                                                                                       | Tags                                                                                                      | Status   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------- |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                        | FE, BE, DB, Docs, spiele                                                                                  | Skipped  |
+| `3s6w-kndn` | A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread | Ops, Docs, gate, ci, tests                                                                                | Open     |
+| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package                           | BE, ci, tests, versions                                                                                   | Standing |
+| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                             | FE, Docs, versions                                                                                        | Standing |
+| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite                   | FE, Docs, versions                                                                                        | Open     |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                              | BE, DB, Docs, tests, registrierungen                                                                      | Blocked  |
+| `dgdv-27yw` | No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared             | FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage                                                | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                            | FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open     |
+| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                                         | FE, BE, Ops, Docs, gate, tests                                                                            | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                          | FE, BE, spiele                                                                                            | Skipped  |
+| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                                        | FE, BE, meta, schiedsrichter                                                                              | Open     |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                              | FE, BE, Docs, admin, spiele                                                                               | Skipped  |
+| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                               | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams                                     | Open     |
+| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                                        | FE, BE, Docs                                                                                              | Open     |
 
 ## The items
 
@@ -139,25 +140,18 @@ work inside it.
 
 **How far the log page can reach past its one read is not this entry's.**
 
-### `3s6w-kndn` · A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope
+### `3s6w-kndn` · A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread
 
 | Tags                       | Status | Depends on |
 | -------------------------- | ------ | ---------- |
 | Ops, Docs, gate, ci, tests | Open   | —          |
 
-**The profile re-taken on 2026-09-07, two full-form runs on the idle 16-core machine, `ps` sampled
-every two seconds:** every worker was first seen within seven seconds of the start, the runs took
-139 and 131 seconds, and the two sections that bind them trade places within that spread: the
-`frontend` build closed last in the first run at 134 against the `scripts` section's 122, and the
-`scripts` section closed last in the second at 126 against 90, its pytest run over `scripts/tests/`
-(`scripts/gate/verify.sh :: do_pytest`) the unit still running; `images` closed at 95 and 45 (a cold
-and a warm layer cache), `format` at 88 and 91, `backend` and `db` at 42 to 45, `docs` at 27, `ops`
-at 15 and 36. In CI the frontend job binds outright, 264 seconds against the scripts job's 52
-(`.github/gate-wall-clock.tsv`), its span attributed there to the rendered editor tests' unit run
-(`:: gained forty test files`). The tail the 2026-08-26 profile
-described, forty seconds of `db` alone at six to twenty per cent, is gone: the tier closes inside
-both sections' span. `scripts/gate/gate_pool.py :: TYPICAL_MS` carries the same profile as its
-ranking.
+**The profile re-taken on 2026-09-22, two full-form runs on the idle 16-core machine:** the runs took
+224.4 and 206.3 seconds, and three sections close last and trade the tail —
+`frontend` at 221 and 197, `scripts` at 204 and 202, `format` at 183 and 168 — beside `backend` at 101
+and 88, `images` at 83 and 55, `db` at 81 and 61, `ops` at 54 and 43 and `docs` at 37 and 38. On one
+loaded run, every scope's worker started within 70 milliseconds of the others and a tool was at work
+five to six seconds after its worker, so no scope starts late and the wall is contention.
 
 **Lever 1, the distributed database tier, is taken and measured.** On the idle machine, each width a
 pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
@@ -168,20 +162,20 @@ carry sit on those readings. Whether the shared server becomes the
 new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
 belongs inside the width question.
 
-**Lever 2 is the one left, and it is now the live one.** `scripts/tests/test_check_docs.py :: _load`
-copies `scripts/` into a throwaway repository and imports the gate from the copy, `:: _STATE`
-memoising it so the build is paid once per process; the scripts suite that carries it binds the run
-at 122 seconds inside a full form against 54 alone at eight workers. A worker is a process, so the
-lever carries lever 1's second problem in miniature, as many fixture builds as workers, and what it
-gives back is bounded by the self-check running beside it in the same pool, which costs 45 seconds
-alone and 97 inside a run because it waits on the machine rather than works
-(`.github/gate-wall-clock.tsv`'s `scripts` paragraph carries the readings).
+**Lever 2, the documentation gate's net split into modules a worker each can draw, is taken, and
+its effect on the suite is read on the idle machine; on a whole run's spread it is not.** The gate's
+fixture costs 1.34 seconds a build (`scripts/tests/test_check_docs.py :: _load`, memoised in
+`:: _STATE`), so the build was never the cost; `.github/gate-wall-clock.tsv`'s `scripts` paragraph
+carries what was, and the measurement taken under load, whose raw walls overlap. On the idle machine
+on 2026-09-23 the suite at eight workers took 93.0 and 89.7 seconds before the split (729 cases, on `main`) and 67.0 and 67.2
+seconds after it (773 cases). The tail is now `scripts/tests/test_gate_forms.py`, which xdist's
+`loadfile` order dispatches last.
 
 **Lever 3, distributing the default tier, is rejected against this profile.** The section running
-it closes at 45 seconds, well inside the scripts section, and a tier with no database and no
-container spends a real fraction of itself in interpreter startup, which a worker pays again per
-process. `.claude/CLAUDE.md` §7's `tests` clause closes the other obvious answer to any tail: no
-db-marked test leaves the gate.
+it closes inside the scripts section, and a tier with no database and no container spends a real
+fraction of itself in interpreter startup, which a worker pays again per process.
+`.claude/CLAUDE.md` §7's `tests` clause closes the other obvious answer to any tail: no db-marked
+test leaves the gate.
 
 **Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on that
 reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the pool
@@ -200,11 +194,10 @@ required zero, **because a probe that has stopped firing looks exactly like a pr
 db-tier change owes the harder version of the same: those verdicts are what a branch rests on, and a
 worker that silently cleared a neighbour's seeds fails somewhere else entirely.
 
-**Done when** lever 2 has been taken or rejected against a profile of the same shape, every figure
-quoted carrying its spread and its run count, and a lever worth taking beats the run's own spread
-rather than one sample inside it. **How a start is read off a run rather than inferred:** sample
-`ps` while a full-form run is going and record when each worker's process first appears, which
-separates a scope that is slow from one that started late.
+**Done when** the split's effect has been read on the idle machine in interleaved pairs of the whole
+suite at eight workers, every figure carrying its spread and its run count, and the worst run after it
+beats the best before it — the split then stands as taken — or it does not, and the split is
+rejected against that reading.
 
 ### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
 
@@ -379,120 +372,147 @@ question that could move Mantine's rank.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags                      | Status  | Depends on  |
-| ------------------------- | ------- | ----------- |
-| FE, BE, Docs, tests, meta | Blocked | `f3ar-m4qf` |
+| Tags                                 | Status  | Depends on  |
+| ------------------------------------ | ------- | ----------- |
+| BE, DB, Docs, tests, registrierungen | Blocked | `f3ar-m4qf` |
 
-**The flow it waits on is the one that writes the consent.** The `Depends on` beside it names
-`f3ar-m4qf`, the sign-up flow, which is open and whose player registration is the writer this entry
-asks for; while that entry is on the page the block stands and the status derives correctly. Nothing
-here is worked apart from that flow.
+**The flow it waits on is an admission, which is not built.** The `Depends on` beside it names
+`f3ar-m4qf`, whose part "Admitting a confirmed registration into its squad" is the writer this entry
+asks for. The block stands while that entry is on the page and that part is still in it, and an admission
+landing lifts it whatever else `f3ar-m4qf` still holds.
 
-**`spieler.einwilligung` has a schema and no writer at all.** No route composes a record on a pupil
-row and no payload carries one, so every record stored there is one an earlier write left; the rows
-carrying `erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a
-record a guardian actually filed. The confirmations a registration and a referee answer compose
-records of their own, each on its own collection, and neither reaches this one.
-`fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no writer
-while the vocabulary still admits it.
+**`spieler.einwilligung` has a schema and a gate reading it, and no route writes it.**
+`fl_backend/app/core/domain.py :: FIELD_POLICIES` says so of the field, a manual database edit being
+its only writer today, so every record stored there is one an earlier write left; the rows carrying
+`erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a record a
+guardian actually filed. A pupil's own consent is collected — the registration's confirmation
+composes it, the birthdate beside it, on the registration
+(`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) — and nothing copies
+it onto this field yet. The publication gate reads this field (`docs/backend/spec.md :: READ-PUPIL-003`),
+so it publishes the rows standing today on the records they carry, and nobody a registration
+collected. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no
+writer while the vocabulary still admits it.
 
-**The writer is ruled, and the flow that would be it does not exist.** `docs/datenschutz.md` §2
-settles it: everyone signs up for themselves through the website and gives their own consent there,
-from 16, and an administrator may neither create a player nor assume, enter or transcribe a consent
-on anybody's behalf. There is no guardian workflow. The composer and its administrator's route are
-gone, so the vocabulary has a person's own consent and a carried-over record to express and nothing
-else — `bestandsuebernahme` already marks the second, and `erziehungsberechtigt` stays in the enum
-for the rows that carry it.
+**The writer is ruled.** `docs/datenschutz.md` §2 settles it: everyone signs up for themselves
+through the website and gives their own consent there, from 16, and an administrator may neither
+create a player nor assume, enter or transcribe a consent on anybody's behalf. So the vocabulary has
+a person's own consent and a carried-over record to express and nothing else — `bestandsuebernahme`
+already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
+which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
 
-**What the ruling leaves standing.** The gate publishing nobody without a recorded consent may be
-built before the flow ships, provided every pupil row standing today counts as fully consented:
-those rows are deleted once at the end of this season (`docs/datenschutz.md` §3), and the gate must
-not empty the public squad lists meanwhile. Today no read consults the stored field at all —
-publication is gated on nothing — and the predicate is written into `docs/backend/spec.md`'s
-read-rules table before any code.
+**Undecided, and the admission needs it: where a returning pupil's renewed consent lands.** A pupil
+the league already holds who registers again confirms a fresh record on the new registration, under
+the text version current that day. `FIELD_POLICIES` marks `spieler.einwilligung` immutable, written
+once at the person's creation, so an admission matching an existing person cannot copy that record
+onto them as the field stands; whether the person keeps the record they gave first, takes the fresh
+one, or keeps both is the ruling.
 
-**Done** is the sign-up flow writing a person's own consent, the vocabulary narrowed to what stays
-expressible, the publication gate reading
-what the flow stores, and the notice's squad and referee publication rows
-(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
-interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
-until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
-carrying the state that ends there.
+**Done when** an admission writes a confirmed registration's own record onto the person it creates,
+the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it, and a pupil's
+birthdate is required on the person from then on, `fl_backend/app/core/domain.py :: UNENFORCED`
+carrying the state that ends there. The notice's referee publication row is `pw5c-zps5`'s.
 
-### `dgdv-27yw` · Ninety-four test files parse source by hand, and no rule engine has been measured against one
+### `dgdv-27yw` · No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared
 
-| Tags                                         | Status | Depends on |
-| -------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, ci, tests, versions | Open   | —          |
+| Tags                                                       | Status | Depends on |
+| ---------------------------------------------------------- | ------ | ---------- |
+| FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage | Open   | —          |
 
-**Eleven modules under `fl_backend/tests/` parse Python with `ast`, and 83 files under
-`fl_frontend/src/` read source text; the files holding them run 6,208 and 25,007 lines.** Those
-figures are the files whole rather than the sweep parts alone, so they bound the subject rather than
-measure it. Beside them `scripts/checks/` is 11,055 lines across 21 modules and `scripts/tests/`
-16,251 across 39. What each of them asserts is a contract nothing else holds; what each of them
-contains is a parser written again.
-
-**The walk is repo-agnostic and the property never is, and that split decides every option below.**
-Resolving a call, reading a decorator, following an import and finding a JSX tag's real close are
-generic work; "a read inside a transaction carries its session" is ours and no purchased tool knows
-it. The repository has already begun separating the two — `fl_backend/tests/core/app_source.py` is
-shared by five modules — and that helper imports `fl_backend/app/core/collections.py`, so even the
-factored walker is coupled to the domain it walks. **A defect in one of these readers is a defect in the walk and
-never in the property it asserts** — a JSX opening tag cut at the first `>`, a computed `name` left
-unresolved, a strip stopping one pass short of its fixpoint. That is where the cost is.
-
-**Thirty-five of these files cross the language boundary** — 27 under `fl_frontend/src/` read Python,
-8 under `fl_backend/tests/` read TypeScript — so a custom ESLint rule and a Python linter plugin
-between them reach the majority and cannot touch this third at all. Only an engine parsing both
-languages under one rule, or an artefact both sides derive from, does. **The second of those is
-already refused**: `.claude/rules/cross-surface.md`'s **openapi** clause forbids generating the Zod
-mirror, so a proposal to generate both ends of a contract is settled before it is written.
-
-**Whether the generic half leaves the repository is decided by CUR-2, not by how generic it is.**
-`scripts/checks/docs_gate/kernel.py` is 1,334 lines of machinery against `checks.py`'s 2,539 of our
-own rules, which is the one clean seam in the tree. Moving the kernel to its own package puts a
-documented claim and the checker enforcing it in two repositories, and `docs/_standard/standard.md ::
-CUR-2` requires them to move in one commit — "not the same branch eventually, not a follow-up".
-`.claude/CLAUDE.md` §7's **docs gate** clauses bound the shape further.
-
-**Done when** three named sweeps of different shape have been expressed in each candidate mechanism
-or shown to resist it — `fl_backend/tests/core/test_write_shapes.py` for single-language work,
+**Every class of hand-written source reader has been measured against the rule engines, and none
+carries it** (decided 2026-09-23). The three named sweeps were expressed in each candidate or shown to
+resist it — `fl_backend/tests/core/test_write_shapes.py` for single-language work,
 `fl_frontend/src/shared/schemas.test.ts` for a value copied by hand between two languages, and
-`scripts/checks/docs_gate/checks.py` for rules over prose that no code linter addresses — and each
-class has a verdict recorded at COR-14's rung. Two bounds hold whatever the verdict: every property
-asserted today is still asserted and still driven red afterwards, and a candidate arriving as a pin
-in `fl_frontend/package.json` or `fl_backend/pyproject.toml` states which gate scope and which job in
-`.github/workflows/verify.yml` runs it. Where an answer rests on practice outside this repository it
-cites a public repository a reader can open, never a claim about what is usual.
+`scripts/checks/docs_gate/checks.py` for rules over prose. A Python sweep resolves a call against the
+application's runtime objects and across modules, which an engine states neither of; a cross-language
+sweep compares a runtime value with a source value, so an engine reaches only its extraction half; and
+the prose rules that resolve against the tree are the gate's own whichever engine parses the page.
+
+**Four spellings are still read wrong, and each fails loud rather than passing a defect:**
+
+- **An indented code block read as prose.** `owner-voice` reports a phrase inside one. A correct test
+  knows the list item around the block, which is block parsing; `markdown-it-py` is installed in the
+  dev environment through another package and declared by nothing, so the repair is declaring it in
+  `fl_backend/pyproject.toml`'s `dev` group and moving the kernel's Markdown readers onto its tokens.
+- **The backend's domain pattern spelled over two lines, or as a plain string with its escape
+  doubled.** The value is unchanged, and `fl_frontend/src/shared/schemas.test.ts`, which reads it,
+  refuses both spellings.
+- **A refusal's sentence moved into a named constant inside its switch arm.**
+  `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts the arm at the next `case "` and refuses
+  what it finds there.
+
+The cost of each is a false red somebody rewrites around. The last two need a parse across the
+language boundary — Python's `ast` spawned from the frontend's unit tests, a new precondition on its
+test run, or ast-grep on each side, which is a new dependency on each — so none is built until I rule
+on it.
+
+**Five sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
+correct only for source `ruff format` wrote, and a formatter setting that moves a break is a change to
+them: `fl_frontend/src/features/saisons/recordedFactMirror.test.ts`,
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts`,
+`fl_frontend/src/features/spieltage/actions.test.ts`,
+`fl_frontend/src/shared/components/ui/tabIndicator.test.ts` and
+`fl_frontend/src/shared/testing/refusalRegister.ts`.
+
+**Done when** each class's verdict is recorded at COR-14's rung — the header of
+`fl_backend/tests/core/app_source.py`, the readers in `scripts/checks/docs_gate/kernel.py`, and
+`fl_frontend/src/shared/testing/refusalRegister.ts` for the cross-language reads — and each of the four
+spellings is either read correctly, its parser arriving as a pin in `fl_frontend/package.json` or
+`fl_backend/pyproject.toml` that states which gate scope and which job in
+`.github/workflows/verify.yml` runs it, or accepted as a loud false red by my ruling, the acceptance
+written at the reader's line. Every property asserted today is still asserted and still driven red
+afterwards, and an answer resting on practice outside this repository cites a public repository a
+reader can open.
 
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                        | Status | Depends on |
-| --------------------------------------------------------------------------- | ------ | ---------- |
-| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open   | —          |
+| Tags                                                                                                      | Status | Depends on |
+| --------------------------------------------------------------------------------------------------------- | ------ | ---------- |
+| FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open   | —          |
 
-**My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through a whole
-new season — its dates, which clubs play it, which clubs are new, and the rules it runs under — and the season
-is then built behind that flow, as automatically as it can be. Beside it, `/admin/kontakte` lists the school
-and team representatives a season holds. An accepted application tells its own contacts
-(`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what is still owed is that
-message for a team entered by hand, and a link or a code to paste into that team's group chat. The link leads
-to a page, also new, where the players of that team enter themselves with their position, squad number and the
-rest — a returning player recognised rather than duplicated, a number clash raised rather than stored. The
+**My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through
+a whole new season — its dates, which clubs play it, which clubs are new, and the rules it runs
+under — and the season is then built behind that flow, as automatically as it can be. Beside it, an
+admin page of the school and team representatives: each is told their team is in the new season and
+given a link or a code to paste into that team's group chat. The link leads to a page, also new,
+where the players of that team enter themselves with their position, squad number and the rest — a
+returning player recognised rather than duplicated, a number clash raised rather than stored. The
 Saison page and its editor change with it.
+
+**The representatives' page, the link and the page it opens are built; nothing admits what that page
+collects.** `/admin/kontakte` lists the representatives a season holds. An accepted application tells
+its own contacts (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what
+is still owed is that message for a team entered by hand. How a link is minted, mailed, replaced and
+shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I282 and I336. A link names the team
+and the season and nobody in them. A registration a pupil submits through it and confirms at their
+own link then waits in `registrierungen` as `eingereicht`: `fl_backend/app/api/registrierungen/router.py` lists
+the rows and no route admits or declines one, so every `saison_spieler` row is still one an
+administrator wrote, and a registered pupil is on no squad list. **The wait is bounded**: an
+unconfirmed registration is erased the day after its link's deadline, and one still `eingereicht` when
+its season turns `past` is erased whatever the pupil answered
+([`docs/backend/spec.md`](../backend/spec.md) I290, I292), so an admission has until its season ends
+to take one.
 
 **It is a programme, and its parts are not one change.**
 
-| Part                                                        | Needs first                                   | Could ship alone |
-| ----------------------------------------------------------- | --------------------------------------------- | ---------------- |
-| The guided creation flow, as a page over the create payload | —                                             | Yes              |
-| Drawing the season from that flow rather than by hand       | the flow                                      | No               |
-| Telling a representative entered by hand their team is in   | —                                             | Yes              |
-| A shareable link or code, and what it authorises            | a ruling on the authorisation model           | No               |
-| The public self-registration page                           | the link, and a public write path             | No               |
-| Recognising a returning player                              | the registration page                         | No               |
-| Raising a squad-number clash                                | the registration page; the reissue hole below | The hole, alone  |
-| Rework of the Saison page and its editor                    | whichever of the above lands                  | Yes              |
+| Part                                                        | Needs first                  | Could ship alone |
+| ----------------------------------------------------------- | ---------------------------- | ---------------- |
+| The guided creation flow, as a page over the create payload | —                            | Yes              |
+| Drawing the season from that flow rather than by hand       | the flow                     | No               |
+| Telling a representative entered by hand their team is in   | —                            | Yes              |
+| Admitting a confirmed registration into its squad           | —                            | Yes              |
+| Recognising a returning player                              | the admission                | No               |
+| Raising a squad-number clash                                | the admission                | No               |
+| Rework of the Saison page and its editor                    | whichever of the above lands | Yes              |
+
+**The invite's mail is not the message a team entered by hand is owed.** Both presses mail a link only to a
+seat whose own person confirmed it, a link being a credential — the club panel's through
+`fl_frontend/src/features/einladungen/empfaenger.ts :: bestaetigteEmpfaenger`, the season's through
+`fl_backend/app/api/einladungen/services.py :: bestaetigte_empfaenger`. A seat entered on the junction is stored unconfirmed
+(`fl_backend/app/api/teams/services.py :: UNCONFIRMED_HERKUNFT`) and only an application's own link confirms
+one, so a team entered by hand is mailed its link by neither press, and its administrator hands the link over
+by other means. The message this part adds cannot carry the link to an address nobody confirmed. What a
+failed notification does is fixed already — no failure to deliver a decision's message retracts the decision
+([`docs/frontend/spec.md`](../frontend/spec.md) I39).
 
 **The season's structure is not this entry's to build.**
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per phase the
@@ -539,24 +559,18 @@ one per round, so a knockout round is one matchday and not several — and `posi
 `saison_phase` are the draw's, on no payload afterwards. `/admin/spieltage` lists what the draw
 wrote, and a matchday's own editor sets the span the draw leaves null. What remains of the
 structural half is therefore the flow that collects the rules, not a second writer of anything:
-`spiele.spieltag_id` still has no fixture-level create or delete, and nothing needs one — the one
-endpoint that removes a matchday removes that season's fixtures in the same transaction, so the
-reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
+`spiele.spieltag_id` still has no fixture-level create or delete, and nothing needs one — both
+operations that remove a season's matchdays, a confirmed replace and the undraw, remove its fixtures
+in the same transaction, so the reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**A public write into application data has two precedents, and neither inserts a person into the
-league.** The application form's `POST /bewerbungen` is base-tier and stores what a school
-submitted, decided by nobody until the triage reaches it
-([`docs/backend/spec.md`](../backend/spec.md) §1.1); the confirmation page's
-`POST /bewerbungen/einwilligung` writes one named contact person's own answer into that stored
-application, authorised by an emailed token rather than by a session. Every other write that touches the league's own
-data sits behind `verify_access_admin`, declared at router level and inherited by the endpoints
-under it; the browser side of that is an email allowlist checked at sign-in and re-derived on every
-session read (`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no
-application data — the sign-in action, which triggers an outbound email and writes into the sign-in
-store alone, and `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and every
-public write is metered in `nginx/prod.conf` on a zone keyed so that only the POST is limited, the
-sign-in link's completion sharing the confirmation write's budget rather than taking its own. **A self-registration page is the first that inserts a person**, and the first whose text
-reaches a public page with no decision standing between.
+**No public write inserts a person into the league, and the admission will be the first write that
+does.** The application form's `POST /bewerbungen` stores what a school submitted, decided by nobody
+until the triage reaches it ([`docs/backend/spec.md`](../backend/spec.md) §1.1), and
+`POST /registrierungen` stores what a pupil submitted through a team's link, decided by nobody yet; each
+confirmation page writes one person's own answer into the record that named them, authorised by an emailed
+token rather than by a session. **An admission would be the decision standing between a stranger's
+submission and a public squad list**, and the first write to put a squad row and the person behind it
+from text nobody in the league typed.
 
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
 `spieler` holds the person and the `saison_spieler` junction holds everything a squad list shows;
@@ -566,24 +580,25 @@ never a second create. Making a create idempotent on a natural key was rejected 
 shorthand cannot distinguish the same club returning from a different one wanting those letters, and
 getting it wrong repoints history silently. **A typed name is a weaker key than a shorthand**, so the
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
-one, and the resolution belongs to somebody who can be wrong out loud. `ist_nachnominiert` is the
-field that already records a squad entry arriving after the season began, derived from the season's
-status rather than asked
-(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx`), and
-a self-registration into a running season is precisely that case.
+one, and the resolution belongs to somebody who can be wrong out loud. The confirmation page shows a
+returning pupil their stored birthdate and consent only where its bounded read at their address finds exactly
+one row carrying their name (`fl_backend/app/api/registrierungen/services.py :: sole_person`), which presents
+a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
+began, derived at the squad row's create from whether the first matchday's `beginn` has come rather than asked
+(`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), and a registration admitted
+into a running season is precisely that case: the marker belongs to the squad row an admission would
+write.
 
-**Nothing refuses a shared squad number and nothing reports one, so this page inherits a question
+**Nothing refuses a shared squad number and nothing reports one, so an admission inherits a question
 rather than a pattern.** A shared shirt is a permitted state on every write path
-(`fl_backend/app/core/domain.py :: UNENFORCED`). The squad editor's rail raises no banner about a
-number
-(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`),
-and the create form judges `nummer` on its format alone; the editor's save routes through a
-confirmation for any banner above `info`
+(`fl_backend/app/core/domain.py :: UNENFORCED`), and a registration judges `nummer` on its format
+alone. The squad editor's rail raises no banner about a number
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`);
+the editor's save routes through a confirmation for any banner above `info`
 (`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners`), and the only one it
-raises is `spieler.team-changed` — a transfer rather than a shirt. A page where a whole team enters
-itself multiplies those writes and has no admin reading them, so whether a self-registered player
-may take a shirt somebody in the squad already wears — and who is told — is a product call this
-entry owns, and no admin surface answers it first.
+raises is `spieler.team-changed` — a transfer rather than a shirt. A whole team registering itself
+multiplies those writes, so whether a player admitted from a registration may take a shirt somebody in
+the squad already wears — and who is told — is a product call this entry owns, and no admin surface answers it first.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
@@ -607,43 +622,16 @@ so a role added to the block reaches both collections in the commit that adds it
 reads the junction's copy, and `fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`
 is the one route that removes a person from either.
 
-**What a failed notification does is fixed too** — a decision's message reaches every person the
-application names and no failure to deliver it retracts the decision
-([`docs/frontend/spec.md`](../frontend/spec.md) I39). What is local to this entry is how little of
-that surface there is to copy from: `fl_frontend/src/core/mail.ts :: sendMail` has two callers
-today, the triage's fan-out in `sendBewerbungMail` and the sign-in link through the Resend provider's
-override in `fl_frontend/src/core/auth.ts`. Telling a representative entered by hand that their team
-is in adds the third.
-
-**Undecided, and each needs a ruling before the part depending on it starts:**
-
-- **What the link authorises, and what a leaked one can do.** A code per team per season, or a
-  signed URL; whether it expires with the registration window; whether it can be revoked and
-  reissued; and whether it identifies the team alone or the team and the person. A link pasted into
-  a group chat is a link that leaves the group chat.
-- **Whether a self-registered entry is live on submission or waits to be admitted.** A squad list is
-  a public page, so a public write that lands straight in one is public text written by an
-  unauthenticated stranger — the trust `teams.description` and an `austritt`'s `grund` already
-  carry, extended to somebody the league has not authenticated.
-- **What the form may ask for, and where the notice saying so lives.** `stufe` is the Hessen
-  Oberstufe, so the people typing into this page are school pupils. The public route group
-  `fl_frontend/src/app/(public)/(meta)/` holds `about`, `kontakt` and `team`. Everyone signing up
-  gives their own consent there and the minimum age is 16 (`docs/datenschutz.md` §2), so the flow is
-  also where a consent text and a birthdate are collected.
-- **Whether the flow may enter a club it has just created.** No junction row is ever removed —
-  `saison_teams` has a POST, a PATCH and a replace, and no DELETE — but a club does leave a season
-  two ways, and the WRONG club is the repairable one:
-  `POST /teams/{team_id}/saisons/{saison_id}/replace` hands the row to the club that should have
-  been entered, reseeding its identity copy and carrying the change into the season's fixtures,
-  refused in a `past` season and once any of those fixtures has left a record (`REQ-REPLACE-001`,
-  `-002`). What it does not reach is the club too MANY: a replacement brings one club in for one
-  going out, and refuses a club the season already holds (`-003`), so a wizard that enters a club
-  nobody should have entered still ends in an `austritt` — a public record with a reason on it,
-  which is a heavy consequence for a step in a flow designed to be fast.
-- **What a rate limit for this surface should be.** The zones that exist are sized for a person
-  signing in, for a crashing browser, and for one school submitting one application; a whole squad
-  filling a form in one break is a different shape of traffic on the same edge, so `zone=bewerbung`
-  ([`docs/ops/spec.md`](../ops/spec.md) §1.3) is the nearest precedent rather than the answer.
+**Undecided, and it needs a ruling before the flow enters a club: whether the flow may enter a club
+it has just created.** No junction row is ever removed — `saison_teams` has a POST, a PATCH and a
+replace, and no DELETE — but a club does leave a season two ways, and the WRONG club is the
+repairable one: `POST /teams/{team_id}/saisons/{saison_id}/replace` hands the row to the club that
+should have been entered, reseeding its identity copy and carrying the change into the season's
+fixtures, refused in a `past` season and once any of those fixtures has left a record
+(`REQ-REPLACE-001`, `-002`). What it does not reach is the club too MANY: a replacement brings one
+club in for one going out, and refuses a club the season already holds (`-003`), so a wizard that
+enters a club nobody should have entered still ends in an `austritt` — a public record with a reason
+on it, which is a heavy consequence for a step in a flow designed to be fast.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
