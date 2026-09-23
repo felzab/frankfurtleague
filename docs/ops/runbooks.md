@@ -174,28 +174,26 @@ previous one lists the old name under `required`, so a `$rename` run under it pr
 missing a required field and is refused for every row; the same strictness refuses an erasure's
 `$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
 which is why the rename cannot wait either. **This repository holds no migration runner and no
-migration**: the command belongs to the change that needs it and is run by hand against the
-database, so what is written here is the order alone.
+migration**: the command belongs to the change that needs it and is run by hand as a MongoDB
+Playground paste against the cluster, as every migration here is, so what is written here is the
+order alone.
 
 1. `--check` from the new checkout while the old image still serves. Every row is reported as
    missing the new name, which is the confirmation that the rename is owed rather than a finding to
    fix — and it is the count step 3 is read against.
 2. Deploy. The boot attaches the new validator before the image serves.
 3. **At once**, the rename. Between this step and the previous one every read of the renamed field
-   fails and an erasure over such a row is refused, so type it as the deploy reports healthy.
+   fails and an erasure over such a row is refused, so paste it as the deploy reports healthy.
 4. `--check` again: clean.
 5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
    different options and creates nothing under a name it does not declare, so the boot leaves the old
    one standing forever.
 
-**Four things decide whether the command typed at step 3 is the right one.**
+**Three things decide whether the command pasted at step 3 is the right one.**
 
-- **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
-  one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
-  than `--check`'s eight.
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
-- **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
-  new validator refuses for a reason of its own. Repair the row the raised error names and run again:
+- **`updateMany` is ordered**, so a count below what step 1 reported means it stopped at a row the
+  new validator refuses for a reason of its own. Repair the row the error names and paste it again:
   a filter on the old name's `$exists` skips every row already moved, which is what makes the command
   re-runnable rather than a thing to get right once.
 - **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
@@ -257,7 +255,7 @@ and the drop is only half the procedure.** `collMod` reaches the filter in neith
 live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
 inside the wide one, so any that would collide have to move before the boot rebuilds it, which fixes
 the order: move the rows while the old build still serves, drop the index in the deploy's own window
-as above. The moves are typed by hand as every migration here is, keyed on a state the previous
+as above. The moves are a Playground paste as every migration here is, keyed on a state the previous
 statement leaves so a paste that dies partway is repaired by pasting it again. **Run the `--check` at
 the head of this section only once the rows have moved**: it groups every row against the widened
 rule, so before the move it answers about a database the boot will not meet.
@@ -938,10 +936,9 @@ and no validator expresses the pairing either
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
 were collected on
 ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. **The clear is typed by hand in `mongosh` against the
-cluster, as every migration here is** (§2) — the backend image carries none, and §2 says what a
-command run through that image instead looks like. Four things decide whether the one typed is
-right:
+so an accepted school holds each date twice. **The clear is run by hand as a MongoDB Playground
+paste against the cluster, as every migration here is** (§2), the backend image carrying no
+database shell. Four things decide whether the one pasted is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
   that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
@@ -978,8 +975,8 @@ no `at_date` says how many are left.
 **Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
 write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
 so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
-first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is typed by
-hand in `mongosh`, as every migration here is (§2).
+first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
+hand as a MongoDB Playground paste, as every migration here is (§2).
 
 ## 13. After a restore from a snapshot
 
