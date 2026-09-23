@@ -88,6 +88,7 @@ deliverable.
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                              | BE, DB, Docs, tests, registrierungen                                                                      | Blocked  |
 | `dgdv-27yw` | No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared             | FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage                                                | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                            | FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open     |
+| `f8sh-mbgg` | The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it                                     | FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele    | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                                         | FE, BE, Ops, Docs, gate, tests                                                                            | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                          | FE, BE, spiele                                                                                            | Skipped  |
 | `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                                        | FE, BE, meta, schiedsrichter                                                                              | Open     |
@@ -632,6 +633,132 @@ fixtures, refused in a `past` season and once any of those fixtures has left a r
 club in for one going out, and refuses a club the season already holds (`-003`), so a wizard that
 enters a club nobody should have entered still ends in an `austritt` — a public record with a reason
 on it, which is a heavy consequence for a step in a flow designed to be fast.
+
+### `f8sh-mbgg` · The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it
+
+| Tags                                                                                                   | Status | Depends on |
+| ------------------------------------------------------------------------------------------------------ | ------ | ---------- |
+| FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele | Open   | —          |
+
+**My item, 2026-09-23.** A later session redoes the design and the UI and UX of the whole site, to
+make it more professional and better, and takes the frontend's deduplication, the deletion of
+whatever is unnecessary and its general cleanup with it rather than beside it. What a sweep of the
+frontend found is below; the intent is wider than those findings, and the session is judged against
+the intent.
+
+**Two page shells are assembled by hand on every page that has one, and each has one reason to
+change.** jscpd over the frontend's production sources, run on this tree on 2026-09-23:
+
+- **The entity editor.** Every editor that renders `ConfirmSaveModal` wraps its own sections in the
+  same frame — `DraftStatusProvider` around the form, `EditFormLayout` and its rail,
+  `FormActionBar`, `ConfirmDiscardModal` and `ConfirmSaveModal` — about 40 to 76 duplicated lines
+  per pair of editors. The parts are shared already ([`docs/frontend/spec.md`](../frontend/spec.md)
+  §1.14), so what repeats is their assembly.
+- **The admin table.** Every `Admin*Table.tsx` under `fl_frontend/src/features` builds the same
+  frame around its columns — a card per row below `md`, a `Table` inside a card above it, and the
+  shared empty row and empty card — about 27 duplicated lines each.
+
+**Sweeps read each of those pages as source, and they move in the same change as the shell.**
+`fl_frontend/src/features/admin/saveConfirmation.test.ts` finds the editors by the text
+`<ConfirmSaveModal` in their files, and `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+finds the tables by the shared emptiness beside a react-aria table and reads each one's column
+arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns
+it red; the repair re-aims it at the shared component and keeps asserting what it asserted per page,
+because a case is cut only where a surviving one still fails for the same regression
+(`.claude/CLAUDE.md` §3).
+
+**Three smaller duplications sit on pages the redesign reaches, each shaped and none built:**
+
+- **The confirmation pages' scope picker and answer handling.** The pupil's page and the referee's,
+  `fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
+  `fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx`,
+  share 113 lines over ten spans — the `ToggleButtonGroup` over the stamped `umfang` options, and
+  the arms for an unclear answer, a dead link and a refused submission — and each shares 53 or 60
+  more with the contact seat's page, `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx`.
+  The shape is one picker taking its options, its value and its setter, and one answer handler.
+  **The options are passed, never derived**: `umfang` holds different values on a pupil and on a
+  contact seat, so a picker reading one model's vocabulary is wrong on the other with no type
+  refusing it (`docs/glossary.md :: Einwilligung`). None was built because each page's copy and
+  payload differ, and the three are read side by side before one shape is chosen.
+- **The error boundaries' retry.** `fl_frontend/src/shared/components/ui/Error.tsx` and
+  `fl_frontend/src/features/dashboard/components/ui/DashboardErrorBoundary.tsx` wire the same
+  refresh-then-reset retry, and the argument for it is written at `Error.tsx` alone. The shape is
+  one hook; `fl_frontend/src/shared/hooks/errorBoundaryReports.test.ts` finds each boundary by the
+  text `useReportClientCrash(` in its file, so that sweep follows the call into the hook in the same
+  change.
+
+**Two test doubles are copied, and this pass takes them as the frontend's cleanup rather than a
+page's:**
+
+- **`aRequest`**, spelled in each route test under `fl_frontend/src/app/api/` that declares one, in
+  three variants — throwing on an absent body, not throwing, and taking headers alone. One helper,
+  with the throwing and the non-throwing variants kept apart until each caller is read.
+- **`Barrier`**, identical in `fl_frontend/src/core/auth.db.test.ts` and
+  `fl_frontend/src/features/passkeys/actions.db.test.ts`. **It cannot move to
+  `fl_frontend/src/shared/testing/`**: `fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY` keeps every
+  file under `core/`, a test included, from importing `shared`, so the one copy sits where both may
+  import it, and the db tier proves the move.
+
+**What the redesign reopens from what that sweep kept, and what it does not:**
+
+- **The panel recipe.** jscpd pairs sections across the editors' panels on their imports and their
+  panel header alone; `fl_frontend/src/shared/components/ui/formPanel.ts` and
+  `fl_frontend/src/shared/components/ui/PanelHeading.tsx` already carry what they share, and each
+  section's fields are its own. A new panel look changes the recipe, never a section.
+- **The match details dialog's own blur layer.**
+  `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx` carries a copy of the
+  blur beside `fl_frontend/src/shared/components/ui/ModalShell.tsx` on purpose, as the comment at the
+  line says, so a new dialog treatment reaches both.
+- **Not reopened: the three match cards.** `.claude/rules/frontend.md`'s `spiele` clause forbids
+  merging the `SpielCard` variants and [`docs/frontend/spec.md`](../frontend/spec.md) §1.6 records
+  why, so the redesign restyles all three and keeps them three.
+
+**What holds through the redesign:**
+
+- **Consistency over any locally better shape.** One mechanism, declared once as a token and
+  consumed everywhere, beats a value that looks better on one page, and a real exception is ratified
+  in prose where the next sweep finds it. The grammar the redesign replaces is
+  [`docs/frontend/spec.md`](../frontend/spec.md) §1.16 to §1.21, over the tokens in
+  `fl_frontend/src/app/globals.css`, and the sweeps holding it —
+  `fl_frontend/src/shared/components/ui/gapLadder.test.ts` and
+  `fl_frontend/src/shared/components/ui/hoverToken.test.ts` among them — change with their rule
+  rather than being deleted. **No page leads its neighbours**: a page on the new grammar beside
+  pages on the old reads as a defect, so a new rule reaches every page it governs in the change that
+  introduces it.
+- **Every string a visitor reads or navigates by is mine.** A heading, a label, a button or a
+  sentence the redesign changes is proposed to me and never shipped unasked, under
+  [`docs/frontend/spec.md`](../frontend/spec.md) §1.12, where a sentence I dictated outranks the rule
+  generalised from it.
+- **I judge the result on the local stack.** A direction is shown to me as its current and proposed
+  values side by side before I choose it, and a finished surface is served by
+  `scripts/ops/local.sh` and read there — never on a dev server, which exercises neither the
+  standalone build nor nginx.
+- **The ratified clauses stay.** Every line of `.claude/rules/frontend.md` and of
+  `.claude/CLAUDE.md` §7 is a decision rather than a cleanup target — the styling and motion clauses
+  above all, which read most like leftovers — and changes only on an instruction of mine naming it.
+- **No new inline `style` attribute.** Each one a server render emits is one more for `qw6j-scru`
+  to remove before `style-src 'self'` can ship, and that entry's swatches and `ScrollShadow` are
+  surfaces this pass restyles anyway.
+
+**Undecided, and it needs a ruling before the redesign starts: whether `6m3r-xpcu`'s replacement of
+the component library lands in the same pass.** Its leading candidate replaces HeroUI's styled layer
+and moves the HeroUI half of `fl_frontend/src/app/globals.css` into owned component files, which is
+the layer a redesign restyles, so taking the two one after the other writes that layer twice; its
+closing judgement, mine over the local stack, is this entry's too. Beside it, `qstz-dwrj` stays
+skipped through the redesign and the editor shell keeps the slot it would fill,
+`fl_frontend/src/shared/components/ui/FieldLabel.tsx :: FieldLabel`'s `extraMarker`; and
+`f3ar-m4qf`'s guided season flow copies the season editor's page pattern, so whichever of the two
+lands second is built on the other's shell.
+
+**Done when** the site stands on one new grammar recorded in
+[`docs/frontend/spec.md`](../frontend/spec.md), every page on it; each finding above is merged,
+deleted or ruled kept, a kept one at the line or the rule that says why; and I have judged the whole
+site over the local stack.
+
+**Not verified.** The pairs are jscpd's matches over a snapshot of this working tree taken
+2026-09-23 and were not re-read against later edits; nothing above is prototyped, and none of it has
+been seen in a browser. The spans of every pair, the knip run and the whole of what the sweep kept
+are in the body of the commit that filed this entry.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
