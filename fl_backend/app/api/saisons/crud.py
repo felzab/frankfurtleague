@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from pymongo import DESCENDING
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import CURRENT_SAISON_CACHE_KEY, read_cached_saison, saison_cache_generation, store_cached_saison
@@ -48,17 +49,25 @@ async def pull_current_saison_id(saisons_collection: AsyncCollection) -> str:
     return str(saison_raw["_id"])
 
 
-async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection) -> str | None:
+async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one, else the last one that ran.
 
     `None` rather than a 404 where the league has run none, so the caller decides what that means.
     """
 
     try:
-        return await pull_current_saison_id(saisons_collection=saisons_collection)
+        if session is None:
+            return await pull_current_saison_id(saisons_collection=saisons_collection)
+
+        # Past the cache: a rollover drops it only once it has committed, so it can answer a season
+        # older than the snapshot the caller's transaction reads.
+        running = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"], session=session)
+
+        return str(running["_id"])
     except DocumentNotFoundException:
-        # An ordinary state rather than a fault: the rollover demotes the outgoing season before
-        # anybody activates the next one, and the league sits here until they do.
+        # Ordinary rather than a fault before the league's first activation; after it the rollover
+        # demotes and promotes in one transaction (`docs/backend/spec.md :: I18`), so the `past` read
+        # below finds a season only where a status was set by hand.
         pass
 
     # Read rather than stored beside the cached season: what this answers is a projection over the
@@ -69,6 +78,7 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection) -> st
         limit=1,
         sort_by=[("_id", DESCENDING)],
         projection=["_id"],
+        session=session,
     )
 
     return str(ran[0]["_id"]) if ran else None

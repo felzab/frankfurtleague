@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -204,7 +205,7 @@ class TestWhatTheWriteRecords:
 
 class TestTheSeasonTheBanIsCountedFrom:
     def test_the_running_season_answers_while_one_is_active(self, mongo_replica_set_url: str):
-        """The ordinary state, and the control under the two below: a helper answering the newest season at all times passes each of them."""
+        """The ordinary state, and the control under the next two: a helper answering the newest season at all times passes each of them."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
             return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
@@ -214,7 +215,10 @@ class TestTheSeasonTheBanIsCountedFrom:
         assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
 
     def test_the_last_season_that_ran_answers_between_two_seasons(self, mongo_replica_set_url: str):
-        """The state a rollover leaves for as long as nobody activates the next season, which is most of a year."""
+        """A status set by hand: no route leaves the league here.
+
+        The rollover promotes in the transaction that demotes (`docs/backend/spec.md :: I18`).
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
             return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
@@ -230,6 +234,47 @@ class TestTheSeasonTheBanIsCountedFrom:
             return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
+
+    def test_only_a_caller_without_a_session_is_answered_from_the_season_cache(self, mongo_replica_set_url: str):
+        """BOTH sides: a helper never consulting the cache fails the first answer, and one consulting it under a session fails the second."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
+            saisons = database[Collection.SAISONS]
+            await pull_massgebliche_saison_id(saisons_collection=saisons)
+            # Moved by hand, so nothing drops the season the read above cached.
+            await saisons.update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
+            await saisons.update_one({"_id": "2027"}, {"$set": {"status": "active"}})
+
+            async with client.start_session() as session:
+                cached = await pull_massgebliche_saison_id(saisons_collection=saisons)
+                sessioned = await pull_massgebliche_saison_id(saisons_collection=saisons, session=session)
+
+            return cached, sessioned
+
+        seasons = [saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
+
+        assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
+
+    def test_the_last_season_that_ran_is_read_through_the_session_too(self, mongo_replica_set_url: str):
+        """A season the transaction wrote is seen through its session alone, so the fallback answers it only when handed that session."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
+            saisons = database[Collection.SAISONS]
+
+            async def write_then_read(session: AsyncClientSession) -> tuple[str | None, str | None]:
+                await saisons.insert_one(saison_document("2028", "past"), session=session)
+
+                return (
+                    await pull_massgebliche_saison_id(saisons_collection=saisons, session=session),
+                    await pull_massgebliche_saison_id(saisons_collection=saisons),
+                )
+
+            async with client.start_session() as session:
+                return await session.with_transaction(write_then_read)
+
+        seasons = [saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
+
+        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", ENTERED_UNDER)
 
 
 class TestALeagueThatHasNotRunASeasonYet:
@@ -311,8 +356,8 @@ class TestTheSweepAtAnActivation:
             await database[Collection.SAISONS].update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
             invalidate_saison_cache()
             await a_drawn_target(database, FIRST_CLEAR)
-            # Entered while the league sits between seasons, so this one is counted from 2026 as
-            # well and lapses five seasons after the row above.
+            # Entered with 2026 set `past` by hand and nothing active, so this one is counted from
+            # 2026 as well and lapses five seasons after the row above.
             await ban(database, client, email=OTHER)
             await database[Collection.SPERRLISTE].update_one(
                 {"adresse_hash": adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel)},

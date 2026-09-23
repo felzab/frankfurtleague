@@ -65,6 +65,9 @@ async def address_is_gesperrt(
     *,
     sperrliste_collection: AsyncCollection,
     adresse_hash: str,
+    # May be read before the caller's transaction, every rollover erasing what it lapses in the one
+    # moving the season (`docs/backend/spec.md :: I274`): an older reference matches as a sequential
+    # order would. Never for a ban's bound, written from it.
     massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> bool:
