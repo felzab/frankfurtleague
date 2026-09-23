@@ -209,6 +209,8 @@ export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponse
   // The floor this person has to reach, over the wire rather than retyped here: a constant of this
   // side's own would be a second number nothing compares.
   mindestalter: z.number().int(),
+  // The age the media switch is offered from, over the wire for `mindestalter`'s reason.
+  medien_mindestalter: z.number().int(),
   frist: CustomDateStringSchema,
 });
 export type FLSchiedsrichterBestaetigungAnsichtResponse = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtResponseSchema>;

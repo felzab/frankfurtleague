@@ -190,6 +190,16 @@ describe("what one refused confirmation shows", () => {
     assert.equal(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(null).lesen), null);
   });
 
+  /* Only a page older than the media rule sends a yes below the media age, so the answer is the
+     drifted client's reload and never a panel or a field that would call a right date wrong. */
+  it("answers a media yes below the media age with the reload a stale page needs", async () => {
+    const mapped = await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-010"), floorOf(16).lesen);
+
+    assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
+    assert.equal(mapped?.zustand, undefined);
+    assert.equal(mapped?.fieldErrors, undefined);
+  });
+
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
     assert.equal((await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.zustand, undefined);
   });
@@ -198,7 +208,13 @@ describe("what one refused confirmation shows", () => {
      confirmation raises and this mapper does not know falls through to the 409 fallback. */
   it("maps every code the confirmation declares, and no code it does not", async () => {
     const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen/bestaetigung")).map((rule) => rule.code);
-    const mapped = ["REQ-REGISTRIERUNG-004", "REQ-REGISTRIERUNG-005", "REQ-REGISTRIERUNG-006", "REQ-REGISTRIERUNG-007"];
+    const mapped = [
+      "REQ-REGISTRIERUNG-004",
+      "REQ-REGISTRIERUNG-005",
+      "REQ-REGISTRIERUNG-006",
+      "REQ-REGISTRIERUNG-007",
+      "REQ-REGISTRIERUNG-010",
+    ];
 
     for (const code of mapped) {
       assert.notEqual(await mapBestaetigungRefusal(refusal(code), floorOf(16).lesen), null, `${code} is listed here and maps to nothing`);

@@ -60,6 +60,7 @@ const ANSICHT = {
   vorname: "Anna",
   text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
   mindestalter: 16,
+  medien_mindestalter: 18,
   frist: "2026-10-05",
 };
 

@@ -62,6 +62,11 @@ export function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | n
 
 export type SchiedsrichterBestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: SchiedsrichterLinkZustand };
 
+/** An answer only a page older than the running one could have sent, which a reload replaces. */
+const VERALTETE_SEITE: SchiedsrichterBestaetigungRefusal = {
+  error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
+};
+
 // A thunk, never a number: the floor is read for the age arm alone, and a caller resolving it first
 // answers the three arms that SPEND the link out of a second read, which finds nothing to read.
 /**
@@ -75,15 +80,15 @@ export async function mapSchiedsrichterBestaetigungRefusal(
   if (!(error instanceof APIBadStatusError)) return null;
 
   // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
-    };
-  }
+  if (error.statusCode === 422) return VERALTETE_SEITE;
 
   if (error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
+    // The page offers no media switch below the served age, so only a page older than that rule
+    // sends this answer, and a reload is its repair as it is the 422's.
+    case "REQ-SCHIEDSRICHTER-008":
+      return VERALTETE_SEITE;
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":

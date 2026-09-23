@@ -236,7 +236,7 @@ class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):
 
 
 class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
-    """What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."""
+    """What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."""
 
     zustand: FLRegistrierungBestaetigungZustand
     # The club's short name and its own `full_name`, a club here BEING a school: the ruled consent
@@ -251,6 +251,9 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
     mindestalter: int
+    # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
+    # switch only from it, and a copy of its own would offer it where the write refuses.
+    medien_mindestalter: int
     # All three null where the league holds no record for this person, and null where one address
     # stands behind several, whom this read cannot tell apart.
     geburtsdatum: CustomOptionalDateString

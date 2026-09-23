@@ -1698,6 +1698,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-008",
+        operation="POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a consent to publishing photographs, video and interviews is taken only from a referee of the media age",
+        implemented_by="app.api.schiedsrichter.services.find_medien_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheMediaAge",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
@@ -1973,6 +1981,14 @@ RULES: tuple[Rule, ...] = (
         summary="an address the ban list holds registers nobody",
         implemented_by="app.api.registrierungen.services.find_gesperrt_refusal",
         tested_by="tests/api/test_registrierung_submission_refusal.py::TestABannedAddress",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-010",
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="a consent to publishing photographs, video and interviews is taken only from a pupil of the media age",
+        implemented_by="app.api.registrierungen.services.find_medien_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheMediaAge",
     ),
 )
 

@@ -31,6 +31,7 @@ const { calls, answerWith } = doubleActions({
 const { raised } = doubleToasts();
 
 const { BewerbungBestaetigungStrip } = await import("./BewerbungBestaetigungStrip.tsx");
+const { BestaetigungHinweise } = await import("./BestaetigungHinweise.tsx");
 
 const { router, seen } = recordingRouter();
 
@@ -464,24 +465,44 @@ describe("seating another person where one stepped out", () => {
     assert.ok(!reseat("Ansprechperson"), "one person's two seats each carry their own control");
   });
 
-  /* The stored record cites a Kenntnisnahme, and the person it names is not here to read it: the
-     administrator writing the record is the only one who can weigh what it claims. */
-  it("shows the wording the record it writes will cite, linked to the privacy notice", async () => {
+  /* The person reads the confirmation page and never the form, whose words address the submitter. */
+  it("shows the confirmation page's opening words every person reads alike, in its order, and none of the form's", async () => {
+    // Read off the page itself, rendered with a marker in every slot, so a paragraph the page adds,
+    // drops or moves fails here rather than drifting from the box.
+    const markiert = "MARKIERT-SLOT";
+    const seite = render(
+      underNext(h(BestaetigungHinweise, { schule: markiert, saison: markiert, rolle: markiert, mindestalter: 987, ablehnenLabel: markiert }), {
+        router,
+      }),
+    );
+    const seitenAbsaetze = [...seite.container.querySelectorAll("p, li")].map((absatz) => absatz.textContent ?? "");
+    seite.unmount();
+
     const user = userEvent.setup();
     renderStrip({ stands: standsOf(claraStieAus) });
-
     await user.click(reseat("Trainer") ?? assert.fail("the emptied seat offers no control"));
 
+    const kopf = screen.getByText("Diese Person bekommt den Bestätigungslink und wird dort gefragt:");
+    const box = kopf.parentElement ?? assert.fail("the box's heading stands in no box");
     // Read off `textContent` rather than matched as one node: the linked notice splits the paragraph
     // that names it into three, and a node matcher then finds neither half.
-    const gerendert = document.body.textContent ?? "";
+    const gezeigt = [...box.querySelectorAll("p")].filter((absatz) => absatz !== kopf).map((absatz) => absatz.textContent ?? "");
 
+    assert.notEqual(gezeigt.length, 0, "the box shows none of the page's words");
+    assert.deepEqual(
+      gezeigt,
+      seitenAbsaetze.filter((absatz) => !absatz.includes(markiert) && !absatz.includes("987")),
+      "the box shows other words than the page opens with, or in another order",
+    );
     for (const absatz of LIGA_KENNTNISNAHME.absaetze) {
-      assert.ok(gerendert.includes(absatz), `the box withholds a paragraph of the wording it stamps: ${absatz.slice(0, 40)}`);
+      assert.ok(
+        !(box.textContent ?? "").includes(absatz),
+        `the box shows the form's words to a person who never sees the form: ${absatz.slice(0, 40)}`,
+      );
     }
     assert.ok(
       screen.getAllByRole("link", { name: "Datenschutzerklärung" }).length > 0,
-      "the wording names the notice and the box gives the reader no way to it",
+      "the page links the notice and the box gives the reader no way to it",
     );
   });
 

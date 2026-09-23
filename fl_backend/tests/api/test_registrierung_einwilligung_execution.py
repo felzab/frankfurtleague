@@ -12,13 +12,14 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPa
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
+    REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     compose_bestaetigung,
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -55,7 +56,9 @@ FOLDED_EMAIL = "quillhilde@example.com"
 # Against `TODAY`, `2010-04-01` is 16 to the day and `2010-04-02` is 15 years and 364 days.
 AT_THE_FLOOR = "2010-04-01"
 A_DAY_SHORT = "2010-04-02"
-A_RETURNING_PUPILS_BIRTHDATE = "2008-07-14"
+# Eighteen by the held consent's `datum`, as its media yes requires
+# (`app/api/registrierungen/services.py :: find_medien_refusal`): a record no write could store proves nothing.
+A_RETURNING_PUPILS_BIRTHDATE = "2007-07-14"
 A_TWINS_BIRTHDATE = "2007-02-02"
 
 THIS_SEASONS_LABEL = "2026-09-spielerseite"
@@ -181,7 +184,8 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "token": token,
         "geburtsdatum": AT_THE_FLOOR,
         "umfang": "kader_oeffentlich",
-        "medien": True,
+        # Off, because the default date is sixteen: a media consent is refused below eighteen.
+        "medien": False,
         "text_version": THIS_SEASONS_LABEL,
         **overrides,
     }
@@ -384,7 +388,7 @@ class TestWhatAConfirmationWrites:
             "datum": TODAY,
             "bestaetigt_am": TODAY,
             "text_version": THIS_SEASONS_LABEL,
-            "medien": True,
+            "medien": False,
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["bestaetigung"]["token_hash"] == TOKEN_HASH
@@ -392,7 +396,7 @@ class TestWhatAConfirmationWrites:
             "bestaetigt",
             AT_THE_FLOOR,
             "kader_oeffentlich",
-            True,
+            False,
         )
         # One write, one row, one image: the confirmation is a patch and files its pre-image like any other.
         assert [row["operation"] for row in rows] == ["patch_one"]
@@ -455,8 +459,10 @@ class TestWhatAConfirmationWrites:
 
 class TestTheLinkIsSpentByTheStamp:
     def test_a_second_press_is_refused_and_the_first_answer_stands(self, mongo_replica_set_url: str):
+        """The first answer carries `medien`, so a refused press that overwrote either half of the pair turns this red."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW)
+            await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
             with pytest.raises(DocumentConflictException) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
@@ -557,3 +563,28 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert code == REGISTRIERUNG_TOKEN_UNKNOWN
         assert document == registrierung_document()
+
+
+# Against `TODAY`, 18 to the day and 17 years and 364 days.
+AT_THE_MEDIA_AGE = "2008-04-01"
+A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
+
+
+class TestTheMediaAge:
+    """`REQ-REGISTRIERUNG-010` at the endpoint: the refusal is wired in, and judged before the write."""
+
+    def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
+        assert on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as conflict:
+                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+
+            return conflict.value.error_code, await stored(database), await log_rows(database)
+
+        code, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_MEDIEN_ALTER
+        assert document == registrierung_document()
+        assert rows == []

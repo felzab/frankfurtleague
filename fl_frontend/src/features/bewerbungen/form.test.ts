@@ -551,6 +551,17 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
     );
   });
 
+  /* The form is the submitting Ansprechperson's first contact, and Art. 21(4) DSGVO asks the objection
+     there apart from every other piece of information: a clause inside another paragraph is not that. */
+  it("renders the objection as a paragraph of its own", () => {
+    assert.ok(
+      FORM_MARKUP.includes(
+        '<p class="muted-meta">Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).</p>',
+      ),
+      "the form states no objection, or states it inside another paragraph",
+    );
+  });
+
   /* A `FieldError` with nothing to say renders no element, so the class is read off a refusal the
      form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {

@@ -17,6 +17,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_ERTEILT_VON,
+    REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     TOKEN_HASH_FIELDS,
@@ -27,6 +28,7 @@ from app.api.registrierungen.services import (
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
+    find_medien_refusal,
     find_unknown_token_refusal,
     persons_named,
     sole_person,
@@ -34,7 +36,12 @@ from app.api.registrierungen.services import (
 )
 from app.core.collections import Collection
 from app.core.constraints import _EINWILLIGUNG, _EINWILLIGUNG_QUELLEN, _EINWILLIGUNG_UMFANG, _REGISTRIERUNG_BESTAETIGUNG, SUPPORT_INDEXES
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import (
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    MEDIEN_MIN_AGE_YEARS,
+    REGISTRIERUNG_MIN_ALTER_JAHRE,
+)
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -121,7 +128,7 @@ class TestTheLookupAndItsProjections:
 
         assert not any(key.startswith("bestaetigung.token_hash") for key in projection)
 
-    def test_the_view_declares_exactly_the_ten_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_eleven_names_it_may_answer(self):
         """An EQUALITY, not a subset.
 
         This is the widest of the link reads, so a field added to the model reaches a caller
@@ -137,6 +144,7 @@ class TestTheLookupAndItsProjections:
             "vorname",
             "text_version",
             "mindestalter",
+            "medien_mindestalter",
             "geburtsdatum",
             "umfang",
             "medien",
@@ -267,6 +275,35 @@ class TestTheAgeAtConfirmation:
         assert BEWERBUNG_KONTAKT_MAX_AGE_YEARS == 120
         assert refusal is not None
         assert "120" in refusal.message
+
+
+# Against `TODAY`, `2008-04-01` is 18 to the day and `2008-04-02` is 17 years and 364 days.
+MEDIA_BOUNDARIES = [
+    pytest.param("2008-04-02", True, True, id="a day short of 18, saying yes"),
+    pytest.param("2008-04-01", True, False, id="18 to the day, saying yes"),
+    pytest.param("2010-04-01", False, False, id="16, saying no"),
+    pytest.param("2008-04-02", False, False, id="a day short of 18, saying no"),
+]
+
+
+class TestTheMediaAge:
+    """`REQ-REGISTRIERUNG-010`: a media consent is an adult's alone, and a `False` is every admitted age's answer."""
+
+    @pytest.mark.parametrize(("geburtsdatum", "medien", "refused"), MEDIA_BOUNDARIES)
+    def test_each_boundary_falls_where_the_media_age_says(self, geburtsdatum: str, medien: bool, refused: bool):
+        refusal = find_medien_refusal(geburtsdatum=geburtsdatum, medien=medien, today=TODAY)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or refusal.error_code == REGISTRIERUNG_MEDIEN_ALTER
+
+    def test_the_age_is_the_rulings_eighteen_and_the_refusal_names_it(self):
+        """The literal for the reason the floor's case gives: the constant is what composed the sentence being read."""
+
+        refusal = find_medien_refusal(geburtsdatum="2010-04-01", medien=True, today=TODAY)
+
+        assert MEDIEN_MIN_AGE_YEARS == 18
+        assert refusal is not None
+        assert "18" in refusal.message
 
 
 class TestWhatAReopenedLinkShows:

@@ -187,6 +187,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
       <section className={ABSCHNITT}>
         <h3 className={FORM_SECTION_HEADING}>Deine Rechte</h3>
         <p className={ABSATZ}>{absatz("widerruf")}</p>
+        <p className={ABSATZ}>{absatz("art21")}</p>
       </section>
     </BestaetigungAbschnitt>
   );
@@ -378,19 +379,26 @@ function SpielerBestaetigungForm({
     failureTitle: "Antwort nicht gespeichert",
   });
 
+  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
+
+  // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
+  // and a switch offered then would be one the write refuses for anybody under it.
+  const medienAngeboten =
+    entwurf.geburtsdatum !== "" && entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_mindestalter).spaeteste;
+
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
     umfang: entwurf.umfang,
-    medien: entwurf.medien,
+    // Never the draft's own `true` where no switch stands: a returning pupil's stored answer, or one
+    // given before the date moved below the media age, would send a consent this page withheld.
+    medien: medienAngeboten && entwurf.medien,
     text_version: fassung.textVersion,
   });
 
   useForgiveFixed({ bestaetigung: payload() });
-
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old to ask their team for a place is the wrong repair.
@@ -402,6 +410,7 @@ function SpielerBestaetigungForm({
     schule: ansicht.schule,
     saison: ansicht.saison_id,
     minAlter: String(ansicht.mindestalter),
+    medienMinAlter: String(ansicht.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
     // Filled rather than left standing: `fuelleFassung` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
@@ -552,18 +561,22 @@ function SpielerBestaetigungForm({
 
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
-          <Switch
-            className="flex w-full flex-col gap-y-1"
-            name="medien"
-            isSelected={entwurf.medien}
-            onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
-            <Switch.Content className={panel.switchContent()}>
-              {fassung.schalter}
-              <Switch.Control className={panel.switchControl()}>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
+          {/* The paragraph below stands for every age and the switch alone goes: the record's label
+              then reproduces the screen whichever of the two its person was shown. */}
+          {medienAngeboten && (
+            <Switch
+              className="flex w-full flex-col gap-y-1"
+              name="medien"
+              isSelected={entwurf.medien}
+              onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
+              <Switch.Content className={panel.switchContent()}>
+                {fassung.schalter}
+                <Switch.Control className={panel.switchControl()}>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
+          )}
           <p className={ABSATZ}>
             <Gefuellt
               text={fassung.absaetze.medien}

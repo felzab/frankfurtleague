@@ -126,6 +126,9 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   // The floor the answer is judged by. The page bounds its date control and words its sentences from
   // this rather than from a constant of its own.
   mindestalter: z.number().int(),
+  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
+  // side's own would offer the switch where the endpoint refuses the answer.
+  medien_mindestalter: z.number().int(),
   geburtsdatum: CustomDateStringSchema.nullable(),
   umfang: FLEinwilligungUmfangSchema.nullable(),
   medien: z.boolean().nullable(),

@@ -57,6 +57,7 @@ const ANSICHT = {
   vorname: "Mira",
   text_version: SPIELER_EINWILLIGUNG.textVersion,
   mindestalter: 16,
+  medien_mindestalter: 18,
   geburtsdatum: null,
   umfang: null,
   medien: null,

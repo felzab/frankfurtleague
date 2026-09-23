@@ -21,6 +21,7 @@ from app.api.registrierungen.services import (
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
+    find_medien_refusal,
     find_unknown_token_refusal,
     persons_named,
     sole_person,
@@ -32,7 +33,7 @@ from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCo
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.folding import sign_in_identifier, stored_spellings
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
 # whole credential, so both endpoints are base-tier and bind the public actor rather than the
@@ -64,11 +65,11 @@ async def get_bestaetigung_ansicht(
     Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
 
     The link's state, the team and its school, the season, the pupil's own first name, the age floor the press
-    will be judged by, and the wording's version. Beside them the three answers the league already holds for this
-    person -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what
-    stands rather than entering it again. That person is matched on the registration's folded address AND its
-    folded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one
-    of them another's birthdate. All three are null wherever that match is not exactly one person.
+    will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
+    three answers the league already holds for this person -- the birthdate, the publication scope and the media
+    switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
+    the registration's folded address AND its folded name: a mailbox a family shares stands behind more than one
+    pupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -115,6 +116,7 @@ async def get_bestaetigung_ansicht(
         vorname=str(raw["vorname"]),
         text_version=einwilligung.get("text_version"),
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
+        medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
         geburtsdatum=shown_back.get("geburtsdatum"),
         umfang=einwilligung.get("umfang"),
         medien=einwilligung.get("medien"),
@@ -136,9 +138,9 @@ async def post_bestaetigung(
     given under older words is renewed under the words this person just read.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age
-    below the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and
-    the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age
+    below the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged
+    before anything is written, so a mistyped year spends nothing and the pupil keeps the link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
@@ -162,6 +164,7 @@ async def post_bestaetigung(
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
+        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,

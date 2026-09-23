@@ -12,6 +12,7 @@ import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -24,11 +25,11 @@ import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 import type { SpielerBestaetigungGeoeffnet, SpielerFassung } from "./types.ts";
 
 /** The write, answered by the case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<() => Promise<Response>>(() => new Promise<never>(() => undefined));
+const fetchMock = mock.fn<(input?: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => new Promise<never>(() => undefined));
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
-globalThis.fetch = (() => fetchMock()) as typeof fetch;
+globalThis.fetch = ((input, init) => fetchMock(input, init)) as typeof fetch;
 
 const { raised } = doubleToasts();
 
@@ -52,8 +53,11 @@ const CONFIRM_PAGE = readFileSync(path.join(SRC_DIR, "app", "(public)", "bestaet
 const TEAM = { name: "Lessing-Kolleg", full_name: "Lessing-Kolleg Oberstufengymnasium" };
 const ANDERES_TEAM = { name: "Riedberg-Oberstufe", full_name: "Riedberg-Oberstufe Gesamtschule" };
 
-/** The floor this fixture's READ answers. No constant mirrors it: every surface states what the link was minted under. */
+/** Typed rather than taken from `REGISTRIERUNG_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
 const MIN_ALTER = 16;
+
+/** The media age this fixture's read answers, for `MIN_ALTER`'s reason. */
+const MEDIEN_ALTER = 18;
 
 /** The address a pupil types. It reaches no server render, and the case below is what keeps it out. */
 const PUPIL_ADDRESS = "mira.kern@beispiel.test";
@@ -110,6 +114,7 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   vorname: "Mira",
   text_version: FASSUNG.textVersion,
   mindestalter: MIN_ALTER,
+  medien_mindestalter: MEDIEN_ALTER,
   geburtsdatum: null,
   umfang: null,
   medien: null,
@@ -143,6 +148,7 @@ const SLOTS: Readonly<Record<string, string>> = {
   schule: TEAM.full_name,
   saison: GEOEFFNET.saison_id,
   minAlter: String(MIN_ALTER),
+  medienMinAlter: String(MEDIEN_ALTER),
   kontakt: "kontakt@frankfurtleague.de",
   loeschung: "Konto löschen",
   datenschutz: "Datenschutzerklärung",
@@ -208,6 +214,18 @@ describe("the state the registration page renders", () => {
 
   it("links the privacy notice on the state that collects anything", () => {
     assert.match(seite("gueltig"), /href="\/datenschutz"/, "the page collects personal data behind no notice at all");
+  });
+
+  /* A pupil's first contact is this form, so Art. 21(4) DSGVO asks the objection here, before
+     anything is typed and apart from every other piece of information. */
+  it("states the objection in a paragraph of its own before anything is typed", () => {
+    assert.ok(
+      paragraphsOf(seite("gueltig")).includes(
+        "Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner " +
+          `besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
+      ),
+      "the registration form states no objection of its own",
+    );
   });
 
   /* The panel's own comment says a dead link identifies nobody, and the banner above it named the
@@ -393,8 +411,10 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
   it("takes the switch's label off that same version, and points the button at the stamped four", () => {
     const describedBy = [...STANDING.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((hit) => (hit[1] ?? "").split(" "));
+    // The switch stands only for a pupil of the media age, so its words are read on that page.
+    const volljaehrig = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER), umfang: "intern", medien: false });
 
-    assert.ok(textOf(STANDING).includes(FASSUNG.schalter), "the switch says something the stamped version does not hold");
+    assert.ok(textOf(volljaehrig).includes(FASSUNG.schalter), "the switch says something the stamped version does not hold");
     assert.ok(
       describedBy.some((id) => {
         const from = STANDING.indexOf(`id="${id}"`);
@@ -449,11 +469,17 @@ describe("the three answers the confirmation page collects", () => {
     for (const chip of chips) assert.match(chip.tag, /aria-checked="false"/, `„${chip.label}“ is chosen before the reader chose`);
   });
 
-  it("paints the media switch off for a pupil the league does not hold yet", () => {
-    const schalter = /<input\b[^>]*name="medien"[^>]*>/.exec(bestaetigungSeite())?.[0] ?? "";
+  it("paints the media switch off for a pupil the league does not hold yet, once their date offers it", async () => {
+    const user = userEvent.setup();
+    render(h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }));
 
-    assert.notEqual(schalter, "", "the media switch renders no control at all");
-    assert.doesNotMatch(schalter, /\bchecked\b/, "the media consent is pre-selected, so nobody gave it");
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
+
+    const schalter = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }) as HTMLInputElement;
+
+    assert.equal(schalter.checked, false, "the media consent is pre-selected, so nobody gave it");
   });
 
   /* A returning pupil confirms rather than re-enters: the date is shown as stored and both answers
@@ -500,8 +526,18 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
   /** The three controls, in the order the copy reads them in. */
   const REIHENFOLGE = ["geburtsdatum", "umfang", "medien"] as const;
 
-  it("lays the three controls out in the order the paragraphs read in", () => {
-    const html = bestaetigungSeite();
+  it("lays the three controls out in the order the paragraphs read in", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }),
+    );
+
+    // A date of the media age first, which is what puts the third control on the page at all.
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
+
+    const html = container.innerHTML;
     const stellen = REIHENFOLGE.map((name) => html.indexOf(`name="${name}"`));
 
     for (const [index, stelle] of stellen.entries()) assert.notEqual(stelle, -1, `${REIHENFOLGE[index] ?? ""} renders no control`);
@@ -529,6 +565,13 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     // its position alone is reachable by a pointer and by nothing else.
     const datum = screen.getByRole("group", { name: /Geburtsdatum/ });
     const wahl = screen.getByRole("radiogroup", { name: /Was darf von Deinem Namen/ });
+
+    // A date of the media age first, then the ring walked again from the top of the page.
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
+    (document.activeElement as HTMLElement | null)?.blur();
+
     const medien = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) });
 
     for (const control of [datum, wahl, medien]) assert.ok(control, "a control resolves by no accessible name");
@@ -577,6 +620,84 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     assert.ok(
       raised.some((toast) => toast.variant === "danger"),
       "the blocked press raises nothing a reader who cannot see the mark would hear",
+    );
+  });
+});
+
+describe("the media switch, offered from the media age alone", () => {
+  const schalterIn = (html: string): string => /<input\b[^>]*name="medien"[^>]*>/.exec(html)?.[0] ?? "";
+
+  /** Every body a press sends, the route's answer being a stored `false` whatever arrives. */
+  async function gesendetBeiDruck(
+    ansicht: SpielerBestaetigungGeoeffnet,
+    vorDemDruck?: (user: ReturnType<typeof userEvent.setup>) => Promise<void>,
+  ) {
+    const antwort = {
+      success: true,
+      ergebnis: "bestaetigt",
+      geburtsdatum: ansicht.geburtsdatum ?? "2000-01-01",
+      umfang: "intern",
+      medien: false,
+    };
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antwort), { status: 200 })));
+    const bisher = fetchMock.mock.callCount();
+
+    const user = userEvent.setup();
+    render(h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" }, fassung: FASSUNG }));
+    await vorDemDruck?.(user);
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await screen.findByRole("heading", { name: "Registrierung bestätigt" });
+
+    return fetchMock.mock.calls.slice(bisher).map((call) => {
+      const body = call.arguments[1]?.body;
+
+      return JSON.parse(typeof body === "string" ? body : "null") as unknown;
+    });
+  }
+
+  it("offers no switch while no birthdate says how old the pupil is", () => {
+    assert.equal(schalterIn(bestaetigungSeite()), "", "a pupil of unknown age is offered a consent the write refuses below the media age");
+  });
+
+  it("offers no switch to a returning pupil a day short of the media age", () => {
+    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER, 1), umfang: "intern", medien: false });
+
+    assert.equal(schalterIn(html), "", "a pupil under the media age is offered the media switch");
+  });
+
+  it("offers the switch to a returning pupil of the media age to the day", () => {
+    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER), umfang: "intern", medien: false });
+
+    assert.notEqual(schalterIn(html), "", "a pupil of the media age is refused the switch the ruling offers them");
+  });
+
+  /* The stored answer is shown back whole, so a yes given before the rule would ride the press unseen. */
+  it("sends no media consent for a returning pupil under the media age whose stored answer is yes", async () => {
+    const gesendet = await gesendetBeiDruck({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER - 1), umfang: "intern", medien: true });
+
+    assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
+    assert.equal((gesendet[0] as { medien?: unknown }).medien, false, "a consent the page never offered was sent");
+  });
+
+  it("withdraws the switch and its yes when the typed date moves below the media age", async () => {
+    const gesendet = await gesendetBeiDruck({ ...GEOEFFNET, geburtsdatum: null }, async (user) => {
+      await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
+      const [tag] = screen.getAllByRole("spinbutton");
+      await user.click(tag!);
+      await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
+      await user.click(screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }));
+
+      await user.click(tag!);
+      await user.keyboard(getippt(geborenVor(MEDIEN_ALTER - 1)));
+      // A boolean rather than the node: a failing `assert.equal` inspects its operand without a depth
+      // bound, and a DOM node's graph exhausts the machine's memory before the message is built.
+      assert.ok(screen.queryByRole("switch") === null, "the switch stands for a date under the media age");
+    });
+
+    assert.equal(
+      (gesendet[0] as { medien?: unknown } | undefined)?.medien,
+      false,
+      "the yes given at the older date was sent for the younger one",
     );
   });
 });

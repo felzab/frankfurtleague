@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil, PersonPlus } from "@gravity-ui/icons";
 
 import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
@@ -28,15 +28,16 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
+import { Absatz } from "./BestaetigungHinweise";
+
+import type { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { ReactNode } from "react";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -527,30 +528,17 @@ function AdresseKorrigieren({
 /** A blank person, because nobody stands in this seat: `AdresseKorrigieren`'s box prefills where it is repairing one character. */
 const LEERE_PERSON = { vorname: "", nachname: "", email: "", telefon: "" };
 
-/** The privacy notice, linked on its own name wherever the retained wording happens to use it. */
-const DATENSCHUTZ_WORT = "Datenschutzerklärung";
-
-/**
- * Spelled here as well as in the application form's own section: the wording is stamped and its
- * paragraphs are shown wherever a record citing them is written, which is now two surfaces.
- */
-function mitDatenschutzLink(absatz: string): ReactNode {
-  const [vor = "", ...rest] = absatz.split(DATENSCHUTZ_WORT);
-  if (rest.length === 0) return absatz;
-
-  return (
-    <>
-      {vor}
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {DATENSCHUTZ_WORT}
-      </Link>
-      {rest.join(DATENSCHUTZ_WORT)}
-    </>
-  );
-}
+// The confirmation page's opening section in its order, less each paragraph with a slot this strip
+// cannot fill as the page does: a slot left standing is a word the person never sees.
+const SEITENANFANG = [
+  "gespeichert",
+  "rechtsgrundlage",
+  "nichtOeffentlich",
+  "fristAbgelehnt",
+  "fristUnvollstaendig",
+  "widerruf",
+  "art21",
+] as const satisfies readonly (keyof typeof BESTAETIGUNG_ABSAETZE)[];
 
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
@@ -660,15 +648,18 @@ function SitzNeuBesetzen({
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
 
-      {/* The wording the stored record will cite, shown to the administrator writing it: the person
-          it names is not here to read it, and a record citing a text nobody saw is one nobody can weigh. */}
+      {/* The confirmation page's words, never the application form's: those address the submitter,
+          and the person this writes will only ever read the page. */}
       <div className="border-border flex flex-col gap-y-2 rounded-lg border p-3">
         <p className="fluid-xs text-foreground font-bold">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
-        {LIGA_KENNTNISNAHME.absaetze.map((absatz) => (
+        {SEITENANFANG.map((schluessel) => (
           <p
-            key={absatz}
+            key={schluessel}
             className="muted-meta">
-            {mitDatenschutzLink(absatz)}
+            <Absatz
+              schluessel={schluessel}
+              werte={{ kontakt: KONTAKT_EMAIL }}
+            />
           </p>
         ))}
       </div>

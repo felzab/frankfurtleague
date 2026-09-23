@@ -34,6 +34,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ALTER,
     SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
+    SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
@@ -47,6 +48,7 @@ from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -786,3 +788,55 @@ class TestAWithheldNameReachesOneCollection:
 
         assert after == before
         assert after["schiedsrichter"] == BOOKING
+
+
+# Against `TODAY`, 18 to the day and 17 years and 364 days.
+AT_THE_MEDIA_AGE = "2008-04-01"
+A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
+
+
+class TestTheMediaAge:
+    """`REQ-SCHIEDSRICHTER-008` at the endpoint: the refusal is wired in, and judged before the write."""
+
+    def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+
+            return await ansicht(database, minted.bestaetigung.token)
+
+        assert on_a_league(mongo_replica_set_url, body).medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_yes_a_day_short_of_the_media_age_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body)
+
+        assert refused.error_code == SCHIEDSRICHTER_MEDIEN_ALTER
+        assert row.get("geburtsdatum") is None
+        assert row.get(EINWILLIGUNG_FELD) is None
+
+    def test_a_yes_at_the_media_age_to_the_day_is_stored(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a refusal of every yes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is True
+
+    def test_a_no_a_day_short_of_the_media_age_is_stored(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=False)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is False

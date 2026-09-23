@@ -136,3 +136,8 @@ REGISTRIERUNG_ERINNERUNG_TAGE: Final = 3
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
 # silently raise another.
 REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
+
+# ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
+# judgement over every record carrying `medien`, and nobody below it is recognisable in a published
+# photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
+MEDIEN_MIN_AGE_YEARS: Final = 18

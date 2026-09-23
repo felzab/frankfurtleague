@@ -18,21 +18,26 @@ import {
 
 import type { EinwilligungFassung } from "./einwilligung.ts";
 
-// Frozen when a label is minted and never updated afterwards: a changed digest means the stored
-// words moved, and moved words are a NEW label rather than a new number here.
+// Frozen once a deployed build served the label: moved words are a NEW label rather than a new
+// number here. A label no build has served yet cites no stored record, so its words and digest move
+// together.
 const FASSUNG_DIGESTS: Readonly<Record<string, string>> = {
   "2026-08": "5ee0fd132685f067dfcb5efd9a85e1df36fabdfcb5dab451c98d760a262c4dc8",
   "2026-09-bestaetigung": "2b7227c1252f386e7c9f68967f049fa78a353540dfd309d3fc5bdce3e4c0d7fa",
   "2026-09-bestaetigung-2": "061b910a47324eb91c9c6b81191804b44b015ee5153b6c8843c884422d02f811",
   "2026-09-bestaetigung-3": "694d9949915bbb999214f6e0f276a20020e464bdd28955152d58c19edc803a22",
   "2026-09-bestaetigung-4": "6cd1ecde85282bb369a0e3437915752bf0ac4fe1dc35b0fe8b4ba2b15f84ecf3",
+  "2026-09-bestaetigung-5": "f111318b2d71ef2a8cddaa0eb98fe525f18d0c754408e450e397a77a4ffb1d09",
   "2026-09-bestaetigungsseite": "0f43376babe1890edc2e38e482300d940b50de65c75b2f8bdeb4393be1a459f6",
   "2026-09-bestaetigungsseite-2": "a3f63055cde360a1a547f6e04e547101d90af2de71b89058e4a684d5e1f4ed2f",
   "2026-09-bestaetigungsseite-3": "d14ba6338194b3ba562ab09a76472af2bd7b7834e9a4b7956046025b8c8f3f19",
   "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
   "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
+  "2026-09-bestaetigungsseite-6": "1227f765f47568c1ef105d9ccddeee88732e5bf37b768eaa285b2717f236c905",
   "2026-09-schiedsrichterseite": "21e9351ead79fce150e6dc1c822b0912ae630c493935fb901992a17948d893f0",
+  "2026-09-schiedsrichterseite-2": "57f8835d93222b31f07fcc344d7e49825dff32e042d3f08203c26e4e5ea1acd2",
   "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
+  "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
 };
 
 // The controls are inside because a record cites its label and nothing else: a chip reworded under
@@ -89,7 +94,7 @@ describe("LIGA_KENNTNISNAHMEN", () => {
       assert.equal(
         fassungDigest(fassung),
         FASSUNG_DIGESTS[textVersion],
-        `${textVersion} no longer holds the words its records cite — mint a new label, never a new digest here`,
+        `${textVersion} holds other words than its digest — a served label takes a new label, only one no build has served a new digest`,
       );
     }
   });
@@ -126,6 +131,120 @@ describe("LIGA_KENNTNISNAHMEN", () => {
 
     assert.ok(text.includes("ohne Entscheidung"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} states no period for an undecided application`);
     assert.ok(text.includes("vorbei ist"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} names no day that period is counted to`);
+  });
+
+  /* The digests pin each label's words and nothing pins WHICH label is live: the earlier ones rest
+     participation on a contract a 16-year-old cannot enter alone, and offer the media switch from 16. */
+  it("points the three live confirmation labels at legitimate interest, and the two media pages at the media age", () => {
+    for (const { textVersion, absaetze } of [BESTAETIGUNG_KENNTNISNAHME, SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      const text = absaetze.join(" ");
+
+      assert.ok(text.includes("Art. 6 Abs. 1 lit. f DSGVO"), `${textVersion} names no legitimate interest`);
+      // Art. 13(1)(d) DSGVO asks for the interest itself, which the article's number does not name.
+      assert.ok(text.includes("den Spielbetrieb der Liga durchzuführen"), `${textVersion} names no interest the league pursues`);
+      assert.ok(!text.includes("lit. b"), `${textVersion} still rests something on a contract`);
+      assert.ok(text.includes("besonderen Situation"), `${textVersion} states the objection without its condition`);
+    }
+    for (const { textVersion, absaetze } of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      assert.ok(absaetze.join(" ").includes("ab {medienMinAlter} Jahren"), `${textVersion} offers media consent at no stated age`);
+    }
+  });
+
+  /* Art. 21(4) asks the objection to stand apart from every other piece of information, so a label
+     folding it back into the rights paragraph states the right in a form the article refuses. */
+  it("gives the objection a paragraph of its own on the two pages that ask a consent", () => {
+    for (const { textVersion, absaetzeNachSchluessel } of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      assert.match(absaetzeNachSchluessel.art21, /^Der Verarbeitung .* \(Art\. 21 DSGVO\)\.$/, `${textVersion} states no objection of its own`);
+      assert.ok(!absaetzeNachSchluessel.widerruf.includes("Art. 21"), `${textVersion} folds the objection into the rights paragraph`);
+    }
+  });
+
+  /* The contact page's own map, which its label reads whole: the same article asks the same
+     separation of a page that asks no consent. */
+  it("gives the objection a paragraph of its own on the contact person's page", () => {
+    assert.match(
+      BESTAETIGUNG_ABSAETZE.art21,
+      /^Der Verarbeitung Deiner Daten .* \(Art\. 21 DSGVO\)\.$/,
+      "the contact page states no objection of its own",
+    );
+    assert.ok(!BESTAETIGUNG_ABSAETZE.widerruf.includes("Art. 21"), "the contact page folds the objection into the rights paragraph");
+  });
+
+  /* The form is the submitting Ansprechperson's first contact, so the same article asks the objection
+     there, and a live label losing it sends that person to their own page first to learn of it. */
+  it("points the live form label at a paragraph holding the objection and nothing else", () => {
+    const { textVersion, absaetze } = LIGA_KENNTNISNAHME;
+
+    assert.deepEqual(
+      absaetze.filter((absatz) => absatz.includes("Art. 21")),
+      [
+        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
+      ],
+      `${textVersion} states no objection of its own, or folds it into another paragraph`,
+    );
+  });
+
+  /* The media paragraph names the website and Instagram, and spares a younger person every recognisable
+     photo, video and interview: a label dropping either offers a consent with no place, or promises
+     more than the league keeps. */
+  it("names where media is published, and what a younger person is spared", () => {
+    for (const { textVersion, absaetzeNachSchluessel } of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      const { medien } = absaetzeNachSchluessel;
+
+      assert.ok(medien.includes("auf unserer Website und unserem Instagram-Kanal"), `${textVersion} names no place of publication`);
+      assert.ok(medien.includes("keine Fotos oder Videos, auf denen Du zu erkennen bist"), `${textVersion} drops the identifiability bound`);
+      assert.ok(medien.includes("keine Interviews mit Dir"), `${textVersion} drops the interviews a younger person is spared`);
+    }
+  });
+
+  /* A referee is kept until the entry is deleted for good, a retirement deleting nothing: „solange Du
+     für die Liga Spiele leitest“ promises an end nobody enforces. The fee's word is every admin
+     surface's and the glossary's. */
+  it("keeps the referee label's retention rule and the league's word for the fee", () => {
+    const { textVersion, absaetzeNachSchluessel } = SCHIEDSRICHTER_EINWILLIGUNG;
+    const text = Object.values(absaetzeNachSchluessel).join(" ");
+
+    assert.ok(absaetzeNachSchluessel.frist.includes("bis er endgültig gelöscht wird"), `${textVersion} states no retention rule`);
+    assert.ok(
+      absaetzeNachSchluessel.frist.includes("Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen."),
+      `${textVersion} lets a retirement read as a deletion`,
+    );
+    assert.ok(!text.includes("solange Du für die Liga Spiele leitest"), `${textVersion} promises an end nobody enforces`);
+    assert.ok(text.includes("Honorar"), `${textVersion} names the fee in no word the league uses`);
+    assert.ok(!text.includes("Aufwandsentschädigung"), `${textVersion} names the fee in a word no admin surface uses`);
+  });
+
+  /* The school is optional on a referee's record, so a basis calling it needed claims a necessity the
+     record does not bear, in every record citing the label. */
+  it("calls a referee's school needed only where the referee gives one", () => {
+    const { textVersion, absaetzeNachSchluessel } = SCHIEDSRICHTER_EINWILLIGUNG;
+
+    assert.ok(
+      absaetzeNachSchluessel.rechtsgrundlage.includes("dazu Deine Schule, falls Du sie angibst"),
+      `${textVersion} calls the school needed`,
+    );
+  });
+
+  /* A referee's name is one field, shown as its first part and the next one's initial, or whole:
+     „nie Dein voller Nachname“ breaks for a one-word name, and an entry may lack a telephone or a school. */
+  it("promises the referee the name rule the fixtures keep, and holds nothing the entry may lack", () => {
+    const { textVersion, absaetzeNachSchluessel, bedienelemente } = SCHIEDSRICHTER_EINWILLIGUNG;
+    const text = Object.values(absaetzeNachSchluessel).join(" ");
+
+    assert.ok(
+      absaetzeNachSchluessel.veroeffentlichung.includes(
+        "der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da.",
+      ),
+      `${textVersion} promises a name rule the fixtures do not keep`,
+    );
+    assert.ok(
+      !`${text} ${Object.values(bedienelemente).join(" ")}`.includes("Nachname"),
+      `${textVersion} promises a surname the row may not hold`,
+    );
+    assert.ok(
+      absaetzeNachSchluessel.gespeichert.includes("und, falls angegeben, Deine Schule und Deine Telefonnummer"),
+      `${textVersion} states an optional field as held`,
+    );
   });
 
   it("answers nothing for a label no record was ever made under", () => {

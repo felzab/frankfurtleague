@@ -135,6 +135,21 @@ describe("the referee's confirmation message", () => {
     }
   });
 
+  /* A referee's first contact, and Art. 21(4) DSGVO asks the objection to reach them there apart from
+     every other piece of information: a paragraph of its own in the card, a line group in the text. */
+  it("states the objection in a paragraph of its own, in both parts", () => {
+    assert.match(
+      mail.html,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      "the card carries no objection of its own",
+    );
+    assert.match(
+      mail.text,
+      /\n\nDer Verarbeitung Deiner Angaben für den Spielbetrieb [^\n]+ genügt\.\n\n/,
+      "the text part carries no objection of its own",
+    );
+  });
+
   it("says on the subject line what is being asked", () => {
     assert.match(mail.subject, /^Bitte bestätigen: Dein Eintrag bei der /);
   });

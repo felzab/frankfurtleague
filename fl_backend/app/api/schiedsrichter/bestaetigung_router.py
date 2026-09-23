@@ -21,6 +21,7 @@ from app.api.schiedsrichter.services import (
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
+    find_medien_refusal,
     find_unknown_token_refusal,
     frist_of,
     vorname_of,
@@ -31,7 +32,7 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
-from app.shared.schemas.bounds import SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # A THIRD router beside the admin one and the reference read, both guarded whole: the token is the
 # whole credential, so these two endpoints alone are base-tier and bind the public actor — no
@@ -54,7 +55,7 @@ async def get_bestaetigung_ansicht(
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungAnsichtResponse:
     """
-    Answer what this token opens: the referee's first name, the link's state and deadline, the age floor, and the wording's version.
+    Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.
 
     **A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact
     details, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the
@@ -85,6 +86,7 @@ async def get_bestaetigung_ansicht(
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
         mindestalter=SCHIEDSRICHTER_MIN_AGE_YEARS,
+        medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
         frist=frist,
     )
 
@@ -104,8 +106,9 @@ async def post_bestaetigung(
     and the fixture list reads it there.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and an age outside what this
-    consent asks (`REQ-SCHIEDSRICHTER-005`) -- the last judged before anything is written, so a mistyped year spends nothing.
+    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this
+    consent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`
+    (`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld
     name goes on being served for as long as that entry lives.
@@ -132,6 +135,7 @@ async def post_bestaetigung(
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
+        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,

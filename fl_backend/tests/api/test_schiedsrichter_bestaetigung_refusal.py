@@ -26,6 +26,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ALTER,
     SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
+    SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
@@ -39,6 +40,7 @@ from app.api.schiedsrichter.services import (
     find_expired_token_refusal,
     find_gesperrt_refusal,
     find_korrektur_mint,
+    find_medien_refusal,
     find_missing_address_refusal,
     find_retired_refusal,
     find_unknown_token_refusal,
@@ -50,7 +52,11 @@ from app.api.spieler.schemas import FLEinwilligung
 from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
 from app.core.constraints import _SCHIEDSRICHTER_BESTAETIGUNG, COLLECTION_VALIDATORS, SUPPORT_INDEXES, UNIQUE_INDEXES
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, BEWERBUNG_TOKEN_MAX_LENGTH, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import (
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BEWERBUNG_TOKEN_MAX_LENGTH,
+    SCHIEDSRICHTER_MIN_AGE_YEARS,
+)
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -135,7 +141,7 @@ class TestWhatALeakedLinkLearns:
 
         assert not {key.partition(".")[0] for key, kept in projection.items() if kept} & withheld
 
-    def test_the_view_declares_exactly_the_five_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_six_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterBestaetigungAnsichtResponse.model_fields) == {
@@ -144,6 +150,7 @@ class TestWhatALeakedLinkLearns:
             "vorname",
             "text_version",
             "mindestalter",
+            "medien_mindestalter",
             "frist",
         }
 
@@ -336,6 +343,36 @@ class TestTheAgeThisConsentAsks:
 
         assert refusal is not None
         assert str(bound) in refusal.message
+
+
+class TestTheMediaAge:
+    """`REQ-SCHIEDSRICHTER-008`: a media consent is an adult's alone, and a `False` is every admitted age's answer."""
+
+    # Against `TODAY`, `2008-04-01` is 18 to the day and `2008-04-02` is 17 years and 364 days.
+    @pytest.mark.parametrize(
+        ("geburtsdatum", "medien", "refused"),
+        [
+            ("2008-04-02", True, True),
+            ("2008-04-01", True, False),
+            ("2010-04-01", False, False),
+            ("2008-04-02", False, False),
+        ],
+        ids=["a-day-short-of-18-says-yes", "18-to-the-day-says-yes", "16-says-no", "a-day-short-of-18-says-no"],
+    )
+    def test_each_boundary_falls_where_the_media_age_says(self, geburtsdatum: str, medien: bool, refused: bool):
+        refusal = find_medien_refusal(geburtsdatum=geburtsdatum, medien=medien, today=TODAY)
+
+        assert (refusal is not None) is refused
+        if refusal is not None:
+            assert refusal.error_code == SCHIEDSRICHTER_MEDIEN_ALTER
+
+    def test_the_age_is_the_rulings_eighteen_and_the_refusal_names_it(self):
+        """The LITERAL, never the constant the message is composed from: read through the constant, the case passes at any age at all."""
+
+        refusal = find_medien_refusal(geburtsdatum="2010-04-01", medien=True, today=TODAY)
+
+        assert refusal is not None
+        assert "18" in refusal.message
 
 
 class TestARetiredRefereeTakesNoFreshLink:

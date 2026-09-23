@@ -5606,7 +5606,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, and the wording's version. Beside them the three answers the league already holds for this\nperson -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what\nstands rather than entering it again. That person is matched on the registration's folded address AND its\nfolded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one\nof them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: a mailbox a family shares stands behind more than one\npupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -5652,7 +5652,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age\nbelow the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and\nthe pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age\nbelow the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged\nbefore anything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -5697,7 +5697,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, the age floor, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -5743,7 +5743,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -12686,6 +12686,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "geburtsdatum": {
             "anyOf": [
               {
@@ -12734,12 +12738,13 @@
           "vorname",
           "text_version",
           "mindestalter",
+          "medien_mindestalter",
           "geburtsdatum",
           "umfang",
           "medien"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
-        "description": "What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."
+        "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
       },
       "FLRegistrierungBestaetigungPayload": {
         "properties": {
@@ -14061,6 +14066,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "frist": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14073,6 +14082,7 @@
           "vorname",
           "text_version",
           "mindestalter",
+          "medien_mindestalter",
           "frist"
         ],
         "title": "FLSchiedsrichterBestaetigungAnsichtResponse",

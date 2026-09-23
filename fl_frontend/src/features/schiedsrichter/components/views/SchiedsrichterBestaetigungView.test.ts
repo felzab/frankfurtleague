@@ -6,11 +6,17 @@ import { afterEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { BESTAETIGUNG_ABSAETZE, SCHIEDSRICHTER_ABSAETZE, SCHIEDSRICHTER_MEDIEN_SCHALTER } from "@/core/einwilligung.ts";
+import {
+  BESTAETIGUNG_ABSAETZE,
+  SCHIEDSRICHTER_ABSAETZE,
+  SCHIEDSRICHTER_EINWILLIGUNG,
+  SCHIEDSRICHTER_MEDIEN_SCHALTER,
+} from "@/core/einwilligung.ts";
 import {
   SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   SCHIEDSRICHTER_UMFANG_FRAGE,
@@ -18,6 +24,7 @@ import {
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
@@ -29,8 +36,11 @@ const { raised: toasts } = doubleToasts();
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
 
 const TOKEN = "abc123";
+/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
 const MINDESTALTER = 16;
-const FASSUNG = "2026-09-schiedsrichterseite";
+/** The media age this fixture's read answers, for `MINDESTALTER`'s reason. */
+const MEDIEN_ALTER = 18;
+const FASSUNG = SCHIEDSRICHTER_EINWILLIGUNG.textVersion;
 
 const OFFEN: SchiedsrichterBestaetigungStart = {
   zustand: "gueltig",
@@ -41,9 +51,27 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
     vorname: "Anna",
     text_version: FASSUNG,
     mindestalter: MINDESTALTER,
+    medien_mindestalter: MEDIEN_ALTER,
     frist: "2026-10-05",
   },
 };
+
+/** A birthdate this many whole years before the German day the page judges by, moved later by `tageSpaeter`. */
+const geborenVor = (jahre: number, tageSpaeter = 0): string =>
+  parseDate(getGermanTodayStr()).subtract({ years: jahre }).add({ days: tageSpaeter }).toString();
+
+/** A date as the picker's segments take it typed: day, month, year. */
+const getippt = (datum: string): string => {
+  const [jahr, monat, tag] = datum.split("-");
+
+  return `${tag ?? ""}${monat ?? ""}${jahr ?? ""}`;
+};
+
+/** Types a date into the empty picker, which is what offers the media switch to a person of the media age. */
+async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum: string): Promise<void> {
+  await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+  await user.keyboard(getippt(datum));
+}
 
 /**
  * Every slot the page fills, so a paragraph is compared as a reader meets it. `{loeschung}` is left
@@ -52,6 +80,7 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
 const gefuellt = (absatz: string): string =>
   absatz
     .replaceAll("{minAlter}", String(MINDESTALTER))
+    .replaceAll("{medienMinAlter}", String(MEDIEN_ALTER))
     .replaceAll("{vorname}", "Anna")
     .replaceAll("{kontakt}", KONTAKT_EMAIL)
     .replaceAll("{loeschung}", "Konto löschen")
@@ -89,13 +118,14 @@ afterEach(() => {
 });
 
 describe("the referee's confirmation page", () => {
-  /* Rendered rather than read off the module: a paragraph declared and never mounted is copy nobody
-     is shown, which is what this claim is about (`.claude/rules/cross-surface.md`, tests). */
-  it("renders every paragraph of the referee's own label", () => {
-    const shown = words(markup(OFFEN));
+  /* Rendered rather than read off the module: a declared paragraph nobody mounts is copy nobody is
+     shown (`.claude/rules/cross-surface.md`, tests). An element each, because Art. 21(4) DSGVO asks
+     the objection to stand apart. */
+  it("renders every paragraph of the referee's own label as an element of its own", () => {
+    const elemente = [...markup(OFFEN).matchAll(/<(p|li)\b[^>]*>(.*?)<\/\1>/gs)].map((treffer) => words(treffer[2] ?? ""));
 
     for (const [schluessel, absatz] of Object.entries(SCHIEDSRICHTER_ABSAETZE)) {
-      assert.ok(shown.includes(words(gefuellt(absatz))), `the page does not render ${schluessel}`);
+      assert.ok(elemente.includes(words(gefuellt(absatz))), `the page renders ${schluessel} inside another element's text`);
     }
   });
 
@@ -142,8 +172,10 @@ describe("the referee's confirmation page", () => {
 describe("the controls the page collects an answer with", () => {
   /* Found BY their accessible names: a page a sixteen-year-old must understand before consenting is
      one nobody needs a mouse or a sighted guess for. */
-  it("gives the date control, the publication chips and the media switch an accessible name", () => {
+  it("gives the date control, the publication chips and the media switch an accessible name", async () => {
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    // A date of the media age, which is what puts the switch on the page at all.
+    await tippeGeburtsdatum(userEvent.setup(), geborenVor(MEDIEN_ALTER + 2));
 
     assert.ok(screen.getByRole("group", { name: "Dein Geburtsdatum" }));
     assert.ok(screen.getByRole("radiogroup", { name: SCHIEDSRICHTER_UMFANG_FRAGE }));
@@ -173,6 +205,10 @@ describe("the controls the page collects an answer with", () => {
   it("reaches all three by keyboard, in the order the copy reads in", async () => {
     const user = userEvent.setup();
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+
+    // A date of the media age first, then the ring walked again from the top of the page.
+    await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER + 2));
+    (document.activeElement as HTMLElement | null)?.blur();
 
     const datum = screen.getByRole("group", { name: "Dein Geburtsdatum" });
     const wahl = screen.getByRole("radiogroup", { name: SCHIEDSRICHTER_UMFANG_FRAGE });
@@ -237,8 +273,9 @@ describe("the controls the page collects an answer with", () => {
   });
 
   /* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */
-  it("leaves the media switch off on first paint", () => {
+  it("leaves the media switch off on first paint", async () => {
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    await tippeGeburtsdatum(userEvent.setup(), geborenVor(MEDIEN_ALTER + 2));
 
     for (const control of screen.getAllByRole("switch")) {
       assert.equal((control as HTMLInputElement).checked, false, "a switch is on before anybody pressed it");
@@ -319,5 +356,49 @@ describe("what a refused press does to the page", () => {
       toasts.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
     );
+  });
+});
+
+// Every absence below is asserted as a boolean: a failing `assert.equal` on a rendered node hands the
+// runner React's whole tree to serialize, which exhausts the machine's memory.
+describe("the media switch, offered from the media age alone", () => {
+  const keinSchalter = (): boolean => screen.queryByRole("switch") === null;
+
+  it("offers no switch while no birthdate says how old the referee is", () => {
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+
+    assert.ok(keinSchalter(), "a referee of unknown age is offered a consent the write refuses below the media age");
+  });
+
+  it("offers no switch for a date a day short of the media age", async () => {
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    await tippeGeburtsdatum(userEvent.setup(), geborenVor(MEDIEN_ALTER, 1));
+
+    assert.ok(keinSchalter(), "a referee under the media age is offered the media switch");
+  });
+
+  it("offers the switch for a date of the media age to the day", async () => {
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    await tippeGeburtsdatum(userEvent.setup(), geborenVor(MEDIEN_ALTER));
+
+    assert.ok(!keinSchalter(), "a referee of the media age is refused the switch the ruling offers them");
+  });
+
+  it("withdraws the switch and its yes when the date moves below the media age", async () => {
+    const { sent } = doubleFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+    const user = userEvent.setup();
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+
+    await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER + 2));
+    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(schalter(SCHIEDSRICHTER_MEDIEN_SCHALTER));
+    await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER - 1));
+
+    assert.ok(keinSchalter(), "the switch stands for a date under the media age");
+
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    assert.equal(sent.length, 1, "the press sent nothing, so this case compares nothing");
+    assert.equal((sent[0] as { medien?: unknown }).medien, false, "the yes given at the older date was sent for the younger one");
   });
 });

@@ -8,7 +8,12 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import (
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    MEDIEN_MIN_AGE_YEARS,
+    SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+    SCHIEDSRICHTER_MIN_AGE_YEARS,
+)
 from app.shared.schemas.kontakt import FLKontakt
 
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
@@ -161,6 +166,7 @@ SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
 # client already maps to a second ban of one address: two conditions under one code are two a
 # frontend cannot part.
 SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
+SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -332,6 +338,22 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
         )
 
     return None
+
+
+def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
+    """Why this referee's media consent is refused, or `None`.
+
+    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
+    page sends every referee below the floor.
+    """
+
+    if not medien or whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS:
+        return None
+
+    return WriteRefusal(
+        error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
+        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
+    )
 
 
 def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:

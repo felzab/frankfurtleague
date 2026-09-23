@@ -130,6 +130,11 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: SpielerLinkZustand };
 
+/** An answer only a page older than the running one could have sent, which a reload replaces. */
+const VERALTETE_SEITE: BestaetigungRefusal = {
+  error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
+};
+
 // A THUNK and never a resolved number: three of the four codes below are link states, and a
 // caller reading the floor in front of the switch spends a second backend read on every one of
 // them.
@@ -143,15 +148,15 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
   if (!(error instanceof APIBadStatusError)) return null;
 
   // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
-    };
-  }
+  if (error.statusCode === 422) return VERALTETE_SEITE;
 
   if (error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
+    // The page offers no media switch below the served age, so only a page older than that rule
+    // sends this answer, and a reload is its repair as it is the 422's.
+    case "REQ-REGISTRIERUNG-010":
+      return VERALTETE_SEITE;
     case "REQ-REGISTRIERUNG-004":
       return { zustand: "ungueltig" };
     case "REQ-REGISTRIERUNG-005":

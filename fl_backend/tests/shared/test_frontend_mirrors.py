@@ -81,11 +81,12 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
-    # These two mirror the published notice's sentences and never a payload schema: each confirmation
+    # These three mirror the published notice's sentences and never a payload schema: each confirmation
     # view still states the floor off the answer it was served, and neither
     # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
+    Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in

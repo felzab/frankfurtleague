@@ -67,6 +67,7 @@ export type SpielerAbsatzSchluessel =
   | "rechtsgrundlage"
   | "frist"
   | "widerruf"
+  | "art21"
   | "klickIdentitaet"
   | "klickAlter"
   | "klickEinwilligung"

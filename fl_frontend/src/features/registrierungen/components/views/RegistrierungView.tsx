@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { ABSATZ, BestaetigungErgebnis, FaktenBanner, FrageStellen, Wert } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
@@ -99,6 +100,21 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
               Datenschutzerklärung
             </Link>
             .
+          </p>
+        )}
+
+        {/* Its own paragraph, before anything is typed: Art. 21(4) DSGVO asks the objection to reach
+            a person at the first contact and apart from every other piece of information. */}
+        {stand === "gueltig" && (
+          <p className={ABSATZ}>
+            Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
+            Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an{" "}
+            <Link
+              href={`mailto:${KONTAKT_EMAIL}`}
+              className={textLink()}>
+              {KONTAKT_EMAIL}
+            </Link>{" "}
+            genügt.
           </p>
         )}
       </header>

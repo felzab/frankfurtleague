@@ -25,6 +25,7 @@ from app.shared.folding import person_name_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
+    MEDIEN_MIN_AGE_YEARS,
     REGISTRIERUNG_ERINNERUNG_TAGE,
     REGISTRIERUNG_MIN_ALTER_JAHRE,
 )
@@ -237,6 +238,7 @@ REGISTRIERUNG_TOKEN_UNKNOWN = "REQ-REGISTRIERUNG-004"
 REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
 REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
 REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
+REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
 
 # What a pupil's own press records. `volljaehrig` names who spoke and pins no age
 # (`docs/glossary.md :: Einwilligung`), so it is the member a sixteen-year-old's own answer takes.
@@ -414,6 +416,22 @@ def answers_shown_back(*, registrierung_raw: Mapping[str, Any], spieler_raw: Map
         return registrierung_raw
 
     return spieler_raw if spieler_raw is not None else {}
+
+
+def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
+    """Why this pupil's media consent is refused, or `None`.
+
+    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
+    page sends every pupil below the floor.
+    """
+
+    if not medien or whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_MEDIEN_ALTER,
+        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
+    )
 
 
 def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str) -> Mapping[str, Any]:

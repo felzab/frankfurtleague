@@ -205,6 +205,10 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
           schluessel="widerruf"
           werte={werte}
         />
+        <StandAbsatz
+          schluessel="art21"
+          werte={werte}
+        />
       </section>
     </BestaetigungAbschnitt>
   );
@@ -250,14 +254,16 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * What the press sends. `text_version` is stamped here as well as at the handler, which overwrites
  * it: the draft the page validates has to carry every path the payload declares.
  */
-function antwortPayload(token: string, entwurf: Entwurf): FLSchiedsrichterBestaetigungPayload {
+function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterBestaetigungPayload {
   return {
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
     // The schema refuses a null, which is the refusal an unanswered question owes: the submit reports
     // it at the chips rather than sending a scope this person never picked.
     umfang: entwurf.umfang as FLSchiedsrichterUmfang,
-    medien: entwurf.medien,
+    // Never the draft's own `true` where no switch stands: one given before the date moved below the
+    // media age would send a consent this page withheld.
+    medien: medienAngeboten && entwurf.medien,
     text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
   };
 }
@@ -274,12 +280,15 @@ function SchiedsrichterFormPanel({
   token,
   vorname,
   mindestalter,
+  medienMindestalter,
   onAbschluss,
 }: {
   token: string;
   vorname: string;
   /** The floor the link's own read answered; a constant here would be a number the endpoint never judges by. */
   mindestalter: number;
+  /** The media age the link's own read answered, for `mindestalter`'s reason. */
+  medienMindestalter: number;
   onAbschluss: (stand: Stand) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -289,7 +298,7 @@ function SchiedsrichterFormPanel({
   const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), vorname: vorname };
+  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
 
   // Built from the floor the link answered, never a module constant: a schema on a floor of its own
   // would let the press through at a number the endpoint refuses.
@@ -300,9 +309,14 @@ function SchiedsrichterFormPanel({
     failureTitle: ANTWORT_NICHT_GESPEICHERT,
   });
 
-  useForgiveFixed({ bestaetigung: antwortPayload(token, entwurf) });
-
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+
+  // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
+  // and a switch offered then would be one the write refuses for anybody under it.
+  const medienAngeboten =
+    entwurf.geburtsdatum !== "" && entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), medienMindestalter).spaeteste;
+
+  useForgiveFixed({ bestaetigung: antwortPayload(token, entwurf, medienAngeboten) });
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old what the age rule costs them is the wrong repair.
@@ -351,7 +365,7 @@ function SchiedsrichterFormPanel({
   };
 
   const handleSubmit = () => {
-    const payload = antwortPayload(token, entwurf);
+    const payload = antwortPayload(token, entwurf, medienAngeboten);
     guardSubmit({ bestaetigung: payload }, () => {
       startTransition(async () => {
         await sende(payload);
@@ -384,7 +398,7 @@ function SchiedsrichterFormPanel({
                 calendarLabel="Geburtsdatum auswählen"
                 value={toCalendarDate(entwurf.geburtsdatum)}
                 onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf), ["geburtsdatum"])}
+                onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
                 aria-describedby={geburtsdatumHinweisId}
                 minValue={parseDate(frueheste)}
                 maxValue={parseDate(spaeteste)}
@@ -446,19 +460,23 @@ function SchiedsrichterFormPanel({
 
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
-          {/* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */}
-          <Switch
-            className="flex w-full flex-col gap-y-1"
-            name="medien"
-            isSelected={entwurf.medien}
-            onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
-            <Switch.Content className={panel.switchContent()}>
-              {SCHIEDSRICHTER_EINWILLIGUNG.schalter}
-              <Switch.Control className={panel.switchControl()}>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
+          {/* The paragraph below stands for every age and the switch alone goes: the record's label then
+              reproduces the screen whichever of the two its person was shown. */}
+          {medienAngeboten && (
+            // Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing.
+            <Switch
+              className="flex w-full flex-col gap-y-1"
+              name="medien"
+              isSelected={entwurf.medien}
+              onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
+              <Switch.Content className={panel.switchContent()}>
+                {SCHIEDSRICHTER_EINWILLIGUNG.schalter}
+                <Switch.Control className={panel.switchControl()}>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
+          )}
           <StandAbsatz
             schluessel="medien"
             werte={werte}
@@ -531,6 +549,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
           token={stand.token}
           vorname={stand.ansicht.vorname}
           mindestalter={stand.ansicht.mindestalter}
+          medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(naechster) => {
             setHatGeantwortet(true);
             setStand(naechster);
