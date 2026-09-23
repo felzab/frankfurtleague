@@ -36,11 +36,34 @@ function fieldOf(entry: string, field: string): string {
   const ends = NEXT_FIELD.exec(rest);
   const region = ends === null ? rest : rest.slice(0, ends.index);
 
-  return [...region.matchAll(/"([^"]*)"/g)].map((literal) => literal[1]).join("");
+  return [...withoutPythonComments(region).matchAll(/"([^"]*)"/g)].map((literal) => literal[1]).join("");
 }
 
-/** Every rule the backend declares, in the order the register writes them. */
-export const DECLARED_RULES: readonly DeclaredRule[] = DOMAIN.split("Rule(")
+/**
+ * Python source with every `#` comment cut, for a reader of its double-quoted literals.
+ *
+ * A cut inside a literal leaves an odd number of quotes on the line, which throws rather than passing
+ * the stub on.
+ */
+export function withoutPythonComments(source: string): string {
+  return source
+    .split("\n")
+    .map((line) => {
+      const kept = line.replace(/#.*$/, "");
+      const cutInsideALiteral = kept !== line && (kept.match(/"/g) ?? []).length % 2 !== 0;
+      if (cutInsideALiteral) throw new Error(`a "#" inside a string literal was read as a comment: ${line.trim()}`);
+      return kept;
+    })
+    .join("\n");
+}
+
+/**
+ * Every rule the backend declares, in the order the register writes them.
+ *
+ * Split where a line opens on the call, as each entry does: a comment naming it mid-entry would hand
+ * that entry's later fields to one nobody wrote.
+ */
+export const DECLARED_RULES: readonly DeclaredRule[] = DOMAIN.split(/^[ \t]*Rule\(/m)
   .slice(1)
   .map((entry) => ({
     code: fieldOf(entry, "code"),

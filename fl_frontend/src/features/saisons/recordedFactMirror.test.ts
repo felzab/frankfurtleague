@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
-import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { sliceBetween, withoutPythonComments } from "@/shared/testing/refusalRegister.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { FLSaisonPhaseSchema } from "./schemas.ts";
@@ -18,8 +18,11 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 // no second copy of the projection that could be read in its place.
 const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
 
-/** The tuple's own source, cut at the closing paren none of its entries can contain. */
-const PROJECTION_SOURCE = sliceBetween(SERVICES, "RECORDED_FACT_FIELDS: tuple[str, ...] = (", ")");
+/**
+ * The tuple's own source, its comments out: cut at the paren the formatter closes it with alone on a
+ * line, since a comment inside it may hold a parenthesis or a quote that no entry spells.
+ */
+const PROJECTION_SOURCE = withoutPythonComments(sliceBetween(SERVICES, "RECORDED_FACT_FIELDS: tuple[str, ...] = (", "\n)"));
 
 /* The group sits outside every alternation, so a match always fills it. `noUncheckedIndexedAccess`
    cannot see that, and a cast would hide a pattern that later could not. */

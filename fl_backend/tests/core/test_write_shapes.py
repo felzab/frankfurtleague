@@ -929,7 +929,7 @@ class Creation:
 
 
 def _resolved_key(key: ast.expr, module: Any) -> str | None:
-    """A literal key, or a module constant naming one -- `ANONYMISIERT_AM` is spelled the second way."""
+    """A literal key, or the string a module constant binds: read as no key, a constant-spelled one reports as missing."""
 
     if isinstance(key, ast.Constant) and isinstance(key.value, str):
         return key.value

@@ -98,9 +98,8 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
 
-INTEGER_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*) = (?P<value>\d+);$", re.MULTILINE)
-
 COMMENT_OPENERS: Final = ("/**", "*/", "*", "//")
+ANY_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*)\b")
 
 
 def _source(module: str) -> str:
@@ -123,7 +122,8 @@ def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[st
         stripped = line.strip()
         is_comment = stripped.startswith(COMMENT_OPENERS)
         if is_comment:
-            # A blank line or a statement ends a block, so a claim never carries down to the next one.
+            # Only a comment after code opens a new block: a claim governs every declaration below it
+            # up to the next comment, blank lines and statements between them included.
             block = f"{block} {stripped}" if was_comment else stripped
         was_comment = is_comment
         found = declaration.match(line)
@@ -133,9 +133,13 @@ def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[st
 
 
 def _claimed_mirrors(source: str) -> set[str]:
-    """Every integer this module's own prose claims it mirrors, attributed to the comment block above the line."""
+    """Every constant this module's prose claims mirrors a bound, attributed to the comment block above it.
 
-    return _attributed(source, INTEGER_EXPORT, MIRROR_CLAIM)
+    Any constant, not only a bare integer: a claim over a computed value otherwise escapes the register the
+    number comparison enforces.
+    """
+
+    return _attributed(source, ANY_EXPORT, MIRROR_CLAIM)
 
 
 def _declared_bounds() -> dict[str, int]:

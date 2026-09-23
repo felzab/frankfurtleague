@@ -309,7 +309,7 @@ describe("KontaktEmailSchema", () => {
   });
 });
 
-describe("FLKontaktPayloadSchema", () => {
+describe("FLKontaktPayloadSchema's email bounds", () => {
   // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
   function addressOfLength(total: number): string {
     const local = "a".repeat(64);
@@ -372,6 +372,17 @@ describe("ExternalUrlSchema", () => {
     }
   });
 
+  // The case above refuses each value on its host as well, so it stays green without `protocol`. Each
+  // host here passes the domain rule, and the first still runs: its `%0a` ends the `//` comment.
+  it("refuses a scheme other than http and https on a host the domain rule takes", () => {
+    const hostAlone = z.url({ hostname: z.regexes.domain });
+
+    for (const url of ["javascript://example.de/%0aalert(1)", "data://example.de/x", "ftp://example.de/x"]) {
+      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+      assert.equal(hostAlone.safeParse(url).success, true, `the domain rule refuses "${url}" itself, so this case pins nothing`);
+    }
+  });
+
   it("accepts ordinary http and https links", () => {
     for (const url of HARMLOS) {
       assert.equal(ExternalUrlSchema.safeParse(url).success, true, `expected "${url}" to be accepted`);
@@ -411,7 +422,11 @@ describe("ExternalUrlSchema", () => {
       path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"),
       "utf8",
     );
-    const copied = /^DOMAIN_REGEX = re\.compile\(r"(?<pattern>.+)"\)$/m.exec(custom)?.groups?.pattern;
+    // Every module-level binding, since Python obeys the last one and a first match would read a
+    // rebinding below it as absent.
+    const bindings = [...custom.matchAll(/^DOMAIN_REGEX\b[^=\n]*=(?!=)(?<value>.*)$/gm)];
+    assert.equal(bindings.length, 1, "custom.py binds DOMAIN_REGEX more than once, so this case cannot tell which one Python keeps");
+    const copied = /^ re\.compile\(r"(?<pattern>.+)"\)$/.exec(bindings[0]?.groups?.value ?? "")?.groups?.pattern;
     // The INSTALLED package's own version, never `fl_frontend/package.json`'s range, which names no one regex.
     const zod = JSON.parse(readFileSync(createRequire(import.meta.url).resolve("zod/package.json"), "utf8")) as { version: string };
 
@@ -419,6 +434,29 @@ describe("ExternalUrlSchema", () => {
     assert.equal(copied, z.regexes.domain.source, `the backend's copy no longer matches zod ${zod.version}`);
     // A Python pattern string carries no flags, so a flag zod added would divide the two ends while the sources still compared equal.
     assert.equal(z.regexes.domain.flags, "", `zod ${zod.version} gives its domain regex a flag`);
+  });
+
+  // The case above holds zod's regex to the backend's copy and never to the schema, so a hand-written
+  // `hostname` in its place would leave it green while the two ends parted.
+  it("judges every hostname exactly as zod's domain regex does", () => {
+    const hosts = [
+      "example.de",
+      "a-b.example.de",
+      `${"a".repeat(63)}.de`,
+      `${"a".repeat(64)}.de`,
+      "-example.de",
+      "example-.de",
+      "ex_ample.de",
+      "example.d",
+    ];
+    const judged = hosts.map((host) => [host, ExternalUrlSchema.safeParse(`https://${host}/`).success]);
+    const expected = hosts.map((host) => [host, z.regexes.domain.test(host)]);
+
+    assert.ok(
+      new Set(expected.map(([, verdict]) => verdict)).size === 2,
+      "the hosts hold one verdict alone, so agreeing on them proves nothing",
+    );
+    assert.deepEqual(judged, expected);
   });
 });
 

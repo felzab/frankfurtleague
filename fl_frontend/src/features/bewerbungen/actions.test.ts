@@ -173,8 +173,9 @@ describe("the triage's refusals against the backend's register", () => {
     }
   });
 
-  /* Pinned through the SERVICES, not the operation strings: `REQ-ENTER-005` writes its operations
-     as a parenthesised literal, which `refusalRegister.ts`'s single-literal parse reads as none. */
+  /* Pinned through the SERVICES the acceptance calls, not only through the operation strings: those
+     are typed by hand on each rule, while which entry rules can refuse an acceptance follows from
+     the calls. */
   it("maps the entry rules the acceptance reuses", () => {
     assert.ok(
       ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
