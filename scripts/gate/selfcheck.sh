@@ -589,7 +589,7 @@ step "9. Every scope verify.sh declares has a CI job, and every CI job names a s
 # Two listings, two routes, per PRE-4.
 
 # What verify.sh declares is its `add_scope` lines; what CI runs is every flag handed to
-# `verify.sh` in a workflow `run:` line — a job's key is a label, `backend-db` running `--db`.
+# `verify.sh` in a workflow `run:` line — a job's key is a label, and naming one after a scope binds nothing.
 WORKFLOW=".github/workflows/verify.yml"
 declared="${SELFCHECK_TMP}/scopes-declared.txt"
 ran="${SELFCHECK_TMP}/scopes-in-ci.txt"

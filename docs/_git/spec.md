@@ -232,7 +232,7 @@ ruleset targeting the default branch, enforcement **Active**.
 | Restrict deletions                    | on                                                                                     | Rules → Rulesets             |
 | Block force pushes                    | on                                                                                     | Rules → Rulesets             |
 | Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
-| Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                                     | Rules → Rulesets             |
+| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                             | Rules → Rulesets             |
 | Require branches up to date to merge  | **off**                                                                                | Rules → Rulesets             |
 | Require linear history                | **off**                                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                                              | Rules → Rulesets             |

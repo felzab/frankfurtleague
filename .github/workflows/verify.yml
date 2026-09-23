@@ -286,7 +286,7 @@ jobs:
   # wall-clock time.
 
   # The marker belongs to the suite, not to this pipeline.
-  backend-db:
+  db:
     needs: changes
     if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
@@ -531,7 +531,7 @@ jobs:
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
   # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
-    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, frontend-units, ops, images]
+    needs: [changes, commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

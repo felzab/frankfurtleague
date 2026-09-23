@@ -916,7 +916,7 @@ citation's resolution is the whole of it
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
 their own scope behind `require_docker` — which is what lets `--quick` skip them — and in CI the
-concurrent `backend-db` job, which pulls the tier's `mongod` image in an advisory step of its own
+concurrent `db` job, which pulls the tier's `mongod` image in an advisory step of its own
 before pytest, so the download is attributed in the log rather than hidden inside the test span.
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.

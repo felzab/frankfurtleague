@@ -21,7 +21,7 @@
 #
 # Budget: the highest single-run span in the stamped population, plus a quarter of it or ten
 # seconds, whichever is more, rounded up to the next five. A single run swings far wider than a
-# median does -- `backend-db` reached twice its median inside its stamped runs, `ops` 1.9 times --
+# median does -- `db` reached twice its median inside its stamped runs, `ops` 1.9 times --
 # so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
 # over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
 # budget or a reference that rises against main carries a new stamp, refused otherwise by
@@ -52,7 +52,7 @@
 # of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
 # method a short population leaves rather than a systematically looser one.
 #
-# `backend-db`'s floor is wide because its window straddles the database tier's move to PyMongo and
+# `db`'s floor is wide because its window straddles the database tier's move to PyMongo and
 # its distribution over workers: a reshuffle drawing runs from both sides of that merge moves the
 # median about as far as the merge itself did. It narrows once the window clears the merge, and
 # until then only a large change reaches the report on that row.
@@ -118,7 +118,7 @@
 # as much as the check. It sits far inside the floor the `ops` row carries, and the ceiling it
 # answers to is that row's budget.
 #
-# `backend-db` gained a guard in front of the tier: a claim that refuses a second gate run rather
+# `db` gained a guard in front of the tier: a claim that refuses a second gate run rather
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
 # of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
 # take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
@@ -234,7 +234,7 @@
 # only when it can resolve that plugin by its package name, which it cannot from the root. Measured
 # locally on 2026-09-22 and 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions.
 #
-# `backend-db` gained the interleaved race cases and moved no figure. Two of them had parked a
+# `db` gained the interleaved race cases and moved no figure. Two of them had parked a
 # reopening at its first read of the referee, past its own write of the reopened fixture, so the
 # erasure landing inside it waited out the transaction's sixty-second lifetime: 90 s and 73 s of a
 # 185 s local run, and the runner's 208 s over this row's budget was the same wait. Parked at the
@@ -263,14 +263,14 @@
 # where it loaded 4160. The runner's own figures replace these on the pull request's runs; no row
 # moves until a population of them exists.
 #
-# `backend-db` gained the frontend's db-tier files (`pnpm run test:db`, two files, each starting its
+# `db` gained the frontend's db-tier files (`pnpm run test:db`, two files, each starting its
 # own replica set through testcontainers) and the frontend toolchain step they need. The files cost
 # 18.0-18.5 s over three runs measured locally on 2026-09-23 on a sixteen-core Windows machine
 # carrying a fleet of agent sessions, so an upper bound; the install step was not measured. That is
 # 37 % of the job's reference, inside its floor before the install is counted, so neither figure
 # moves here: the first main runs carrying the step decide whether the row is re-stamped.
 #
-# `format`, `frontend`, the `frontend-units` shards and `backend-db` gained a guard ahead of their
+# `format`, `frontend`, the `frontend-units` shards and `db` gained a guard ahead of their
 # scopes: `fl_frontend/node_modules` must exist, so a run without the install refuses rather than
 # grading its absence. 58-60 microseconds a call over five interleaved rounds of two thousand calls
 # against an empty loop, measured locally on 2026-09-23 on a sixteen-core Windows machine carrying
@@ -284,8 +284,8 @@
 #
 # job	seconds	floor	budget	measured
 backend	35	14	60	24@2026-09-07
-backend-db	49	40	125	24@2026-09-07
 commits	-	-	25	24@2026-09-07
+db	49	40	125	24@2026-09-07
 docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31
 frontend	264	10	360	5@2026-09-20

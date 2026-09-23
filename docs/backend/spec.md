@@ -477,7 +477,7 @@ values** — an empty `stadtteil`, a null `ergebnis` for an unplayed match, an i
 machine as much as with the suite, and a stamped number nobody re-takes reads as current long after
 it has stopped being so. **What these tiers cost inside the gate is stamped where it is re-taken
 against a fixed reference**: [`docs/ops/spec.md`](../ops/spec.md) §1.6 and
-`.github/gate-wall-clock.tsv`, whose `backend` and `backend-db` rows are updated by hand. **The
+`.github/gate-wall-clock.tsv`, whose `backend` and `db` rows are updated by hand. **The
 gate's `db` section costs more than the tier does alone**, the other sections running beside it, so
 neither figure ever stands in for the other.
 
