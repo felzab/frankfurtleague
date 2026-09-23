@@ -20,7 +20,7 @@ from app.api.sperrliste.services import (
     find_keine_saison_refusal,
     find_sperrliste_refusal,
 )
-from app.core.config import API_VERSION, BackendConfig, get_config
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
 from app.core.routing import by_id
@@ -60,7 +60,7 @@ async def post_sperrliste_eintrag(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_config)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLPostSperrlisteResponse:

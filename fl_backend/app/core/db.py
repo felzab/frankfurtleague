@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
 from app.core.collections import Collection
-from app.core.config import BackendConfig, get_config
+from app.core.config import BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
@@ -59,7 +59,8 @@ def _refusal_for(error: BaseException) -> Refusal:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    config = get_config()
+    # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
+    config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
 
     try:
@@ -117,10 +118,10 @@ async def get_db_client(request: Request) -> AsyncMongoClient:
 
 async def get_database(
     request: Request,
-    config: BackendConfig = Depends(get_config),
+    config: BackendConfig = Depends(get_app_config),
 ) -> AsyncDatabase:
-    # Through `Depends`, not `get_config()`: reading the global would resolve every collection
-    # dependency against the real database rather than an injected one.
+    # The application's settings, not `get_config()`: reading the environment would resolve every
+    # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
     return request.app.state.db_client[config.db_base_name]

@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -95,7 +97,7 @@ KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_ac
 UNGUARDED_TIER = "none"
 
 
-def publish_key_tiers(app: FastAPI) -> None:
+def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     for entry in app.routes:
         # `include_router` appends a wrapper holding the original router rather than copying its
         # routes across, so a pass reading `app.routes` for `APIRoute` instances alone sees a
@@ -103,32 +105,36 @@ def publish_key_tiers(app: FastAPI) -> None:
         original_router = getattr(entry, "original_router", None)
 
         for route in original_router.routes if original_router is not None else [entry]:
-            if not isinstance(route, APIRoute):
-                continue
+            if isinstance(route, APIRoute):
+                yield route
 
-            # The route object rather than the include context: `add_api_route` copies the router's
-            # own dependencies into every route it builds, so both arrive here as one set.
-            calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
-            tiers = sorted(KEY_TIERS[guard] for guard in calls & KEY_TIERS.keys())
 
-            # Joined rather than picked: no single key satisfies two guards, so a value equal to no
-            # declared tier fails the comparison rather than naming one of the two as the answer.
-            route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
+def publish_key_tiers(app: FastAPI) -> None:
+    for route in api_routes(app):
+        # The route object rather than the include context: `add_api_route` copies the router's
+        # own dependencies into every route it builds, so both arrive here as one set.
+        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
+        tiers = sorted(KEY_TIERS[guard] for guard in calls & KEY_TIERS.keys())
+
+        # Joined rather than picked: no single key satisfies two guards, so a value equal to no
+        # declared tier fails the comparison rather than naming one of the two as the answer.
+        route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
-    A FUNCTION, so the composition root is a choice rather than an import side effect. Passing
-    `config` also substitutes it for the request-scoped `Depends(get_config)`.
+    A FUNCTION, so the composition root is a choice rather than an import side effect. `config` is
+    what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
+    is passed.
     """
-    injected = config is not None
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.
     setup_custom_logger(config)
 
     app = FastAPI(lifespan=lifespan)
+    app.state.config = config
 
     register_exception_handlers(app)
 
@@ -160,10 +166,5 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so an extension set afterwards never reaches a reader.
     publish_key_tiers(app)
-
-    # Only when a caller supplied settings: installing this unconditionally would leave a test
-    # unable to tell its own override from it.
-    if injected:
-        app.dependency_overrides[get_config] = lambda: config
 
     return app

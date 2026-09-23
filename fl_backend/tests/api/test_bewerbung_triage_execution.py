@@ -325,8 +325,6 @@ async def through_the_app(
     async def _database() -> AsyncDatabase:
         return app_db_client[DATABASE_NAME]
 
-    # Popped rather than cleared afterwards: `create_app` installs its own `get_config` override, and
-    # clearing would drop that one too and send the next request at the real environment.
     APP.dependency_overrides[get_db_client] = _client
     APP.dependency_overrides[get_database] = _database
     APP.dependency_overrides[get_germany_now] = lambda: NOW
@@ -341,8 +339,7 @@ async def through_the_app(
         async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
             return await http.post(path, json=dict(payload), headers=headers)
     finally:
-        for dependency in (get_db_client, get_database, get_germany_now):
-            APP.dependency_overrides.pop(dependency, None)
+        APP.dependency_overrides.clear()
         await app_db_client.close()
 
 

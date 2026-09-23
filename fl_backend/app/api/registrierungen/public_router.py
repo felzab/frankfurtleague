@@ -26,7 +26,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
 from app.api.spiele.schemas import PHASE_ORDER
-from app.core.config import API_VERSION, BackendConfig, get_config
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -149,7 +149,7 @@ async def post_registrierung(
     saison_spieler_collection: SaisonSpielerCollection,
     sperrliste_collection: SperrlisteCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_config)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLPostRegistrierungResponse:
     """

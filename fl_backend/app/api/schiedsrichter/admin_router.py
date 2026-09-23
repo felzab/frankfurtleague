@@ -42,7 +42,7 @@ from app.api.schiedsrichter.services import (
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_config
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
     erase_many_from_db,
     insert_live,
@@ -83,7 +83,7 @@ async def post_schiedsrichter(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_config)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
     """
@@ -166,7 +166,7 @@ async def patch_schiedsrichter(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_config)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
@@ -342,7 +342,7 @@ async def einladen_schiedsrichter(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_config)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterMintResponse:
     """

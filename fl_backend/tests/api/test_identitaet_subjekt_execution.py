@@ -416,7 +416,7 @@ def test_the_base_key_draws_the_system_guard_s_own_code():
 def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
     """The corpus seeded, then one request through the MOUNTED route.
 
-    No lifespan: it would read the settings singleton and build a client at the environment file
+    No lifespan: it would open its own client at the settings' URI and apply the constraints there
     (`fl_backend/tests/api/test_malformed_ids.py :: answered`).
     """
 
