@@ -30,6 +30,10 @@ pnpm-lock.yaml
 .claude/worktrees/
 .tmp-*/
 
+# pnpm's rename-into-place temporaries: the gate's lockfile step writes one under fl_frontend
+# while this check walks the tree beside it, and a read after the rename fails the run.
+_tmp_*
+
 # Machine-local files, and credential shapes a formatter has no business opening at all. The two
 # tracked workspace files are the exception -- a tracked file the format gate skips is one nothing
 # holds to the repository's own style.
