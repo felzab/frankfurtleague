@@ -4,12 +4,15 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 import type { FLSpiel, FLSpielWithDraftFields } from "../schemas.ts";
+
+doubleEveryAction();
 
 /* Imported after the harness registers its loader, which is what compiles a `.tsx` at all. */
 const { SpielDraftPreview } = await import("./forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");

@@ -2,11 +2,11 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen.ts";
@@ -88,6 +88,12 @@ function readout(label: string): string | null {
   return at === -1 ? null : (screen.getAllByRole("definition")[at]?.textContent ?? null);
 }
 
+/**
+ * Awaited, never read at once: the first press arms only once the preview it asked for has landed,
+ * which is after the press's own event and later still on a loaded machine.
+ */
+const armedStep = (): Promise<HTMLElement> => screen.findByRole("button", { name: ARMED });
+
 beforeEach(() => {
   calls.length = 0;
   raised.length = 0;
@@ -128,6 +134,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.ok(isInTheFlow("Keine Kontaktdaten hinterlegt"), "the team with no contact block is not told apart");
     assert.ok(isInTheFlow("Niemand hat die Kontaktdaten bisher selbst bestätigt"), "the team with no confirmed seat is not told apart");
@@ -158,6 +165,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.ok(isInTheFlow("Ersetzt den Link, den dieses Team schon hat"), "the row whose link this press kills says nothing");
     assert.equal(readout("Verlieren ihren Link"), "1");
@@ -175,6 +183,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.equal(isInTheFlow("Ersetzt den Link, den dieses Team schon hat"), false, "a row that replaces nothing says it does");
     assert.equal(readout("Verlieren ihren Link"), "0");
@@ -191,6 +200,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the preview never landed, so the drop below proves nothing");
 
     await user.click(screen.getByRole("switch"));
@@ -220,7 +230,8 @@ describe("the season's bulk invite send", () => {
 
     await user.click(screen.getByRole("button", { name: RESTING }));
 
-    assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing");
+    // Nothing arms here to be awaited, so the empty state is.
+    await waitFor(() => assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing"));
     assert.ok(screen.queryByRole("alert") === null, "an empty season armed a press with nothing behind it");
     // Awaited, because the control is pending-marked while the read it was handed is still in
     // flight, and a closed control is only announced as closed once that mark lifts.
@@ -235,8 +246,14 @@ describe("the season's bulk invite send", () => {
     answerWith(vorschauAntwort(VORSCHAU));
     render(panel());
 
-    await user.click(screen.getByRole("button", { name: RESTING }));
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    // The clock held still, so waiting for the armed step cannot carry the second press past the window.
+    mock.timers.enable({ apis: ["Date"] });
+    try {
+      await user.click(screen.getByRole("button", { name: RESTING }));
+      await user.click(await armedStep());
+    } finally {
+      mock.timers.reset();
+    }
 
     assert.equal(sent("postEinladungVersandAction").length, 0, "a double click sent the whole season its links");
     assert.ok(screen.getByRole("alert"), "the armed step was dropped by the click it was supposed to ignore");
@@ -260,7 +277,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
-      whileArmed: () =>
+      whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
             success: true,
@@ -317,10 +334,12 @@ describe("the season's bulk invite send", () => {
               },
             ],
           }),
-        ),
+        );
+      },
     });
 
-    assert.ok(isInTheFlow("An die Adresse gesendet"), "the team reached at its one address reports nothing");
+    // The result renders once the write the second press started answers, after that press's own event.
+    await waitFor(() => assert.ok(isInTheFlow("An die Adresse gesendet"), "the team reached at its one address reports nothing"));
     assert.ok(isInTheFlow("Gesendet: 2 von 3"), "the team reached in part reads as reached whole");
     assert.ok(
       isInTheFlow("Nicht erreicht: gelöscht@beispiel.de"),

@@ -61,4 +61,33 @@ describe("the helper that confirms a two-press control", () => {
 
     assert.equal(writes, 0, "two presses inside the window wrote");
   });
+
+  /* A panel whose first press arms only once a read it started has answered, as the season's bulk
+     invite send does: the control is armed after the click has already returned. */
+  it("waits for a control that arms after its first press returns", async () => {
+    const user = userEvent.setup();
+    let writes = 0;
+    render(h(LateProbe, { onWrite: () => void (writes += 1) }));
+
+    await pressTwice(user, { resting: RESTING, armed: ARMED });
+
+    assert.equal(writes, 1, "the armed press wrote nothing, or wrote twice");
+  });
 });
+
+/** Arms a timer's turn after the press that asked for it, and writes on the press after that at once. */
+function LateProbe({ onWrite }: { onWrite: () => void }): ReturnType<typeof h> {
+  const { isConfirming, press } = useTwoPressConfirm();
+  const write = async () => {
+    onWrite();
+  };
+
+  return h(
+    "button",
+    {
+      type: "button",
+      onClick: () => (isConfirming ? press(write) : setTimeout(() => press(write), 30)),
+    },
+    isConfirming ? ARMED : RESTING,
+  );
+}

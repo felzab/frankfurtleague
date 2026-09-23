@@ -675,6 +675,12 @@ line carrying the same text; the worker's own output reaches the log unattribute
 that line where the death was early. The second reporter writes nothing where no file fails that
 way, which is why it sits in `pnpm test` for every runner of the suite rather than behind a flag.
 
+**An application module's import of a package `fl_frontend/next.config.ts` lists under
+`optimizePackageImports` resolves, in the `test` script, to only the names that module takes**
+(`fl_frontend/barrel-imports-hook.mjs`), as the bundle's own barrel optimisation resolves it. Every
+import the hook cannot read gets the whole barrel. Without it every rendering test file's process
+loads every icon and every HeroUI component.
+
 **The shapes no render reaches:**
 
 - an async Server Component, whose content sits behind its own awaits — a render reaches the

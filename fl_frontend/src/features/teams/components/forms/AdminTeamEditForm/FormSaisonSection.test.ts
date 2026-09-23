@@ -10,9 +10,12 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 
 import { render } from "@testing-library/react";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
+
+doubleEveryAction();
 
 const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");

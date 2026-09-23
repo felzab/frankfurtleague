@@ -11,8 +11,11 @@ import { userEvent } from "@testing-library/user-event";
 
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "@/features/bewerbungen/schemas.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+
+doubleEveryAction();
 
 const { AdminBewerbungAblehnenSection } = await import("./AdminBewerbungAblehnenSection.tsx");
 

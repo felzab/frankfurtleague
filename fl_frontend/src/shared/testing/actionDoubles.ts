@@ -54,6 +54,14 @@ export function doubleActions({
   return { calls, answerWith: (next) => void (answering = next) };
 }
 
+/**
+ * Every slice's actions module, for a suite in which no case saves: a real write module loads the
+ * sign-in store and its database driver into the render, which is most of such a suite's time.
+ */
+export function doubleEveryAction(): ReturnType<typeof doubleActions> {
+  return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
+}
+
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */
 export interface RaisedToast {
   readonly variant: string;

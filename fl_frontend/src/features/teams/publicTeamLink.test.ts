@@ -13,12 +13,15 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 
 import { publicTeamSaisonId } from "./utils.ts";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { AdminTeamRow } from "./types.ts";
+
+doubleEveryAction();
 
 const { AdminTeamsTable } = await import("./components/collections/AdminTeamsTable.tsx");
 

@@ -13,10 +13,13 @@ import { userEvent } from "@testing-library/user-event";
 
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
+
+doubleEveryAction();
 
 const { AdminBewerbungView } = await import("./AdminBewerbungView.tsx");
 

@@ -187,8 +187,21 @@
 # process loading jsdom (1.05 s) and the HeroUI entry point (1.31 s) before a case runs, measured
 # locally on 2026-09-19 on the sixteen-core machine: a file rendering nothing starts in 0.2 s and
 # one rendering a rail in 2.9 s. Two levers were measured on that file over four interleaved rounds
-# and rejected: Node's compile cache read slower than it saved, 3.8 s against 2.9 s, and
-# `--enable-source-maps` costs 0.25 s a file, a stack trace's worth.
+# and rejected: Node's compile cache read slower than it saved, 3.8 s against 2.9 s, and dropping
+# source maps altogether saves 0.25 s a file at the cost of every stack trace naming lines no file
+# on disk holds. Both rejections stand: the compile cache re-measured on 2026-09-22 saved 4 percent
+# of a rendering file's CPU with overlapping spreads, and the `test` script maps the application's
+# frames still, dropping only `node_modules`' (`fl_frontend/app-source-maps.mjs`), whose frames no
+# stack trace of ours reads.
+#
+# `fl_frontend/src/shared/testing/renderTest.ts` keeps each compiled component under
+# `fl_frontend/node_modules/.cache/render-test`, keyed on its path and text, the harness and the
+# installed TypeScript, and loads the compiler only on a miss. Over the whole unit suite, measured
+# locally on 2026-09-23 on the sixteen-core Windows machine carrying a fleet of agent sessions:
+# 515.9-528.2 s of summed CPU in four runs without it, 443.6-494.2 s in four starting from an empty
+# cache, which is every CI run, and 425.4-460.7 s in four with it filled, the failing-case set
+# identical in each interleaved round. Neither the reference nor the budget moves and neither takes
+# a new stamp.
 #
 # `backend-db` gained the interleaved race cases and moved no figure. Two of them had parked a
 # reopening at its first read of the referee, past its own write of the reopened fixture, so the
@@ -207,6 +220,17 @@
 # holding none, which is nearly every file, and only a file with a hit is walked character by
 # character. It sits far inside the floor the `docs` row carries, so neither the reference nor the
 # budget moves and neither takes a new stamp.
+#
+# `frontend`'s unit tests were cut on 2026-09-22 by three changes to what each test file's process
+# loads, measured as the summed CPU of every file's process on the sixteen-core Windows machine
+# under a live fleet, over a frozen copy of HEAD, every run 292 files and 5131 passing cases:
+# 834-896 s across five runs of the old `test` line against 518-533 s across two of the new one.
+# Against the old line, the alias hook skipping TypeScript suffixes for a `node_modules`
+# parent is about 5 percent, source maps for the application's modules alone about 6 percent, and an
+# import of a package `next.config.ts` lists under `optimizePackageImports` loading only the names
+# it takes, as the bundle does, about 26 percent, a rendering file's process loading 2081 modules
+# where it loaded 4160. The runner's own figures replace these on the pull request's runs; no row
+# moves until a population of them exists.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
