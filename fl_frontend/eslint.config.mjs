@@ -51,11 +51,10 @@ function filesUnder(relative) {
  * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
  * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
  *
- * GROW THIS when a rule gains a cross-file input that is none of the three. What bounds the cost of
- * getting it wrong is that the cache is a local accelerator and never an authority: CI checks out
- * fresh and restores no `.eslintcache`, so its run of this step re-decides every file
- * (`docs/ops/spec.md` section 1.6). A miss here is a false green on a development machine that the
- * pull request's own gate run then fails.
+ * GROW THIS when a rule gains a cross-file input that is none of the three. The cache is a local
+ * accelerator and never an authority: CI restores the pnpm store and never `node_modules`, where this
+ * cache lives, so its run of this step re-decides every file (`docs/ops/spec.md` section 1.6), and a
+ * miss here is a false green on a development machine that the pull request's own gate run then fails.
  */
 const HASHED_CONTENTS = ["pnpm-lock.yaml", ...filesUnder("src").filter((file) => file.endsWith(".css"))];
 

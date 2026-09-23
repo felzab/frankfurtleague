@@ -13,6 +13,6 @@ next-env.d.ts
 # artefact to keep current with the schema.
 /environment-names.json
 
-# eslint's lint-result cache. Untracked by design: the gate reads and writes it on every
-# --frontend run, and its key is `eslint.config.mjs :: crossFileDigest` plus eslint's own.
+# eslint's default cache, which a hand-run `eslint --cache` writes. The gate's own sits under
+# node_modules, where an uncached run cannot delete it (`docs/ops/spec.md`).
 /.eslintcache

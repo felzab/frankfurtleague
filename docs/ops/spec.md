@@ -579,22 +579,33 @@ only ever waited out, and an interrupt there leaves the builds running.
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
-checkout that has never built type-checks a smaller program than a development machine does. The
-two phases are data (`scripts/gate/verify.sh :: FRONTEND_POOL`, `:: FRONTEND_WRITERS`) and a unit
+checkout that has never built type-checks a smaller program than a development machine does.
+**That order is also why the scope's own `next build` skips its type pass**: the build checks the
+same `tsconfig.json` program over the same working tree the scope's tsc has just checked, route
+types included, so `scripts/gate/verify.sh :: do_next_build` sets `SKIP_BUILD_TYPE_CHECK`
+(`fl_frontend/next.config.ts :: ignoreBuildErrors`). **No image build ever sets it**: an image's
+context is the tree after `.dockerignore`, which no tsc has checked, so the images scope and
+`scripts/ops/publish.sh` each keep the build's own pass. The two phases are data (`scripts/gate/verify.sh :: FRONTEND_POOL`, `:: FRONTEND_WRITERS`) and a unit
 in both is refused. Prettier is in neither: the format section runs it in place, before the
 frontend's opens.
 
-**The eslint step is cached and deliberately not threaded.** The two levers compose, so the choice
-is the clock's and not the source's: threading buys the cold fill and costs the warm run, which
-eslint measures itself — a warm threaded run emits `ESLintPoorConcurrencyWarning`, whose advice is
-to disable concurrency. A development machine mostly pays the warm run, so the step takes it and
-gives up the cold arm, which a fresh worktree and a CI job each pay once. **What makes the cached
+**The eslint step is cached, and threaded only on a runner.** Cache and threads compose, so the
+choice is the clock's: every worker thread loads the whole configuration again, which a warm run on a
+loaded machine pays at several times the serial span — eslint's own `ESLintPoorConcurrencyWarning`
+advises disabling concurrency there — while an uncached run divides its work between them. A
+development machine mostly answers from the cache and runs serial; a runner restores the pnpm store
+and never `node_modules`, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
+do_eslint` adds `--concurrency auto` where `GITHUB_ACTIONS` is set — never on `CI`, which a
+developer's shell may export. **The cache lives under
+`fl_frontend/node_modules/.cache/eslint/` and never at eslint's default location**, because eslint
+deletes the default file on any run without `--cache`, so one hand-run over a single file would empty
+the gate's cache. **What makes the cached
 verdict honest is `fl_frontend/eslint.config.mjs :: crossFileDigest`**, which hashes the inputs
 deciding a verdict from outside eslint's own key into `settings`; **nothing restores that cache in
 CI**, which is the bound on the digest rather than an omission — a cross-file input it has not
 grown to cover costs a false green on a development machine rather than a merged one. The
-measurements behind the trade are in the body of the commit that added
-`fl_frontend/eslint.config.mjs :: filesUnder`.
+measurements behind the trade are in the body of the commit that moved the cache under
+`node_modules/.cache/`.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at

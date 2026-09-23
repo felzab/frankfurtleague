@@ -55,9 +55,10 @@ const nextConfig: NextConfig = {
     // for this to barrel-optimise and listing it was a no-op.
     optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
-  // No `typescript.ignoreBuildErrors`: the build's own pass is the only one that ever compiles
-  // `.next/types/validator.ts`, which is generated after the gate's tsc step has run and is absent
-  // from a CI checkout entirely, so skipping it leaves every route's contract checked by nothing.
+  // Set only by the gate's host build, which follows its own tsc over the same working tree,
+  // `.next/types/validator.ts` included. Never set it for an image build: that context is the tree
+  // after `.dockerignore`, which no tsc has checked.
+  typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_TYPE_CHECK === "true" },
   output: "standalone",
   // No `partialPrefetching`, although Next's ISR guide presents it as `cacheComponents`' partner:
   // enabling it was measured to change nothing this app needed.

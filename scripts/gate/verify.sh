@@ -311,13 +311,16 @@ do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
-do_eslint()     { ( cd fl_frontend && pnpm lint ); }
+# Threads on a runner alone: it restores no eslint cache, so it always pays the cold fill threads
+# divide, while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`).
+do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_unit_tests() { ( cd fl_frontend && pnpm test ); }
-# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone.
+# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
+# pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
   ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
-      NEXT_TELEMETRY_DISABLED=1 pnpm build )
+      NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
 }
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
