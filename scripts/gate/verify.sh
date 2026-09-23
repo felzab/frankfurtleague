@@ -203,7 +203,7 @@ do_ruff() {
   "$PY" -m ruff format --check scripts
 }
 # From inside scripts/, where pyright finds its config; the absolute `$PY` survives the `cd`.
-do_pyright() { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
+do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
 # `loadfile` keeps each module's session-scoped fixture repository whole: `load` would rebuild the
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
@@ -238,7 +238,7 @@ do_backend_ruff() {
   if (( rc )); then printf '%s\n' "$lint"; return "$rc"; fi
   ( cd fl_backend && "$PY" -m ruff format --check app tests )
 }
-do_backend_pyright() { ( cd fl_backend && "$PY" -m pyright ); }
+do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
 do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.

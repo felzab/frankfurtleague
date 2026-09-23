@@ -1,4 +1,6 @@
 import argparse
+import copy
+import functools
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -31,8 +33,15 @@ VALUE_LEAD: Final = 40
 DIFFERENCE_CAP: Final = 20
 
 
-def build_document() -> dict[str, Any]:
+@functools.cache
+def _built_once() -> dict[str, Any]:
+    """Built once a process: modules read it at collection, every xdist worker collects each of them, and a build costs most of a second."""
     return create_app(build_test_config()).openapi()
+
+
+def build_document() -> dict[str, Any]:
+    """A copy of the one build: a caller planting on the shared dict would plant into every later reader's."""
+    return copy.deepcopy(_built_once())
 
 
 def read_document() -> dict[str, Any]:

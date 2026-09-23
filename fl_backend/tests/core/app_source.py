@@ -1,3 +1,15 @@
+"""
+CORE · the application's own source read as syntax, for the sweeps holding a convention across every module
+
+Every sweep over the whole of `app/` is cached for the run and answers a value no caller can change:
+each parametrised case asks again, and every caller is handed the one shared object, so a list one
+caller reshaped would be the next caller's answer.
+
+Invariants:
+- Nothing inside a test process changes the file set under `app/` or rebinds `APP_ROOT`, or a
+  cached sweep answers the first tree.
+"""
+
 import ast
 import functools
 import inspect
@@ -38,7 +50,7 @@ DRIVER_READS = frozenset({"aggregate", "count_documents", "distinct", "find", "f
 COLLECTION_ARGUMENT_SUFFIX = "_collection"
 
 # A session parameter is recognised by its ANNOTATION and never by its name: `figures_session` and
-# `read_session` are sessions, and a `session` on something else is not one.
+# `status_session` are sessions, and a `session` on something else is not one.
 SESSION_TYPE_MODULE = "pymongo.asynchronous.client_session"
 
 # An omitted argument leaves the callee's own default, which is outside the transaction exactly as a
@@ -181,12 +193,15 @@ def calls_in(node: ast.AST, scope: str) -> Iterator[tuple[str, ast.Call]]:
         yield (chain[-1].name if chain else scope), call
 
 
-def app_calls() -> Iterator[tuple[str, str, ast.Call]]:
+@functools.cache
+def app_calls() -> tuple[tuple[str, str, ast.Call], ...]:
     """Every call the application makes, with the module and the function around it."""
 
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        module = path.relative_to(BACKEND_ROOT).as_posix()
-        yield from ((module, scope, call) for scope, call in calls_in(parsed(path), "<module>"))
+    return tuple(
+        (path.relative_to(BACKEND_ROOT).as_posix(), scope, call)
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for scope, call in calls_in(parsed(path), "<module>")
+    )
 
 
 def dict_keys(node: ast.AST) -> frozenset[str]:
@@ -234,7 +249,8 @@ class Removal:
     names: frozenset[str]
 
 
-def removals() -> list[Removal]:
+@functools.cache
+def removals() -> tuple[Removal, ...]:
     """Every removal the application makes.
 
     Both arguments LITERAL, which is every removal here: one composed into a variable is refused
@@ -272,7 +288,7 @@ def removals() -> list[Removal]:
             )
         )
 
-    return found
+    return tuple(found)
 
 
 # The driver call that runs a whole callback in one transaction. Every transaction in the
@@ -299,9 +315,11 @@ class TransactionalCallback:
     unplaced: tuple[str, ...]
 
 
-def _callbacks() -> Iterator[tuple[Path, str, tuple[Declaration, ...], Declaration]]:
+@functools.cache
+def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration], ...]:
     """One finder for both sweeps below, so neither can quietly stop seeing a callback the other still reads."""
 
+    found: list[tuple[Path, str, tuple[Declaration, ...], Declaration]] = []
     for path in sorted(APP_ROOT.rglob("*.py")):
         module = path.relative_to(BACKEND_ROOT).as_posix()
         tree = parsed(path)
@@ -319,10 +337,13 @@ def _callbacks() -> Iterator[tuple[Path, str, tuple[Declaration, ...], Declarati
                 f"{module}: `{TRANSACTION_RUNNER}` is handed `{handed}`, which resolves to {len(found_names)} functions"
             )
 
-            yield path, module, outer, found_names[0]
+            found.append((path, module, outer, found_names[0]))
+
+    return tuple(found)
 
 
-def transactional_callbacks(session_taking: frozenset[str]) -> list[TransactionalCallback]:
+@functools.cache
+def transactional_callbacks(session_taking: frozenset[str]) -> tuple[TransactionalCallback, ...]:
     """Every callback the application runs inside a transaction.
 
     Its own LEXICAL body: a helper declared inside it answers here, while one it calls at module
@@ -355,7 +376,7 @@ def transactional_callbacks(session_taking: frozenset[str]) -> list[Transactiona
             )
         )
 
-    return found
+    return tuple(found)
 
 
 @functools.cache
