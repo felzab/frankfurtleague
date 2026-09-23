@@ -6,7 +6,7 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId, selectSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
-import { getSpielerMemberships } from "@/features/spieler/queries";
+import { getSpielerMemberships, getSpielerNachnominierung } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -54,10 +54,15 @@ async function AdminSpielerEditContent({
 
   const membership = spieler.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
+  // Asked once the season resolves, since `selectSaison` can fall back from the requested id, and only
+  // for a player holding no row there: the entry branch is the one place the verdict is shown.
+  const nachnominierung = membership === null ? await getSpielerNachnominierung(selectedSaison.id) : null;
+
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
     erlaubteStufen: orderStufen(selectedSaison.rules.erlaubte_stufen),
+    nachnominierungLaeuft: nachnominierung?.nachnominierung ?? null,
     membership:
       membership === null
         ? null

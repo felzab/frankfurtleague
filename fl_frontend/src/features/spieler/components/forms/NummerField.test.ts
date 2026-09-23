@@ -54,6 +54,7 @@ const renderEditor = () =>
           saisonId: "2026",
           saisonStatus: "active",
           erlaubteStufen: ["Q1"],
+          nachnominierungLaeuft: null,
           membership: {
             team_id: TEAM.teamId,
             nummer: "10",

@@ -421,12 +421,10 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    ist_nachnominiert: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
-    ist_nachnominiert: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
   FLSwapGruppenPayloadSchema: {
     saison_id: IN_THE_PATH,

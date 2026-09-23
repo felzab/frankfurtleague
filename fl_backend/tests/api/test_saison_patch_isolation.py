@@ -277,13 +277,14 @@ async def call_add_a_player(database: AsyncDatabase) -> Any:
             nummer=None,
             position=None,
             stufe=None,
-            ist_nachnominiert=False,
             rolle=None,
         ),
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        spieltage_collection=database[Collection.SPIELTAGE],
         db=database.client,
+        today=TODAY,
     )
 
 

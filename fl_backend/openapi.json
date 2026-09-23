@@ -3637,6 +3637,52 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/spieler/nachnominierung/{saison_id}": {
+      "get": {
+        "summary": "Whether a squad entry into a season today is a Nachnominierung",
+        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first\nday of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which\nholds none yet, answers `false`. 404 where no season has this id.",
+        "operationId": "get_spieler_nachnominierung_api_v0_spieler_nachnominierung__saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerNachnominierungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spieler/{spieler_id}/reactivate": {
       "post": {
         "summary": "Bring a retired Spieler back",
@@ -3732,7 +3778,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`).",
+        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true\nfrom the first day of the season's matchday 1, and false while that matchday is undated.",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -10721,10 +10767,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -10748,7 +10790,6 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle"
         ],
         "title": "FLPatchSaisonSpielerPayload",
@@ -12026,10 +12067,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -12059,7 +12096,6 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle",
           "saison_id"
         ],
@@ -13452,10 +13488,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -13479,6 +13511,10 @@
             "type": "string",
             "title": "Saison Id"
           },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -13498,10 +13534,10 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle",
           "spieler_id",
           "saison_id",
+          "ist_nachnominiert",
           "inactive_since"
         ],
         "title": "FLSaisonSpielerResponse",
@@ -15859,11 +15895,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
-          },
           "rolle": {
             "anyOf": [
               {
@@ -15878,6 +15909,11 @@
               }
             ],
             "title": "Rolle"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert",
+            "default": false
           },
           "saison_id": {
             "type": "string",
@@ -15933,6 +15969,34 @@
         ],
         "title": "FLSpielerMembershipsResponse",
         "description": "Every player, retired ones included, each with their squad rows. Sorted by name."
+      },
+      "FLSpielerNachnominierungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "nachnominierung": {
+            "type": "boolean",
+            "title": "Nachnominierung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "nachnominierung"
+        ],
+        "title": "FLSpielerNachnominierungResponse",
+        "description": "Whether an entry into this season's squads today would be marked a Nachnominierung."
       },
       "FLSpielerPublic": {
         "properties": {

@@ -82,9 +82,6 @@ export function FormKaderSection({
    */
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
-  // Derived rather than asked, so it cannot be forgotten: a started season means a late arrival.
-  const entryIstNachnominiert = saison.saisonStatus !== "future";
-
   const handleEnterSaison = () => {
     startEntering(async () => {
       const res = await postSaisonSpielerAction({
@@ -96,7 +93,6 @@ export function FormKaderSection({
         nummer: nummerPayload(nummer),
         position,
         stufe,
-        ist_nachnominiert: entryIstNachnominiert,
         rolle: null,
       });
 
@@ -160,8 +156,8 @@ export function FormKaderSection({
               />
             </div>
 
-            {/* A group rather than a switch, unlike `ist_nachnominiert`: three states, and pressing the
-                held one again is how a role is given up. Empty selection is the ordinary state. */}
+            {/* A group rather than a switch: three states, and pressing the held one again is how a
+                role is given up. Empty selection is the ordinary state. */}
             <TextField
               name="rolle"
               // The proxy is what makes a refusal land: `ToggleButtonGroup` takes no `name`, so it
@@ -280,7 +276,7 @@ export function FormKaderSection({
               </Hint>
             </div>
 
-            {/* Coloured rather than muted: it announces a value the form chooses on the admin's
+            {/* Coloured rather than muted: it announces a value the create stores on the admin's
                 behalf, which must not read as fine print. */}
             <InlineBanners
               banners={banners}

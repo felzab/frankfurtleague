@@ -85,7 +85,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
             whether it is accepted: the squad's own entries closed when the first matchday began. */}
         {stand === "gueltig" && ansicht !== null && ansicht.nachnominierung && (
           <p className={ABSATZ}>
-            Die Saison hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
+            Der erste Spieltag hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
           </p>
         )}
 

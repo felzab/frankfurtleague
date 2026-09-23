@@ -177,6 +177,7 @@ const EDITORS: Record<string, Editor> = {
             saisonId: "2026",
             saisonStatus: "active",
             erlaubteStufen: ["Q1"],
+            nachnominierungLaeuft: null,
             membership: {
               team_id: TEAM_A.teamId,
               nummer: "10",

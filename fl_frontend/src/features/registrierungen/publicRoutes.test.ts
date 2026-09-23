@@ -238,6 +238,13 @@ describe("the state the registration page renders", () => {
     });
 
     assert.match(textOf(laufend, " "), /nachnominiert/, "a pupil joining a started season is not told what that makes them");
+    // Matchday 1 decides the marker, never the season's status (`docs/glossary.md`, `ist_nachnominiert`).
+    assert.match(
+      textOf(laufend, " ").replace(/\s+/g, " "),
+      // `textOf` sets its separator where the marked word's element closes.
+      /Der erste Spieltag hat schon begonnen\. Du wirst deshalb nachnominiert ?\. Am Mitspielen ändert das nichts\./,
+      "the banner gives the season's start as the reason, or drops what the marker leaves unchanged",
+    );
     assert.doesNotMatch(textOf(seite("gueltig"), " "), /nachnominiert/, "an ordinary registration is called a Nachnominierung");
   });
 });

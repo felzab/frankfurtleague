@@ -891,6 +891,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "offers, and to that same list by a refusal where a pupil registers themselves (`REQ-REGISTRIERUNG-003`)",
     ),
     FieldPolicy(
+        Collection.SAISON_SPIELER,
+        "ist_nachnominiert",
+        Editability.COMPOSED,
+        "composed at create from matchday 1 of the season's first phase, on neither squad payload, and moved by no later "
+        "write: a PATCH and a reactivation keep it, so the row says whether the player joined after the season began",
+        "app.api.spieltage.crud.nachnominierung_laeuft_in",
+    ),
+    FieldPolicy(
         Collection.SPIELE,
         "spiel_nr",
         Editability.IMMUTABLE,

@@ -62,16 +62,6 @@ def find_fenster_refusal(*, registrierung: Any, today: str) -> WriteRefusal | No
     )
 
 
-def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
-    """Whether this registration is a Nachnominierung on `today`.
-
-    Matchday 1's `beginn` and never the first fixture's date, which can sit days inside the span. An
-    undated matchday has begun nothing: a drawn season holds none until somebody dates it.
-    """
-
-    return isinstance(beginn, str) and beginn <= today
-
-
 def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-002`: the season holds no junction row for the invite's team.
 

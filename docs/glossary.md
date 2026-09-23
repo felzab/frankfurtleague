@@ -214,10 +214,10 @@ where the row carries the stamp the expiry reads (I119).\
 
 ### `ist_nachnominiert` — entered later, retrospectively added
 
-**Is:** a marker on a squad entry added after the season had already started.\
+**Is:** a marker on a squad entry made on or after the first day of the season's matchday 1.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`, the `saison_spieler` row's own declared shape.\
-**Trap:** every junction payload requires it with no default, and the one form that writes a squad row derives it from the season's status rather than asking (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx`), so it is always an answer rather than a value nobody chose; three read sites accept the key's earlier spelling besides, and the validator requires neither, until the one-off reset of [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log) has taken every row written under it.\
-**See:** backend spec I34 for the payloads' no-default rule, I302 for the spellings a read accepts.
+**Trap:** the squad create derives it from matchday 1 of the season's FIRST phase (`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), never from the season's status: an `active` season whose matchday 1 is undated or still ahead enters players as ordinary ones, and the invite's read tells a pupil the same verdict; no payload carries it, so no form and no edit can set or clear it; three read sites accept the key's earlier spelling besides, and the validator requires neither, until the one-off reset of [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log) has taken every row written under it.\
+**See:** backend spec I334 for the derivation, I335 for the period's boundary, I302 for the spellings a read accepts.
 
 ### `rolle` — which of a squad's leading roles a player holds
 

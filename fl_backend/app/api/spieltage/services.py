@@ -4,7 +4,7 @@ from typing import Any
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_RANK
+from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -55,6 +55,26 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
     """
 
     return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
+
+
+def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:
+    """Matchday 1 of a season, whose `beginn` opens the Nachnominierung period.
+
+    The phase is named because `position` restarts at 1 in every phase: the position alone matches
+    one row per phase, and the driver answers whichever it meets first.
+    """
+
+    return {"saison_id": saison_id, "saison_phase": PHASE_ORDER[0], "position": 1}
+
+
+# The period's one test (`docs/backend/spec.md :: I334`): a second spelling lets the invite
+# tell a pupil one thing while the squad row stores another.
+def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
+    """Whether an entry made on `today` is a Nachnominierung, on `docs/backend/spec.md :: I335`'s terms."""
+
+    # A type test rather than truthiness: an undated matchday stores `None`, and a value of any other
+    # type is no date this comparison can order.
+    return isinstance(beginn, str) and beginn <= today
 
 
 # What each code below refuses is `docs/logging/error-codes.md`.

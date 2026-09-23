@@ -20,12 +20,11 @@ from app.api.registrierungen.services import (
     find_kader_refusal,
     find_stufe_refusal,
     find_team_junction_refusal,
-    nachnominierung_laeuft,
 )
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
-from app.api.spiele.schemas import PHASE_ORDER
+from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -124,11 +123,9 @@ async def post_einladung_ansicht(
 
     squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id))
 
-    # The FIRST phase's matchday 1: `position` restarts at 1 in every phase, so a filter naming the
-    # position alone would match one row per phase and answer whichever the driver returned.
-    erster_spieltag = await spieltage_collection.find_one(
-        {"saison_id": saison_id, "saison_phase": PHASE_ORDER[0], "position": 1}, {"beginn": 1}
-    )
+    # The squad create's own test, so the page tells a pupil what an entry made TODAY would store --
+    # not what a squad row written on a later day will.
+    nachnominierung = await nachnominierung_laeuft_in(spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=None)
 
     return FLEinladungAnsichtResponse(
         team=str((junction_raw or team_raw)["name"]),
@@ -141,7 +138,7 @@ async def post_einladung_ansicht(
         # the state before anything is typed rather than after a whole form is filled in.
         team_eingetragen=junction_raw is not None,
         kader_frei=squad_size < int(rules.get("max_kadergroesse") or 0),
-        nachnominierung=nachnominierung_laeuft(beginn=(erster_spieltag or {}).get("beginn"), today=today),
+        nachnominierung=nachnominierung,
     )
 
 

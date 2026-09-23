@@ -105,6 +105,7 @@ function renderEditor({
           saisonId: SAISON_ID,
           saisonStatus: "active",
           erlaubteStufen: ["Q1"],
+          nachnominierungLaeuft: null,
           membership: {
             team_id: STORED_TEAM.teamId,
             nummer: "10",
@@ -679,4 +680,78 @@ describe("the squad edit's refusals when the undo replays it", () => {
       assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
+});
+
+const ENTRY_ANNOUNCEMENT = "Diese Person wird nachnominiert";
+
+describe("the late-entry marker, which the backend derives", () => {
+  /* An ACTIVE season in every case: one whose matchday 1 is undated or still ahead enters an ordinary
+     player, so an editor reading the status would announce a late entry the backend never stores. */
+  const renderEntry = (nachnominierungLaeuft: boolean) =>
+    render(
+      underSaison(
+        h(AdminSpielerEditForm, {
+          spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+          einwilligung: null,
+          saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
+          teams: [STORED_TEAM],
+          membershipCount: 0,
+          pageHeader: { title: "Lena Meier" },
+        }),
+      ),
+    );
+
+  it("announces the entry as a Nachnominierung on the served verdict alone", () => {
+    const ordinary = renderEntry(false);
+    assert.ok(!document.body.textContent.includes(ENTRY_ANNOUNCEMENT), "an active season announces a late entry the backend will not store");
+    ordinary.unmount();
+
+    renderEntry(true);
+    assert.ok(document.body.textContent.includes(ENTRY_ANNOUNCEMENT), "a running period goes unannounced");
+  });
+
+  it("enters a player without sending a marker", async () => {
+    const user = userEvent.setup();
+    renderEntry(true);
+
+    await pickTeam(user, STORED_TEAM);
+    await user.click(screen.getByRole("button", { name: `In Kader ${SAISON_ID} aufnehmen` }));
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["postSaisonSpielerAction"],
+    );
+    assert.ok(!Object.hasOwn(calls[0]?.payload ?? {}, "ist_nachnominiert"), "the entry sends a marker the payload refuses");
+  });
+
+  it("saves an edit without sending the stored marker back", async () => {
+    const user = userEvent.setup();
+    renderEditor({ teams: [STORED_TEAM] });
+
+    const nummer = screen.getByRole("textbox", { name: "Nummer" });
+    await user.clear(nummer);
+    await user.type(nummer, "7");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["patchSaisonSpielerAction"],
+      "the edit never reached its write, so the payload below is judged over nothing",
+    );
+    assert.ok(!Object.hasOwn(calls[0]?.payload ?? {}, "ist_nachnominiert"), "the edit sends a marker the payload refuses");
+  });
+
+  /* The banner is raised on the entry branch alone, so a player holding a row costs no read. */
+  it("asks for the served verdict only where the player holds no row in the season", () => {
+    assert.match(
+      PAGE,
+      /const nachnominierung = membership === null \? await getSpielerNachnominierung\(selectedSaison\.id\) : null;/,
+      "the page asks for a verdict no banner can use, or asks another season",
+    );
+    assert.match(
+      PAGE,
+      /nachnominierungLaeuft: nachnominierung\?\.nachnominierung \?\? null,/,
+      "the editor is handed something other than the verdict",
+    );
+  });
 });
