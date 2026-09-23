@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
-import { after, describe, it } from "node:test";
+import { describe, it } from "node:test";
+
+import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 const STORE = "__flSignInStore";
 const COOKIE_JAR = "__flSignInCookieJar";
@@ -13,24 +11,9 @@ const REQUEST_HEADERS = "__flSignInRequestHeaders";
 const SENT = "__flSignInSentMail";
 const DEFERRED = "__flSignInDeferredWork";
 
-/** A single-segment subpath such as `next/navigation`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
-const ALLOWLISTED = "vorstand@example.org";
-/** Absent from the allowlist below, so the gate inside the send is what refuses it. */
+const ALLOWLISTED = ADMIN_EMAIL;
+/** Absent from the config double's allowlist, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
-
-const CONFIG_DOUBLE = `export const frontend_config = {
-  ALLOWED_ADMIN_EMAILS: ["${ALLOWLISTED}"],
-  AUTH_URL: "http://localhost:3000",
-  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
-  LOG_LEVEL: "ERROR",
-  LOG_FORMAT: "json",
-};`;
-
-// Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-// a `MongoClient` at import, so loading it would reach for a server no test run holds.
-const DB_DOUBLE = `export const client = { db: () => ({}) };`;
 
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass. The text carries the link, which is where a token is read.
@@ -46,42 +29,23 @@ const MAIL_DOUBLE = `export const sendMail = async (message) => {
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};
 export const cookies = async () => globalThis.${COOKIE_JAR};`;
 
-/* The Mongo adapter reaches a real server through aggregation pipelines, and what this file watches
-   is the response rather than the store. */
-const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
-
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
  * see inside one. `NextResponse` is the real export beside it, this file building the response itself.
  */
-const nextServerDouble = (realUrl: string) => `export * from ${JSON.stringify(realUrl)};
+const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("next/server.js"))};
 export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
 
-const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+registerAuthDoubles({
+  core: { mail: MAIL_DOUBLE },
+  specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.
-    if (specifier === "next/headers" || specifier === "next/headers.js") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
-    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
-    // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both the library and the application import these bare.
-    if (specifier === "next/server")
-      return { url: asDataUrl(nextServerDouble(nextResolve("next/server.js", context).url)), shortCircuit: true };
-    if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/headers.js": asDataUrl(HEADERS_DOUBLE),
+    "next/server": asDataUrl(NEXT_SERVER_DOUBLE),
+    // What this file watches is the response rather than the store.
+    "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
 
@@ -100,23 +64,12 @@ globals[SENT] = sent;
 globals[DEFERRED] = deferred;
 globals[STORE] = store;
 
-const ARRIVING = { host: "localhost:3000", "x-forwarded-proto": "http" };
-
 /** What `headers()` answers, replaced by the case that needs the cookie a press has just written. */
 function arriveAs(cookie: string | null): void {
-  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ARRIVING : { ...ARRIVING, cookie });
+  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
 }
 
 arriveAs(null);
-
-// The library reads this name natively where no `secret` option is passed; the option comes from the
-// config double above, and this keeps a real environment out of the run either way.
-const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
-process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
-after(() => {
-  if (ORIGINAL_AUTH_SECRET === undefined) delete process.env.AUTH_SECRET;
-  else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
-});
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.

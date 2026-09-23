@@ -281,9 +281,11 @@ jobs:
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
-  # The `db`-marked backend tests, which start a real mongod. A separate job rather than
-  # a step in `backend`: jobs run concurrently, so the mongod pull costs no wall-clock time. The
-  # marker belongs to the suite, not to this pipeline.
+  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files. A separate
+  # job rather than a step in `backend`: jobs run concurrently, so the mongod pull costs no
+  # wall-clock time.
+
+  # The marker belongs to the suite, not to this pipeline.
   backend-db:
     needs: changes
     if: needs.changes.outputs.db == 'true'
@@ -306,7 +308,7 @@ jobs:
       - name: Pull the mongod image the db tier starts
         # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
         # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
-        # told from a slow registry. The tag is read from the conftest.
+        # told from a slow registry.
 
         # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
         # that, so none is added here.
@@ -317,6 +319,9 @@ jobs:
         continue-on-error: true
         # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
         # first, which is a bare 141 with nothing printed, the guard below never having run.
+
+        # The conftest's one tag is every tier's: `fl_frontend/src/core/mongoImage.test.ts` holds
+        # the frontend's db-tier files to it.
         run: |
           image="$(awk -F'"' '/Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
           if [ -z "$image" ]; then
@@ -324,6 +329,9 @@ jobs:
             exit 1
           fi
           docker pull "$image"
+      # The db scope runs the frontend's db-tier files too (`pnpm run test:db`), so this job installs
+      # the frontend beside the backend's virtualenv.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 

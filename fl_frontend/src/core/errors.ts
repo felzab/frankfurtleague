@@ -20,6 +20,18 @@ export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
   return !SAFE_METHODS.has(method) && !readOnly;
 }
 
+/**
+ * A failure its own code proves wrote nothing: thrown inside a transaction, before its commit, so the
+ * transaction rolled back. A write request answers it as failed rather than as of unknown outcome.
+ */
+export class RolledBackError extends Error {
+  override name = "RolledBackError";
+
+  constructor(cause: unknown) {
+    super("Rolled back before its commit.", { cause });
+  }
+}
+
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   traceId: string;

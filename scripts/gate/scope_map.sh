@@ -99,14 +99,34 @@ else
       # the internal key's alphabet, so it owes the backend scope as well as the image's.
       fl_frontend/src/core/config.ts)
         frontend=true; images=true; backend=true; db=true; docs=true ;;
-      # Its own arm, the config.ts mapping above: joined to it, an edit here would buy the whole
-      # backend and database tier for two files no backend suite reads.
-      fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
+      # The frontend's db-tier files drive these against a real replica set, so each owes the db
+      # scope (`docs/frontend/spec.md` §1.9); the patch also ships in the image.
+      fl_frontend/src/core/auth.ts|fl_frontend/patches/*)
+        frontend=true; images=true; db=true; docs=true ;;
+      # What a db-tier file imports directly, or `test:db`'s command line loads, owes the scope that
+      # runs it (`scripts/tests/test_scope_decisions.py` derives the set). A module reached only
+      # through one of these waits for the push to main.
+      fl_frontend/src/core/passkeyRefusal.ts|fl_frontend/src/features/passkeys/actions.ts| \
+      fl_frontend/src/core/authDoubles.ts|fl_frontend/src/shared/utils/refusal.ts| \
+      fl_frontend/app-source-maps.mjs|fl_frontend/tsconfig-alias-hook.mjs| \
+      fl_frontend/barrel-imports-hook.mjs|fl_frontend/worker-exit-reporter.mjs)
+        frontend=true; db=true; docs=true ;;
+      # Every extension `test:db` collects, so no db-tier file changes outside the scope that runs it.
+      fl_frontend/*.db.test.cjs|fl_frontend/*.db.test.mjs|fl_frontend/*.db.test.js| \
+      fl_frontend/*.db.test.cts|fl_frontend/*.db.test.mts|fl_frontend/*.db.test.ts)
+        frontend=true; db=true; docs=true ;;
+      # Its own arm, apart from config.ts's above: joined to it, an edit here would buy the whole
+      # backend and database tier for a file no backend suite reads.
+      fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
-      # next.config.ts owns output:"standalone" and the file tracing the image copies;
-      # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both can
+      # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys, which can break
+      # only the image while the host build stays green. The manifests and the lockfile also pin
+      # what the db-tier files start their server with.
+      fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/pnpm-workspace.yaml)
+        frontend=true; images=true; db=true; docs=true ;;
+      # next.config.ts owns output:"standalone" and the file tracing the image copies, which can
       # break only the image while the host build stays green.
-      fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
+      fl_frontend/next.config.ts)
         frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker. A line
       # of its own, so CI and `check_scope.py` read this vocabulary rather than translating it.
@@ -163,6 +183,9 @@ else
       # comparison no earlier than the push to main.
       fl_frontend/src/core/api.ts) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
+      # The db tier's image is named here, and `fl_frontend/src/core/mongoImage.test.ts` holds the
+      # frontend's db-tier files to it, so a bump here owes the frontend scope too.
+      fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats
       # them. Both carry `docs`, their comments being documentation (INC-6).

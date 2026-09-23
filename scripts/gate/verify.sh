@@ -337,12 +337,10 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # divide, while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`).
 do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
-# pnpm appends an argument after the script's name to that script's command, whose last program is
-# `node --test`, so the shard reaches the runner.
+# The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
+# appends after them reaches the runner unapplied, every shard then running the whole suite.
 do_unit_tests() {
-  local -a shard=()
-  if [[ -n "$VERIFY_TEST_SHARD" ]]; then shard=("--test-shard=${VERIFY_TEST_SHARD}"); fi
-  ( cd fl_frontend && pnpm test "${shard[@]}" )
+  ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
 }
 # The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
 # pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
@@ -1406,6 +1404,22 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${DB_WIDTH}\` to see whe
     *) on_error "$DB_RC" "${LINENO}" "pytest -m db" ;;
   esac
   ok "db-tier tests pass"
+
+  # Each file starts its own replica set through `@testcontainers/mongodb`
+  # (`docs/frontend/spec.md` §1.9), so the claim above covers them and no shared server is touched.
+  step "db · the frontend's *.db.test.ts files"
+  # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
+  # that reached no verdict.
+  FRONTEND_DB_RC=0
+  ( cd fl_frontend && quietly pnpm run test:db ) || FRONTEND_DB_RC=$?
+  case "$FRONTEND_DB_RC" in
+    0) ;;
+    1) die "fl_frontend db-tier tests failed.
+testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon." ;;
+    130) on_interrupt ;;
+    *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
+  esac
+  ok "frontend db-tier tests pass"
 fi
 
 # --- images ----------------------------------------------------------------------------------------

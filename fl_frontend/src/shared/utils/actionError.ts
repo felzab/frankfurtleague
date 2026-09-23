@@ -1,4 +1,4 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 
@@ -121,8 +121,8 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown
-  // after a write, it leaves the row standing under a failure's title.
-  if (answering !== undefined && mayHaveWritten(answering)) return { ...OUTCOME_UNKNOWN };
+  // after a write, it leaves the row standing under a failure's title. A proven rollback wrote nothing.
+  if (answering !== undefined && mayHaveWritten(answering) && !(error instanceof RolledBackError)) return { ...OUTCOME_UNKNOWN };
 
   return { success: false, error: UNKNOWN_REFUSAL };
 }

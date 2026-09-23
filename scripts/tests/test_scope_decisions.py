@@ -14,7 +14,9 @@ from __future__ import annotations
 import ast
 import functools
 import importlib
+import json
 import os
+import posixpath
 import re
 import shutil
 import sys
@@ -973,3 +975,111 @@ def test_the_two_repairs_are_reported_apart() -> None:
         "fl_backend/app/core/recording.py is carried into --frontend, and nothing there reads it",
         "fl_frontend/next.config.ts is carried into --backend, and nothing there reads it",
     ], repr(_stale(PLANTED_CROSSINGS))
+
+
+# --- the frontend's db tier ---------------------------------------------------------------------------
+
+DB_TIER_SCRIPT: Final = "test:db"
+UNIT_TIER_SCRIPT: Final = "test"
+DB_TIER_FILE_RE: Final = re.compile(r"\.db\.test\.[cm]?[jt]s$")
+
+# A script's command line up to its first quoted file pattern, which is where the two tiers part. A
+# flag written after a pattern is compared by nothing, so every launcher flag goes ahead of them.
+LAUNCHER_RE: Final = re.compile(r'^([^"]*)"')
+
+
+def test_both_test_tiers_start_under_one_launcher() -> None:
+    """A hook one tier loads and the other does not runs the two under different loaders.
+
+    `package.json` has no variable the two could share, so each script spells the launcher whole.
+    """
+    scripts = json.loads((REPO_ROOT / FRONTEND / "package.json").read_text(encoding="utf-8"))["scripts"]
+    launchers = {name: LAUNCHER_RE.match(scripts[name]) for name in (UNIT_TIER_SCRIPT, DB_TIER_SCRIPT)}
+    assert all(launchers.values()), f"a tier's script names no quoted file pattern to part the launcher at: {launchers}"
+    unit, db = (match[1] for match in launchers.values() if match is not None)
+    assert unit == db, f"`{UNIT_TIER_SCRIPT}` starts under\n  {unit}\nand `{DB_TIER_SCRIPT}` under\n  {db}"
+
+
+# A module named by string after `from`, as a bare `import`, or inside a dynamic `import(`. A package
+# falls out at resolution, the manifests' own arm carrying every one.
+IMPORTED_RE: Final = re.compile(r"""(?:\bfrom|\bimport)\s*\(?\s*["']([^"'\n]+)["']""")
+
+# A hook or a reporter `node` loads ahead of every test file. A reporter named bare is built in.
+LOADED_RE: Final = re.compile(r"--(?:import|require|test-reporter)[= ](\./[^\s\"]+)")
+
+# Read out of the hook rather than copied, so an extension it learns reaches this resolver too.
+ALIAS_HOOK: Final = FRONTEND + "/tsconfig-alias-hook.mjs"
+CANDIDATES_RE: Final = re.compile(r"CANDIDATE_SUFFIXES = (\[[^\]]*\])")
+
+BY_PATTERN: Final = "the `" + DB_TIER_SCRIPT + "` file pattern"
+BY_COMMAND: Final = "the `" + DB_TIER_SCRIPT + "` command line"
+
+
+def _resolved(importer: str, specifier: str, candidates: list[str]) -> str | None:
+    """The file one local specifier names, tried as the alias hook tries it; None for a package."""
+    if specifier.startswith("@/"):
+        base = FRONTEND + "/src/" + specifier.removeprefix("@/")
+    elif specifier.startswith(("./", "../")):
+        base = posixpath.normpath(posixpath.join(posixpath.dirname(importer), specifier))
+    else:
+        return None
+    found = next((base + suffix for suffix in candidates if (REPO_ROOT / (base + suffix)).is_file()), None)
+    # Loud rather than skipped: a specifier this cannot place is a load the check below never asks about.
+    assert found is not None, f"{importer} imports {specifier!r}, which no candidate of {ALIAS_HOOK} resolves"
+    return found
+
+
+def _db_tier_loads() -> dict[str, str]:
+    """Each file the frontend's db tier loads directly, against what loads it.
+
+    Direct alone: a module one of these imports in turn is left to the push to main, as the arm in
+    `scripts/gate/scope_map.sh` carrying these says.
+    """
+    listing = git(REPO_ROOT, "-c", "core.quotepath=false", "ls-files", "--cached", "--others", "--exclude-standard", "--", FRONTEND)
+    tiers = sorted(rel for rel in listing.splitlines() if DB_TIER_FILE_RE.search(rel) and (REPO_ROOT / rel).is_file())
+    loads = dict.fromkeys(tiers, BY_PATTERN)
+    manifest = json.loads((REPO_ROOT / FRONTEND / "package.json").read_text(encoding="utf-8"))
+    for loaded in LOADED_RE.findall(manifest["scripts"][DB_TIER_SCRIPT]):
+        loads[FRONTEND + "/" + loaded.removeprefix("./")] = BY_COMMAND
+    declared = CANDIDATES_RE.search((REPO_ROOT / ALIAS_HOOK).read_text(encoding="utf-8"))
+    assert declared is not None, ALIAS_HOOK + " no longer declares CANDIDATE_SUFFIXES as a list this reads"
+    candidates: list[str] = json.loads(declared[1])
+    for rel in tiers:
+        for specifier in IMPORTED_RE.findall((REPO_ROOT / rel).read_text(encoding="utf-8")):
+            if (found := _resolved(rel, specifier, candidates)) is not None:
+                loads.setdefault(found, rel)
+    return loads
+
+
+def test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope() -> None:
+    """A change to one of them alone reaches the replica-set tests no earlier than the push to main.
+
+    One non-emptiness check per source, so a reader gone inert fails rather than asking nothing.
+    """
+    loads = _db_tier_loads()
+    assert BY_PATTERN in loads.values(), "no db-tier file was found under " + FRONTEND + ": that listing went inert"
+    assert BY_COMMAND in loads.values(), f"`{DB_TIER_SCRIPT}` was read as loading nothing ahead of its files: that reader went inert"
+    assert set(loads.values()) - {BY_PATTERN, BY_COMMAND}, "no db-tier file was read as importing a local module: that reader went inert"
+    chosen = _selected(_fixture().scope, loads)
+    unselected = sorted(f"{path}, loaded by {by}" for path, by in loads.items() if "db" not in chosen[path])
+    assert not unselected, "name each in scripts/gate/scope_map.sh's db-tier arm:\n" + "\n".join(unselected)
+
+
+# What the db-tier arm selects, `format` riding along for a suffix prettier reads, and no other arm
+# naming a single frontend file does: the arms that also select `db` carry `images` or `backend`.
+DB_TIER_ARM: Final = frozenset({"frontend", "db", "docs", "format"})
+
+
+def test_every_file_the_db_tier_arm_names_is_one_the_tier_loads_directly() -> None:
+    """The other direction: a file moved or deleted leaves its name in the arm, selecting a scope for nothing.
+
+    Read by token and never filtered on existence, so a name no file answers to is what fails.
+    """
+    fixture = _fixture()
+    mapping = (fixture.root / SCRIPTS_COPY / "gate" / "scope_map.sh").read_text(encoding="utf-8")
+    named = {token for token in SHELL_TOKEN.findall(mapping) if token.startswith(FRONTEND + "/")}
+    chosen = _selected(fixture.scope, named)
+    armed = {path for path in named if chosen[path] == DB_TIER_ARM}
+    assert armed, "no path in scripts/gate/scope_map.sh was read as the db-tier arm's: that reader went inert"
+    stale = sorted(armed - set(_db_tier_loads()))
+    assert not stale, "drop each from scripts/gate/scope_map.sh's db-tier arm, or restore the load:\n" + "\n".join(stale)

@@ -1,65 +1,24 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
-import { registerHooks } from "node:module";
-import { after, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { ADMIN_EMAIL, asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, seedLink } from "./core/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 const REQUEST_HEADERS = "__flProxyRequestHeaders";
 
-/** A single-segment subpath such as `next/server`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
 
-const ADMIN_EMAIL = "vorstand@example.org";
-/** An address the allowlist below does not carry, whose session the verdict is what refuses. */
+/** An address the config double's allowlist does not carry, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
-const CONFIG_DOUBLE = `export const frontend_config = {
-  ALLOWED_ADMIN_EMAILS: ["${ADMIN_EMAIL}"],
-  AUTH_URL: "http://localhost:3000",
-  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
-  LOG_LEVEL: "ERROR",
-  LOG_FORMAT: "json",
-};`;
-
-// Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-// a `MongoClient` at import, so loading it would reach for a server no test run holds.
-const DB_DOUBLE = `export const client = { db: () => ({}) };`;
-
-const MAIL_DOUBLE = `export const sendMail = async () => ({ id: null });`;
-
-/* The Mongo adapter reaches a real server through aggregation pipelines, and this file's subject is
-   the SHAPE of a turn-away rather than the store behind it. */
-const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
-
-const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
-    // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both the library and the application import these bare.
-    if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
+registerAuthDoubles({
+  specifiers: {
+    // This file's subject is the SHAPE of a turn-away rather than the store behind it.
+    "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
+    "next/headers": asDataUrl(HEADERS_DOUBLE),
     // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
-    if (specifier === "react-server-dom-webpack/client") return nextResolve("next/dist/compiled/react-server-dom-webpack/client.js", context);
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+    "react-server-dom-webpack/client": import.meta.resolve("next/dist/compiled/react-server-dom-webpack/client.js"),
   },
 });
 
@@ -76,22 +35,11 @@ type Store = {
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
 (globalThis as unknown as Record<string, unknown>)[STORE] = store;
 
-// The library reads this name natively where no `secret` option is passed; the option comes from the
-// config double above, and this keeps a real environment out of the run either way.
-const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
-process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
-after(() => {
-  if (ORIGINAL_AUTH_SECRET === undefined) delete process.env.AUTH_SECRET;
-  else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
-});
-
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
 const { auth, getSignInDestination } = await import("./core/auth.ts");
 const { proxy } = await import("./proxy.ts");
-
-const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" };
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -100,25 +48,13 @@ function arriveAs(cookie: string | null): void {
 
 arriveAs(null);
 
-/* Seeded at the shape the plugin stores — SHA-256, base64url, no padding — because verification is
-   what mints a session and it gates on no allowlist. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const token = `fabricated-link-${randomUUID()}`;
-
-  store.verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  const verified = await auth.api.magicLinkVerify({
+    query: { token: seedLink(store.verification, email) },
+    headers: new Headers(ORIGIN),
+    returnHeaders: true,
   });
-
-  const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
-  const cookie = verified.headers
-    .getSetCookie()
-    .map((line) => line.split(";")[0])
-    .join("; ");
+  const cookie = cookieHeader(verified);
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");

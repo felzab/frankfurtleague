@@ -4,11 +4,12 @@ import { headers } from "next/headers";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
-import { betterAuth } from "better-auth";
+import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { customSession } from "better-auth/plugins/custom-session";
 import { magicLink } from "better-auth/plugins/magic-link";
+import { MongoServerError } from "mongodb";
 
 import { buildAnmeldeLink } from "./anmeldeLink";
 import { ANMELDUNG_LINK, ANMELDUNG_TAG } from "./anmeldeTag";
@@ -17,13 +18,14 @@ import { frontend_config } from "./config";
 import { client } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
+import { RolledBackError } from "./errors";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
-import { USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
+import { ENROLMENT_CONFLICT, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 
-import type { BetterAuthOptions, DBAdapter } from "better-auth";
+import type { BetterAuthOptions, DBTransactionAdapter } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
@@ -95,9 +97,9 @@ const LINK_FACTOR = "link";
 // Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
 // the check on.
 
-// The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, which
-// better-auth pull request 11155 retires; the check is ours either way, both verifiers being called
-// with `requireUserVerification` off.
+// The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, whose hunk in
+// `generatePasskeyAuthenticationOptions` better-auth pull request 11155 retires; the check is ours
+// either way, both verifiers being called with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
 
 /** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
@@ -140,7 +142,7 @@ function asEnroller(served: { user: { email: string }; session: object } | null)
  * on `freshAge` and on nothing else, which a link-borne session is inside
  * (`docs/frontend/spec.md :: I261`).
  */
-async function refuseEnrolment(adapter: DBAdapter, userId: string, caller: Enroller, credentialID?: string): Promise<void> {
+async function refuseEnrolment(adapter: DBTransactionAdapter, userId: string, caller: Enroller, credentialID?: string): Promise<void> {
   // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
   // names no surface either.
   if (!isUserAdmin(caller.email)) throw APIError.fromStatus("NOT_FOUND");
@@ -163,6 +165,45 @@ async function refuseEnrolment(adapter: DBAdapter, userId: string, caller: Enrol
   // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
   // rows nothing on the page tells apart (driven against 1.7.5).
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
+}
+
+// The server's code for a write refused over another transaction's write to the same document; the
+// driver exports no name for it.
+const WRITE_CONFLICT = 112;
+
+function isWriteConflict(failed: unknown): boolean {
+  // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
+  // stepped-down primary that way too, and neither is another change to these passkeys.
+  return failed instanceof MongoServerError && failed.code === WRITE_CONFLICT;
+}
+
+/** Named, because the library's failure line records an error's name and nothing else. */
+class EnrolmentOutsideTransaction extends Error {
+  override name = "EnrolmentOutsideTransaction";
+}
+
+/** Named for the same reason as the class above. */
+class ClaimMatchedNoAccount extends Error {
+  override name = "ClaimMatchedNoAccount";
+}
+
+/** Named for the same reason as `EnrolmentOutsideTransaction`, whose removal twin this is. */
+class RemovalOutsideTransaction extends Error {
+  override name = "RemovalOutsideTransaction";
+}
+
+/**
+ * The write every enrolment and every removal of one administrator makes, inside the transaction
+ * holding its count and its passkey write: the database refuses the second of two, where the count
+ * alone admits both (`docs/frontend/spec.md :: I341`).
+ */
+async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
+  // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
+  // claim stores nothing new about the administrator.
+  const claimed = await adapter.update({ model: "user", where: [{ field: "id", value: userId }], update: { updatedAt: new Date() } });
+
+  // A claim on no row conflicts with nothing, which is the enrolment the transaction exists to refuse.
+  if (claimed === null) throw new ClaimMatchedNoAccount();
 }
 
 /* The library mounts forty endpoints and an upgrade adds more, so the surface is closed from two
@@ -469,18 +510,33 @@ export const auth = betterAuth({
         afterVerification: async ({ ctx, verification, user }) => {
           refuseUnverified(verification.registrationInfo?.userVerified === true);
 
+          // The transaction `patches/@better-auth__passkey@1.7.5.patch` opens around every
+          // registration. Outside one the claim below conflicts with nothing, so an enrolment
+          // arriving without it is refused rather than admitted unguarded.
+          const adapter = await getCurrentAdapter(ctx.context.adapter);
+          if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
+
           // Asked again here rather than trusted from the hook: this is the last point before the
           // row is written, and it is reached by an `auth.api` call the hook lets through.
 
           // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
           // mounts only while `registration.requireSession` keeps its default: unset it and this arm
           // sees no factor at all and refuses every enrolment.
-          await refuseEnrolment(
-            ctx.context.adapter,
-            user.id,
-            asEnroller(ctx.context.session ?? null),
-            verification.registrationInfo?.credential.id,
-          );
+          await refuseEnrolment(adapter, user.id, asEnroller(ctx.context.session ?? null), verification.registrationInfo?.credential.id);
+
+          try {
+            await claimAccount(adapter, user.id);
+          } catch (failed) {
+            if (!isWriteConflict(failed)) throw failed;
+
+            // The line is the record: under a stolen mailbox racing the administrator, this refusal
+            // is the only trace that a second enrolment ran.
+            logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+            throw new APIError("CONFLICT", {
+              code: ENROLMENT_CONFLICT,
+              message: "Another change to this account's passkeys ran at the same time.",
+            });
+          }
         },
       },
       authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
@@ -492,6 +548,8 @@ export const auth = betterAuth({
       async ({ user, session }) => ({
         user: { email: user.email },
         session: {
+          // The row's id and never its token: the passkey removal keeps the one session it ran in by it.
+          id: session.id,
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           authFactor: session.authFactor,
@@ -504,6 +562,73 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 });
+
+/** What a removal found inside its transaction, each answered differently by the one caller. */
+type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
+
+/**
+ * One transaction around the count, the claim, the delete and the sign-out: two removals started
+ * from two rows would otherwise each see a second row and leave none (`docs/frontend/spec.md :: I312`).
+ * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
+ */
+export async function removePasskey(userId: string, id: string, keptSessionId: string): Promise<PasskeyRemoval> {
+  const { adapter } = await auth.$context;
+
+  // Set once the callback has returned. A throw before that aborted a transaction that never
+  // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
+  let committing = false;
+
+  try {
+    return await adapter.transaction(async (held) => {
+      const outcome = await removeInside(held);
+      committing = true;
+      return outcome;
+    });
+  } catch (failed) {
+    // Tested on the whole transaction rather than on the claim alone: another device refreshing or
+    // ending its own session meets the sign-out above the same way.
+    if (!isWriteConflict(failed)) throw committing ? failed : new RolledBackError(failed);
+
+    // The line is the record: the administrator is refused, and nothing else notes that the removal
+    // met a change to this administrator's passkeys or sessions.
+    logger.warn("auth.passkey_removal_conflict", { error_code: "FE-AUTH-005" });
+    return "conflict";
+  }
+
+  async function removeInside(
+    held: Pick<DBTransactionAdapter, "findMany" | "update" | "delete" | "deleteMany">,
+  ): Promise<Exclude<PasskeyRemoval, "conflict">> {
+    // The adapter hands itself back where it opens no transaction, and there the claim below
+    // conflicts with nothing: refused rather than admitted unguarded, as the enrolment is.
+    if (held === adapter) throw new RemovalOutsideTransaction();
+
+    const rows = await held.findMany<{ id: string }>({
+      model: "passkey",
+      where: [{ field: "userId", value: userId }],
+      limit: PASSKEY_LIMIT + 1,
+    });
+
+    // Read off the caller's own rows, so another account's identifier is absent rather than taken.
+    if (!rows.some((row) => row.id === id)) return "absent";
+    if (rows.length <= 1) return "last";
+
+    await claimAccount(held, userId);
+    await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });
+    // In the delete's transaction, so a refusal above signs nobody out. A session minted after the
+    // transaction's snapshot survives it: closing that needs a session to record its authenticator,
+    // which the library does not.
+    await held.deleteMany({
+      model: "session",
+      where: [
+        // Every other session, since a session row names no authenticator: the one signed in with
+        // the removed passkey is among them.
+        { field: "userId", value: userId },
+        { field: "id", operator: "ne", value: keptSessionId },
+      ],
+    });
+    return "removed";
+  }
+}
 
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
 type ServedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;

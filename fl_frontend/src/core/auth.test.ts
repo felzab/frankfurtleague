@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
-import { after, beforeEach, describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import ts from "typescript";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  cookieHeader,
+  lastMailedToken,
+  MEMORY_ADAPTER_URL,
+  ORIGIN,
+  registerAuthDoubles,
+  seedLink,
+} from "./authDoubles.ts";
 
 const STORE = "__flAuthStore";
 const ADAPTER_CALLS = "__flAuthAdapterCalls";
@@ -16,20 +23,8 @@ const REQUEST_HEADERS = "__flAuthRequestHeaders";
 const SENT = "__flAuthSentMail";
 const LOGGED = "__flAuthLogged";
 
-/** A single-segment subpath such as `next/headers`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
-const ADMIN_EMAIL = "vorstand@example.org";
 /** Allowlisted by nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
-
-const CONFIG_DOUBLE = `export const frontend_config = {
-  ALLOWED_ADMIN_EMAILS: ["${ADMIN_EMAIL}"],
-  AUTH_URL: "http://localhost:3000",
-  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
-  LOG_LEVEL: "ERROR",
-  LOG_FORMAT: "json",
-};`;
 
 /* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
    a `MongoClient` at import, so loading it would reach for a server no test run holds. */
@@ -56,36 +51,17 @@ const LOGGING_DOUBLE = `export const logger = {
   error: (message, error, meta) => globalThis.${LOGGED}.push({ message, error, meta }),
 };`;
 
-/* The Mongo adapter reaches a real server through aggregation pipelines, so the store under the
-   real `auth.ts` is the library's own in-memory one. */
-const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
+/* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory
+   on the way. */
+const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
 export const mongodbAdapter = (db, config) => {
   globalThis.${ADAPTER_CALLS}.pairs.push({ db, config });
   return memoryAdapter(globalThis.${STORE});
 };`;
 
-const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
-    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
-    // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both the library and the application import these bare.
-    if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
+registerAuthDoubles({
+  core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
 });
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
@@ -128,15 +104,6 @@ globals[SENT] = sent;
 globals[LOGGED] = logged;
 globals[ADAPTER_CALLS] = adapterCalls;
 
-// The library reads this name natively where no `secret` option is passed; the option comes from the
-// config double above, and this keeps a real environment out of the run either way.
-const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
-process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
-after(() => {
-  if (ORIGINAL_AUTH_SECRET === undefined) delete process.env.AUTH_SECRET;
-  else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
-});
-
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -149,7 +116,6 @@ const { NextRequest } = await import("next/server");
 const handler = toNextJsHandler(auth);
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" };
 
 // Before rather than after each case: a seeded row cleared at the end of the case that seeded it
 // survives that case FAILING, and every later case then reports the first one's fault as its own.
@@ -157,45 +123,15 @@ beforeEach(() => {
   store.passkey.length = 0;
 });
 
-/** The token out of whatever the sign-in mailed last, or `null` where it mailed nothing. */
-function lastMailedToken(email: string): string | null {
-  const message = [...sent].reverse().find((entry) => entry.to === email);
-  if (message === undefined) return null;
-
-  const found = /[?&]token=([^\s&]+)/.exec(message.text);
-  assert.ok(found?.[1], `the message to ${email} carries no token parameter`);
-
-  return decodeURIComponent(found[1]);
-}
-
-/* Seeded at the shape the plugin stores — SHA-256, base64url, no padding — because only an
-   allowlisted address is mailed anything and a person's link is Programme 2's to issue. */
-function seedLink(email: string): string {
-  const token = `fabricated-link-${randomUUID()}`;
-
-  store.verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return token;
-}
-
 /** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
   await auth.api.signInMagicLink({ body: { email }, headers: new Headers(ORIGIN) });
 
-  const token = lastMailedToken(email) ?? seedLink(email);
+  // A person's address is mailed nothing, so its link is seeded where the send stayed silent.
+  const token = lastMailedToken(sent, email) ?? seedLink(store.verification, email);
 
   const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
-  const cookie = verified.headers
-    .getSetCookie()
-    .map((line) => line.split(";")[0])
-    .join("; ");
+  const cookie = cookieHeader(verified);
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
@@ -321,13 +257,6 @@ async function overHttp(
   return method === "GET" ? handler.GET(request) : handler.POST(request);
 }
 
-/** The cookie line a browser would send back, out of whatever a response set. */
-const cookiesOf = (response: Response): string =>
-  response.headers
-    .getSetCookie()
-    .map((line) => line.split(";")[0])
-    .join("; ");
-
 describe("what the mounted HTTP surface answers", () => {
   /* The allowlist's own floor: a path it admits has to still work, or every refusal below is the
      handler being broken rather than the surface being closed. */
@@ -345,14 +274,17 @@ describe("what the mounted HTTP surface answers", () => {
     assert.equal((await overHttp("/get-session", { cookie })).status, 404);
   });
 
-  it("still gives the guards in process the address and the two stamps they compare, and nothing else", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
+  // The id beside them is the row the passkey removal keeps, and it opens nothing, where the token
+  // would be the cookie's own value.
+  it("still gives the guards in process the address, the two stamps they compare and the row's id, and nothing else", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     const body = await served(cookie);
     assert.ok(body);
     assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
     assert.deepEqual(Object.keys(body.user).sort(), ["email"]);
-    assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "updatedAt"]);
+    assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "updatedAt"]);
+    assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
   /* The hole the allowlist exists for: a holder of the mailbox alone reaches a link-borne session,
@@ -385,7 +317,7 @@ describe("what the mounted HTTP surface answers", () => {
      token, so an open arm here hands one out over HTTP for a link out of any inbox. */
   it("refuses the library's own verification over HTTP while the route handler's call still signs in", async () => {
     await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(ADMIN_EMAIL);
+    const token = lastMailedToken(sent, ADMIN_EMAIL);
     assert.ok(token !== null);
     const sessions = store.session.length;
 
@@ -859,7 +791,7 @@ async function assertPasskey(cookie: string, userVerified: boolean): Promise<Res
 
   return overHttp("/passkey/verify-authentication", {
     method: "POST",
-    cookie: `${cookie}; ${cookiesOf(offered)}`,
+    cookie: `${cookie}; ${cookieHeader(offered)}`,
     body: { response: assertionFor(challenge, userVerified) },
   });
 }
@@ -878,7 +810,7 @@ async function enrolPasskey(
 
   return overHttp("/passkey/verify-registration", {
     method: "POST",
-    cookie: `${cookie}; ${cookiesOf(offered)}`,
+    cookie: `${cookie}; ${cookieHeader(offered)}`,
     body: { response: registrationFor(challenge, userVerified, rawId), ...body },
   });
 }
@@ -941,7 +873,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.ok(minted !== undefined);
     assert.equal(minted.authFactor, "passkey", "the session the assertion minted was stamped as the link's");
 
-    arriveAs(cookiesOf(admitted));
+    arriveAs(cookieHeader(admitted));
     assert.ok(await getAdminSession(), "the session the passkey minted does not open the admin surface");
   });
 });
@@ -978,10 +910,7 @@ describe("which relying party and which origin a ceremony is judged against", ()
       returnHeaders: true,
     });
     const challenge = (offered.response as { challenge: string }).challenge;
-    const minted = offered.headers
-      .getSetCookie()
-      .map((line) => line.split(";")[0])
-      .join("; ");
+    const minted = cookieHeader(offered);
 
     await assert.rejects(() =>
       auth.api.verifyPasskeyAuthentication({
@@ -1061,10 +990,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
     const challenge = (offered.response as { challenge: string }).challenge;
-    const minted = offered.headers
-      .getSetCookie()
-      .map((line) => line.split(";")[0])
-      .join("; ");
+    const minted = cookieHeader(offered);
 
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
@@ -1173,10 +1099,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
     const challenge = (offered.response as { challenge: string }).challenge;
-    const minted = offered.headers
-      .getSetCookie()
-      .map((line) => line.split(";")[0])
-      .join("; ");
+    const minted = cookieHeader(offered);
 
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
@@ -1200,7 +1123,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const admitted = await assertPasskey(cookie, true);
     assert.equal(admitted.status, 200, await admitted.clone().text());
 
-    const enrolled = await enrolPasskey(cookiesOf(admitted), {}, true, SECOND_RAW_ID);
+    const enrolled = await enrolPasskey(cookieHeader(admitted), {}, true, SECOND_RAW_ID);
 
     assert.equal(enrolled.status, 200, await enrolled.clone().text());
     assert.equal(store.passkey.length, 2);
@@ -1262,8 +1185,8 @@ describe("what a finished ceremony hands back to the page", () => {
     assert.deepEqual(JSON.parse(body), { status: true });
 
     // Truthy, which is the whole of what `@better-auth/passkey/client` reads off it.
-    assert.ok(cookiesOf(admitted).length > 0, "the shaped body took the session cookie with it");
-    arriveAs(cookiesOf(admitted));
+    assert.ok(cookieHeader(admitted).length > 0, "the shaped body took the session cookie with it");
+    arriveAs(cookieHeader(admitted));
     assert.ok(await getAdminSession());
   });
 
@@ -1293,7 +1216,7 @@ describe("what a session row keeps about the request that made it", () => {
      under its own retention clock. Kept here they would sit under none. */
   it("stores neither the caller's address nor its user agent, with both headers on the request", async () => {
     await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(ADMIN_EMAIL);
+    const token = lastMailedToken(sent, ADMIN_EMAIL);
     assert.ok(token !== null);
 
     const verified = await auth.api.magicLinkVerify({
@@ -1400,14 +1323,14 @@ describe("what the link costs an address the allowlist does not carry", () => {
   it("hashes the link's token at rest, so the store never holds the credential that was mailed", async () => {
     await signIn(ADMIN_EMAIL);
 
-    const token = lastMailedToken(ADMIN_EMAIL);
+    const token = lastMailedToken(sent, ADMIN_EMAIL);
     assert.ok(token !== null);
     assert.ok(!store.verification.some((entry) => entry.identifier === token), "the raw token is in the store");
   });
 
   it("consumes the link on its first use, so a second press of the same button is refused", async () => {
     await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(ADMIN_EMAIL);
+    const token = lastMailedToken(sent, ADMIN_EMAIL);
     assert.ok(token !== null);
 
     await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });

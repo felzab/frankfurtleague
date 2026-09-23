@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
 
 import { toActionErrorResult } from "./actionError.ts";
 
@@ -228,6 +228,14 @@ describe("toActionErrorResult", () => {
       assert.equal(toActionErrorResult(new Error("anything"), sent).outcome, undefined, sent.method);
     }
     assert.equal(toActionErrorResult(new Error("anything")).outcome, undefined, "a caller naming no request");
+  });
+
+  // Thrown before the commit of a transaction that then rolled back, the write is known not to stand.
+  it("answers a write's proven rollback as the failure it is", () => {
+    const result = toActionErrorResult(new RolledBackError(new Error("anything")), { method: "POST", readOnly: false });
+
+    assert.equal(result.outcome, undefined);
+    assert.equal(result.error, "Lade die Seite neu und versuche es erneut.");
   });
 
   it("never lets an unknown throw escape without a result", () => {

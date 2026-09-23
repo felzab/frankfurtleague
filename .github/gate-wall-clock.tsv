@@ -175,6 +175,17 @@
 # floor the `scripts` row carries, so neither the reference nor the budget moves and neither takes a
 # new stamp.
 #
+# `scripts` gained seven cases: `scripts/tests/test_unit_shards.py` drives the gate's two shard
+# refusals beside two cases reading the shard matrix, `scripts/tests/test_regex_lead.py` lexes the
+# regex-literal lead, and `scripts/tests/test_scope_decisions.py` derives what the frontend's db tier
+# loads directly. Their calls cost 1.3-1.5 s together over three runs, the two refusal cases 1.0 s of
+# it and the db-tier case 0.29-0.40 s, measured locally on 2026-09-23 on a sixteen-core Windows
+# machine carrying a fleet of agent sessions, so both ends read that contention as much as the
+# cases. The shard module is one chunk under `--dist loadfile` and the other two ride modules
+# already dispatched, so the job pays that span only where the pool cannot start them beside the
+# longest chunk; either way it sits inside the floor the `scripts` row carries, so neither the
+# reference nor the budget moves and neither takes a new stamp.
+#
 # `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and its row is
 # cut from the five completed main push runs since they landed, 2026-09-19 to 2026-09-20: 243, 260,
 # 264, 268 and 287 s first step to last, so the reference is their median and the budget the rule
@@ -251,6 +262,13 @@
 # it takes, as the bundle does, about 26 percent, a rendering file's process loading 2081 modules
 # where it loaded 4160. The runner's own figures replace these on the pull request's runs; no row
 # moves until a population of them exists.
+#
+# `backend-db` gained the frontend's db-tier files (`pnpm run test:db`, two files, each starting its
+# own replica set through testcontainers) and the frontend toolchain step they need. The files cost
+# 18.0-18.5 s over three runs measured locally on 2026-09-23 on a sixteen-core Windows machine
+# carrying a fleet of agent sessions, so an upper bound; the install step was not measured. That is
+# 37 % of the job's reference, inside its floor before the install is counted, so neither figure
+# moves here: the first main runs carrying the step decide whether the row is re-stamped.
 #
 # `format`, `frontend`, the `frontend-units` shards and `backend-db` gained a guard ahead of their
 # scopes: `fl_frontend/node_modules` must exist, so a run without the install refuses rather than
