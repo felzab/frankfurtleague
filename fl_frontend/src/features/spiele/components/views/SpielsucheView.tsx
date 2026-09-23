@@ -18,8 +18,9 @@ import { SpielCardGrid } from "../ui/SpielCardGrid";
 
 import type { FLSpiel } from "../../schemas";
 
-// Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_quelle` keys exist
-// because a `quelle` holds no text, while the label derived from it is what a reader sees.
+// Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_team1_quelle` and
+// `searchable_team2_quelle` keys exist because a `quelle` holds no text, while the label derived from
+// it is what a reader sees.
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",

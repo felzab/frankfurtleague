@@ -63,7 +63,7 @@ def person(vorname: str) -> dict[str, Any]:
 
 
 def paired_kontakte(**overrides: Any) -> dict[str, Any]:
-    """The double-seated Trainer as the submission stores them: one person in two slots, which `FLBewerbungPayload` holds equal."""
+    """The double-seated Trainer as the submission stores them: one person in two slots, which `FLBewerbungKontaktePayload` holds equal."""
 
     return {
         "trainer": person("Wraxlington"),

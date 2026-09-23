@@ -594,7 +594,7 @@ describe("both decisions", () => {
       const cells = rows.flatMap((row) => [...row.matchAll(/<td[^>]*style="([^"]*)"[^>]*>([\s\S]*?)<\/td>/g)]);
 
       assert.ok(cells.length >= 6, `${name} renders no panel cells, so this test proves nothing`);
-      /* Read off `faktRows`, which strips the colon to key its map: a label rendered without one
+      /* Read off `factRows`, which strips the colon to key its map: a label rendered without one
          leaves the raw cell equal to the bare key, so this cannot pass by skipping the cell. */
       const raw = cells.map(([, , inhalt]) => readable(inhalt ?? ""));
       for (const label of factRows(mail.html).keys()) {

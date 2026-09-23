@@ -591,7 +591,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   // Completing an enrolment leaves the link-borne session standing, so holding a passkey is what
   // decides which control the page offers rather than whether it offers one.
 
-  // The same question `refuseASecondPasskey` puts to the adapter, asked here through the plugin
+  // The same question `refuseEnrolment` puts to the adapter, asked here through the plugin
   // because the served session is narrowed past the user id: they agree or the page offers a
   // control the server refuses, which `fl_frontend/src/core/auth.test.ts` drives over one row.
   const held = await auth.api.listPasskeys({ headers: requestHeaders });
