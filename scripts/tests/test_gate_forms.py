@@ -28,8 +28,9 @@ from conftest import base_env, configure, copy_scripts, git, new_root, run_shell
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
-# `--frontend` alone selects two scopes -- it implies `--format` -- and every tool either scope runs
-# is `pnpm`, so one stub covers both and no daemon, virtualenv or node_modules is involved.
+# `--frontend` alone selects three scopes -- it implies `--format` and `--frontend-units` -- and
+# every tool those scopes run is `pnpm`, so one stub covers them and no daemon, virtualenv or
+# node_modules is involved.
 FLAGS: Final = "--frontend"
 
 # `audit:prod` alone answers 1, which the frontend scope grades as an advisory; `FL_STUB_FAIL`
@@ -51,6 +52,11 @@ exit 0
 
 STUB_PYTHON: Final = """#!/usr/bin/env bash
 exec "{interpreter}" "$@"
+"""
+
+# The first `python3` on PATH, answering a version under the checkers' floor, so no pool can start.
+STUB_BELOW_FLOOR: Final = """#!/usr/bin/env bash
+printf 'Python 3.9.13\\n'
 """
 
 # What a tool that PASSED wrote. `quietly` prints it on the streaming arm and discards it on the
@@ -79,6 +85,7 @@ class Fixture:
     verify: Path
     stubs: Path
     started: Path
+    below_floor: Path
 
 
 @cache
@@ -98,11 +105,14 @@ def _fixture() -> Fixture:
     for name, text in (("pnpm", STUB_PNPM), ("python3", interpreter)):
         # The execute bit is what puts a stub ahead of the real tool on PATH.
         os.chmod(write_shell(stubs / name, text), 0o755)
-    return Fixture(verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started")
+    below_floor = stubs / "below-floor"
+    below_floor.mkdir()
+    os.chmod(write_shell(below_floor / "python3", STUB_BELOW_FLOOR), 0o755)
+    return Fixture(verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started", below_floor=below_floor)
 
 
 @cache
-def _run(*flags: str, fails: str = "") -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
+def _run(*flags: str, fails: str = "", below_floor: bool = False) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
     Cached on its flags and on which tool answers a failure: the cases below read six runs between
@@ -117,6 +127,8 @@ def _run(*flags: str, fails: str = "") -> tuple[subprocess.CompletedProcess[str]
     # Past `base_env`: `CI` forces the scope pool off, and that pool is what two cases here compare.
     environment.pop("CI", None)
     environment["PATH"] = str(fixture.stubs) + os.pathsep + environment["PATH"]
+    if below_floor:
+        environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
     # Keeps the tree committed-clean: the scope check reads its diff, and a `__pycache__` an import
@@ -183,3 +195,35 @@ def test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte() -> N
     for stream, one, two in (("stdout", pooled.stdout, serial.stdout), ("stderr", pooled.stderr, serial.stderr)):
         drift = "\n".join(difflib.unified_diff(_masked(one).splitlines(), _masked(two).splitlines(), "pooled", "serial"))
         assert not drift, f"the two forms' {stream} differ:\n{drift}"
+
+
+# What the gate prints where a pool it would start has no interpreter at the checkers' floor.
+FALLBACK_NOTICE: Final = "no python at the checkers' floor"
+
+
+def test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback() -> None:
+    """A scope running one body loses nothing to the fallback, and a notice there reads as a run slowed down."""
+    alone, _ = _run("--format", below_floor=True)
+    assert alone.returncode == 0, alone.stdout + alone.stderr
+    assert FALLBACK_NOTICE not in alone.stdout, alone.stdout
+
+
+def test_a_run_a_pool_serves_names_the_pool_fallback() -> None:
+    """The contrast the case above needs: two scopes open the scope pool, so the fallback costs their sum."""
+    pair, _ = _run("--format", "--frontend-units", below_floor=True)
+    assert pair.returncode == 0, pair.stdout + pair.stderr
+    assert FALLBACK_NOTICE in pair.stdout, pair.stdout
+
+
+# `start_steps --<scope>` in a section, and the condition naming the scopes that pool.
+STARTS_STEPS_RE: Final = re.compile(r"^\s*start_steps --([a-z-]+)", re.MULTILINE)
+POOLED_SCOPES_RE: Final = re.compile(r"^if \(\( ! \(([^)]*)\) \)\); then STEP_JOBS=0; fi$", re.MULTILINE)
+
+
+def test_the_scopes_named_as_pooling_are_the_ones_that_start_steps() -> None:
+    """A scope added to the pool and not to the list runs its checks one at a time, and nothing says so."""
+    gate = (Path(__file__).resolve().parent.parent / "gate" / "verify.sh").read_text(encoding="utf-8")
+    listed = POOLED_SCOPES_RE.search(gate)
+    assert listed is not None, "verify.sh no longer names the scopes that pool in one condition"
+    named = {name.strip().removeprefix("RUN_").lower().replace("_", "-") for name in listed[1].split("||")}
+    assert named == set(STARTS_STEPS_RE.findall(gate)), (named, sorted(set(STARTS_STEPS_RE.findall(gate))))

@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import io
+import itertools
 import json
 import re
 import sys
@@ -463,11 +464,90 @@ def test_the_workflow_runs_both_modes():
         assert path in workflow, f"the verify job's sparse checkout does not read {path}"
 
 
-def test_every_job_in_the_workflow_has_a_row_or_is_unmeasured():
-    """The two listings: the workflow's job keys against the reference's rows, agreeing in both directions."""
-    workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+JOB_KEY_RE = re.compile(r"^  ([a-z][a-z0-9-]*):$", re.MULTILINE)
+# At the indents a job's own keys and its matrix's keys take, so a step's `name:` is never read.
+JOB_NAME_RE = re.compile(r"^    name: (.+)$", re.MULTILINE)
+MATRIX_RE = re.compile(r"^      matrix:\n((?:        .*\n)+)", re.MULTILINE)
+AXIS_RE = re.compile(r"^        ([a-z][a-z0-9_-]*): \[([^\]]*)\]$")
+PLACEHOLDER_RE = re.compile(r"\$\{\{ matrix\.([a-z][a-z0-9_-]*) \}\}")
+NEEDS_RE = re.compile(r"^    needs: \[([^\]]*)\]$", re.MULTILINE)
+
+
+def job_bodies(workflow: str) -> dict[str, str]:
+    """Each job's key against its block, the one reading of the `jobs:` map both listings below take."""
     jobs_block = workflow.split("\njobs:\n", 1)[1]
-    keys = set(re.findall(r"^  ([a-z-]+):$", jobs_block, re.MULTILINE)) - budget.UNMEASURED_JOBS
+    bodies: dict[str, str] = {}
+    bounds = [*JOB_KEY_RE.finditer(jobs_block), None]
+    for here, after in itertools.pairwise(bounds):
+        assert here is not None
+        bodies[here[1]] = jobs_block[here.end() : after.start() if after is not None else len(jobs_block)]
+    return bodies
+
+
+def job_names(workflow: str) -> set[str]:
+    """One name per job as the runs API reports it, a matrix job's once per instance.
+
+    GitHub documents no default name for a matrix instance, so a matrix job with no `name:`
+    template is refused rather than guessed at.
+    """
+    names: set[str] = set()
+    for key, body in job_bodies(workflow).items():
+        template = JOB_NAME_RE.search(body)
+        matrix = MATRIX_RE.search(body)
+        if matrix is None:
+            names.add(template[1] if template is not None else key)
+            continue
+        axes: dict[str, list[str]] = {}
+        for line in matrix[1].splitlines():
+            axis = AXIS_RE.match(line)
+            assert axis is not None, f"`{key}`'s matrix carries `{line.strip()}`, which is no axis this reader can expand"
+            axes[axis[1]] = [value.strip() for value in axis[2].split(",")]
+        assert template is not None, f"`{key}` is a matrix job with no `name:`, so no row can spell its instances"
+        unknown = set(PLACEHOLDER_RE.findall(template[1])) - set(axes)
+        assert not unknown, f"`{key}`'s name reads matrix keys {sorted(unknown)} its matrix does not define"
+        for values in itertools.product(*axes.values()):
+            name = template[1]
+            for axis_key, value in zip(axes, values, strict=True):
+                name = name.replace("${{ matrix." + axis_key + " }}", value)
+            names.add(name)
+    return names
+
+
+def test_every_job_in_the_workflow_has_a_row_or_is_unmeasured():
+    """The two listings: the names the workflow's jobs run under against the reference's rows, agreeing in both directions."""
+    workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+    names = job_names(workflow) - budget.UNMEASURED_JOBS
     rows = set(committed()) - {budget.TOTAL}
 
-    assert keys == rows, f"jobs with no row: {sorted(keys - rows)}; rows with no job: {sorted(rows - keys)}"
+    assert names == rows, f"jobs with no row: {sorted(names - rows)}; rows with no job: {sorted(rows - names)}"
+
+
+def aggregate_gaps(workflow: str) -> tuple[set[str], set[str]]:
+    """The jobs `verify`'s `needs` leaves out, and the names it lists that are no job."""
+    bodies = job_bodies(workflow)
+    needs = NEEDS_RE.search(bodies["verify"])
+    assert needs is not None, "`verify` carries no one-line `needs: [...]` list, so nothing here compares it"
+    listed = {name.strip() for name in needs[1].split(",")}
+    jobs = set(bodies) - {"verify"}
+    return jobs - listed, listed - jobs
+
+
+def test_a_job_the_aggregate_does_not_wait_on_is_named():
+    """`aggregate_gaps`, over a job left out of the list: a reader that finds no gap anywhere would pass the tree."""
+    workflow = (
+        "on: push\njobs:\n  changes:\n    runs-on: x\n  lint:\n    needs: changes\n    runs-on: x\n"
+        "  verify:\n    needs: [changes]\n    runs-on: x\n"
+    )
+
+    assert aggregate_gaps(workflow) == ({"lint"}, set())
+
+
+def test_the_aggregate_waits_on_every_other_job():
+    """A job `verify` does not wait on can fail under a green required check, `changes` included.
+
+    A failed `changes` skips every scope keyed on it, and the aggregate passes a skipped scope.
+    """
+    workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+    missing, unknown = aggregate_gaps(workflow)
+
+    assert not missing and not unknown, f"jobs `verify` does not wait on: {sorted(missing)}; `needs` names that are no job: {sorted(unknown)}"

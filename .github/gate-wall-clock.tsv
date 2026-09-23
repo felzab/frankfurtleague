@@ -37,10 +37,11 @@
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is its only guard.
 #
-# `commits` and `format` run on pull requests alone -- `format` only where `frontend` does not, and
-# a push to main turns every scope on -- so their population is pull-request runs, and their
-# reference columns are `-`: the report is cut from main runs, where neither ever appears. Their
-# stamps move on their own runs and never with the rows above them.
+# `commits` runs on pull requests alone, so its population is pull-request runs and its reference
+# columns are `-`: the report is cut from main runs, where it never appears. `format` runs on every
+# push to main and wherever a pull request's paths reach it, but its row is still cut from the
+# pull-request runs its stamp counts, so its reference columns stay `-` until main runs exist to cut
+# them from. Both stamps move on their own runs and never with the rows above them.
 #
 # `ops` answers to a shorter population than every other row cut from main runs, counted in its own
 # stamp -- `commits` and `format`, carved out just above, are shorter still and are pull-request
@@ -213,6 +214,18 @@
 # cache, which is every CI run, and 425.4-460.7 s in four with it filled, the failing-case set
 # identical in each interleaved round. Neither the reference nor the budget moves and neither takes
 # a new stamp.
+#
+# `frontend-units` is one matrix job, and each of its instances is a row of its own under the name
+# the job's `name:` template spells, which is the name the runs API reports and both the report and
+# the budget check look a row up by. A row shared by the instances would have both readers fold
+# names in step with each other, and the total would count one shard's span where every shard ran.
+#
+# `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
+# `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
+# cost 0.546-0.593 ms a pass together over nine interleaved rounds in two runs, each case called
+# directly rather than through pytest. Measured locally on 2026-09-23 on a sixteen-core Windows
+# machine carrying a fleet of agent sessions, so both ends are upper bounds; neither the reference
+# nor the budget moves and neither takes a new stamp.
 #
 # `format` measured two ways of skipping the walk under `..`, which lists `fl_frontend/node_modules`
 # and `.git` because prettier's own exclusions do not match there, and rejected both on their

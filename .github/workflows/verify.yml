@@ -241,12 +241,12 @@ jobs:
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
-  # Prettier in check mode, for changes outside fl_frontend — docs, workflows, compose files —
-  # which the formatter still governs. When the frontend job runs it already includes the same
-  # check, so this one stands down.
+  # Prettier in check mode over the whole repository, wherever a changed path is one it governs:
+  # with `CI` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`), which runs
+  # beside the frontend job rather than on its path.
   format:
     needs: changes
-    if: needs.changes.outputs.format == 'true' && needs.changes.outputs.frontend != 'true'
+    if: needs.changes.outputs.format == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -338,8 +338,7 @@ jobs:
   # scope_map.sh's PATH mapping, the one `changes` already shrinks every other job by, and not
   # scripts/checks/check_scope.py's comment classifier.
 
-  # The `changes` job still emits `frontend`, because `format`'s condition reads it -- without that,
-  # `format` would run beside this job and prettier twice per push.
+  # The `changes` job still emits `frontend`, because the unit-test shard jobs below key on it.
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -424,6 +423,41 @@ jobs:
             exit 1
           fi
 
+  # The frontend unit tests, split by file across four shards: run in one job, they would be the
+  # run's longest step.
+
+  # Four, not three: three shards finish level with the frontend job, so the run would wait on the
+  # slower of two near-equal spans; four finish well before it.
+  frontend-units:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    # Spelled out because GitHub documents no default name for a matrix instance, and the budget
+    # check finds each instance's row in .github/gate-wall-clock.tsv by exactly this name.
+    name: frontend-units (${{ matrix.shard }})
+    strategy:
+      # A red shard cancels none of the others, whose results still say which files fail.
+      fail-fast: false
+      # `shard` alone, with no `include`: a second key or an added combination repeats an index
+      # under a larger count, and the files of the indices nobody runs are tested nowhere.
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/frontend-toolchain
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the frontend unit tests
+        # On this step alone: `verify.sh` refuses a shard beside any other scope, and `node --test`
+        # counts shards from 1, as the list does.
+
+        # The count is the matrix's own size rather than a second copy of it, so a shard added to
+        # the list is a shard every instance counts.
+        env:
+          VERIFY_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: ./scripts/gate/verify.sh --frontend-units
+
   # The compose files and nginx's prod.conf have no compiler and no test suite; this scope is the
   # only thing standing between a typo in either and a failed deploy.
   ops:
@@ -489,7 +523,7 @@ jobs:
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
   # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
-    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, ops, images]
+    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -607,8 +641,8 @@ jobs:
             # The reference table first, one row per job: name, seconds, floor percent.
             FNR == NR {
               if ($0 ~ /^#/ || NF < 3) next
-              # A `-` in the seconds column is a job budgeted and never referenced -- one that runs
-              # on pull requests alone, so no main window holds it -- not a reference of zero.
+              # A `-` in the seconds column is a job budgeted with no reference cut from main runs,
+              # the table saying why for each such job -- not a reference of zero.
               if ($2 !~ /^[0-9]+$/) next
               base[$1] = $2 + 0
               limit[$1] = $3 + 0

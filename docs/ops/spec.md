@@ -520,8 +520,9 @@ well. The deploy's own probe of the same URL grades it the same way.
 
 `scripts/gate/verify.sh` reports its scopes in cheapest-to-fail order, so the answer that costs seconds
 arrives before the one that costs minutes. A bare invocation runs everything; scope flags name
-surfaces and combine, and `--frontend` implies `--format`, the frontend scope reading exactly the
-files the formatter governs.
+surfaces and combine, and outside CI `--frontend` implies `--format` and `--frontend-units`, the
+frontend scope reading exactly the files the formatter governs and owing the unit tests over them.
+In CI the implication is off, each of the three being a job of its own.
 
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
 captured output in written order — so a parallel run reads as the serial one per stream, on the
@@ -549,12 +550,15 @@ and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive t
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
 per stream. **The other exception is a machine below the checkers' floor**
 (`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form asks whether the interpreter it found clears
-the floor and, finding none that does, falls back to the serial path and prints a line naming the
-floor where the scopes are announced, while `--serial` sets both pool switches off ahead of that
-question and can never print it
-(`scripts/gate/verify.sh :: POOL_FALLBACK`). The pair of cases above cannot see that machine —
-`scripts/tests/test_gate_forms.py` puts an interpreter on the fixture's `PATH` as `python3` — so the
-two forms differ there by exactly that one line.
+the floor and, finding none that does, falls back to the serial path and, where a pool would have
+run, prints a line naming the floor where the scopes are announced, while `--serial` sets both pool
+switches off ahead of that question and can never print it
+(`scripts/gate/verify.sh :: POOL_FALLBACK`). The byte-for-byte pair cannot see that machine — its
+fixture puts an interpreter at the floor on `PATH` as `python3` — so the two forms differ there by
+exactly that one line, which
+`scripts/tests/test_gate_forms.py :: test_a_run_a_pool_serves_names_the_pool_fallback` and
+`:: test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback` hold instead, putting one below the
+floor ahead of it.
 **No scope depends on another's result**, so a concurrent run's floor is its longest scope and a
 sequenced one's is their sum.
 
@@ -565,9 +569,9 @@ says: the fault is in this gate's own handoff, and nothing in the tree under tes
 answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
-slowest check rather than the sum; the format, ops and database scopes run theirs in place. **A
-pool's own wiring is refused at 3 before anything runs**, each refusal carrying its argument at the
-line it guards.
+slowest check rather than the sum; the format, frontend-units, ops and database scopes run theirs
+in place. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
+argument at the line it guards.
 
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
 fails still costs its longest unit before saying so; what that buys is one mechanism for both
@@ -684,8 +688,9 @@ of the machine rather than of the tier, and neither half of it belongs in
 CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
 `scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
 the mapping and the flag that proves it are one word. Which paths select `format` is decided by
-extension, because prettier's reach is, and CI's `format` job stands down where the frontend job
-runs, which already covers it. **The `frontend` job maps its own scope** in its first step rather
+extension, because prettier's reach is; CI's `format` job runs wherever the formatter's paths
+changed, and the `frontend-units` shards beside the frontend job wherever it runs, that job running
+neither. **The `frontend` job maps its own scope** in its first step rather
 than waiting on `changes`, so the run's longest job starts with no job in front of it; the argument,
 and why a job mapped off reads as `skipped`, is at that job in `.github/workflows/verify.yml`.
 
@@ -696,16 +701,17 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 `actions/setup-python`**, the file the virtualenv's interpreter is read from too, so one pin decides
 every job's version; the reason is at that workflow's `commits` job.
 
-| Scope        | Runs                                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                                                           | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
-| `--docs`     | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_regenerate_spelling.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
-| `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                                                      | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
-| `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
-| `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                                                                                                                | pnpm install                                                                                                                                 |
-| `--ops`      | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                                                | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
-| `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                                                     | venv + Docker                                                                                                                                |
-| `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                                        | Docker                                                                                                                                       |
+| Scope              | Runs                                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                                                           | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
+| `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_regenerate_spelling.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
+| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                                                      | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
+| `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                                                                    | pnpm install                                                                                                                                 |
+| `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then `next build` alone                                                                                                                                                                                     | pnpm install                                                                                                                                 |
+| `--ops`            | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                                                | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
+| `--db`             | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                                                     | venv + Docker                                                                                                                                |
+| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                                        | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
 image that would not run at all is refused at exit 2 rather than graded, as `publish.sh`'s
@@ -849,8 +855,9 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `commits` and `format` run on pull requests alone, so their rows are measured from
-pull-request runs and carry `-` where the report, cut from main runs, would read a reference.
+guard. `commits` runs on pull requests alone, and `format` on every push to main as well, but both
+rows are measured from pull-request runs and carry `-` where the report,
+cut from main runs, would read a reference, until main runs of `format` exist to cut its row from.
 **Raising a budget or a reference costs a measurement.** In the `commits` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a

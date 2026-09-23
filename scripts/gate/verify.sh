@@ -7,7 +7,8 @@
 # in this block: `scripts/gate/selfcheck.sh` reads every double-dashed word here as one this takes.
 #
 #   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
-#   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend --ops --db --images
+#   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
+#   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
@@ -15,7 +16,7 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
-RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
+RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND_UNITS=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
 SERIAL=0
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
@@ -24,6 +25,7 @@ for arg in "$@"; do
     --docs)     RUN_DOCS=1 ;;
     --backend)  RUN_BACKEND=1 ;;
     --format)   RUN_FORMAT=1 ;;
+    --frontend-units) RUN_FRONTEND_UNITS=1 ;;
     --frontend) RUN_FRONTEND=1 ;;
     --ops)      RUN_OPS=1 ;;
     --db)       RUN_DB=1 ;;
@@ -38,14 +40,29 @@ for arg in "$@"; do
   esac
 done
 
-if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
-  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
+  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# A frontend file of a prettier kind selects the formatter too (`scripts/gate/scope_map.sh`), so
-# this scope carries it rather than leaving `check_scope.py` to call format unproven. Never in a
-# worker, where it would run prettier twice.
-if (( RUN_FRONTEND )) && ! worker; then RUN_FORMAT=1; fi
+# The implication `docs/ops/spec.md` §1.6 states, so `check_scope.py` never calls either scope
+# unproven. Never in a worker, which would run each twice.
+if (( RUN_FRONTEND )) && ! worker; then
+  # Not on a runner, whose workflow runs each as a job of its own beside this one and no scope check.
+  # `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+  if [[ -z "${GITHUB_ACTIONS:-}" ]]; then RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; fi
+fi
+
+# A shard proves part of one scope, so it is taken only where that scope runs alone, whose closing
+# line already withholds "Safe to merge." `node --test` counts shards from 1.
+VERIFY_TEST_SHARD="${VERIFY_TEST_SHARD:-}"
+if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+  if [[ ! "$VERIFY_TEST_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+    refuse "VERIFY_TEST_SHARD is '${VERIFY_TEST_SHARD}', which names no shard. Spell it <index>/<count>, counting from 1, with the index no larger than the count."
+  fi
+  if (( ! RUN_FRONTEND_UNITS || RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES )); then
+    refuse "VERIFY_TEST_SHARD is set, and a shard is taken only by --frontend-units run alone: beside another scope, the run would read as the whole suite proven."
+  fi
+fi
 
 # Fail on a missing prerequisite now: otherwise a full run on a sleeping Docker discovers it at
 # the db tier, minutes of green checks in.
@@ -315,7 +332,13 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # divide, while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`).
 do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
-do_unit_tests() { ( cd fl_frontend && pnpm test ); }
+# pnpm appends an argument after the script's name to that script's command, whose last program is
+# `node --test`, so the shard reaches the runner.
+do_unit_tests() {
+  local -a shard=()
+  if [[ -n "$VERIFY_TEST_SHARD" ]]; then shard=("--test-shard=${VERIFY_TEST_SHARD}"); fi
+  ( cd fl_frontend && pnpm test "${shard[@]}" )
+}
 # The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
 # pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
@@ -415,6 +438,7 @@ add_scope scripts  "$RUN_SCRIPTS"
 add_scope docs     "$RUN_DOCS"
 add_scope backend  "$RUN_BACKEND"
 add_scope format   "$RUN_FORMAT"
+add_scope frontend-units "$RUN_FRONTEND_UNITS"
 add_scope frontend "$RUN_FRONTEND"
 add_scope ops      "$RUN_OPS"
 add_scope db       "$RUN_DB"
@@ -474,6 +498,9 @@ change. Its own reason is above." ;;
 # Never while watched: `--verbose` streams each tool's output, and `--serial` is the oracle.
 STEP_JOBS=1
 if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
+# Every scope whose section calls `start_steps`, and no other: a run holding none of them has no
+# step pool to lose, so the fallback notice below would describe a slowdown it does not have.
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES) )); then STEP_JOBS=0; fi
 
 # Replayed in written order, so a parallel run reads as the serial one it must match. Serial where
 # concurrency cannot pay or be watched: CI runs one scope per job, streaming cannot be replayed.
@@ -1045,6 +1072,29 @@ Where it names files, they are unformatted:  cd fl_frontend && pnpm format  -- t
   ok "the tree is formatted"
 fi
 
+# --- frontend-units --------------------------------------------------------------------------------
+
+# Its own scope, so CI can run the suite in shards beside the frontend job rather than inside it.
+if (( RUN_FRONTEND_UNITS )); then
+  section frontend-units
+
+  if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+    info "shard ${VERIFY_TEST_SHARD} of the unit tests: the other shards' files are not run here"
+  fi
+  step "frontend-units · unit tests"
+  # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
+  # collected, a crashed worker -- is a run that reached no verdict.
+  UNIT_TESTS_RC=0
+  quietly do_unit_tests || UNIT_TESTS_RC=$?
+  case "$UNIT_TESTS_RC" in
+    0) ;;
+    1) die "frontend unit tests failed." ;;
+    130) on_interrupt ;;
+    *) on_error "$UNIT_TESTS_RC" "${LINENO}" "pnpm test" ;;
+  esac
+  ok "unit tests pass"
+fi
+
 # --- frontend --------------------------------------------------------------------------------------
 
 if (( RUN_FRONTEND )); then
@@ -1093,21 +1143,6 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
     130) on_interrupt ;;
     *)   on_error "$AUDIT_RC" "${LINENO}" "pnpm audit:prod" ;;
   esac
-
-  # Alone and before the build: the tests already run one process per core less one, and the
-  # build takes every core.
-  step "frontend · unit tests"
-  # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
-  # collected, a crashed worker -- is a run that reached no verdict.
-  UNIT_TESTS_RC=0
-  quietly do_unit_tests || UNIT_TESTS_RC=$?
-  case "$UNIT_TESTS_RC" in
-    0) ;;
-    1) die "frontend unit tests failed." ;;
-    130) on_interrupt ;;
-    *) on_error "$UNIT_TESTS_RC" "${LINENO}" "pnpm test" ;;
-  esac
-  ok "unit tests pass"
 
   # A writer, and last: it also writes `.next/`, which tsconfig.json's `include` covers.
   step "frontend · next build"

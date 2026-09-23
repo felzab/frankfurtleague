@@ -594,13 +594,14 @@ WORKFLOW=".github/workflows/verify.yml"
 declared="${SELFCHECK_TMP}/scopes-declared.txt"
 ran="${SELFCHECK_TMP}/scopes-in-ci.txt"
 declared_rc=0; ran_rc=0
-grep -oE '^add_scope[[:space:]]+[a-z]+' scripts/gate/verify.sh | awk '{ print $2 }' | sort -u > "$declared" || declared_rc=$?
+# A scope name may carry a hyphen, and a class stopping at one reads `frontend-units` as `frontend`.
+grep -oE '^add_scope[[:space:]]+[a-z][a-z-]*' scripts/gate/verify.sh | awk '{ print $2 }' | sort -u > "$declared" || declared_rc=$?
 # The workflow read stands alone, its status kept: under `pipefail` a later stage's 1 for "nothing
 # came through" would hide this stage's 2 for a file it could not open.
 grep -E '^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]+\./scripts/gate/verify\.sh([[:space:]]|$)' "$WORKFLOW" \
   > "${ran}.lines" 2>/dev/null || ran_rc=$?
 if (( ran_rc <= 1 )); then
-  grep -oE -- '--[a-z]+' "${ran}.lines" | sed 's/^--//' | sort -u > "$ran" || true
+  grep -oE -- '--[a-z][a-z-]*' "${ran}.lines" | sed 's/^--//' | sort -u > "$ran" || true
 fi
 # grep's 1 is "no match", a real answer graded below; 2 and above is a file it could not read.
 if (( declared_rc > 1 || ran_rc > 1 )); then
