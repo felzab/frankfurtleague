@@ -60,6 +60,9 @@ dev = [
     # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
     # comes through the lockfile like every other checker.
     "zizmor>=1.30.0",
+    # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
+    # decides what a page shows as code, rather than patterns this repository keeps by hand.
+    "markdown-it-py>=4.2.0",
 ]
 
 [tool.uv]

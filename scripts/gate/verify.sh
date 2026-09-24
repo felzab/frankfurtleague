@@ -263,7 +263,13 @@ do_ruff() {
   "$PY" -m ruff format --check scripts
 }
 # From inside scripts/, where pyright finds its config; the absolute `$PY` survives the `cd`.
-do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
+do_pyright() {
+  local interpreter
+  # Named to pyright so the docs gate's markdown-it-py import resolves, spelled by python itself:
+  # under Git Bash `$PY` is an MSYS path node cannot open.
+  interpreter="$("$PY" -c 'import sys; sys.stdout.write(sys.executable)')" || return 1
+  ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright --pythonpath "$interpreter" ) # no PyPI release lookup: uv.lock pins what runs
+}
 # `loadfile` keeps each module's session-scoped fixture repository whole: `load` would rebuild the
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {

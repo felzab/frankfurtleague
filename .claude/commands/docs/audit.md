@@ -97,7 +97,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    **The check parses each table where it sits** — indented inside this list — and reads the globs
    from a fixed column of it. Prove any reshaping, re-indenting or move by running
-   `python scripts/checks/check_docs.py` and confirming `segment-map` reports nothing.
+   `uv run --project fl_backend --frozen python scripts/checks/check_docs.py` and confirming
+   `segment-map` reports nothing.
 
    **Split any segment an agent could not read completely**, and no further: under-filling one costs
    the cross-cutting sight that finds duplication. A split is a dispatch decision and changes no row

@@ -11,9 +11,9 @@
 // for none of them: `lib/` through each entry point's own insert, `checks/` because python seeds
 // the script's directory.
 
-// No venvPath or venv, deliberately: every import here is standard library or a module in `lib/`
-// or `checks/`, and naming the backend's virtualenv would make the gate's own tooling depend on
-// that environment being installed.
+// No venvPath or venv: `scripts/gate/verify.sh :: do_pyright` hands pyright the gate's own
+// interpreter, the virtualenv every python scope already requires, so the documentation gate's
+// markdown-it-py import resolves against the environment that runs it.
 
 // `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
 // for the reason its own block records, so the two settings are measured separately rather than

@@ -27,6 +27,7 @@ from typing import Final, Literal
 # From the shared kernel rather than a second copy: a checker taking git, the repository root or
 # the reading errors from its own drifts into its own behaviour, the principle that file states.
 from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
+from markdown_it import MarkdownIt
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -107,10 +108,12 @@ INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.
 SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 
 
-# The marker run and the info string apart: CommonMark decides a close on both. The indent is wider
-# than its three spaces because a fence inside a list item is indented past them, and a page here
-# writes one.
-FENCE_RE: Final = re.compile(r"^\s*(`{3,}|~{3,})[ \t]*(.*?)[ \t]*$")
+# CommonMark's block rules end a nested fence, a listed one and an indented block where a renderer
+# does. No `table` rule: it pads every row to its header's width, and `table_cells` counts the cells
+# a row was written with.
+MARKDOWN: Final = MarkdownIt("commonmark")
+# The block tokens a renderer shows as code rather than prose.
+CODE_BLOCKS: Final[frozenset[str]] = frozenset({"fence", "code_block"})
 # The closing run of hashes is dropped as a renderer drops it. Read through `atx_heading`, so one
 # definition decides what counts as a heading.
 ATX_HEADING_RE: Final = re.compile(r"^ {0,3}(#{1,6}) +(.*?)(?:[ \t]+#+)?[ \t]*$")
@@ -314,21 +317,13 @@ def is_placeholder(text: str) -> bool:
 # Whether a line sits in a page's fenced block. Every reader that cares takes it from `fenced_lines`:
 # two of them disagreeing about where a block ends is worse than both being wrong the same way.
 def fenced_lines(text: str) -> Iterator[tuple[str, bool]]:
-    """Each line beside whether a fenced block holds it, its fence lines included; `line_of` rests on one yield per line."""
-    opener = ""
-    for line in text.split("\n"):
-        match = FENCE_RE.match(line)
-        if match is None:
-            yield line, bool(opener)
-            continue
-        marker, stated = match.group(1), match.group(2)
-        if not opener:
-            opener = marker
-        # CommonMark's close: the opener's character, at least its length, and no info string. A
-        # mermaid fence nested inside a longer markdown one therefore closes nothing.
-        elif marker[0] == opener[0] and len(marker) >= len(opener) and not stated:
-            opener = ""
-        yield line, True
+    """Each line beside whether a code block holds it, its fence lines included; `line_of` rests on one yield per line."""
+    code: set[int] = set()
+    for token in MARKDOWN.parse(text):
+        if token.type in CODE_BLOCKS and token.map is not None:
+            code.update(range(*token.map))
+    for number, line in enumerate(text.split("\n")):
+        yield line, number in code
 
 
 def strip_fences(text: str) -> str:
@@ -1427,4 +1422,8 @@ def _scan_body(path: Path) -> str:
     raw = _read_text(path)[0]
     if raw is None:
         return ""
-    return strip_fences(raw) if is_prose(path) else comments_only(raw, comment_style(path))
+    if not is_prose(path):
+        return comments_only(raw, comment_style(path))
+    # A prose file that is not a page is read whole: CommonMark would take its indented lines for
+    # code, and those are the paths `NOTICE` lists.
+    return strip_fences(raw) if has_suffix(path.name, (".md",)) else raw

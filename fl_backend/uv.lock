@@ -249,6 +249,7 @@ dependencies = [
 dev = [
     { name = "fastapi-cli" },
     { name = "httpx2" },
+    { name = "markdown-it-py" },
     { name = "pyright", extra = ["nodejs"] },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -274,6 +275,7 @@ requires-dist = [
 dev = [
     { name = "fastapi-cli", specifier = ">=0.0.27" },
     { name = "httpx2", specifier = ">=2.12.0" },
+    { name = "markdown-it-py", specifier = ">=4.2.0" },
     { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.406" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },

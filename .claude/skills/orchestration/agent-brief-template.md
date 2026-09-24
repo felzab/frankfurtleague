@@ -270,8 +270,10 @@ did the reasonable thing in their absence.
                 Not one of the four reads a comment's bounds or resolves a citation, so every one
                 of them passes over an over-long block and a path that names nothing, and a report
                 saying "all checks green" on their evidence alone is wrong. Nothing you write is
-                green until `python scripts/checks/check_docs.py`, run from the repository root,
-                has come back clean: read its exit code from the command itself, never through a
+                green until the checker has come back clean, run from the repository root with
+                the virtualenv's interpreter, since a system python lacks its parser:
+                `uv run --project fl_backend --frozen python scripts/checks/check_docs.py`.
+                Read its exit code from the command itself, never through a
                 pipe, and read its findings on stdout. It reads the whole corpus rather than your
                 diff, so findings naming files you do not own are somebody else's.
 ```

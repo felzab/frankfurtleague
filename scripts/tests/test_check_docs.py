@@ -2294,6 +2294,25 @@ def test_a_fence_inside_a_fenced_block_closes_only_its_own_opener() -> None:
     _assert_corpus_restored()
 
 
+def test_an_indented_code_block_is_code_rather_than_prose() -> None:
+    """A page renders a block indented four spaces as code, so the phrase inside it is shown rather than said.
+
+    The same words as a paragraph are the second run, so a reader blanking the whole page fails it.
+    """
+    _reset()
+    try:
+        _append(NOTES, "", "    The owner reads it, in a sample the page shows.")
+        _, indented = _run()
+        _reset()
+        _append(NOTES, "", "The owner reads it.")
+        _, said = _run()
+    finally:
+        _reset()
+    assert indented[("fail", "owner-voice", NOTES)] == 0, "the indented block was read as prose: " + _shape(indented)
+    assert said[("fail", "owner-voice", NOTES)] == 1, "the page was read by nothing: " + _shape(said)
+    _assert_corpus_restored()
+
+
 def test_a_comment_marker_inside_a_string_literal_opens_no_comment() -> None:
     """Three shapes at once, because each fails alone on a reader tracking one quote and not another.
 
