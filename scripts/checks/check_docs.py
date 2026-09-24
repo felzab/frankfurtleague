@@ -16,10 +16,12 @@ from pathlib import Path
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import traceback
+
 from checker_kernel import EXIT_CRASH, run
 
-# Guarded because it runs before `run` can classify it: an import failing here exits 1, which the
-# exit contract reserves for findings, and the gate would report a documentation fault.
+# Guarded as `run` guards `main`, since it runs before `run` can: any failure while the package is
+# imported exits 1 unguarded, which the exit contract reserves for findings.
 try:
     from docs_gate.branch import check_comment_bounds
     from docs_gate.checks import (
@@ -32,14 +34,17 @@ try:
         main,
     )
     from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids
-except ModuleNotFoundError as missing:
+except Exception as failed:
     if __name__ != "__main__":
         raise
-    print(
-        f"      cannot import {missing.name} with {sys.executable}, so nothing was checked -- the environment is incomplete:"
-        " `uv sync --project fl_backend --dev --frozen` installs the dev group this gate reads with",
-        file=sys.stderr,
-    )
+    missing = failed.name if isinstance(failed, ModuleNotFoundError) else None
+    # A module of the gate's own that is gone is a broken tree, which no install repairs.
+    if missing is not None and missing.partition(".")[0] != "docs_gate":
+        cause = f"cannot import {missing} with {sys.executable} -- `uv sync --project fl_backend --dev --frozen` installs the dev group"
+    else:
+        traceback.print_exc()
+        cause = "the gate's package failed while it was imported"
+    print(f"      {cause}, so nothing was checked", file=sys.stderr)
     sys.exit(EXIT_CRASH)
 
 # Named for export rather than for use here: every one below is cited from a document, a command

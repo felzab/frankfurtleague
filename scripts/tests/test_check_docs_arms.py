@@ -518,17 +518,39 @@ def test_a_span_an_unclosed_label_scan_passes_is_text() -> None:
     assert codes("[`a :: b` `` x `c`") == ["a :: b", "c"], "a later run of the span's length"
 
 
+def _entry_point_with(breakage: str) -> subprocess.CompletedProcess[str]:
+    """The gate's entry point run as a script, after one statement has broken what it imports."""
+    entry = REPO_ROOT / "scripts" / "checks" / "check_docs.py"
+    # As a script is run: its own folder first on the path, which is where the package sits, and its
+    # path alone in `argv`, which is what a run that gets past the imports parses.
+    driver = (
+        f"import os, runpy, sys; {breakage}; sys.argv[:] = sys.argv[1:]; sys.path.insert(0, os.path.dirname(sys.argv[0]));"
+        " runpy.run_path(sys.argv[0], run_name='__main__')"
+    )
+    return subprocess.run([sys.executable, "-c", driver, str(entry)], capture_output=True, text=True, encoding="utf-8", check=False)
+
+
 def test_a_missing_markdown_parser_exits_as_a_broken_environment() -> None:
     """The parser is imported before `run` can classify a failure, so unguarded its absence exits 1 and reads as findings."""
-    entry = REPO_ROOT / "scripts" / "checks" / "check_docs.py"
-    # As a script is run: its own folder first on the path, which is where the package sits.
-    blocked = (
-        "import os, runpy, sys; sys.modules['markdown_it'] = None; sys.path.insert(0, os.path.dirname(sys.argv[1]));"
-        " runpy.run_path(sys.argv[1], run_name='__main__')"
-    )
-    done = subprocess.run([sys.executable, "-c", blocked, str(entry)], capture_output=True, text=True, encoding="utf-8", check=False)
+    done = _entry_point_with("sys.modules['markdown_it'] = None")
     assert done.returncode == 3, (done.returncode, done.stdout, done.stderr)
     assert "cannot import markdown_it" in done.stderr, done.stderr
+    assert "uv sync" in done.stderr, done.stderr
+
+
+def test_any_failure_while_the_package_is_imported_exits_as_a_broken_environment() -> None:
+    """A name gone from an installed parser, and a module of the gate's own gone, which no install repairs.
+
+    Both raise before `run` can classify them; the second is a missing module too, so the remedy parts it.
+    """
+    # A name with no submodule of its own: `image` would import `rules_inline/image.py` in its place.
+    renamed = _entry_point_with("import markdown_it.rules_inline as rules; del rules.StateInline")
+    assert renamed.returncode == 3, (renamed.returncode, renamed.stdout, renamed.stderr)
+    assert "ImportError" in renamed.stderr, renamed.stderr
+    own = _entry_point_with("sys.modules['docs_gate.branch'] = None")
+    assert own.returncode == 3, (own.returncode, own.stdout, own.stderr)
+    assert "failed while it was imported" in own.stderr, own.stderr
+    assert "uv sync" not in own.stderr, own.stderr
 
 
 # A module the comment reader lexes: a regex literal's quotes and slashes are not a string or a comment.
