@@ -786,8 +786,8 @@ Locally the variable is unset and the build runs against the daemon's own cache.
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds one reference figure
 and one floor per job. Main pushes are the only comparable population — they alone run every scope,
-where a pull request's jobs are path-filtered. How a median is taken, and which jobs the report
-leaves out of one, are at that job in `.github/workflows/verify.yml`.
+where a pull request's jobs are path-filtered. `scripts/checks/check_gate_budget.py` under `--window`
+writes it, and how a median is taken is at `:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a
 window against the window before it ratchets: each window silently becomes the next one's normal, so
@@ -804,8 +804,9 @@ the noisy ones. Each floor in the table is that job's own p95, so a delta under 
 
 **The report decides nothing** — no threshold in it refuses anything and pull requests skip it, so
 the seconds it costs land where no merge is waiting; the budget below is where a figure refuses.
-What the report cannot see it names itself rather than leaving to be assumed, and which jobs it
-counts apart from the ones it measures are at that job in `.github/workflows/verify.yml`.
+What the report cannot see it names itself rather than leaving to be assumed. The jobs it never
+measures are at `scripts/checks/check_gate_budget.py :: UNMEASURED_JOBS`, and the ones it counts
+apart from those it measures at `:: report_window`.
 
 **Every job has a wall-clock budget, and the aggregate job refuses the run that breaks one.** The
 same table carries two more columns: `budget`, the most a single run of the job may span from its
@@ -833,7 +834,7 @@ cut from main runs, would read a reference, until main runs of `format` exist to
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. Either mode reads the table through `--reference`, so a copy is judged before it is committed
+runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report

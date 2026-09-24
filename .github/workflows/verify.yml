@@ -522,6 +522,16 @@ jobs:
             fl_backend/.python-version
           sparse-checkout-cone-mode: false
 
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
+        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
+
+        # Not a `uv sync`: the report and the budget import the standard library alone, and an
+        # install would sit on the required check's critical path for nothing. The toolcache holds
+        # the pin, so this is a lookup.
+        with:
+          python-version-file: fl_backend/.python-version
+
       - name: Report the gate's wall clock
         # The re-bloat glance for time: per-job medians over the last window of main runs against a
         # reference table held in the tree. Advisory by construction — nothing here decides an
@@ -534,174 +544,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           window=12
-          reference=.github/gate-wall-clock.tsv
-          state="${RUNNER_TEMP}/wall-clock-state"
-          # An annotation as well as a summary block. This step cannot fail — it sits inside the
-          # required check and decides nothing — so to anyone reading the checks list rather than
-          # the summary, a run that could compare nothing looks exactly like a clean one. That is
-          # not a rare state: a window is short until twelve main runs are on record, and runs age
-          # out of the API on their own.
-          no_comparison() {
-            echo "::warning title=Gate wall clock::${1}"
-            {
-              printf '### Gate wall clock — no comparison\n\n'
-              printf '%s\n\n' "$1"
-              printf 'Nothing in this run says whether the gate has got slower.\n'
-            } >> "$GITHUB_STEP_SUMMARY"
-          }
-          if [ ! -s "$reference" ]; then
-            no_comparison "The reference table $reference was not read, so there is nothing to compare against."
-            exit 0
-          fi
+          fetched="${RUNNER_TEMP}/wall-clock"
+          mkdir -p "$fetched"
           # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
           # discarding the whole run throws their timings away. It excludes the run doing the
           # reporting, which is still in flight.
-          if ! runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"; then
-            no_comparison "The list of completed main runs could not be read, so no window was assembled and no floor was tested."
-            exit 0
-          fi
-          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
-          if [ "$count" -lt "$window" ]; then
-            no_comparison "$count completed main runs are on record and $window are needed for a window, so no median was computed and no floor was tested."
-            exit 0
-          fi
-          # Every request is made even after one fails, so the warning names each run whose jobs
-          # could not be read; any such run ends the report before awk, as medians over the rest
-          # would print as a whole window's.
-          jobs="${RUNNER_TEMP}/wall-clock-jobs.tsv"
-          : > "$jobs"
-          failed=""
-          for id in $runs; do
-            # First step's start to last step's end, rather than the job's own timestamps, which
-            # carry the wait for a runner — pool queueing is noise about GitHub, not about the gate.
-            # `verify` is this report and `changes` is a checkout plus a path mapping: neither is
-            # the gate's work, and one rule has to cover both.
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
-              .jobs[]
-              | select(.name != "verify" and .name != "changes")
-              | if .conclusion == "skipped"
-                then ["skipped", .name, 0]
-                elif .conclusion == "success"
-                   and ([.steps[]? | select(.started_at != null)] | length) > 0
-                   and ([.steps[]? | select(.completed_at != null)] | length) > 0
-                then ["ok", .name,
-                      (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
-                       - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
-                else ["dropped", .name, 0]
-                end
-              | @tsv' >> "$jobs" || failed="${failed:+$failed, }$id"
+          listing="repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}"
+
+          # Every request is made and none ends the step: a payload gh could not fetch is left
+          # absent, and the checker names each one rather than reporting a window short of it.
+          gh api "$listing" > "${fetched}/runs.json" || rm -f "${fetched}/runs.json"
+          for id in $(jq -r '.workflow_runs[]?.id' "${fetched}/runs.json" 2>/dev/null || true); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" > "${fetched}/jobs-${id}.json" || rm -f "${fetched}/jobs-${id}.json"
           done
-          if [ -n "$failed" ]; then
-            no_comparison "The jobs of main run(s) $failed could not be read, so no window was assembled and no floor was tested."
-            exit 0
-          fi
-          awk -F'\t' -v w="$window" -v ref="$reference" -v state="$state" '
-            BEGIN { whole = 1 }
-            # The reference table first, one row per job: name, seconds, floor percent.
-            FNR == NR {
-              if ($0 ~ /^#/ || NF < 3) next
-              # A `-` in the seconds column is a job budgeted with no reference cut from main runs,
-              # the table saying why for each such job -- not a reference of zero.
-              if ($2 !~ /^[0-9]+$/) next
-              base[$1] = $2 + 0
-              limit[$1] = $3 + 0
-              if ($1 != "total") names[++nn] = $1
-              next
-            }
-            # A job whose scope the mapping turned off, which never started and so failed at
-            # nothing: counted apart, or a job skipped on every main push reads as a run that broke.
-            $1 == "skipped" { skipped++; next }
-            $1 == "dropped" { dropped++; next }
-            $1 == "ok" {
-              k = $2
-              # Reported rather than measured: a job added to the gate with no row here would
-              # otherwise be counted into nothing and vanish from the report silently.
-              if (!(k in base)) {
-                if (!(k in extra)) { extra[k] = 1; unref = unref (unref == "" ? "" : ", ") k }
-                next
-              }
-              c = ++n[k]
-              # Insertion into the group in order, so the median needs no external sort at all.
-              while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
-              v[k, c] = $3
-            }
-            # Median, not mean: the images job swings more than tenfold between a warm layer cache
-            # and a cold one, and one cold run would carry a mean nobody could read past.
-            function med(k,   c) {
-              c = n[k]
-              if (c == 0) return -1
-              if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
-              return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
-            }
-            END {
-              for (i = 1; i <= nn; i++) {
-                j = names[i]
-                m = med(j)
-                if (m < 0) { gone = gone (gone == "" ? "" : ", ") j; whole = 0; continue }
-                total += m
-                # A reference of zero has no percentage to give, and dividing by it would take the
-                # whole redirect group down under set -e, leaving a header and no rows. Named in
-                # the trailer rather than dropped, a zero here being a hand edit somebody left half
-                # done.
-                if (base[j] <= 0) {
-                  unref = unref (unref == "" ? "" : ", ") j
-                  continue
-                }
-                d = (m - base[j]) * 100 / base[j]
-                a = (d < 0) ? -d : d
-                # The quiet state: under its own floor a job says nothing at all, so a row in this
-                # table is always a figure somebody has to account for.
-                if (a <= limit[j]) continue
-                line = sprintf("| `%s` | %ds | %ds | %+ds (%+.1f%%) | %d%% |", j, m, base[j], m - base[j], d, limit[j])
-                k = ++loud
-                while (k > 1 && rank[k - 1] < m) { rank[k] = rank[k - 1]; row[k] = row[k - 1]; k-- }
-                rank[k] = m
-                row[k] = line
-              }
-              # Only where every referenced job was observed: a window missing one leaves a sum
-              # that is short rather than one that is faster.
-              if (whole && ("total" in base) && base["total"] > 0) {
-                d = (total - base["total"]) * 100 / base["total"]
-                a = (d < 0) ? -d : d
-                if (a > limit["total"]) {
-                  loud++
-                  row[loud] = sprintf("| **the whole gate** | **%ds** | **%ds** | **%+ds (%+.1f%%)** | **%d%%** |", total, base["total"], total - base["total"], d, limit["total"])
-                }
-              }
-              if (loud == 0 && whole) {
-                printf "**Gate wall clock:** every job median over the last %d main runs sits inside its own floor.\n", w
-              } else if (loud == 0) {
-                # Not the clean sentence: a job with no run in this window was compared against
-                # nothing, and "every job median sits inside its own floor" would cover it over.
-                printf "**Gate wall clock:** nothing that could be measured has moved past its own floor, and a job named below was not measured at all, so this is not a clean comparison.\n"
-              } else {
-                print "### Gate wall clock"
-                print ""
-                printf "Medians over the last %d main runs that have moved past their own floor:\n", w
-                print ""
-                print "| Job | median | reference | delta | floor |"
-                print "| --- | ---: | ---: | ---: | ---: |"
-                for (i = 1; i <= loud; i++) print row[i]
-              }
-              printf "\nThe reference is `%s`, a fixed table updated by hand and never recomputed from the recent past, which is what would let a slowdown become the new normal one window at a time. Each floor is the p95 movement of that median when a %d-run window is resampled from the reference population, so a delta under it is a reshuffle and not a change. A figure spans a job from its first step to its last, leaving the wait for a runner out.\n", ref, w
-              printf "\n%d job run(s) in this window did not succeed and are outside the sample, so a scope slow enough to fail or to reach its timeout is invisible here.\n", dropped
-              if (skipped) printf "\n%d job run(s) never started, their scope turned off by the path mapping rather than by anything they did.\n", skipped
-              if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
-              if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
-              # Which of the three states this report reached, for the annotation below: the
-              # summary is where they are told apart in full, and a file is how that verdict
-              # leaves an awk whose stdout is the summary itself.
-              verdict = loud ? "regressed" : (whole ? "clean" : "partial")
-              print verdict > state
-            }
-          ' "$reference" - < "$jobs" >> "$GITHUB_STEP_SUMMARY"
-          # Outside the summary for `no_comparison`'s reason, and with its polarity: a clean report
-          # is the only one of the three that annotates nothing, so silence on the checks list
-          # means the comparison ran and found nothing rather than that it never ran.
-          case "$(cat "$state" 2>/dev/null || true)" in
-            regressed) echo "::warning title=Gate wall clock::A job median has moved past its own floor. The run summary holds the table." ;;
-            partial)   echo "::warning title=Gate wall clock::A job in the reference has no successful run in this window, so this is not a clean comparison. The run summary names it." ;;
-          esac
+          python scripts/checks/check_gate_budget.py --window "$fetched" --runs "$window" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
@@ -711,15 +567,6 @@ jobs:
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
-        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
-
-        # Not a `uv sync`: the check imports the standard library alone, and an install would sit on
-        # the required check's critical path for nothing. The toolcache holds the pin, so this is a
-        # lookup.
-        with:
-          python-version-file: fl_backend/.python-version
       # `publish.yml` publishes over a run this step alone failed, finding it by this exact name.
       - name: Hold every job to its wall-clock budget
         # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
