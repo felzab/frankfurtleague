@@ -77,7 +77,8 @@ const NEIGHBOUR = spiel(
 describe("the match editor's preview when its dry run times out", () => {
   /* A preview is an extra that never blocks a save, so an unanswered one adds nothing to the page: no
      fixture named as losing its result, and no sentence saying a write may have landed. */
-  it("names no fixture and no unknown outcome", async () => {
+  it("names no fixture and no unknown outcome", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
     render(
       underNext(
         h(AdminEditSpielDataForm, {
@@ -96,8 +97,8 @@ describe("the match editor's preview when its dry run times out", () => {
       ),
     );
 
-    // Past the preview's debounce, on the real clock the editor's timer runs on.
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 600)));
+    // Every timer the render queued, the preview's debounce among them, then the answer it asked for.
+    await act(async () => t.mock.timers.runAll());
 
     assert.deepEqual(
       calls.map((call) => call.action),
