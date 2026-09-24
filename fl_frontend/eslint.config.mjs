@@ -171,6 +171,16 @@ const HEROUI_FORM = {
 };
 
 /**
+ * The popover and panel both hint tags open, whose own `{children}` `hintCap.test.ts` cannot count:
+ * rendered from anywhere but `Hint.tsx`, which the block exempting it below allows, a hint escapes the cap.
+ */
+const HINT_INTERNALS = {
+  group: ["**/InfoHint", "**/InfoHint.tsx"],
+  importNames: ["HintPopover", "HintPanel"],
+  message: "Render a hint through Hint or InfoHint, the two tags fl_frontend/src/shared/components/ui/hintCap.test.ts caps.",
+};
+
+/**
  * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
  * comment is none of these, so prose naming a spelling never trips its ban.
  */
@@ -486,17 +496,17 @@ const eslintConfig = defineConfig([
 
   // Every file first, so the Next, date-control and form bans reach tests and the slices neither boundary
   // names; each later block restates them for `restrictImports`'s reason.
-  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM) },
+  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS) },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, LAYER_BOUNDARY.core),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, LAYER_BOUNDARY.shared),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, LAYER_BOUNDARY.shared),
   },
 
   // The test-only ban, which a `*.test.ts(x)` file alone escapes. Each block restates the boundary
@@ -504,16 +514,21 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY),
   },
   {
     files: ["src/core/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY, LAYER_BOUNDARY.core),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.shared),
+  },
+  // The one importer `HINT_INTERNALS` allows, last among the blocks reaching it for `restrictImports`'s reason.
+  {
+    files: ["src/shared/components/ui/Hint.tsx"],
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY, LAYER_BOUNDARY.shared),
   },
 

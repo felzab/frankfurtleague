@@ -4,6 +4,8 @@
 import { Calendar } from "@heroui/react/calendar";
 import { useOverlayState } from "@heroui/react";
 
+import { InfoHint } from "@/shared/components/ui/InfoHint";
+
 // hover:opacity-80 gap-5 hover:underline fluid-sm text-foreground-muted font-medium -- prose, never a literal
 declare const router: { push: (to: string) => void; replace: (to: string) => void };
 declare const redirect: (to: string) => never;
@@ -13,6 +15,7 @@ declare const bounds: object;
 declare const labelBadge: (tone: string) => string;
 
 export const OVERLAY = useOverlayState;
+export const INFO_HINT = InfoHint;
 export const RUNGS = "gap-x-4 gap-0 gap-0.5 sm:gap-12 gap-y-3";
 export const PAIR_ACROSS_A_HOLE = `font-numeric ${tint} tabular-nums`;
 export const PAIR = "font-numeric fluid-xs tabular-nums";

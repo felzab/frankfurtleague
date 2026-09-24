@@ -11,6 +11,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
+import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 
 declare const auth: { api: { getSession: (options: object) => unknown } };
 declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
@@ -43,6 +44,7 @@ export const CONTEXT = AppRouterContext;
 export const NAMESPACE = HeroUI;
 export const FORM = HeroForm;
 export const BUTTON = Button;
+export const POPOVER = HintPopover;
 export const DELETION = "deletePasskey"; // expect: passkey-deletion
 
 export async function plantedCalls(): Promise<void> {

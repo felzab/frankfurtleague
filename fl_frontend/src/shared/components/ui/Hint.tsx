@@ -2,14 +2,12 @@
 
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
-import CircleInfo from "@gravity-ui/icons/CircleInfo";
-
 import { Popover } from "@heroui/react/popover";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 
 import { HINT_SURFACE_CLASSES } from "./hintSurface";
-import { hintTrigger } from "./hintTrigger";
+import { HintPanel, HintPopover } from "./InfoHint";
 import { overlayPanel } from "./overlayPanel";
 
 import type { ReactNode, RefObject } from "react";
@@ -105,58 +103,29 @@ export function Hint(props: HintProps) {
   );
 }
 
-/**
- * **A popover rather than a tooltip because of touch**: react-aria's tooltip never opens on a tap, so
- * on a phone it is unreachable, and `useHoverOpenOverlay` adds the hover half back.
- */
+/** The capped body, in the popover `InfoHint` opens too. */
 function RevealHint({ label, body, trigger }: { label: string; body: HintBody; trigger?: ReactNode }) {
-  const { isOpen, isDialogOpen, isOpenedByHover, panelKey, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
-
   return (
-    <Popover
-      isOpen={isDialogOpen}
-      onOpenChange={onOpenChange}>
-      <Popover.Trigger
-        aria-label={label}
-        className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
-        onPointerMove={openFromHover}>
-        {trigger ?? (
-          <CircleInfo
-            aria-hidden="true"
-            className="size-(--hint-icon-size)"
-          />
-        )}
-      </Popover.Trigger>
-
-      <Popover.Content
-        key={panelKey}
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        placement="top"
-        offset={8}
-        isNonModal={isOpenedByHover}>
-        <HintPanel
-          isOpenedByHover={isOpenedByHover}
-          panelRef={captureDialog}
-          className={`${overlayPanel()} fluid-xs text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none`}>
-          <p>{body.lead}</p>
-          {body.points !== undefined && body.points.length > 0 && (
-            <ul className="flex flex-col gap-y-1">
-              {body.points.map((point) => (
-                <li key={point.text}>
-                  {point.term !== undefined && (
-                    <>
-                      <strong className="font-bold">{point.term}</strong>{" "}
-                    </>
-                  )}
-                  {point.text}
-                </li>
-              ))}
-            </ul>
-          )}
-        </HintPanel>
-      </Popover.Content>
-    </Popover>
+    <HintPopover
+      label={label}
+      trigger={trigger}
+      panelClassName={`${overlayPanel()} fluid-xs text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none`}>
+      <p>{body.lead}</p>
+      {body.points !== undefined && body.points.length > 0 && (
+        <ul className="flex flex-col gap-y-1">
+          {body.points.map((point) => (
+            <li key={point.text}>
+              {point.term !== undefined && (
+                <>
+                  <strong className="font-bold">{point.term}</strong>{" "}
+                </>
+              )}
+              {point.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </HintPopover>
   );
 }
 
@@ -297,39 +266,5 @@ function RefusalOverlay({
         </HintPanel>
       </Popover.Content>
     </Popover>
-  );
-}
-
-/**
- * **No dialog for a panel the pointer opened**: react-aria's `Dialog` takes focus on mount whatever opened it, so a
- * pointer crossing the trigger would take the field being typed in (`useHoverOpenOverlay.ts :: useHoverOpenOverlay`).
- */
-export function HintPanel({
-  isOpenedByHover,
-  panelRef,
-  className,
-  children,
-}: {
-  isOpenedByHover: boolean;
-  panelRef: (element: HTMLElement | null) => void;
-  className: string;
-  children: ReactNode;
-}) {
-  if (isOpenedByHover)
-    return (
-      <div
-        ref={panelRef}
-        className={className}>
-        {children}
-      </div>
-    );
-
-  // No `aria-label`: react-aria names the dialog by its trigger, which names the hint or the control a refusal covers.
-  return (
-    <Popover.Dialog
-      ref={panelRef}
-      className={className}>
-      {children}
-    </Popover.Dialog>
   );
 }

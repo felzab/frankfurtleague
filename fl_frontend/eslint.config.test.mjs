@@ -44,6 +44,7 @@ const BANS = [
   ["next-private", /Mount Next's contexts/],
   ["segmented-import", /Compose a date or time field/],
   ["heroui-form", /Render a form through/],
+  ["hint-internals", /Render a hint through Hint or InfoHint/],
   ["vendor-root", /from its own subpath/],
   ["passkey-deletion", /passkey plugin's own deletion/],
   ["query-in-equality", /serialises the whole rendered tree/],
