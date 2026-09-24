@@ -22,7 +22,7 @@ DATABASE_NAME = worker_database("fl_activation_test")
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
 
-# Two incumbents, because "exactly one active season" is an UNENFORCED state
+# Two incumbents, because two seasons holding `active` is an UNENFORCED state
 # (`fl_backend/app/core/domain.py :: UNENFORCED`) and the rollover is what repairs it.
 ARCHIVED = "2023"
 FIRST_INCUMBENT = "2024"
