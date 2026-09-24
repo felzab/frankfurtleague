@@ -499,8 +499,8 @@ test as it runs, the way pytest-django blocks its database:
   sees every client however the test reached it
 
 **A client aimed where nothing answers sends no command and passes**, which is how a default-tier
-test proves a refusal lands before the database (`fl_backend/tests/api/test_malformed_ids.py ::
-UNANSWERED_URI`). A command sent from a thread the test starts is seen; one sent during teardown is
+test proves a refusal lands before the database (`fl_backend/tests/config.py :: UNANSWERED_URI`).
+A command sent from a thread the test starts is seen; one sent during teardown is
 not, a session fixture a db test opened being finalised after whichever test ran last.
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because

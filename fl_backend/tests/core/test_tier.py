@@ -5,12 +5,10 @@ from pymongo import AsyncMongoClient
 from pymongo.database import Database
 from pymongo.errors import ServerSelectionTimeoutError
 
+from tests.config import UNANSWERED_URI
 from tests.tier import UNMARKED_USE, refuse_server_fixtures
 
 PLANTED = "tests/planted.py::test_planted"
-
-# Not the configured URI, for `tests/api/test_malformed_ids.py :: UNANSWERED_URI`'s reason.
-UNANSWERED_URI = "mongodb://localhost:1"
 
 
 def test_a_server_fixture_in_the_closure_is_refused_before_it_starts() -> None:
