@@ -315,6 +315,14 @@ const ADMIN_VIEW = `:matches(FunctionDeclaration[id.name=${VIEW_NAME}], Function
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
 /**
+ * The date controls the bound and spread bans find by the tag's name, which an alias, a namespace or
+ * HeroUI's `*Root` export would rename; `<X.Root>` is the compound's own spelling of the same control.
+ */
+const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
+const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
+const DATE_MODULES = String.raw`/^@heroui\/react(?:\/(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
+
+/**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
  * spell it, `tests` puts test files in the population, and `production: false` takes production out.
  */
@@ -433,6 +441,11 @@ const SOURCE_BANS = [
     message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
   },
   {
+    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\/react(?:\\/|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier)`,
+    message: "Import a date control under its own name: the bound and spread bans read the tag.",
+    tests: true,
+  },
+  {
     selector: `${ADMIN_VIEW} > ObjectPattern.params > Property[key.name="facets"]`,
     message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
   },
@@ -548,7 +561,7 @@ const eslintConfig = defineConfig([
         {
           forbid: ["minValue", "maxValue", "isDateUnavailable"].map((propName) => ({
             propName,
-            disallowedFor: JUDGING_DATE_CONTROLS,
+            disallowedFor: tagsOf(JUDGING_DATE_CONTROLS),
             message: "A bound goes on the Calendar that offers the days, never on the control that judges each keystroke.",
           })),
         },
@@ -556,7 +569,7 @@ const eslintConfig = defineConfig([
       // Spreading stays free everywhere but on the segmented controls, whose bounds a spread hides.
       "react/jsx-props-no-spreading": [
         "error",
-        { html: "ignore", custom: "ignore", exceptions: [...JUDGING_DATE_CONTROLS, "DateRangePicker"] },
+        { html: "ignore", custom: "ignore", exceptions: tagsOf([...JUDGING_DATE_CONTROLS, "DateRangePicker"]) },
       ],
     },
   },

@@ -41,6 +41,7 @@ const BANS = [
   ["view-props", /An admin view destructures its props/],
   ["date-bound", /A bound goes on the Calendar/],
   ["date-spread", /Prop spreading is forbidden/],
+  ["date-alias", /Import a date control under its own name/],
   ["heading", /Render `PanelHeading`/],
   ["hint-nest", /read out as part of the title/],
   ["next-private", /Mount Next's contexts/],

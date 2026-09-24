@@ -3,7 +3,10 @@
 
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
-import * as HeroUI from "@heroui/react"; // expect: segmented-import expect: heroui-form expect: vendor-root
+import * as HeroUI from "@heroui/react"; // expect: segmented-import expect: heroui-form expect: vendor-root expect: date-alias
+import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: segmented-import expect: date-alias
+import { CalendarRoot } from "@heroui/react/calendar"; // expect: date-alias
+import * as TimeFields from "@heroui/react/time-field"; // expect: segmented-import expect: heroui-form expect: date-alias
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
@@ -45,6 +48,7 @@ export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
 export const RADIUS = PILL_RADIUS_CLASSES;
 export const CONTEXT = AppRouterContext;
 export const NAMESPACE = HeroUI;
+export const RENAMED = [Picker, CalendarRoot, TimeFields];
 export const FORM = HeroForm;
 export const BUTTON = Button;
 export const POPOVER = HintPopover;
@@ -100,6 +104,8 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <EmptyState>Für diese Saison gibt es keine Spiele.</EmptyState>{/* expect: season-empty */}
       <DatePicker minValue={bounds} /* expect: date-bound */ />
       <DateField {...bounds} /* expect: date-spread */ />
+      <DatePicker.Root maxValue={bounds} /* expect: date-bound */ />
+      <DateField.Root {...bounds} /* expect: date-spread */ />
       <h2 className={heading()} /* expect: heading */>Titel</h2>
       <h2 className={panel.heading()} /* expect: heading */>Titel</h2>
       <h3>

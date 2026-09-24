@@ -1,0 +1,16 @@
+// Linted as src/shared/components/ui/DateTimeFields.tsx.
+// The composition may import the segmented controls, and still only under their own names.
+// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
+import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: date-alias
+// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
+import * as Fields from "@heroui/react/date-field"; // expect: date-alias
+
+declare const bounds: object;
+
+export function AppDatePicker() {
+  return (
+    <Picker minValue={bounds}>
+      <Fields.DateField />
+    </Picker>
+  );
+}

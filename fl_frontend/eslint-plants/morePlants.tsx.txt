@@ -2,7 +2,7 @@
 "use client";
 
 import { TimeField } from "@heroui/react/time-field"; // expect: segmented-import
-import { DateRangePicker as Range } from "@heroui/react/date-range-picker"; // expect: segmented-import
+import { DateRangePicker as Range } from "@heroui/react/date-range-picker"; // expect: segmented-import expect: date-alias
 
 declare const redirect: (to: string) => never;
 declare const size: string;
