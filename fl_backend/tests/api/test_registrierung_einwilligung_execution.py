@@ -256,21 +256,6 @@ class TestWhatALinkOpens:
 
         assert response.geburtsdatum is None
 
-    def test_the_join_reaches_a_pupil_whose_domain_was_stored_in_unicode(self, mongo_replica_set_url: str):
-        """A registration stores the punycode, and a pupil stored before the address rule the decoded domain.
-
-        An equality on one spelling shows this pupil nothing.
-        """
-
-        typed = registrierung_document(email="quillhilde@xn--exmple-cua.com")
-        stored_before = spieler_document(SPIELER_OID, email="quillhilde@exämple.com")
-
-        response = on_a_league(
-            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[typed], spieler=[stored_before]
-        )
-
-        assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
-
     def test_a_differently_named_pupil_at_the_same_mailbox_is_shown_nothing(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
 

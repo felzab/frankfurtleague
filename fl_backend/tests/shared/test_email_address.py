@@ -4,7 +4,7 @@ from typing import Final, NamedTuple
 
 import pytest
 
-from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier, stored_spellings
+from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier
 
 # One table both suites run their own rule and fold over (`fl_frontend/src/core/emailAddress.test.ts`
 # holds the frontend half): each runtime converts a Unicode domain with its own tables, and this is
@@ -89,33 +89,6 @@ def test_a_typed_address_and_what_its_payload_stored_key_one_ban(row: Row):
 
 
 UMLAUT_DOMAIN: Final = "anna@müller.de"
-# Built from code points: each renders like a Latin capital.
-CHEROKEE_DOMAIN: Final = f"anna@{chr(0x13A0)}{chr(0x13A1)}.de"
-
-# ASCII, so the erasure's payload admits it, and RFC 3492 decodes it to a lone surrogate.
-SURROGATE_LABEL: Final = "xn--ib9b"
-
-
-@pytest.mark.parametrize(
-    ("identifier", "spellings"),
-    [
-        pytest.param("anna@xn--mller-kva.de", ("anna@xn--mller-kva.de", UMLAUT_DOMAIN), id="a punycode domain"),
-        # The older fold lower-cased what UTS46 left in capitals.
-        pytest.param("anna@xn--58dc.de", ("anna@xn--58dc.de", CHEROKEE_DOMAIN.lower()), id="Cherokee"),
-        pytest.param("anna@schule.de", ("anna@schule.de",), id="an ASCII domain"),
-        pytest.param("anna@xn--zz.de", ("anna@xn--zz.de",), id="a label that is no punycode"),
-        pytest.param(f"anna@{SURROGATE_LABEL}.de", (f"anna@{SURROGATE_LABEL}.de",), id="a label decoding to a lone surrogate"),
-        pytest.param("xn--mller-kva.de", ("xn--mller-kva.de",), id="no at sign"),
-    ],
-)
-def test_a_stored_row_is_looked_for_in_each_spelling_it_may_hold(identifier: str, spellings: tuple[str, ...]):
-    assert stored_spellings(identifier) == spellings
-
-
-def test_the_surrogate_label_decodes_to_one():
-    """The premise of its row above: a label decoding to anything encodable would leave that row passing unguarded."""
-
-    assert SURROGATE_LABEL[4:].encode("ascii").decode("punycode") == chr(0xD800)
 
 
 def test_a_unicode_domain_and_its_punycode_are_one_inbox_and_the_local_part_s_case_two():

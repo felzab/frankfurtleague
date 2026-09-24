@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
-from app.shared.folding import sign_in_identifier, stored_spellings
+from app.shared.folding import sign_in_identifier
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -34,9 +34,9 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Equality and no pattern: `spieler.email` stores the folded form, in one of the spellings `stored_spellings` names."""
+    """Equality and no pattern: `spieler.email` stores the folded form."""
 
-    return [{"$match": {"email": {"$in": list(stored_spellings(identifier))}}}, {"$project": {"_id": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": {"email": identifier}}, {"$project": {"_id": 1}}, {"$sort": {"_id": 1}}]
 
 
 def folds_to(stored: Any, identifier: str) -> bool:

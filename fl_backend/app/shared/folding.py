@@ -30,8 +30,8 @@ def _ascii_domain(domain: str) -> str | None:
 
 
 def _folded_domain(domain: str) -> str:
-    # A row stored before the address rule holds its domain in Unicode, and converting it here is
-    # what joins it to the punycode spelling every payload stores now (`docs/backend/spec.md :: I333`).
+    # A lookup held to no address rule may name its domain in Unicode (`docs/backend/spec.md :: I329`),
+    # and converting it here is what joins it to the punycode spelling every payload stores (`:: I333`).
     if not domain.isascii():
         domain = _ascii_domain(domain) or domain
 
@@ -86,31 +86,6 @@ def canonical_address(address: str) -> str:
     # `domain` is the library's decoding of the punycode it stores. `lower` rather than the ASCII
     # fold: UTS46 leaves Cherokee in capitals, and the keys already stored lower-cased them.
     return f"{validated.ascii_local_part.translate(_ASCII_LOWER)}@{validated.domain.lower()}"
-
-
-def stored_spellings(identifier: str) -> tuple[str, ...]:
-    """Every spelling a stored row may hold this identifier in (`docs/backend/spec.md :: I333`).
-
-    The fold before the address rule stored the domain decoded and lower-cased, so an equality or a
-    pattern over stored rows asks for both.
-    """
-
-    local, at, domain = identifier.rpartition("@")
-    labels = domain.split(".")
-    if not at or not any(label.startswith("xn--") for label in labels):
-        return (identifier,)
-
-    try:
-        # Punycode's decoding is arithmetic over the label and reads no Unicode table, so no release
-        # of anything moves it.
-        decoded = ".".join(label[4:].encode("ascii").decode("punycode") if label.startswith("xn--") else label for label in labels)
-        # A label can decode to a lone surrogate, which the driver cannot encode into a query, and the
-        # erasure's lookup, held to no address rule (`docs/backend/spec.md :: I329`), passes one here.
-        decoded.encode("utf-8")
-    except UnicodeError:
-        return (identifier,)
-
-    return (identifier, f"{local}@{decoded.lower()}")
 
 
 # Escaped one character at a time, which Python's `re` and the server's PCRE read alike.

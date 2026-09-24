@@ -258,10 +258,10 @@ describe("renamedConfirmedSeatLabels", () => {
     assert.deepEqual(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
   });
 
-  /* A row stored before the address rule holds its domain in Unicode, where the address typed now is
-     stored as punycode: the server reads the two as one person and keeps the stamp. */
-  it("stays silent where a domain stored in Unicode meets its punycode", () => {
-    assert.deepEqual(howStored({ email: "anna@müller.de" }, { email: "anna@xn--mller-kva.de" }), []);
+  /* A domain typed in Unicode is stored as the punycode the row already holds: the server reads the
+     two as one person and keeps the stamp. */
+  it("stays silent where a domain typed in Unicode meets its stored punycode", () => {
+    assert.deepEqual(howStored({ email: "anna@xn--mller-kva.de" }, { email: "anna@müller.de" }), []);
   });
 
   /* „Weiß“ and „Weiss“ are two families, and „straße“ and „strasse“ two domains to sign-in: the save

@@ -11,7 +11,7 @@ from typing import Any, get_args
 from app.api.teams.schemas import FLKontaktperson, FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
-from app.shared.folding import sign_in_identifier, stored_spellings, trimmed_pattern
+from app.shared.folding import sign_in_identifier, trimmed_pattern
 
 # `get_args` of a bare `FLKontaktperson` is `()`, so a fourth role typed without `| None` is missed
 # here in silence. `test_every_slot_the_model_declares_is_covered` is what catches one, not the scan.
@@ -27,12 +27,9 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     would index: rows a league counts in hundreds, and log images nothing indexes inside.
     """
 
-    # Each spelling a stored row may hold the address in (`app/shared/folding.py :: stored_spellings`).
-    # `i` because those are lower-cased and a stored one need not be: a payload keeps the local
-    # part's case, and UTS46 leaves Cherokee in capitals.
-    spellings = sorted(stored_spellings(identifier))
-
-    return {"$regex": trimmed_pattern("|".join(literal_pattern(spelling) for spelling in spellings)), "$options": "i"}
+    # `i` because the identifier is lower-cased and a stored address need not be: a payload keeps the
+    # local part's case.
+    return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
 
 
 def _rows_naming(identifier: str) -> Mapping[str, Any]:

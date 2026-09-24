@@ -71,9 +71,9 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
 
-# One mailbox: as a row stored before the address rule holds it, and as a save of it stores it now.
-UNICODE_STORED = "anna@müller.de"
-PUNYCODE_SAVED = "anna@xn--mller-kva.de"
+# One mailbox: as a row stored before the address rule may hold it, and as a save of it stores it now.
+CAPITALS_STORED = "anna@Mueller.DE"
+LOWER_CASE_SAVED = "anna@mueller.de"
 
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
@@ -409,11 +409,11 @@ class TestARetiredRefereeTakesNoFreshLink:
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
     def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
-        stored = {"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        payload = {"kontakt": {"telefon": None, "email": PUNYCODE_SAVED}}
+        stored = {"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
+        payload = {"kontakt": {"telefon": None, "email": LOWER_CASE_SAVED}}
 
         update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email=PUNYCODE_SAVED, token_hash=TOKEN_HASH, today=TODAY
+            stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
         )
 
         assert (update, minted) == ({"$set": payload}, False)
@@ -518,7 +518,7 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
-            ({"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None}, PUNYCODE_SAVED),
+            ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
         ],
         ids=["address-unchanged", "address-unchanged-but-stored-before-the-address-rule", "already-confirmed"],

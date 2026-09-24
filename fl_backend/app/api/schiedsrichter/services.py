@@ -422,8 +422,8 @@ def compose_korrektur_update(
     if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
         return {"$set": dict(payload)}, False
 
-    # One inbox rather than one string: a row stored before the address rule holds its domain in
-    # Unicode, which the payload now stores in punycode, so a raw compare re-mails an address nobody moved.
+    # One inbox rather than one string: a row stored before the address rule may spell its domain in
+    # capitals, which the payload now stores in lower case, so a raw compare re-mails an address nobody moved.
     stored_email = (stored.get("kontakt") or {}).get("email")
     if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
         return {"$set": dict(payload)}, False

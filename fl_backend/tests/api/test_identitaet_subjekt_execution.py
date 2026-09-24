@@ -57,21 +57,21 @@ PARTED_ASKED = "ortrud.schmidt@schule.de"
 LEGACY_LOCAL_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
 
 # The „ß“ decision, never a `casefold`: IDNA 2008 keeps „ß“ in a domain, so these are two mailboxes,
-# each holding a seat. The sharp-s one is stored in Unicode, as a row predating the address rule holds it.
+# each holding a seat. The sharp-s one is stored in punycode, as a payload stores it.
 SHARP_S_ASKED = "Post@straße.de"
-SHARP_S_STORED = "Post@straße.de"
+SHARP_S_STORED = "Post@xn--strae-oqa.de"
 DOUBLE_S_ASKED = "post@strasse.de"
 DOUBLE_S_STORED = "Post@strasse.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
 
-# One mailbox at an internationalised domain, stored as payloads stored it before the address rule
-# (`docs/backend/spec.md :: I332`): the domain decoded, and folded too on a pupil's row.
+# One mailbox at an internationalised domain, stored as every payload stores it
+# (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
 # Asked in punycode, the only form the sign-in library hands over.
 IDN_ASKED = "anna@xn--mller-kva.de"
-IDN_SEAT_STORED = "Anna@müller.de"
-IDN_PUPIL_STORED = "anna@müller.de"
+IDN_SEAT_STORED = "Anna@xn--mller-kva.de"
+IDN_PUPIL_STORED = "anna@xn--mller-kva.de"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -381,11 +381,8 @@ def test_the_parted_spelling_is_one_an_older_rule_stored_and_the_fold_parts():
 
 
 @pytest.mark.db
-def test_an_internationalised_domain_stored_before_the_address_rule_answers_all_three_kinds(mongo_url: str):
-    """Each row holds the decoded domain, and a pupil's the older fold's lower case.
-
-    Only the second spelling `stored_spellings` names reaches them.
-    """
+def test_an_internationalised_domain_answers_all_three_kinds(mongo_url: str):
+    """Kills a fold that decodes the punycode it is handed, which no stored row then equals."""
 
     answer = answered(mongo_url, IDN_ASKED)
 

@@ -217,8 +217,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     throw new MailWithheldError();
   }
 
-  // At the send as well as at entry: a row stored before the address rule can still carry its domain
-  // in Unicode (`docs/backend/spec.md :: I333`).
+  // At the send as well as at entry, so no caller has to have converted: the provider takes a domain
+  // in its ASCII form alone (`docs/backend/spec.md :: I332`).
   const recipient = withAsciiDomain(to);
 
   // Above the timer below, which a throw from here would leave running for the whole budget.

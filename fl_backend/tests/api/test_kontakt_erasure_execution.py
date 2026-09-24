@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import EmailStr, TypeAdapter
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -791,12 +791,12 @@ PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMA
     ("asked", "taken", "missed"),
     [
         pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
-        # Near misses apart from the decoded spelling in ASCII alone, so both engines read them alike.
+        # Asked in Unicode, which the fold converts before the pattern is built from it.
         pytest.param(
-            "anna@xn--mller-kva.de",
-            ("anna@xn--mller-kva.de", "anna@müller.de", "ANNA@müller.de"),
-            ("xanna@müller.de", "anna@müller.de.org", "xanna@xn--mller-kva.de"),
-            id="two spellings",
+            "anna@MÜLLER.de",
+            ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"),
+            ("xanna@xn--mller-kva.de", "anna@xn--mller-kva.de.org"),
+            id="a Unicode domain asked",
         ),
     ],
 )
@@ -887,13 +887,11 @@ IDNA_ROW_OID = ObjectId("6890a1b2c3d4e5f607816003")
 
 CHEROKEE_CAPITALS = f"{chr(0x13A0)}{chr(0x13A1)}"
 
-# A seat as a payload stores it now, or as `EmailStr` stored it before the address rule, asked for in
-# another spelling of the same mailbox. Built from code points where a character renders like its neighbour.
+# A seat as a payload stores it, asked for in another spelling of the same mailbox. Built from code
+# points where a character renders like its neighbour.
 IDNA_SPELLINGS = [
-    pytest.param("anna@müller.de", "anna@xn--mller-kva.de", id="stored in Unicode, asked in punycode"),
     pytest.param("anna@xn--mller-kva.de", "anna@MÜLLER.de", id="stored in punycode, asked in Unicode"),
     pytest.param("anna@schule.de", f"anna@schule{chr(0x3002)}de", id="an ideographic full stop"),
-    pytest.param(f"anna@{CHEROKEE_CAPITALS}.de", f"anna@{chr(0xAB70)}{chr(0xAB71)}.de", id="Cherokee stored in Unicode"),
     pytest.param("anna@xn--58dc.de", f"anna@{CHEROKEE_CAPITALS}.de", id="Cherokee stored in punycode"),
 ]
 
@@ -902,7 +900,7 @@ IDNA_SPELLINGS = [
 def test_each_stored_spelling_is_one_a_payload_stored(stored: str, asked: str):
     """The premise the database case below rests on: seeded any other way, it would compare a spelling no write produced."""
 
-    assert stored in {TypeAdapter(CustomEmail).validate_python(stored), TypeAdapter(EmailStr).validate_python(stored)}
+    assert TypeAdapter(CustomEmail).validate_python(stored) == stored
 
 
 @pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
@@ -913,8 +911,6 @@ def test_the_asker_is_keyed_as_the_stored_address_folds(stored: str, asked: str)
 @pytest.mark.db
 @pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
 def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared(mongo_replica_set_url: str, stored: str, asked: str):
-    """The Cherokee pair holds the pre-filter's `i` to UTS46's capitals, which `stored_spellings`' decoded spelling holds in small letters."""
-
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(IDNA_ROW_OID, stored))
         ansicht = await call_ansicht(database, asked)
@@ -943,21 +939,6 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
     assert (response.cleared_saison_teams, response.cleared_bewerbungen) == (0, 0)
     assert (response.cleared_kontakt_slots, response.redacted_aktionen) == (0, 0)
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
-
-
-@pytest.mark.db
-def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mongo_replica_set_url: str):
-    """The address is ASCII, so no guard at the payload sees the surrogate its punycode decodes to, and the driver cannot encode one."""
-
-    asked = "a@xn--ib9b"
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await call_ansicht(database, asked), await call_erasure(database, client, asked)
-
-    ansicht, response = on_a_league(mongo_replica_set_url, body)
-
-    assert (ansicht.saison_teams, ansicht.bewerbungen) == ([], [])
-    assert (response.cleared_saison_teams, response.cleared_bewerbungen, response.redacted_aktionen) == (0, 0, 0)
 
 
 @pytest.mark.db

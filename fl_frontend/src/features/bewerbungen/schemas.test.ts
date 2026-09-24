@@ -701,10 +701,10 @@ describe("the one field of a submitted application an administrator may move", (
     assert.equal(gleicheAdresse("erika@straße.de", "erika@strasse.de"), false);
   });
 
-  /* A row stored before the address rule holds its domain in Unicode, and the send compares it with
-     the punycode a correction stores now; how each spelling converts is the address table's. */
-  it("reads a mailbox stored with a Unicode domain as the one its punycode names", () => {
-    assert.equal(gleichesPostfach("anna@xn--mller-kva.de", "anna@müller.de"), true);
+  /* An address typed with its domain in Unicode is compared with the punycode every row stores; how
+     each spelling converts is the address table's. */
+  it("reads a mailbox typed with a Unicode domain as the one its stored punycode names", () => {
+    assert.equal(gleichesPostfach("anna@müller.de", "anna@xn--mller-kva.de"), true);
   });
 });
 
