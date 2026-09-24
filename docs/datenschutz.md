@@ -631,11 +631,10 @@ the `Entry` column carries a token only where one still resolves in that file.
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
   declined — a refusal the ban's own create, the public registration and every referee write that
   mints a confirmation link perform ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
-  One question to put: what
-  an access request reaches, given that no route finds the row from the address it was taken from
-  while the reason beside it may name its subject outright. The bound is
-  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure
-  for the lookup is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
+  One question to put: what an access request reaches, given that no route finds the row from the
+  address it was taken from while the reason beside it may name its subject outright. The bound is
+  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup
+  is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
   as easy as giving, for the Datenschutzexperte.** A pupil's consent record is written by their own
   confirmation (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) and
