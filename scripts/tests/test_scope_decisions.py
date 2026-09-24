@@ -673,14 +673,24 @@ DB_TIER_FILE_RE: Final = re.compile(r"\.db\.test\.[cm]?[jt]s$")
 # flag written after a pattern is compared by nothing, so every launcher flag goes ahead of them.
 LAUNCHER_RE: Final = re.compile(r'^([^"]*)"')
 
+# A tier handing its patterns to another script, which carries the launcher both tiers share.
+RUNS_BASE_RE: Final = re.compile(r"^pnpm run ([\w:-]+) ")
+
+
+def _launched(scripts: dict[str, str], name: str) -> str:
+    """A tier's command line as it runs, the base script it hands its patterns to spelled in."""
+    command = scripts[name]
+    base = RUNS_BASE_RE.match(command)
+    return command if base is None else scripts[base[1]] + " " + command[base.end() :]
+
 
 def test_both_test_tiers_start_under_one_launcher() -> None:
     """A hook one tier loads and the other does not runs the two under different loaders.
 
-    `package.json` has no variable the two could share, so each script spells the launcher whole.
+    Read as each tier runs, so a tier spelling a launcher of its own is compared with the base the other runs.
     """
     scripts = json.loads((REPO_ROOT / FRONTEND / "package.json").read_text(encoding="utf-8"))["scripts"]
-    launchers = {name: LAUNCHER_RE.match(scripts[name]) for name in (UNIT_TIER_SCRIPT, DB_TIER_SCRIPT)}
+    launchers = {name: LAUNCHER_RE.match(_launched(scripts, name)) for name in (UNIT_TIER_SCRIPT, DB_TIER_SCRIPT)}
     assert all(launchers.values()), f"a tier's script names no quoted file pattern to part the launcher at: {launchers}"
     unit, db = (match[1] for match in launchers.values() if match is not None)
     assert unit == db, f"`{UNIT_TIER_SCRIPT}` starts under\n  {unit}\nand `{DB_TIER_SCRIPT}` under\n  {db}"
@@ -725,7 +735,7 @@ def _db_tier_loads() -> dict[str, str]:
     tiers = sorted(rel for rel in listing.splitlines() if DB_TIER_FILE_RE.search(rel) and (REPO_ROOT / rel).is_file())
     loads = dict.fromkeys(tiers, BY_PATTERN)
     manifest = json.loads((REPO_ROOT / FRONTEND / "package.json").read_text(encoding="utf-8"))
-    for loaded in LOADED_RE.findall(manifest["scripts"][DB_TIER_SCRIPT]):
+    for loaded in LOADED_RE.findall(_launched(manifest["scripts"], DB_TIER_SCRIPT)):
         loads[FRONTEND + "/" + loaded.removeprefix("./")] = BY_COMMAND
     declared = CANDIDATES_RE.search((REPO_ROOT / ALIAS_HOOK).read_text(encoding="utf-8"))
     assert declared is not None, ALIAS_HOOK + " no longer declares CANDIDATE_SUFFIXES as a list this reads"
