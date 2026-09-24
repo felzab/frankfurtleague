@@ -66,10 +66,10 @@ THE CHECKS, in priority order:
    can resolve. Run that procedure per pin rather than trusting the trailing version comment, which
    is prose beside the pin and can disagree with it.
 
-6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this is
+6. **PUBLISH AND ROLLBACK.** `publish.yml` moves neither `:latest` before both images are pushed (verify — this is
    the property that lets coupled frontend and backend changes ship in one pull request); tags carry
    the commit as an OCI label; rollback by `:sha-` tag works and the retention guidance is stated
-   somewhere real. What happens if publish dies between the two pushes?
+   somewhere real. What happens if the job dies between the two `:latest` moves?
 
 7. **DEPLOY BEHAVIOUR.** `deploy.sh`: recreates in place, waits for health, confirms live headers;
    what does a _failed_ deploy leave running? Is the previous version still serveable? Does the

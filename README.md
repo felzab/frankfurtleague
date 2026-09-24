@@ -63,7 +63,7 @@ backend has no user sessions.
 fl_frontend/     Next.js app — feature slices under src/features/
 fl_backend/      FastAPI app — one package per entity under app/api/
 nginx/           reverse proxy config, local and prod
-scripts/         verify, publish, deploy, and their self-checks
+scripts/         verify, deploy, and their self-checks
 docs/            the documentation set
 ```
 

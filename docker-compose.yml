@@ -25,7 +25,7 @@ x-logging: &default-logging
 services:
   frontend:
     env_file: ./fl_frontend/.env
-    # A moving tag, on each package's image below: `publish.sh` re-points it at every publish, so
+    # A moving tag, on each package's image below: `publish.yml` re-points it at every publish, so
     # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest

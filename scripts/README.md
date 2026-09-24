@@ -29,7 +29,6 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/checks/check_pr_body.py`           | CI only       | A pull request body, which is not in the repository                                                                                                                                               |
 | `scripts/checks/check_gate_budget.py`       | any           | The gate's wall-clock budget: a run's jobs against their ceilings, and a raised figure against its measurement                                                                                    |
 | `scripts/ops/local.sh`                      | dev — Windows | Run the production image locally, behind nginx and a database of its own                                                                                                                          |
-| `scripts/ops/publish.sh`                    | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                                                                                                           |
 | `scripts/ops/deploy.sh`                     | prod — Linux  | Pull and restart in place, verify health, roll back                                                                                                                                               |
 | `scripts/lib/_lib.sh`                       | —             | The output standard: strict mode, the traps, the sections and the exit contract; sourced, never run                                                                                               |
 | `scripts/lib/checker_kernel.py`             | —             | What every checker is built on; imported, never run directly                                                                                                                                      |
@@ -43,7 +42,7 @@ says why the tool configurations sit here rather than at the repository root.
 
 ## Which of these reach real users
 
-`publish.sh` and `deploy.sh` do, and so does `./scripts/ops/local.sh --refresh-db`, which reads the
+`deploy.sh` does, and so does `./scripts/ops/local.sh --refresh-db`, which reads the
 production database to fill the local one — it copies out and never writes back. `--seed` reaches
 production only when there is no copy on disk yet. Everything else leaves production alone.
 

@@ -2,10 +2,10 @@
 #
 # SCRIPTS · put a published version live, or report what is live.
 #
-# It only pulls what `scripts/ops/publish.sh` already built: a server that builds is a server that can
-# fail a build with the site down and nothing to fall back to. What is live is read by image ID
-# during preflight, so a failed deploy has a rollback target the pull cannot have moved -- and a
-# build that never becomes healthy is put back to it without waiting for anybody.
+# It only pulls what `.github/workflows/publish.yml` already built: a server that builds
+# is a server that can fail a build with the site down and nothing to fall back to. What is live is
+# read by image ID during preflight, so a failed deploy has a rollback target the pull cannot have
+# moved -- and a build that never becomes healthy is put back to it without waiting for anybody.
 #
 #   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
@@ -25,9 +25,8 @@ PROBE_URL="https://frankfurtleague.de/api/v0/system/is_live"
 # has stopped what was running by then — so preflight asks, rather than the deploy.
 ENGINE_MIN=25
 
-# One shape, for what the operator types and for a label read off a running image. The fingerprint
-# is optional so an older image's label still names a rollback target.
-PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
+# One shape, for what the operator types and for a label read off a running image.
+PIN_RE='^sha-[0-9a-f]{7,40}$'
 
 # The host directory the log copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
 # their age, and it bounds the DIRECTORY rather than a name — so a suffix below cannot escape it.
@@ -71,8 +70,8 @@ require_platform linux
 require_docker
 require_file "$COMPOSE"
 
-# `revision` is the commit alone, so a rollback built from it names a tag that was never pushed when
-# the previous deploy was dirty; `version` carries the whole qualifier.
+# `version`, never `revision`: the version label is the tag the build was pushed under, and the
+# revision is the full commit, which no tag spells.
 published_tag() {
   local value=""
   # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
@@ -401,7 +400,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
            "  ./scripts/ops/deploy.sh ${PREV_PIN}"
   else
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
-           "script bare. Publish a good build, or deploy one by tag:" \
+           "script bare. Publish a good build (gh workflow run publish.yml --ref main), or deploy one by tag:" \
            "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
   fi
   return 0
@@ -451,7 +450,7 @@ Bring the published pair back up:  ./scripts/ops/deploy.sh"
       UNANSWERED=1
       tag_cell="could not be read"
     else
-      tag_cell="${tag:-unlabelled (not built by publish.sh)}"
+      tag_cell="${tag:-unlabelled (not built by publish.yml)}"
     fi
     case "$svc" in frontend) RUNNING_FE="$tag" ;; backend) RUNNING_BE="$tag" ;; esac
     state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")" || state="unreadable"
@@ -720,8 +719,11 @@ if (( FE_RC || BE_RC )); then
 packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
   ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
 elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
+  # Warns rather than refuses, so a pair holding an image without the label deploys unverified: two
+  # different builds pass here unseen. `.github/workflows/publish.yml` labels every image it pushes
+  # (`docs/ops/spec.md :: I7`).
   warn "one of the pulled images carries no published-tag label, so this deploy is NOT verified as a
-matched pair. An image not built by publish.sh is the usual cause."
+matched pair. An image not built by publish.yml is the usual cause."
 elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
   die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
 A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream

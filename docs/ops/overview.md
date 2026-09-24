@@ -3,8 +3,8 @@
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Four containers on one host, reached through a tunnel connector rather than a published port and
-deployed by pulling published images. There is no orchestrator, no CI runner and no build on the
-server — deliberately, because a server that builds is a server that can fail a build.
+deployed by pulling the images CI published. There is no orchestrator and no build on the server —
+deliberately, because a server that builds is a server that can fail a build.
 
 ## How it is organised
 

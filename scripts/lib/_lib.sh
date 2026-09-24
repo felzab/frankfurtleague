@@ -850,7 +850,7 @@ image_revision_display() {
   local v rc=0; v="$(image_revision "$1")" || rc=$?
   if (( rc )); then printf 'could not be read'
   elif [[ -n "$v" ]]; then printf '%s' "$v"
-  else printf 'unlabelled (not built by publish.sh)'
+  else printf 'unlabelled (not built by publish.yml)'
   fi
 }
 image_created_display() {

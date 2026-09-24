@@ -1489,8 +1489,8 @@ this step in the job."
   # From the repo root this file compiles but is not traced into the standalone output, which
   # silently disables the startup env gate and onRequestError.
 
-  # 1 is the test's answer, higher is docker's and says nothing about the file: refused, as
-  # `scripts/ops/publish.sh` grades the same probe. 130 is neither, here or below.
+  # 1 is the test's answer, higher is docker's and says nothing about the file: refused. 130 is
+  # neither, here or below.
   PROBE_RC=0
   quietly docker run --rm --entrypoint sh "${VERIFY_TAG}:frontend" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
   if (( PROBE_RC == 0 )); then

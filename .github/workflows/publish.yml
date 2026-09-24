@@ -1,0 +1,150 @@
+# GITHUB · builds both images from `main`'s tip and pushes them to ghcr.io, when I ask for it
+#
+# Dispatched by hand (`gh workflow run publish.yml --ref main`, or the Run workflow button), never by a
+# push: a merge publishes nothing, and deploying stays `scripts/ops/deploy.sh` on the server.
+#
+# Invariants:
+# - Only a commit on `main` whose own push run of `verify` passed is built, a run failed by its
+#   wall-clock budget step alone counting as passed.
+# - Neither `:latest` tag moves until both packages hold the build under its `sha-` tag.
+name: publish
+
+on:
+  workflow_dispatch:
+
+# Nothing at workflow level: the one job spells its own grant.
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+# One publish at a time, and a second request waits rather than cancelling one halfway through its
+# two `:latest` moves.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # the checkout
+      actions: read # the verify-run lookup below
+      packages: write # the push to ghcr.io, which the package grants this repository's workflows
+    env:
+      # `scripts/lib/_lib.sh :: REPO_FRONTEND` and `:: REPO_BACKEND`, which `deploy.sh` pulls.
+      FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
+      BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
+    steps:
+      # A dispatch may name any branch or tag, and GITHUB_SHA is that ref's tip, so the ref is
+      # refused before anything reads it.
+      - name: Refuse any ref but main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::publish builds main alone; this run was dispatched on ${GITHUB_REF}. Re-run it with --ref main."
+            exit 1
+          fi
+
+      # Asked of the API rather than taken on trust: the runs `verify` made for this commit when it
+      # was pushed to main. A pull request's run tested a different tree.
+      - name: Refuse a commit whose verify run on main did not pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # verify.yml's budget step, matched by its exact name: renamed there, a run failed by it
+          # alone refuses the publish again until this line follows the new name.
+          BUDGET_STEP: Hold every job to its wall-clock budget
+        run: |
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?head_sha=${GITHUB_SHA}&event=push&branch=main&per_page=100" \
+            --jq '.workflow_runs[] | "\(.id):\(.conclusion // "unfinished")"')"
+          if [ -z "$runs" ]; then
+            # A merge landing while another run held the queue replaces the waiting run, so a
+            # commit can reach main with no run of its own.
+            echo "::error::verify has no push run on main for ${GITHUB_SHA}, so nothing proves this commit. Nothing was built."
+            exit 1
+          fi
+          seen=""
+          for run in $runs; do
+            id="${run%%:*}"
+            conclusion="${run#*:}"
+            if [ "$conclusion" = success ]; then
+              echo "verify passed on main for ${GITHUB_SHA} (run ${id})"
+              exit 0
+            fi
+            # A failed run still passes when the budget step is its one failed step: the budget
+            # judges how long the gate took, not the tree.
+            if [ "$conclusion" = failure ]; then
+              # `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`, whose default `filter=latest`
+              # is the run's last attempt. Named: each job neither `success` nor `skipped`, except
+              # that the aggregate `verify` job is named by each such step, as `verify / <step>`.
+              failed="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped")
+                       | if .name == "verify"
+                         then (.steps[] | select(.conclusion != "success" and .conclusion != "skipped") | "verify / \(.name)")
+                         else .name end] | join(", ")')"
+              if [ "$failed" = "verify / ${BUDGET_STEP}" ]; then
+                echo "::notice::verify on main for ${GITHUB_SHA} failed on its wall-clock budget alone (run ${id}); every other job and step passed, so this publish goes ahead."
+                exit 0
+              fi
+              conclusion="failure (${failed:-no failed job or step listed})"
+            fi
+            seen="${seen}${seen:+; }run ${id} ${conclusion}"
+          done
+          echo "::error::verify on main for ${GITHUB_SHA} did not pass: ${seen}. Re-run it, or wait for it to finish, then dispatch again. Nothing was built."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The builder build-push-action's README recommends over the runner's default `docker` driver.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `sha-<commit>` alone, so the version label `deploy.sh` compares across the pair is the tag
+      # itself; `:latest` moves in the last step, once both packages hold the build.
+      - id: meta-frontend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+      - id: meta-backend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+
+      # No `cache-from`: every job on main can write the Actions cache, so a dependency compromised in
+      # any verify run could plant a layer that this job would then publish.
+      - name: Build and push the frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_frontend
+          file: fl_frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+      - name: Build and push the backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_backend
+          file: fl_backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+      # Two manifest writes, so the registry names a mismatched pair for a moment at most. A failure
+      # between them is what `deploy.sh`'s label comparison refuses; dispatching again repairs it.
+      - name: Move both packages' latest tag to this build
+        env:
+          FRONTEND_TAG: ${{ steps.meta-frontend.outputs.tags }}
+          BACKEND_TAG: ${{ steps.meta-backend.outputs.tags }}
+        run: |
+          docker buildx imagetools create --tag "${FRONTEND_IMAGE}:latest" "$FRONTEND_TAG"
+          docker buildx imagetools create --tag "${BACKEND_IMAGE}:latest" "$BACKEND_TAG"

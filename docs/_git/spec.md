@@ -26,18 +26,19 @@ graph LR
     c --> v["./scripts/gate/verify.sh"]
     v --> pr["pull request"]
     pr --> m["merge to main"]
-    m --> p["./scripts/ops/publish.sh<br/>(dev machine)"]
+    m --> p["publish.yml<br/>(CI, dispatched by hand)"]
     p --> d["./scripts/ops/deploy.sh<br/>(server)"]
 ```
 
-Two gaps in that chain are deliberate. **Images are built on the development machine, never on the
-server** — a server that builds is a server that can fail a build, at the worst moment, with the site
-down. **Merging does not deploy**: publishing and deploying are separate manual steps.
+Two gaps in that chain are deliberate. **Images are built by CI, never on the server** — a server
+that builds is a server that can fail a build, at the worst moment, with the site down — and only
+from a `main` commit whose own `verify` run passed. **Merging does not deploy**: publishing
+(`gh workflow run publish.yml --ref main`) and deploying are separate manual steps.
 
 **Order a data change against the deployed image, never against `main`.** `main` routinely describes
 a service that is not running, and `./scripts/ops/deploy.sh --status` is what names the live commit.
 
-Every step the diagram places on dev runs on Windows, in Git Bash.
+Every step the diagram places on a development machine runs on Windows, in Git Bash.
 
 ### 1.2 Branching
 
@@ -228,26 +229,26 @@ repository destroys them. Every row mirrors a live panel that moves without us, 
 current as the commit that last wrote it, which `git blame` names. The ruleset is a single branch
 ruleset targeting the default branch, enforcement **Active**.
 
-| Setting                               | Value                                                                                  | Panel                        |
-| ------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------- |
-| Allow merge commits                   | on                                                                                     | General → Pull Requests      |
-| Allow squash merging                  | **off**                                                                                | General → Pull Requests      |
-| Allow rebase merging                  | **off**                                                                                | General → Pull Requests      |
-| Automatically delete head branches    | on                                                                                     | General → Pull Requests      |
-| Restrict deletions                    | on                                                                                     | Rules → Rulesets             |
-| Block force pushes                    | on                                                                                     | Rules → Rulesets             |
-| Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
-| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                             | Rules → Rulesets             |
-| Require branches up to date to merge  | **off**                                                                                | Rules → Rulesets             |
-| Require linear history                | **off**                                                                                | Rules → Rulesets             |
-| Bypass list                           | **empty**                                                                              | Rules → Rulesets             |
-| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
-| Require actions pinned to a SHA       | **off** — recommended on, see below                                                    | Actions → General            |
-| Fork pull request workflows           | require approval for all outside collaborators                                         | Actions → General            |
-| Default workflow permissions          | read-only; Actions may not create or approve pull requests                             | Actions → General            |
-| Secret scanning, push protection      | on                                                                                     | Security → Advanced Security |
-| Dependabot alerts, security updates   | on                                                                                     | Security → Advanced Security |
-| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it                      | Security → Advanced Security |
+| Setting                               | Value                                                                                                                                                                                                     | Panel                        |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Allow merge commits                   | on                                                                                                                                                                                                        | General → Pull Requests      |
+| Allow squash merging                  | **off**                                                                                                                                                                                                   | General → Pull Requests      |
+| Allow rebase merging                  | **off**                                                                                                                                                                                                   | General → Pull Requests      |
+| Automatically delete head branches    | on                                                                                                                                                                                                        | General → Pull Requests      |
+| Restrict deletions                    | on                                                                                                                                                                                                        | Rules → Rulesets             |
+| Block force pushes                    | on                                                                                                                                                                                                        | Rules → Rulesets             |
+| Require a pull request before merging | on, required approvals **`0`**                                                                                                                                                                            | Rules → Rulesets             |
+| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                                                                                                                                                | Rules → Rulesets             |
+| Require branches up to date to merge  | **off**                                                                                                                                                                                                   | Rules → Rulesets             |
+| Require linear history                | **off**                                                                                                                                                                                                   | Rules → Rulesets             |
+| Bypass list                           | **empty**                                                                                                                                                                                                 | Rules → Rulesets             |
+| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*`, `astral-sh/setup-uv@*`, `docker/setup-buildx-action@*`, `docker/login-action@*`, `docker/metadata-action@*` and `docker/build-push-action@*` | Actions → General            |
+| Require actions pinned to a SHA       | **off** — recommended on, see below                                                                                                                                                                       | Actions → General            |
+| Fork pull request workflows           | require approval for all outside collaborators                                                                                                                                                            | Actions → General            |
+| Default workflow permissions          | read-only; Actions may not create or approve pull requests                                                                                                                                                | Actions → General            |
+| Secret scanning, push protection      | on                                                                                                                                                                                                        | Security → Advanced Security |
+| Dependabot alerts, security updates   | on                                                                                                                                                                                                        | Security → Advanced Security |
+| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it                                                                                                                                         | Security → Advanced Security |
 
 Locally, `git branch -d short-kebab-name` after the pull. The traps attached to those values:
 
@@ -302,9 +303,10 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   a pull request proposes it, and its own **commit prefix**, so the messages keep
   [`templates.md`](templates.md)'s shape. The intervals, the cooldown and the prefixes are in that
   file; what is here is why they are the same everywhere.
-- **Every workflow triggers on `pull_request`, never `pull_request_target`**, so a fork's run
-  receives no secrets and no write token. Each declares its own `permissions:` block, and the
-  read-only default is what one that forgets inherits.
+- **Every workflow a pull request starts triggers on `pull_request`, never `pull_request_target`**,
+  so a fork's run receives no secrets and no write token; `publish.yml` is started by hand alone.
+  Each declares its own `permissions:` block, and the read-only default is what one that forgets
+  inherits.
 - **Secret scanning matches known provider token formats**, so it catches neither
   `INTERNAL_API_KEY_*` nor `AUTH_SECRET`. What protects those is `.env*` being gitignored and
   excluded from both Docker build contexts.
@@ -316,19 +318,19 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 
 ## 2. Invariants
 
-| #   | Invariant                                                     | Enforced by                                           |
-| --- | ------------------------------------------------------------- | ----------------------------------------------------- |
-| I1  | `main` takes changes only through a pull request              | the ruleset                                           |
-| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            |
-| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
-| I4  | Every commit on a branch carries a body                       | `scripts/checks/check_commits.py`                     |
-| I5  | No commit is signed as AI-generated                           | `scripts/checks/check_commits.py :: BANNED`           |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/gate/verify.sh :: ask_the_mapping`           |
-| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
-| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
-| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |
-| I10 | The ruleset's bypass list is empty                            | the ruleset                                           |
-| I11 | A commit retiring a roadmap entry names it, and only then     | `scripts/checks/check_commits.py :: check_message`    |
+| #   | Invariant                                                       | Enforced by                                           |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| I1  | `main` takes changes only through a pull request                | the ruleset                                           |
+| I2  | Merge commits are the only permitted merge method               | Settings → General, and linear history off            |
+| I3  | Every pull request a person opens is opened as a draft          | convention; a draft cannot be merged                  |
+| I4  | Every commit on a branch carries a body                         | `scripts/checks/check_commits.py`                     |
+| I5  | No commit is signed as AI-generated                             | `scripts/checks/check_commits.py :: BANNED`           |
+| I6  | The gate's scope is checked against the diff before it runs     | `scripts/gate/verify.sh :: ask_the_mapping`           |
+| I7  | Required status checks are added by hand in the ruleset panel   | the ruleset                                           |
+| I8  | Every action is pinned to a full commit SHA                     | review of `.github/workflows/` and `.github/actions/` |
+| I9  | Every workflow a pull request starts triggers on `pull_request` | `.github/workflows/`                                  |
+| I10 | The ruleset's bypass list is empty                              | the ruleset                                           |
+| I11 | A commit retiring a roadmap entry names it, and only then       | `scripts/checks/check_commits.py :: check_message`    |
 
 ## 3. Violation → remedy
 

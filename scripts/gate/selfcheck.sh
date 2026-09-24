@@ -23,7 +23,7 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(ops/local.sh gate/verify.sh ops/publish.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
+RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
 
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
 # replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
@@ -535,7 +535,7 @@ step "7. Machine-specific scripts declare a target platform"
 # Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
 # sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
 # does not. Wired is all this proves, not that it fires.
-for f in ops/local.sh ops/publish.sh ops/deploy.sh; do
+for f in ops/local.sh ops/deploy.sh; do
   guard="${SELFCHECK_TMP}/platform-sites.tsv"
   if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
     note_fail "$f: its call sites could not be read, so its platform guard was not checked"
