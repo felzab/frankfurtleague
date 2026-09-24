@@ -210,7 +210,7 @@ describe("the switch the retention sweep is armed by", () => {
 
   let probe = 0;
 
-  /** The real module's own parse, with the gate the `test` script stands down put back up. */
+  /** The real module's own parse, with the gate the `test:base` script stands down put back up. */
   async function parseWith(value: string | undefined): Promise<{ BEWERBUNG_SWEEP: string }> {
     const before = { ...process.env };
     Object.assign(process.env, COMPLETE_ENV);

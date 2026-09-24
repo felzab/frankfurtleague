@@ -137,7 +137,7 @@ const COMPLETE_ENV: Record<string, string> = {
 
 let probe = 0;
 
-/** The real module's own boot, with the gate the `test` script stands down put back up. */
+/** The real module's own boot, with the gate the `test:base` script stands down put back up. */
 async function bootWith(overrides: Record<string, string | undefined>): Promise<Record<string, unknown>> {
   const before = { ...process.env };
   Object.assign(process.env, COMPLETE_ENV);

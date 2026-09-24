@@ -11,7 +11,7 @@
  * The second is why `features/spiele/schemas.ts` and `features/spieltage/schemas.ts` were untestable —
  * each imports `"../saisons/schemas"`, which is ordinary application style everywhere else in the tree.
  *
- * Wired into the `test` script via `--import`. It affects nothing else: `next build`, `tsc` and ESLint
+ * Wired into the `test:base` script via `--import`. It affects nothing else: `next build`, `tsc` and ESLint
  * never load it.
  *
  * NOT named `test-alias-loader.mjs`, which is what it was called first: `node --test` discovers
