@@ -152,7 +152,7 @@ function renderApplicationPage() {
       schulen: SCHOOLS,
       isSchulenLesbar: true,
       vergebeneFarben: [],
-      fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true },
+      fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true, saison_beendet: false },
     }),
   );
 

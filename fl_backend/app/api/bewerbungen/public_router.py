@@ -38,6 +38,7 @@ from app.api.bewerbungen.services import (
     payload_fingerabdruck,
     recorded_window,
     saison_nimmt_bewerbungen_an,
+    season_has_ended,
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
@@ -78,9 +79,9 @@ WIEDERHOLUNG_PROJECTION = [
     *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_SEATS),
 ]
 
-# What a season read takes on this tier: the window, and the status judging it, never served.
-# `docs/backend/spec.md :: I47` withholds a `future` season, as one taking applications is;
-# `:: I111` carves the window and its existence out.
+# What a season read takes on this tier: the window, and the status judging it, served only as
+# whether it ended. `docs/backend/spec.md :: I47` withholds a `future` season, as one taking
+# applications is; `:: I111` carves this much out.
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
@@ -97,8 +98,8 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     # would 500 where this promises a miss.
     window = recorded_window(bewerbung=saison_raw.get("bewerbung"))
 
-    # The status travels beside the window and is never served: a `past` season takes no
-    # application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
+    # The status travels beside the window and is served only as whether it is `past`: that season
+    # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
     return window, saison_raw["status"]
 
 
@@ -111,6 +112,7 @@ def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) 
         von=str(bewerbung["von"]),
         bis=str(bewerbung["bis"]),
         laeuft=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
+        saison_beendet=season_has_ended(saison_status=saison_status),
     )
 
 
@@ -122,8 +124,8 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     """
     Return the season taking applications today -- its window open and the season not ended; 404 when none is.
 
-    What is served is the window alone, never the season: `docs/backend/spec.md :: I47` withholds a
-    `future` one from this tier (`READ-BEWERBUNG-001`).
+    What is served is the window and whether its season has ended, never the season: `docs/backend/spec.md :: I47`
+    withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
     """
 
     # Compared in the query rather than after it, so a closed season is never read. ISO dates order

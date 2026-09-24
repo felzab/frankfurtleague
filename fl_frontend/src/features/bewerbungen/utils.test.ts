@@ -180,6 +180,7 @@ describe("which state the window puts the page in", () => {
     von: "2026-05-01",
     bis: "2026-07-31",
     laeuft: false,
+    saison_beendet: false,
     ...overrides,
   });
 
@@ -215,6 +216,15 @@ describe("which state the window puts the page in", () => {
      arriving on last year's link has a question, and a 404 answers none of it. */
   it("reads a season with no window as its own state rather than as expired", () => {
     assert.equal(fensterZustand(null, "2026-06-01"), "keine-frist");
+  });
+
+  /* An ended season takes no application again, so every date answer would send a school to wait
+     for a window that never reopens: the span still running, the league's switch off, a span not
+     yet begun. */
+  it("reads every window of a season that has ended as over, whatever its dates and its switch say", () => {
+    assert.equal(fensterZustand(fenster({ saison_beendet: true }), "2026-06-01"), "vorbei");
+    assert.equal(fensterZustand(fenster({ saison_beendet: true, offen: false }), "2026-06-01"), "vorbei");
+    assert.equal(fensterZustand(fenster({ saison_beendet: true }), "2026-04-30"), "vorbei");
   });
 });
 

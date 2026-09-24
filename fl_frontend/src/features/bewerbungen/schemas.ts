@@ -254,7 +254,7 @@ export const FLAblehnenBewerbungResponseSchema = BaseAPIResponseSchema.extend({
 export type FLAblehnenBewerbungResponse = z.infer<typeof FLAblehnenBewerbungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungFensterResponse` — one season's window and nothing else of it.
+ * Mirrors `FLBewerbungFensterResponse` — one season's window and whether that season has ended, and nothing else of it.
  * `docs/backend/spec.md :: I47` withholds a `future` season from the base tier, and a season taking
  * applications IS one.
  */
@@ -266,6 +266,7 @@ export const FLBewerbungFensterResponseSchema = BaseAPIResponseSchema.extend({
   // The whole judgement — `offen` AND today inside the span — computed server-side, so no client
   // re-derives it against a clock the server does not share.
   laeuft: z.boolean(),
+  saison_beendet: z.boolean(),
 });
 export type FLBewerbungFensterResponse = z.infer<typeof FLBewerbungFensterResponseSchema>;
 

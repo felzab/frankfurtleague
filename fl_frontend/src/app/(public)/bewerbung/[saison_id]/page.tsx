@@ -54,7 +54,7 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
-  // The window alone, never the season: `docs/backend/spec.md :: I47` withholds a `future` season
+  // The window and whether the season has ended, never the season: `docs/backend/spec.md :: I47` withholds a `future` season
   // from the base tier, and a season taking applications IS `future`.
 
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this

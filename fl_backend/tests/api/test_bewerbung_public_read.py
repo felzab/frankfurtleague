@@ -305,7 +305,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/fenster/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft"}
+        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
 
 
 class TestTheAssignedColoursRead:
@@ -400,6 +400,21 @@ class TestASeasonThatHasEndedTakesNoApplication:
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
 
         assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["laeuft"] is False
+
+    @pytest.mark.parametrize(
+        ("status", "beendet"),
+        [
+            pytest.param("past", True, id="an ended season"),
+            pytest.param("active", False, id="the running season"),
+            pytest.param("future", False, id="a planned season"),
+        ],
+    )
+    def test_its_own_window_read_serves_that_it_has_ended_and_no_other_season_s_does(self, mongo_url: str, status: str, beendet: bool):
+        """Both sides: a field answering one value fails a case, and `active` answers as `future` does (`docs/backend/spec.md :: I47`)."""
+
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)])
+
+        assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["saison_beendet"] is beendet
 
     def test_its_colour_read_answers_as_an_unknown_id_does(self, mongo_url: str):
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])

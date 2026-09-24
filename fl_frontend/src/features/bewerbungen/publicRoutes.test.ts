@@ -115,6 +115,7 @@ const FENSTER: FLBewerbungFensterResponse = {
   von: "2026-03-01",
   bis: "2026-04-30",
   laeuft: true,
+  saison_beendet: false,
 };
 
 const BASE_PROPS = { saisonId: "2026", isUnlesbar: false, today: TODAY, schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] };
@@ -271,6 +272,15 @@ describe("the window state the application page renders", () => {
       assert.notEqual(headingText, "", `${closedPages[index]?.zustand ?? ""} renders no answer at all`);
     }
     assert.equal(new Set(headings).size, headings.length, "two closed states give the reader the same answer");
+  });
+
+  /* Its dates alone would read „gerade geschlossen … wann es wieder losgeht“ for the running span,
+     which sends a school to wait for a season that is over. */
+  it("tells a school a finished season's deadline has passed while its window still runs", () => {
+    const html = renderMarkup(BewerbungView, { ...BASE_PROPS, fenster: { ...FENSTER, laeuft: false, saison_beendet: true } });
+
+    assert.ok(html.includes("Die Bewerbungsfrist ist abgelaufen"), "a finished season's page does not say its deadline has passed");
+    assert.ok(!html.includes("gerade geschlossen"), "a finished season's page says the window will open again");
   });
 });
 

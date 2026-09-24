@@ -263,12 +263,15 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
 export function fensterZustand(fenster: FLBewerbungFensterResponse | null, today: string): FensterZustand {
   if (fenster === null) return "keine-frist";
   if (fenster.laeuft) return "laeuft";
+  // Ahead of every date answer: an ended season takes no application again, so „gerade geschlossen“
+  // or „noch nicht offen“ would send a school to wait for a window that never reopens.
+  if (fenster.saison_beendet) return "vorbei";
   // Before either date: the league closed it, which is not the same as a deadline passing.
   if (!fenster.offen) return "geschlossen";
   if (today < fenster.von) return "noch-nicht";
 
   // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the
-  // server's disagree or the season has ended, and "abgelaufen" would name a deadline nobody reached.
+  // server's disagree, and "abgelaufen" would name a deadline nobody reached.
   return today > fenster.bis ? "vorbei" : "geschlossen";
 }
 

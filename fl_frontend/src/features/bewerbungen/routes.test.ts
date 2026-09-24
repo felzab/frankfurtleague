@@ -210,6 +210,7 @@ const ABGELAUFEN: FLBewerbungFensterResponse = {
   von: "2026-03-01",
   bis: "2026-04-30",
   laeuft: false,
+  saison_beendet: false,
 };
 
 describe("what the public application page tells a crawler about its season", () => {
