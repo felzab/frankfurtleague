@@ -15,6 +15,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -44,47 +45,30 @@ ENTRY_BLOCK = {OUTGOING: "1", TARGET: "2", RIVAL: "3"}
 COMMITTED = "the rollover committed"
 
 
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """Complete, because the promoted document is validated as `FLSaison` on the way back out.
+def seeded_saison(saison_id: str, status: str) -> dict[str, Any]:
+    """The shape rules spelled out: the seed fills and draws each season by them."""
 
-    The span covers the schedule the rules imply, the seed drawing these seasons through the route
-    that measures one against the other.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": QUALIFIERS,
-            "number_of_groups": GROUPS,
-            "teams_per_group": TEAMS_PER_GROUP,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return saison_document(
+        saison_id,
+        status,
+        rules=rules_document(qualifiers_per_group=QUALIFIERS, number_of_groups=GROUPS, teams_per_group=TEAMS_PER_GROUP),
+    )
 
 
 def entry_rows(saison_id: str) -> list[dict[str, Any]]:
     """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
-            "saison_id": saison_id,
+        saison_team_document(
+            saison_id,
             # The same clubs in every seeded season: a `team_id` names a club, and a club plays year
             # after year. Only the junction row is the season's own.
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+            ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(TEAMS_PER_GROUP), offered_gruppen(GROUPS)))
     ]
 
@@ -264,7 +248,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
             mongo_replica_set_url,
             body,
             # The outgoing season is undrawn, which is what makes it read as owing nothing.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "future")],
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
             entered=(OUTGOING, TARGET),
             drawn=(TARGET,),
         )
@@ -296,7 +280,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
             mongo_replica_set_url,
             body,
             # Nothing holds `active`, so no incumbent can be the reason for the refusal below.
-            saisons=[saison_document(TARGET, "future")],
+            saisons=[seeded_saison(TARGET, "future")],
             entered=(TARGET,),
             drawn=(TARGET,),
         )
@@ -331,7 +315,7 @@ class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
             # Both incumbents matter: a rival's rollover demotes the target out from under this one,
             # and with only one seeded the demotion matches nothing -- the promotion then changes no
             # field, takes no write conflict and is never re-judged.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "active"), seeded_saison(RIVAL, "future")],
             entered=(OUTGOING, TARGET, RIVAL),
             drawn=(OUTGOING, TARGET, RIVAL),
             finished=(OUTGOING, TARGET),
@@ -368,7 +352,7 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
             body,
             # ONE incumbent, and it is the target: nothing else holds `active`, so the demotion matches
             # nothing and the promotion is the no-op this case exists for.
-            saisons=[saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
+            saisons=[seeded_saison(TARGET, "active"), seeded_saison(RIVAL, "future")],
             entered=(TARGET, RIVAL),
             drawn=(TARGET, RIVAL),
             finished=(TARGET,),
@@ -397,7 +381,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
             mongo_replica_set_url,
             body,
             # The same seed the draw case runs on, interference apart.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "future")],
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
             entered=(OUTGOING, TARGET),
             drawn=(TARGET,),
         )
@@ -417,7 +401,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
         response, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(TARGET, "active")],
+            saisons=[seeded_saison(TARGET, "active")],
             entered=(TARGET,),
             drawn=(TARGET,),
         )

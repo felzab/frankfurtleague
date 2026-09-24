@@ -27,18 +27,10 @@ from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import APP_ROOT, parsed
+from tests.documents import rules_document
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "qualifiers_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "E2"],
-}
+# The three a case below reads back or reshapes, passed rather than defaulted.
+RULES = rules_document(win_points=3, number_of_groups=4, teams_per_group=4, erlaubte_stufen=["E1", "E2"])
 
 SAISON_DOC: dict[str, Any] = {"_id": "2026", "status": "active", "rules": dict(RULES)}
 

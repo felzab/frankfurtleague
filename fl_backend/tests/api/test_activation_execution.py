@@ -12,6 +12,7 @@ from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_SPIELT
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -39,50 +40,17 @@ SPIEL_IDS = {
 }
 
 
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """Complete, because the promoted document is validated as `FLSaison` on the way back out."""
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
-
-
-def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
-    """Every key spelled out: the outgoing season's fixtures are validated as `FLSpiel` before the rollover is judged."""
-
-    return {
-        "_id": SPIEL_IDS[saison_id],
-        "spiel_nr": 1,
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": f"{saison_id}-03-15",
-        "uhrzeit": "18:00:00",
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
+    return spiel_document(
+        spiel_id=SPIEL_IDS[saison_id],
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+        datum=f"{saison_id}-03-15",
+        uhrzeit="18:00:00",
+        ergebnis=ergebnis,
+    )
 
 
 def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
@@ -164,7 +132,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
                 saison_document(SECOND_INCUMBENT, "active"),
                 saison_document(TARGET, "future"),
             ],
-            spiele=[spiel_document(TARGET, ergebnis=None)],
+            spiele=[fixture(TARGET, ergebnis=None)],
         )
 
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
@@ -186,7 +154,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(TARGET, "active")],
-            spiele=[spiel_document(TARGET, ergebnis=None)],
+            spiele=[fixture(TARGET, ergebnis=None)],
         )
 
         assert statuses == {ARCHIVED: "past", TARGET: "active"}
@@ -208,7 +176,7 @@ class TestARefusedRolloverWritesNothing:
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
             # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
-            spiele=[spiel_document(FIRST_INCUMBENT, ergebnis=None), spiel_document(TARGET, ergebnis=None)],
+            spiele=[fixture(FIRST_INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
         )
 
         assert code == ACTIVATE_SAISON_UNFINISHED
@@ -253,7 +221,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[spiel_document(TARGET, ergebnis=None)],
+            spiele=[fixture(TARGET, ergebnis=None)],
             mutates_schema=True,
         )
 
@@ -297,7 +265,7 @@ class TestTheRolloverRefusesAFinishedTarget:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(FIRST_INCUMBENT, "active")],
-            spiele=[spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spiele=[fixture(FIRST_INCUMBENT, ergebnis="2:1")],
         )
 
         assert code == ACTIVATE_TARGET_PAST
@@ -324,7 +292,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
                 spieltag_document(TARGET, 2, beginn=None),
@@ -346,7 +314,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
                 spieltag_document(FIRST_INCUMBENT, 2, beginn=None),
@@ -372,7 +340,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
                 spieltag_document(TARGET, 2, beginn=None),

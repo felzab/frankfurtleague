@@ -10,6 +10,7 @@ from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -59,26 +60,11 @@ SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    """Every key spelled out, so a key added to the model fails here rather than taking a default nobody picked."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": 2,
-        "number_of_groups": 4,
-        "teams_per_group": STORED_PER_GROUP,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": STORED_KADER,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        **overrides,
-    }
+    return documents.rules_document(**{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
 
 
 def saison_document() -> dict[str, Any]:
-    """`schedule` is derived on read and on no document."""
-
-    return {"_id": SAISON_ID, "start_date": SAISON_START, "end_date": SAISON_END, "status": "active", "rules": rules_document()}
+    return documents.saison_document(SAISON_ID, "active", start_date=SAISON_START, end_date=SAISON_END, rules=rules_document())
 
 
 def spieltag_document() -> dict[str, Any]:
@@ -95,20 +81,14 @@ def spieltag_document() -> dict[str, Any]:
 
 
 def squad_row(index: int, *, saison_id: str, team_id: ObjectId, inactive_since: str | None) -> dict[str, Any]:
-    """One `saison_spieler` row. A live one carries an explicit `None`, which is the shape a write leaves and what the `$match` reads."""
-
-    return {
-        "_id": ObjectId(MEMBERSHIP_ID.format(index)),
-        "spieler_id": ObjectId(MEMBERSHIP_ID.format(500 + index)),
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "ist_nachnominiert": False,
-        "rolle": None,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": str(index),
-        "inactive_since": inactive_since,
-    }
+    return documents.saison_spieler_document(
+        ObjectId(MEMBERSHIP_ID.format(500 + index)),
+        saison_id,
+        team_id,
+        _id=ObjectId(MEMBERSHIP_ID.format(index)),
+        nummer=str(index),
+        inactive_since=inactive_since,
+    )
 
 
 def squad_rows() -> list[dict[str, Any]]:
@@ -127,32 +107,7 @@ def squad_rows() -> list[dict[str, Any]]:
 
 
 def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
-    """Every key the shipped validator requires, null where this suite has no opinion.
-
-    A null side and a null booking are what a drawn fixture holds until somebody fills them in.
-    """
-
-    return {
-        "_id": ObjectId(),
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "spieltag_id": SPIELTAG_OID,
-        # Required of the caller rather than defaulted: `uniq_saison_id_spiel_nr` refuses a second
-        # fixture in this season reusing a number, and a default is what a caller forgets to override.
-        "spiel_nr": spiel_nr,
-        "sonderereignis": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        **overrides,
-    }
+    return {**documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID), **overrides}
 
 
 def drawn_spiele() -> list[dict[str, Any]]:

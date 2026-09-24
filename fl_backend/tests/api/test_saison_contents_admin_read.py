@@ -19,6 +19,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
@@ -51,81 +52,29 @@ def an_id(kind: str, saison_id: str) -> ObjectId:
 
 
 def saison_document(saison_id: str) -> dict[str, Any]:
-    """Complete, because a season read anywhere below is validated on the way back out."""
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": STATUS_OF[saison_id],
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return documents.saison_document(saison_id, STATUS_OF[saison_id])
 
 
 def team_document() -> dict[str, Any]:
     """One club, entered in all three seasons: the same id has to read differently per season."""
 
-    return {
-        "_id": TEAM_OID,
-        "name": "Helmholtz",
-        "shorthand": "HG",
-        "description": "",
-        "full_name": "Helmholtz-Gymnasium",
-        "website_url": "https://helmholtz.example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": None,
-    }
+    return documents.team_document(TEAM_OID, "Helmholtz", "HG", full_name="Helmholtz-Gymnasium")
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
-    return {
-        "saison_id": saison_id,
-        "team_id": TEAM_OID,
-        "gruppe": GRUPPE_OF[saison_id],
-        "austritt": None,
-        "name": "Helmholtz",
-        "shorthand": "HG",
-    }
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe=GRUPPE_OF[saison_id])
 
 
 def spiel_document(saison_id: str) -> dict[str, Any]:
-    return {
-        "_id": an_id("2", saison_id),
-        "spiel_nr": 1,
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": an_id("3", saison_id),
-        "team1": {"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": f"{saison_id}-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=an_id("2", saison_id),
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=an_id("3", saison_id),
+        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
+        datum=f"{saison_id}-03-15",
+        uhrzeit="14:00:00",
+    )
 
 
 def spieltag_document(saison_id: str) -> dict[str, Any]:
