@@ -72,9 +72,14 @@ def junction_row(saison_id: str) -> dict[str, Any]:
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
-    """A player of that club. `SPIELER_OID` holds a row in all three seasons, so the same person has to read differently per season."""
+    """A player of that club. `SPIELER_OID` holds a row in all three seasons, so the same person has to read differently per season.
 
-    return documents.spieler_document(spieler_id, vorname, "Müller")
+    Consent passed, not defaulted: only a published, confirmed one serves the forename.
+    """
+
+    published = {**documents.EINWILLIGUNG, "umfang": "kader_oeffentlich", "bestaetigt_am": "2026-01-20"}
+
+    return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 
 
 def squad_row(saison_id: str, spieler_id: ObjectId = SPIELER_OID, kind: str = "4") -> dict[str, Any]:
