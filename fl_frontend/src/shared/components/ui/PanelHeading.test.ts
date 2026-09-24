@@ -122,8 +122,8 @@ describe("a panel's hint sits beside its heading", () => {
     assert.ok(headings(HEADING, "PanelHeading")[0]?.tag.includes("inline"), "the heading takes the whole line, leaving the hint below it");
   });
 
-  /* A heading this walk discards sits in no list, and both sweeps above read an empty list as a
-     clean tree — so the one shape that could hide a nested hint is the one they never see. */
+  /* A heading this walk discards sits in no list, and the sweep above reads an empty list as a clean
+     tree — so the one shape that could hide a nested hint is the one it never sees. */
   it("fails on a heading it cannot read rather than dropping it", () => {
     assert.throws(() => headings("<h2 title={x}<div>Kontaktpersonen</h2>", "unlesbar"), /could not be read/);
     assert.throws(() => headings('<h2 className="fluid-md">Kontaktpersonen', "offen"), /never closes/);
