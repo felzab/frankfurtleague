@@ -1696,6 +1696,35 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-DATE-005",
+                            "REQ-RULES-001",
+                            "REQ-RULES-007",
+                            "REQ-RULES-008",
+                            "REQ-RULES-010",
+                            "REQ-RULES-013"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1712,34 +1741,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLFailureBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The current state refuses the write",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/FLFailureBody"
-                    },
-                    {
-                      "properties": {
-                        "error_code": {
-                          "enum": [
-                            "REQ-DATE-005",
-                            "REQ-RULES-001",
-                            "REQ-RULES-007",
-                            "REQ-RULES-008",
-                            "REQ-RULES-010",
-                            "REQ-RULES-013"
-                          ]
-                        }
-                      }
-                    }
-                  ]
                 }
               }
             }
