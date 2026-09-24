@@ -31,23 +31,28 @@ RAW: Final = "export const v = {a:1};"
 FORMATTED: Final = "export const v = { a: 1 };"
 UNPARSEABLE: Final = "SYNTAX-ERROR"
 
-# Refuses the options the hook must pass as `pnpm format` would, and reports a file named
-# `ignored*` as `.prettierignore` would.
+# Refuses the options the hook must pass as `pnpm format` would, and answers by file name as
+# prettier would: `ignored*` ignored, `unknown*` of no language, `badconfig*` under a config that
+# will not load.
 STAND_IN: Final = r"""const fs = require("node:fs");
 const path = require("node:path");
 
 exports.getFileInfo = async (file, options) => {
   if (options.ignorePath !== path.resolve("../.prettierignore")) throw new Error(`ignorePath ${options.ignorePath}`);
-  return { ignored: path.basename(file).startsWith("ignored"), inferredParser: "typescript" };
+  if (options.resolveConfig !== true) throw new Error("getFileInfo without resolveConfig");
+  const name = path.basename(file);
+  return { ignored: name.startsWith("ignored"), inferredParser: name.startsWith("unknown") ? null : "typescript" };
 };
 
 exports.resolveConfig = async (file, options) => {
   if (options?.editorconfig !== true) throw new Error("resolveConfig without editorconfig");
+  if (path.basename(file).startsWith("badconfig")) throw new Error("Cannot find package 'a-plugin'");
   return {};
 };
 
 exports.format = async (text, options) => {
   if (!path.isAbsolute(options.filepath)) throw new Error(`relative filepath ${options.filepath}`);
+  if (path.basename(options.filepath).startsWith("unknown")) throw new Error("No parser could be inferred");
   if (text.includes("SYNTAX-ERROR")) {
     const error = new SyntaxError("Unexpected token (1:1)");
     error.loc = { start: { line: 1, column: 1 } };
@@ -408,3 +413,120 @@ def test_a_working_copy_edited_or_removed_after_git_listed_it_is_left_and_report
     assert not (root / "gone.ts").exists()
     raced = done.stderr.partition(RACED)[2]
     assert "      whole.ts\n" in raced and "      gone.ts\n" in raced, done.stderr
+
+
+def test_an_executable_bit_in_the_index_is_committed_with_the_formatting() -> None:
+    root = _repository()
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    git(root, "update-index", "--chmod=+x", "a.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert git(root, "ls-tree", "HEAD", "a.ts").startswith("100755 "), git(root, "ls-tree", "HEAD", "a.ts")
+    assert FORMATTED in _committed(root, "a.ts")
+
+
+def test_a_symlink_and_a_submodule_are_committed_as_staged() -> None:
+    """A symlink's blob is its target's name, and a submodule's entry names a commit, which no blob read returns."""
+    root = _repository()
+    target = new_root("fl-pre-commit-target-") / "target"
+    target.write_bytes(RAW.encode())
+    link = git(root, "hash-object", "-w", str(target))
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "update-index", "--add", "--cacheinfo", f"120000,{link},link.ts")
+    git(root, "update-index", "--add", "--cacheinfo", f"160000,{head},sub.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert git(root, "ls-tree", "HEAD", "link.ts", "sub.ts").split("\n") == [f"120000 blob {link}\tlink.ts", f"160000 commit {head}\tsub.ts"]
+
+
+def test_a_symlink_turned_into_a_file_is_committed_formatted() -> None:
+    root = _repository()
+    target = new_root("fl-pre-commit-target-") / "target"
+    target.write_bytes(b"u.ts")
+    git(root, "update-index", "--add", "--cacheinfo", f"120000,{git(root, 'hash-object', '-w', str(target))},link.ts")
+    git(root, "commit", "--no-verify", "-m", "a symlink")
+    git(root, "rm", "--cached", "link.ts")
+    write(root, "link.ts", _lines(RAW))
+    git(root, "add", "link.ts")
+    assert git(root, "diff", "--cached", "--name-status") == "T\tlink.ts"
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert FORMATTED in _committed(root, "link.ts")
+
+
+def test_a_path_commit_in_a_linked_worktree_leaves_its_index_holding_what_it_committed() -> None:
+    """Where every agent here commits: the worktree's own git directory holds both indexes."""
+    root = _repository()
+    tree = new_root("fl-pre-commit-worktree-")
+    git(root, "worktree", "add", "-b", "linked", str(tree))
+    # Ignored, so the checkout brought no install with it.
+    shutil.copytree(root / "fl_frontend" / "node_modules", tree / "fl_frontend" / "node_modules")
+    write(tree, "a.ts", _lines(RAW))
+    done = _commit(tree, "--", "a.ts")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert FORMATTED in _committed(tree, "a.ts")
+    assert git(tree, "diff", "--cached", "--name-only") == ""
+    assert git(tree, "diff", "--name-only") == ""
+
+
+def test_a_file_of_no_language_prettier_knows_is_committed_as_staged() -> None:
+    root = _repository()
+    write(root, "unknown.ts", _lines(RAW))
+    git(root, "add", "unknown.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert RAW in _committed(root, "unknown.ts")
+
+
+def test_a_config_that_will_not_load_refuses_the_commit_and_writes_nothing() -> None:
+    root = _repository()
+    head = git(root, "rev-parse", "HEAD")
+    write(root, "whole.ts", _lines(RAW))
+    write(root, "badconfig.ts", _lines(RAW))
+    git(root, "add", "whole.ts", "badconfig.ts")
+    index = git(root, "ls-files", "-s")
+    done = _commit(root)
+    assert done.returncode != 0, done.stdout + done.stderr
+    assert "Cannot find package" in done.stderr and "the commit is refused and nothing was staged" in done.stderr, done.stderr
+    assert git(root, "rev-parse", "HEAD") == head
+    assert git(root, "ls-files", "-s") == index
+    assert _on_disk(root, "whole.ts") == _lines(RAW).encode()
+
+
+def test_a_merge_commit_formats_what_the_merge_staged() -> None:
+    root = _repository()
+    git(root, "checkout", "-q", "-b", "other")
+    write(root, "u.ts", _lines(RAW))
+    git(root, "commit", "--no-verify", "-am", "other")
+    git(root, "checkout", "-q", "work")
+    write(root, "a.ts", _lines("export const middle = 1;"))
+    git(root, "commit", "--no-verify", "-am", "work")
+    git(root, "merge", "--no-ff", "--no-commit", "other")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert len(git(root, "rev-list", "--parents", "-n", "1", "HEAD").split()) == 3
+    assert FORMATTED in _committed(root, "u.ts")
+
+
+def test_a_renamed_file_is_committed_formatted_under_its_new_name() -> None:
+    root = _repository()
+    git(root, "mv", "a.ts", "b.ts")
+    write(root, "b.ts", _lines(RAW))
+    git(root, "add", "b.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert FORMATTED in _committed(root, "b.ts")
+    assert git(root, "ls-tree", "--name-only", "HEAD", "a.ts") == ""
+
+
+def test_a_tree_with_no_prettier_installed_commits_unformatted_and_says_so() -> None:
+    """The one exit that stands aside: the gate, which a clone without the frontend still runs, judges the file."""
+    root = _repository()
+    (root / "fl_frontend" / "node_modules" / "prettier" / "package.json").unlink()
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "no prettier found" in done.stderr, done.stderr
+    assert RAW in _committed(root, "a.ts")

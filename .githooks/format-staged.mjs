@@ -62,7 +62,8 @@ function nextBlob(rel) {
 // What `prettier --write --ignore-unknown --ignore-path ../.prettierignore` would do to one text:
 // null where the CLI leaves the file alone.
 async function formatted(file, text) {
-  const { ignored, inferredParser } = await prettier.getFileInfo(file, { ignorePath });
+  // Prettier's default, spelled out: a parser an `overrides` entry names counts, as it does for the CLI.
+  const { ignored, inferredParser } = await prettier.getFileInfo(file, { ignorePath, resolveConfig: true });
   if (ignored || inferredParser === null) return null;
   // The CLI reads `.editorconfig` by default and the API does not.
   const options = await prettier.resolveConfig(file, { editorconfig: true });

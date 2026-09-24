@@ -75,10 +75,10 @@ work="$(windows_path "$work")"
 trap 'rm -rf "$work"' EXIT
 
 # `diff.relative` would relativise these to the invoking directory; every line below joins them onto
-# the root. `--no-renames` reports a rename as the add `A` names; a staged deletion `D` has nothing
-# to format.
+# the root. `--no-renames` reports a rename as the add `A` names, `T` a symlink turned file; a staged
+# deletion `D` has nothing to format.
 if ! git --literal-pathspecs -c diff.relative=false diff --cached --raw --no-abbrev -z --no-renames \
-     --diff-filter=ACM > "$work/staged"; then
+     --diff-filter=ACMT > "$work/staged"; then
   # Through a file, never a process substitution: nothing observes one's status, `set -e` does not
   # fire on it, and a query that failed there reads as an empty stage — an unformatted commit with
   # nothing printed.
