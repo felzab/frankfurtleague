@@ -2,6 +2,7 @@ import json
 import math
 import re
 import string
+from bisect import bisect_right
 from collections.abc import Callable, Iterator
 from itertools import product
 from pathlib import Path
@@ -143,28 +144,57 @@ def _comment_spans(source: str) -> Iterator[tuple[int, int]]:
         at += 1
 
 
-def _blocks(source: str) -> Iterator[tuple[str, str]]:
-    """Each line beside the comment text governing it: the block above it, and a comment trailing it."""
+class Comment(NamedTuple):
+    text: str
+    # The line indexes whose declarations this comment governs.
+    governs: range
 
-    comments = [character if character == "\n" else " " for character in source]
+
+def _comments(source: str) -> list[Comment]:
+    """Every comment unit, read by its offsets rather than by lines, beside the lines it governs."""
+
+    spans = list(_comment_spans(source))
     code = list(source)
-    for start, end in _comment_spans(source):
+    for start, end in spans:
         for at in range(start, end):
             if source[at] != "\n":
-                comments[at], code[at] = source[at], " "
+                code[at] = " "
+    code_lines = "".join(code).split("\n")
+    starts = [0]
+    for line in code_lines[:-1]:
+        starts.append(starts[-1] + len(line) + 1)
 
-    block = ""
-    was_comment = False
-    for line, code_part, comment_part in zip(source.split("\n"), "".join(code).split("\n"), "".join(comments).split("\n"), strict=True):
-        comment = comment_part.strip()
-        is_comment = comment != "" and code_part.strip() == ""
-        if is_comment:
-            # Only a comment after code opens a new block: a claim governs every declaration below it
-            # up to the next comment, blank lines and statements between them included.
-            block = f"{block} {comment}" if was_comment else comment
-        was_comment = is_comment
-        # A comment trailing code governs that line alone and leaves the block above it standing.
-        yield line, block if is_comment or comment == "" else f"{block} {comment}"
+    def line_of(offset: int) -> int:
+        return bisect_right(starts, offset) - 1
+
+    blocks: list[tuple[str, int, int]] = []
+    inline: list[Comment] = []
+    for start, end in spans:
+        first, last = line_of(start), line_of(end - 1)
+        text = " ".join(part.strip() for part in source[start:end].split("\n"))
+        # Beside code on either end, a comment is one unit however many lines it crosses, governing
+        # the declarations it sits on and never those below.
+        if code_lines[first][: start - starts[first]].strip() or code_lines[last][end - starts[last] :].strip():
+            inline.append(Comment(text, range(first, last + 1)))
+        # A comment on lines of its own joins the block ending on the line above; a blank line parts them.
+        elif blocks and first <= blocks[-1][2] + 1:
+            blocks[-1] = (f"{blocks[-1][0]} {text}", blocks[-1][1], last)
+        else:
+            blocks.append((text, first, last))
+
+    # A block governs every declaration below it up to the next block, statements between them included.
+    ends = [first for _, first, _ in blocks[1:]] + [len(code_lines)]
+    return [Comment(text, range(last + 1, following)) for (text, _, last), following in zip(blocks, ends, strict=False)] + inline
+
+
+def _blocks(source: str) -> Iterator[tuple[str, str]]:
+    """Each line beside the comment text governing it: the block above it, and a comment it sits in."""
+
+    governing = [""] * len(source.split("\n"))
+    for comment in _comments(source):
+        for index in comment.governs:
+            governing[index] = f"{governing[index]} {comment.text}".strip()
+    yield from zip(source.split("\n"), governing, strict=True)
 
 
 def _attributed(source: str, declaration: re.Pattern[str], claims: Callable[[str], bool]) -> set[str]:
@@ -193,18 +223,20 @@ def _declared_bounds() -> dict[str, int]:
     return {name: value for name, value in vars(bounds).items() if name.isupper() and isinstance(value, int)}
 
 
-def _modules_naming_the_source() -> set[str]:
-    """Every non-test frontend module any of whose comments claims a mirror, one trailing code or governing no export included.
-
-    A claim attributed to no constant then fails the register case rather than dropping out of it.
-    """
+def _production_modules() -> dict[str, str]:
+    """Every non-test frontend module's text, by its path under `src/`."""
 
     return {
-        path.relative_to(FRONTEND_SRC).as_posix()
+        path.relative_to(FRONTEND_SRC).as_posix(): path.read_text(encoding="utf-8")
         for path in FRONTEND_SRC.rglob("*.ts*")
         if not path.name.endswith((".test.ts", ".test.tsx"))
-        if any(_claims_a_mirror(block) for _, block in _blocks(path.read_text(encoding="utf-8")))
     }
+
+
+def _modules_naming_the_source() -> set[str]:
+    """Every non-test frontend module any of whose comments claims a mirror, whether or not the claim governs a constant."""
+
+    return {module for module, source in _production_modules().items() if any(_claims_a_mirror(comment.text) for comment in _comments(source))}
 
 
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
@@ -239,9 +271,47 @@ def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():
 
 
 def test_every_module_claiming_a_mirror_is_one_this_register_covers():
-    """The other direction: a fifth module retyping a bound would otherwise be compared by nothing and read as covered."""
+    """The other direction: a fifth module retyping a bound would otherwise be compared by nothing and read as covered.
+
+    Listed by any claim, so an unregistered module fails here even where no claim of it reaches a constant.
+    """
 
     assert _modules_naming_the_source() == set(MIRRORED_MODULES)
+
+
+def test_every_mirror_claim_governs_a_constant_the_register_reads():
+    """In a registered module, a claim reaching no `export const` is dropped by the attribution while its siblings pass.
+
+    A non-exported constant, a lower-case name and a declaration spread over lines are each that claim.
+    """
+
+    def stranded(source: str) -> list[str]:
+        lines = source.split("\n")
+        claims = (comment for comment in _comments(source) if _claims_a_mirror(comment.text))
+        return [claim.text for claim in claims if not any(ANY_EXPORT.match(lines[index]) for index in claim.governs)]
+
+    found = {module: texts for module, source in _production_modules().items() if (texts := stranded(source))}
+
+    assert not found, f"these claims reach no `export const`, so no case compares them: {found}"
+
+
+def test_every_mention_of_the_source_is_read_as_a_comment():
+    """Found in the raw text, independently of the comment scanner every case above reads through.
+
+    The scanner models no regular-expression literal and no `${}` in a template, so a comment either
+    swallows reads as code and drops its claim from every listing; this is where that fails.
+    """
+
+    def unread(source: str) -> list[int]:
+        spans = list(_comment_spans(source))
+        mentions = (found.start() for found in re.finditer(re.escape(MIRROR_SOURCE), source))
+        return [at for at in mentions if not any(start <= at < end for start, end in spans)]
+
+    naming = {module: source for module, source in _production_modules().items() if MIRROR_SOURCE in source}
+    found = {module: offsets for module, source in naming.items() if (offsets := unread(source))}
+
+    assert naming, f"no frontend module names {MIRROR_SOURCE}, so this case reads nothing"
+    assert not found, f"{MIRROR_SOURCE} is named outside every comment the scanner found, at these offsets: {found}"
 
 
 @pytest.mark.parametrize("module", MIRRORED_MODULES)
