@@ -28,15 +28,13 @@ nothing, being the last hop. Nothing is echoed on a response; the failure body c
 id (L4), which is the one place a caller reads it back.
 
 A `location` declaring any `proxy_set_header` of its own replaces the whole inherited set
-([`docs/ops/spec.md`](../ops/spec.md) §1.3), and two do:
-`nginx/shared/site.conf :: location = /api/v0/system/is_live`, which restates it in full, and
-`nginx/shared/site.conf :: location /_next/static/`, which does not, so a static-asset request reaches
-Next with neither header minted — and with a client-sent `traceparent` or `X-FL-Actor` passing
-through as it arrived, since nginx forwards every request header no `proxy_set_header` names.
-Harmless while that path serves files alone: no route handler seeds a scope there and nothing
-writes. The edge's own access line carries `$request_id` and its span whatever a location does,
-and the span is that id's first sixteen hex, so a search for the edge's span finds every line of
-its trace.
+([`docs/ops/spec.md`](../ops/spec.md) §1.3), and a client-sent `traceparent` or `X-FL-Actor` then
+passes through as it arrived, since nginx forwards every request header no `proxy_set_header`
+names. One location declares any, `nginx/shared/site.conf :: location = /api/v0/system/is_live`,
+and it restates the set in full; `nginx/edge_test.sh` fails every location proxying to the
+frontend that hands Next either header as a visitor sent it. The edge's own access line carries
+`$request_id` and its span whatever a location does, and the span is that id's first sixteen hex,
+so a search for the edge's span finds every line of its trace.
 
 | Surface  | Behaviour                                                                                                                                   | Where                                                                                                            |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
