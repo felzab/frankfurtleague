@@ -9,7 +9,7 @@ export const SHORTHAND_TAKEN_ON_CREATE = "Dieses Kürzel hat schon ein anderes T
 export const SHORTHAND_TAKEN_ON_EDIT = "Bitte wähle ein anderes Kürzel: dieses hat schon ein anderes Team, vielleicht ein stillgelegtes.";
 
 /** `null` where the error is no 409. Every 409 is `taken`: a club's only unique key is its shorthand. */
-export function mapShorthandRefusal(error: unknown, taken: string): { fieldErrors: FieldErrors } | null {
+export function mapShorthandRefusal(error: unknown, taken: string): { fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   return { fieldErrors: { shorthand: taken } };

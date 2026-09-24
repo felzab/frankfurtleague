@@ -185,7 +185,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
  * `null` where the error is no 409. Asked after `mapRulesRefusal`, so what reaches it is a duplicate
  * `_id` from the unique index, which carries no rule code to discriminate on.
  */
-export function mapSaisonIdRefusal(error: unknown): { error: string; fieldErrors: FieldErrors } | null {
+export function mapSaisonIdRefusal(error: unknown): { error: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   return { error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
