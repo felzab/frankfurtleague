@@ -42,6 +42,9 @@ import type { Key } from "@heroui/react/rac";
  */
 const LINK_NUR_JETZT = "Der Link selbst wird nicht gespeichert. Lege einen neuen Link an, wenn Du ihn weitergeben willst.";
 
+/** A mint of unknown outcome: its token went with the answer and no read serves it back, so the repair is the row a reload shows. */
+const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
+
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
 
@@ -91,7 +94,7 @@ export function FormEinladungSection({
     const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(unansweredAction);
 
     if (!res.success) {
-      appToast.failure("Registrierungslink nicht angelegt", res);
+      appToast.failure("Registrierungslink nicht angelegt", res.outcome === "unknown" ? { ...res, error: MINT_UNKLAR } : res);
       return;
     }
 

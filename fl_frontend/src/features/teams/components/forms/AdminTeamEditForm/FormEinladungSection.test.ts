@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -28,7 +28,8 @@ const { raised } = doubleToasts();
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("./FormEinladungSection.tsx");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+/** The ruling's words for a mint of unknown outcome, whose token nothing can show again. */
+const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
 
 const TEAM_ID = "a".repeat(24);
 const EINLADUNG_ID = "b".repeat(24);
@@ -131,7 +132,7 @@ describe("the team's invite panel", () => {
 
   /* The edge cutting the request rejects the action after the row may have been written, and a
      rejection left to `startMinting`'s transition replaces the page with the error page. */
-  it("stays on the page over a rejected first mint, and says nobody can tell whether the link exists", async () => {
+  it("stays on the page over a rejected first mint, and names the way back to a link that may exist", async () => {
     const user = userEvent.setup();
     answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
     render(panel());
@@ -140,10 +141,28 @@ describe("the team's invite panel", () => {
     // Found rather than got: the press lets go once the rejection has been answered.
     await screen.findByRole("button", { name: "Registrierungslink anlegen" });
 
-    const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Registrierungslink nicht angelegt", error, outcome]],
+      [["danger", "Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
+    );
+  });
+
+  /* A replacement mints too, and the token it may have minted is as gone with the cut answer. */
+  it("names the way back to a link after a cut replacement", async () => {
+    const user = userEvent.setup();
+    render(panel({ einladung: LIVE }));
+
+    await user.click(screen.getByRole("radio", { name: "Ersetzen" }));
+    await pressTwice(user, {
+      resting: "Neuen Link anlegen",
+      armed: "Ja, neuen Link anlegen",
+      whileArmed: () => answerWith(() => Promise.reject(new Error("An unexpected response was received from the server."))),
+    });
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.title, toast.description, toast.options?.outcome]),
+      [["Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
     );
   });
 
