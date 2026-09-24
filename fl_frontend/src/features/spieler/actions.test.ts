@@ -212,8 +212,14 @@ describe("the player actions against the codes their endpoints publish", () => {
   });
 
   /* The entry asks the squad's rules first and the junction's unique index after, so a repeat row —
-     which the index finds among retired ones too — is the sentence left once the rules are ruled out. */
+     which the index finds among retired ones too — is the sentence left once the rules are ruled out.
+     The index's mapper answers every 409 it is handed, so a rule published later reads as a repeat row. */
   it("maps every refusal the squad entry publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(ENTRY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"],
+      "the squad entry now publishes a rule its unique index's mapper reports as a repeat row",
+    );
     for (const code of publishedRefusals(ENTRY_OPERATION)) {
       const answered = answerShown(ENTRY_OPERATION, code, (error) => mapSquadRefusal(error) ?? mapAlreadyInSaisonRefusal(error));
       assert.notEqual(answered, null, `${code} reaches the admin as an unhandled conflict`);

@@ -145,6 +145,10 @@ describe("the referee's writes against the codes their endpoints publish", () =>
      opening the row every erased referee's fixtures point at. A rule published later and left unmapped
      fails this. */
   it("maps every refusal the anonymisation publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(ANONYMISE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-ANONYMISE-004"],
+    );
     for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
       assert.notEqual(answerShown(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -156,6 +160,10 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the 409 fallback, which names an entry rather than a rule. */
   it("words every refusal the reactivation publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
+    );
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, mapReactivateRefusal),
@@ -180,6 +188,15 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Both writes mint where an address was given, so both meet the ban list, and one mapper words it
      for the box that holds the value the list refused. */
   it("maps every refusal the create and the save publish", () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
+    );
+    // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
+    assert.deepEqual(
+      publishedRefusals(SAVE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
+    );
     for (const [operation, published] of [
       [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
       [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
@@ -198,6 +215,10 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
      sentence rather than a field error. */
   it("words every refusal the re-send publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(EINLADEN_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"],
+    );
     for (const code of publishedRefusals(EINLADEN_OPERATION)) {
       assert.notEqual(answerShown(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -224,6 +245,10 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
+    assert.deepEqual(
+      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-RETIRE-004"],
+    );
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }

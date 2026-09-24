@@ -103,9 +103,15 @@ describe("the team actions against the codes their endpoints publish", () => {
     }
   });
 
-  /* A club's only unique key is its shorthand, so the create and the edit each land a 409 on that box,
-     worded for the page it arrives on. */
+  /* A club's only unique key is its shorthand, so the create and the edit each land every 409 on that
+     box, worded for the page it arrives on. That holds only while the duplicate is the one code
+     either publishes: a rule published later would be reported as a taken shorthand. */
   it("lands every refusal the create and the edit publish on the shorthand box", () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the club create now publishes a rule its mapper reports as a taken shorthand",
+    );
     for (const [operation, published, taken] of [
       [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), SHORTHAND_TAKEN_ON_CREATE],
       [EDIT_OPERATION, publishedRefusals(EDIT_OPERATION), SHORTHAND_TAKEN_ON_EDIT],

@@ -20,7 +20,12 @@ describe("the address a unique index already holds", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(409, DUPLICATE_KEY)), ON_THE_BOX);
   });
 
+  /* The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
   it("answers every refusal the create publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002"],
+    );
     for (const code of publishedRefusals(CREATE_OPERATION)) {
       assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }

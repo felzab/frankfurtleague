@@ -30,8 +30,13 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
 
   /* A code the mapper misses is rethrown, and `fl_frontend/src/shared/utils/actionError.ts` answers
      a 409 with the sentence about an entry that already exists — false for a refusal about fixtures
-     still waiting for a result. */
+     still waiting for a result. The rule restated, so a code retired from the endpoint fails here
+     rather than leaving a dead arm behind. */
   it("maps every refusal the retirement publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-RETIRE-003"],
+    );
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -53,6 +58,11 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
   /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
      reader's own. A rule published on it later fails here until a mapper words it. */
   it("leaves every refusal the reactivation publishes to the shared reader", () => {
+    assert.deepEqual(
+      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the reactivation now publishes a rule no mapper words",
+    );
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, () => null),
@@ -80,6 +90,11 @@ describe("the venue name a unique index already holds", () => {
       [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
       [EDIT_OPERATION, publishedRefusals(EDIT_OPERATION)],
     ] as const) {
+      assert.deepEqual(
+        published.filter((code) => code !== DUPLICATE_KEY),
+        [],
+        `${operation} now publishes a rule its mapper leaves to the shared reader`,
+      );
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
         assert.notEqual(
