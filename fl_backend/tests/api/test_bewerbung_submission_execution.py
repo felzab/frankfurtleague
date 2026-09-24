@@ -415,6 +415,7 @@ class _HoldsAfterItsLookup:
         self._collection = collection
         self._committed = committed
         self.lookups = 0
+        self.looked_up = asyncio.Event()
         self.lookup_filters: list[Any] = []
         self.insert_failures: list[str] = []
 
@@ -427,9 +428,31 @@ class _HoldsAfterItsLookup:
         if "idempotenz_schluessel" in query:
             self.lookups += 1
             self.lookup_filters.append(query)
+            self.looked_up.set()
             await self._committed.wait()
 
         return found
+
+    async def until_looked_up(self, press: asyncio.Task[Any]) -> None:
+        """Raced against the press, never polled: a press ending without its lookup fails here rather than hanging the tier."""
+
+        looked_up = asyncio.create_task(self.looked_up.wait())
+        await asyncio.wait({press, looked_up}, return_when=asyncio.FIRST_COMPLETED)
+        if self.looked_up.is_set():
+            return
+
+        looked_up.cancel()
+        # A press that raised is its own failure, not a missing lookup.
+        if (error := press.exception()) is not None:
+            raise error
+        pytest.fail("the second press answered without looking its key up, so nothing held it across the first press's commit")
+
+    @staticmethod
+    async def abandon(press: asyncio.Task[Any]) -> None:
+        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
+
+        press.cancel()
+        await asyncio.gather(press, return_exceptions=True)
 
     async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
         try:
@@ -629,10 +652,13 @@ class TestTheSubmissionKey:
             committed = asyncio.Event()
             held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
             second = asyncio.create_task(submit(database, schluessel=SCHLUESSEL, bewerbungen=held))
-            while held.lookups == 0:
-                await asyncio.sleep(0.01)
+            await held.until_looked_up(second)
 
-            first = await submit(database, schluessel=SCHLUESSEL)
+            try:
+                first = await submit(database, schluessel=SCHLUESSEL)
+            except BaseException:
+                await held.abandon(second)
+                raise
             committed.set()
             answered = await second
 
