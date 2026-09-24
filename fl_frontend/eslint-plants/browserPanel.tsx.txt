@@ -1,0 +1,11 @@
+// Linted as src/features/zzplant/components/views/BrowserPanel.tsx.
+"use client";
+
+// A client module is the browser's, and imports the submit helper as the panels do.
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+
+export type Envelope = PublicEnvelope;
+export const USED = [ANTWORT_UNKLAR, postPublicForm];
+export const LOADED = import("@/shared/utils/publicSubmit");

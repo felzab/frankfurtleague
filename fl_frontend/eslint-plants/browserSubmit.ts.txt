@@ -1,0 +1,16 @@
+// Linted as src/features/zzplant/queries.ts.
+// A module without the "use client" prologue may run on the server.
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit"; // expect: browser-submit
+import type { PublicEnvelope } from "../../shared/utils/publicSubmit.ts"; // expect: browser-submit
+export { postPublicForm } from "@/shared/utils/publicSubmit"; // expect: browser-submit
+export * from "@/shared/utils/publicSubmit"; // expect: browser-submit
+// A sentence a route shares with the browser's panels.
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+
+export function inner() {
+  "use client";
+  return [ANTWORT_UNKLAR, ANTWORT_NEU_OEFFNEN];
+}
+export type Envelope = PublicEnvelope;
+export const LOADED = import("@/shared/utils/publicSubmit"); // expect: browser-submit
+export const LOADED_TEMPLATE = import(`./publicSubmit`); // expect: browser-submit

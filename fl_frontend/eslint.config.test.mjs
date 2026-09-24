@@ -35,6 +35,7 @@ const BANS = [
   ["auth-request", /auth\.api/],
   ["resend", /provider's endpoint/],
   ["stale-path", /moved off \/bestaetigung/],
+  ["browser-submit", /the browser's submit helper/],
   ["relative-nav", /relative one resolves/],
   ["history-back", /bare history back/],
   ["view-facets", /builds its facets itself/],
