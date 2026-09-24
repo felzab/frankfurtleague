@@ -10,20 +10,18 @@ from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, FLSpie
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import (
-    PERSON_NAME_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
@@ -153,15 +151,8 @@ class FLPostRegistrierungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomRegistrierungToken
-    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
-    # never printed on a squad sheet. Both ceilings are the application form's, so a name refused
-    # there is refused here.
-    vorname: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
-    ]
-    nachname: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
-    ]
+    vorname: CustomKontaktName
+    nachname: CustomKontaktName
     email: CustomEmail
     # Each NULLABLE with the caller stating the null rather than omitting it, as a squad payload's
     # three are: the answer is then the pupil's and not a default nobody chose.
