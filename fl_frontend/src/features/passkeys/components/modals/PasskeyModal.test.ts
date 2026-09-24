@@ -60,6 +60,7 @@ const { calls, answerWith } = doubleActions({
 const { raised } = doubleToasts();
 
 const { PasskeyModal } = await import("./PasskeyModal.tsx");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 function open() {
   return render(h(PasskeyModal, { isOpen: true, onClose: () => undefined }));
@@ -258,6 +259,40 @@ describe("the step-up both writes take", () => {
       [["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."]],
     );
   });
+
+  /* A removal nobody can tell landed is marked for the neutral title (`docs/frontend/spec.md ::
+     I326`), whether the server answers so or the edge's cut rejects the action, which uncaught
+     replaces the page with the error page. */
+  for (const [how, removal] of [
+    ["answered", () => Promise.resolve(unansweredAction())],
+    ["cut", () => Promise.reject(new Error("An unexpected response was received from the server."))],
+  ] as const) {
+    it(`marks a removal of unknown outcome as such when it is ${how}, and re-reads the list`, async (t) => {
+      const user = userEvent.setup();
+      answerWith(() =>
+        calls.at(-1)?.action === "removePasskeyAction" ? removal() : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
+      );
+      open();
+      await screen.findByText("Windows Hello");
+      t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+      await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+      await waitFor(() => assert.equal(raised.length, 1));
+
+      const { error, outcome } = unansweredAction();
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+        [["danger", "Passkey nicht gelöscht", error, outcome]],
+      );
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        ["readPasskeysAction", "removePasskeyAction", "readPasskeysAction"],
+      );
+      assert.ok(screen.queryByText("Windows Hello") !== null, "the removal took the dialog's list off the page");
+    });
+  }
 
   /* A removal changes the list both of the add control's refusals are read off, so the control is
      held for as long as the removal runs rather than offered over a list about to move. */

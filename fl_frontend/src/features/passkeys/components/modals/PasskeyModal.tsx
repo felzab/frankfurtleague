@@ -12,11 +12,13 @@ import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { readPasskeysAction, removePasskeyAction } from "../../actions";
 import { PasskeyEintragRow } from "./PasskeyEintragRow";
 
+import type { ActionFailure } from "@/shared/types/types";
 import type { PasskeyEintrag } from "../../types";
 
 const UEBERSCHRIFT = "Passkeys";
@@ -185,13 +187,15 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     setIstBeschaeftigt(false);
   };
 
-  /** Why the removal did not happen, and whether the server answered it, the list then being suspect. */
-  const removalHeld = async (id: string): Promise<{ description: string; reread: boolean } | null> => {
-    if (!(await bestaetigt())) return { description: BESTAETIGUNG_FEHLT, reread: false };
+  /** Why the removal did not plainly land, and whether it reached the server, the list then being suspect. */
+  const removalHeld = async (id: string): Promise<(Pick<ActionFailure, "error" | "outcome"> & { reread: boolean }) | null> => {
+    if (!(await bestaetigt())) return { error: BESTAETIGUNG_FEHLT, reread: false };
 
-    const result = await removePasskeyAction(id);
+    // A rejected action may still have removed the row, and uncaught here it takes the page down with it.
+    const result = await removePasskeyAction(id).catch(unansweredAction);
 
-    return result.success ? null : { description: result.error, reread: true };
+    // The outcome rides along: a removal nobody can tell landed is titled neither way (`docs/frontend/spec.md :: I326`).
+    return result.success ? null : { error: result.error, outcome: result.outcome, reread: true };
   };
 
   const entfernen = async (id: string): Promise<void> => {
@@ -209,7 +213,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // wrap holds the toast back.
       startTransition(() => {
         if (gelesen !== null) uebernimm(gelesen);
-        appToast.danger("Passkey nicht gelöscht", { description: held.description });
+        appToast.failure("Passkey nicht gelöscht", held);
       });
       return;
     }
