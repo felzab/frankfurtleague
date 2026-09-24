@@ -9,11 +9,20 @@ export type PublishedDocument = {
   components: { schemas: Record<string, JsonSchema> };
 };
 
+/** The ceilings this reader reads. `maxLength` alone caps a box's width; the other two cap a count. */
+export const CEILING_KEYWORDS = ["maxLength", "maxItems", "maximum"] as const;
+
 /**
- * One ceiling the backend publishes on a component's own field. `characters` is `null` where the field
- * is bounded by a `maximum` instead, which caps a count and no box's width.
+ * One ceiling the backend publishes on a component's own field, one entry per keyword. `at` is where
+ * inside the field's schema it was read: `""` for the field itself, `anyOf.<n>` for a nullable branch.
  */
-export type PublishedCeiling = { component: string; field: string; characters: number | null; maximum: number | null };
+export type PublishedCeiling = {
+  component: string;
+  field: string;
+  keyword: (typeof CEILING_KEYWORDS)[number];
+  bound: number;
+  at: string;
+};
 
 export function readPublishedDocument(): PublishedDocument {
   try {
@@ -63,12 +72,17 @@ export function publishedCeilings(document: PublishedDocument, components: Itera
     for (const [field, spec] of Object.entries(properties)) {
       // A nullable field publishes its bound inside `anyOf`, never beside the type: read only the outer
       // level and `website_url`'s own ceiling is silently unswept.
-      const branches = [spec, ...((spec.anyOf as JsonSchema[] | undefined) ?? [])];
-      const bound = (key: string) => branches.map((branch) => branch[key]).find((value): value is number => typeof value === "number") ?? null;
-      const characters = bound("maxLength");
-      const maximum = characters === null ? bound("maximum") : null;
+      const branches: [string, JsonSchema][] = [
+        ["", spec],
+        ...((spec.anyOf as JsonSchema[] | undefined) ?? []).map((branch, index): [string, JsonSchema] => [`anyOf.${String(index)}`, branch]),
+      ];
 
-      if (characters !== null || maximum !== null) found.push({ component, field, characters, maximum });
+      for (const keyword of CEILING_KEYWORDS) {
+        for (const [at, branch] of branches) {
+          const bound = branch[keyword];
+          if (typeof bound === "number") found.push({ component, field, keyword, bound, at });
+        }
+      }
     }
   }
 

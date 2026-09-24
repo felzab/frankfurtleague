@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { publishedCeilings, readPublishedDocument, requestComponents } from "@/core/publishedCeilings.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 
+import type { PublishedCeiling } from "@/core/publishedCeilings.ts";
 import type { ZodType } from "zod";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -28,7 +29,43 @@ for (const file of filesUnder(SRC_DIR, (name) => name === "schemas.ts", 8).sort(
   }
 }
 
-type Capped = { component: string; field: string; at: unknown; over: unknown };
+const CEILINGS = publishedCeilings(document, PAYLOADS);
+
+/** Every keyword that caps a value from above, read by this walk whether or not the reader reads it. */
+const BOUND_KEYWORDS = new Set(["maxLength", "maxItems", "maximum", "exclusiveMaximum", "maxProperties"]);
+
+/*
+ PRE-4's second listing (`docs/_standard/standard.md`): the reader lists only what it reads, so this
+ walks each payload whole, `items`, `allOf` and nested `anyOf` included, and into a `$ref` whose
+ target carries no fields of its own.
+*/
+function everyBound(component: string): string[] {
+  const found: string[] = [];
+  const schemas = document.components.schemas;
+
+  const walk = (node: unknown, where: string[], followed: ReadonlySet<string>) => {
+    if (Array.isArray(node)) return node.forEach((item, index) => walk(item, [...where, String(index)], followed));
+    if (typeof node !== "object" || node === null) return;
+
+    for (const [key, value] of Object.entries(node)) {
+      if (BOUND_KEYWORDS.has(key) && typeof value === "number") found.push([...where, key].join("."));
+      else if (key === "$ref" && typeof value === "string") {
+        const target = value.replace("#/components/schemas/", "");
+        if (!followed.has(target) && schemas[target]?.properties === undefined)
+          walk(schemas[target], [...where, "$ref"], new Set([...followed, target]));
+      } else walk(value, [...where, key], followed);
+    }
+  };
+
+  walk(schemas[component], [], new Set([component]));
+
+  return found.map((where) => `${component}.${where}`);
+}
+
+const location = ({ component, field, keyword, at }: PublishedCeiling): string =>
+  [component, "properties", field, ...(at === "" ? [] : [at]), keyword].join(".");
+
+type Capped = PublishedCeiling & { within: unknown; over: unknown };
 
 /** A host of exactly this many characters: `z.regexes.domain` caps ONE label at 63, so past that it dots. */
 function dottedHost(length: number): string {
@@ -71,20 +108,28 @@ function fieldAccepts(component: string, field: string, value: unknown): boolean
  */
 const UNMIRRORED: Record<string, string> = {
   "FLSubjektPayload.email": "`fl_frontend/src/core/schemas.ts :: FLSubjektPayloadSchema` restates no length or alphabet",
+  // No person sends these three: each list is the server's own earlier answer relayed back.
+  "FLBewerbungSweepAngekuendigtPayload.bewerbung_ids":
+    "`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepBewerbungen` sends ids from the listing `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` caps at this number",
+  "FLBewerbungSweepLoeschenPayload.bewerbung_ids":
+    "`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepBewerbungen` sends ids from the listing `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` caps at this number",
+  "FLPatchSpielePaarungenPayload.paarungen":
+    "the undo replays one save's report, never more fixtures than a season holds (`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielePaarungenPayload`)",
 };
 
+// Item-agnostic on purpose: an item's own refusal lands on a path below the field's, which `fieldAccepts` ignores.
+const listOf = (length: number): unknown[] => Array.from({ length }, () => "0".repeat(24));
+
 // One past the ceiling and one at it, in the shape the field takes.
-const capped: Capped[] = publishedCeilings(document, PAYLOADS).map(({ component, field, characters, maximum }) => {
-  if (characters === null) return { component, field, at: maximum, over: (maximum ?? 0) + 1 };
+const capped: Capped[] = CEILINGS.map((ceiling) => {
+  const { component, field, keyword, bound } = ceiling;
 
-  const filler = FILLERS.find((candidate) => candidate.min <= characters && fieldAccepts(component, field, candidate.build(characters)));
+  if (keyword === "maximum") return { ...ceiling, within: bound, over: bound + 1 };
+  if (keyword === "maxItems") return { ...ceiling, within: listOf(bound), over: listOf(bound + 1) };
 
-  return {
-    component,
-    field,
-    at: filler?.build(characters) ?? null,
-    over: filler === undefined ? null : filler.build(characters + 1),
-  };
+  const filler = FILLERS.find((candidate) => candidate.min <= bound && fieldAccepts(component, field, candidate.build(bound)));
+
+  return { ...ceiling, within: filler?.build(bound) ?? null, over: filler === undefined ? null : filler.build(bound + 1) };
 });
 
 describe("every ceiling a published payload states is one its mirror refuses", () => {
@@ -104,11 +149,16 @@ describe("every ceiling a published payload states is one its mirror refuses", (
     assert.ok(capped.length >= 60, `expected at least 60 capped fields, found ${String(capped.length)}`);
   });
 
+  it("reads every bound a payload publishes, wherever inside it the bound sits", () => {
+    // A bound the reader cannot see is a field that drops out of the sweep while the run stays green.
+    assert.deepEqual(PAYLOADS.flatMap(everyBound).sort(), CEILINGS.map(location).sort());
+  });
+
   it("judges each of them with a value its own shape accepts", () => {
     // Without this, a field whose shape no filler fits is still swept and still passes — refused at the
     // ceiling and past it alike, for a reason that is not the ceiling.
     assert.deepEqual(
-      capped.filter(({ at }) => at === null).map(({ component, field }) => `${component}.${field}`),
+      capped.filter(({ within }) => within === null).map(({ component, field }) => `${component}.${field}`),
       [],
     );
   });
@@ -117,16 +167,16 @@ describe("every ceiling a published payload states is one its mirror refuses", (
     const stale = Object.keys(UNMIRRORED).filter((key) => {
       const entry = capped.find(({ component, field }) => `${component}.${field}` === key);
 
-      return entry === undefined || mirrors.get(entry.component)?.safeParse({ [entry.field]: entry.over }).success !== true;
+      return entry === undefined || !fieldAccepts(entry.component, entry.field, entry.over);
     });
 
     assert.deepEqual(stale, [], "the document no longer publishes these ceilings, or their mirrors now refuse past them");
   });
 
-  for (const { component, field, at, over } of capped) {
+  for (const { component, field, keyword, within, over } of capped) {
     if (`${component}.${field}` in UNMIRRORED) continue;
 
-    it(`${component}.${field} is refused one past its ceiling`, () => {
+    it(`${component}.${field} is refused one past its ${keyword}`, () => {
       // Parsed, never compared as a number: what matters is that the person is told at the keystroke,
       // and only the schema actually refusing does that.
       const result = mirrors.get(component)?.safeParse({ [field]: over });
@@ -138,10 +188,10 @@ describe("every ceiling a published payload states is one its mirror refuses", (
       );
     });
 
-    it(`${component}.${field} is accepted at its ceiling`, () => {
+    it(`${component}.${field} is accepted at its ${keyword}`, () => {
       // The half that makes the case above about the CEILING: a field refused at its own limit is one
       // the mirror bounds tighter than the backend publishes, and the person is stopped early.
-      assert.ok(fieldAccepts(component, field, at), `${component}.${field} is refused at the ceiling the backend publishes`);
+      assert.ok(fieldAccepts(component, field, within), `${component}.${field} is refused at the ceiling the backend publishes`);
     });
   }
 });

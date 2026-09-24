@@ -26,7 +26,8 @@ const FORM_COMPONENTS = [
 ];
 
 const document = readPublishedDocument();
-const capped = publishedCeilings(document, FORM_COMPONENTS);
+// A character ceiling alone reaches a box's width; a count's ceiling is its number box's, read below.
+const widths = publishedCeilings(document, FORM_COMPONENTS).filter(({ keyword }) => keyword === "maxLength");
 
 it("names only components the backend publishes", () => {
   // A renamed component would otherwise drop its ceilings out of every case below without failing one.
@@ -145,7 +146,7 @@ describe("where a published ceiling reaches the box the applicant types in", () 
   it("names each published ceiling by a field no other component publishes", () => {
     // A box is matched to its ceiling by the last segment of the path it writes, so two components
     // publishing one field name would each be judged against the other's boxes.
-    const names = capped.filter(({ characters }) => characters !== null).map(({ field }) => field);
+    const names = widths.map(({ field }) => field);
 
     assert.equal(new Set(names).size, names.length, `two published components cap a field among ${names.join(", ")}`);
   });
@@ -154,8 +155,8 @@ describe("where a published ceiling reaches the box the applicant types in", () 
     // The half a hand-kept register cannot carry: a ceiling nobody ever wired to a control arrives
     // here on the day the backend publishes it, under no row anybody wrote.
     assert.deepEqual(
-      capped
-        .filter(({ characters, field }) => characters !== null && !reachesABox(field))
+      widths
+        .filter(({ field }) => !reachesABox(field))
         .map(({ component, field }) => `${component}.${field}`)
         .sort(),
       [...WITHOUT_BOX].sort(),
@@ -171,8 +172,8 @@ describe("where a published ceiling reaches the box the applicant types in", () 
     assert.equal(box.scheme, WEBSITE_URL_SCHEME.length, "the group prints something other than the scheme in front of the box");
   });
 
-  for (const { component, field, characters } of capped) {
-    if (characters === null || WITHOUT_BOX.includes(`${component}.${field}`)) continue;
+  for (const { component, field, bound } of widths) {
+    if (WITHOUT_BOX.includes(`${component}.${field}`)) continue;
 
     it(`${component}.${field} caps every box that writes it, at the ceiling minus the group's prefix`, () => {
       const own = boxesFor(field);
@@ -182,11 +183,7 @@ describe("where a published ceiling reaches the box the applicant types in", () 
       // box is uncapped satisfies a presence check.
       for (const box of own) {
         assert.ok(box.cap !== null, `${box.path} carries no cap, so the applicant types past a ceiling only the submit refuses`);
-        assert.equal(
-          box.cap + box.scheme,
-          characters,
-          `${box.path} caps at ${String(box.cap)} where the backend publishes ${String(characters)}`,
-        );
+        assert.equal(box.cap + box.scheme, bound, `${box.path} caps at ${String(box.cap)} where the backend publishes ${String(bound)}`);
       }
     });
   }
