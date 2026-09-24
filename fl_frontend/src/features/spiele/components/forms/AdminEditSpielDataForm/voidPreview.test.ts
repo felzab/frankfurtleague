@@ -29,7 +29,7 @@ const STALLED_PREVIEW = toActionErrorResult(
   { method: "POST", readOnly: true },
 );
 
-const { calls } = doubleActions({ modules: ["/src/features/spiele/actions.ts"], answer: () => Promise.resolve(STALLED_PREVIEW) });
+const { calls, answerWith } = doubleActions({ modules: ["/src/features/spiele/actions.ts"], answer: () => Promise.resolve(STALLED_PREVIEW) });
 
 const { raised } = doubleToasts();
 
@@ -74,39 +74,48 @@ const NEIGHBOUR = spiel(
   side("68c1f0a2b3c4d5e6f7a8b9c4", "SG Delta", "SD"),
 );
 
-describe("the match editor's preview when its dry run times out", () => {
+describe("the match editor's preview when its dry run is not answered", () => {
   /* A preview is an extra that never blocks a save, so an unanswered one adds nothing to the page: no
      fixture named as losing its result, and no sentence saying a write may have landed. */
-  it("names no fixture and no unknown outcome", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
-    render(
-      underNext(
-        h(AdminEditSpielDataForm, {
-          spielData: EDITED,
-          teams: [],
-          spielorte: [],
-          schiedsrichter: [],
-          saisonSpiele: [EDITED, NEIGHBOUR],
-          numberOfGroups: 2,
-          isFinishedSaison: false,
-          today: "2026-09-14",
-          categorize: () => new Set<never>(),
-          pageHeader: { title: "Spiel 1" },
-        }),
-        { search: "saison_id=2026" },
-      ),
-    );
+  for (const [how, answer] of [
+    ["times out", () => Promise.resolve(STALLED_PREVIEW)],
+    // A cut request rejects the action, and from the debounce's timer nothing else answers that.
+    ["is cut", () => Promise.reject(new Error("An unexpected response was received from the server."))],
+  ] as const) {
+    it(`names no fixture and no unknown outcome when the dry run ${how}`, async (t) => {
+      calls.length = 0;
+      raised.length = 0;
+      answerWith(answer);
+      t.mock.timers.enable({ apis: ["setTimeout"] });
+      render(
+        underNext(
+          h(AdminEditSpielDataForm, {
+            spielData: EDITED,
+            teams: [],
+            spielorte: [],
+            schiedsrichter: [],
+            saisonSpiele: [EDITED, NEIGHBOUR],
+            numberOfGroups: 2,
+            isFinishedSaison: false,
+            today: "2026-09-14",
+            categorize: () => new Set<never>(),
+            pageHeader: { title: "Spiel 1" },
+          }),
+          { search: "saison_id=2026" },
+        ),
+      );
 
-    // Every timer the render queued, the preview's debounce among them, then the answer it asked for.
-    await act(async () => t.mock.timers.runAll());
+      // Every timer the render queued, the preview's debounce among them, then the answer it asked for.
+      await act(async () => t.mock.timers.runAll());
 
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["previewAdminSpielDataAction"],
-      "the editor never asked the dry run, so nothing below is judged",
-    );
-    assert.deepEqual(raised, [], "the unanswered preview raised a toast");
-    assert.equal(screen.queryAllByText(/Speichern löscht|entfernt/).length, 0, "an unanswered preview names a fixture");
-    assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
-  });
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        ["previewAdminSpielDataAction"],
+        "the editor never asked the dry run, so nothing below is judged",
+      );
+      assert.deepEqual(raised, [], "the unanswered preview raised a toast");
+      assert.equal(screen.queryAllByText(/Speichern löscht|entfernt/).length, 0, "an unanswered preview names a fixture");
+      assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
+    });
+  }
 });

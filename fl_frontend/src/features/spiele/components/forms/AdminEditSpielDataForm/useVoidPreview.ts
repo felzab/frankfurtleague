@@ -55,8 +55,9 @@ export function useVoidPreview({
     let isCurrent = true;
 
     const timer = setTimeout(async () => {
-      const result = await previewAdminSpielDataAction(buildPayloadRef.current());
-      if (!isCurrent || !result.success) return;
+      // A cut request rejects the action, and from this timer nothing else would answer it: settled as no preview.
+      const result = await previewAdminSpielDataAction(buildPayloadRef.current()).catch(() => null);
+      if (!isCurrent || result === null || !result.success) return;
 
       setAnswered({ key: previewKey, preview: { voided: result.voidedFixtures ?? [], released: result.releasedFixtures ?? [] } });
     }, PREVIEW_DEBOUNCE_MS);
