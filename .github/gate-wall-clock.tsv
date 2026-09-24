@@ -205,8 +205,8 @@
 # the job's `name:` template spells, which is the name the runs API reports and both the report and
 # the budget check look a row up by. A row shared by the instances would have both readers fold
 # names in step with each other, and the total would count one shard's span where every shard ran.
-# Their four rows are one pull request run's spans, the first that ran the shards, and each budget
-# stands half again above its span; the first runs on `main` replace them.
+# Their four budgets are cut by the rule above from this branch's three pull request runs, the
+# first that ran the shards; a reference and a floor need main's push runs, so both stay `-`.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
@@ -293,11 +293,11 @@ db	49	40	125	24@2026-09-07
 docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31
 frontend	264	10	360	5@2026-09-20
-frontend-units (1)	65	10	100	1@2026-09-23
-frontend-units (2)	98	10	150	1@2026-09-23
-frontend-units (3)	71	10	110	1@2026-09-23
-frontend-units (4)	93	10	140	1@2026-09-23
+frontend-units (1)	-	-	85	3@2026-09-23
+frontend-units (2)	-	-	125	3@2026-09-23
+frontend-units (3)	-	-	95	3@2026-09-23
+frontend-units (4)	-	-	120	3@2026-09-23
 images	101	29	-	24@2026-09-07
 ops	17	29	45	13@2026-09-07
 scripts	52	16	80	24@2026-09-07
-total	884	10	-	-
+total	557	10	-	-
