@@ -942,6 +942,24 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
 
 
 @pytest.mark.db
+def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mongo_replica_set_url: str):
+    """The address is ASCII, so the payload admits it, and its punycode decodes to a lone surrogate the driver cannot encode.
+
+    A step on this path decoding the domain would answer 500 here.
+    """
+
+    asked = "a@xn--ib9b"
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        return await call_ansicht(database, asked), await call_erasure(database, client, asked)
+
+    ansicht, response = on_a_league(mongo_replica_set_url, body)
+
+    assert (ansicht.saison_teams, ansicht.bewerbungen) == ([], [])
+    assert (response.cleared_saison_teams, response.cleared_bewerbungen, response.redacted_aktionen) == (0, 0, 0)
+
+
+@pytest.mark.db
 def test_the_echo_counts_the_log_rows_the_redaction_reached(mongo_replica_set_url: str):
     """Kills a hardcoded zero, which the no-op case above cannot: this is the number telling an administrator the log was reached."""
 
