@@ -292,19 +292,19 @@ const loadOf = (pattern) =>
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
   {
-    selector: loadOf(String.raw`^(?:@heroui\/react|@gravity-ui\/icons)$`),
+    selector: loadOf(String.raw`^(?:@heroui\x2Freact|@gravity-ui\x2Ficons)$`),
     message: "An `import()` of a package root loads it whole as well: take a HeroUI component or an icon from its own subpath.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\/react\/form$`),
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fform$`),
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\/`)),
+    selector: loadOf(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\x2F`)),
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\/react\/(?:date-picker|date-field|time-field|date-range-picker)$`),
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:date-picker|date-field|time-field|date-range-picker)$`),
     message:
       "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
   },
@@ -332,7 +332,7 @@ const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
  */
 const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
-const DATE_MODULES = String.raw`/^@heroui\/react(?:\/(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
+const DATE_MODULES = String.raw`/^@heroui\x2Freact(?:\x2F(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -453,7 +453,7 @@ const SOURCE_BANS = [
     message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
   },
   {
-    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\/react(?:\\/|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier)`,
+    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier)`,
     message: "Import a date control under its own name: the bound and spread bans read the tag.",
     tests: true,
   },
