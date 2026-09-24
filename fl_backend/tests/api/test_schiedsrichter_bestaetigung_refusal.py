@@ -71,7 +71,8 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
 
-# One mailbox: as a row stored before the address rule may hold it, and as a save of it stores it now.
+# One mailbox, its domain spelled in two cases (RFC 5321 §2.4). The address rule stores the lower one,
+# and a row written before any rule held the referee's address may hold the other.
 CAPITALS_STORED = "anna@Mueller.DE"
 LOWER_CASE_SAVED = "anna@mueller.de"
 
@@ -521,7 +522,7 @@ class TestACorrectedAddressReMints:
             ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-stored-before-the-address-rule", "already-confirmed"],
+        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == ({"$set": {}}, False)
