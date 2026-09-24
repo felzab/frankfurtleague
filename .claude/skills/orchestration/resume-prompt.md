@@ -52,11 +52,12 @@ Resume this session. Do not continue any work until you have finished this proto
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
 
-4. PARTIAL WORK. For every uncommitted change in the tree, name the agent that owns the file. Use
-   `git status --porcelain`, not `git diff --name-only`: a file an agent created and never staged
-   is invisible to the second, and a test module left untracked that way passed its suite by being
-   absent from it. A changed or untracked file no agent owns is the first thing to investigate --
-   it is either a lost agent or a conflict incident. Do not commit anything you cannot attribute.
+4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
+   For each, `git -C <path> log --format='%h %s' <forked at>..HEAD` names the commits it holds and
+   `git -C <path> status --porcelain`, not `git diff --name-only`, the work it has not committed: a
+   file an agent created and never staged is invisible to the second. A worktree no row names is a
+   lost agent; your own checkout holding any change is a conflict incident. Land nothing you cannot
+   attribute.
 
 5. INSTRUCTIONS. Re-read every standing instruction and confirm each is still being followed --
    the repository's own rules file, the ratified decisions, the owner's own `~/.claude/CLAUDE.md`,
@@ -69,13 +70,11 @@ Resume this session. Do not continue any work until you have finished this proto
    overnight gets committed by the session that inherits it.
 
 6. VERIFY, DO NOT TRUST. Re-establish the last verification result from the register's `Last gate
-   run`, and confirm the commit it names is still the tip. Run the gate yourself only once step 3
-   lists no running agent: while one is live the gate is a wave-boundary instrument, a run over a
-   moving tree exits non-zero on somebody else's half-written file, and that red is evidence about
-   nothing -- least of all a reason to restore the file it names, which is step 4's question and
-   its owner's answer. Once the tree is still, run it at the scope the branch demands and report
-   the real exit code, taken from the command and never through a pipe. A previous report of a
-   clean run is not evidence of a clean tree now.
+   run`, and confirm the commit it names is still the tip. Your checkout holds landed work only, so
+   run the gate there at the scope the branch demands whether or not agents are live, and report
+   the real exit code, taken from the command and never through a pipe; a figure it prints while
+   the fleet runs is contended (the brief's section 12). A previous report of a clean run is not
+   evidence of a clean tree now.
 
 7. RESUME POINT. State the single next action and why it is next, and write it into the register in
    the same edit as the action itself, not after it. Then continue, at the same parallelism the

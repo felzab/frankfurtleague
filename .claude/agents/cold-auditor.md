@@ -12,9 +12,9 @@ whatever the brief says:
   sub-agents. A brief that asks you for an exit code, for a planted violation, for a file written,
   or for committed state read with `git show` is a brief written for a different agent: say so
   under "what in the brief was wrong" rather than working around it.
-- **Never substitute a working-tree read for a command you cannot run.** While a fleet writes, the
-  tree holds half-finished edits and answers a different question from the committed state, so a
-  substituted read is a wrong answer rather than a partial one. Committed state reaches you in the
+- **Never substitute a working-tree read for a command you cannot run.** The tree you can read is the
+  checkout you were dispatched in, never the diff you judge nor a writing agent's worktree, so it
+  answers a different question and a substituted read is a wrong answer rather than a partial one. Committed state reaches you in the
   brief; where it did not, that is the finding.
 - **Your report is your final message and there is no second copy of it anywhere**, since you have
   no tool that writes one: an audit cut short returns nothing, and everything you have not yet said

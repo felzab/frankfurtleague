@@ -57,7 +57,11 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 
 1. **A commit lands in the turn its report is judged**, from the register's commit table, and its
    audit is dispatched in the same action: a cycle that ends on a commit has skipped its last step.
-   Neither waits for the wave boundary.
+   Neither waits for the wave boundary. **Land it in your own checkout with
+   `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
+   it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
+   reason spread over two agents' branches is one `-n` over both. On a conflict, `--abort`; the
+   agent rebases onto the session branch and resolves in its own worktree.
 2. **A commit message is good enough when both routes accept it and its claims are true of its own
    diff.** Check it against the diff, never against the proposal it came from: for every path in the
    diff, does the body account for it? Validate with both routes
@@ -70,18 +74,14 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 4. **Order commits by what each commit's own checks can see**, never by what reads tidily. A citation
    resolves only once its file is tracked — `scripts/checks/docs_gate/checks.py` reads the working
    tree, so a document naming an untracked file passes locally and fails the CI checkout.
-5. **At the boundary, reconcile the ownership map against the whole tree mechanically**
-   ([resume-prompt.md](resume-prompt.md) step 4): a path the map does not assign is a conflict
-   incident and appears in no prose report. **A production file modified while no live agent owns
-   it is a stranded plant until proven otherwise: ask its owner, never restore it** — a restore over
-   a live drive corrupts the measurement and invites a re-plant.
-6. **Push once per wave**, and run the gate over a tree that has stopped moving
-   ([resume-prompt.md](resume-prompt.md) step 6); mid-wave ask only whether it reports a finding in
-   the files you are about to commit. One _saved_ edit to a path
-   [the brief](agent-brief-template.md) section 9 names arms the full-form gate for the whole branch.
-   **The local stack is the same instrument under the same condition**: its production build
-   type-checks every file in the tree, so any agent's in-flight edit kills it, and it holds port 3000
-   against the next build (CLAUDE.md §5).
+5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
+   checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
+   table has landed. Remove a landed one and delete its branch, which is your routine work and
+   never the owner's question ([register-template.md](register-template.md)); the harness removes
+   only an unchanged one.
+6. **Push once per wave; the gate and the local stack run in your checkout**, which holds landed
+   work only, so neither waits for the fleet (§4). The stack still holds port 3000 against the next
+   build.
 
 ## 7. Ending the session
 
@@ -97,7 +97,8 @@ The ending, in order:
 2. **Run §2's enumeration again here**, against the branch this time: a slice nobody dispatched and
    a slice deliberately deferred are indistinguishable until someone asks. Then run the gate at the
    branch's scope over a tree that has stopped moving. **The branch is stable only here** — the last
-   fix committed, the gate green, no live agent still able to return a finding.
+   fix committed, the gate green, no live agent still able to return a finding, and every worktree
+   row closed ([register-template.md](register-template.md)).
 3. Open the draft pull request, its body written once, here (CLAUDE.md §2), and **start the handoff
    in the same action, which is its moment**: the checks then run for as long as the handoff takes
    to write, audit and fix.
@@ -143,7 +144,9 @@ Run it for every agent, the fifteenth as much as the first.
 6. **Pass `model: "opus"` on every dispatch unless the owner or the programme's register names
    another for that work**: nothing inherits it, and a wave sent on the wrong model is stopped and
    re-sent.
-7. **Record the dispatch in the register before it runs.** One working tree, never worktrees.
+7. **Record the dispatch in the register before it runs. An agent that writes the repository runs
+   in a worktree of its own** (`isolation: "worktree"`, which branches from your `HEAD` only under
+   `worktree.baseRef: "head"`), so commit what it needs first; a reader stays in yours.
 
 ## 4. Running the fleet
 
@@ -169,10 +172,10 @@ Run it for every agent, the fifteenth as much as the first.
 - **Size a brief by what losing its whole output costs** — a report is the agent's final message,
   banked into the register in the turn it lands
   ([register-template.md](register-template.md)).
-- **Verify every count, file list and exit code in a report yourself**, against
-  `git status --porcelain` and `git show HEAD:<path>` — while agents write, the working tree is not
-  evidence. **A finding about a file its reporter does not own is checked at `HEAD` before it is
-  routed**: findings have dissolved that way. Route one agent's
+- **Verify every count, file list and exit code in a report yourself**, against the agent's branch —
+  `git log --stat <forked at>..<branch>` and `git show <branch>:<path>` — since what lands is what it
+  committed, never what its worktree or its report says. **A finding about a file its reporter does
+  not own is checked at `HEAD` before it is routed**: findings have dissolved that way. Route one agent's
   conclusion to another as a claim with its source named, never as a premise; your own inference,
   stated one notch wider than its evidence, reaches an agent as fact. When two agents disagree about
   one file, drive the difference — never pick a side, never average.
@@ -203,14 +206,14 @@ rather than the change ([the brief](agent-brief-template.md) section 12).
 
 ### Tree and machine are shared
 
-- **Grant an exclusive window rather than let a break-and-restore loop run against the shared tree**
-  ([the brief](agent-brief-template.md) section 8), and quiesce the fleet before granting it: a
-  benchmark that edited, timed and restored a gate module failed every overlapping suite run on
-  something unrelated. Its register row is [register-template.md](register-template.md)'s.
-- **A guard, a hook registration or a manifest changes what every other agent may do** ([the
-  brief](agent-brief-template.md) section 10), so it takes an exclusive window even at one line, and
-  **two agents reporting one out-of-scope failure is one such change rather than two findings.**
-- **The local stack is a wave-boundary instrument on the gate's condition** (§5).
+- **The trees are not; the machine, the stores and the refs are.** A plant in an agent's worktree
+  reaches nobody, but a timing loop still contends for the CPU, so a figure is taken in an
+  exclusive window ([register-template.md](register-template.md)).
+- **A guard, a hook registration or a manifest changes what every other agent may do once it lands**
+  ([the brief](agent-brief-template.md) section 10) — hooks run from your checkout
+  (`CLAUDE_PROJECT_DIR`), and a lockfile obliges every later worktree to reinstall — so it lands in
+  an exclusive window even at one line, and **two agents reporting one out-of-scope failure is one
+  such change rather than two findings.**
 
 ## 6. The cycle
 
@@ -246,8 +249,8 @@ lightening floor and its discriminator [register-template.md](register-template.
   own files stop moving** — as its implementer's report lands, ahead of the commit and of the rest of
   the wave. Write the diff over the seam's paths to the scratch path and name that file in the brief;
   the tree moving under the auditor costs nothing, its read rule ([the
-  brief](agent-brief-template.md) section 2) refusing the tree anyway. **Only a driving re-audit
-  needs a still tree**, never one with another's plant window open.
+  brief](agent-brief-template.md) section 2) refusing the tree anyway. **A driving re-audit plants
+  in a worktree of its own** at the commit it audits.
 
 ## 2. Before the first dispatch
 
@@ -260,9 +263,10 @@ Do these in this order. None is skippable.
    the corpus's largest page, while every slice truthfully reported itself complete. Measure across
    the whole set in the same pass, duplication above all (§6).
 3. **Build the file-ownership map, not a task list**, from every file each unit of work writes. A
-   file two or more units write is a **hub**: one agent owns it and carries every unit's hunk as an
-   ordered checklist — a plan cut into ten units ran almost serially because six wrote one file.
-   Everything else is a **leaf** and goes out at once. **Cut agents by file and audits by unit of
+   file two or more units write is a **hub**: its units share it by region, each brief naming the
+   others', where their regions stay apart ([the brief](agent-brief-template.md) section 1), and
+   one agent owns it otherwise — a plan cut into ten units ran almost serially because six wrote one
+   file. Everything else is a **leaf** and goes out at once. **Cut agents by file and audits by unit of
    work.**
 4. **Name the couplings that are not file edges** — a script that parses another, a library several
    files source, a rule and the check enforcing it, and every **shared contract**: a message string,
@@ -271,10 +275,8 @@ Do these in this order. None is skippable.
    share a wave and a re-auditor, an edit to either being able to turn the other red after both
    agents have finished.
 5. **The ownership map is the commit plan.** Fill the register's commit table now, its ordering
-   constraints (§5) included, which survive a coordinator change only in writing.
-   `.githooks/pre-commit` refuses a partly staged file only where prettier parses it — never a
-   `.py`, `.sh` or Dockerfile — so two agents' hunks in one hub file are one commit, or they are
-   separated by a commit boundary in time.
+   constraints (§5) included, which survive a coordinator change only in writing. A contract two
+   agents build against lands before the second forks, since neither sees the other's worktree.
    **One session, one branch, one pull request**: a finding that seems to want its own branch is
    fixed here, or put to the owner — an entry only where the owner says so.
 6. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.

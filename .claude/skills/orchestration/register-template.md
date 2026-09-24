@@ -55,10 +55,10 @@ Unattended changes still open, and the command that restores each:
 
 ## File ownership -- the map every dispatch is checked against
 
-| Files owned | Agent | Unit of work |
-| ----------- | ----- | ------------ |
+| Files owned | Agent | Unit of work | Worktree branch, and the sha it forked at |
+| ----------- | ----- | ------------ | ----------------------------------------- |
 
-Hubs (written by more than one unit, so one owner each, in sequence):
+Hubs (written by more than one unit -- by region where the regions stay apart, one owner otherwise):
 Leaves (single owner, dispatchable at any time):
 Couplings that are not file edges, shared contracts included:
 Tracked generated files, and who regenerates each: <a file a build step writes and git tracks has
@@ -75,8 +75,8 @@ A leaf's commit lands in the turn its agent's report is judged, a hub's in the t
 is. "Lands after" holds the ordering constraints (`SKILL.md` §5) -- a citation's target, a
 workflow's manifest -- never prose elsewhere. "Audit dispatched to" is filled in the same edit as
 "Landed", and a landed row with it empty is committed work nobody is auditing. No column records
-who drafted the message: every one is mine, assembled in minutes from the agents' scratch
-paragraphs and never dispatched (`SKILL.md` §4, §5).
+who drafted the message: the agent's commit carries a draft, and what lands is mine, read against
+the landed diff (`SKILL.md` §4, §5).
 
 **Stage a file that must execute with its mode, and read it back with `git ls-files -s`.**
 `core.fileMode` is false here, so a new file lands 100644 whatever the filesystem says, and a hook
@@ -94,34 +94,24 @@ route judges the `Closes:` trailer, which needs a diff: a bare
 besides, but only once the commit exists -- so run it in the turn the commit lands, while
 `git commit --amend` still reaches the tip. Past that a reword is a rebase.
 
-**Mechanise this whole sequence before the first commit lands, and pin the session's constants at
-the top of the script.** A wave costs its longest agent and this costs a sum, so it decides the
-session's wall clock while appearing in no wave row, and paying it by hand once per commit is where
-a schedule read-back's arithmetic quietly goes wrong. One call per commit, on the scratch path
-rather than in the repository, which owes a tracked script its scope, its documentation and its
-audit. What that script owes:
+**Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
+and tree hold exactly what you staged:
 
-- **It stops at the first red step with nothing committed**, so a failure leaves the tree as it
-  found it and the run is repeated rather than unpicked.
-- **It refuses to run against an index that is not empty** unless told the hunks were staged
-  deliberately: in a shared tree an inherited index sweeps another agent's work into your commit.
-  `git commit --amend` commits that same index rather than the tip's file set, so the refusal binds
-  an amend as it binds a commit; a tip that folded foreign files in is repaired with
-  `git reset --soft HEAD~1` and a re-stage from the folded commit.
-- **It stages from a diff captured at the start of the run, never with `git add`.** In a tree the
-  fleet is still writing, `git add <path>` stages whatever the file holds at that instant rather
-  than the content you judged.
-- **It judges the staged content and never the working tree.** A corpus check run over a tree the
-  fleet is writing reddens on somebody else's file and says nothing about your commit, so the check
-  reads a snapshot of what was staged.
-- **It re-implements, as a pre-check, whatever only runs after the commit exists** -- the trailer
-  check above being the case that costs an amend, and a rebase once the push has happened.
-- **Confirm which hooks your commit route actually runs, and call explicitly whatever it skips.** A
-  route that writes the commit object directly runs neither `.githooks/pre-commit` nor `commit-msg`,
-  and neither says anything about not having run.
-- **The session's own constants -- the branch ref, the fork point, the repository root, the scratch
-  path -- sit at the top**, so the next session resets a handful of lines instead of writing the
-  script again.
+    git status --porcelain                 # prints nothing: -n picks onto whatever the index holds
+    git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: a second -n
+    git diff --cached --stat               # read against the commit table's Files cell
+    git commit -F <message file>           # pre-commit formats, commit-msg checks
+    python scripts/checks/check_commits.py # the Closes: trailer, over the range
+
+**A clean cherry-pick is not a correct one.** Two agents making the same change merge without a
+conflict and land it twice, which no exit code reports; the ownership map prevents it, and the
+`--stat` read catches it. A conflict, even part-way through a range, is `git cherry-pick --abort`,
+which leaves `HEAD` and the tree as they were. Land an agent's branch whole, or name its commits
+one by one: the merge-base range still lists a commit an earlier `-n` already landed.
+
+**Confirm which hooks your commit route actually runs.** A plain `git cherry-pick`, `-e` included,
+runs neither `.githooks/pre-commit` nor `commit-msg`, and says nothing about not having run; the
+`-n` and `git commit` pair runs both.
 
 ## The cycle, per slice -- decided here, before any finding exists
 
@@ -164,8 +154,8 @@ questions: a green fixture suite has stood beside a red corpus the same night.
 ## Tree health -- re-established at every wave boundary, not assumed
 
 <Two facts everybody relies on and nobody owns: the shared tooling still imports and its registry
-holds what it should, and `git status --porcelain` reconciles against the ownership map with no
-path unassigned. A syntax error in a module the gate imports kills every gate invocation in the
+holds what it should, `git status --porcelain` in my checkout is empty, and `git worktree list`
+matches the worktree table. A syntax error in a module the gate imports kills every gate invocation in the
 tree and announces nothing -- one was found only because an unrelated agent tried to import it and
 mentioned the failure under "what I could not verify".>
 
@@ -182,10 +172,10 @@ the banked verdict is the whole of what a follow-up brief can be built from.
 
 Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
-## Plant-and-restore windows currently open
+## Worktrees -- one per writing agent, from dispatch until its branch is deleted
 
-| Agent | Files it may break | Dispatched at | Restore confirmed |
-| ----- | ------------------ | ------------- | ----------------- |
+| Agent | Worktree path | Branch | Forked at | Commits landed as | Removed | Branch deleted (was) |
+| ----- | ------------- | ------ | --------- | ----------------- | ------- | -------------------- |
 
 ## Standing actions -- queued work and the condition that releases each
 
@@ -287,11 +277,23 @@ violation.>
   the second as the first cleared a re-auditor to plant in a live agent's backend file whose
   remaining work had moved to documentation, and what caught the write was a test that agent had
   written earlier rather than any row here.
-- **Open a plant-and-restore row at dispatch, for every agent whose brief permits planting, and
-  close it when the restore is confirmed.** The open row is what an unrelated red is attributed to
-  (`SKILL.md` §4), so one opened after the fact attributes nothing — and an agent cannot announce a
-  plant before its report ([agent-brief-template.md](agent-brief-template.md) section 8), so its
-  file list is the whole of the warning you get.
+- **Open a worktree row at dispatch and close it when the worktree and its branch are gone.** The
+  harness removes an unchanged worktree itself and keeps one holding commits, so a row left open is
+  a tree still on disk with its own install, and `git worktree list` is the check. An entry it
+  marks `locked` is a running agent's: the harness holds that lock until the agent finishes, and
+  `git worktree prune` keeps a locked entry however its directory went. Once the agent has finished
+  and `git -C <path> status --porcelain` is empty:
+  - **Remove the tree.** On Windows `git worktree remove --force` fails on a pnpm install or a venv
+    past the path limit ("Filename too long", and with `core.longpaths` "Directory not empty"), so
+    run `rm -rf <path>` in Git Bash, then `git worktree prune`. The stores' files are hard links
+    that survive it.
+  - **Then delete the branch**, which is routine and never the owner's question, once
+    `git cherry -v <session branch> <branch>` marks every commit `-`, or the commit table names the
+    combined commit that landed each one it marks `+`: git matches a cherry-picked commit by its
+    diff, so one landed inside a combined commit still reads `+`. It takes `git branch -D`, since
+    `-d` counts a cherry-picked commit as unmerged, and git refuses either while a worktree entry
+    still holds the branch. Write the `(was <sha>)` it prints into the row:
+    `git branch <branch> <sha>` restores the branch until `git gc` prunes the unreachable commits.
 - **Write the standing action's whole brief when you queue it**, not a note to write one, and tick
   it only against evidence that it went out. A queued brief recovered from memory later is a
   different brief; one recorded correctly here was never dispatched, and only the end-of-session

@@ -61,19 +61,18 @@ did the reasonable thing in their absence.
                   <path>
                   <path>
                 Writing any other file is a defect in this brief -- stop and report it rather than
-                working around it. You are one of <N> agents editing this working tree right now.
-                <Where a file is shared: who else is in it, and which region is theirs. Anchor
-                every edit on a unique fragment, so an edit made stale by their work fails loudly
-                instead of landing in the wrong place.>
-                <Where one of these files already holds an earlier agent's finished but
-                uncommitted edits: name that agent. This list answers "may I write here", never
-                "is this file clean", and an agent finding changes in its own file that it did not
-                make reports the ownership map as broken -- correctly, and at the cost of proving
-                nothing was clobbered in either direction before it can trust its own diff.>
+                working around it. You work in a git worktree of your own, on its own branch,
+                forked from <session branch> at <sha>; <N> other agents work in theirs, and none
+                of you sees another's edits until I land them.
+                <Where a file is shared: who else is in it, and which region is theirs. Keep at
+                least one unchanged line between your edit and theirs: git merges two hunks one
+                line apart, and conflicts on a line both change or on one insertion point both
+                use. Anchor every edit on a unique fragment.>
 
-2  READ RULE.   For any file you do NOT own, read the committed state -- `git show HEAD:<path>`.
-                The working tree holds another agent's half-finished edit and answers a different
-                question from the one you are asking.
+2  READ RULE.   Your worktree is yours: read it freely. What landed after your fork is on the
+                session branch, whose ref every worktree shares -- `git show <session
+                branch>:<path>`. A file you do not own that you need at a newer state than your
+                fork is a premise to report (section 4), never one to copy in.
 
 3  THE WORK.    A numbered checklist. Each item states: the change; the anchor it lands at, which
                 is a symbol, a path or a rule id and never a line number; and its own acceptance
@@ -100,36 +99,32 @@ did the reasonable thing in their absence.
                 you measure yourself before you act on it -- cutting to meet a description rather
                 than the rule is how a report comes back successful against a number nobody held.
 
-5  GIT.         You are on branch <branch>, which I cut before dispatching you. `.claude/CLAUDE.md`
-                §2's branch trigger binds you as it binds me, and here it is already satisfied: run
-                `git rev-parse --abbrev-ref HEAD` before your first edit, and anything but <branch>
-                is a wrong premise under section 4 -- stop and report it rather than moving the
-                tree yourself.
-                You run NO git command that writes and NO command that reaches the remote: no
-                add, commit, checkout, stash, reset, no push, and no `gh` at all -- not
-                `gh pr create`, not `gh pr ready`, not `gh pr merge`. A `git stash push` by one
-                agent emptied the shared tree under the whole fleet, and concurrent staging corrupts
-                the index. `git checkout -- <path>` is included: it restores from the INDEX, not
-                from the last commit, so in a shared tree it discards a colleague's unstaged work.
-                A backup you take by hand carries the same hazard and the same rule: it obliges you
-                to RECONCILE against that copy rather than restore from it, a restore being a
-                silent revert wearing a safety measure's clothes that discards whatever the file's
-                other writer did in the window you held it.
-                Write the COMPLETE commit message -- subject, blank second line, body -- to
-                `<scratch path>/<your agent name>/commit-message.txt` in `docs/_git/templates.md`'s
-                form, and validate it yourself with
-                `python scripts/checks/check_commits.py --message-file <that path>`, reporting the
-                real exit code in section 14. A body-only paragraph costs me the whole message,
-                which is why every message on this branch was retyped; a validated file costs me one
-                read against your diff, and that read is the part I cannot delegate. Write no
-                `Closes:` trailer -- which entries a commit retires depends on what I stage.
-                The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
-                a run over a tree the fleet is writing exits non-zero on somebody else's
-                half-written file, so drive your own checks by calling the underlying tool.
+5  GIT.         Run `git rev-parse --show-toplevel` and `git rev-parse --abbrev-ref HEAD` before
+                your first edit: a top level other than your worktree -- `<coordinator
+                checkout>` above all -- or a branch that is not your worktree's own, is a wrong
+                premise under section 4. Stop and report it.
+                Inside your worktree you add, commit, restore and stash as you need, on your own
+                branch only. You never check out, create, rebase or delete another branch unless I
+                ask you to rebase onto <session branch>; never `git reset --hard`
+                (`.claude/CLAUDE.md` §2); never push, and no `gh` at all. The stash list is shared
+                by every worktree, so name what you stash and pop it by its `stash@{n}`.
+                One commit per reason, each message complete in `docs/_git/templates.md`'s form:
+                `commit-msg` checks it and `.githooks/pre-commit` formats what you stage, where
+                prettier is installed in your worktree. Run the second route
+                `register-template.md` gives as well, and report both exit codes in section 14.
+                Write no `Closes:` trailer -- which entries a commit retires depends on what I land.
+                I land your commits on the session branch and may reword or combine them.
+                Install what your checks need in your worktree: `pnpm install --frozen-lockfile`
+                in `fl_frontend`, `uv sync --project fl_backend --dev --frozen` at the root, and
+                again after a rebase that moves a manifest or a lockfile. Never link either
+                directory in from another tree. Run git in Bash, never PowerShell: the harness
+                checks a PowerShell command's directory only, not where its git points.
+                `./scripts/gate/verify.sh` at your branch's scope runs over your worktree; its db
+                tier claims a machine-wide lock, so it can refuse while another tree holds it.
                 `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed, whose
                 draft pull request is open and whose every check has concluded. That definition is
                 addressed to me, not to you:
-                YOU are finished when your report lands.
+                YOU are finished when your commits are made and your report lands.
 
 6  SUB-AGENTS.  ZERO, whatever this task looks like it needs. `/docs:audit` fans out to a fleet of
                 auditors, sub-agents by another route, and `/docs:audit-pr` edits the branch in
@@ -138,41 +133,30 @@ did the reasonable thing in their absence.
                 consumed the whole concurrency budget and blocked the work queued behind it.
 
 7  SCRATCH.     <scratch path>/<your agent name>/ -- your own subdirectory, outside the
-                repository, for everything you write that is not a file you own: a proposed commit
-                message, a hunk for someone else's file, a copy to measure against. Your report
+                repository and outside your worktree, for everything you write that is not a file
+                you own: a hunk for someone else's file, a copy to measure against. Your report
                 is not a file at all (section 14).
                 Agents sharing one directory overwrite each other in it.
                 Keep scratch out of the repository: an untracked file there is part of the tree
                 every scoped gate run reads, so it widens or refuses somebody else's run.
 
-8  PLANT AND    Proving a check can fail means planting a violation and restoring it, and the
-   RESTORE.     tree you are planting in is shared.
-                - Plant ONLY in a file you own. If proving a test's teeth needs breaking code you
-                  were not given, that is the signal to drive against a scratch copy, never to
-                  take a wider licence.
-                - The files you may break are the ones section 1 lists and no others, so the
-                  window is already open in my register before you start: you have no channel to
-                  me between dispatch and your report (section 14), and no announcement is owed.
-                  Confirm in the report that each file was restored and verified byte-for-byte
-                  against its snapshot. Nothing in a working tree tells me a ten-second plant from
-                  an abandoned one, so a restore you leave unconfirmed costs a full stop on that
-                  file and a round trip.
-                - Snapshot the file immediately before each break, never once at the start of a
-                  run; after each restore compare it against the snapshot and STOP if it differs
-                  -- its owner edited it while you held the copy, and restoring over that reverts
-                  their fix silently. Record the exit code at each step: plant, red, restore,
-                  green.
+8  PLANT AND    Proving a check can fail means planting a violation and restoring it. Your
+   RESTORE.     worktree is yours, so you may plant in any file of it, yours or not; no other
+                agent's run can see it.
+                - Commit before you plant, and restore with
+                  `git restore --source=HEAD --staged --worktree -- <path>`: without `--source`,
+                  `git restore` reads the INDEX, which holds a plant you staged. A plant must
+                  never reach a commit: `git status --porcelain` shows nothing you did not mean
+                  to commit before each one.
+                - Record the exit code at each step: plant, red, restore, green.
                 - Verify each plant by READING the planted file back, never by the writing tool's
                   exit or its success message. Where the planted state's expected observation is a
                   pass rather than a red -- reverting a normaliser, undoing an exemption -- a
                   plant that silently never landed is indistinguishable from a successful drive,
                   and the report says "driven red, restored" and is wrong.
-                - Never loop plant-and-restore against the shared tree to measure something. Every
-                  run overlapping the loop fails for reasons unrelated to its own subject, and the
-                  agents who see that red have no way to attribute it. Copy out of the tree, or
-                  STOP and report that the measurement needs an exclusive window -- I grant one by
-                  quiescing the fleet and dispatching again, which is the only shape waiting can
-                  take from where you sit.
+                - A plant-and-restore loop that TIMES something still contends for the machine
+                  every agent shares, so STOP and report that the measurement needs an exclusive
+                  window -- I grant one by quiescing the fleet and dispatching again.
 
 9  TRAPS.       Each of these returns a confident wrong answer with nothing failing.
                 - Bash masks a child exit code to a byte, so 2304 reads as 0.
@@ -187,13 +171,20 @@ did the reasonable thing in their absence.
                   smaller, and add the check holding them in order -- two files enforce nothing.
                 - One purpose per shell command. A deny rule matching any one command of a compound
                   line refuses the whole line, and every other command in it goes unrun.
-                - Once any agent has saved an edit to a path `scripts/gate/scope_map.sh` maps to
-                  the images scope, the gate hard-refuses any scope without `--images`, because
-                  the scope check reads the working tree rather than your diff. That file decides
-                  the set and it is wider than the Dockerfiles and the build manifests: three
+                - Once your branch touches a path `scripts/gate/scope_map.sh` maps to the images
+                  scope, the gate hard-refuses any scope without `--images`. That file decides the
+                  set and it is wider than the Dockerfiles and the build manifests: three
                   `fl_frontend/src/` modules are in it, and so is every path no arm there
-                  recognises at all. Satisfying it is mine at the wave boundary: never widen the
-                  argument to get past it.
+                  recognises at all. Report it rather than run the images scope yourself.
+                - A worktree nests inside the repository: `.claude/hooks/` scripts run from
+                  `<coordinator checkout>` whatever your directory, and a `node_modules` or `.venv`
+                  linked in from another tree breaks the build and rewrites the other tree's
+                  install.
+                - The machine's resources are not per worktree. Never run
+                  `./scripts/ops/local.sh` in yours: ports 3000 and 27017 are fixed, and
+                  `--seed` would take a second copy of production data into your tree's
+                  `.local-db`. The db tier's claim under `${TMPDIR:-/tmp}` is machine-wide, so its
+                  refusal naming the claim is another tree's run, not a failure of yours.
                 - Everything in `.claude/CLAUDE.md` binds you too -- it is in your context without
                   your reading it -- and the pipe rule, the text-mode write rule and §2's branch
                   trigger are there. Three parts of it are mine rather than yours, and each would
@@ -202,27 +193,28 @@ did the reasonable thing in their absence.
                   is fixed on the branch that found it", which is section 14(f) for you and mine to
                   route — to a fixer in this wave or to the owner, never to the roadmap by an agent;
                   and §8's "update every claim a change invalidates in the same commit", which is
-                  section 11 for you -- write the hunk, and I apply it in that commit.
+                  section 11 for you.
                 - <plus the traps specific to this work>
 
 10 TELL ME.     Two things stop your work and come to me. Both are cheap for you to raise and
                 expensive for me to find afterwards.
                 - BEFORE you change a shared manifest, a guard or a hook registration, STOP and
-                  report it instead of making the change. Such a change alters what every other
-                  agent may DO, not only what it measures, so it needs an exclusive window -- and
-                  your report is your only channel to me (section 14), so there is no telling me
-                  and waiting: the unfinished task comes back to me and I re-dispatch it into a
-                  quiesced fleet. One added version pin made every other agent's gate invocation
-                  refuse, and four reported it as their own finding.
+                  report it instead of making the change. Once landed, such a change alters what
+                  every other agent may DO, not only what it measures -- a hook runs from my
+                  checkout for every agent, a lockfile makes every later worktree reinstall -- so
+                  it lands in an exclusive window, and your report is your only channel to me
+                  (section 14): the unfinished task comes back to me and I re-dispatch it. One
+                  added version pin made every other agent's gate invocation refuse, and four
+                  reported it as their own finding.
                 - A guard refusal is a rule arriving: comply with it and report it under section
                   14, which is the only route you have. Reaching the same end through a different
                   tool is a violation however good the reason, and so is rewording until it
                   passes. An arm you honestly report as undriven costs nothing.
 
-11 HAND-OVER.   Do not edit a shared document, or any file another agent owns. Write your hunk to
+11 HAND-OVER.   A shared document section 1 lists you edit in your region, in the commit whose
+                change it documents. A file another agent owns you never edit: write your hunk to
                 the scratch path, naming the file, the section anchor and the exact replacement
-                text; I apply it in the same commit as the change it documents. Where the hunk is
-                for another agent, that agent's brief names the same path.
+                text, and that agent's brief names the same path.
 
 12 MEASURE.     Interleave the arms -- A, B, A, B in one window -- and report the ratio: two arms
                 measured apart on a machine the fleet shares measure the machine.
@@ -243,8 +235,10 @@ did the reasonable thing in their absence.
                 is on disk, so close checklist items in ORDER and leave each one's acceptance
                 evidence where I can find it. **No length limit.** What I cannot use is narration
                 of your own process, or this brief restated back to me. Exactly, in this order:
-                (a) the files you wrote;
-                (b) every file you broke and restored, with the byte comparison for each;
+                (a) your branch's commits, `git log --format='%h %s' <sha>..HEAD`, and the files
+                    each changed;
+                (b) every file you broke and restored, with `git status --porcelain` read after
+                    the last restore;
                 (c) per checklist item, the acceptance evidence, with real exit codes;
                 (d) what you could NOT verify, and why;
                 (e) under its own heading, ALWAYS answered: what in this brief was wrong -- a
@@ -328,8 +322,8 @@ introduced and which predate it.
                 this brief instead: <the diff, and the committed text of every file you must
                 judge that another agent owns>. Where answering something needs a command, report
                 it not established under section 13 and name the command. Never substitute a
-                working-tree read for it: the tree holds other agents' half-finished edits and
-                answers a different question.
+                working-tree read for it: the tree you can read holds the session branch as
+                landed, not the diff you judge, and answers a different question.
 
 3  THE SUBJECT. You are given the intent and the diff -- never the implementer's report, which
                 would tell you what to believe. Reading a check cannot tell you whether it can
