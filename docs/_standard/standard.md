@@ -144,12 +144,9 @@ These bind every written artifact. A comment is documentation and carries every 
   reach, because
   something other than a reader consumes it at a fixed location — a path a platform serves, a form a
   tool quotes verbatim. Convenience is never the reason, and neither is the copy being short.
-  **The check exempts nothing**, and grants that survival to nobody: it reads a page's paragraphs,
-  and a copy consumed by something other than a reader is fenced, in source, or shorter than the
-  floor `scripts/checks/docs_gate/checks.py :: ECHO_WORD_FLOOR` sets — below which two files stating
-  one sentence is the language rather than a copy — so an exemption keyed on the consumption would
-  be a branch nothing can take.
-  _Enforced by_ gate check `echo` over a page's paragraphs alone, exempting nothing; the surviving
+  _Enforced by_ gate check `echo` over a page's paragraphs alone, none shorter than the floor
+  `scripts/checks/docs_gate/checks.py :: ECHO_WORD_FLOOR` sets, exempting nothing, since a copy
+  consumed by something other than a reader is fenced, in source or under that floor; the surviving
   duplicate and every comment run are `/docs:audit`'s,
   which can tell a restated argument from the restated claim the bold clause above requires, where a
   mechanical match reports both alike.
@@ -191,14 +188,10 @@ These bind every written artifact. A comment is documentation and carries every 
   line number, in any form — nothing tells a correct one from a stale one — except a finding in a
   gitignored audit report, read once against the tree it came from. _Enforced by_ gate checks
   `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check
-  `section-reference`, for a `§<number>` naming a section the page beside it does not define — the
-  page a link or a backticked path names, and otherwise the one the reference is written on;
-  gate check `wrapped-path`,
-  for a backticked path a line wrap parts, which renders with a space inside it, whether or not the
-  join still names a file; gate check `sha`, which fails
-  a backticked run of seven or eight hex characters carrying both a digit and a letter whether or not
-  this clone resolves it, resolution being exactly what a rewritten history takes away — a run of hex
-  alone is a value and stays review's; `/docs:audit`.
+  `section-reference`, for a `§<number>` naming no section of the page it points into; gate check
+  `wrapped-path`, for a backticked path a line wrap parts; gate check `sha`, for a backticked short
+  SHA whether or not this clone resolves it, a run of hex lacking a digit or a letter being a value
+  and review's; `/docs:audit`.
 - **COR-7:** purpose in the first lines; a reference long enough that a reader arrives with a
   question rather than at the top carries a table of its sections against the question each answers.
   **What triggers the table is how the page is read, never how long it is**, so a page read from its
@@ -372,16 +365,9 @@ every file this Scope names.
   the doc comment, whose own attachment survives that. _Enforced by_ gate check `comment-length`,
   which fails a block past that same bound over every block a branch added a line to, and which
   exempts a docstring only where the published document carries it AND a route decorator sits above
-  it. **The two are one population, not two**: that document is generated from these same
-  docstrings, so PRE-4's independence is not what this pair buys — what it buys is that a docstring
-  the API does not publish keeps this bound, the decorator alone never deciding. A block the branch
-  found already over the bound keeps that standing while the branch does not lengthen it, matched to
-  its earlier self — at whatever path the fork's tree filed it under — by the lines the two versions
-  share rather than by its first line, so improving an over-bound block's opening sentence costs
-  nothing and adding to one fails; the blocks in one file matching it spend **one standing per copy
-  that arrived there, and never more than the fork filed in the file it forked from**, so splitting
-  or copying a block inside that file buys no second ceiling, while a match in another file inherits
-  one standing and spends none of it; a block over the bound that no branch has touched is
+  it. A block the branch found already over the bound keeps that standing while the branch does not
+  lengthen it, matched to its earlier self as `scripts/checks/docs_gate/branch.py :: _fork_ancestor`
+  and `:: _fork_ceiling` state; a block over the bound that no branch has touched is
   `/docs:audit`'s (CUR-6).
 
 ## Corpus

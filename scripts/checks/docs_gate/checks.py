@@ -1385,7 +1385,10 @@ def _names_a_page(line: str) -> bool:
 
 
 def _referenced_page(rel: str, line: str, at: int, above: str) -> Path | None:
-    """The page a `§` reference at this offset names, or None where nothing around it does."""
+    """The page a `§` reference here names: a link or backticked path beside it, else the page holding it.
+
+    None where a page named beside it resolves to none or to several: silence, never the wrong page.
+    """
     for link in ENCLOSING_LINK_RE.finditer(line):
         if link.start() <= at < link.end():
             return _linked_page(rel, link.group(1))

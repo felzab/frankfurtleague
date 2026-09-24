@@ -223,7 +223,7 @@ def _fork_ceiling(ancestor: Ancestor, arrived: int, older: list[Ancestor], rel: 
     """What the blocks matching one ancestor may run to together.
 
     One standing per copy that arrived, never more than the fork filed in the file this one came
-    from: a match anywhere else inherits one (INC-9).
+    from: a match anywhere else inherits one.
     """
     # Where git reads a rename as a fresh file, a duplicated over-bound block it carries draws a
     # finding its author repairs: cheaper than letting any fresh file inherit copies it never forked.
