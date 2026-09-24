@@ -23,7 +23,7 @@ type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
  * have restored the change, and „nicht zurückgenommen“ would send the admin to undo by hand what may
  * already be undone.
  */
-export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 /** Whether a body parsed at all opens as every outcome of the route's does. */
 const isRouteEnvelope = (body: unknown): boolean =>
