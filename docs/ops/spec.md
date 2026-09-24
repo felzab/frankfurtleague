@@ -777,7 +777,8 @@ but only after every layer has been built, naming a missing token rather than th
 Locally the variable is unset and the build runs against the daemon's own cache. **The export is a
 buildx run of its own, after the probes** (`scripts/gate/verify.sh :: export_image_cache`), so a
 cache service failing it is refused at 2 over images already judged, never reported as a build that
-failed.
+failed. **A failed build or probe ends the run before either export**, so the next run builds from
+the last cache a passing run left, the cost of keeping a cache write out of every verdict.
 
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
