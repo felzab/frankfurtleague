@@ -108,6 +108,8 @@ par_add() { # $1 label · $2 item
   PAR_LABELS+=("$1"); PAR_ITEMS+=("$2")
 }
 
+# A change to how a probe runs owes a verdict set taken before it, diffed against the one after and
+# required to lose nothing: a probe that stopped firing looks exactly like one that passes.
 par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per queued item
   local fn="$1" total="${#PAR_ITEMS[@]}" width w i idx dir f verb msg p
   local -a pids=()

@@ -86,64 +86,6 @@ work inside it.
 
 **How far the log page can reach past its one read is not this entry's.**
 
-### `3s6w-kndn` · A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**The profile re-taken on 2026-09-22, two full-form runs on the idle 16-core machine:** the runs took
-224.4 and 206.3 seconds, and three sections close last and trade the tail —
-`frontend` at 221 and 197, `scripts` at 204 and 202, `format` at 183 and 168 — beside `backend` at 101
-and 88, `images` at 83 and 55, `db` at 81 and 61, `ops` at 54 and 43 and `docs` at 37 and 38. On one
-loaded run, every scope's worker started within 70 milliseconds of the others and a tool was at work
-five to six seconds after its worker, so no scope starts late and the wall is contention.
-
-**Lever 1, the distributed database tier, is taken and measured.** On the idle machine, each width a
-pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
-24.0 at three, 21.0 at four, 18.5 at six and 19.2/19.4 at eight, against 48 to 49 at one worker over five
-runs of which no pair converged, so the distribution took thirty seconds off the tier and the cap
-`scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` carries sits on those readings. Whether the shared
-server becomes the new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
-belongs inside the width question.
-
-**Lever 2, the documentation gate's net split into modules a worker each can draw, is taken, and
-its effect on the suite is read on the idle machine; on a whole run's spread it is not.** The gate's
-fixture costs 1.34 seconds a build (`scripts/tests/test_check_docs.py :: _load`, memoised in
-`:: _STATE`), so the build was never the cost; `.github/gate-wall-clock.tsv`'s `scripts` paragraph
-carries what was, and the measurement taken under load, whose raw walls overlap. On the idle machine
-on 2026-09-23 the suite at eight workers took 93.0 and 89.7 seconds before the split (729 cases, on `main`) and 67.0 and 67.2
-seconds after it (773 cases). The tail is now `scripts/tests/test_gate_forms.py`, which xdist's
-`loadfile` order dispatches last.
-
-**Lever 3, distributing the default tier, is rejected against this profile.** The section running
-it closes inside the scripts section, and a tier with no database and no container spends a real
-fraction of itself in interpreter startup, which a worker pays again per process.
-`.claude/CLAUDE.md` §7's `tests` clause closes the other obvious answer to any tail: no db-marked
-test leaves the gate.
-
-**Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on that
-reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the pool
-was written: CPython writes a bytecode file to a temporary name and renames it, nothing in this
-repository reads pytest's `nodeids`, and `lastfailed` is written only when its value changes and
-steers only `--lf`, which the gate never passes. The argument in full is in the commit
-`git log --all --grep lastfailed` returns, and it is worth reading before any scope here is made to
-wait on another.
-
-**What a change to any of this owes.** `scripts/lib/_lib.sh :: finish` owns the four-code exit
-contract's classifier, its ladder is `:: _RANK_LABELS` and its codes are declared in
-`scripts/lib/checker_kernel.py` and driven by `scripts/tests/test_exit_contract.py`, so anything
-reaching that file re-opens the contract's measured rank, finding and exit combinations; anything
-reaching how the self-check's probes execute owes a before-baseline, a verdict-set diff and a
-required zero, **because a probe that has stopped firing looks exactly like a probe that passes**. A
-db-tier change owes the harder version of the same: those verdicts are what a branch rests on, and a
-worker that silently cleared a neighbour's seeds fails somewhere else entirely.
-
-**Done when** the split's effect has been read on the idle machine in interleaved pairs of the whole
-suite at eight workers, every figure carrying its spread and its run count, and the worst run after it
-beats the best before it — the split then stands as taken — or it does not, and the split is
-rejected against that reading.
-
 ### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares anyio
 
 | Status   | Depends on |

@@ -275,6 +275,8 @@ do_backend_ruff() {
   ( cd fl_backend && "$PY" -m ruff format --check app tests )
 }
 do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
+# One process, never `-n`: with no database or container in this tier, a worker's own interpreter
+# start is a real share of the work it would take, and the section closes inside `scripts` anyway.
 do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
@@ -723,6 +725,8 @@ if (( PARALLEL )); then
   fi
 
   pool_open
+  # No scope waits on another for sharing a `__pycache__` or `.pytest_cache`, which couples nothing:
+  # read the commit `git log --all --grep lastfailed` returns before adding a wait on that reasoning.
   for u_scope in "${SCOPE_ORDER[@]}"; do pool_add_scope "$u_scope"; done
   pool_wait 0 "${#SCOPE_ORDER[@]} scopes running concurrently"
 
