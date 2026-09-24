@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
@@ -14,6 +14,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
+import type { TestContext } from "node:test";
 
 /* The dry run's transport timed out, answered as `runAdminMutation` answers the preview's read-only
    declaration: the transport marks the PATCH read-only, so nothing may read it as a write that stands. */
@@ -74,48 +75,71 @@ const NEIGHBOUR = spiel(
   side("68c1f0a2b3c4d5e6f7a8b9c4", "SG Delta", "SD"),
 );
 
+/** The editor over EDITED, whose Spieltag neighbour is what makes it ask the dry run, with every queued timer run. */
+async function renderAndPreview(t: TestContext): Promise<void> {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  render(
+    underNext(
+      h(AdminEditSpielDataForm, {
+        spielData: EDITED,
+        teams: [],
+        spielorte: [],
+        schiedsrichter: [],
+        saisonSpiele: [EDITED, NEIGHBOUR],
+        numberOfGroups: 2,
+        isFinishedSaison: false,
+        today: "2026-09-14",
+        categorize: () => new Set<never>(),
+        pageHeader: { title: "Spiel 1" },
+      }),
+      { search: "saison_id=2026" },
+    ),
+  );
+
+  // Every timer the render queued, the preview's debounce among them, then the answer it asked for.
+  await act(async () => t.mock.timers.runAll());
+  assert.deepEqual(
+    calls.map((call) => call.action),
+    ["previewAdminSpielDataAction"],
+    "the editor never asked the dry run, so nothing below is judged",
+  );
+}
+
+const UNGEPRUEFT = "Ob Spiele dadurch entfallen, konnte nicht geprüft werden.";
+
 describe("the match editor's preview when its dry run is not answered", () => {
-  /* A preview is an extra that never blocks a save, so an unanswered one adds nothing to the page: no
-     fixture named as losing its result, and no sentence saying a write may have landed. */
+  beforeEach(() => {
+    calls.length = 0;
+    raised.length = 0;
+  });
+
+  /* An empty rail reads as a save that voids nothing, which an unanswered preview never said, so it
+     says it could not check; and it names no fixture and no write that may have landed. */
   for (const [how, answer] of [
     ["times out", () => Promise.resolve(STALLED_PREVIEW)],
     // A cut request rejects the action, and from the debounce's timer nothing else answers that.
     ["is cut", () => Promise.reject(new Error("An unexpected response was received from the server."))],
   ] as const) {
-    it(`names no fixture and no unknown outcome when the dry run ${how}`, async (t) => {
-      calls.length = 0;
-      raised.length = 0;
+    it(`says it could not check, and names no fixture, when the dry run ${how}`, async (t) => {
       answerWith(answer);
-      t.mock.timers.enable({ apis: ["setTimeout"] });
-      render(
-        underNext(
-          h(AdminEditSpielDataForm, {
-            spielData: EDITED,
-            teams: [],
-            spielorte: [],
-            schiedsrichter: [],
-            saisonSpiele: [EDITED, NEIGHBOUR],
-            numberOfGroups: 2,
-            isFinishedSaison: false,
-            today: "2026-09-14",
-            categorize: () => new Set<never>(),
-            pageHeader: { title: "Spiel 1" },
-          }),
-          { search: "saison_id=2026" },
-        ),
-      );
+      await renderAndPreview(t);
 
-      // Every timer the render queued, the preview's debounce among them, then the answer it asked for.
-      await act(async () => t.mock.timers.runAll());
-
-      assert.deepEqual(
-        calls.map((call) => call.action),
-        ["previewAdminSpielDataAction"],
-        "the editor never asked the dry run, so nothing below is judged",
-      );
+      assert.ok(screen.queryAllByText(UNGEPRUEFT).length > 0, "the unanswered preview left the rail silent");
       assert.deepEqual(raised, [], "the unanswered preview raised a toast");
-      assert.equal(screen.queryAllByText(/Speichern löscht|entfernt/).length, 0, "an unanswered preview names a fixture");
+      assert.equal(
+        screen.queryAllByText(/Speichern löscht|entfernt|kein Spiel|keine Spiele/).length,
+        0,
+        "an unanswered preview names a fixture, or none",
+      );
       assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
     });
   }
+
+  /* The line is the failure's alone: a preview that answered with nothing voided has checked. */
+  it("says nothing about checking when the dry run answered that nothing is voided", async (t) => {
+    answerWith(() => Promise.resolve({ success: true, voidedFixtures: [], releasedFixtures: [] }));
+    await renderAndPreview(t);
+
+    assert.equal(screen.queryAllByText(UNGEPRUEFT).length, 0, "a preview that answered is worded as one that could not check");
+  });
 });

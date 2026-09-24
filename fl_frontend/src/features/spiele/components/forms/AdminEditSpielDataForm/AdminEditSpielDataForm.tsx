@@ -250,7 +250,7 @@ export function AdminEditSpielDataForm({
     hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
-  // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
+  // so a `null` preview contributes no fixture, never "nothing would be lost", and a failed one says so.
   const banners = buildSpielBanners({
     isKnockout,
     // The same derivation `FormTeamPicker` closes the group choice on, so the closed row and the
@@ -285,8 +285,9 @@ export function AdminEditSpielDataForm({
     hasAnyTore,
     hasDecidedErgebnis,
     dropsShootOut,
-    voidedSpielNummern: voidPreview?.voided ?? [],
-    releasedSpielNummern: voidPreview?.released ?? [],
+    voidedSpielNummern: voidPreview.preview?.voided ?? [],
+    releasedSpielNummern: voidPreview.preview?.released ?? [],
+    voidPreviewFailed: voidPreview.failed,
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
   });
 

@@ -41,6 +41,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     dropsShootOut: false,
     voidedSpielNummern: [],
     releasedSpielNummern: [],
+    voidPreviewFailed: false,
     refusalCode: null,
     ...overrides,
   });
@@ -352,6 +353,18 @@ describe("buildSpielBanners", () => {
 
     assert.match(built.find((banner) => banner.id === "spiel.void-preview")?.title ?? "", /Spielen 29 und 30/);
     assert.match(built.find((banner) => banner.id === "spiel.release-preview")?.title ?? "", /Spiel 31 entfernt/);
+  });
+
+  /* A rail naming no fixture reads as a save that voids none, which a dry run that never answered did
+     not say; and a save it cannot judge stays possible, so the line is no reason to confirm one. */
+  it("says a failed void preview could not check, without naming a fixture or holding the save", () => {
+    const built = build({ voidPreviewFailed: true });
+
+    assert.deepEqual(
+      built.map((banner) => [banner.id, banner.severity, banner.title]),
+      [["spiel.void-preview-ungeprueft", "info", "Ob Spiele dadurch entfallen, konnte nicht geprüft werden."]],
+    );
+    assert.equal(resolveBlockingBanners(built), null);
   });
 
   it("carries the remedies the two rail-backed refusals leave off their field message", () => {
