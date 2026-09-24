@@ -492,17 +492,14 @@ class _Collection:
         self.rows = rows
         self.database = database
         self.answers_reads = answers_reads
-        self.queries = 0
 
     async def find_one(self, filter: Mapping[str, Any], projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        self.queries += 1
         for row in self.rows:
             if _matches(row, filter):
                 return dict(row)
         return None
 
     def find(self, filter: Mapping[str, Any], projection: Any = None, collation: Any = None, session: Any = None) -> _Cursor:
-        self.queries += 1
         if not self.answers_reads:
             return _Cursor([])
 
