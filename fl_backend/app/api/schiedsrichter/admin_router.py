@@ -117,7 +117,7 @@ async def post_schiedsrichter(
     async def judge_and_create(session: AsyncClientSession) -> Any:
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
-        # The season stays `None` in a league that has run none, and the ban list is asked on the
+        # The season stays `None` while no season is running, and the ban list is asked on the
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
         gesperrt = await address_is_gesperrt(
             sperrliste_collection=sperrliste_collection,
@@ -210,7 +210,7 @@ async def patch_schiedsrichter(
         )
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
-        # The season is NOT a condition here: it is `None` in a league that has run none, and the
+        # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`REQ-SCHIEDSRICHTER-007`).
         if minted:
             gesperrt = await address_is_gesperrt(

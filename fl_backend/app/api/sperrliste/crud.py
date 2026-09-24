@@ -77,7 +77,7 @@ async def address_is_gesperrt(
     one that removes what it lapsed.
     """
 
-    # The hash alone where the league has run no season, rather than an answer given without asking:
+    # The hash alone while no season is running, rather than an answer given without asking:
     # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
     # way bars rather than passing unjudged.
     bound = {} if massgebliche_saison_id is None else {"gesperrt_bis_saison_id": {"$gte": massgebliche_saison_id}}
