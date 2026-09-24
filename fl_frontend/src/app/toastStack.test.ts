@@ -23,7 +23,7 @@ const compiled = (async (): Promise<Root> => {
   return (await postcss([tailwind()]).process(await readFile(from, "utf8"), { from })).root;
 })();
 
-/** The sheet's cascade layers, earliest first. */
+/** The sheet's cascade layers, earliest first, read once from its `@layer` statement. */
 const layerOrder = (async (): Promise<string[]> =>
   (await compiled).nodes
     .filter((node): node is AtRule => node.type === "atrule" && node.name === "layer" && node.nodes === undefined)
@@ -49,84 +49,57 @@ function selectorsOf(rule: Rule): string[] {
   );
 }
 
-/**
- * Specificity for the selector shapes a toast rule takes — classes, attributes, `:not` over one simple selector, a
- * pseudo-class — as one comparable number. A shape outside those throws rather than being misjudged.
- */
-function specificity(selector: string): number {
-  // Escapes first: Tailwind's arbitrary-property class names escape `[`, `:` and `(`, which would read as syntax.
-  let rest = selector
-    .replace(/\\./g, "x")
-    .replace(/:where\((?:[^()]|\([^()]*\))*\)/g, "")
-    .replace(/\[[^\]]*\]/g, " .attr ");
-  if (/:(?:is|has)\(|#/.test(rest)) throw new Error(`the cascade model does not read ${selector}`);
-
-  rest = rest.replace(/:not\(/g, " (");
-  const pseudoClasses = rest.match(/(?<!:):[a-z-]+/g)?.length ?? 0;
-  const classes = rest.match(/\.[\w-]+/g)?.length ?? 0;
-  const types = rest.replace(/::?[a-z-]+/g, "").match(/(?:^|[\s>+~(])[a-z][\w-]*/g)?.length ?? 0;
-
-  return (classes + pseudoClasses) * 1000 + types;
-}
-
 interface Declaration {
-  selector: string;
+  /** Every selector the declaration applies under, a pseudo-element's left out as another box than the one asked about. */
+  selectors: string[];
+  /** Tailwind writes an arbitrary value without the spaces the vendored sheet keeps, so both are read without them. */
   value: string;
-  /** Position in the `@layer` order, unlayered outranking every layer. */
-  layer: number;
-  /** Under an at-rule other than `@layer`, which the model does not evaluate. */
-  conditional: boolean;
+  /** The `@layer` it sits in, or `null` for an unlayered one, which outranks every layer. */
+  layer: string | null;
+  /** Every other at-rule it sits under, such as a media query, which no check here evaluates. */
+  conditions: string[];
+  important: boolean;
 }
 
-/** Every compiled declaration of `prop` in source order, with the layer the cascade ranks it by. */
-async function declarationsOf(prop: string): Promise<Declaration[]> {
+/**
+ * Every compiled declaration of a property `prop` matches. The checks below ask only which of them MATCH an element:
+ * which one wins is a browser's to say, and each check is shaped so that no winner needs picking.
+ */
+async function declarationsOf(prop: RegExp): Promise<Declaration[]> {
   const order = await layerOrder;
   const found: Declaration[] = [];
 
-  (await compiled).walkRules((rule) => {
-    let layer = Number.POSITIVE_INFINITY;
-    let conditional = false;
-    for (let node: Container | Document | undefined = rule.parent; node != null; node = node.parent) {
+  (await compiled).walkDecls((decl) => {
+    if (!prop.test(decl.prop) || decl.parent?.type !== "rule") return;
+
+    let layer: string | null = null;
+    const conditions: string[] = [];
+    for (let node: Container | Document | undefined = decl.parent.parent; node != null; node = node.parent) {
       if (node.type !== "atrule") continue;
       const atRule = node as AtRule;
       // A keyframe's `0%` is no selector.
       if (atRule.name === "keyframes") return;
-      if (atRule.name === "layer") layer = Math.min(layer, order.indexOf(atRule.params));
-      else conditional = true;
+      if (atRule.name !== "layer") conditions.push(atRule.params);
+      // A layer the statement does not name ranks by first appearance instead, which no check here reads.
+      else if (!order.includes(atRule.params)) assert.fail(`@layer ${atRule.params} is missing from the sheet's @layer statement`);
+      else layer ??= atRule.params;
     }
 
-    // Own declarations only: `walkRules` visits the nested rules itself.
-    for (const decl of rule.nodes) {
-      if (decl.type !== "decl" || decl.prop !== prop) continue;
-      // A pseudo-element is another box than the one asked about.
-      for (const selector of selectorsOf(rule).filter((candidate) => !candidate.includes("::"))) {
-        found.push({ selector, value: decl.value, layer, conditional });
-      }
-    }
+    found.push({
+      selectors: selectorsOf(decl.parent as Rule).filter((selector) => !selector.includes("::")),
+      value: decl.value.replace(/\s+/g, ""),
+      layer,
+      conditions,
+      important: decl.important,
+    });
   });
 
   return found;
 }
 
-/**
- * The value the cascade gives `element`, or `undefined` where nothing declares it. jsdom matches no `:hover`, so this is
- * the element with no pointer over it.
- */
-function cascaded(element: Element, declarations: Declaration[], layerCeiling = Number.POSITIVE_INFINITY): string | undefined {
-  const matching = declarations.filter((declaration) => declaration.layer <= layerCeiling && element.matches(declaration.selector));
-  const conditional = matching.find((declaration) => declaration.conditional);
-  if (conditional !== undefined) assert.fail(`${conditional.selector} decides under a media query the model does not read`);
-
-  // Layer, then specificity, then the later declaration: `matching` is in source order, so a tie keeps the last.
-  let winner: Declaration | undefined;
-  for (const next of matching) {
-    if (winner === undefined || next.layer > winner.layer) winner = next;
-    else if (next.layer === winner.layer && specificity(next.selector) >= specificity(winner.selector)) winner = next;
-  }
-
-  // Tailwind writes an arbitrary value without the spaces the vendored sheet keeps.
-  return winner?.value.replace(/\s+/g, "");
-}
+/** The declarations that apply to `element`, read with no pointer over it: jsdom matches no `:hover`. */
+const matching = (element: Element, declarations: Declaration[]): Declaration[] =>
+  declarations.filter((declaration) => declaration.selectors.some((selector) => element.matches(selector)));
 
 type State = { frontmost: boolean; expanded: boolean; exiting: boolean };
 
@@ -151,14 +124,14 @@ function enter(toast: Element, state: State): void {
 }
 
 /** One self-closing toast, rendered as the site renders it, and closed again once `read` is done with it. */
-async function withToast(read: (toast: Element) => void): Promise<void> {
+async function withToast(read: (toast: HTMLElement) => void): Promise<void> {
   render(h(AppToaster));
   await act(async () => {
     appToast.success("Gespeichert");
   });
 
   try {
-    read(document.querySelector('[data-slot="toast"]') ?? assert.fail("AppToaster rendered no toast"));
+    read(document.querySelector<HTMLElement>('[data-slot="toast"]') ?? assert.fail("AppToaster rendered no toast"));
   } finally {
     await act(async () => {
       appToast.clear();
@@ -166,19 +139,36 @@ async function withToast(read: (toast: Element) => void): Promise<void> {
   }
 }
 
+/**
+ * The scale each state rests at, mirroring `@heroui/styles` 3.2.6's `toast.css`, which moves without us: an expanded
+ * toast full size, a collapsed one at the `--scale-collapsed` HeroUI writes inline.
+ */
+const restingScale = ({ expanded }: State): string => (expanded ? "1" : "var(--scale-collapsed,1)");
+
 describe("the toast against HeroUI's stacking states", () => {
   it("leaves at the scale it rested at, in every state HeroUI shrinks it from", async () => {
-    const scales = await declarationsOf("--toast-scale");
-    const components = (await layerOrder).indexOf("components");
+    const scales = await declarationsOf(/^--toast-scale$/);
 
     await withToast((toast) => {
       let shrunk = 0;
       for (const state of STATES.filter((candidate) => candidate.exiting)) {
+        const resting = restingScale(state);
         enter(toast, { ...state, exiting: false });
-        const resting = cascaded(toast, scales);
+        // Tied to the vendored sheet: a resting value it does not declare is a mirror gone stale.
+        assert.ok(
+          matching(toast, scales).some((declaration) => declaration.layer === "components" && declaration.value === resting),
+          `toast.css does not rest a ${describeState(state)} toast at ${resting}: re-read it and restamp`,
+        );
+
         enter(toast, state);
-        assert.equal(cascaded(toast, scales), resting, `a ${describeState(state)} toast changes its scale as it leaves`);
-        if (cascaded(toast, scales, components) !== resting) shrunk++;
+        // One hold per state, so which of two the utilities layer ranks first never decides the scale.
+        const holds = matching(toast, scales).filter((declaration) => declaration.layer === "utilities");
+        assert.deepEqual(
+          holds.map((declaration) => declaration.value),
+          [resting],
+          `a ${describeState(state)} toast is not held at the scale it rested at`,
+        );
+        if (matching(toast, scales).some((declaration) => declaration.layer === "components" && declaration.value !== resting)) shrunk++;
       }
 
       // Otherwise the hold overrides nothing, and a later HeroUI renaming the property would leave it holding air.
@@ -186,9 +176,31 @@ describe("the toast against HeroUI's stacking states", () => {
     });
   });
 
+  /* The hold wins by layer order alone, and each of these outranks a later layer: an `!important` in an earlier
+     one, an unlayered declaration, and an inline value. */
+  it("lets nothing outrank the utilities layer on a closing toast's scale", async () => {
+    const order = await layerOrder;
+    const scales = await declarationsOf(/^--toast-scale$/);
+
+    assert.equal(order.at(-1), "utilities", `globals.css orders its layers ${order.join(", ")}, so the utilities layer is not the last word`);
+
+    await withToast((toast) => {
+      for (const state of STATES.filter((candidate) => candidate.exiting)) {
+        enter(toast, state);
+        const outranking = matching(toast, scales).filter((declaration) => declaration.important || declaration.layer === null);
+        assert.deepEqual(outranking, [], `a ${describeState(state)} toast's scale is decided above the utilities layer`);
+        assert.equal(toast.style.getPropertyValue("--toast-scale"), "", "the toast's scale is written inline");
+      }
+    });
+  });
+
   it("shows its close button on the resting front toast and on no other, without a pointer over it", async () => {
-    const opacities = await declarationsOf("opacity");
-    const pointerEvents = await declarationsOf("pointer-events");
+    // Addressed to the toast's button by its class: an element-wide default such as preflight's `button` rule matches
+    // it too, and loses to every one of these.
+    const byClass = (declarations: Declaration[]) =>
+      declarations.filter((declaration) => declaration.selectors.some((selector) => selector.includes(".toast__close-button")));
+    const opacities = byClass(await declarationsOf(/^opacity$/));
+    const pointerEvents = byClass(await declarationsOf(/^pointer-events$/));
 
     await withToast((toast) => {
       const button = toast.querySelector('[data-slot="toast-close"]') ?? assert.fail("the toast renders no close button");
@@ -196,35 +208,42 @@ describe("the toast against HeroUI's stacking states", () => {
       for (const state of STATES) {
         enter(toast, state);
         const shown = state.frontmost && !state.exiting;
-        // Tailwind writes `opacity-100` as `100%`; the vendored sheet may write either form.
-        const opacity = cascaded(button, opacities);
-        assert.equal(
-          opacity === "100%" || opacity === "1",
-          shown,
-          `a ${describeState(state)} toast's close button: opacity ${String(opacity)}`,
-        );
-        assert.equal(cascaded(button, pointerEvents) === "auto", shown, `a ${describeState(state)} toast's close button: pointer events`);
+        // A rule that shows the button, wherever it sits: none may reach one HeroUI hides, whichever would win.
+        const showing = matching(button, opacities).filter((declaration) => !["0", "0%"].includes(declaration.value));
+        const pressable = matching(button, pointerEvents).filter((declaration) => declaration.value !== "none");
+
+        assert.equal(showing.length > 0, shown, `a ${describeState(state)} toast's close button: ${JSON.stringify(showing)}`);
+        assert.equal(pressable.length > 0, shown, `a ${describeState(state)} toast's close button: ${JSON.stringify(pressable)}`);
       }
     });
   });
 
   it("clips nothing outside an expanded toast, and clips the timer bar inside its own box", async () => {
-    const overflows = await declarationsOf("overflow");
-    const radii = await declarationsOf("border-radius");
+    const overflows = await declarationsOf(/^overflow(?:-[xy])?$/);
+    const radii = await declarationsOf(/^border-radius$/);
 
     await withToast((toast) => {
       for (const state of STATES.filter((candidate) => candidate.expanded)) {
         enter(toast, state);
-        const overflow = cascaded(toast, overflows);
         // The `::after` hit area HeroUI lays over the gap between expanded toasts sits outside the toast's box.
-        assert.ok(overflow === undefined || overflow === "visible", `a ${describeState(state)} toast clips its overflow: ${String(overflow)}`);
+        const clipping = matching(toast, overflows).filter((declaration) => declaration.value !== "visible");
+        assert.deepEqual(clipping, [], `a ${describeState(state)} toast clips its overflow`);
+        assert.equal(toast.style.overflow, "", "the toast's overflow is written inline");
       }
 
       const timer = toast.querySelector(".toast__timer") ?? assert.fail("a self-closing toast renders no timer bar");
       const clip = timer.parentElement ?? assert.fail("the timer bar has no parent");
-      assert.notEqual(clip, toast, "the timer bar sits on the toast itself, which may not clip it");
-      assert.equal(cascaded(clip, overflows), "hidden", "nothing clips the timer bar to the toast's corners");
-      assert.equal(cascaded(clip, radii), "inherit", "the timer bar's clip does not follow the toast's corners");
+      // Its `rounded-[inherit]` takes its parent's corners, which are the toast's only where the toast is that parent.
+      // `ok` over `===`: a failing `equal` serialises both elements, and with them the document, into its message.
+      assert.ok(clip.parentElement === toast, "the timer bar's clip is not the toast's own child");
+
+      const clipOverflow = matching(clip, overflows).map((declaration) => declaration.value);
+      assert.ok(
+        clipOverflow.length > 0 && clipOverflow.every((value) => value === "hidden"),
+        `the timer bar's clip: ${clipOverflow.join(", ")}`,
+      );
+      const clipRadius = matching(clip, radii).map((declaration) => declaration.value);
+      assert.ok(clipRadius.length > 0 && clipRadius.every((value) => value === "inherit"), `the timer bar's clip: ${clipRadius.join(", ")}`);
     });
   });
 });
