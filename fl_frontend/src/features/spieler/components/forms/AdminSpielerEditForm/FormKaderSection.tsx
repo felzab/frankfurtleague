@@ -23,6 +23,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
@@ -89,6 +90,7 @@ export function FormKaderSection({
 
   const handleEnterSaison = () => {
     startEntering(async () => {
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await postSaisonSpielerAction({
         spieler_id: spielerId,
         saison_id: saison.saisonId,
@@ -99,7 +101,7 @@ export function FormKaderSection({
         position,
         stufe,
         rolle: null,
-      });
+      }).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.

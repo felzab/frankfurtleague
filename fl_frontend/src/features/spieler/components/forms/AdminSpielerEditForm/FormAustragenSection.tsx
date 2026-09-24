@@ -11,6 +11,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { RowReturn } from "@/features/spieler/types";
@@ -66,7 +67,8 @@ export function FormAustragenSection({
 
   const run = (write: () => Promise<ActionResult>, savedHeading: string, failureHeading: string) => {
     startWriting(async () => {
-      const res = await write();
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await write().catch(unansweredAction);
       // A detail written here would be this panel's guess at what the write cost: the action sends
       // that sentence, and `docs/frontend/spec.md` §1.12 leaves a server's message alone.
       if (res.success) {

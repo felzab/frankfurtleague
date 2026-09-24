@@ -19,6 +19,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
@@ -130,7 +131,8 @@ export function FormEinladungVersandSection({
   const panel = formPanel();
 
   const senden = async () => {
-    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut });
+    // A rejected action may still have saved, and uncaught here it takes the page down with it.
+    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredAction);
 
     if (!res.success) {
       appToast.failure("Registrierungslinks nicht gesendet", res);

@@ -14,6 +14,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
@@ -54,7 +55,10 @@ export function FormKontakteLoeschenSection({
     if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
 
     press(async () => {
-      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand }).catch(
+        unansweredAction,
+      );
 
       if (!res.success) {
         appToast.failure("Kontakte nicht gelöscht", res);

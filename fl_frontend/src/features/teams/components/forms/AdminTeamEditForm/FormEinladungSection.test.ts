@@ -28,6 +28,7 @@ const { raised } = doubleToasts();
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("./FormEinladungSection.tsx");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const TEAM_ID = "a".repeat(24);
 const EINLADUNG_ID = "b".repeat(24);
@@ -128,6 +129,24 @@ describe("the team's invite panel", () => {
     assert.equal(wert(), null, "one team's link stood on another team's page");
   });
 
+  /* The edge cutting the request rejects the action after the row may have been written, and a
+     rejection left to `startMinting`'s transition replaces the page with the error page. */
+  it("stays on the page over a rejected first mint, and says nobody can tell whether the link exists", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    // Found rather than got: the press lets go once the rejection has been answered.
+    await screen.findByRole("button", { name: "Registrierungslink anlegen" });
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Registrierungslink nicht angelegt", error, outcome]],
+    );
+  });
+
   it("sends the mail press the row the mint named and the value it answered", async () => {
     const user = userEvent.setup();
     answerWith(mintAntwort);
@@ -135,7 +154,9 @@ describe("the team's invite panel", () => {
 
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs." }));
-    await user.click(screen.getByRole("button", { name: "Link per E-Mail senden" }));
+    // Found rather than got, as the mint's own case finds its link: the press appears when
+    // `startMinting`'s transition ends, which no click's resolving waits for.
+    await user.click(await screen.findByRole("button", { name: "Link per E-Mail senden" }));
 
     assert.deepEqual(sent("mailEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: TOKEN }]);
     assert.equal(raised.at(-1)?.variant, "success");

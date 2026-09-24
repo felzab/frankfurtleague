@@ -44,6 +44,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -163,10 +164,13 @@ export function FormSpielplanSection({
     // What makes the guard's second run load-bearing here: the draw READS the rules it is guarded
     // against, so a draft typed after arming would go with the refresh while the draw used the stored ones.
     press(async () => {
+      // A rejected action may still have saved, and uncaught here either write takes the page down with it.
       if (isDrawing) {
         // The shape rides along on a REPLACE alone: a first draw carries none, which is what tells the
         // endpoint to draw from the season's stored numbers and move nothing.
-        const res = await generateSpielplanAction({ id: saisonId, replace: replacesDraw, shape: replacesDraw ? shape : undefined });
+        const res = await generateSpielplanAction({ id: saisonId, replace: replacesDraw, shape: replacesDraw ? shape : undefined }).catch(
+          unansweredAction,
+        );
 
         if (!res.success) {
           appToast.failure(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", res);
@@ -175,7 +179,7 @@ export function FormSpielplanSection({
 
         appToast.success(replacesDraw ? "Spielplan neu angelegt" : "Spielplan angelegt", { description: res.message });
       } else {
-        const res = await undrawSpielplanAction({ id: saisonId });
+        const res = await undrawSpielplanAction({ id: saisonId }).catch(unansweredAction);
 
         if (!res.success) {
           appToast.failure("Spielplan nicht zurückgenommen", res);

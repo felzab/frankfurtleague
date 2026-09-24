@@ -16,6 +16,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLKontakt } from "@/shared/schemas";
@@ -59,7 +60,8 @@ export function FormAnonymisierenSection({
 
   const handleAnonymise = () => {
     press(async () => {
-      const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId }).catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure("Schiedsrichterdaten nicht gelöscht", res);

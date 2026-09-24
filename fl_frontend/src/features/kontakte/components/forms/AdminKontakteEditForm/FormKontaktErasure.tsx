@@ -13,6 +13,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
@@ -85,7 +86,8 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
     if (!isConfirming) void readAnsicht();
 
     press(async () => {
-      const res = await eraseKontaktpersonAction({ email });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await eraseKontaktpersonAction({ email }).catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure("Kontaktperson nicht gelöscht", res);

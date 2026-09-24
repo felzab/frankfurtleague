@@ -19,6 +19,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
@@ -81,7 +82,8 @@ export function AdminBewerbungAnnehmenSection({
     if (chosen === null || hindernis !== null) return;
 
     press(async () => {
-      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(unansweredAction);
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.

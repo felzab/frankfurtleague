@@ -27,6 +27,7 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
@@ -94,7 +95,8 @@ function GruppenTauschControl({
     if (partner === null) return;
 
     press(async () => {
-      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure("Gruppen nicht getauscht", res);
@@ -272,7 +274,8 @@ export function FormSaisonSection({
   // junction row the rest of this panel edits.
   const handleEnterSaison = () => {
     startEntering(async () => {
-      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.

@@ -7,6 +7,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
 import { Button } from "@heroui/react/button";
 
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
@@ -80,7 +81,8 @@ export function ConfirmDeleteModal({
     }
 
     startRetiring(async () => {
-      const res = await onConfirm();
+      // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
+      const res = await onConfirm().catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure(failureMessage, res);

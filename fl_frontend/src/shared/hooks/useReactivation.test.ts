@@ -5,7 +5,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -17,6 +17,7 @@ const { raised } = doubleToasts();
 /* `await import`, never a static import beside the double: the hook below reaches the toast module,
    and a static import would have resolved the real one before the hook above registered. */
 const { useReactivation } = await import("./useReactivation.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<typeof h> {
   const { reactivate } = useReactivation({ action: answer, noun: "Team" });
@@ -67,6 +68,21 @@ describe("what a reactivation tells the reader", () => {
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "warning", title: "Mit Folgen reaktiviert", description: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden." }],
     );
+  });
+
+  /* The edge cutting the request rejects the action after the row may have come back, and a
+     rejection left to the hook's transition replaces the page with the error page. */
+  it("says nobody can tell whether a rejected return landed, and leaves the row standing", async () => {
+    await press(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    // Found rather than got: the toast is raised once the rejection has been answered.
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Team nicht reaktiviert", error, outcome]],
+    );
+    assert.ok(screen.queryByRole("button", { name: "Reaktivieren" }) !== null, "the rejection took the row off the page");
   });
 
   it("names the refusal under the negated title", async () => {

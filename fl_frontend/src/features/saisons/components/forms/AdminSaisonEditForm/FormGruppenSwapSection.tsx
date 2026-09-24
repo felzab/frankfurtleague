@@ -16,6 +16,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
@@ -141,7 +142,8 @@ export function FormGruppenSwapSection({
     if (first === null || second === null) return;
 
     press(async () => {
-      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id }).catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure("Gruppen nicht getauscht", res);

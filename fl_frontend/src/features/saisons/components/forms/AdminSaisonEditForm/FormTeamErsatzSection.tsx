@@ -18,6 +18,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
@@ -81,7 +82,10 @@ export function FormTeamErsatzSection({
     if (outgoing === null || incoming === null) return;
 
     press(async () => {
-      const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id }).catch(
+        unansweredAction,
+      );
 
       if (!res.success) {
         appToast.failure("Team nicht ersetzt", res);

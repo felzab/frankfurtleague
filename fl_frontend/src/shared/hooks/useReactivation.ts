@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -22,7 +23,8 @@ export function useReactivation<TPayload>({
 
   const reactivate = (payload: TPayload) => {
     startReactivating(async () => {
-      const res = await action(payload);
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await action(payload).catch(unansweredAction);
 
       if (!res.success) {
         appToast.failure(`${noun} nicht reaktiviert`, res);
