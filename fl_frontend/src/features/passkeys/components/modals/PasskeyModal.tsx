@@ -49,7 +49,7 @@ const GLEICHZEITIG_HINZUGEFUEGT = "Gleichzeitig wurde ein anderer Passkey hinzug
  * What the reader is told, and, where the list on screen may be missing a row, what they are told
  * instead once the re-read shows the cap reached.
  */
-type Held = { readonly description: string; readonly whenFull: string | null };
+type Held = { readonly description: string; readonly whenFull: string | null; readonly outcome?: ActionFailure["outcome"] };
 
 /**
  * The same sentence `fl_frontend/src/features/passkeys/actions.ts :: LETZTER_PASSKEY` answers: this
@@ -166,8 +166,14 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // cap among its causes.
       if (error.status === 404) return { description: VERSUCHE_ES_ERNEUT, whenFull: ZU_VIELE };
 
+      // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
+      // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
+      if (error.status >= 500) return { description: unansweredAction().error, whenFull: null, outcome: "unknown" };
+
       return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     } catch {
+      // Thrown only by the options request, ahead of the ceremony: the plugin's client answers every
+      // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
       return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     }
   };
@@ -177,12 +183,16 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     const held = await enrolmentHeld();
 
     if (held !== null) {
-      // The list may be missing the other change's row, which may also have closed the add control.
-      const full = held.whenFull !== null && (await lade());
+      // The list may be missing the other change's row, which may also have closed the add control,
+      // or the row an enrolment of unknown outcome stored.
+      const full = (held.whenFull !== null || held.outcome === "unknown") && (await lade());
       setIstBeschaeftigt(false);
       // One raising per outcome, and the literals at the call: `core/toastTitles.test.ts` reads a
       // title from the call site, and a second site sharing one is told apart by its description.
-      appToast.danger("Passkey nicht hinzugefügt", { description: full && held.whenFull !== null ? held.whenFull : held.description });
+      appToast.failure("Passkey nicht hinzugefügt", {
+        error: full && held.whenFull !== null ? held.whenFull : held.description,
+        outcome: held.outcome,
+      });
       return;
     }
 

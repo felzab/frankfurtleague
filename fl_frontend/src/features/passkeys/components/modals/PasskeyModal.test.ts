@@ -245,6 +245,52 @@ describe("the step-up both writes take", () => {
     );
   });
 
+  /* The plugin's client answers a verification request that never came back as `UNKNOWN_ERROR` at 500,
+     and an edge's own answer by its status: either may follow a registration the server stored. */
+  for (const [how, error] of [
+    ["is cut", { code: "UNKNOWN_ERROR", message: "Failed to fetch", status: 500, statusText: "INTERNAL_SERVER_ERROR" }],
+    ["meets an edge's 502", { status: 502, statusText: "Bad Gateway" }],
+  ] as const) {
+    it(`marks an enrolment whose verification ${how} as of unknown outcome, and re-reads the list`, async () => {
+      const user = userEvent.setup();
+      answer = () => (reached.length === 1 ? Promise.resolve({ data: {}, error: null }) : Promise.resolve({ data: null, error }));
+      open();
+      await screen.findByText("Windows Hello");
+
+      await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+      await waitFor(() => assert.equal(raised.length, 1));
+
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+        [["danger", "Passkey nicht hinzugefügt", unansweredAction().error, "unknown"]],
+      );
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        ["readPasskeysAction", "readPasskeysAction"],
+      );
+    });
+  }
+
+  /* A prompt closed or refused by the browser ends before the verification request is sent, so
+     nothing was stored and a retry is the whole repair. */
+  it("words a ceremony the browser aborted as not added", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      reached.length === 1
+        ? Promise.resolve({ data: {}, error: null })
+        : Promise.resolve({ data: null, error: { code: "ERROR_CEREMONY_ABORTED", message: "x", status: 400, statusText: "BAD_REQUEST" } });
+    open();
+    await screen.findByText("Windows Hello");
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Passkey nicht hinzugefügt", "Versuche es noch einmal.", undefined]],
+    );
+  });
+
   /* An enrolment refused where the cap may be the cause re-reads the list, and a cut re-read, uncaught,
      leaves the add control on its pending label for good with nothing said. */
   it("releases the add control when the re-read after a refused enrolment is cut, and says the list failed", async () => {
