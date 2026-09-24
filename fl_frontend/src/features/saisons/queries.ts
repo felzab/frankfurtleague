@@ -32,17 +32,6 @@ export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
   runWithIncomingTrace(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );
 
-export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
-  "use cache";
-
-  cacheTag("saisons");
-  cacheLife("days");
-
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
-    cacheFill: { name: "getCurrentSaison", args: {} },
-  });
-}
-
 /**
  * `null` where no season is marked active: the backend answers that with a 404 rather than an
  * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`). A stored absence

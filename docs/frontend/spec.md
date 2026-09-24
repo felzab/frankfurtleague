@@ -74,7 +74,6 @@ rather show is a question no surface has to answer.
 | `getTeams`                                     | teams     | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getTeam`                                      | teams     | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getSaisons`                                   | saisons   | `days`    | `saisons`                                        |
-| `getCurrentSaison`                             | saisons   | `days`    | `saisons`                                        |
 | `getCurrentSaisonOrNull`                       | saisons   | `days`    | `saisons`                                        |
 | `getSpieler`                                   | spieler   | `days`    | `spieler`                                        |
 | `getSpieltage`                                 | spieltage | `days`    | `spieltage`                                      |
