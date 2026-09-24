@@ -214,7 +214,16 @@ class TestTheResolversUseIt:
 
         async def _run() -> Any:
             reader = asyncio.create_task(pull_saison_id_and_rules(saisons_collection=as_collection(stub), saison_id="2026"))
-            await stub.answered.wait()
+            # Raced against the reader, never awaited alone: a reader answered from the cache never
+            # queries, and a bare wait on the announcement then hangs the tier instead of failing it.
+            announced = asyncio.create_task(stub.answered.wait())
+            await asyncio.wait({reader, announced}, return_when=asyncio.FIRST_COMPLETED)
+            if not stub.answered.is_set():
+                announced.cancel()
+                # A reader that raised before its query is no cache answer: its own error is the failure.
+                if (error := reader.exception()) is not None:
+                    raise error
+                pytest.fail("the reader returned without querying the collection, so a cached entry answered it")
 
             # The write path, running in the window the reader is parked in.
             stub.document = dict(REDRAWN_SAISON_DOC)
