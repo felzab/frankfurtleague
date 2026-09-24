@@ -344,7 +344,6 @@ export function BewerbungForm({
 
       <Form
         ref={formRef}
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"

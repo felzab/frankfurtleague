@@ -166,7 +166,6 @@ export function AdminSpieltagEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

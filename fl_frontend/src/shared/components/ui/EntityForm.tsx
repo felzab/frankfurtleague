@@ -103,7 +103,6 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 
   return (
     <Form
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
       ref={formRef}
       validationErrors={fieldErrors}
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only

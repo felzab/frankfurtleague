@@ -463,7 +463,6 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
-          // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
           ref={formRef}
           validationErrors={fieldErrors}
           className="flex min-h-0 w-full flex-1 flex-col"

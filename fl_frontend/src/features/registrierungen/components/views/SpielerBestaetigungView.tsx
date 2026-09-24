@@ -440,7 +440,6 @@ function SpielerBestaetigungForm({
   return (
     <Form
       ref={formRef}
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"

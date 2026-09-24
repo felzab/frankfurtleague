@@ -155,7 +155,6 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
       <Tabs.Panel id="Admin">
         <Form
-          // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
           ref={formRef}
           validationErrors={fieldErrors}
           onSubmit={runOnSubmit(handleFormSubmit)}
