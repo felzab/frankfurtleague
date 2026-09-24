@@ -9,8 +9,7 @@ allowBuilds:
   unrs-resolver: true
 overrides:
   # Each pins past an advisory in the version next would otherwise pull. Only sharp is
-  # runtime-reachable, via libvips on /_next/image. An override governs the direct dependency
-  # too: the importer takes this range, not package.json's.
+  # runtime-reachable, via libvips on /_next/image.
   sharp: "^0.35.4"
   postcss: "^8.5.26"
 patchedDependencies:
