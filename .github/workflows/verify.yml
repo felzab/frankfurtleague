@@ -281,12 +281,27 @@ jobs:
         # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
         # first, which is a bare 141 with nothing printed, the guard below never having run.
 
-        # The conftest's one tag is every tier's: `fl_frontend/src/core/mongoImage.test.ts` holds
-        # the frontend's db-tier files to it, reading only a call no `#` precedes, as `^[^#]*` does here.
+        # The conftest's one tag is every tier's, `fl_frontend/src/core/mongoImage.test.ts` holding the
+        # frontend to it. Python's parser reads it, so no comment or string passes for a call, and
+        # nothing prints unless exactly one tag is named.
         run: |
-          image="$(awk -F'"' '/^[^#]*Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
+          image="$(python3 -c '
+          import ast, sys
+          tree = ast.parse(open(sys.argv[1], encoding="utf-8").read())
+          tags = {
+              node.args[0].value
+              for node in ast.walk(tree)
+              if isinstance(node, ast.Call)
+              and getattr(node.func, "id", getattr(node.func, "attr", "")).endswith("Container")
+              and node.args
+              and isinstance(node.args[0], ast.Constant)
+              and str(node.args[0].value).startswith("mongo:")
+          }
+          if len(tags) == 1:
+              print(*tags)
+          ' fl_backend/tests/conftest.py)"
           if [ -z "$image" ]; then
-            echo "::error::no mongo image tag found in fl_backend/tests/conftest.py -- the spelling this step reads has moved."
+            echo "::error::no single mongo image tag found in fl_backend/tests/conftest.py -- the call this step reads has moved or split."
             exit 1
           fi
           docker pull "$image"

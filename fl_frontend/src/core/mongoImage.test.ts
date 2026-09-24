@@ -4,18 +4,20 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { blankComments } from "./blankComments.ts";
+import { withoutPythonComments } from "./pythonComments.ts";
 
 const PACKAGE = path.resolve(import.meta.dirname, "../..");
 
 // The backend's db tier names its image here.
 const CONFTEST = path.resolve(PACKAGE, "..", "fl_backend", "tests", "conftest.py");
 
-// Only where no `#` precedes the call on its line: a commented-out tag above the live one is a
-// second image to this reader otherwise. `.github/workflows/verify.yml`'s pull step reads the same way.
-const BACKEND_IMAGE = /^[^#\n]*Container\("(mongo:[^"]+)"/gm;
+const BACKEND_IMAGE = /Container\("(mongo:[^"]+)"/g;
 const FRONTEND_IMAGE = /MongoDBContainer\("(mongo:[^"]+)"\)/g;
 
 const imagesIn = (source: string, pattern: RegExp): string[] => [...source.matchAll(pattern)].map(([, image]) => image ?? "");
+
+/** Comments cut first: a commented-out tag above the live one would otherwise be a second image. */
+const backendImagesIn = (source: string): string[] => imagesIn(withoutPythonComments(source), BACKEND_IMAGE);
 
 /** The frontend's db-tier files, found by the suffix `test:db` collects rather than by the image they name. */
 function dbTierFiles(): string[] {
@@ -28,18 +30,31 @@ describe("the mongod image both db tiers start (`docs/frontend/spec.md` §1.9)",
   // Held against a sample: `conftest.py` names its one image in both spellings, so a reader of
   // either spelling alone passes the tree.
   it("reads the backend's image off both of its spellings", () => {
-    assert.deepEqual(imagesIn('with MongoDbContainer("mongo:8").with_tmpfs_mount(x) as c:', BACKEND_IMAGE), ["mongo:8"]);
-    assert.deepEqual(imagesIn('DockerContainer("mongo:7.0")', BACKEND_IMAGE), ["mongo:7.0"]);
+    assert.deepEqual(backendImagesIn('with MongoDbContainer("mongo:8").with_tmpfs_mount(x) as c:'), ["mongo:8"]);
+    assert.deepEqual(backendImagesIn('DockerContainer("mongo:7.0")'), ["mongo:7.0"]);
   });
 
   it("reads no image off a commented-out line or a trailing comment", () => {
     const source = '    # with MongoDbContainer("mongo:7") as c:\nwith MongoDbContainer("mongo:8") as c:  # not DockerContainer("mongo:6")';
-    assert.deepEqual(imagesIn(source, BACKEND_IMAGE), ["mongo:8"]);
+    assert.deepEqual(backendImagesIn(source), ["mongo:8"]);
+  });
+
+  // Two live calls on one line are two images, which the one-image check below has to see.
+  it("reads every call on a line", () => {
+    assert.deepEqual(backendImagesIn('a, b = MongoDbContainer("mongo:8"), DockerContainer("mongo:7")'), ["mongo:8", "mongo:7"]);
+  });
+
+  // A `#` inside a string cuts the line short, and a call after it would be read as a comment.
+  it("refuses a hash inside a string rather than skipping the call after it", () => {
+    assert.throws(
+      () => backendImagesIn('DockerContainer("mongo:8").with_command("--bind_ip_all #x"); DockerContainer("mongo:7")'),
+      /inside a string literal/,
+    );
   });
 
   // One image across both tiers: a bump on one side alone tests the two against different servers.
   it("is the backend's one image in every frontend db-tier file", () => {
-    const backend = new Set(imagesIn(readFileSync(CONFTEST, "utf8"), BACKEND_IMAGE));
+    const backend = new Set(backendImagesIn(readFileSync(CONFTEST, "utf8")));
     assert.equal(backend.size, 1, `the backend's db tier names ${backend.size} images: ${[...backend].join(", ")}`);
 
     const files = dbTierFiles();
