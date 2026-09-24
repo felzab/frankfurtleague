@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { createServer, connect as dial } from "node:net";
 import { after, describe, it } from "node:test";
+import { setTimeout as pause } from "node:timers/promises";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoOperationTimeoutError, MongoServerSelectionError, MongoTransactionError } from "mongodb";
@@ -13,13 +15,25 @@ import type { Socket } from "node:net";
 
 /* Each resource set as it opens, and the hook registered before the first await that can throw: a
    container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
+const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: { client: MongoClient; open: Promise<unknown> }[] } = {
+  clients: [],
+};
 
 after(async () => {
-  for (const client of opened.clients) await client.close();
+  // A client whose connect failed reconnects until it opens, and would reconnect after a close that
+  // came first: each is given one attempt and the pause before it.
+  for (const { client, open } of opened.clients) {
+    await Promise.race([open, pause(client.options.serverSelectionTimeoutMS + client.options.minHeartbeatFrequencyMS)]);
+    await client.close();
+  }
   await opened.relay?.close();
   await opened.mongod?.stop();
 });
+
+/** Holds `client` for the `after` hook, with the first open it will wait on. */
+function track(client: MongoClient): void {
+  opened.clients.push({ client, open: once(client, "open").catch(() => undefined) });
+}
 
 const mongod = await new MongoDBContainer("mongo:8").start();
 opened.mongod = mongod;
@@ -30,12 +44,17 @@ opened.mongod = mongod;
  */
 class Relay {
   private hung = false;
+  private refusing = false;
   /** The command whose first request hangs the relay, as its name opens a BSON key. */
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
   private readonly sockets = new Set<Socket>();
   private readonly server = createServer((inbound) => {
+    if (this.refusing) {
+      inbound.destroy();
+      return;
+    }
     const outbound = dial(mongod.getMappedPort(27017), mongod.getHost());
     for (const socket of [inbound, outbound]) {
       this.sockets.add(socket);
@@ -84,6 +103,16 @@ class Relay {
     }
   }
 
+  /** Runs `body` while every connection the client opens is closed at once, as a server refusing it. */
+  async refuse<T>(body: () => Promise<T>): Promise<T> {
+    this.refusing = true;
+    try {
+      return await body();
+    } finally {
+      this.refusing = false;
+    }
+  }
+
   private resume(): void {
     this.hung = false;
     this.trigger = null;
@@ -127,12 +156,14 @@ registerAuthDoubles({
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
-opened.clients.push(client);
+track(client);
 const { auth } = await import("./auth.ts");
-// The same module evaluated a second time, so a second client built by the same code: an automatic
-// connect that fails closes its client's topology for good, and every later operation on it fails.
+// The same module evaluated again, so further clients built by the same code, each connecting first
+// inside its own case.
 const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
-opened.clients.push(coldClient);
+track(coldClient);
+const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?recovery`)) as { client: MongoClient };
+track(recoveringClient);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -165,6 +196,7 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
   /* Only a client that has never connected takes the driver's automatic connect, which `timeoutMS`
      does not reach. */
   it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", async () => {
+    const reopened = once(coldClient, "open");
     // Held to every operation's bound rather than read off the option: a removed option reads as the
     // driver's thirty-second default, and the case would follow it there.
     const outcome = await relay.hang(() =>
@@ -172,6 +204,10 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
     );
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
+
+    // Reopened before the next case hangs the relay: a reconnect whose handshake a hang drops waits out
+    // the driver's thirty-second `connectTimeoutMS`, which no bound here shortens.
+    await settledWithin(OPERATION_BOUND + coldClient.options.minHeartbeatFrequencyMS, "the cold client's reconnect", () => reopened);
   });
 });
 
@@ -220,5 +256,19 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
       `the hung commit settled with ${String(outcome)}`,
     );
     assert.deepEqual(logged, []);
+  });
+});
+
+describe("the sign-in store's client recovers from a cold start it could not complete (`docs/frontend/spec.md :: I364`)", () => {
+  const probe = () => recoveringClient.db("store_bound").collection("probe").findOne({});
+
+  it("answers again once the store does, its first connect having been refused", async () => {
+    const reopened = once(recoveringClient, "open");
+    const refused = await relay.refuse(() => settledWithin(OPERATION_BOUND, "the refused read", probe));
+    assert.ok(refused instanceof MongoServerSelectionError, `the refused read settled with ${String(refused)}`);
+
+    // One attempt already under way, then the pause before the next.
+    await settledWithin(OPERATION_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the reconnect", () => reopened);
+    assert.equal(await settledWithin(OPERATION_BOUND, "the read after the store answered again", probe), null);
   });
 });

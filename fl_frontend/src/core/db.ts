@@ -1,5 +1,7 @@
 import "server-only";
 
+import { setTimeout as pause } from "node:timers/promises";
+
 import { MongoClient, ServerApiVersion } from "mongodb";
 
 import { frontend_config } from "./config";
@@ -20,6 +22,35 @@ const options = {
   serverSelectionTimeoutMS: 3000,
 };
 
+/**
+ * The driver closes the topology a failed connect built and never builds another itself, so every
+ * later operation would fail until a restart (`docs/frontend/spec.md :: I364`). The same client is
+ * connected again: the adapter holds its `Db`.
+ */
+function reconnectingAfterAFailedConnect(client: MongoClient): MongoClient {
+  let opened = false;
+  let reconnecting = false;
+  client.once("open", () => {
+    opened = true;
+  });
+  // Before the first open only a failed connect closes a topology: once open, the driver reconnects
+  // on its own, and nothing in production closes this client.
+  client.on("topologyClosed", () => {
+    if (opened || reconnecting) return;
+    reconnecting = true;
+    void (async () => {
+      while (!opened) {
+        // The driver's own least interval between two checks of one server, and unreferenced: a retry
+        // that never succeeds must not hold open a process that would otherwise exit.
+        await pause(client.options.minHeartbeatFrequencyMS, undefined, { ref: false });
+        // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
+        await client.connect().catch(() => undefined);
+      }
+    })();
+  });
+  return client;
+}
+
 let client: MongoClient;
 
 // The development branch caches the client on `global`, or hot reloads exhaust the pool.
@@ -29,11 +60,11 @@ if (process.env.NODE_ENV === "development") {
   };
 
   if (!globalWithMongo._mongoClient) {
-    globalWithMongo._mongoClient = new MongoClient(frontend_config.MONGODB_URI, options);
+    globalWithMongo._mongoClient = reconnectingAfterAFailedConnect(new MongoClient(frontend_config.MONGODB_URI, options));
   }
   client = globalWithMongo._mongoClient;
 } else {
-  client = new MongoClient(frontend_config.MONGODB_URI, options);
+  client = reconnectingAfterAFailedConnect(new MongoClient(frontend_config.MONGODB_URI, options));
 }
 
 export { client };
