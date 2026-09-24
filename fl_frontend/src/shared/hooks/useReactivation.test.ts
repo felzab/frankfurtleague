@@ -5,7 +5,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -20,9 +20,10 @@ const { useReactivation } = await import("./useReactivation.ts");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<typeof h> {
-  const { reactivate } = useReactivation({ action: answer, noun: "Team" });
+  const { isReactivating, reactivate } = useReactivation({ action: answer, noun: "Team" });
 
-  return h("button", { type: "button", onClick: () => void reactivate({ id: "t1" }) }, "Reaktivieren");
+  // The label follows the transition, so a case can wait for the press to be over rather than for its toast.
+  return h("button", { type: "button", onClick: () => void reactivate({ id: "t1" }) }, isReactivating ? "Reaktiviert..." : "Reaktivieren");
 }
 
 const press = async (answer: () => Promise<ActionResult>): Promise<void> => {
@@ -74,15 +75,14 @@ describe("what a reactivation tells the reader", () => {
      rejection left to the hook's transition replaces the page with the error page. */
   it("says nobody can tell whether a rejected return landed, and leaves the row standing", async () => {
     await press(() => Promise.reject(new Error("An unexpected response was received from the server.")));
-    // Found rather than got: the toast is raised once the rejection has been answered.
-    await waitFor(() => assert.equal(raised.length, 1));
+    // Found by its resting label, which comes back only once the transition holding the rejection is over.
+    await screen.findByRole("button", { name: "Reaktivieren" });
 
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
       [["danger", "Team nicht reaktiviert", error, outcome]],
     );
-    assert.ok(screen.queryByRole("button", { name: "Reaktivieren" }) !== null, "the rejection took the row off the page");
   });
 
   it("names the refusal under the negated title", async () => {
