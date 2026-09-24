@@ -63,7 +63,15 @@ dev = [
     # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
     # decides what a page shows as code, rather than patterns this repository keeps by hand.
     "markdown-it-py>=4.2.0",
+    # Holds `dependencies` to what `app/` imports: an import reaching a package only through
+    # another's requirements, or a package there nothing imports, fails the backend scope. This group
+    # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
+    "deptry>=0.25.1",
 ]
+
+[tool.deptry.per_rule_ignores]
+# Declared though never imported, each for the reason at its line in `dependencies`.
+DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
 # The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
