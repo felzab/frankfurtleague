@@ -20,7 +20,7 @@ nothing keeps true as entries arrive and leave.
 
 - **No tag or label.** An entry names at least one path it touches
   (`scripts/checks/docs_gate/checks.py :: _check_subjects`), and a reader after one surface or one
-  slice searches for them; a hand-written label grows a vocabulary nobody maintains.
+  slice searches for the paths; a hand-written label grows a vocabulary nobody maintains.
 - **No relatedness link between entries.** Two entries touching one feature name the same paths, and
   a reader finds them by searching; a second mechanism for that fact is a second home, which COR-2
   refuses.
