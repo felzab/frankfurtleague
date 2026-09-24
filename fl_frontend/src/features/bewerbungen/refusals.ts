@@ -1,7 +1,9 @@
 import { APIBadStatusError } from "@/core/errors";
+import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { BewerbungHerkunft } from "./constants";
 
 /** Where a club is created and reactivated, named as the sidemenu entry reads. */
 const TEAMS_PAGE = "Teams";
@@ -10,9 +12,10 @@ const TEAMS_PAGE = "Teams";
  * A triage 409 as the message it should render, or `null` when the code is none of these.
  *
  * The `REQ-ENTER` codes are the season's own entry rules, which
- * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates.
+ * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates. `herkunft` is what an
+ * acceptance enters, and `null` for the decline, which enters nothing.
  */
-export function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | null): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
@@ -73,17 +76,23 @@ export function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?
       return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
     case "REQ-ENTER-003":
       return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
-    // A new school's club is created with the Kürzel the school typed, and a club's only unique key
-    // is that Kürzel, so this 409 IS the collision. The generic conflict names no way out, and
-    // nothing edits a school's details.
-    case "DB-COMMON-002":
-      return {
-        error: buildRefusal({
-          reason: "Das Kürzel dieser Schule hat schon ein anderes Team, vielleicht ein stillgelegtes",
-          repair: { before: "Ändere das Kürzel des anderen Teams", after: "und nimm die Bewerbung danach an" },
-          where: TEAMS_PAGE,
-        }),
-      };
+    // Two unique indexes answer an acceptance: a new school's club meets `uniq_shorthand` with the
+    // Kürzel the school typed, which nothing edits, and a picked club already in the season meets the
+    // junction's, as the club editor's entry does. The decline's is the shared reader's.
+    case "DB-COMMON-002": {
+      if (herkunft === "neue_schule") {
+        return {
+          error: buildRefusal({
+            reason: "Das Kürzel dieser Schule hat schon ein anderes Team, vielleicht ein stillgelegtes",
+            repair: { before: "Ändere das Kürzel des anderen Teams", after: "und nimm die Bewerbung danach an" },
+            where: TEAMS_PAGE,
+          }),
+        };
+      }
+      const schonInDerSaison = herkunft === "bestehendes_team" ? mapAlreadyEnteredRefusal(error) : null;
+
+      return schonInDerSaison === null ? null : { error: schonInDerSaison };
+    }
     // „Stillgelegt“ is what every admin surface calls `inactive_since`, the club editor included.
     // „Verlassen“ is an `austritt`, another record on another page.
     case "REQ-ENTER-005":

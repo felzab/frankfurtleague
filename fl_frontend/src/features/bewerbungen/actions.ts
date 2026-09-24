@@ -6,6 +6,7 @@ import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -28,11 +29,12 @@ import {
   FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
-import { BEWERBUNG_VERALTET, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
+import { BEWERBUNG_VERALTET, bewerbungHerkunft, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
+import type { BewerbungHerkunft } from "./constants";
 import type { BewerbungBetreff } from "./notifications";
 import type {
   FLAblehnenBewerbungPayload,
@@ -109,6 +111,18 @@ async function notifyBewerbung({
 }
 
 /**
+ * What the refused application enters, read off the stored application for a duplicate key alone,
+ * whose sentence it decides. `null` where that read fails, which leaves the key to the shared reader.
+ */
+async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
+  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "DB-COMMON-002") return null;
+
+  const gelesen = await getBewerbungById(bewerbungId).catch(() => null);
+
+  return gelesen === null ? null : bewerbungHerkunft(gelesen.bewerbung);
+}
+
+/**
  * Accepts the application, and tells the people who applied.
  *
  * **IRREVERSIBLE**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
@@ -137,7 +151,7 @@ export async function annehmenBewerbungAction(
     try {
       annahmeOperation = await annehmenBewerbung(validated.data);
     } catch (error) {
-      const refusal = mapTriageRefusal(error);
+      const refusal = mapTriageRefusal(error, await kollisionsHerkunft(error, validated.data.id));
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -217,7 +231,7 @@ export async function ablehnenBewerbungAction(
     try {
       absageOperation = await ablehnenBewerbung(validated.data);
     } catch (error) {
-      const refusal = mapTriageRefusal(error);
+      const refusal = mapTriageRefusal(error, null);
       if (refusal) return refusalResult(refusal);
       throw error;
     }

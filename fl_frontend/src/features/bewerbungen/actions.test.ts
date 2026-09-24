@@ -9,10 +9,11 @@ import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
@@ -30,11 +31,26 @@ const GELESEN = {
   bewerbung: { saison_id: "2026", schule: { team_name: "Gymnasium Beispiel" }, team_id: null, kontakte: { ansprechperson: PERSON } },
 };
 
+/** The same application naming a club the league already holds rather than a new school. */
+const GEWAEHLT = { bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: "6890a1b2c3d4e5f607182932" } };
+
+/** An acceptance of the application, whatever its group. */
+const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null } as const;
+
+/** The triage mapper as the acceptance asks it about `GELESEN`, a proposed school. */
+const acceptanceMapped = (refusal: unknown) => mapTriageRefusal(refusal, "neue_schule");
+
+/** The triage mapper as the decline asks it, entering nothing. */
+const declineMapped = (refusal: unknown) => mapTriageRefusal(refusal, null);
+
+/** What a failed action says, or nothing where it succeeded. */
+const errorOf = (result: { success: boolean; error?: string }): string => result.error ?? "";
+
 /* The real actions, called: the request they run in, the application three of them read first and
    the writes they send are the doubles. */
 doubleActionRequest();
 const { answerWith } = doubleActions({ modules: ["/src/features/bewerbungen/mutations.ts"] });
-doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
+const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const {
   ablehnenBewerbungAction,
   annehmenBewerbungAction,
@@ -178,7 +194,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
     for (const code of published) {
       assert.notEqual(
-        answerShown(ANNEHMEN_OPERATION, code, mapTriageRefusal),
+        answerShown(ANNEHMEN_OPERATION, code, acceptanceMapped),
         null,
         `${code} is published on the acceptance and reaches the admin unmapped`,
       );
@@ -187,8 +203,8 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       operation: ANNEHMEN_OPERATION,
       codes: publishedRefusals(ANNEHMEN_OPERATION),
       refuseWith: answerWith,
-      act: () => annehmenBewerbungAction({ id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null }),
-      mapped: mapTriageRefusal,
+      act: () => annehmenBewerbungAction(ANNAHME),
+      mapped: acceptanceMapped,
     });
   });
 
@@ -201,7 +217,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     );
     for (const code of published) {
       assert.notEqual(
-        answerShown(ABLEHNEN_OPERATION, code, mapTriageRefusal),
+        answerShown(ABLEHNEN_OPERATION, code, declineMapped),
         null,
         `${code} is published on the decline and reaches the admin unmapped`,
       );
@@ -211,7 +227,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       codes: publishedRefusals(ABLEHNEN_OPERATION),
       refuseWith: answerWith,
       act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
-      mapped: mapTriageRefusal,
+      mapped: declineMapped,
     });
   });
 
@@ -223,29 +239,47 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     for (const code of REUSED_ENTRY_CODES) {
       assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
       assert.notEqual(
-        mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, code)),
+        acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code)),
         null,
         `${code} can refuse an acceptance and the mapper does not answer it`,
       );
     }
   });
 
-  /* A new school's club is created with the Kürzel the school typed, so the acceptance's unique index
-     is that Kürzel, and the generic conflict would name no way out of it. */
-  it("answers the Kürzel collision with the repair rather than the generic conflict", () => {
+  /* Two unique indexes answer an acceptance: a new school's club is created under the Kürzel the
+     school typed and meets `uniq_shorthand`, and a picked club already in the season meets the
+     junction's `uniq_saison_id_team_id`. The stored application is what tells the two apart. */
+  it("answers a new school's duplicate key with the Kürzel repair rather than the generic conflict", async () => {
     assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
-    assert.match(
-      mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY))?.error ?? "",
-      /Kürzel des anderen Teams/,
-      "the collision names no way out of itself",
-    );
+    answerWith(() => Promise.reject(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY)));
+
+    assert.match(errorOf(await annehmenBewerbungAction(ANNAHME)), /Kürzel des anderen Teams/, "the collision names no way out of itself");
+  });
+
+  it("answers a picked club's duplicate key in the club editor's words for a club already in the season", async () => {
+    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    answerWith(() => Promise.reject(collision));
+    readWith(() => Promise.resolve(GEWAEHLT));
+
+    const answer = errorOf(await annehmenBewerbungAction(ANNAHME));
+
+    assert.equal(answer, mapAlreadyEnteredRefusal(collision), "a club already in the season is sent to change another club's Kürzel");
+  });
+
+  /* Neither sentence without the application: each tells the admin to repair something that may not be at fault. */
+  it("leaves the duplicate key to the shared reader where the application cannot be read", async () => {
+    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    answerWith(() => Promise.reject(collision));
+    readWith(() => Promise.reject(new Error("the read failed")));
+
+    assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields
      fails never reaches the wire, so the message names the candidates, and no edit path turns the
      application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
-    const refusal = mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
+    const refusal = acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
 
     assert.match(
       refusal,
@@ -262,7 +296,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-BEWERBUNG-013"),
       "the unconfirmed seat's rule is no longer published on the acceptance",
     );
-    assert.match(mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
+    assert.match(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
   });
 
   it("maps no rule neither decision publishes", () => {
@@ -415,7 +449,7 @@ const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): Re
 const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
 const RETIRED_RENDERINGS = renderingsOf([
-  ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"), "bestehendes_team")),
   ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
   ...renderedBy(
     "the club editor's replacement",
@@ -521,7 +555,7 @@ const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,
   renderings: renderingsOf([
-    ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, code))),
+    ...renderedBy("the triage", acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code))),
     ...renderedBy("the club editor", mapEntryRefusal(refusedOn(ENTRY_OPERATION, code))),
   ]),
 }));
