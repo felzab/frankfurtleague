@@ -323,6 +323,19 @@ def test_the_two_lists_of_scope_names_agree() -> None:
     assert set(_mapped([])) == declared
 
 
+def test_a_push_to_main_turns_every_scope_on() -> None:
+    """`--all` is the mode `.github/workflows/verify.yml` runs for every push to main, and no other case runs it.
+
+    Its names are held to `--stdin`'s, so a scope the mapping gains and `all` leaves off fails here.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    done = run_shell(BASH, MAPPING, "--all", cwd=REPO_ROOT)
+    assert done.returncode == 0, "scope_map.sh --all could not be run: " + done.stderr
+    answered = {name: value for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
+    assert set(answered) == set(_mapped([]))
+    assert [name for name, value in answered.items() if value != "true"] == [], "scope_map.sh --all left these scopes off"
+
+
 # --- the arms that reach across the package boundary -------------------------------------------------
 
 FRONTEND: Final = "fl_frontend"
