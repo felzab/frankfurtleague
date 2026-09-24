@@ -3,9 +3,8 @@
 Every case runs `scripts/checks/docs_gate/platform.py` in an interpreter of its own over a throwaway
 repository, in `scripts/tests/test_check_docs.py`'s shape: the gate's copy is imported from inside
 the fixture, so its REPO_ROOT is the fixture and the corpus is what git lists there. The copy sits
-under a folder that is NOT `scripts/`, because here `scripts/` is corpus. Stdlib only, the type
-checker reading `scripts/` with no environment declared; and no plant is spelled at module level
-in a shape the checker reads, each being built inside the case that needs it.
+under a folder that is NOT `scripts/`, because here `scripts/` is corpus. No plant is spelled at
+module level in a shape the checker reads, each being built inside the case that needs it.
 """
 
 from __future__ import annotations

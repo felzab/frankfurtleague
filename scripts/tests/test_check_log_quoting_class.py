@@ -73,8 +73,6 @@ def test_a_hyphen_ending_a_class_is_a_character_and_not_a_range():
     assert read(r"\u0041-") == frozenset({0x41, ord("-")})
 
 
-# `suppress` and a raise, not `pytest.raises`, throughout this file, for `scripts/tests/conftest.py`'s
-# pytest invariant.
 def test_a_shorthand_class_refuses():
     """The drift this checker exists for: `\\s` and `str.isspace()` disagree, so two shorthands compare nothing."""
     with contextlib.suppress(quoting.Unreadable):

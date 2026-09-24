@@ -255,7 +255,6 @@ def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_
     assert _rows(tmp_path)[0][1] == not_started
 
 
-# A loop, not parametrize, for `scripts/tests/conftest.py`'s pytest invariant.
 MALFORMED: Final[tuple[tuple[list[tuple[str, ...]], str], ...]] = (
     ([("", *_exits(0))], "names no unit"),
     ([("solo",)], "carries no command"),

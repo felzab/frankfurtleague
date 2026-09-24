@@ -1,8 +1,7 @@
 """SCRIPTS · the scope mapping's decisions: which scopes a path selects, and what a branch is read from.
 
 `scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping, and a pull request's CI
-jobs run exactly what it emits, so a wrong arm is a scope no job proves. Stdlib only, the type
-checker reading scripts/ with no environment.
+jobs run exactly what it emits, so a wrong arm is a scope no job proves.
 """
 
 from __future__ import annotations

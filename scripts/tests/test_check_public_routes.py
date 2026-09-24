@@ -412,8 +412,7 @@ def test_a_handler_under_a_top_level_dynamic_segment_heads_at_the_root():
     assert routes.url_of(("[slug]",), Path("route.ts")) == ("/[slug]", "/", True)
 
 
-# A `try`, not `pytest.raises`, throughout this file, for `scripts/tests/conftest.py`'s pytest
-# invariant. `re.search` because the patterns below are the refusal's own wording, not the whole of it.
+# `re.search` because the patterns below are the refusal's own wording, not the whole of it.
 def test_a_segment_this_reader_cannot_place_refuses():
     """A private folder serves no URL at all, and guessing which is what a refusal exists to stop."""
     try:

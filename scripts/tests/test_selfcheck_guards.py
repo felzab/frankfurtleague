@@ -28,8 +28,8 @@ CHECKER: Final = SCRIPTS / "checks" / "docs_gate" / "checks.py"
 AWK_PATTERN_RE: Final = re.compile(r"/(\^[^/\n]*)/")
 
 
-# A value rather than a `skipif`: nothing here imports pytest (`scripts/tests/conftest.py`), and
-# without node every row reaches the same arm, so each is read for the line its machine can print.
+# A value rather than a `skipif`: without node every row reaches the same arm, so each is still
+# read, for the line its machine can print.
 NODE: Final = shutil.which("node")
 NO_NODE_SAID: Final = "FAIL no hook registration was read"
 
