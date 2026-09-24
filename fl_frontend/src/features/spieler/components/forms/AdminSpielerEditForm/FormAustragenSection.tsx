@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useTransition } from "react";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
 import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "@/features/spieler/constants";

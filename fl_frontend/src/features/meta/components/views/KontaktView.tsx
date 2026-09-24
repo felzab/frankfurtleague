@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Envelope } from "@gravity-ui/icons";
+import Envelope from "@gravity-ui/icons/Envelope";
 
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { BRAND_TILE } from "@/shared/components/ui/brandTile";

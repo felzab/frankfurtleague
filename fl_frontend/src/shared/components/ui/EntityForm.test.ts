@@ -20,7 +20,10 @@ import type { ActionResult } from "@/shared/types/types.ts";
 const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { FieldError, Input, Label, TextField } = await import("@heroui/react");
+const { FieldError } = await import("@heroui/react/field-error");
+const { Input } = await import("@heroui/react/input");
+const { Label } = await import("@heroui/react/label");
+const { TextField } = await import("@heroui/react/textfield");
 const { EntityForm } = await import("./EntityForm.tsx");
 
 type Draft = { name: string };

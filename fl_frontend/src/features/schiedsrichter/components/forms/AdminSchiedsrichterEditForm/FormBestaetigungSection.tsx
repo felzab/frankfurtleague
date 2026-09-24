@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { PaperPlane } from "@gravity-ui/icons";
+import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { einwilligungFassung } from "@/core/einwilligung";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";

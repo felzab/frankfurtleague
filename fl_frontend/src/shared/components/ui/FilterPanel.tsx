@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, ListBox, Popover, SearchField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { Popover } from "@heroui/react/popover";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions, isFacetOptionReachable, offeredOptions } from "@/shared/utils/facets";
@@ -12,7 +15,7 @@ import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
-import type { Selection } from "@heroui/react";
+import type { Selection } from "@heroui/react/rac";
 import type { CSSProperties, RefObject } from "react";
 
 /** The type-to-filter threshold and the row count `CELL_CAP` is derived from: a field appears exactly where the list stops fitting. */

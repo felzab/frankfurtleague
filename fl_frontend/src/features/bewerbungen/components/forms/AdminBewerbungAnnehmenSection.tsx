@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { SealCheck } from "@gravity-ui/icons";
+import SealCheck from "@gravity-ui/icons/SealCheck";
 
 import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";

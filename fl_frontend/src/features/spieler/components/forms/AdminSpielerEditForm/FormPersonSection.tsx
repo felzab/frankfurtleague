@@ -2,7 +2,9 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { TextField } from "@heroui/react/textfield";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";

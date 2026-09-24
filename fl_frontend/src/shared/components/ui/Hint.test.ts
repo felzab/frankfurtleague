@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { Hint } = await import("./Hint.tsx");
 const { InfoHint } = await import("./InfoHint.tsx");
-const { Button } = await import("@heroui/react");
+const { Button } = await import("@heroui/react/button");
 
 const REASON = "Es gibt noch keine Änderung zu speichern.";
 const LABEL = "Speichern";

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
+import ArrowUpRightFromSquare from "@gravity-ui/icons/ArrowUpRightFromSquare";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";

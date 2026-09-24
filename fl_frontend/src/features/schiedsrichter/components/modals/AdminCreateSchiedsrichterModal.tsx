@@ -1,8 +1,9 @@
 "use client";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Button, useOverlayState } from "@heroui/react";
+import { useOverlayState } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { SCHIEDSRICHTER_CRUD_COPY } from "@/features/schiedsrichter/constants";
 import { formButton } from "@/shared/components/ui/formButtons";

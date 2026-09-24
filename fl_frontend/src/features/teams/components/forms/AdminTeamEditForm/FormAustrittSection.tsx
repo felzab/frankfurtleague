@@ -1,6 +1,11 @@
 "use client";
 
-import { FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Switch } from "@heroui/react/switch";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { AUSTRITT_OPTIONS } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
@@ -13,7 +18,7 @@ import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
 

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { Tabs } from "@heroui/react";
+import { Tabs } from "@heroui/react/tabs";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
@@ -18,7 +18,7 @@ import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { FLActionUrgency } from "../../utils";
 
 /**

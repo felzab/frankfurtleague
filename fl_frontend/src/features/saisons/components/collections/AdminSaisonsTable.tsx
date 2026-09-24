@@ -2,9 +2,11 @@
 
 import { memo } from "react";
 
-import { Calendar, Pencil, Persons } from "@gravity-ui/icons";
+import Calendar from "@gravity-ui/icons/Calendar";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Persons from "@gravity-ui/icons/Persons";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
 import { rolleLabel } from "@/features/spieler/constants";

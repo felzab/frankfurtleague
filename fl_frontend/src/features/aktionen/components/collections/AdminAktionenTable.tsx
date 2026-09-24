@@ -3,9 +3,12 @@
 import { memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { ClockArrowRotateLeft, Cpu, Globe, Person } from "@gravity-ui/icons";
+import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
+import Cpu from "@gravity-ui/icons/Cpu";
+import Globe from "@gravity-ui/icons/Globe";
+import Person from "@gravity-ui/icons/Person";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, IDENTITY_STACK, TABLE_HEADING } from "@/shared/components/ui/adminTable";

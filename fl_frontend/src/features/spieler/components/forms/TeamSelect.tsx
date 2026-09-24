@@ -1,6 +1,9 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
 
 import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
@@ -8,7 +11,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { SpielerTeamOption } from "@/features/spieler/types";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * Offers **the selected season's teams**, which is what stops a player being put in a team that is

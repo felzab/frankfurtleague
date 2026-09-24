@@ -2,7 +2,10 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { FieldError, Input, Label, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { postSaisonAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";

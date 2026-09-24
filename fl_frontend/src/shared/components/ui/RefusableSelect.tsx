@@ -1,12 +1,14 @@
 "use client";
 
-import { Label, ListBox, Select } from "@heroui/react";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
 
 import { FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
 import { listboxRow, pickIfOffered } from "./refusableOption";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { RefusableOption } from "./refusableOption";
 
 /** Re-exported: a panel imports the option shape from the picker it hands the options to. */

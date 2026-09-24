@@ -3,9 +3,13 @@
 import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Envelope, Globe, Magnifier, Pencil, PersonPencil } from "@gravity-ui/icons";
+import Envelope from "@gravity-ui/icons/Envelope";
+import Globe from "@gravity-ui/icons/Globe";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Pencil from "@gravity-ui/icons/Pencil";
+import PersonPencil from "@gravity-ui/icons/PersonPencil";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand, TEAMS_CRUD_COPY } from "@/features/teams/constants";

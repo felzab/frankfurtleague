@@ -3,9 +3,15 @@
 import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { ArrowUpArrowDown, Sliders, Xmark } from "@gravity-ui/icons";
+import ArrowUpArrowDown from "@gravity-ui/icons/ArrowUpArrowDown";
+import Sliders from "@gravity-ui/icons/Sliders";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { Popover } from "@heroui/react/popover";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { Select } from "@heroui/react/select";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { offeredOptions } from "@/shared/utils/facets";
@@ -19,7 +25,7 @@ import { PICKED_OPTION } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
 const CONTROL_BOX = "bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";

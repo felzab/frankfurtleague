@@ -2,9 +2,13 @@
 
 import { useRef } from "react";
 
-import { Xmark } from "@gravity-ui/icons";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
+import { Calendar } from "@heroui/react/calendar";
+import { DateField } from "@heroui/react/date-field";
+import { DatePicker } from "@heroui/react/date-picker";
+import { FieldError } from "@heroui/react/field-error";
+import { TimeField } from "@heroui/react/time-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import {

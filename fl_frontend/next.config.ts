@@ -51,9 +51,10 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
-    // `@heroui/styles` is deliberately absent: it is consumed as CSS, so there are no named imports
-    // for this to barrel-optimise and listing it was a no-op.
-    optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
+    // HeroUI's root is imported for `useOverlayState` alone, which no subpath publishes.
+    // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root
+    // import to narrow.
+    optimizePackageImports: ["@heroui/react"],
   },
   // Set only by the gate's host build, which follows its own tsc over the same working tree,
   // `.next/types/validator.ts` included. Never set it for an image build: that context is the tree

@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 
-import { ArrowRightFromSquare, Ellipsis, Key } from "@gravity-ui/icons";
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
+import Ellipsis from "@gravity-ui/icons/Ellipsis";
+import Key from "@gravity-ui/icons/Key";
 
-import { Dropdown, Label, Separator } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { useSignOut } from "@/shared/hooks/useSignOut";

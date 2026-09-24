@@ -1,6 +1,7 @@
 "use client";
 
-import { Label, Separator } from "@heroui/react";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";

@@ -1,6 +1,8 @@
 "use client";
 
-import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Plus from "@gravity-ui/icons/Plus";
+import Xmark from "@gravity-ui/icons/Xmark";
 
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";

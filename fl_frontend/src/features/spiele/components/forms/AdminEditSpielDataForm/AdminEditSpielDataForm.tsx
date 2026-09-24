@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";

@@ -130,7 +130,7 @@ else
       fl_frontend/src/core/passkeyRefusal.ts|fl_frontend/src/features/passkeys/actions.ts| \
       fl_frontend/src/core/authDoubles.ts|fl_frontend/src/shared/utils/refusal.ts| \
       fl_frontend/app-source-maps.mjs|fl_frontend/tsconfig-alias-hook.mjs| \
-      fl_frontend/barrel-imports-hook.mjs|fl_frontend/worker-exit-reporter.mjs)
+      fl_frontend/worker-exit-reporter.mjs)
         frontend=true; db=true; docs=true ;;
       # Every extension `test:db` collects, so no db-tier file changes outside the scope that runs it.
       fl_frontend/*.db.test.cjs|fl_frontend/*.db.test.mjs|fl_frontend/*.db.test.js| \

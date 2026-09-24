@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowUturnCwLeft, TriangleExclamation } from "@gravity-ui/icons";
+import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
 import { ModalShell } from "./ModalShell";

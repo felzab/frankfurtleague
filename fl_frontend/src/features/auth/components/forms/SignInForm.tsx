@@ -3,7 +3,13 @@
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { catchError } from "next/error";
 
-import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Tabs } from "@heroui/react/tabs";
+import { TextField } from "@heroui/react/textfield";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";

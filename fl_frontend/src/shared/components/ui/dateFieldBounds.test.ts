@@ -54,7 +54,7 @@ function heroUiNames(source: ts.SourceFile): Map<string, string> {
 
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    if (statement.moduleSpecifier.text !== "@heroui/react") continue;
+    if (!/^@heroui\/react(\/|$)/.test(statement.moduleSpecifier.text)) continue;
 
     const bindings = statement.importClause?.namedBindings;
     if (bindings === undefined) continue;

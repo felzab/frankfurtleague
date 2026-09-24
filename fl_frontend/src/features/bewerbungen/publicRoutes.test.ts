@@ -43,7 +43,9 @@ const { raised } = doubleToasts();
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
  registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
-const { ComboBox, Input, Label } = await import("@heroui/react");
+const { ComboBox } = await import("@heroui/react/combo-box");
+const { Input } = await import("@heroui/react/input");
+const { Label } = await import("@heroui/react/label");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
 const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { KontaktView } = await import("@/features/meta/components/views/KontaktView.tsx");

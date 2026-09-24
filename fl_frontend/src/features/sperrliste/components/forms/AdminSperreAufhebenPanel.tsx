@@ -1,6 +1,6 @@
 "use client";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { deleteSperreAction } from "@/features/sperrliste/actions";
 import { SPERRE_AUFHEBEN_CONSEQUENCE } from "@/features/sperrliste/constants";

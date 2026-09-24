@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, Form } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Form } from "@heroui/react/form";
 
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { unansweredAction } from "@/shared/utils/actionError";

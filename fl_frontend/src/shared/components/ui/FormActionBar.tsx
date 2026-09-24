@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { formButton } from "@/shared/components/ui/formButtons";

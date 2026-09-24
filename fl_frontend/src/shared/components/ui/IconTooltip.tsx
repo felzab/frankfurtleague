@@ -1,6 +1,6 @@
 "use client";
 
-import { Tooltip } from "@heroui/react";
+import { Tooltip } from "@heroui/react/tooltip";
 
 import { HINT_SURFACE } from "./hintSurface";
 

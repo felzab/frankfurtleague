@@ -3,7 +3,7 @@ import "@/shared/testing/dom.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
-import { toast } from "@heroui/react";
+import { toast } from "@heroui/react/toast";
 
 import { appToast } from "./appToast.ts";
 

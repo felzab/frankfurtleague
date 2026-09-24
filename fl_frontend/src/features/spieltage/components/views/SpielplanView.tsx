@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs } from "@heroui/react";
+import { Tabs } from "@heroui/react/tabs";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";

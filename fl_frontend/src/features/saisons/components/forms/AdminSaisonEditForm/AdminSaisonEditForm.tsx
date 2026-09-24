@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSaisonAction } from "@/features/saisons/actions";
 import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";

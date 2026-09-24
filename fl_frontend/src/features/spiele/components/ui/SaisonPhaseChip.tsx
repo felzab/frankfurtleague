@@ -1,4 +1,4 @@
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";

@@ -2,19 +2,17 @@
 
 import { useId, useState } from "react";
 
-import {
-  Autocomplete,
-  FieldError,
-  Input,
-  Label,
-  ListBox,
-  NumberField,
-  SearchField,
-  Select,
-  Separator,
-  TextField,
-  useFilter,
-} from "@heroui/react";
+import { Autocomplete } from "@heroui/react/autocomplete";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { NumberField } from "@heroui/react/number-field";
+import { useFilter } from "@heroui/react/rac";
+import { SearchField } from "@heroui/react/search-field";
+import { Select } from "@heroui/react/select";
+import { Separator } from "@heroui/react/separator";
+import { TextField } from "@heroui/react/textfield";
 
 import { dismissControl } from "@/core/dismissControl";
 import {
@@ -53,7 +51,7 @@ import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
 const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";

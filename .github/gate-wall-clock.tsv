@@ -235,11 +235,12 @@
 # under a live fleet, over a frozen copy of HEAD, every run 292 files and 5131 passing cases:
 # 834-896 s across five runs of the old `test` line against 518-533 s across two of the new one.
 # Against the old line, the alias hook skipping TypeScript suffixes for a `node_modules`
-# parent is about 5 percent, source maps for the application's modules alone about 6 percent, and an
-# import of a package `next.config.ts` lists under `optimizePackageImports` loading only the names
-# it takes, as the bundle does, about 26 percent, a rendering file's process loading 2081 modules
-# where it loaded 4160. The runner's own figures replace these on the pull request's runs; no row
-# moves until a population of them exists.
+# parent is about 5 percent, source maps for the application's modules alone about 6 percent, and a
+# HeroUI or icon import loading only the names it takes, about 26 percent, a rendering file's
+# process loading 2081 modules where it loaded 4160. Per-component subpath imports hold that now,
+# loading the same modules within 40 in four of five sampled files; the fifth reaches
+# `useOverlayState`'s root import. The runner's own figures replace these on the pull request's
+# runs; no row moves until a population of them exists.
 #
 # `db` gained the frontend's db-tier files (`pnpm run test:db`, two files, each starting its
 # own replica set through testcontainers) and the frontend toolchain step they need. The files cost

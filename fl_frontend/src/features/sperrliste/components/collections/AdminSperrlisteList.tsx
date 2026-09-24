@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 
-import { Ban } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
 
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";

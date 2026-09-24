@@ -1,4 +1,4 @@
-import { Separator } from "@heroui/react";
+import { Separator } from "@heroui/react/separator";
 
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";

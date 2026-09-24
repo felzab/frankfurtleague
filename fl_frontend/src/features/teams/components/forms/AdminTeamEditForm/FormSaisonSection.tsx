@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightArrowLeft, LockFill } from "@gravity-ui/icons";
+import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
+import LockFill from "@gravity-ui/icons/LockFill";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";

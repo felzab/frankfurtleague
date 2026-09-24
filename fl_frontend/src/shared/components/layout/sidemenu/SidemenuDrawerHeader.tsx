@@ -1,6 +1,6 @@
 "use client";
 
-import { Xmark } from "@gravity-ui/icons";
+import Xmark from "@gravity-ui/icons/Xmark";
 
 import { BrandLink } from "../../ui/BrandLink";
 

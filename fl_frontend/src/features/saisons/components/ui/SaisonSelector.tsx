@@ -3,7 +3,9 @@
 import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Description, ListBox, Select } from "@heroui/react";
+import { Description } from "@heroui/react/description";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
 
 import { SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
@@ -12,7 +14,7 @@ import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SaisonSelectorOption } from "../../types";
 
 export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption | null }) {

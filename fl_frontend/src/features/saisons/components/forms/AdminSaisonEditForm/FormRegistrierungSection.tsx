@@ -2,7 +2,8 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { Label, Switch } from "@heroui/react";
+import { Label } from "@heroui/react/label";
+import { Switch } from "@heroui/react/switch";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";

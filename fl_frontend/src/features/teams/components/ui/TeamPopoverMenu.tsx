@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 
-import { CircleInfo, Persons } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import Persons from "@gravity-ui/icons/Persons";
 
-import { Badge, Popover, Separator } from "@heroui/react";
+import { Badge } from "@heroui/react/badge";
+import { Popover } from "@heroui/react/popover";
+import { Separator } from "@heroui/react/separator";
 
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";

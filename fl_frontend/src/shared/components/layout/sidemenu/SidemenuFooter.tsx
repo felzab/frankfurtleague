@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 
-import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } from "@gravity-ui/icons";
+import ArrowRightToSquare from "@gravity-ui/icons/ArrowRightToSquare";
+import LayoutSideContentLeft from "@gravity-ui/icons/LayoutSideContentLeft";
+import LayoutSideContentRight from "@gravity-ui/icons/LayoutSideContentRight";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { RAIL_GUTTER, RAIL_SQUARE_RING } from "./railGutter";

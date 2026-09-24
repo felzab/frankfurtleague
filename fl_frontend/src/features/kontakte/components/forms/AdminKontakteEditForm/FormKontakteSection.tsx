@@ -5,7 +5,10 @@ import Link from "next/link";
 
 import { parseDate } from "@internationalized/date";
 
-import { FieldError, Input, Switch, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Switch } from "@heroui/react/switch";
+import { TextField } from "@heroui/react/textfield";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";

@@ -1,7 +1,8 @@
-import { CircleInfo, TriangleExclamation } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
-import { CloseButton } from "@heroui/react";
+import { CloseButton } from "@heroui/react/close-button";
 
 import { dismissControl } from "@/core/dismissControl";
 

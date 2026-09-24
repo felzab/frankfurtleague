@@ -1,4 +1,5 @@
-import { FieldError, NumberField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { NumberField } from "@heroui/react/number-field";
 
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";

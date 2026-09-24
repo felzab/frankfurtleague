@@ -4,9 +4,9 @@ import { memo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { Pencil } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import {

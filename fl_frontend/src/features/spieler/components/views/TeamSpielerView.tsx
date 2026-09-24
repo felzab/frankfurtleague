@@ -1,6 +1,8 @@
 "use client";
 
-import { Avatar, Chip, Table } from "@heroui/react";
+import { Avatar } from "@heroui/react/avatar";
+import { Chip } from "@heroui/react/chip";
+import { Table } from "@heroui/react/table";
 
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";

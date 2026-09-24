@@ -2,7 +2,7 @@
 
 import { tv } from "tailwind-variants";
 
-import { Modal } from "@heroui/react";
+import { Modal } from "@heroui/react/modal";
 
 import { dismissControl } from "@/core/dismissControl";
 

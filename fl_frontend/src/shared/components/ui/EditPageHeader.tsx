@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 

@@ -1,6 +1,12 @@
 "use client";
 
-import { ComboBox, FieldError, Input, Label, ListBox, NumberField, TextField } from "@heroui/react";
+import { ComboBox } from "@heroui/react/combo-box";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { NumberField } from "@heroui/react/number-field";
+import { TextField } from "@heroui/react/textfield";
 
 import {
   BEWERBUNG_KADER_GROESSE_MAX,

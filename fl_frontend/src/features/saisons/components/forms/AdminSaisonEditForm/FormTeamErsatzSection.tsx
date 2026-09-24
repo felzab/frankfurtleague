@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRight } from "@gravity-ui/icons";
+import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";

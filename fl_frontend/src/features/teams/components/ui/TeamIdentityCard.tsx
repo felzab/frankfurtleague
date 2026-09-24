@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Globe, MapPin } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import MapPin from "@gravity-ui/icons/MapPin";
 
 import { card } from "@/shared/components/ui/card";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";

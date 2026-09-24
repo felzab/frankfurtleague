@@ -9,7 +9,11 @@ import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { FieldError, Form, Input, Label, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { renderTree } from "@/shared/testing/renderTest.ts";
 

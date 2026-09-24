@@ -1,8 +1,14 @@
 import Link from "next/link";
 
-import { At, CircleInfo, Eye, Pencil, Persons } from "@gravity-ui/icons";
+import At from "@gravity-ui/icons/At";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import Eye from "@gravity-ui/icons/Eye";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Persons from "@gravity-ui/icons/Persons";
 
-import { Dropdown, Label, Separator } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { BrandLink } from "../../ui/BrandLink";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";

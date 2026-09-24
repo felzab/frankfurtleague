@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";

@@ -2,7 +2,8 @@
 
 import { memo } from "react";
 
-import { ArrowRightFromSquare, GraduationCap } from "@gravity-ui/icons";
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
+import GraduationCap from "@gravity-ui/icons/GraduationCap";
 
 import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
 import {

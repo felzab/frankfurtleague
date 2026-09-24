@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";

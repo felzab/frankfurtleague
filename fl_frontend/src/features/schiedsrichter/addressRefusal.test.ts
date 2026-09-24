@@ -12,7 +12,7 @@ import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT, toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { Form } = await import("@heroui/react");
+const { Form } = await import("@heroui/react/form");
 const { SchiedsrichterFormFields } = await import("./components/forms/SchiedsrichterFormFields.tsx");
 
 const ENTWURF = { name: "Anna Meier", schule: "", default_payment: 20, kontakt: { email: "anna@beispiel.test", telefon: "" } };

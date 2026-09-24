@@ -1,8 +1,10 @@
 import { useRef } from "react";
 
-import { Xmark } from "@gravity-ui/icons";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { FieldError, TextArea, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { TextArea } from "@heroui/react/textarea";
+import { TextField } from "@heroui/react/textfield";
 
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";

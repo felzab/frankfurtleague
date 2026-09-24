@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Envelope } from "@gravity-ui/icons";
+import Envelope from "@gravity-ui/icons/Envelope";
 
-import { Switch } from "@heroui/react";
+import { Switch } from "@heroui/react/switch";
 
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";

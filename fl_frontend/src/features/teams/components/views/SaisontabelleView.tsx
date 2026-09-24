@@ -2,7 +2,8 @@
 // function to a Client Component. Neither tsc nor `next build` catches it on a dynamic route.
 "use client";
 
-import { Badge, Table } from "@heroui/react";
+import { Badge } from "@heroui/react/badge";
+import { Table } from "@heroui/react/table";
 
 import { PILL_SOLID } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";

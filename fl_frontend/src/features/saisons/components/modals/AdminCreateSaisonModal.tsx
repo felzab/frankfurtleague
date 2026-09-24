@@ -1,8 +1,9 @@
 "use client";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Button, useOverlayState } from "@heroui/react";
+import { useOverlayState } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { AdminCreateSaisonForm } from "@/features/saisons/components/forms/AdminCreateSaisonForm";
 import { SAISONS_CRUD_COPY } from "@/features/saisons/constants";

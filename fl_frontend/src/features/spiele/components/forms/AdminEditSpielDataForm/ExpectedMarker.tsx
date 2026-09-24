@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleDashed } from "@gravity-ui/icons";
+import CircleDashed from "@gravity-ui/icons/CircleDashed";
 
 import { FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";

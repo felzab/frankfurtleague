@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Chip } from "@heroui/react";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
 
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { BRAND_TILE } from "@/shared/components/ui/brandTile";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@heroui/react";
+import { Card } from "@heroui/react/card";
 
 import { PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";

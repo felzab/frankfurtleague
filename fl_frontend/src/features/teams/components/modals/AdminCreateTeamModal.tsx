@@ -1,8 +1,9 @@
 "use client";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Button, useOverlayState } from "@heroui/react";
+import { useOverlayState } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { AdminCreateTeamForm } from "@/features/teams/components/forms/AdminCreateTeamForm";
 import { TEAMS_CRUD_COPY } from "@/features/teams/constants";

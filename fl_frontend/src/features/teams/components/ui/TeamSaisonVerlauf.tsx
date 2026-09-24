@@ -1,4 +1,4 @@
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
 
 import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
 import { ImElfmeterschiessen } from "@/features/spiele/components/ui/ImElfmeterschiessen";

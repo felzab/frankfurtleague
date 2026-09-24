@@ -1,6 +1,10 @@
 "use client";
 
-import { FieldError, Input, Label, TextArea, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextArea } from "@heroui/react/textarea";
+import { TextField } from "@heroui/react/textfield";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import {

@@ -3,7 +3,9 @@
 import { memo } from "react";
 import Link from "next/link";
 
-import { Globe, Magnifier, Pencil } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Pencil from "@gravity-ui/icons/Pencil";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";

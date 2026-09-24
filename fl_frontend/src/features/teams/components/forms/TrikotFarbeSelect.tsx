@@ -1,6 +1,9 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
@@ -9,7 +12,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
 const KEINE_FARBE = "keine";

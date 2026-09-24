@@ -115,10 +115,24 @@ const TEST_ONLY = [
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
 /**
+ * A package root loads whole under `node --test`, which has no bundler to narrow it
+ * (`docs/frontend/spec.md` §1.9). `useOverlayState` is published at the root alone, and an
+ * `await import` escapes the rule.
+ */
+const VENDOR_ROOTS = [
+  {
+    regex: "^@heroui/react$",
+    allowImportNames: ["useOverlayState"],
+    message: "Import a HeroUI component from its own subpath, `@heroui/react/<component>`.",
+  },
+  { regex: "^@gravity-ui/icons$", message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
+];
+
+/**
  * eslint decides `no-restricted-imports` from the LAST config object matching a file rather than
  * merging the matches, so a block covering a subset restates every pattern that reaches it.
  */
-const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: patterns }] });
+const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [...VENDOR_ROOTS, ...patterns] }] });
 
 // A syntax rule rather than a test sweep: two comments in this tree name `router.back()` without
 // calling it, and a matcher over source text cannot tell them from a call. The exemption below is the
@@ -175,6 +189,9 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": ["error", HISTORY_BACK, PASSKEY_DELETION],
     },
   },
+
+  // The vendor-root ban alone, for the files no block below reaches: tests outside `core` and `shared`.
+  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports() },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.

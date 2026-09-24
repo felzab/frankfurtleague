@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";

@@ -1,6 +1,7 @@
 "use client";
 
-import { FieldError, NumberField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { NumberField } from "@heroui/react/number-field";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";

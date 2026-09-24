@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 
-import { Pencil } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
 
-import { FieldError, Input, ListBox, Select, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
+import { TextField } from "@heroui/react/textfield";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
@@ -25,7 +29,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
 const SCHULFORM_UNBEANTWORTET = "unbeantwortet";

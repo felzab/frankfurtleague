@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Calendar, CalendarXmark } from "@gravity-ui/icons";
+import Calendar from "@gravity-ui/icons/Calendar";
+import CalendarXmark from "@gravity-ui/icons/CalendarXmark";
 
-import { Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Label } from "@heroui/react/label";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
@@ -44,7 +47,7 @@ import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
 import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SpielplanOperation } from "./blockedReasons";
 
 /**

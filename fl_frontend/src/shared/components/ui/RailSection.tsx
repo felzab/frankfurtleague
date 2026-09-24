@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 
-import { ChevronDown } from "@gravity-ui/icons";
+import ChevronDown from "@gravity-ui/icons/ChevronDown";
 
 import { card } from "@/shared/components/ui/card";
 

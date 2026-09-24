@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { ChevronsDownWide, StarFill } from "@gravity-ui/icons";
+import ChevronsDownWide from "@gravity-ui/icons/ChevronsDownWide";
+import StarFill from "@gravity-ui/icons/StarFill";
 
-import { Accordion, Chip } from "@heroui/react";
+import { Accordion } from "@heroui/react/accordion";
+import { Chip } from "@heroui/react/chip";
 
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";

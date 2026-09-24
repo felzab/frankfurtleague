@@ -1,6 +1,12 @@
 "use client";
 
-import { Autocomplete, FieldError, Label, ListBox, SearchField, Separator, useFilter } from "@heroui/react";
+import { Autocomplete } from "@heroui/react/autocomplete";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { useFilter } from "@heroui/react/rac";
+import { SearchField } from "@heroui/react/search-field";
+import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
@@ -25,7 +31,7 @@ import { ExpectedMarker } from "./ExpectedMarker";
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
 
 /** Neither 24 characters nor hex, so it can never collide with a team id. */

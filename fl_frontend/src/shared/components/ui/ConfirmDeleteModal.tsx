@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { appToast } from "@/shared/utils/appToast";
 

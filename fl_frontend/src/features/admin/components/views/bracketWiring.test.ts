@@ -68,7 +68,7 @@ function namedImportsFrom(module: string): Set<string> {
 
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    if (statement.moduleSpecifier.text !== module) continue;
+    if (statement.moduleSpecifier.text !== module && !statement.moduleSpecifier.text.startsWith(`${module}/`)) continue;
 
     const bindings = statement.importClause?.namedBindings;
     if (bindings !== undefined && ts.isNamedImports(bindings)) for (const binding of bindings.elements) names.add(binding.name.getText(source));

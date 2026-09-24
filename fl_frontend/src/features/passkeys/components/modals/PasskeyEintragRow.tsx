@@ -1,6 +1,6 @@
 "use client";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";

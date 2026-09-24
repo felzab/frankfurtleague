@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "@gravity-ui/icons";
+import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
 import { trackCountBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";

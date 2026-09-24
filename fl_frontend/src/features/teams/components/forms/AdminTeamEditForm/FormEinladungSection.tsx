@@ -3,9 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Ban, Copy, Envelope, Link } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
+import Copy from "@gravity-ui/icons/Copy";
+import Envelope from "@gravity-ui/icons/Envelope";
+import Link from "@gravity-ui/icons/Link";
 
-import { Button, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
@@ -28,7 +33,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
 import type { FLEinladung } from "@/features/einladungen/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * **The one sentence that has to survive every rewrite of this panel**: the store keeps a hash, so

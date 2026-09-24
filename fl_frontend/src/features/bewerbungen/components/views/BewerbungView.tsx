@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-import { At, CircleInfo, Eye } from "@gravity-ui/icons";
+import At from "@gravity-ui/icons/At";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import Eye from "@gravity-ui/icons/Eye";
 
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";

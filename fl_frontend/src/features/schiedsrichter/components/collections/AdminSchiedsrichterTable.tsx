@@ -2,9 +2,11 @@
 
 import { memo } from "react";
 
-import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Person from "@gravity-ui/icons/Person";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";

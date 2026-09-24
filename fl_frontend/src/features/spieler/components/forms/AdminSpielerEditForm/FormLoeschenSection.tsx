@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { eraseSpielerAction } from "@/features/spieler/actions";
 import { ERASURE_NEEDS_RETIREMENT } from "@/features/spieler/constants";

@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowRotateRight } from "@gravity-ui/icons";
+import ArrowRotateRight from "@gravity-ui/icons/ArrowRotateRight";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { CrashReportLink } from "@/shared/components/ui/CrashReportLink";
 import { ctaButton } from "@/shared/components/ui/formButtons";

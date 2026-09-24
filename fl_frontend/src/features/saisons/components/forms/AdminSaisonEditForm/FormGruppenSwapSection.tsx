@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightArrowLeft } from "@gravity-ui/icons";
+import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";

@@ -1,12 +1,16 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select, Separator } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
+import { Separator } from "@heroui/react/separator";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.

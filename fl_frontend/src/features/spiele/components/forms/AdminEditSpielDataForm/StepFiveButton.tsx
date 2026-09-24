@@ -1,6 +1,7 @@
 "use client";
 
-import { Minus, Plus } from "@gravity-ui/icons";
+import Minus from "@gravity-ui/icons/Minus";
+import Plus from "@gravity-ui/icons/Plus";
 
 /**
  * react-aria's `step` drives the buttons AND snaps typed values to the nearest multiple on commit,

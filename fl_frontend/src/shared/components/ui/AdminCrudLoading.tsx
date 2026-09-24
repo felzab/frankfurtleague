@@ -1,4 +1,4 @@
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
 import { buttonVariants } from "@heroui/styles";
 

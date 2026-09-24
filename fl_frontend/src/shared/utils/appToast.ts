@@ -1,7 +1,7 @@
-import { toast } from "@heroui/react";
+import { toast } from "@heroui/react/toast";
 
 import type { ActionFailure } from "@/shared/types/types";
-import type { ButtonProps } from "@heroui/react";
+import type { ButtonProps } from "@heroui/react/button";
 import type { ReactNode } from "react";
 
 /** Every failure title says the change did not happen, which is false where nobody can tell. */

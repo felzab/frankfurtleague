@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Button, Spinner } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Spinner } from "@heroui/react/spinner";
 
 import { authClient } from "@/core/authClient";
 import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";

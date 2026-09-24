@@ -2,7 +2,12 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
-import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { BestaetigungErgebnis } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 
-import { CircleInfo } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 
-import { Modal, Separator } from "@heroui/react";
+import { Modal } from "@heroui/react/modal";
+import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";

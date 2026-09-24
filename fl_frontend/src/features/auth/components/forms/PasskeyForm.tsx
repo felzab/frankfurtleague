@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
 import { KONTAKT_EMAIL } from "@/core/brand";

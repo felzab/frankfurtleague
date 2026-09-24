@@ -1,6 +1,6 @@
 "use client";
 
-import { Bars } from "@gravity-ui/icons";
+import Bars from "@gravity-ui/icons/Bars";
 
 import { BrandLink } from "../../ui/BrandLink";
 import { InfoHint } from "../../ui/InfoHint";

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSpielortAction } from "@/features/spielorte/actions";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { confirmButton } from "./formButtons";
 import { Hint } from "./Hint";

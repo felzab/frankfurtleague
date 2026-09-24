@@ -1,6 +1,10 @@
-import { Calendar, CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill } from "@gravity-ui/icons";
+import Calendar from "@gravity-ui/icons/Calendar";
+import CircleCheckFill from "@gravity-ui/icons/CircleCheckFill";
+import CircleQuestion from "@gravity-ui/icons/CircleQuestion";
+import Clock from "@gravity-ui/icons/Clock";
+import XmarkShapeFill from "@gravity-ui/icons/XmarkShapeFill";
 
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
 
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 

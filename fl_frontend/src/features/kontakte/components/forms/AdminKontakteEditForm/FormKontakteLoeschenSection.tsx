@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";

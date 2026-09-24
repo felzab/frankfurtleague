@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
-import { CircleInfo } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 
-import { Popover } from "@heroui/react";
+import { Popover } from "@heroui/react/popover";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 

@@ -1,18 +1,16 @@
-import {
-  Ban,
-  Calendar,
-  ClockArrowRotateLeft,
-  Envelope,
-  ExclamationShape,
-  Magnifier,
-  MapPin,
-  Medal,
-  Person,
-  PersonPencil,
-  Persons,
-  Sliders,
-  Tray,
-} from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
+import Calendar from "@gravity-ui/icons/Calendar";
+import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
+import Envelope from "@gravity-ui/icons/Envelope";
+import ExclamationShape from "@gravity-ui/icons/ExclamationShape";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import MapPin from "@gravity-ui/icons/MapPin";
+import Medal from "@gravity-ui/icons/Medal";
+import Person from "@gravity-ui/icons/Person";
+import PersonPencil from "@gravity-ui/icons/PersonPencil";
+import Persons from "@gravity-ui/icons/Persons";
+import Sliders from "@gravity-ui/icons/Sliders";
+import Tray from "@gravity-ui/icons/Tray";
 
 import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";

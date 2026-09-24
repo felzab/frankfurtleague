@@ -1,6 +1,9 @@
 "use client";
 
-import { FieldError, ListBox, NumberField, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { ListBox } from "@heroui/react/list-box";
+import { NumberField } from "@heroui/react/number-field";
+import { Select } from "@heroui/react/select";
 
 import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_MARKER, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
@@ -10,7 +13,7 @@ import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**

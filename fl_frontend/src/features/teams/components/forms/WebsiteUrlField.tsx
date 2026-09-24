@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
+import ArrowUpRightFromSquare from "@gravity-ui/icons/ArrowUpRightFromSquare";
 
-import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { InputGroup } from "@heroui/react/input-group";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { toWebsiteUrl } from "@/features/teams/utils";

@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 
-import { Separator } from "@heroui/react";
+import { Separator } from "@heroui/react/separator";
 
 import { SidemenuNavItem } from "./SidemenuNavItem";
 

@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-import { PencilToSquare } from "@gravity-ui/icons";
+import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";

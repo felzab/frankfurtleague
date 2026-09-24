@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightFromSquare } from "@gravity-ui/icons";
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
 
 import { useSignOut } from "@/shared/hooks/useSignOut";
 

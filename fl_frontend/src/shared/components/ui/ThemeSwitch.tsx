@@ -4,11 +4,12 @@ import Moon from "@gravity-ui/icons/Moon";
 import Sun from "@gravity-ui/icons/Sun";
 import { useTheme } from "next-themes";
 
-import { ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { useMounted } from "@/shared/hooks/useMounted";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * A segmented group rather than a switch, which is on or off and says nothing about what pressing it leads to.

@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Pencil } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
 
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";

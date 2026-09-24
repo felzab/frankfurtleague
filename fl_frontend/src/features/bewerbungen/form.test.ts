@@ -45,7 +45,7 @@ beforeEach(() => {
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
  registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
-const { Form } = await import("@heroui/react");
+const { Form } = await import("@heroui/react/form");
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");

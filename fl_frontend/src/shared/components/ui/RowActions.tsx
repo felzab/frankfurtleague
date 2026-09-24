@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 
-import { ArrowRotateLeft, Copy, Ellipsis, TrashBin } from "@gravity-ui/icons";
+import ArrowRotateLeft from "@gravity-ui/icons/ArrowRotateLeft";
+import Copy from "@gravity-ui/icons/Copy";
+import Ellipsis from "@gravity-ui/icons/Ellipsis";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
-import { Button, Dropdown, Label } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
 
 import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";

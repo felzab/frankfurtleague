@@ -2,7 +2,8 @@
 
 import { tv } from "tailwind-variants";
 
-import { Spinner, Toast } from "@heroui/react";
+import { Spinner } from "@heroui/react/spinner";
+import { Toast } from "@heroui/react/toast";
 
 import { dismissControl } from "@/core/dismissControl";
 

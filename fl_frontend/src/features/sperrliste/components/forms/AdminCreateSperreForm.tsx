@@ -2,7 +2,10 @@
 
 import { useId } from "react";
 
-import { FieldError, Input, Label, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { postSperreAction } from "@/features/sperrliste/actions";
 import { SPERRE_DAUER_HINWEIS } from "@/features/sperrliste/constants";

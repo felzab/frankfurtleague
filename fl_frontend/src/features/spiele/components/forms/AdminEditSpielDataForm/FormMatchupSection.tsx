@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { Separator } from "@heroui/react";
+import { Separator } from "@heroui/react/separator";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";

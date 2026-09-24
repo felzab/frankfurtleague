@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { buildPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";

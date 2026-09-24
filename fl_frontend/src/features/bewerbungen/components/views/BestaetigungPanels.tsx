@@ -1,7 +1,8 @@
 import { Fragment } from "react";
 import Link from "next/link";
 
-import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";

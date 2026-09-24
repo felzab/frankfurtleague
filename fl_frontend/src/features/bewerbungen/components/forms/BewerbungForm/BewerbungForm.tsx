@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
-import { Button, Form } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Form } from "@heroui/react/form";
 
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";

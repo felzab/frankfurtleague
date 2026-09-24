@@ -1,13 +1,18 @@
 "use client";
 
-import { FieldError, Input, Label, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FIELD_ERROR, FIELD_LABEL, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**

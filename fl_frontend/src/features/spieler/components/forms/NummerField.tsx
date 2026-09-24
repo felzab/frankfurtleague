@@ -1,6 +1,8 @@
 "use client";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { TextField } from "@heroui/react/textfield";
 
 import { NUMMER_MAX_LENGTH } from "@/features/spieler/constants";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";

@@ -2,10 +2,13 @@
 
 import { useId, useMemo, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
-import { Button, Form, Label, Switch } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Form } from "@heroui/react/form";
+import { Label } from "@heroui/react/label";
+import { Switch } from "@heroui/react/switch";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";

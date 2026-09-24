@@ -2,9 +2,12 @@
 
 import { memo } from "react";
 
-import { Globe, Magnifier, MapPin, Pencil } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import MapPin from "@gravity-ui/icons/MapPin";
+import Pencil from "@gravity-ui/icons/Pencil";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { SPIELORTE_CRUD_COPY } from "@/features/spielorte/constants";

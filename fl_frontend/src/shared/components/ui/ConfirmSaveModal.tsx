@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { TriangleExclamation } from "@gravity-ui/icons";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 

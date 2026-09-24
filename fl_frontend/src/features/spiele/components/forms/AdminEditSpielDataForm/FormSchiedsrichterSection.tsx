@@ -1,4 +1,5 @@
-import { FieldError, NumberField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { NumberField } from "@heroui/react/number-field";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { bookedSchiedsrichterName, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";

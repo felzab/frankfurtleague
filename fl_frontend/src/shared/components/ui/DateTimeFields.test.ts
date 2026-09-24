@@ -5,7 +5,8 @@ import { createElement as h } from "react";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { I18nProvider, Label } from "@heroui/react";
+import { Label } from "@heroui/react/label";
+import { I18nProvider } from "@heroui/react/rac";
 
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 

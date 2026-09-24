@@ -1,12 +1,15 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
 import { listboxRow } from "./refusableOption";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * The season a create form writes. Distinct from `SaisonSelector`, which navigates: a pick here changes a draft

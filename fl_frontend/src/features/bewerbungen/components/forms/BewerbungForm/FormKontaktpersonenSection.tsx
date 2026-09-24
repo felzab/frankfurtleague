@@ -3,7 +3,11 @@
 import { useId } from "react";
 import Link from "next/link";
 
-import { FieldError, Input, Label, Switch, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Switch } from "@heroui/react/switch";
+import { TextField } from "@heroui/react/textfield";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";

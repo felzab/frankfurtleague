@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightArrowLeft } from "@gravity-ui/icons";
+import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";

@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Ban } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
 
-import { FieldError, Label, TextArea, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { TextArea } from "@heroui/react/textarea";
+import { TextField } from "@heroui/react/textfield";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";

@@ -1,8 +1,8 @@
 "use client";
 
-import { Bars } from "@gravity-ui/icons";
+import Bars from "@gravity-ui/icons/Bars";
 
-import { Dropdown } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
 
 /**
  * Only the Dropdown machinery is client-side: the menu's contents are inert markup arriving as `children` from a Server

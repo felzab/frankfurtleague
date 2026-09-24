@@ -54,7 +54,8 @@ function originsIn(source: ts.SourceFile): Map<string, Origin> {
   const found = new Map<string, Origin>();
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-      const from = node.moduleSpecifier.text;
+      // A per-component subpath (`@heroui/react/button`) is the same host as the root it re-exports.
+      const from = node.moduleSpecifier.text.replace(/^@heroui\/react\/.*/, "@heroui/react");
       const clause = node.importClause;
       if (clause?.name) found.set(clause.name.text, { module: from, imported: "default" });
       if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {

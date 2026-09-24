@@ -1,8 +1,8 @@
 "use client";
 
-import { PencilToLine } from "@gravity-ui/icons";
+import PencilToLine from "@gravity-ui/icons/PencilToLine";
 
-import { Label } from "@heroui/react";
+import { Label } from "@heroui/react/label";
 
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FIELD_LABEL, FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";

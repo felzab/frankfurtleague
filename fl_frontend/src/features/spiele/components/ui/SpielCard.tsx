@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 
-import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
+import CircleExclamation from "@gravity-ui/icons/CircleExclamation";
+import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";

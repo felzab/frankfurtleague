@@ -3,9 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil, PersonPlus } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import CircleXmark from "@gravity-ui/icons/CircleXmark";
+import Clock from "@gravity-ui/icons/Clock";
+import PaperPlane from "@gravity-ui/icons/PaperPlane";
+import Pencil from "@gravity-ui/icons/Pencil";
+import PersonPlus from "@gravity-ui/icons/PersonPlus";
 
-import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";

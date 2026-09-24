@@ -603,7 +603,7 @@ describe("the placeholder a list route draws while its page loads", () => {
      spanning the row, or standing beside a box of another width, moves when the page arrives. */
   it("draws the loaded bar's width, and beside a trigger a box of the trigger's own recipe", async () => {
     const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
-    const { Button } = await import("@heroui/react");
+    const { Button } = await import("@heroui/react/button");
     const { formButton } = await import("./formButtons.ts");
 
     const loadedBar = (attachEnd: boolean): string[] =>

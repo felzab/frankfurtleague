@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { goBackOrPush } from "@/shared/hooks/useEditorExit";
 

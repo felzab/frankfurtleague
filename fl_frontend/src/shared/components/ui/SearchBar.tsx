@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchField } from "@heroui/react";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
 

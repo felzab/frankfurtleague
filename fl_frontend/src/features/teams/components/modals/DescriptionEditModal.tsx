@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, TextArea, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { TextArea } from "@heroui/react/textarea";
+import { TextField } from "@heroui/react/textfield";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
 import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons";

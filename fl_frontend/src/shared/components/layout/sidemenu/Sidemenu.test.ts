@@ -13,7 +13,9 @@ import type { SidemenuStructure } from "@/shared/types/types";
    (`docs/frontend/spec.md` §1.9), the icon package too: its ESM imports `./x` bare, which only the
    harness's resolver completes. */
 const { Sidemenu } = await import("./Sidemenu.tsx");
-const { Calendar, Magnifier, Persons } = await import("@gravity-ui/icons");
+const { default: Calendar } = await import("@gravity-ui/icons/Calendar");
+const { default: Magnifier } = await import("@gravity-ui/icons/Magnifier");
+const { default: Persons } = await import("@gravity-ui/icons/Persons");
 
 const ICONS = { Calendar, Magnifier, Persons };
 

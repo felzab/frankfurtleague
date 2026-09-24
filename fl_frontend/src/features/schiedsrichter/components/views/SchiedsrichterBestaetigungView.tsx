@@ -2,10 +2,18 @@
 
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
-import { Button, FieldError, Form, Input, Label, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Switch } from "@heroui/react/switch";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
@@ -45,7 +53,7 @@ import type { Slots } from "@/features/bewerbungen/components/views/Bestaetigung
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 
 /**

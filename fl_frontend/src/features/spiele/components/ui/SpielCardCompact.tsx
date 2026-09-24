@@ -1,8 +1,9 @@
 "use client";
 
-import { CircleExclamation } from "@gravity-ui/icons";
+import CircleExclamation from "@gravity-ui/icons/CircleExclamation";
 
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
 
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";

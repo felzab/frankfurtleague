@@ -1,4 +1,7 @@
-import { FieldError, ListBox, Select, Switch } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
+import { Switch } from "@heroui/react/switch";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
@@ -12,7 +15,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLSonderereignis } from "@/features/spiele/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
 
 /**

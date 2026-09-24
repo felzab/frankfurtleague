@@ -2,13 +2,17 @@
 
 import { useId } from "react";
 
-import { FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { FIELD_ERROR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 // **No hover or press variant here**: HeroUI's own fills are `@layer components` and these are
 // utilities declared last, so each state's resting background is what suppresses them.

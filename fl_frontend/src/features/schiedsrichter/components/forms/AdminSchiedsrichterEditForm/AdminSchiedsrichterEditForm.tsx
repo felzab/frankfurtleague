@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/react/form";
 
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { bestehtSchreibregel, FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";

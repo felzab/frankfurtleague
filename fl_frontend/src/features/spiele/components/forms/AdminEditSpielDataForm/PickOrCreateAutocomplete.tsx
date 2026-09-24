@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Autocomplete, Button, ListBox, SearchField, useFilter } from "@heroui/react";
+import { Autocomplete } from "@heroui/react/autocomplete";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { useFilter } from "@heroui/react/rac";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -14,7 +18,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**

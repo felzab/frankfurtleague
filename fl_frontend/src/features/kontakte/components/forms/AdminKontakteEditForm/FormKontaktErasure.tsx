@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { eraseKontaktpersonAction, readKontaktErasureAnsichtAction } from "@/features/kontakte/actions";
 import { settledErasureAnsicht } from "@/features/kontakte/utils";
