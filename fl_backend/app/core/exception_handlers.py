@@ -1,5 +1,6 @@
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any, Final
 
 from bson.errors import InvalidId
@@ -132,7 +133,7 @@ REFUSAL_DESCRIPTION = "The current state refuses the write"
 JSON_MEDIA_TYPE = "application/json"
 
 
-def refusal_response(codes: Iterable[str]) -> dict[str, Any]:
+def refusal_response(codes: AbstractSet[str]) -> dict[str, Any]:
     """A 409 as an OpenAPI Response Object: the failure body, its `error_code` narrowed to `codes`."""
 
     # The component narrowed rather than restated, so the failure body keeps one published shape.
