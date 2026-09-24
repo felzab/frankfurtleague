@@ -68,6 +68,12 @@ function open() {
 /** The words on a control, which is what a reader acts on and what speech input finds it by. */
 const controls = (): string[] => screen.getAllByRole("button").map((control) => control.textContent ?? "");
 
+/** Whether the add control takes a press: HeroUI closes a button by either attribute. */
+function addPressable(): boolean {
+  const add = screen.getByRole("button", { name: "Passkey hinzufügen" });
+  return !add.hasAttribute("disabled") && add.getAttribute("aria-disabled") !== "true";
+}
+
 beforeEach(() => {
   reached.length = 0;
   calls.length = 0;
@@ -237,38 +243,43 @@ describe("the step-up both writes take", () => {
 
   /* A removal changes the list both of the add control's refusals are read off, so the control is
      held for as long as the removal runs rather than offered over a list about to move. */
-  it("holds the add control while a removal is still running", async (t) => {
-    const user = userEvent.setup();
-    let release: () => void = () => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
+  for (const [outcome, answered] of [
+    ["done", { success: true, message: "Gelöscht." }],
+    ["refused", { success: false, error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu." }],
+  ] as const) {
+    it(`holds the add control while a removal runs, and releases it once the removal is ${outcome}`, async (t) => {
+      const user = userEvent.setup();
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      answerWith(() =>
+        calls.at(-1)?.action === "removePasskeyAction"
+          ? held.then(() => answered)
+          : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
+      );
+      open();
+      await screen.findByText("Windows Hello");
+      t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+      await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+      await waitFor(() =>
+        assert.ok(
+          calls.some((call) => call.action === "removePasskeyAction"),
+          "the removal never reached its write",
+        ),
+      );
+
+      const whileRunning = addPressable();
+      release();
+      await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction"));
+
+      assert.equal(whileRunning, false, "the add control was pressable while the removal ran");
+      await waitFor(() => assert.ok(addPressable(), "the add control stayed held after the removal was over"));
     });
-    answerWith(() =>
-      calls.at(-1)?.action === "removePasskeyAction"
-        ? held.then(() => ({ success: true, message: "Gelöscht." }))
-        : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
-    );
-    open();
-    await screen.findByText("Windows Hello");
-    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-
-    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
-    t.mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
-    await waitFor(() =>
-      assert.ok(
-        calls.some((call) => call.action === "removePasskeyAction"),
-        "the removal never reached its write",
-      ),
-    );
-
-    const add = screen.getByRole("button", { name: "Passkey hinzufügen" });
-    const pressable = !add.hasAttribute("disabled") && add.getAttribute("aria-disabled") !== "true";
-    release();
-    await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction"));
-
-    assert.equal(pressable, false, "the add control was pressable while the removal ran");
-  });
+  }
 
   it("asserts before it deletes, and only on the second press", async (t) => {
     const user = userEvent.setup();
