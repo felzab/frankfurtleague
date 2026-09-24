@@ -41,17 +41,17 @@ break one: refuse, name the rule, do not partially comply.
 
 **Work on a branch, never on `main`: if a task could end in an edit, cut its branch before anything
 else**, in the primary checkout — the repository's main working tree, never a git worktree. That
-branch is the session's; a writing agent the session dispatches works on the branch the harness cuts
-for its worktree, and the coordinator lands its commits.
+branch is the session's; an agent the session dispatches to write or to plant works on the branch
+the harness cuts for its worktree, and the coordinator lands what it commits.
 
 ```bash
 git checkout main && git pull --ff-only origin main && git checkout -b short-kebab-name
 ```
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
-brief; a dispatched writing agent meets the trigger on its worktree's branch. A dispatched agent's
-brief may keep the branching, committing, pushing, pull-request and gate steps as its
-coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator;
+brief; a dispatched agent that writes or plants meets the trigger on its worktree's branch. A
+dispatched agent's brief may keep the branching, committing, pushing, pull-request and gate steps
+as its coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator;
 everything else binds the agent as written.
 
 - Name the branch for the change, kebab-case, with no `feature/`, `fix/` or `chore/` prefix. Edits
