@@ -46,6 +46,8 @@ export const FORM = HeroForm;
 export const BUTTON = Button;
 export const POPOVER = HintPopover;
 export const DELETION = "deletePasskey"; // expect: passkey-deletion
+// eslint-disable-next-line no-restricted-syntax -- an excuse whose line spells nothing, expect: unused-disable
+export const EXCUSED = "flex";
 
 export async function plantedCalls(): Promise<void> {
   await auth.api.getSession({ headers, request }); // expect: auth-request

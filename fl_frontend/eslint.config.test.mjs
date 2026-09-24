@@ -55,6 +55,7 @@ const BANS = [
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["class-constant-name", /is named `\*_CLASSES`/],
   ["unknown-class", /^Unknown class detected/],
+  ["unused-disable", /^Unused eslint-disable directive/],
 ];
 
 const keyOf = (message) => BANS.find(([, pattern]) => pattern.test(message))?.[0] ?? `UNKNOWN: ${message}`;
@@ -76,9 +77,14 @@ const reports = new Map();
 for (const plant of plants) {
   if (plant.lintedAs === undefined) continue;
   const [result] = await eslint.lintText(plant.text, { filePath: path.join(HERE, plant.lintedAs) });
+  // A warning never matches a mark: `pnpm lint` fails on one only through `--max-warnings 0`, which
+  // an editor's lint or a bare `eslint .` does not pass.
   reports.set(
     plant.name,
-    result.messages.map((message) => `${message.line} ${message.ruleId === null ? "FATAL" : keyOf(message.message)}`),
+    result.messages.map(
+      (message) =>
+        `${message.line} ${message.fatal === true ? "FATAL" : `${message.severity === 2 ? "" : "WARNING "}${keyOf(message.message)}`}`,
+    ),
   );
 }
 
@@ -99,6 +105,9 @@ describe("the lint bans, driven against planted source", () => {
       ...options(rules["no-restricted-properties"]).map((ban) => ban.message),
       ...options(rules["react/forbid-component-props"]).flatMap((option) => option.forbid.map((ban) => ban.message)),
     ]);
+    if (config.some(({ linterOptions }) => linterOptions?.reportUnusedDisableDirectives === "error")) {
+      messages.push("Unused eslint-disable directive");
+    }
     const planted = new Set(plants.flatMap((plant) => marksOf(plant.text).map((mark) => mark.split(" ")[1])));
     const unplanted = [...new Set(messages.map(keyOf))].filter((key) => !planted.has(key));
     assert.deepEqual(unplanted, []);
