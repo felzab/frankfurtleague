@@ -39,8 +39,8 @@ const SEITE = worte(MARKUP);
 
 const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
 
-/* German writes a small count in words, so the notice keeps „vierzehn Tage“ typed where a digit
-   would read wrong. A constant with no word here fails the case rather than passing the old one. */
+/* German writes a small count in words, so the notice states its clocks in words. This table is the
+   case's own, never the view's, so a wrong word in the view's table fails rather than agreeing with itself. */
 const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "sieben", 14: "vierzehn" };
 
 function inWorten(zahl: number): string {

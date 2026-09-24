@@ -5,6 +5,7 @@ import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { ADMIN_WINDOW_HOURS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+  BEWERBUNG_ERINNERUNG_TAGE,
   BEWERBUNG_MAX_ALTER,
   BEWERBUNG_MIN_ALTER,
   VERTRETUNG_MIN_ALTER,
@@ -28,6 +29,12 @@ const ABSATZ_CLASSES = "fluid-sm text-foreground leading-relaxed font-medium tex
  * is a dynamic read, which would take this page off the static shell.
  */
 const STAND = "24. September 2026";
+
+/**
+ * German writes a small count in words. Indexed with a constant's literal type, so a constant moved
+ * to a count this table holds no word for fails `tsc` rather than rendering a digit or nothing.
+ */
+const ZAHLWORT = { 3: "drei", 14: "vierzehn" } as const;
 
 /** Every recipient outside the league, as one card each: a recipient's facts, read as a table, are a row nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -378,10 +385,11 @@ export function DatenschutzView() {
             Person selbst; wir prüfen damit, ob sie das Mindestalter ihrer Rolle erreicht: {BEWERBUNG_MIN_ALTER} Jahre für die Trainerin oder
             den Trainer, {VERTRETUNG_MIN_ALTER} Jahre für Ansprechperson und Stellvertretung. Das ist keine Einwilligung, sondern eine
             Bestätigung: Sie belegt, dass die angegebene E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass
-            sie dieses Mindestalter erreicht und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir
-            einmal. Die Bewerbung bleibt so lange offen, bis alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht
-            jede Person bestätigt, löschen wir die Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese
-            Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.
+            sie dieses Mindestalter erreicht und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach{" "}
+            {ZAHLWORT[BEWERBUNG_ERINNERUNG_TAGE]} Tagen erinnern wir einmal. Die Bewerbung bleibt so lange offen, bis alle drei bestätigt haben.
+            Hat {ZAHLWORT[BEWERBUNG_BESTAETIGUNG_FRIST_TAGE]} Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt, löschen wir die
+            Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn;
+            eine Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ_CLASSES}>
             Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige
