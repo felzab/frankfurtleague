@@ -17,7 +17,7 @@ application data is the Next.js server, over the compose network, and the edge r
 path here — the keyless, database-free liveness probe — so **network topology is a load-bearing
 control**. Every
 reachability judgment must therefore state which network position the attacker holds: internet via
-nginx, compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/*.conf`)
+nginx, compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/**/*.conf`)
 before calling anything unreachable — do not assert topology from memory.
 
 THE CHECKS, in priority order:
