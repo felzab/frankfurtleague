@@ -69,7 +69,10 @@ THE CHECKS, in priority order:
 6. **PUBLISH AND ROLLBACK.** `publish.yml` moves neither `:latest` before both images are pushed (verify — this is
    the property that lets coupled frontend and backend changes ship in one pull request); tags carry
    the commit as an OCI label; rollback by `:sha-` tag works and the retention guidance is stated
-   somewhere real. What happens if the job dies between the two `:latest` moves?
+   somewhere real. What happens if the job dies between the two `:latest` moves? Drive
+   `docs/ops/spec.md :: I353`, the one guard between a failed `verify` and a published build: a
+   `verify` failure other than the budget step, and a commit other than `main`'s tip, each
+   refuse the publish.
 
 7. **DEPLOY BEHAVIOUR.** `deploy.sh`: recreates in place, waits for health, confirms live headers;
    what does a _failed_ deploy leave running? Is the previous version still serveable? Does the
