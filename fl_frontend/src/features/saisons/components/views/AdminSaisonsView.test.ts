@@ -47,6 +47,26 @@ describe("what the season list says while no season runs", () => {
     }
   });
 
+  /* The sentence names the planned season's page, so it stands only where one exists: an empty league
+     and one holding ended seasons alone have no such page to send the admin to. */
+  it("points to the planned season's page only where a planned season exists", () => {
+    const UMSTELLUNG = /Umgestellt wird auf der Seite der geplanten Saison\./;
+
+    for (const saisons of [[saison("2027", "future")], [saison("2025", "past"), saison("2027", "future")]]) {
+      assert.match(viewText(saisons), UMSTELLUNG, JSON.stringify(saisons.map(({ status }) => status)));
+    }
+    for (const saisons of [[], [saison("2025", "past")]]) {
+      const text = viewText(saisons);
+
+      assert.match(
+        text,
+        /öffnen sich, sobald eine Saison aktiv ist\./,
+        "the notice's first sentence is gone, so the absence below proves nothing",
+      );
+      assert.doesNotMatch(text, UMSTELLUNG, JSON.stringify(saisons.map(({ status }) => status)));
+    }
+  });
+
   /* The other half: a notice standing over a running league is a false alarm nobody reads twice. */
   it("says nothing of it while a season runs", () => {
     const text = viewText([saison("2026", "active"), saison("2027", "future")]);

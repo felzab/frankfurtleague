@@ -39,8 +39,10 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
         <Callout
           severity="info"
           title="Derzeit ist keine Saison aktiv">
-          Handlungsbedarf, Finalrunden und Spielsuche öffnen sich, sobald eine Saison aktiv ist. Umgestellt wird auf der Seite der geplanten
-          Saison.
+          Handlungsbedarf, Finalrunden und Spielsuche öffnen sich, sobald eine Saison aktiv ist.
+          {/* Only where a planned season exists: the page it names is that season's, and a league with none
+              has no such page to send the admin to. */}
+          {saisons.some((saison) => saison.status === "future") && " Umgestellt wird auf der Seite der geplanten Saison."}
         </Callout>
       )}
 
