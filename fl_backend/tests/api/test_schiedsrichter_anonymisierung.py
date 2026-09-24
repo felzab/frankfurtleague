@@ -52,6 +52,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, spiel_document
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -146,20 +147,6 @@ PAST_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6078000a2")
 # referee holds.
 ARCHIVED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607800014")
 
-# Read by no path here -- a referee's repoint asks no season for its status, which is what the
-# archived case drives -- and required of any season row by the shipped validator.
-SAISON_RULES: dict[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
 
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
     """Every field the validator requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
@@ -180,34 +167,18 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
 
 
 def fixture_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: int) -> dict[str, Any]:
-    """A PLAYED fixture: a stored result is what makes it a match no reassignment can take the name off.
+    """A PLAYED fixture: a stored result is what makes it a match no reassignment can take the name off."""
 
-    Every field `app/core/constraints.py :: COLLECTION_VALIDATORS` requires of `spiele`, since this
-    module seeds against the real validators.
-    """
-
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_OID,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": {
-            "schiedsrichter_id": schiedsrichter_id,
-            "name": REFEREE_NAMES[schiedsrichter_id],
-            "payment": DEFAULT_PAYMENT,
-        },
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-    }
+    return spiel_document(
+        spiel_id=spiel_id,
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=SPIELTAG_OID,
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        schiedsrichter={"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAMES[schiedsrichter_id], "payment": DEFAULT_PAYMENT},
+        ergebnis="2:1",
+    )
 
 
 def fixture_documents() -> list[dict[str, Any]]:
@@ -222,16 +193,6 @@ def fixture_documents() -> list[dict[str, Any]]:
 # What every repointed fixture holds afterwards: the ghost's id under a nulled name, and the fee this
 # match itself agreed.
 REPOINTED_BOOKING: dict[str, Any] = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "name": None, "payment": DEFAULT_PAYMENT}
-
-
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": dict(SAISON_RULES),
-    }
 
 
 async def an_archived_fixture(database: AsyncDatabase) -> None:
@@ -358,7 +319,7 @@ def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
         payload,
         FLSpielListAdapter.validate_python([A_FIXTURE_HELD_BY_THE_OTHER_REFEREE]),
         ResolvedReferences(teams={}, schiedsrichter=booked),
-        FLSaisonRules.model_validate(SAISON_RULES),
+        FLSaisonRules.model_validate(rules_document()),
     )
 
 

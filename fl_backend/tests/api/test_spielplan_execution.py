@@ -37,6 +37,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import trace_id_var
+from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -82,19 +83,7 @@ UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("datum", "uhrzeit", "ort", "schiedsrich
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    """3/1 and a 3:0 forfeit are the ordinary competition, so no rule this file is not about refuses the draw first."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": qualifiers,
-        "number_of_groups": groups,
-        "teams_per_group": teams,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    }
+    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
 
 
 def saison_document(
@@ -105,18 +94,9 @@ def saison_document(
     start_date: str = "2026-01-01",
     end_date: str = "2026-06-30",
 ) -> dict[str, Any]:
-    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
+    """The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on."""
 
-    The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": start_date,
-        "end_date": end_date,
-        "status": status,
-        "rules": rules or rules_document(),
-    }
+    return documents.saison_document(saison_id, status, start_date=start_date, end_date=end_date, rules=rules or rules_document())
 
 
 def entry_rows(
@@ -140,15 +120,14 @@ def entry_rows(
             continue
 
         rows.append(
-            {
-                "_id": ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
-                "saison_id": saison_id,
-                "team_id": ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
-                "gruppe": gruppe,
-                "austritt": None,
-                "name": f"{gruppe}{seat + 1}-Schule",
-                "shorthand": f"{gruppe}{seat + 1}",
-            }
+            documents.saison_team_document(
+                saison_id,
+                ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
+                f"{gruppe}{seat + 1}-Schule",
+                f"{gruppe}{seat + 1}",
+                _id=ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
+                gruppe=gruppe,
+            )
         )
 
     return rows
@@ -168,26 +147,9 @@ def a_stored_matchday() -> dict[str, Any]:
 
 
 def a_stored_fixture() -> dict[str, Any]:
-    """Every key spelled out, the `spiele` validator being attached: an unoccupied group fixture, the least this season could already hold."""
+    """An unoccupied group fixture, the least this season could already hold."""
 
-    return {
-        "_id": STORED_SPIEL_OID,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "spieltag_id": STORED_SPIELTAG_OID,
-        "spiel_nr": 1,
-        "sonderereignis": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-    }
+    return documents.spiel_document(spiel_id=STORED_SPIEL_OID, saison_id=SAISON_ID, spiel_nr=1, spieltag_id=STORED_SPIELTAG_OID)
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,7 @@ from app.api.spiele.schemas import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -35,8 +36,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_spiel_paarung_test")
 
 SAISON_ID = "2026"
-
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 # The reference's OWN figure, which no fixture here agrees: a booking carries the money it was made
 # at, so either default leaking through a restore shows up as this number on a fixture.
@@ -136,18 +135,7 @@ def assignment() -> dict[str, Any]:
 def team_document(team_id: ObjectId) -> dict[str, Any]:
     name, shorthand = NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "address": dict(ADDRESS),
-        # Present rather than omitted: the joined pipeline matches a missing field against `None`, so
-        # the row would pass the filter and then fail validation.
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, shorthand)
 
 
 def junction(team_id: ObjectId) -> dict[str, Any]:
@@ -155,27 +143,11 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = NAMES[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None, "name": name, "shorthand": shorthand}
+    return documents.saison_team_document(SAISON_ID, team_id, name, shorthand)
 
 
 def saison_document() -> dict[str, Any]:
-    return {
-        "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "active",
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return documents.saison_document(SAISON_ID, "active")
 
 
 def spieltag_documents() -> list[dict[str, Any]]:
@@ -191,7 +163,7 @@ def spielort_document() -> dict[str, Any]:
     return {
         "_id": SPIELORT,
         "name": SPIELORT_NAME,
-        "address": dict(ADDRESS),
+        "address": dict(documents.ADDRESS),
         "maps_link": f"{SPIELORT_NAME}, Frankfurt",
         "default_mietpreis": DEFAULT_MIETPREIS,
         "inactive_since": None,
@@ -222,31 +194,27 @@ def spiel_document(
     booked: bool = False,
     team1_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Every key spelled out: `FLSpiel` defaults `notiz` alone, so an omitted one fails inside the handler."""
-
     saison_phase, tag = SPIELTAGE[spieltag_id]
 
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": SAISON_ID,
-        "saison_phase": saison_phase,
-        "spieltag_id": spieltag_id,
-        "team1": team1,
-        "team2": team2,
-        # `team2_quelle` is null throughout, so every fixture keeps one side the admin owns: a
-        # resolution refilling both slots would answer for the payload (`docs/backend/spec.md :: I23`).
-        "team1_quelle": team1_quelle,
-        "team2_quelle": None,
-        "datum": tag,
-        "uhrzeit": UHRZEIT,
-        "ort": booking() if booked else None,
-        "schiedsrichter": assignment() if booked else None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": elfmeterschiessen,
-        "sonderereignis": None,
-        "notiz": notiz,
-    }
+    # `team2_quelle` is left null throughout, so every fixture keeps one side the admin owns: a
+    # resolution refilling both slots would answer for the payload (`docs/backend/spec.md :: I23`).
+    return documents.spiel_document(
+        spiel_id=spiel_id,
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        saison_phase=saison_phase,
+        team1=team1,
+        team2=team2,
+        team1_quelle=team1_quelle,
+        datum=tag,
+        uhrzeit=UHRZEIT,
+        ort=booking() if booked else None,
+        schiedsrichter=assignment() if booked else None,
+        ergebnis=ergebnis,
+        elfmeterschiessen=elfmeterschiessen,
+        notiz=notiz,
+    )
 
 
 def a_settled_semi_final() -> list[dict[str, Any]]:

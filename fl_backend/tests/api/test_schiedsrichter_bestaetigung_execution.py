@@ -50,6 +50,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -98,29 +99,11 @@ BOOKING: Mapping[str, Any] = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": N
 # slice's own suite: what is driven here is that the next mint takes it away.
 A_BOUNCE: Mapping[str, Any] = {"nachricht_id": "m-1", "stand": "unzustellbar", "grund": "NoEmail", "am": TODAY}
 
-SAISON_RULES: dict[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
 
 def saison_document() -> dict[str, Any]:
     """The RUNNING season. Every mint reads it, the ban list being judged against the season in progress."""
 
-    return {
-        "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "active",
-        "rules": dict(SAISON_RULES),
-    }
+    return documents.saison_document(SAISON_ID, "active")
 
 
 def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str, Any]:
@@ -140,24 +123,16 @@ def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str
 def fixture_document() -> dict[str, Any]:
     """One played fixture this referee officiated, seeded so a fan-out onto `spiele` has somewhere to land."""
 
-    return {
-        "_id": SPIEL_OID,
-        "spiel_nr": 1,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_OID,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": dict(BOOKING),
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-    }
+    return documents.spiel_document(
+        spiel_id=SPIEL_OID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_OID,
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        schiedsrichter=dict(BOOKING),
+        ergebnis="2:1",
+    )
 
 
 def payload_body(*, email: str | None = EMAIL) -> dict[str, Any]:

@@ -31,6 +31,7 @@ from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
 from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+from tests.documents import saison_team_document, spiel_document
 
 from .conftest import unwritten
 
@@ -85,25 +86,19 @@ AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag"
 def stored_document() -> dict[str, Any]:
     """The fixture as `spiele` holds it: both figures present, and no `austritt`, which a read joins on."""
 
-    return {
-        "_id": SPIEL_ID,
-        "spiel_nr": 1,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        "team2": {"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": {"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return spiel_document(
+        spiel_id=SPIEL_ID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
+        ergebnis="2:1",
+    )
 
 
 def joined_document() -> dict[str, Any]:
@@ -141,9 +136,7 @@ def team_document() -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
-    return {"saison_id": SAISON_ID, "team_id": AWAY, "gruppe": "A", "austritt": dict(AUSTRITT), "name": "Beta", "shorthand": "BE"}
+    return saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
 
 
 def keys_anywhere(payload: Any) -> set[str]:

@@ -18,6 +18,7 @@ from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerP
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -46,18 +47,6 @@ GEBURTSDATUM = "2008-05-17"
 # MongoDB's own code for a document its `$jsonSchema` refused.
 DOCUMENT_VALIDATION_FAILED = 121
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": MAX_KADERGROESSE,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-}
-
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
@@ -71,13 +60,13 @@ def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[
     Seeded rather than written: no endpoint creates a person, and no writer composes a guardian's word.
     """
 
-    return {
-        "_id": spieler_id_for(spieler_number),
-        "vorname": "Max",
-        "nachname": "Mustermann",
+    return spieler_document(
+        spieler_id_for(spieler_number),
+        "Max",
+        "Mustermann",
         # The guardian's word a stored row carries, which nobody gave: the two cases below watch a
         # later write leave it alone.
-        "einwilligung": {
+        einwilligung={
             "umfang": "kader_oeffentlich",
             "erteilt_von": "erziehungsberechtigt",
             "datum": TODAY,
@@ -85,23 +74,12 @@ def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[
             "medien": False,
             "text_version": None,
         },
-        "inactive_since": None,
-        "geburtsdatum": geburtsdatum,
-    }
+        geburtsdatum=geburtsdatum,
+    )
 
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
-    return {
-        "spieler_id": spieler_id,
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "ist_nachnominiert": False,
-        "rolle": rolle,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": None,
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since)
 
 
 def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
@@ -129,21 +107,13 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
     async def _run() -> Any:
         database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
         async with a_clean_database(url, database_name, constraints=constrained) as (_, database):
-            await database.saisons.insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": "active",
-                    "rules": dict(RULES),
-                }
-            )
+            await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kadergroesse=MAX_KADERGROESSE)))
             # Both clubs entered, so `REQ-SQUAD-001` passes and every refusal below is the cap. The
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "gruppe": "A", "austritt": None, "name": "Adler", "shorthand": "AD"},
-                    {"saison_id": SAISON_ID, "team_id": AWAY_TEAM_OID, "gruppe": "B", "austritt": None, "name": "Bieber", "shorthand": "BI"},
+                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "AD"),
+                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
                 ]
             )
             return await body(database)

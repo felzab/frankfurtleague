@@ -11,6 +11,7 @@ from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -18,10 +19,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_saison_team_write_test")
 
 SAISON_ID = "2026"
-SAISON_START = "2026-01-01"
-SAISON_END = "2026-06-30"
-
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 # Fixed rather than generated, so a failure names the same club every run.
 ADLER = ObjectId("6890a1b2c3d4e5f607250001")
@@ -36,17 +33,7 @@ NUMBER_OF_GROUPS = 2
 TEAMS_PER_GROUP = 2
 UNOFFERED_GRUPPE = "C"
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": NUMBER_OF_GROUPS,
-    "teams_per_group": TEAMS_PER_GROUP,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1"],
-}
+RULES = rules_document(number_of_groups=NUMBER_OF_GROUPS, teams_per_group=TEAMS_PER_GROUP, erlaubte_stufen=["E1", "Q1"])
 
 # The season's copy of the identity is deliberately NOT the club's current one: the echo reads the
 # junction row, so a value taken from `teams` instead would show up as the club's name here.
@@ -58,19 +45,9 @@ SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072500f1")
 
 
 def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` is the one collection with no model of the row."""
-
     name, shorthand = PLAYED_AS[team_id]
 
-    return {
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "gruppe": gruppe,
-        "austritt": None,
-        "kontakte": kontakte,
-        "name": name,
-        "shorthand": shorthand,
-    }
+    return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe, kontakte=kontakte)
 
 
 def club_document(team_id: ObjectId) -> dict[str, Any]:
@@ -78,39 +55,19 @@ def club_document(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": "https://example.com",
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return team_document(team_id, name, shorthand, website_url="https://example.com")
 
 
 def fixture_document(team_id: ObjectId) -> dict[str, Any]:
     """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spiel_nr": 1,
-        "spieltag_id": SPIELTAG_OID,
-        "team1": {"team_id": team_id, "name": "Adler-Schule", "shorthand": "AS", "tore": None},
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-    }
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_OID,
+        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "AS", "tore": None},
+    )
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -132,9 +89,7 @@ def on_a_season(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(
-                {"_id": SAISON_ID, "start_date": SAISON_START, "end_date": SAISON_END, "status": saison_status, "rules": dict(RULES)}
-            )
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]

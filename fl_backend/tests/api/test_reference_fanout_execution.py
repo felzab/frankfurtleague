@@ -16,6 +16,7 @@ from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -68,14 +69,6 @@ RENAMED_CLUB = "Carl-Schurz-Gymnasium"
 # Both writable copies change, so a pass writing one field and not the other shows on the fixtures.
 RENAMED_SHORTHAND = "CG"
 
-ADDRESS = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 KONTAKT = {"telefon": "+49 69 1234567", "email": "kontakt@example.com"}
 
 WEBSITE_URL = "https://example.com"
@@ -114,20 +107,6 @@ PAST_SAISON_ID = "2025"
 
 # One matchday for every fixture: no rule here reads a Spieltag, and the reference is required.
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072200f1")
-
-# Read by nothing here: the fan-out asks a season for its status alone, and the shipped validator
-# requires the block whatever a path consults.
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
 
 # spiel_nr -> the season it was played in. Only the club rename reads this: a venue and a referee are
 # league-wide, while a club's name is the season's own and a closed season keeps what it was played under.
@@ -187,28 +166,7 @@ def club_document(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": WEBSITE_URL,
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
-
-
-def saison_document(saison_id: str) -> dict[str, Any]:
-    """`status` is the only field `patch_team` reads; the span and the rules are what the shipped validator requires of any season."""
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": "past" if saison_id == PAST_SAISON_ID else "active",
-        "rules": dict(RULES),
-    }
+    return team_document(team_id, name, shorthand, website_url=WEBSITE_URL)
 
 
 def junction_document(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
@@ -216,7 +174,7 @@ def junction_document(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
 
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {"saison_id": saison_id, "team_id": team_id, "gruppe": "A", "austritt": None, "name": name, "shorthand": shorthand}
+    return saison_team_document(saison_id, team_id, name, shorthand)
 
 
 def side(team_id: ObjectId, tore: int) -> dict[str, Any]:
@@ -236,33 +194,25 @@ def fixture_document(spiel_nr: int) -> dict[str, Any]:
     spielort_id, mietpreis, schiedsrichter_id, payment = FIXTURES[spiel_nr]
     home, home_tore, away, away_tore = SIDES[spiel_nr]
 
-    return {
-        "_id": ObjectId(),
-        "spiel_nr": spiel_nr,
-        "saison_id": SEASONS[spiel_nr],
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_OID,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "team1": side(home, home_tore),
-        "team2": side(away, away_tore),
-        "ort": {
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SEASONS[spiel_nr],
+        spiel_nr=spiel_nr,
+        spieltag_id=SPIELTAG_OID,
+        team1=side(home, home_tore),
+        team2=side(away, away_tore),
+        ort={
             "spielort_id": spielort_id,
             "name": VENUE_NAMES[spielort_id],
             "maps_link": seeded_maps_link(VENUE_NAMES[spielort_id]),
             "mietpreis": mietpreis,
         },
-        "schiedsrichter": {
+        schiedsrichter={
             "schiedsrichter_id": schiedsrichter_id,
             "name": REFEREE_NAMES[schiedsrichter_id],
             "payment": payment,
         },
-    }
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -279,7 +229,8 @@ def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
             await database[Collection.SPIELORTE].insert_many([venue_document(oid) for oid in VENUE_NAMES])
             await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
             await database[Collection.TEAMS].insert_many([club_document(oid) for oid in CLUB_NAMES])
-            await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in (SAISON_ID, PAST_SAISON_ID)])
+            # `status` is the only field `patch_team` reads of a season.
+            await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
             # The renamed club is in both seasons; another club is in the open one, so the filter is proved to exclude a row.
             await database[Collection.SAISON_TEAMS].insert_many(
                 [

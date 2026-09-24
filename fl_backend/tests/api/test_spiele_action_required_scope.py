@@ -13,6 +13,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.main import create_app
+from tests import documents
 from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
@@ -25,18 +26,6 @@ PATH = f"/api/v{API_VERSION}/spiele/action_required"
 SAISON = "2026"
 OTHER_SAISON = "2025"
 PLANNED_SAISON = "2027"
-
-RULES: dict[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
 
 # Fixed rather than generated, so a failure names the same fixture every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -56,10 +45,6 @@ def _side(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
 
 
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    return {"_id": saison_id, "start_date": f"{saison_id}-01-01", "end_date": f"{saison_id}-06-30", "status": status, "rules": dict(RULES)}
-
-
 def spiel_document(
     spiel_id: ObjectId, *, saison_id: str, spiel_nr: int, spieltag_id: ObjectId, both_sides: ObjectId | None = None
 ) -> dict[str, Any]:
@@ -72,26 +57,16 @@ def spiel_document(
     home = _side(both_sides or HOME, "Alpha", "AL")
     away = _side(both_sides or AWAY, "Beta", "BE")
 
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": spieltag_id,
-        "team1": home,
-        "team2": away,
-        "team1_quelle": None,
-        "team2_quelle": None,
+    return documents.spiel_document(
+        spiel_id=spiel_id,
+        saison_id=saison_id,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        team1=home,
+        team2=away,
         # The attention condition this corpus rests on, so every seeded fixture is in its season's list.
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+        datum=None,
+    )
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
@@ -111,11 +86,11 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         database = a_clean_database_sync(client, mongo_url, database_name)
         database[Collection.SAISONS].insert_many(
             [
-                saison_document(OTHER_SAISON, "past"),
-                saison_document(SAISON, "active"),
+                documents.saison_document(OTHER_SAISON, "past"),
+                documents.saison_document(SAISON, "active"),
                 # The newest and empty, so a default taking the newest season rather than the active
                 # one serves an empty list.
-                saison_document(PLANNED_SAISON, "future"),
+                documents.saison_document(PLANNED_SAISON, "future"),
             ]
         )
         database[Collection.SPIELE].insert_many(

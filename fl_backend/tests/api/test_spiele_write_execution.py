@@ -32,6 +32,7 @@ from app.api.spiele.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -44,8 +45,6 @@ DATABASE_NAME = worker_database("fl_spiele_write_test")
 DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
-
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 # The reference's OWN figure, which no fixture here agrees: a booking carries the rent it was made
 # at, so a leak of either default would show up as this number on a fixture.
@@ -101,58 +100,23 @@ def team_document(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        # Present rather than omitted: the pipeline's base filter matches a missing field against
-        # `None`, so the row would pass it and then fail validation.
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, shorthand)
 
 
 def junction(team_id: ObjectId) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row.
-
-    The name and the shorthand are the season's own, and a saved side is composed from them rather
-    than from anything the payload carries.
-    """
+    """The name and the shorthand are the season's own: a saved side is composed from them, never from the payload."""
 
     name, shorthand = NAMES[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None, "name": name, "shorthand": shorthand}
+    return documents.saison_team_document(SAISON_ID, team_id, name, shorthand)
 
 
 def saison_document() -> dict[str, Any]:
-    """`rules` is all this path reads a season for; the span and the status are what the shipped validator requires of any season."""
+    """`rules` is all this path reads a season for: the points and the tiebreak decide the placings `bracket_season` resolves."""
 
-    return {
-        "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "active",
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+
+    return documents.saison_document(SAISON_ID, "active", rules=rules)
 
 
 def spieltag_documents() -> list[dict[str, Any]]:
@@ -182,31 +146,24 @@ def spiel_document(
     elfmeterschiessen: dict[str, int] | None = None,
     team1_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Every key spelled out: `FLSpiel` defaults `notiz` alone, so an omitted one fails inside the handler."""
-
     saison_phase, datum, _ = SPIELTAGE[spieltag_id]
 
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": SAISON_ID,
-        "saison_phase": saison_phase,
-        "spieltag_id": spieltag_id,
-        "team1": team1,
-        "team2": team2,
-        "team1_quelle": team1_quelle,
-        "team2_quelle": None,
-        "datum": datum,
-        "uhrzeit": "18:00:00",
-        # Null on both, so a payload built from this document claims neither, and the double-booking
-        # read is never the thing a failure here is about.
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": elfmeterschiessen,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    # `ort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
+    # the double-booking read is never the thing a failure here is about.
+    return documents.spiel_document(
+        spiel_id=spiel_id,
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        saison_phase=saison_phase,
+        team1=team1,
+        team2=team2,
+        team1_quelle=team1_quelle,
+        datum=datum,
+        uhrzeit="18:00:00",
+        ergebnis=ergebnis,
+        elfmeterschiessen=elfmeterschiessen,
+    )
 
 
 def bracket_season() -> list[dict[str, Any]]:
@@ -380,7 +337,7 @@ def venue_documents() -> list[dict[str, Any]]:
         {
             "_id": spielort_id,
             "name": name,
-            "address": dict(ADDRESS),
+            "address": dict(documents.ADDRESS),
             "maps_link": f"{name}, Frankfurt",
             "default_mietpreis": DEFAULT_MIETPREIS,
             "inactive_since": inactive_since,

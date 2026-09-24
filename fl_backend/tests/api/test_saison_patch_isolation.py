@@ -29,6 +29,7 @@ from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -67,35 +68,15 @@ SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    """Every key spelled out, so a key added to the model fails here rather than taking a default nobody picked."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": QUALIFIERS,
-        "number_of_groups": GROUPS,
-        "teams_per_group": TEAMS_PER_GROUP,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        **overrides,
-    }
+    return documents.rules_document(
+        **{"qualifiers_per_group": QUALIFIERS, "number_of_groups": GROUPS, "teams_per_group": TEAMS_PER_GROUP, **overrides}
+    )
 
 
 def saison_document(saison_id: str = SAISON_ID, status: str = "future") -> dict[str, Any]:
-    """`future` and undrawn by default: the state in which the shape rules are still open to a patch.
+    """`future` and undrawn by default: the state in which the shape rules are still open to a patch."""
 
-    Each season spans its own year's first half, which covers the schedule these rules imply.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": rules_document(),
-    }
+    return documents.saison_document(saison_id, status, rules=rules_document())
 
 
 # The patch resubmits the seeded season's own dates, so no case here is a date edit.
@@ -107,37 +88,32 @@ def entry_rows(saison_id: str = SAISON_ID) -> list[dict[str, Any]]:
     """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}8{index:05d}"),
-            "saison_id": saison_id,
+        documents.saison_team_document(
+            saison_id,
             # The same clubs in every seeded season: a `team_id` names a club, and a club plays year
             # after year. Only the junction row is the season's own.
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+            ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}8{index:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(TEAMS_PER_GROUP), offered_gruppen(GROUPS)))
     ]
 
 
 def squad_rows(count: int) -> list[dict[str, Any]]:
-    """One club's live squad at `count`, every validator-required key stated."""
+    """One club's live squad at `count`."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f6076{index:05d}"),
-            "spieler_id": ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
-            "saison_id": SAISON_ID,
-            "team_id": SQUAD_TEAM_ID,
-            "ist_nachnominiert": False,
-            "stufe": None,
-            "position": None,
-            "nummer": None,
-            "rolle": None,
-            "inactive_since": None,
-        }
+        documents.saison_spieler_document(
+            ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
+            SAISON_ID,
+            SQUAD_TEAM_ID,
+            _id=ObjectId(f"6890a1b2c3d4e5f6076{index:05d}"),
+            stufe=None,
+            position=None,
+        )
         for index in range(count)
     ]
 

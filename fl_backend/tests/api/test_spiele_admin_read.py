@@ -11,6 +11,7 @@ from pymongo import AsyncMongoClient, MongoClient
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
+from tests import documents
 from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
 
@@ -54,31 +55,23 @@ AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag"
 def spiel_document() -> dict[str, Any]:
     """Every field `FLSpielJoined` requires, so a response that validates proves the whole shape rather than the fields asserted on."""
 
-    return {
-        "_id": SPIEL_ID,
-        "spiel_nr": 1,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        "team2": {"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": {"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "Ada Kern", "payment": PAYMENT},
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=SPIEL_ID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        ort={"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "Ada Kern", "payment": PAYMENT},
+        ergebnis="2:1",
+    )
 
 
 def junction_row() -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
-    return {"saison_id": SAISON_ID, "team_id": AWAY, "gruppe": "A", "austritt": dict(AUSTRITT), "name": "Beta", "shorthand": "BE"}
+    return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:

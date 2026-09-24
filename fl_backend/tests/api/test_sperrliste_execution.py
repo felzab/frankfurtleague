@@ -19,6 +19,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -51,23 +52,7 @@ ACTIVE_SAISON_ID = "2026"
 # field, so a row written straight to the collection needs one too.
 LAST_COVERED = "2031"
 
-SAISON_DOCUMENT: dict[str, Any] = {
-    "_id": ACTIVE_SAISON_ID,
-    "start_date": f"{ACTIVE_SAISON_ID}-01-01",
-    "end_date": f"{ACTIVE_SAISON_ID}-06-30",
-    "status": "active",
-    "rules": {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": 2,
-        "number_of_groups": 2,
-        "teams_per_group": 4,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1"],
-    },
-}
+SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 

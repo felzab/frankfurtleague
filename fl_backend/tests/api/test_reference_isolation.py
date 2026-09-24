@@ -41,6 +41,7 @@ from app.api.teams.schemas import FLPatchTeamPayload, FLPostSaisonTeamPayload, F
 from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
@@ -77,7 +78,6 @@ REFEREE = ObjectId("6890a1b2c3d4e5f608280004")
 SECOND_FIXTURE = ObjectId("6890a1b2c3d4e5f608280005")
 THIRD_FIXTURE = ObjectId("6890a1b2c3d4e5f608280006")
 
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 SEED_MAPS_LINK = "Sportplatz Ostpark, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
 
 # Neither played nor still to play, so no retirement is refused for it and the erasure leaves its booking.
@@ -89,36 +89,13 @@ NOTE = "Anstoß bleibt"
 def saison_document() -> dict[str, Any]:
     """`future`, the one status every entry writer admits and `REQ-RETIRE-001` refuses."""
 
-    return {
-        "_id": SAISON,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "future",
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return documents.saison_document(SAISON, "future")
 
 
 def team_document(team_id: ObjectId, shorthand: str) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": f"Schule {shorthand}",
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"Schule {shorthand} Gesamtschule",
-        "website_url": "https://example.de",
-        "address": ADDRESS,
-        "inactive_since": None,
-    }
+    return documents.team_document(
+        team_id, f"Schule {shorthand}", shorthand, full_name=f"Schule {shorthand} Gesamtschule", website_url="https://example.de"
+    )
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -157,26 +134,11 @@ def bewerbung_document() -> dict[str, Any]:
 def fixture_document(**overrides: Any) -> dict[str, Any]:
     """A group fixture still to be played, holding no venue and no referee unless `overrides` books one."""
 
-    return {
-        "_id": FIXTURE,
-        "spiel_nr": 1,
-        "saison_id": SAISON,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-        **overrides,
-    }
+    fixture = documents.spiel_document(
+        spiel_id=FIXTURE, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG, datum="2026-03-15", uhrzeit="14:00:00"
+    )
+
+    return {**fixture, **overrides}
 
 
 # Every row a booking names is anchored once already, as one booked before is: a `$set` of a constant
@@ -185,9 +147,7 @@ LEAGUE: dict[Collection, list[dict[str, Any]]] = {
     Collection.SAISONS: [saison_document()],
     Collection.TEAMS: [{**team_document(CLUB, "CL"), "bounded_writes": 1}, team_document(OUTGOING, "OG")],
     # What a replacement hands over; neither an entry into group A nor the acceptance is refused for it.
-    Collection.SAISON_TEAMS: [
-        {"saison_id": SAISON, "team_id": OUTGOING, "gruppe": "A", "austritt": None, "name": "Schule OG", "shorthand": "OG"}
-    ],
+    Collection.SAISON_TEAMS: [documents.saison_team_document(SAISON, OUTGOING, "Schule OG", "OG")],
     Collection.BEWERBUNGEN: [bewerbung_document()],
     Collection.SPIELTAGE: [
         {"_id": SPIELTAG, "beginn": "2026-03-15", "ende": "2026-03-15", "position": 1, "saison_id": SAISON, "saison_phase": "gruppenphase"}
@@ -197,7 +157,7 @@ LEAGUE: dict[Collection, list[dict[str, Any]]] = {
         {
             "_id": VENUE,
             "name": "Sportplatz Ostpark",
-            "address": ADDRESS,
+            "address": dict(documents.ADDRESS),
             "maps_link": SEED_MAPS_LINK,
             "default_mietpreis": 40,
             "inactive_since": None,

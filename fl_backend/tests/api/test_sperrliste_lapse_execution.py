@@ -23,6 +23,7 @@ from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -59,23 +60,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
     """The span and the rules are what the shipped validator requires of any season; `status` is what this suite varies."""
 
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 2,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1"],
-        },
-    }
+    return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 
 async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
