@@ -110,7 +110,6 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
 
-COMMENT_OPENERS: Final = ("/**", "*/", "*", "//")
 ANY_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*)\b")
 
 
@@ -120,20 +119,51 @@ def _source(module: str) -> str:
     return (FRONTEND_SRC / module).read_text(encoding="utf-8")
 
 
+def _comment_spans(source: str) -> Iterator[tuple[int, int]]:
+    """The offsets of every comment, a `/* */` taking every line it crosses whatever that line opens with."""
+
+    at = 0
+    while at < len(source):
+        opener = source[at : at + 2]
+        if opener in ("//", "/*"):
+            end = source.find("\n" if opener == "//" else "*/", at + 2)
+            to = len(source) if end == -1 else end if opener == "//" else end + 2
+            yield at, to
+            at = to
+            continue
+        # Skipped whole, as `fl_frontend/src/core/blankComments.ts :: blankComments` skips them, so a
+        # `//` inside a URL opens nothing. Only a template literal crosses a line: a JSX apostrophe read
+        # as a quote then swallows the rest of its own line and never a comment below it.
+        quote = source[at]
+        if quote in "\"'`":
+            at += 1
+            while at < len(source) and source[at] != quote and (quote == "`" or source[at] != "\n"):
+                at += 2 if source[at] == "\\" else 1
+        at += 1
+
+
 def _blocks(source: str) -> Iterator[tuple[str, str]]:
-    """Each line beside the comment block governing it."""
+    """Each line beside the comment text governing it: the block above it, and a comment trailing it."""
+
+    comments = [character if character == "\n" else " " for character in source]
+    code = list(source)
+    for start, end in _comment_spans(source):
+        for at in range(start, end):
+            if source[at] != "\n":
+                comments[at], code[at] = source[at], " "
 
     block = ""
     was_comment = False
-    for line in source.splitlines():
-        stripped = line.strip()
-        is_comment = stripped.startswith(COMMENT_OPENERS)
+    for line, code_part, comment_part in zip(source.split("\n"), "".join(code).split("\n"), "".join(comments).split("\n"), strict=True):
+        comment = comment_part.strip()
+        is_comment = comment != "" and code_part.strip() == ""
         if is_comment:
             # Only a comment after code opens a new block: a claim governs every declaration below it
             # up to the next comment, blank lines and statements between them included.
-            block = f"{block} {stripped}" if was_comment else stripped
+            block = f"{block} {comment}" if was_comment else comment
         was_comment = is_comment
-        yield line, block
+        # A comment trailing code governs that line alone and leaves the block above it standing.
+        yield line, block if is_comment or comment == "" else f"{block} {comment}"
 
 
 def _attributed(source: str, declaration: re.Pattern[str], claims: Callable[[str], bool]) -> set[str]:
@@ -163,7 +193,11 @@ def _declared_bounds() -> dict[str, int]:
 
 
 def _modules_naming_the_source() -> set[str]:
-    """Every non-test frontend module one of whose comment blocks claims a mirror, which is the claim this register has to cover."""
+    """Every non-test frontend module one of whose comments claims a mirror, which is the claim this register has to cover.
+
+    Any comment, one trailing code or governing no export included: a claim attributed to no constant
+    then fails the register case rather than dropping out of it.
+    """
 
     return {
         path.relative_to(FRONTEND_SRC).as_posix()
