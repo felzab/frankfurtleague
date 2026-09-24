@@ -30,7 +30,6 @@ latest row of the programme register, else 12, under a ceiling of 20; it paces q
 taken from a handoff, which is written before a session ends. Beneath it sits a lower ceiling, what
 quality bears, which is learned by watching quality rather than taken from a figure some earlier
 session remembered.
-Sub-agent cap per agent: zero, always -- a fresh agent is a second dispatch of mine.
 Model: <what the owner last named for subagents>; a dispatch passes `model` only where the owner
 names another for that work, and whether a piece of work earns it is mine to decide.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every

@@ -131,9 +131,8 @@ Run it for every agent, the fifteenth as much as the first.
 3. **Sum against the budget** — the live count and this agent — and never dispatch blind. **A raised
    cap is a number, not a suspension**, and the sum lapses exactly when requests arrive faster than
    agents finish, each justified alone. **Name which of §4's three reasons buys this agent before
-   you write its brief**; none, and the work is yours. **No agent spawns sub-agents**
-   ([the brief](agent-brief-template.md) section 6): where a question needs a fresh agent, you
-   dispatch it.
+   you write its brief**; none, and the work is yours. A question needing a fresh agent is yours to
+   dispatch.
 4. **Brief from [agent-brief-template.md](agent-brief-template.md)**, every section, with the file
    list in full and the scratch path written out. **One prep agent resolves a whole wave's premises
    against `HEAD` before its briefs are written** — half of them otherwise carry one the tree

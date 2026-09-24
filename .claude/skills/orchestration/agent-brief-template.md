@@ -127,11 +127,7 @@ did the reasonable thing in their absence.
                 addressed to me, not to you:
                 YOU are finished when your commits are made and your report lands.
 
-6  SUB-AGENTS.  ZERO, whatever this task looks like it needs. `/docs:audit` fans out to a fleet of
-                auditors, sub-agents by another route, and `/docs:audit-pr` edits the branch in
-                place: never run either. Where a question needs a fresh agent, say so and
-                stop -- I dispatch it myself at the top level. Unbounded fan-out has twice
-                consumed the whole concurrency budget and blocked the work queued behind it.
+6  SUB-AGENTS.  Where a question needs a fresh agent, say so and stop -- I dispatch it.
 
 7  SCRATCH.     <scratch path>/<your agent name>/ -- your own subdirectory, outside the
                 repository and outside your worktree, for everything you write that is not a file
