@@ -13,6 +13,8 @@ Invariants:
   `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (`docs/ops/spec.md :: I355`).
 - The edge opens its Control API at `scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET`, in a tmpfs of
   mode 700.
+- Production's edge trusts the connector's rendered address alone, in `nginx/prod/prod.conf`'s
+  `set_real_ip_from` and in the geo arm marking the fallback (`docs/ops/spec.md :: I18`).
 """
 
 from __future__ import annotations
@@ -51,6 +53,11 @@ LOOPBACK: Final = frozenset({"127.0.0.1", "::1"})
 EDGE_CONFIG_ROOT: Final = "nginx"
 
 DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
+
+# The one service whose requests production's edge takes the visitor's address from.
+CONNECTOR_SERVICE: Final = "cloudflared"
+
+PROD_CONF: Final = REPO_ROOT / "nginx" / "prod" / "prod.conf"
 
 
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:
@@ -205,6 +212,49 @@ def control_socket(model: dict[str, Any], name: str, socket: str) -> list[Findin
     return findings
 
 
+def connector_address(model: dict[str, Any], name: str) -> str:
+    """The one static address the rendered model gives the connector."""
+    connector = services(model, name).get(CONNECTOR_SERVICE)
+    networks = connector.get("networks") if isinstance(connector, dict) else None
+    addresses = [n.get("ipv4_address") for n in networks.values() if isinstance(n, dict)] if isinstance(networks, dict) else []
+    addresses = [address for address in addresses if address]
+    if len(addresses) != 1:
+        raise ValueError(
+            f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so its trust in prod.conf was not compared"
+        )
+    return str(addresses[0])
+
+
+def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
+    """`set_real_ip_from` and the geo arm marking the fallback each name the connector's address, and nothing else.
+
+    Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
+    """
+    trusted = re.findall(r"^\s*set_real_ip_from\s+([^;\s]+)\s*;", conf, re.MULTILINE)
+    block = re.search(r"^geo \$realip_fallback \{(.*?)^\}", conf, re.MULTILINE | re.DOTALL)
+    if block is None:
+        raise ValueError(f"{name} declares no `geo $realip_fallback` block, so the fallback's marker was not compared")
+    arms = [tuple(arm) for arm in re.findall(r"^\s*([^\s;]+)\s+([^\s;]+)\s*;", block.group(1), re.MULTILINE) if arm[0] != "default"]
+    findings: list[Finding] = []
+    if trusted != [address]:
+        findings.append(
+            Finding(
+                "fail",
+                f"{name} trusts {trusted or 'nothing'} with set_real_ip_from, and the connector is {address}\n"
+                f"{CONTINUATION}the edge takes a visitor's address from the connector alone (I18)",
+            )
+        )
+    if arms != [(f"{address}/32", "1")]:
+        findings.append(
+            Finding(
+                "fail",
+                f"{name} marks {arms or 'nothing'} as the realip fallback, and the connector is {address}/32\n"
+                f"{CONTINUATION}the marker and set_real_ip_from name one address (I18)",
+            )
+        )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
@@ -219,6 +269,7 @@ def main() -> int:
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
+        findings += trusted_connector(PROD_CONF.read_bytes().decode(), connector_address(prod_model, "production"), "nginx/prod/prod.conf")
     except (*UNREADABLE, ValueError) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
@@ -228,6 +279,7 @@ def main() -> int:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
+        print(f"      production's edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
     return code
 
 

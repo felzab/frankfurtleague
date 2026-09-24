@@ -179,3 +179,54 @@ def test_the_deploy_compares_exactly_the_pairs_production_mounts():
 
     assert exposure.compared(pairs, exposure.deploy_pairs(exposure.DEPLOY), "p") == []
     assert len(exposure.compared([*pairs, ("nginx/extra", "/etc/nginx/extra")], exposure.deploy_pairs(exposure.DEPLOY), "p")) == 1
+
+
+# --- the connector production's edge trusts ---------------------------------------------------------
+
+CONNECTOR = "172.30.0.250"
+
+
+def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};", arm: str = f"{CONNECTOR}/32  1;") -> str:
+    """`nginx/prod/prod.conf`'s trust, as that file spells it."""
+    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\n\ngeo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
+
+
+def test_a_connector_trusted_and_marked_at_its_rendered_address_is_clean():
+    rendered = model(cloudflared={"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}})
+
+    assert exposure.trusted_connector(conf(), exposure.connector_address(rendered, "p"), "c") == []
+
+
+def test_trust_moved_off_the_connector_fails():
+    """Every visitor is then keyed to the connector's own address, one rate-limit bucket for the site."""
+    assert len(exposure.trusted_connector(conf(real_ip="set_real_ip_from 172.30.0.251;"), CONNECTOR, "c")) == 1
+
+
+def test_trust_widened_beside_the_connector_fails():
+    """A second range lets any host inside it name the visitor."""
+    widened = conf(real_ip=f"set_real_ip_from {CONNECTOR};\nset_real_ip_from 173.245.48.0/20;")
+
+    assert len(exposure.trusted_connector(widened, CONNECTOR, "c")) == 1
+
+
+def test_a_fallback_marker_at_another_address_fails():
+    """A marker nothing matches leaves the access line silent about the fallback it exists to show."""
+    assert len(exposure.trusted_connector(conf(arm="172.30.0.2/32  1;"), CONNECTOR, "c")) == 1
+
+
+def test_a_conf_without_the_fallback_marker_refuses():
+    try:
+        exposure.trusted_connector(f"set_real_ip_from {CONNECTOR};\n", CONNECTOR, "c")
+    except ValueError:
+        return
+    raise AssertionError("a prod.conf with no geo block was judged")
+
+
+def test_a_connector_without_one_static_address_refuses():
+    """The daemon's own assignment differs per host, so an unpinned connector has no address to compare."""
+    for networks in ({"frankfurtleague-net": None}, {}):
+        try:
+            exposure.connector_address(model(cloudflared={"networks": networks}), "p")
+        except ValueError:
+            continue
+        raise AssertionError(f"a connector with networks {networks!r} was given an address")
