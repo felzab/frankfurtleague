@@ -516,9 +516,10 @@ applied to it.
 **A stopped service is graded as a finding rather than an advisory**, because the edge can still
 answer 200 from a worker that outlived it: a green probe over a stopped pair is what a stale nginx
 or a stray container looks like, and it is the state that most resembles a healthy one from
-outside. That probe is the only line in the report not taken from a container, nginx resolving its
+outside. **That probe and nginx's own dump of the configuration it holds are the report's two reads
+of the edge**, and every other row is read from the application's containers: nginx resolves its
 upstreams once as it loads, so a healthy pair says nothing about whether the edge is still pointed
-at it (I9).
+at it (I9), nor whether it holds this checkout's files (I355).
 
 **`curl` writing `000`, on the other hand, is an advisory**, because `deploy.sh` runs on the server:
 the read is the host asking for its own public hostname, so a host that does not resolve the domain
