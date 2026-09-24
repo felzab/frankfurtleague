@@ -17,12 +17,27 @@ import { readScheme } from "./schemeReader"; // expect: test-only
 import { readScheme as readTyped } from "./schemeReader.ts"; // expect: test-only
 import { redact } from "./edgeRedaction"; // expect: test-only
 import { redact as redactTyped } from "./edgeRedaction.ts"; // expect: test-only
+import { walkFiles } from "./treeWalk"; // expect: test-only
+import { walkFiles as walkFilesTyped } from "./treeWalk.ts"; // expect: test-only
+import { DOCUMENT_PATH } from "./openapiDocument"; // expect: test-only
+import { DOCUMENT_PATH as DOCUMENT_PATHTyped } from "./openapiDocument.ts"; // expect: test-only
+import { publishedCeilings } from "./publishedCeilings"; // expect: test-only
+import { publishedCeilings as publishedCeilingsTyped } from "./publishedCeilings.ts"; // expect: test-only
+import { blankComments } from "./blankComments"; // expect: test-only
+import { blankComments as blankCommentsTyped } from "./blankComments.ts"; // expect: test-only
+import { openingTagAt } from "./openingTag"; // expect: test-only
+import { openingTagAt as openingTagAtTyped } from "./openingTag.ts"; // expect: test-only
+import { withoutPythonComments } from "./pythonComments"; // expect: test-only
+import { withoutPythonComments as withoutPythonCommentsTyped } from "./pythonComments.ts"; // expect: test-only
+import { KEY_TIERS } from "./keyTiers"; // expect: test-only
+import { KEY_TIERS as KEY_TIERSTyped } from "./keyTiers.ts"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
 import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load

@@ -1,0 +1,6 @@
+// Linted as src/core/actionSources.ts.
+// A test-only module may import another.
+import { blankComments } from "./blankComments";
+import { walkFiles } from "./treeWalk";
+
+export const USED = [blankComments, walkFiles];

@@ -118,12 +118,51 @@ const TEST_ONLY = [
       "authDoubles replaces the config, the database and the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
-    group: ["**/actionSources.ts", "**/actionSources", "**/schemeReader.ts", "**/schemeReader", "**/edgeRedaction.ts", "**/edgeRedaction"],
+    group: [
+      "**/actionSources.ts",
+      "**/actionSources",
+      "**/schemeReader.ts",
+      "**/schemeReader",
+      "**/edgeRedaction.ts",
+      "**/edgeRedaction",
+      "**/treeWalk.ts",
+      "**/treeWalk",
+    ],
     message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    group: ["**/openapiDocument.ts", "**/openapiDocument", "**/publishedCeilings.ts", "**/publishedCeilings"],
+    message:
+      "This module locates or reads fl_backend/openapi.json, which no production image holds: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    group: [
+      "**/blankComments.ts",
+      "**/blankComments",
+      "**/openingTag.ts",
+      "**/openingTag",
+      "**/pythonComments.ts",
+      "**/pythonComments",
+      "**/keyTiers.ts",
+      "**/keyTiers",
+    ],
+    message:
+      "This module is the suite's reader of source text or of the published contract: a *.test.ts(x) file may import it, production code may not.",
   },
 ];
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
+
+/**
+ * The suite's own harness, which the test-only ban leaves out as it leaves out the tests: a
+ * test-only module reading another is still the suite's.
+ */
+const TEST_SUPPORT = [
+  "src/shared/testing/**/*.{ts,tsx}",
+  ...TEST_ONLY.flatMap((entry) => entry.group)
+    .filter((glob) => glob.endsWith(".ts"))
+    .map((glob) => `src/${glob}`),
+];
 
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
 const CLASS_LIST_CONSTANT = "^[A-Z][A-Z0-9_]*_CLASSES$";
@@ -745,21 +784,21 @@ const eslintConfig = defineConfig([
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, LAYER_BOUNDARY.shared),
   },
 
-  // The test-only ban, which a `*.test.ts(x)` file alone escapes. Each block restates the boundary
-  // above it for `restrictImports`'s reason.
+  // The test-only ban, which a `*.test.ts(x)` file and the suite's harness escape. Each block restates
+  // the boundary above it for `restrictImports`'s reason.
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: TEST_FILES,
+    ignores: [...TEST_FILES, ...TEST_SUPPORT],
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY),
   },
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    ignores: TEST_FILES,
+    ignores: [...TEST_FILES, ...TEST_SUPPORT],
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    ignores: TEST_FILES,
+    ignores: [...TEST_FILES, ...TEST_SUPPORT],
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.shared),
   },
   // Each ban's one importer, last among the blocks reaching it for `restrictImports`'s reason, and left
