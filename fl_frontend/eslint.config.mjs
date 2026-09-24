@@ -309,6 +309,11 @@ const DYNAMIC_LOADS = [
     message:
       "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
   },
+  {
+    // A loaded module's Calendar reaches a tag under whatever name it is destructured to.
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fcalendar$`),
+    message: "Import the Calendar statically, under its own name: the spread ban reads the tag.",
+  },
 ];
 
 /**
@@ -362,8 +367,9 @@ const ADMIN_VIEW = `:matches(FunctionDeclaration[id.name=${VIEW_NAME}], Function
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
 /**
- * The date controls the bound and spread bans find by the tag's name, which an alias, a namespace or
- * HeroUI's `*Root` export would rename; `<X.Root>` is the compound's own spelling of the same control.
+ * The date controls the bound and spread bans find by the tag's name, which an alias, a namespace, a
+ * re-export or HeroUI's `*Root` export would rename; `<X.Root>` is the compound's own spelling of the
+ * same control. A local `const Cal = Calendar` renames it past every ban.
  */
 const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
@@ -478,8 +484,8 @@ const SOURCE_BANS = [
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {
-    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier)`,
-    message: "Import a date control under its own name: the bound and spread bans read the tag.",
+    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier, ExportNamedDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > ExportSpecifier[local.name=/^(?:${DATE_CONTROLS.join("|")})(?:Root)?$/], ExportAllDeclaration[source.value=${DATE_MODULES}])`,
+    message: "Import a date control under its own name, and re-export none: the bound and spread bans read the tag.",
     tests: true,
   },
   {

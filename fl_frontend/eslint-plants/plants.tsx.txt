@@ -89,8 +89,11 @@ export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui
 export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
 export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
-// The calendar offers the days and judges nothing, so it loads from anywhere.
-export const CALENDAR_LOADED = import("@heroui/react/calendar");
+export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
+export { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
+export { CalendarRoot as DaysRoot, Calendar } from "@heroui/react/calendar"; // expect: date-alias expect: date-alias
+export * as CalendarParts from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
+export * from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
 // A subpath loads its component alone, and a hole leaves the specifier to run time.
 export const BUTTON_LOADED = import("@heroui/react/button");
 export const HOLED_LOADED = import(`@heroui/react${extra}`);

@@ -48,6 +48,7 @@ const BANS = [
   ["next-private-load", /Load Next's contexts through/],
   ["segmented-import", /Compose a date or time field/],
   ["segmented-load", /Load a segmented date control through/],
+  ["calendar-load", /Import the Calendar statically/],
   ["heroui-form", /Render a form through/],
   ["hint-internals", /Render a hint through Hint or InfoHint/],
   ["vendor-root", /Import (?:a HeroUI component|an icon) from its own subpath/],
