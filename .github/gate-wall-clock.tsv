@@ -333,6 +333,15 @@
 # the `backend` row carries, so neither the reference nor the budget moves and neither takes a new
 # stamp.
 #
+# `images` gained two steps: each image's layer cache is exported to the Actions cache by a buildx
+# run of its own after the probes, where the build carried the export before. On two pull-request
+# runs on 2026-09-24 the two exports, run side by side, took 14 s and 8.5 s, then 13 s and 2.4 s,
+# so the job pays the frontend's; the section took 117 s and 108 s, and the job 128 s and 114 s
+# first step to last, against 155 s and 168 s on the same day's last run before the split, which
+# built and exported in one step. Which layers each runner found warm is unknown, so the three spans say only that the
+# split costs no more than the export already did. Its 13-14 s sits inside the floor the `images`
+# row carries, so the reference does not move and the row takes no new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in any of its modes, and compares nothing at all.
