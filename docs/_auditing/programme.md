@@ -170,8 +170,7 @@ Every step below is the session's job, in this order, with none skipped.
 ./scripts/gate/verify.sh
 ```
 
-**The full gate runs on every wave.** The one exception is a wave that changed **documentation
-only**, which runs the scope [`../ops/spec.md`](../ops/spec.md) §1.6's table names for it;
+**The full gate runs on every wave**, a documentation-only one included:
 [`lessons.md`](lessons.md) §5 holds the classes that pass a partial gate and break the built image.
 
 ### 4.2 Read what the formatter changed
