@@ -103,6 +103,7 @@ jobs:
       # No `cache-from`: every job on main can write the Actions cache, so a dependency compromised in
       # any verify run could plant a layer that this job would then publish.
       - name: Build and push the frontend
+        id: build-frontend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: fl_frontend
@@ -111,6 +112,7 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
       - name: Build and push the backend
+        id: build-backend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: fl_backend
@@ -123,8 +125,10 @@ jobs:
       # between them is what `deploy.sh`'s label comparison refuses; dispatching again repairs it.
       - name: Move both packages' latest tag to this build
         env:
-          FRONTEND_TAG: ${{ steps.meta-frontend.outputs.tags }}
-          BACKEND_TAG: ${{ steps.meta-backend.outputs.tags }}
+          # The digest each push produced rather than its tags output, which a second tag in the
+          # metadata step would turn into a newline-joined list.
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
         run: |
-          docker buildx imagetools create --tag "${FRONTEND_IMAGE}:latest" "$FRONTEND_TAG"
-          docker buildx imagetools create --tag "${BACKEND_IMAGE}:latest" "$BACKEND_TAG"
+          docker buildx imagetools create --tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
+          docker buildx imagetools create --tag "${BACKEND_IMAGE}:latest" "${BACKEND_IMAGE}@${BACKEND_DIGEST}"
