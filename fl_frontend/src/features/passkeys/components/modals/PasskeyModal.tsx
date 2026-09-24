@@ -204,12 +204,13 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // The server's refusal may answer a list another change moved -- a row already gone, or one
       // added or removed at the same moment -- so the list is read again before the control reopens.
       const gelesen = held.reread ? await readPasskeysAction() : null;
-      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
-      // `await` outside it.
+      // Wrapped again, to the end of the path: the press runs this inside its transition, and React
+      // leaves an update after an `await` outside it. The toast queue is an external store, so no
+      // wrap holds the toast back.
       startTransition(() => {
         if (gelesen !== null) uebernimm(gelesen);
+        appToast.danger("Passkey nicht gelöscht", { description: held.description });
       });
-      appToast.danger("Passkey nicht gelöscht", { description: held.description });
       return;
     }
 
