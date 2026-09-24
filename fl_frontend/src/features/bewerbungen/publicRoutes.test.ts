@@ -668,23 +668,18 @@ describe("who the submission's receipt is addressed to", () => {
     assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
   });
 
-  /* A fixture spelling the emptied path is how the move half-lands: the mail goes out on a 404, and
-     every case here still passes, because nothing in this suite drives a URL. */
-  it("spells the path the move emptied in no frontend or edge file", () => {
-    // Composed rather than written out: this file is inside the population below, and a needle
-    // spelled contiguously here would report itself.
+  /* An edge file spelling the emptied path sends the mail's link to a 404 that no case here drives.
+     ESLint reads no edge file, so this sweep does. */
+  it("spells the path the move emptied in no edge file", () => {
+    // Composed rather than written out: the lint ban reads this file's literals too.
     const GELEERT = "/bestaetigung";
     const stale = [
       { pattern: new RegExp(`${GELEERT}\\?`), what: "mints a confirmation link on the path the move emptied" },
-      { pattern: new RegExp(`/api${GELEERT}"`), what: "names the handler path the move emptied" },
+      // Whatever follows the path but a further segment: an nginx `location` names it unquoted.
+      { pattern: new RegExp(`/api${GELEERT}(?![\\w/-])`), what: "names the handler path the move emptied" },
     ];
 
-    const swept = [
-      ...filesUnder(SRC_DIR, (name) => /\.tsx?$/.test(name), 400),
-      ...filesUnder(path.join(REPO_DIR, "nginx"), (name) => /\.(?:conf|sh)$/.test(name), 3),
-    ];
-
-    for (const file of swept) {
+    for (const file of filesUnder(path.join(REPO_DIR, "nginx"), (name) => /\.(?:conf|sh)$/.test(name), 3)) {
       const sourceText = readFileSync(file, "utf8");
 
       for (const { pattern, what } of stale) {
