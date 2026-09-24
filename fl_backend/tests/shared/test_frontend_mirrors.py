@@ -132,11 +132,12 @@ def _comment_spans(source: str) -> Iterator[tuple[int, int]]:
             at = to
             continue
         # Skipped whole, as `fl_frontend/src/core/blankComments.ts :: blankComments` skips them, so a
-        # `//` inside a URL opens nothing. Only a template literal crosses a line: a JSX apostrophe read
-        # as a quote then swallows the rest of its own line and never a comment below it.
+        # `//` inside a URL opens nothing.
         quote = source[at]
         if quote in "\"'`":
             at += 1
+            # Ended at the line but for a template literal: a JSX apostrophe read as a quote swallows the
+            # rest of its own line and never a comment below it.
             while at < len(source) and source[at] != quote and (quote == "`" or source[at] != "\n"):
                 at += 2 if source[at] == "\\" else 1
         at += 1
@@ -193,10 +194,9 @@ def _declared_bounds() -> dict[str, int]:
 
 
 def _modules_naming_the_source() -> set[str]:
-    """Every non-test frontend module one of whose comments claims a mirror, which is the claim this register has to cover.
+    """Every non-test frontend module any of whose comments claims a mirror, one trailing code or governing no export included.
 
-    Any comment, one trailing code or governing no export included: a claim attributed to no constant
-    then fails the register case rather than dropping out of it.
+    A claim attributed to no constant then fails the register case rather than dropping out of it.
     """
 
     return {
