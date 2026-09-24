@@ -95,4 +95,13 @@ describe("the closed set every pill takes its colour from", () => {
       );
     }
   });
+
+  /* The neutral-pill ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` finds a pill module by
+     this export's name and this module's, both strings there, so a rename leaves it matching
+     nothing. Both are strings here too, which an identifier rename leaves standing. */
+  it("still exports the radius the neutral-pill ban finds a pill module by", async () => {
+    const badges = (await import(new URL("./badges.ts", import.meta.url).href)) as Record<string, unknown>;
+
+    assert.equal(typeof badges["PILL_RADIUS_CLASSES"], "string", "the ban's population is keyed on an export this module no longer has");
+  });
 });
