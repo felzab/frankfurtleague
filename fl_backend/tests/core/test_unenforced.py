@@ -326,7 +326,7 @@ def _packages_reading(name: str) -> set[str]:
     }
 
 
-class TestExactlyOneActiveSeason:
+class TestTwoSeasonsActiveAtOnce:
     """That no store-level constraint holds two seasons apart, and that one transaction is the whole of what the app does."""
 
     def test_no_unique_index_reaches_the_status_field(self):
