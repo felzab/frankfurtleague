@@ -687,7 +687,8 @@ describe("who the submission's receipt is addressed to", () => {
       { pattern: new RegExp(`/api${GELEERT}(?![\\w/-])`), what: "names the handler path the move emptied" },
     ];
 
-    for (const file of filesUnder(path.join(REPO_DIR, "nginx"), (name) => /\.(?:conf|sh)$/.test(name), 3)) {
+    // Configurations alone: `nginx/edge_test.sh` is a test script, and probing the emptied path is its job.
+    for (const file of filesUnder(path.join(REPO_DIR, "nginx"), (name) => name.endsWith(".conf"), 3)) {
       const sourceText = readFileSync(file, "utf8");
 
       for (const { pattern, what } of stale) {
