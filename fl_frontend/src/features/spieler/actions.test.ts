@@ -3,6 +3,7 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
@@ -26,7 +27,7 @@ import {
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
 
@@ -52,6 +53,36 @@ const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEdi
 const { AdminSpielerEditForm } = await import("./components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
+
+/** What the editor page's doubled reads answer, set by the case that renders it. */
+const PAGE_READS = "__flSpielerEditorLesungen";
+
+/* The page's own reads and `connection()`, which is request-only where this process makes no
+   request. Each double answers only the fields the page reads. */
+const PAGE_DOUBLES: [string, string][] = [
+  [
+    "/src/features/spieler/queries.ts",
+    `export const getSpielerMemberships = async () => globalThis.${PAGE_READS}.memberships;
+export const getSpielerNachnominierung = async (saison_id) => ({ saison_id, nachnominierung: false });`,
+  ],
+  [
+    "/src/features/saisons/queries.ts",
+    `export const getAdminSaisons = async () => globalThis.${PAGE_READS}.saisons;
+export const getSaisons = async () => globalThis.${PAGE_READS}.saisons;`,
+  ],
+  ["/src/features/teams/queries.ts", `export const getTeamMemberships = async () => globalThis.${PAGE_READS}.teams;`],
+  ["/next/server.js", "export const connection = async () => undefined;"],
+];
+
+registerHooks({
+  load(url, context, nextLoad) {
+    const doubled = PAGE_DOUBLES.find(([ending]) => url.endsWith(ending));
+    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
+const { default: AdminSpielerEditPage } = await import("@/app/admin/spieler/[spieler_id]/page.tsx");
 
 /** A tree under all three contexts, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
@@ -306,11 +337,59 @@ describe("the erasure's gate and its exit", () => {
 
   /* Every season's rows: the erasure takes them all, so a figure narrowed to the selected season
      understates what the press destroys — and the reader agrees to the figure. */
-  it("is handed the squad rows of every season, not the selected one's", () => {
-    assert.match(PAGE, /membershipCount=\{spieler\.memberships\.length\}/, "the panel's figure is not the whole of what is held");
-    assert.doesNotMatch(PAGE, /membershipCount=\{[^}]*(filter|saison)/, "the figure is narrowed before the panel reads it");
+  it("is handed the squad rows of every season, not the selected one's", async () => {
+    const row = (saison_id: string) => ({
+      saison_id,
+      team_id: STORED_TEAM.teamId,
+      nummer: "10",
+      position: null,
+      stufe: null,
+      ist_nachnominiert: false,
+      rolle: null,
+      inactive_since: RETIRED_ON,
+    });
+    const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
+
+    (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+      memberships: {
+        spieler: [
+          {
+            id: SPIELER_ID,
+            vorname: "Lena",
+            nachname: "Meier",
+            inactive_since: RETIRED_ON,
+            geburtsdatum: null,
+            einwilligung: null,
+            email: null,
+            memberships: [row("2025"), row(SAISON_ID)],
+          },
+        ],
+      },
+      saisons: { saisons: [saison("2025", "finished"), saison(SAISON_ID, "active")] },
+      teams: {
+        teams: [{ id: STORED_TEAM.teamId, name: STORED_TEAM.name, shorthand: STORED_TEAM.shorthand, memberships: [{ saison_id: SAISON_ID }] }],
+      },
+    };
+
+    render(underSaison(await editorPageBody()));
+    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
+
+    assert.equal(screen.getByText("Kadereinträge").nextElementSibling?.textContent, "2", "the figure is narrowed to the selected season's row");
   });
 });
+
+type ElementOf<P> = { type: (props: P) => Promise<ReactElement>; props: P };
+
+// Reached through the boundary's own `props.children` for the reason
+// `fl_frontend/src/features/bewerbungen/routes.test.ts :: renderBody` gives.
+/** The editor page's body as its reads answer it: the element it hands the editor. */
+async function editorPageBody(): Promise<ReactElement> {
+  const props = { params: Promise.resolve({ spieler_id: SPIELER_ID }), searchParams: Promise.resolve({ saison_id: SAISON_ID }) };
+  const boundary = AdminSpielerEditPage(props) as unknown as { props: { children: ElementOf<typeof props> } };
+  const body = boundary.props.children;
+
+  return body.type(body.props);
+}
 
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,
