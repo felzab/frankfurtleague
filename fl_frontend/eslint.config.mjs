@@ -591,7 +591,7 @@ const SOURCE_BANS = [
   },
   {
     selector: "JSXElement[openingElement.name.name=/^h[1-6]$/] JSXElement[openingElement.name.name=/^(?:Info)?Hint/]",
-    message: "A heading names itself from its contents, so a hint beside it is read out as part of the title.",
+    message: "A heading names itself from its contents, so a hint inside it is read out as part of the title.",
   },
   {
     // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
