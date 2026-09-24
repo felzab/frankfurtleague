@@ -1021,20 +1021,23 @@ if (( RUN_FRONTEND )); then
   quietly do_lockfile || LOCKFILE_RC=$?
 
   # pnpm checks every committed entry against its release-age policy before it compares, and only
-  # its error code tells the two refusals apart; `--verbose` streams that code uncaptured, hence a
-  # third arm.
+  # its error code tells a young release from a drift; `--verbose` streams that code uncaptured,
+  # hence a third arm.
   if (( LOCKFILE_RC )); then
     case "$QUIETLY_OUTPUT" in
-      *ERR_PNPM_OUTDATED_LOCKFILE*)
-        die "fl_frontend's manifest and lockfile disagree — the packages are named above.
+      # The second code is a drift in a workspace setting the lockfile records, such as `overrides`
+      # or `patchedDependencies`, rather than in the manifest.
+      *ERR_PNPM_OUTDATED_LOCKFILE* | *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*)
+        die "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names
+what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
       *ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION*)
         die "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
 them above, with its own remedy, and the manifest was never compared.
 Each passes unchanged once it is old enough." ;;
       *)
-        die "pnpm refused fl_frontend's lockfile for a reason this step does not read — its own output
-is above." ;;
+        die "pnpm stopped on fl_frontend's lockfile for a reason this step does not read — its own
+output is above." ;;
     esac
   fi
   ok "manifest and lockfile agree"
