@@ -75,8 +75,8 @@ describe("the registration's submission key", () => {
     render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
 
     await registerOnce(user);
-    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 }));
-    await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 });
+    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();
     assert.equal(keys.length, 2, "the panel did not send both presses");
@@ -94,8 +94,8 @@ describe("the registration's submission key", () => {
     render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
 
     await registerOnce(user);
-    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 }));
-    await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 });
+    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();
     assert.equal(keys.length, 2, "the panel did not send both presses");
@@ -114,8 +114,8 @@ describe("the registration's submission key", () => {
       render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
 
       await registerOnce(user);
-      await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 }));
-      await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 });
+      await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+      await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
       const keys = keysSent();
       assert.equal(keys.length, 2, "the panel did not send both presses");
@@ -131,8 +131,8 @@ describe("the registration's submission key", () => {
     render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
 
     await registerOnce(user);
-    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 }));
-    await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 });
+    await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();
     assert.equal(keys.length, 2, "the panel did not send both presses");
@@ -163,7 +163,7 @@ describe("the registration's submission key", () => {
     render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
 
     await registerOnce(user);
-    await screen.findByRole("button", { name: /Registrierung abschicken/ }, { timeout: 5000 });
+    await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     assert.deepEqual(failureToasts(), [["Unklar, ob es bei uns angekommen ist", REGISTRIERUNG_UNKLAR]]);
   });

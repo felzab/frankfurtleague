@@ -629,7 +629,7 @@ without the extension is held by this scope and CI alone. `.editorconfig` carrie
 conventions to the files prettier never opens and stays clear of every setting `.prettierrc.json`
 decides.
 
-**Every untracked file a run writes is gitignored where it lands**, the three caches this repository
+**Every untracked file a run leaves is gitignored where it lands**, the three caches this repository
 opts into — `tsc`'s, eslint's and prettier's — among them, so none of it is a tracked file the gate
 wrote. **Outside
 CI the two Next commands install as well as write**: handed a missing `typescript` or `@types/*`
