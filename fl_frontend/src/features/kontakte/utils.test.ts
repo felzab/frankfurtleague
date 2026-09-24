@@ -268,7 +268,7 @@ describe("renamedConfirmedSeatLabels", () => {
      drops each stamp, so the banner has to name the seat. */
   it("names a seat where „ß“ against „ss“ is the whole difference", () => {
     assert.deepEqual(howStored({ nachname: "Weiß" }, { nachname: "WEISS" }), ["Trainer"]);
-    assert.deepEqual(howStored({ email: "erika@straße.de" }, { email: "erika@strasse.de" }), ["Trainer"]);
+    assert.deepEqual(howStored({ email: "erika@strasse.de" }, { email: "erika@straße.de" }), ["Trainer"]);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however
