@@ -1086,9 +1086,26 @@ if (( RUN_FRONTEND )); then
   step "frontend · pnpm  (manifest and lockfile agree)"
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible rather than unlikely: pnpm's
   # own words are "don't generate a lockfile and fail if an update is needed".
-  quietly do_lockfile \
-    || die "fl_frontend's manifest and lockfile disagree — the packages are named above.
-Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
+  LOCKFILE_RC=0
+  quietly do_lockfile || LOCKFILE_RC=$?
+
+  # pnpm checks every committed entry against its release-age policy before it compares, and only
+  # its error code tells the two refusals apart; `--verbose` streams that code uncaptured, hence a
+  # third arm.
+  if (( LOCKFILE_RC )); then
+    case "$QUIETLY_OUTPUT" in
+      *ERR_PNPM_OUTDATED_LOCKFILE*)
+        die "fl_frontend's manifest and lockfile disagree — the packages are named above.
+Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
+      *ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION*)
+        die "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
+them above, with its own remedy, and the manifest was never compared.
+Each passes unchanged once it is old enough." ;;
+      *)
+        die "pnpm refused fl_frontend's lockfile for a reason this step does not read — its own output
+is above." ;;
+    esac
+  fi
   ok "manifest and lockfile agree"
 
   # A `FRONTEND_WRITERS` entry, for that list's reason.
