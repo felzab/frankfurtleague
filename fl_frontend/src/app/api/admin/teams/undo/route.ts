@@ -2,10 +2,9 @@ import { revalidateTag } from "next/cache";
 
 import { z } from "zod";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSaisonTeam, patchTeam } from "@/features/teams/mutations";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -52,9 +51,7 @@ export async function POST(request: NextRequest) {
         try {
           operation = await patchSaisonTeam(saison);
         } catch (error) {
-          const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-          // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-          const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
+          const refusal = replayRefusal(error, REPLAY_REFUSALS);
           if (refusal === undefined) throw error;
 
           return { refusal: `${refusal} ${club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED}` };

@@ -55,7 +55,8 @@ registerHooks({
   },
 });
 
-const { handleUndoRequest } = await import("./undoRoute.ts");
+const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
+const { APIBadStatusError } = await import("@/core/errors.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 
 const ADMIN_API = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
@@ -252,5 +253,37 @@ describe("what stands in for a session on the undo spine", () => {
     assert.equal(answer.success, false, "a cross-site request is reported as answered");
     // The admin's own half: the undo did not happen and the change stands.
     assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, "the refusal stopped saying the change still stands");
+  });
+});
+
+/** A replayed endpoint's refusal, answered as `apiClient` raises it. */
+const refused = (statusCode: number, serverErrorCode: string) =>
+  new APIBadStatusError({
+    message: "refused",
+    url: "http://backend:8000/api/v0/x",
+    endpoint: "/x",
+    method: "PATCH",
+    readOnly: false,
+    traceId: "ab".repeat(16),
+    statusCode,
+    serverErrorCode,
+  });
+
+describe("the sentence a replay's refusal is worded with", () => {
+  const TABLE = { "REQ-TEST-001": "Die Rücknahme wurde nicht ausgeführt." };
+
+  it("answers the table's sentence for a 409 carrying one of its codes", () => {
+    assert.equal(replayRefusal(refused(409, "REQ-TEST-001"), TABLE), TABLE["REQ-TEST-001"]);
+  });
+
+  // `undefined` is the route's cue to rethrow, so each of these reaches the spine as a failure.
+  it("answers nothing for an unmapped code, another status, or anything but a refusal", () => {
+    assert.equal(replayRefusal(refused(409, "REQ-TEST-002"), TABLE), undefined, "an unmapped code was worded");
+    assert.equal(replayRefusal(refused(422, "REQ-TEST-001"), TABLE), undefined, "a code under another status was worded");
+    assert.equal(replayRefusal(new Error("network"), TABLE), undefined, "a thrown error that is no refusal was worded");
+  });
+
+  it("reads the table with `hasOwn`, so a code named for a prototype key is not a refusal", () => {
+    assert.equal(replayRefusal(refused(409, "toString"), TABLE), undefined);
   });
 });

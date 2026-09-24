@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAdminSession, getSignInDestination } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
@@ -46,6 +47,16 @@ type UndoRoute<TPayload> = {
    */
   invalidate: (payload: TPayload) => void;
 };
+
+/**
+ * The sentence a slice's own table words for the 409 its replay met, or `undefined` for any other
+ * failure, which the route rethrows.
+ */
+export function replayRefusal(error: unknown, refusals: Readonly<Record<string, string>>): string | undefined {
+  const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
+  // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+  return code == null || !Object.hasOwn(refusals, code) ? undefined : refusals[code];
+}
 
 /**
  * The spine the page-owned editors' undo handlers share, leaving each route only what is its own.

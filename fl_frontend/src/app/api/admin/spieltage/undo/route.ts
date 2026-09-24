@@ -1,9 +1,8 @@
 import { revalidateTag } from "next/cache";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSpieltag } from "@/features/spieltage/mutations";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -27,9 +26,7 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSpieltag(payload);
       } catch (error) {
-        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
+        const refusal = replayRefusal(error, REPLAY_REFUSALS);
         if (refusal === undefined) throw error;
 
         return { refusal: `${refusal} ${CHANGE_STANDS}` };

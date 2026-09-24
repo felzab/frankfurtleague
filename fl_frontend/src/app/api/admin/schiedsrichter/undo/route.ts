@@ -1,10 +1,9 @@
 import { revalidateTag } from "next/cache";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
 import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -24,9 +23,7 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSchiedsrichter(payload);
       } catch (error) {
-        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
+        const refusal = replayRefusal(error, REPLAY_REFUSALS);
         if (refusal === undefined) throw error;
 
         return { refusal };
