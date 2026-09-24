@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
 
+from app.core.config import API_VERSION
+from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
     NO_DATA_TEXT,
     db_exception_handler,
@@ -233,6 +235,31 @@ def published_schema(response: dict[str, Any]) -> str:
     return response["content"]["application/json"]["schema"]["$ref"].removeprefix("#/components/schemas/")
 
 
+# The operations `RULES` named on the tree this was written against, so an equality over two maps
+# that both went empty still fails.
+REFUSING_OPERATIONS_FLOOR = 42
+
+
+def rule_codes_by_operation() -> dict[str, set[str]]:
+    """Read off `RULES` here rather than through the publisher, which is what this is compared against."""
+
+    declared: dict[str, set[str]] = {}
+    for rule in RULES:
+        for token in rule.operation.split(OPERATION_SEPARATOR):
+            method, route = token.split(" ", 1)
+            declared.setdefault(f"{method} /api/v{API_VERSION}{route}", set()).add(rule.code)
+
+    return declared
+
+
+def published_refusals() -> dict[str, dict[str, Any]]:
+    return {
+        name: operation["responses"]["409"]["content"]["application/json"]["schema"]
+        for name, operation in published_operations()
+        if "409" in operation["responses"]
+    }
+
+
 class TestThePublishedFailureBodies:
     """`docs/backend/spec.md :: I345`: the document describes the bodies the handlers send."""
 
@@ -254,6 +281,17 @@ class TestThePublishedFailureBodies:
         }
         # Both sides at once, so the equality above cannot hold over two empty sets.
         assert takes_input and len(takes_input) < len(operations)
+
+    def test_every_operation_publishes_on_its_409_exactly_the_codes_it_refuses_with(self):
+        """Both ways: an operation no rule names publishes no 409, and one a rule names publishes that code."""
+
+        published = {name: set(schema["allOf"][1]["properties"]["error_code"]["enum"]) for name, schema in published_refusals().items()}
+
+        assert published == rule_codes_by_operation()
+        assert len(published) >= REFUSING_OPERATIONS_FLOOR
+
+    def test_every_409_narrows_the_one_failure_body(self):
+        assert {schema["allOf"][0]["$ref"] for schema in published_refusals().values()} == {"#/components/schemas/FLFailureBody"}
 
     def test_the_schemas_are_published_in_the_order_fastapi_writes_its_own(self):
         """Sorted, so a rewrite of `fl_backend/openapi.json` never moves a schema it did not change."""

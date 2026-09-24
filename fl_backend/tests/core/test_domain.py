@@ -20,7 +20,17 @@ from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS, SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
-from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
+from app.core.domain import (
+    AGGREGATES,
+    FIELD_POLICIES,
+    OPERATION_SEPARATOR,
+    REFERENCES,
+    RULES,
+    UNENFORCED,
+    UNUSED_ACTIONS,
+    Action,
+    Editability,
+)
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -47,11 +57,6 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-AUTH-005", "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
-
-# Spelled here as well as in `fl_frontend/src/shared/testing/refusalRegister.ts`, which cannot
-# import a Python constant: a rule declared against several endpoints joins them, and a reader
-# taking the whole string as one token would find no route serving it.
-OPERATION_SEPARATOR = " · "
 
 # The declaration's own module, which never answers for a reason's own text: it is dropped from
 # every listing built out of the source trees, and a citation naming it resolves against nothing
@@ -640,13 +645,16 @@ def test_every_declaration_carries_its_reason():
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
 
 
-def test_no_application_module_imports_the_domain_model():
-    """A caller reading these tables turns them into an engine every write must remember to consult; the refusal lives at the endpoint."""
+def test_the_document_publisher_is_the_one_application_module_reading_the_domain_model():
+    """A write reading these tables turns them into an engine every write must remember to consult; the refusal lives at the endpoint.
+
+    Exact, so a second reader and a publisher that stopped reading both fail.
+    """
 
     importers = [
         path.relative_to(BACKEND_ROOT).as_posix()
         for path in sorted(APP_ROOT.rglob("*.py"))
-        if path.name != "domain.py" and "core.domain" in path.read_text(encoding="utf-8")
+        if path != DECLARATION and "core.domain" in path.read_text(encoding="utf-8")
     ]
 
-    assert not importers, f"application code reads the declaration: {importers}"
+    assert importers == ["app/main.py"], f"the declaration is read by {importers}, where `app/main.py :: publish_refusals` alone may read it"

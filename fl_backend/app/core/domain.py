@@ -1,9 +1,10 @@
 """
 CORE · the domain model, as a declaration
 
-Data only: no application code imports this module and nothing evaluates it. Enforcement stays at
-the write endpoints, and `fl_backend/tests/core/test_domain.py` compares the declaration against
-the code.
+Data only, and read by no write path: a write consulting these tables would make them an engine
+every write must remember to ask. `app/main.py :: publish_refusals` alone reads them, to publish
+each operation's refusals. Enforcement stays at the write endpoints, and
+`fl_backend/tests/core/test_domain.py` compares the declaration against the code.
 """
 
 from dataclasses import dataclass
@@ -97,14 +98,19 @@ class FieldPolicy:
     enforced_by: str = ""
 
 
+# `fl_frontend/src/shared/testing/refusalRegister.ts :: OPERATION_SEPARATOR` spells it again, and a
+# change here alone leaves that reader splitting nothing, so every slice's refusal check goes quiet
+# rather than red.
+OPERATION_SEPARATOR = " · "
+
+
 @dataclass(frozen=True)
 class Rule:
     """One refusal a write path performs."""
 
     code: str
-    #: The endpoints that perform it, ` · `-separated. Spell that separator otherwise and
-    #: `fl_frontend/src/shared/testing/refusalRegister.ts :: OPERATION_SEPARATOR` splits nothing,
-    #: so every slice's refusal check goes quiet rather than red.
+    #: The endpoints that perform it, each `<METHOD> <path>` below the API prefix, joined by
+    #: `OPERATION_SEPARATOR`.
     operation: str
     aggregate: str
     #: ONE CLAUSE naming what is refused, present tense, no closing period -- a table cell, not a

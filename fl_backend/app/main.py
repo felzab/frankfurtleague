@@ -41,6 +41,7 @@ from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
+from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
@@ -179,6 +180,56 @@ def publish_failure_bodies(app: FastAPI) -> None:
     app.openapi = openapi
 
 
+REFUSAL_DESCRIPTION = "The current state refuses the write"
+
+
+def refusal_response(codes: set[str]) -> dict[str, Any]:
+    # The component narrowed rather than restated, so the failure body keeps one published shape.
+    narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
+    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=FLFailureBody.__name__)}, narrowed]}
+
+    return {"description": REFUSAL_DESCRIPTION, "content": {"application/json": {"schema": schema}}}
+
+
+def declared_refusals() -> dict[tuple[str, str], set[str]]:
+    """Each operation's rule codes, keyed as the document keys an operation: its path, then its lower-case method."""
+
+    declared: dict[tuple[str, str], set[str]] = {}
+    for rule in RULES:
+        for token in rule.operation.split(OPERATION_SEPARATOR):
+            method, route = token.split(" ", 1)
+            declared.setdefault((f"/api/v{API_VERSION}{route}", method.lower()), set()).add(rule.code)
+
+    return declared
+
+
+def publish_refusals(app: FastAPI) -> None:
+    """Each operation's refusals as its 409, derived rather than listed, so the document cannot drift from `RULES`."""
+
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        document = generate()
+        declared = declared_refusals()
+        for path, operations in document["paths"].items():
+            for method, operation in operations.items():
+                codes = declared.pop((path, method), set())
+                if codes:
+                    operation["responses"]["409"] = refusal_response(codes)
+
+        # Named rather than dropped: a rule declared against a route that moved would otherwise
+        # publish its code nowhere, and every client mapping that endpoint would lose it in silence.
+        if declared:
+            raise LookupError(f"RULES names operations the application does not serve: {sorted(declared)}")
+
+        return document
+
+    app.openapi = openapi
+
+
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
@@ -226,5 +277,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     publish_key_tiers(app)
     publish_stores_nothing(app)
     publish_failure_bodies(app)
+    publish_refusals(app)
 
     return app
