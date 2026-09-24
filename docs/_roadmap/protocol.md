@@ -18,7 +18,7 @@ nothing keeps true as entries arrive and leave.
 
 ### What the page deliberately does not carry
 
-- **No tag or label.** An entry names the paths and symbols it touches
+- **No tag or label.** An entry names at least one path it touches
   (`scripts/checks/docs_gate/checks.py :: _check_subjects`), and a reader after one surface or one
   slice searches for them; a hand-written label grows a vocabulary nobody maintains.
 - **No relatedness link between entries.** Two entries touching one feature name the same paths, and
