@@ -5,7 +5,7 @@
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
 # `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
-#   ./scripts/gate/verify.sh                   every scope — the full gate a push rests on; the image builds take minutes
+#   ./scripts/gate/verify.sh                   every scope — the run a pull request is called ready to merge on; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
 #   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images

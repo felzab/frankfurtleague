@@ -229,10 +229,10 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      (PRE-4). Prove it by silence on the repository too, and narrow a check that fires on something
      correct by design before it lands.
 
-5. **Ship it**, per `docs/_git/spec.md`: branch first, the bare `./scripts/gate/verify.sh`, push,
-   open the draft pull request, hand over its link, and name the conclusion of every check that pull
-   request started, `verify`'s run being one of several (`.claude/CLAUDE.md` §2). Report the gate's
-   actual exit code, and report
+5. **Ship it**, per `docs/_git/spec.md`: branch first, push, open the draft pull request, hand over
+   its link, name the conclusion of every check that pull request started, `verify`'s run being one
+   of several, and run the bare `./scripts/gate/verify.sh` over its last push before calling it ready
+   to merge (`.claude/CLAUDE.md` §2). Report the gate's actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is
    not a reduction, and a diffstat that excludes new untracked files overstates one.
 

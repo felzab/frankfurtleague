@@ -2,17 +2,17 @@
 
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
-| Section                                                | Answers                                                             |
-| ------------------------------------------------------ | ------------------------------------------------------------------- |
-| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order     |
-| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                        |
-| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one        |
-| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry       |
-| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and which run a push rests on |
-| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it         |
-| [2. Invariants](#2-invariants)                         | The properties that must hold                                       |
-| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                       |
-| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                     |
+| Section                                                | Answers                                                                                        |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order                                |
+| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                                                   |
+| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one                                   |
+| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry                                  |
+| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and which run a pull request is called ready to merge on |
+| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it                                    |
+| [2. Invariants](#2-invariants)                         | The properties that must hold                                                                  |
+| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                                                  |
+| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                                                |
 
 ---
 
@@ -23,9 +23,9 @@
 ```mermaid
 graph LR
     b["branch off main"] --> c["commit"]
-    c --> v["./scripts/gate/verify.sh"]
-    v --> pr["pull request"]
-    pr --> m["merge to main"]
+    c --> pr["pull request<br/>(CI on every push)"]
+    pr --> v["./scripts/gate/verify.sh"]
+    v --> m["merge to main"]
     m --> p["publish.yml<br/>(CI, dispatched by hand)"]
     p --> d["./scripts/ops/deploy.sh<br/>(server)"]
 ```
@@ -116,8 +116,8 @@ the commit being replaced under `git commit --amend` and during a `rebase -i` re
 reading it would refuse the very message that repairs a trailer.
 
 `scripts/checks/check_commits.py` reads the message three times over — as a `commit-msg` hook when
-you write it, in the `--docs` gate scope before you push, and in CI on every pull request — and
-reads the branch's own commits, never history, which predates the convention. **Only a refusal
+you write it, in the `--docs` gate scope, and in CI on every pull request — and reads the branch's
+own commits, never history, which predates the convention. **Only a refusal
 reaches the hook** (`scripts/checks/check_commits.py :: check_message_file`), so every finding the
 list below marks _reported_ passes the hook in silence and first appears at the gate, where the
 reword it asks for costs a rebase. `git config core.hooksPath .githooks` installs every hook in that
@@ -190,8 +190,8 @@ at anything under it from a body.
 ./scripts/gate/verify.sh
 ```
 
-A bare invocation runs everything, and it is the run a push rests on; scope flags name surfaces and
-combine, for iterating. The scope table, what each scope runs and what it needs, the `--serial`
+A bare invocation runs everything, and it is the run a pull request is called ready to merge on
+(`.claude/CLAUDE.md` §2); scope flags name surfaces and combine, for iterating. The scope table, what each scope runs and what it needs, the `--serial`
 oracle that its ordering is measured against and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 

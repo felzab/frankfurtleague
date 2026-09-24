@@ -47,8 +47,8 @@ stop.
    ./scripts/gate/verify.sh
    ```
 
-   **One run, at the end, and the bare one**: the branch is pushed on it (`.claude/CLAUDE.md` §2),
-   and nothing local reads which scopes the diff needs. `--docs --format` is only for iterating on
+   **One run, at the end, and the bare one**: a pull request is called ready to merge on the bare run
+   alone (`.claude/CLAUDE.md` §2), and nothing local reads which scopes the diff needs. `--docs --format` is only for iterating on
    the prose and the comments this command rewrites.
 
    Report **net lines, separating relocated from removed** ([`audit.md`](audit.md#fix-mode)). The

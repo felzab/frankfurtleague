@@ -359,7 +359,7 @@ def test_only_a_gitattributes_declaration_exempts_a_file_from_the_byte_check() -
 def test_a_file_the_branch_has_not_staged_is_read_like_a_tracked_one() -> None:
     """The corpus is the working tree, so a file written and not yet added is inside every check.
 
-    The gate runs before the push (CLAUDE.md §2), so an index-only read would pass clean over a
+    Iterating runs the gate over work not yet added, so an index-only read would pass clean over a
     branch's unstaged files.
     """
     _reset()

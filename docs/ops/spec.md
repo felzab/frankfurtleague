@@ -722,7 +722,7 @@ frontend scope resolves the lockfile against `package.json` and the backend scop
 expensive.
 
 **Nothing local reads the diff**, so only the bare run is sure to cover a change, and it is the run a
-push rests on ([`docs/_git/spec.md`](../_git/spec.md) §1.5). The mapping is CI's, choosing each pull
+pull request is called ready to merge on ([`docs/_git/spec.md`](../_git/spec.md) §1.5). The mapping is CI's, choosing each pull
 request's jobs from its paths, where any edit to a path an arm maps asks for that arm's scopes, a
 comment included.
 

@@ -90,7 +90,8 @@ Short-lived topic branches off `main`, one PR each, merged with a merge commit. 
 real weight here — they explain _why_ and record what was verified, and they are kept rather than
 squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Run `./scripts/gate/verify.sh` with no flags before pushing: it runs every scope, and
+Run `./scripts/gate/verify.sh` with no flags before calling a pull request ready to merge: it runs
+every scope, and
 [`docs/ops/spec.md`](docs/ops/spec.md) tables them. CI runs it too.
 
 ## Status
