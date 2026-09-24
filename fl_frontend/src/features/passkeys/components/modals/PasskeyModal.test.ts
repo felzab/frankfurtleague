@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 
 const BUS = "__flPasskeyModalCeremonies";
 
@@ -62,6 +63,8 @@ const { raised } = doubleToasts();
 const { PasskeyModal } = await import("./PasskeyModal.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
+
+const NICHT_GELADEN = "Deine Passkeys ließen sich nicht laden.";
 
 function open() {
   return render(h(PasskeyModal, { isOpen: true, onClose: () => undefined }));
@@ -147,12 +150,23 @@ describe("what the dialog puts in front of the administrator", () => {
     answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
     open();
 
-    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
     assert.ok(screen.queryByLabelText("Lädt") === null, "the spinner still stands over a read that has answered");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL]],
     );
+  });
+
+  /* A failed read closes the add control as the cap does, and the cap's sentence on it would claim a
+     count nothing read; the failed read is the standing condition, so it is the reason. */
+  it("closes the add control on a failed read with that read as its reason, never the cap", async () => {
+    answerWith(() => Promise.resolve({ success: false, error: UNKNOWN_REFUSAL }));
+    open();
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    closedControl("Passkey hinzufügen", NICHT_GELADEN);
+    assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null, "a list nothing read is announced as full");
   });
 });
 
@@ -309,7 +323,7 @@ describe("the step-up both writes take", () => {
 
     await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
 
-    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
     assert.ok(!controls().includes("Fügt hinzu..."), "the add control stayed on its pending label");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
@@ -374,7 +388,7 @@ describe("the step-up both writes take", () => {
     t.mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
 
-    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [
@@ -438,7 +452,7 @@ describe("the step-up both writes take", () => {
     t.mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
 
-    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [

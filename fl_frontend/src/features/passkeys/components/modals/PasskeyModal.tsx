@@ -269,11 +269,11 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
         {eintraege !== null && ladefehler ? <p className="muted-hint">{NICHT_GELADEN}</p> : null}
         {eintraege !== null && !ladefehler && eintraege.length === 0 ? <p className="muted-hint">{KEINE_PASSKEYS}</p> : null}
 
-        {/* The cap is announced off a list that has landed: before the read resolves the flag is
-            still its own initial value, and a reader would meet a refusal nothing has judged. */}
+        {/* The cap is announced off a list that has landed: before the read resolves, or after it
+            failed, the flag holds no count, and a reader would meet a refusal nothing has judged. */}
         <Hint
           mode="refusal"
-          reason={eintraege === null || kannHinzufuegen ? null : ZU_VIELE}
+          reason={eintraege === null ? null : ladefehler ? NICHT_GELADEN : kannHinzufuegen ? null : ZU_VIELE}
           label="Passkey hinzufügen">
           <Button
             type="button"
