@@ -50,13 +50,11 @@ function moduleConstantOf(file: ts.SourceFile): (name: ts.Identifier) => string 
   };
 }
 
-/** `node:test`'s case and suite functions, whose `skip` and `todo` forms run nothing that can fail the run. */
 const CASE_FUNCTIONS = new Set(["it", "test", "describe", "suite"]);
 
 /**
- * Whether `call` is a case or suite that asks nothing: `it.skip` runs no body, and a `todo` case's failure
- * fails no run. An options object's `skip` or `todo` counts unless it is the literal `false`, since a
- * computed one may skip.
+ * Whether `call` is a case or suite that asks nothing: a skipped one runs no body, and a failing todo fails
+ * no run. An option counts unless it is the literal `false`, since a computed one may skip.
  */
 function isSkippedCase(call: ts.CallExpression, caseFunctions: ReadonlySet<string>): boolean {
   const callee = call.expression;
@@ -80,8 +78,7 @@ function isSkippedCase(call: ts.CallExpression, caseFunctions: ReadonlySet<strin
 
 /**
  * The operations a test module asks the reader about, and the calls it cannot resolve: an argument is
- * a literal or a module-scope `const` holding one, and an alias or a namespace hides no call. A call
- * inside a skipped case asks nothing, and is credited nothing.
+ * a literal or a module-scope `const` holding one, and an alias or a namespace hides no call.
  */
 function operationsAsked(fileName: string, source: string): Asked {
   const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
@@ -120,6 +117,7 @@ function operationsAsked(fileName: string, source: string): Asked {
   if (names.size === 0 && namespaces.size === 0) return found;
   const constantOf = moduleConstantOf(file);
   const visit = (node: ts.Node): void => {
+    // A skipped case asks nothing, so nothing inside it is credited.
     if (ts.isCallExpression(node) && isSkippedCase(node, caseFunctions)) return;
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
