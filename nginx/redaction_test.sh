@@ -7,12 +7,14 @@
 # It serves `nginx/local.conf` ITSELF, never a copy — a copy proves the copy — and grades each case
 # on the access line nginx wrote rather than on anything this file models.
 #
-# Enforces `docs/logging/spec.md` invariant L11, whose subject is what the access line CONTAINS, and
-# the edge's half of L12, the span every line carries. Not `docs/ops/spec.md` I13, which is about
-# which locations the edge makes reachable — a different question this file answers nothing about.
+# Enforces `docs/logging/spec.md` L11, what the access line CONTAINS, and the edge's half of L12,
+# the span every line carries; and `docs/ops/spec.md` I352, that the container's own
+# streams name no visitor. Not that sheet's I13, which asks which locations the edge makes
+# reachable.
 #
 # local.conf rather than prod.conf because prod.conf terminates TLS and needs a certificate to serve
-# a request at all, while the three map blocks and the `log_format` are identical between the pair.
+# a request at all, while its maps, `log_format` and logging directives are identical between the
+# pair.
 #
 #   ./nginx/redaction_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/redaction_test.sh --help
@@ -60,12 +62,12 @@ rm -rf "$SCRATCH"
 # before the run: Docker would otherwise create it root-owned, which the cleanup cannot remove.
 mkdir -p "${SCRATCH}/log"
 
-# The stub answers as `frontend` and `backend` from inside the same nginx, so each case is graded
-# on a real 200 rather than on a 502 that never reached a location.
+# The stub answers as `frontend` from inside the same nginx, so each case is graded on a real 200
+# rather than a 502 that never reached a location. Nothing answers as `backend`, whose 502 the
+# stream check below needs.
 cat > "${SCRATCH}/zz-upstream-stub.conf" <<'STUB'
 server {
     listen 3000;
-    listen 8000;
     server_name _;
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
@@ -306,8 +308,76 @@ for case_line in "${CASES[@]}"; do
   fi
 done
 
+# --- the container's own streams ---------------------------------------------------------------
+
+# No line in the container's own streams may name a visitor
+# (`docs/ops/spec.md :: I352`). nginx writes error lines for the requests it refuses or
+# fails itself, and the table above sends none.
+STREAM_MARKER="fl-stream"
+STREAM=( -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/413"
+  -X POST --data-binary @- "${BASE}/api/bewerbung" )
+STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/502"
+  "${BASE}/api/v0/system/is_live" )
+# The catch-all's 421: a block with no access_log of its own would fall back to the image's stdout.
+STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: unrecognised.invalid"
+  -A "${STREAM_MARKER}/421" "${BASE}/" )
+STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/400"
+  -H "X-Oversized: $(printf '%020000d' 0)" "${BASE}/" )
+STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/asset"
+  "${BASE}/_next/static/chunk.js" )
+# Past `signin`'s burst, so the zone refuses with 429.
+for _ in 1 2 3 4 5 6; do
+  STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/429"
+    -X POST "${BASE}/signin" )
+done
+# The 413's body on stdin: a file path handed to this curl would meet the MSYS rewriting above.
+STREAM_RC=0
+head -c 100000 /dev/zero | tr '\0' a | curl "${STREAM[@]}" || STREAM_RC=$?
+
+# The address nginx recorded for this client, which every line below is searched for.
+CLIENT_ADDR="${LINE_OF["${MARKER}/1"]#*\"client\":\"}"
+CLIENT_ADDR="${CLIENT_ADDR%%\"*}"
+[[ -n "$CLIENT_ADDR" ]] || refuse "the first case's access line carries no client address, so the
+container's streams have nothing to be searched for."
+
+ERROR_LOG="${SCRATCH}/log/error.log"
+# The error line nginx writes for the 413 and for the 502 above, in that order.
+EXPECTED_ERRORS=(
+  "client intended to send too large body"
+  "while connecting to upstream"
+)
+# The same race as the access log's above: the line reaches this host after the response.
+for _ in $(seq 1 50); do
+  _found=0
+  for expected in "${EXPECTED_ERRORS[@]}"; do
+    if grep -qF "$expected" "$ERROR_LOG" 2>/dev/null; then _found=$(( _found + 1 )); fi
+  done
+  if (( _found == ${#EXPECTED_ERRORS[@]} )); then break; fi
+  sleep 0.2
+done
+
+for expected in "${EXPECTED_ERRORS[@]}"; do
+  _lines="$(grep -F "$expected" "$ERROR_LOG" 2>/dev/null || true)"
+  if [[ "$_lines" != *"client: ${CLIENT_ADDR}"* ]]; then
+    fail "ERROR-FILE ${expected}"
+    detail "no line naming client ${CLIENT_ADDR} in ${ERROR_LOG}, curl having exited ${STREAM_RC}"
+    FAILURES=$(( FAILURES + 1 ))
+  fi
+done
+
+docker logs "$CONTAINER" > "${SCRATCH}/stdout" 2> "${SCRATCH}/stderr" \
+  || refuse "could not read the redaction test's nginx streams back from Docker."
+for stream in stdout stderr; do
+  while IFS= read -r logged_line; do
+    fail "STREAM ${stream}"
+    detail "$logged_line"
+    FAILURES=$(( FAILURES + 1 ))
+  done < <({ grep -F -e "client: " -e "$CLIENT_ADDR" "${SCRATCH}/${stream}" || true; })
+done
+
 if (( FAILURES > 0 )); then
-  die "${FAILURES} of ${#CASES[@]} redaction cases failed. Each line above is what nginx WROTE."
+  die "${FAILURES} finding(s) over ${#CASES[@]} redaction cases and the container's own streams.
+Each line above is what nginx WROTE."
 fi
 
-ok "${#CASES[@]} redaction cases, no credential on an access line"
+ok "${#CASES[@]} redaction cases clean, and no visitor in the container's own streams"

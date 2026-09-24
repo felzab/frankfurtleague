@@ -525,6 +525,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   visitor's address, user agent and referer, and it survives a deploy — so `logrotate` keeps seven
   dated files beside the live day and deletes the eighth, rotating once a day and earlier on a day
   the file outgrows its size cap, which is what keeps the disk bounded whatever the traffic.
+  **The edge's error log is a host file beside it under the same rotation**, every line of it about
+  a request naming the visitor's address too, and nothing the edge writes to its container's own
+  size-bounded stream names one (`docs/ops/spec.md :: I352`). The published notice tells a
+  visitor that a failed request leaves such an entry under the same eight days
+  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`); ruled 2026-09-24.
   Deletion happens at a rotation and nowhere else, which is why the timer is hourly rather than
   daily: a size cap bites only when the rotation runs, so a spike between two daily runs would sit
   unbounded ([`ops/runbooks.md`](ops/runbooks.md) §7). The mechanism is

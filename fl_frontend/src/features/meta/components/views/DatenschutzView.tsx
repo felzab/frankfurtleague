@@ -286,9 +286,10 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Bei jedem Aufruf entsteht ein Eintrag im Zugriffsprotokoll des Servers. Er enthält Deine IP-Adresse, den Zeitpunkt, die aufgerufene
             Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Der Bestand ist nach dem
-            Alter begrenzt: ein Eintrag bleibt höchstens acht Tage. Gelöscht wird beim Wechsel der Protokolldatei: einmal täglich, und früher,
-            wenn die Datei vorher ihre Größengrenze erreicht. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und
-            an keinen Auswertungsdienst weitergegeben.
+            Alter begrenzt: ein Eintrag bleibt höchstens acht Tage. Schlägt eine Anfrage fehl, hält der Server zusätzlich einen Fehlereintrag
+            mit Deiner IP-Adresse und der aufgerufenen Adresse fest; für ihn gelten dieselben acht Tage. Gelöscht wird beim Wechsel der
+            Protokolldatei: einmal täglich, und früher, wenn die Datei vorher ihre Größengrenze erreicht. Die Einträge werden nicht ausgewertet,
+            nicht mit anderen Daten zusammengeführt und an keinen Auswertungsdienst weitergegeben.
           </p>
           <p className={ABSATZ}>
             Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist der sichere und stabile Betrieb der Website und die

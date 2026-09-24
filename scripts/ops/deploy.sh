@@ -750,7 +750,7 @@ section "logs"
 
 step "Copying the application logs off the containers about to be replaced"
 # `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
-# `docker-compose.yml` bind-mounts it as the edge's access log, and one refusal covers the
+# `docker-compose.yml` bind-mounts it for the edge's two logs, and one refusal covers the
 # copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
 MKDIR_RC=0
 mkdir -p "$LOG_DIR" "${LOG_DIR}/nginx" 2>/dev/null || MKDIR_RC=$?

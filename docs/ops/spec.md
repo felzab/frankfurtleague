@@ -50,8 +50,9 @@ All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB,
 `frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
 the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
 destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy cannot install bound
-those copies to thirty days, through `systemd-tmpfiles`, and the edge's access log — a host file
-rather than a container stream (§1.2) — to eight, through an hourly `logrotate`
+those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
+host files rather than a container stream (§1.2), holding every line that names a visitor
+(I352) — to eight, through an hourly `logrotate`
 ([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
 service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
 deliberate. `nginx` declares `depends_on` both application services with
@@ -249,8 +250,10 @@ the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (me
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
-`Referer` with it, and no `map` reaches that log — its format is not configurable (both records
-driven against `nginx:1.31-alpine` and read back, 2026-09-21). The live sign-in token travels in the
+`Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
+line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
+([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
+`nginx:1.31-alpine` and read back, 2026-09-21. The live sign-in token travels in the
 query of `/signin/bestaetigen`, a page, so what stands over it is `location /`'s connection ceiling
 rather than any rate zone. **What the pair does not close is every OTHER `error`-level line**, an
 upstream failure among them, which repeats the same request line
@@ -1096,6 +1099,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                                   |
 | I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                      |
 | I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
+| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/redaction_test.sh`, serving `nginx/local.conf`, whose logging directives `scripts/checks/check_nginx_mirror.py` holds equal to `nginx/prod.conf`'s                                                                                                                          |
 
 ## 3. Violation → remedy
 
@@ -1104,7 +1108,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `not a directory` from nginx                                                      | A mounted config file was missing, so Docker created a directory                                                                                | `git pull`, remove the stray directory                                                                                                                                                                               |
 | `Invalid environment variables: <NAMES>` then no traffic                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
 | `The environment could not be read: <TYPE>` then no traffic                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
-| Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx`, then `docker compose logs cloudflared`                                                                                                                                            |
+| Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
 | `up` refuses the connector's static address on the tunnel's first deploy          | The network predates the declared subnet and carries no recorded configuration, so `up` reuses it as it stands                                  | `docker compose down` first, then the deploy ([`runbooks.md`](runbooks.md) §8)                                                                                                                                       |
 | No tunnel registers, or the connector restarts in a loop                          | The token file is missing, unreadable by the connector's uid 65532, or not this tunnel's, or the release rejects the run arguments              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means its owner and mode, the value or the arguments (§1.2)                                               |
 | The tunnel is up and Cloudflare answers 502 or 1033                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |

@@ -679,8 +679,9 @@ container** (`scripts/ops/deploy.sh :: copy_streams`), one file per service stam
 refuses at exit 2 with nothing stopped where it cannot write there. **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
-`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts as the edge's access log —
-the one application-visible stream that is a host file rather than a container's. Both are created
+`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
+and error log — host files rather than a container's stream, because every line naming a visitor
+is in one of the two ([`spec.md`](spec.md#2-invariants) I352). Both directories are created
 by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
 
 ```bash
@@ -689,23 +690,26 @@ sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfur
 
 **The age bounds are four host files no file in this repository can install** — written on the
 server in the same deployment that ships the published texts stating them
-([`../datenschutz.md`](../datenschutz.md) §6): eight days for the access log, thirty for the copied
-application logs. **They are two mechanisms because they are two kinds of file.** The access log is
-open and growing, so its bound is a rotation the edge has to be told about; a deploy's copy is
-written once and never appended, so its bound is a deletion, and a rotation of it renames a file
-nothing will ever add a line to.
+([`../datenschutz.md`](../datenschutz.md) §6): eight days for the edge's two logs, thirty for the
+copied application logs. **They are two mechanisms because they are two kinds of file.** The edge's
+logs are open and growing, so their bound is a rotation the edge has to be told about; a deploy's
+copy is written once and never appended, so its bound is a deletion, and a rotation of it renames a
+file nothing will ever add a line to.
 
-**The access log, at `/etc/frankfurtleague/access-log.conf`.** Substitute the server's own checkout
-path for `<checkout>` — `docker compose` takes its project name from the directory holding the file
-`-f` names, so a path pointing anywhere else finds no `nginx` service and the rotation goes on
-without the reopen. Spell `docker` with the path `command -v docker` prints if it is not on
-systemd's own PATH, which is what this runs under rather than a login shell's.
+**The edge's two logs, at `/etc/frankfurtleague/access-log.conf`.** **A host carrying an earlier
+stanza that names `access.log` alone takes the one below whole**: nginx writes `error.log` from the
+first time it loads a configuration naming it, and that file then grows past the eight days with
+nothing on the host reporting it. Substitute the server's own checkout path for `<checkout>` —
+`docker compose` takes its project name from the directory holding the file `-f` names, so a path
+pointing anywhere else finds no `nginx` service and the rotation goes on without the reopen. Spell
+`docker` with the path `command -v docker` prints if it is not on systemd's own PATH, which is what
+this runs under rather than a login shell's.
 
 ```text
-# nginx writes this file through a bind mount, so it outlives the container and can be rotated by
-# rename: the master reopens on USR1 and the renamed file stops growing, the lines written in
-# between having gone to the renamed file rather than nowhere.
-/var/log/frankfurtleague/nginx/access.log {
+# nginx writes these files through a bind mount, so they outlive the container and can be rotated
+# by rename: the master reopens every log it holds on USR1 and a renamed file stops growing, the
+# lines written in between having gone to the renamed file rather than nowhere.
+/var/log/frankfurtleague/nginx/access.log /var/log/frankfurtleague/nginx/error.log {
     daily
     # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
     # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
@@ -724,6 +728,8 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
     # skip every rotation after this one, so nothing would ever send USR1 again.
     compress
     delaycompress
+    # One USR1 for both files, which one reopen covers; without it each rotated file sends its own.
+    sharedscripts
     postrotate
         docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
     endscript
@@ -734,11 +740,12 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
 which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
 stays unproven until the first real rotation.
 
-**A failed reopen leaves an empty `access.log` beside a dated file that keeps growing**: the rename
+**A failed reopen leaves each live log empty beside a dated file that keeps growing**: the rename
 has happened and nginx still writes through its open descriptor, and nothing on the host says so —
-the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, the live file at
-zero bytes under a dated file with a newer mtime. The next rotation sends USR1 again and recovers,
-losing only the lines written to the orphaned file between its compression and the signal.
+the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, a live file at
+zero bytes under a dated file of its own name with a newer mtime. The next rotation sends USR1
+again and recovers, losing only the lines written to the orphaned file between its compression and
+the signal.
 
 **That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
 cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
@@ -749,7 +756,7 @@ happened.
 ```text
 # /etc/systemd/system/frankfurtleague-logrotate.service
 [Unit]
-Description=Rotate the Frankfurt League access log
+Description=Rotate the Frankfurt League edge logs
 
 [Service]
 Type=oneshot
@@ -759,7 +766,7 @@ ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/
 ```text
 # /etc/systemd/system/frankfurtleague-logrotate.timer
 [Unit]
-Description=Hourly size check on the Frankfurt League access log
+Description=Hourly size check on the Frankfurt League edge logs
 
 [Timer]
 OnCalendar=hourly
@@ -780,8 +787,8 @@ adds. The command below is what confirms it is running on this host.
 # Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
 # chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
 e /var/log/frankfurtleague - - - m:30d
-# The line above reaches every level below it, and the live access.log is one of them: on a quiet
-# month the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
+# The line above reaches every level below it, and the edge's live logs are there: on a quiet month
+# the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
 x /var/log/frankfurtleague/nginx
 ```
 
@@ -819,7 +826,8 @@ cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runti
 `copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
 document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
 above runs. The copies are what carry an application log past a deploy, and their thirty days is the
-only age bound over one.
+only age bound over one. The edge's own container stream is bounded by that cap alone, which is why
+nothing written there may name a visitor ([`spec.md`](spec.md#2-invariants) I352).
 
 **The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
 reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
