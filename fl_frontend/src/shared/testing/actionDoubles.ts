@@ -76,7 +76,7 @@ const asModule = (source: string): string => `data:text/javascript,${encodeURICo
 const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "server-only": "export {};",
   "next/cache":
-    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as revalidatePath };",
+    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as revalidatePath, inert as cacheLife, inert as cacheTag };",
   "next/headers": "export const headers = async () => new Headers();",
 };
 
