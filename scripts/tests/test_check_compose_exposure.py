@@ -1,15 +1,16 @@
-"""SCRIPTS · the exposure check over rendered Compose models
+"""SCRIPTS · the exposure and edge-mount checks over rendered Compose models
 
-The models here are written in the long form `docker compose config` renders ports in
+The models here are written in the long form `docker compose config` renders ports and volumes in
 (https://docs.docker.com/reference/compose-file/services/#long-syntax-4), so each case pins the
 rule rather than either compose file's current wording.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from conftest import import_scripts
+from conftest import import_scripts, new_root
 
 [exposure] = import_scripts("check_compose_exposure")
 
@@ -75,3 +76,74 @@ def test_a_document_without_services_refuses():
     except ValueError:
         return
     raise AssertionError("a model with no services was judged")
+
+
+# --- the edge's configuration mounts ------------------------------------------------------------------
+
+# Where the gate renders the models, and a checkout holding the two directories and one file in each.
+PROJECT = Path("/render")
+
+
+def checkout() -> Path:
+    root = new_root("fl-compose-mounts-")
+    for directory in ("nginx/prod", "nginx/shared"):
+        (root / directory).mkdir(parents=True)
+    (root / "nginx/prod/prod.conf").write_bytes(b"# the edge\n")
+    return root
+
+
+def bind(source: str, target: str) -> dict[str, Any]:
+    """A volume as `docker compose config` renders either syntax: absolute, against the project directory."""
+    return {"type": "bind", "source": str(PROJECT / source), "target": target, "read_only": True}
+
+
+def edge(*volumes: dict[str, Any]) -> dict[str, Any]:
+    return model(nginx={"volumes": list(volumes)})
+
+
+DIRECTORIES = (bind("nginx/prod", "/etc/nginx/conf.d"), bind("nginx/shared", "/etc/nginx/shared"))
+
+
+def test_directory_mounts_are_clean_and_read_as_pairs():
+    """The log mount's source sits outside the project and a tmpfs is no bind, so neither is a pair."""
+    rendered = edge(
+        *DIRECTORIES,
+        bind("certs", "/etc/nginx/certs"),
+        {"type": "bind", "source": "/var/log/x", "target": "/var/log/x"},
+        {"type": "tmpfs", "target": "/run/x"},
+    )
+    pairs, findings = exposure.edge_mounts(rendered, "p", PROJECT, checkout())
+
+    assert findings == []
+    assert pairs == [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]
+
+
+def test_a_single_file_mount_fails_whichever_syntax_wrote_it():
+    """The rendered model is the same for `./nginx/prod/prod.conf:...` and a long-syntax `source:`, which is why it is read here."""
+    rendered = edge(bind("nginx/prod/prod.conf", "/etc/nginx/conf.d/default.conf"), DIRECTORIES[1])
+    _, findings = exposure.edge_mounts(rendered, "p", PROJECT, checkout())
+
+    assert len(findings) == 1
+    assert "nginx/prod/prod.conf" in findings[0].detail
+
+
+def test_an_edge_mounting_nothing_from_the_checkout_fails():
+    _, findings = exposure.edge_mounts(edge(bind("certs", "/etc/nginx/certs")), "p", PROJECT, checkout())
+
+    assert len(findings) == 1
+
+
+def test_a_short_syntax_volume_refuses():
+    try:
+        exposure.edge_mounts(model(nginx={"volumes": ["./nginx/prod:/etc/nginx/conf.d:ro"]}), "p", PROJECT, checkout())
+    except ValueError:
+        return
+    raise AssertionError("a short-syntax volume was judged")
+
+
+def test_the_deploy_compares_exactly_the_pairs_production_mounts():
+    """Read off the script itself: a pair missing there is a directory nginx loads and no deploy compares."""
+    pairs = [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]
+
+    assert exposure.compared(pairs, exposure.deploy_pairs(exposure.DEPLOY), "p") == []
+    assert len(exposure.compared([*pairs, ("nginx/extra", "/etc/nginx/extra")], exposure.deploy_pairs(exposure.DEPLOY), "p")) == 1

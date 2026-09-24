@@ -105,6 +105,14 @@ services:
     # inherits this line; `scripts/gate/verify.sh` and `nginx/edge_test.sh` name the tag again.
     image: nginx:1.31-alpine
     restart: unless-stopped
+    # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
+    # (https://nginx.org/en/docs/switches.html, `-l`). A socket, never a port: a port answers on every
+    # interface of this network, reloads included.
+    command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
+    # A master killed outright leaves its socket behind, and the next start refuses to bind it and
+    # exits; a tmpfs starts empty with every start of the container.
+    tmpfs:
+      - /run/nginx-control
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
     # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
 

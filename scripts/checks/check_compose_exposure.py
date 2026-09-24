@@ -1,19 +1,23 @@
-"""SCRIPTS · what each stack exposes, read off the model Compose itself renders.
+"""SCRIPTS · what each stack exposes, and how its edge mounts its configuration, read off the model Compose renders.
 
 `docker compose config` merges the files, applies the profiles and expands every short-syntax port
-into its long form, so this reads the model the engine is handed rather than parsing YAML again.
-The gate writes the two models with `--format json --no-env-resolution` and passes their paths.
+and volume into its long form, so this reads the model the engine is handed rather than parsing
+YAML again. The gate writes the two models with `--format json --no-env-resolution` beside the
+compose files it renders them from, and passes their paths.
 
 Invariants:
 - Production publishes nothing and declares exactly the services `PRODUCTION_SERVICES` names, so a
   database joining it is a finding (`docs/ops/spec.md :: I1`, `:: I174`).
 - Locally only the edge publishes to every interface; the rest bind a loopback address (`:: I1`).
+- Every mount the edge takes from `nginx/` is a directory, and production's are the pairs
+  `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (`docs/ops/spec.md :: I355`).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Final
@@ -25,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from checker_kernel import (
     CONTINUATION,
     EXIT_REFUSED,
+    REPO_ROOT,
     UNREADABLE,
     Finding,
     report_findings,
@@ -39,6 +44,11 @@ EDGE_SERVICE: Final = "nginx"
 
 # The long form's `host_ip` as Compose renders a loopback binding, IPv6 unbracketed.
 LOOPBACK: Final = frozenset({"127.0.0.1", "::1"})
+
+# The checkout directory whose mounts the deploy compares with what nginx loaded.
+EDGE_CONFIG_ROOT: Final = "nginx"
+
+DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 
 
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:
@@ -96,8 +106,67 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
     return findings
 
 
+def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path) -> tuple[list[tuple[str, str]], list[Finding]]:
+    """The edge's `nginx/` mounts as (checkout path, container path), and a finding for each file mount.
+
+    A file mount keeps the inode a pull replaces, so a reload re-reads the old file (I355).
+    """
+    edge = services(model, name).get(EDGE_SERVICE)
+    if not isinstance(edge, dict):
+        raise ValueError(f"{name}: no {EDGE_SERVICE} service, so no edge mount was read")
+    pairs: list[tuple[str, str]] = []
+    findings: list[Finding] = []
+    for volume in edge.get("volumes") or []:
+        if not isinstance(volume, dict):
+            raise ValueError(f"{name}: {EDGE_SERVICE} has a volume Compose did not expand, so this is not its rendered model")
+        if volume.get("type") != "bind":
+            continue
+        source = Path(str(volume.get("source")))
+        # Resolved against the directory the model was rendered beside, where Compose resolved it.
+        if not source.is_relative_to(project):
+            continue
+        relative = source.relative_to(project).as_posix()
+        if relative.split("/", 1)[0] != EDGE_CONFIG_ROOT:
+            continue
+        pairs.append((relative, str(volume.get("target"))))
+        if not (checkout / relative).is_dir():
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {EDGE_SERVICE} mounts {relative} at {volume.get('target')}, which is not a directory\n"
+                    f"{CONTINUATION}a file mount keeps the file a pull replaced, and a reload re-reads it (I355)",
+                )
+            )
+    if not pairs:
+        findings.append(
+            Finding("fail", f"{name}: {EDGE_SERVICE} mounts nothing from {EDGE_CONFIG_ROOT}/, so it serves none of this checkout's edge")
+        )
+    return pairs, findings
+
+
+def deploy_pairs(deploy: Path) -> list[tuple[str, str]]:
+    """`EDGE_CONFIG_DIRS` as the deploy script assigns it, on one line."""
+    found = re.search(r"^EDGE_CONFIG_DIRS=\((.*)\)$", deploy.read_bytes().decode(), re.MULTILINE)
+    if found is None:
+        raise ValueError(f"{deploy.name} assigns no EDGE_CONFIG_DIRS array on one line, so no pair was compared")
+    return [(source, target) for source, target in re.findall(r'"([^":]+):([^"]+)"', found.group(1))]
+
+
+def compared(pairs: list[tuple[str, str]], compared_pairs: list[tuple[str, str]], name: str) -> list[Finding]:
+    """A mount the deploy does not compare is configuration nginx loads unchecked, and a pair nothing mounts fails every deploy."""
+    if sorted(pairs) == sorted(compared_pairs):
+        return []
+    return [
+        Finding(
+            "fail",
+            f"{name}: {EDGE_SERVICE} mounts {sorted(pairs)}, and scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS compares {sorted(compared_pairs)}\n"
+            f"{CONTINUATION}the two move together (I355)",
+        )
+    ]
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Does either stack expose more than its edge?")
+    parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
     parser.add_argument("local", metavar="LOCAL_JSON", help="the same, with docker-compose.local.yml merged over it")
     args = parser.parse_args()
@@ -105,6 +174,9 @@ def main() -> int:
         prod_model = json.loads(Path(args.production).read_bytes())
         local_model = json.loads(Path(args.local).read_bytes())
         findings = production(prod_model, "production") + local(local_model, "local")
+        prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
+        _, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
+        findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
     except (*UNREADABLE, ValueError) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
@@ -112,6 +184,7 @@ def main() -> int:
     code = report_findings(findings)
     if not findings:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
+        print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
     return code
 
 

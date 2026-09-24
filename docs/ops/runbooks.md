@@ -67,14 +67,15 @@ the machine is outside the repository. What it does tell you:
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
-  (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
-  succeeds costs seconds of 502 rather than a refused connection. The reload is also what applies a file
-  the pull changed under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running
-  container reads what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own
-  service definition makes the same `up` recreate it instead. **The deploy then compares every file nginx
-  loads with the checkout's, and a difference ends the run in a finding** naming the recreate that repairs
-  it (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355). So does a reload the
-  master rolled back, which leaves nginx on the workers it had before the signal.
+  (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
+  the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds
+  of 502 rather than a refused connection. The reload is also what applies a file the pull changed
+  under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running container reads
+  what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
+  makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
+  nginx's own lines**: fix what they name, then recreate nginx. **The deploy then compares every file
+  nginx holds in memory with the checkout's, and a difference ends the run in a finding** naming the
+  recreate that repairs it (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355).
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
@@ -93,10 +94,10 @@ the machine is outside the repository. What it does tell you:
   `:latest` naming the images that were already running: restoring them would restore the build that
   just failed, and the script says so instead ([`spec.md`](spec.md) §4).
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
-  that nginx is running, reloaded and loading the checkout's configuration, the security headers as they
+  that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
-  probe and the configuration too — every other row it prints comes from a container, and a healthy pair is
-  no statement about what the edge in front of it resolves to or loads.
+  probe and the configuration nginx holds too — every other row it prints comes from a container, and a
+  healthy pair is no statement about what the edge in front of it resolves to or loads.
 
 ## 2. Before deploying a change to the database's constraints
 

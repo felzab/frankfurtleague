@@ -37,10 +37,11 @@ LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
 
 # Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it. A
 # pair missing here is a directory `edge_reads_checkout` never compares, so the two lists move
-# together (`scripts/tests/test_deploy_edge_config.py`).
+# together (`scripts/checks/check_compose_exposure.py :: edge_mounts`).
 EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
-# How many times, 0.2 s apart, a reload is given to show a worker the master started for it.
-EDGE_APPLY_POLLS=50
+# Where `docker-compose.yml :: nginx` starts its Control API, the one address that answers whether a
+# reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/).
+EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
 
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
@@ -210,34 +211,28 @@ answer is above."
   fi
 }
 
-# The worker PIDs, one per line. `nginx -s reload` answers 0 once the signal is sent, and the master
-# starts new workers only if it then applies the configuration, keeping the old ones where it rolls
-# it back (https://nginx.org/en/docs/control.html).
-edge_workers() {
-  docker compose -f "$COMPOSE" exec -T nginx pgrep -f 'nginx: worker process' 2>/dev/null
+# nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is: the
+# reload runs with the replaced containers' addresses answering 502 until it lands.
+edge_control() {
+  docker compose -f "$COMPOSE" exec -T nginx curl -sS --max-time 30 --unix-socket "$EDGE_CONTROL_SOCKET" "$@"
 }
 
-# 0 once a worker appears that `$1`, the list taken before the signal, does not hold; 1 where none
-# does in time; 2 where the workers could not be listed.
-edge_new_generation() {
-  local before="$1" now="" pid rc
-  for _ in $(seq 1 "$EDGE_APPLY_POLLS"); do
-    rc=0
-    now="$(edge_workers)" || rc=$?
-    if (( rc )) || [[ -z "$now" ]]; then return 2; fi
-    for pid in $now; do
-      [[ $'\n'"${before}"$'\n' == *$'\n'"${pid}"$'\n'* ]] || return 0
-    done
-    sleep 0.2
-  done
-  return 1
-}
+# One `<sha256> <path>` line per file in `GET /1/control/config`'s dump: what the master holds in
+# memory, not what its mounts show. Read as bytes, so no locale decodes a non-ASCII line into
+# another sum.
+EDGE_LOADED_SUMS='
+import hashlib
+import json
+import sys
 
-# A reload re-reads what the container's mounts show, so one that stopped showing the checkout
-# reloads the old files and answers 0 all the same (`docs/ops/spec.md :: I355`). 1 where the two
-# differ, 2 where either went unread.
+for entry in json.loads(sys.stdin.buffer.read()):
+    print(hashlib.sha256(entry["content"].encode()).hexdigest(), entry["name"])
+'
+
+# What nginx LOADED against this checkout (`docs/ops/spec.md :: I355`): its mounts show what a pull
+# wrote whether or not anything reloaded it since. 1 where the two differ, 2 where either went unread.
 edge_reads_checkout() {
-  local pair host_dir edge_dir file sum path listed="" script="" rc=0
+  local pair host_dir edge_dir file sum path dump="" listed="" rc=0
   local -A want=() got=()
   local -a differ=()
   for pair in "${EDGE_CONFIG_DIRS[@]}"; do
@@ -254,21 +249,30 @@ checkout's configuration."
       fi
       want["${edge_dir}/${file##*/}"]="${sum%% *}"
     done
-    # A file test before each sum, so a directory the container sees empty is a difference below
-    # rather than a failed read.
-    script+="for f in ${edge_dir}/*; do if [ -f \"\$f\" ]; then sha256sum -- \"\$f\" || exit 3; fi; done; "
   done
   rc=0
-  # Stdout alone: every line of it is parsed as a sum and a path, and compose warns on stderr.
-  listed="$(docker compose -f "$COMPOSE" exec -T nginx sh -c "$script" 2>/dev/null)" || rc=$?
+  # Stdout alone: it is the document parsed below, and compose warns on stderr.
+  dump="$(edge_control --fail http://localhost/1/control/config 2>/dev/null)" || rc=$?
   if (( rc )); then
-    warn "the running nginx could not be asked for the files it loads (exit ${rc}), so nothing here says
-whether it is running this checkout's configuration.
-Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx nginx -T"
+    warn "the running nginx could not be asked for the configuration it holds (exit ${rc}), so nothing
+here says whether it is running this checkout's.
+Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
+    return 2
+  fi
+  rc=0
+  # The backend image's interpreter, the one JSON reader this host is sure to hold: it pulled that
+  # image. `--pull never`, because `--status` changes nothing.
+  listed="$(printf '%s' "$dump" | docker run -i --rm --pull never --network none "$IMAGE_BACKEND" python -c "$EDGE_LOADED_SUMS" 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    warn "nginx answered with its configuration, and ${IMAGE_BACKEND} could not read it back (exit ${rc}),
+so nothing here says whether nginx is running this checkout's."
     return 2
   fi
   while IFS=' ' read -r sum path; do
-    if [[ -n "$path" ]]; then got["$path"]="$sum"; fi
+    # The image's own `nginx.conf` and `mime.types` sit outside every mount, and are not compared.
+    for pair in "${EDGE_CONFIG_DIRS[@]}"; do
+      if [[ "$path" == "${pair#*:}/"* ]]; then got["$path"]="$sum"; fi
+    done
   done <<< "$listed"
   for path in "${!want[@]}"; do
     if [[ -z "${got[$path]:-}" ]]; then differ+=("${path}  absent from the running nginx")
@@ -279,14 +283,14 @@ Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx nginx -T"
     [[ -n "${want[$path]:-}" ]] || differ+=("${path}  in the running nginx and not in this checkout")
   done
   if (( ${#differ[@]} )); then
-    fail "nginx is running a configuration that is not this checkout's. A reload re-reads what the
-container's mounts show, and a container created while its configuration was mounted as a file
-keeps that file whatever a pull put in its place. What differs, by the path nginx reads:"
+    fail "nginx holds a configuration that is not this checkout's. One not reloaded since a pull holds
+what it last loaded, and one created while its configuration was mounted as a file keeps that file
+whatever a pull put in its place. What differs, by the path nginx read:"
     printf '%s\n' "${differ[@]}" | sort | detail
-    detail "Recreate it, which mounts the checkout as it stands:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+    detail "Recreate it, which loads the checkout as it stands:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
     return 1
   fi
-  ok "nginx loads this checkout's ${#want[@]} configuration files, byte for byte"
+  ok "nginx holds this checkout's ${#want[@]} configuration files in memory, byte for byte"
   return 0
 }
 
@@ -336,54 +340,43 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
   # in `nginx/shared/site.conf` are plain, so a container recreated at a new address is invisible to a proxy
   # that kept running, and only a reload re-resolves them.
-  local test_out="" test_rc=0
-  # A reload with an unparseable file leaves the master serving the configuration it already had and
-  # says so in nginx's log alone, so the signal on its own would prove nothing.
-  test_out="$(docker compose -f "$COMPOSE" exec -T nginx nginx -t 2>&1)" || test_rc=$?
-  # Replayed rather than streamed, so `--verbose` still shows what the tool said (`docs/ops/spec.md`
-  # §1.7); the verdict below needs the bytes, which `quietly` discards under exactly that flag.
-  if [[ -n "$test_out" ]] && { (( test_rc )) || verbose; }; then printf '%s\n' "$test_out" | detail; fi
-  if (( test_rc )); then
-    # The verdict is nginx's own sentence, never the status: `exec` answers 1 for a config nginx
-    # rejected and for an exec that never reached it alike.
-    if [[ "$test_out" == *"test failed"* ]]; then
-      fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
-proxying to the addresses of the containers this deploy replaced. Its own output is above."
-      detail "Fix nginx/prod/prod.conf or nginx/shared/, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+
+  # The Control API rather than `nginx -s reload`, which answers 0 once the signal is sent: this answers
+  # 200 once the configuration applied, and 422 with nginx's own lines where the master rolled it back.
+  local reply="" reload_rc=0 status="" body=""
+  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
+  status="${reply##*$'\n'}"
+  body="${reply%$'\n'*}"
+  if (( reload_rc )); then
+    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
+whether it applied the configuration, and it may still be proxying to the addresses of the
+containers this deploy replaced.
+Recreate it, which loads the checkout and resolves the new containers:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+    return 2
+  fi
+  case "$status" in
+    200)
+      # An applied reload's lines are warnings, replayed under `--verbose` as every command's own
+      # output is (`docs/ops/spec.md` §1.7).
+      if verbose && [[ -n "$body" ]]; then printf '%s\n' "$body" | detail; fi
+      ok "reloaded, so it is proxying to the containers this deploy created"
+      edge_reads_checkout
+      ;;
+    422)
+      printf '%s\n' "$body" | detail
+      fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, so it
+is still proxying to the addresses of the containers this deploy replaced. Its own lines are above."
+      detail "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
       return 1
-    fi
-    warn "nginx could not be asked to test its configuration (exit ${test_rc}), and nothing above is
-nginx's own verdict on it, so this says nothing about its configuration. It was NOT reloaded either
-way, so it may still be proxying to the addresses of the containers this deploy replaced."
-    detail "Ask it yourself:  docker compose -f ${COMPOSE} exec -T nginx nginx -t"
-    return 2
-  fi
-  # Listed before the signal, so a worker missing from this list is one the reload started. A failed
-  # listing still sends the signal: the replaced containers' addresses are 502s until it lands.
-  local workers="" workers_rc=0 applied=0
-  workers="$(edge_workers)" || workers_rc=$?
-  if ! quietly docker compose -f "$COMPOSE" exec -T nginx nginx -s reload; then
-    fail "nginx could not be reloaded, so it is still proxying to the addresses of the containers this
-deploy replaced and every request through it answers 502."
-    detail "Recreate it by hand:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 1
-  fi
-  if (( workers_rc )) || [[ -z "$workers" ]]; then applied=2; else edge_new_generation "$workers" || applied=$?; fi
-  if (( applied == 1 )); then
-    fail "nginx was signalled to reload and is still running only the workers it had before, which is
-what its master does when it rolls a new configuration back, so it is still proxying to the
-addresses of the containers this deploy replaced."
-    detail "Its own reason:     docker compose -f ${COMPOSE} logs --tail 20 nginx" \
-           "Then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 1
-  elif (( applied )); then
-    warn "nginx was signalled to reload, and its worker processes could not be listed, so nothing here
-says whether it applied the configuration or rolled it back.
-Ask it directly:  docker compose -f ${COMPOSE} logs --tail 20 nginx"
-    return 2
-  fi
-  ok "reloaded, so it is proxying to the containers this deploy created"
-  edge_reads_checkout
+      ;;
+    *)
+      warn "nginx's Control API answered the reload with '${status}', which is neither applied nor
+refused, so nothing here says which it did. Its reply:
+${body}
+Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
+      return 2
+      ;;
+  esac
 }
 
 # How many streams the last call wrote, because the callers' sentence about NONE of them differs:
