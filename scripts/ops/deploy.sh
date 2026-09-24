@@ -849,11 +849,15 @@ if (( FE_RC || BE_RC )); then
 packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
   ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
 elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
-  # Warns rather than refuses, so a pair holding an image without the label deploys unverified: two
-  # different builds pass here unseen. `.github/workflows/publish.yml` labels every image it pushes
-  # (`docs/ops/spec.md :: I7`).
-  warn "one of the pulled images carries no published-tag label, so this deploy is NOT verified as a
-matched pair. An image not built by publish.yml is the usual cause."
+  # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
+  # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
+  # names the pair itself, which keeps an unlabelled build reachable for a rollback.
+  if [[ -z "$PIN" ]]; then
+    refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
+packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
+  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
+  fi
+  info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
 elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
   die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
 A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
