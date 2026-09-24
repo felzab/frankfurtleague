@@ -45,7 +45,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 const TOKEN = "abc123";
 

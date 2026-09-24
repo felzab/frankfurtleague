@@ -26,7 +26,7 @@ const { schiedsrichterVorname } = await import("./constants.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 /** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */

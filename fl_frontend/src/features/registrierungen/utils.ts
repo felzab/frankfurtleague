@@ -1,8 +1,8 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { APIBadStatusError } from "@/core/errors";
 import { refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 

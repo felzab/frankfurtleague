@@ -11,7 +11,7 @@ import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publ
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";

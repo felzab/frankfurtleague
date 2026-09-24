@@ -44,7 +44,7 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");

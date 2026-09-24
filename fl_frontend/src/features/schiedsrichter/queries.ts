@@ -1,7 +1,7 @@
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";

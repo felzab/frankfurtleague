@@ -6,7 +6,7 @@ import { FLRegistrierungBestaetigungPayloadSchema } from "@/features/registrieru
 import { mapBestaetigungRefusal } from "@/features/registrierungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { NextRequest } from "next/server";
 

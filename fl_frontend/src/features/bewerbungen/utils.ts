@@ -4,8 +4,8 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_SEATS, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
