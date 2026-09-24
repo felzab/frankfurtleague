@@ -33,9 +33,15 @@ case "${1:-}" in
   build|image|tag) exit 0 ;;
   # The build loads the image and the cache export is a run of its own; each fails on its own case.
   buildx)
+    # One run doing both would answer one status for the two, so it is no build this stub serves.
+    if [[ "$*" == *--load* && "$*" == *--cache-to* ]]; then
+      printf '%s\\n' "stub: one buildx run both loads and exports"
+      exit 1
+    fi
     case "$* ${FL_IMAGE_CASE:-clean}" in
       *--load*cache_build_failed) printf '%s\\n' "ERROR: failed to build: failed to solve"; exit 1 ;;
       *type=cacheonly*cache_export_failed) printf '%s\\n' "ERROR: error writing layer blob: not_found"; exit 1 ;;
+      *type=cacheonly*cache_export_crashed) exit 125 ;;
     esac
     exit 0 ;;
 esac
@@ -81,14 +87,17 @@ class Case:
     # The sentence this ending must NOT carry: a refusal wearing a finding's words is the defect
     # these cases exist to hold shut.
     never: str | None = None
-    # Run as CI runs it, through the Actions cache.
+    # Through the Actions cache, as `VERIFY_IMAGES_CACHE=gha` asks in CI.
     cached: bool = False
+    # Each check a unit of the step pool, the path a CI run takes; serial, it runs in place.
+    pooled: bool = False
 
 
 CASES: Final[tuple[Case, ...]] = (
     Case("cache_clean", 0, "Green", cached=True),
     Case("cache_build_failed", 1, "The frontend image failed to build", "layer cache", cached=True),
-    Case("cache_export_failed", 2, "exporting its layer cache", "failed to build.", cached=True),
+    Case("cache_export_failed", 2, "exporting its layer cache", "failed to build.", cached=True, pooled=True),
+    Case("cache_export_crashed", 125, "exit status 125", "cache service", cached=True),
     Case("clean", 0, "Green"),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
     Case("instrumentation_unreadable", 2, "Refused after", "instrumentation.js is MISSING"),
@@ -117,7 +126,7 @@ def _run(case: Case) -> tuple[int, str]:
         # The execute bit is what puts this ahead of a real daemon on PATH.
         os.chmod(stub, 0o755)
         environment["PATH"] = scratch + os.pathsep + environment["PATH"]
-        done = run_shell(BASH, VERIFY, "--images", "--serial", env=environment)
+        done = run_shell(BASH, VERIFY, "--images", *(() if case.pooled else ("--serial",)), env=environment)
     return done.returncode, done.stdout + done.stderr
 
 
@@ -132,6 +141,9 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() ->
             wrong.append(f"{case.name}: nothing it printed says {case.says!r}")
         if case.never is not None and case.never in output:
             wrong.append(f"{case.name}: it said {case.never!r}, which names a breach nothing observed")
+        # A pool that could not start falls back to the serial path, and the case would prove that one twice.
+        if case.pooled and "no python at the checkers' floor" in output:
+            wrong.append(f"{case.name}: no pool started, so the pooled path went unexercised")
     assert not wrong, "\n".join(wrong)
 
 

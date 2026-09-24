@@ -1443,12 +1443,15 @@ and nothing here judges either dockerignore. The capture above names the image."
       else
         quietly unit_replay cache_backend || CACHE_RC=$?
       fi
+      # buildx answers a failed export with 1; anything else is a docker that never ran or a replay
+      # that reached no status, which names neither the cache service nor the change.
       case "$CACHE_RC" in
         0)   ok "the ${u_image} layers are cached for the next run" ;;
+        1)   refuse "the ${u_image} image built and passed every probe above, and exporting its layer cache
+to GitHub Actions then failed, buildx's own words above. That is the cache service's answer and
+none about the change: re-run the job." ;;
         130) on_interrupt ;;
-        *)   refuse "the ${u_image} image built and passed every probe above, and exporting its layer cache
-to GitHub Actions then failed (exit ${CACHE_RC}), buildx's own words above. That is the cache
-service's answer and none about the change: re-run the job." ;;
+        *)   on_error "$CACHE_RC" "${LINENO}" "${_STEP_LABEL:-cache_${u_image}}" ;;
       esac
     done
   fi
