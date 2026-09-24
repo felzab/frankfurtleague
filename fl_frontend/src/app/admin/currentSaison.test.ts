@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
-
-import { filesUnder } from "@/core/treeWalk.ts";
 
 import "@/shared/testing/renderTest.ts";
 
@@ -35,13 +32,6 @@ globals[LIST_READS] = listReads;
    text can show which state throws it. */
 const { default: CurrentSaisonLayout } = await import("./(current-saison)/layout.tsx");
 
-const GROUP_DIR = path.join(import.meta.dirname, "(current-saison)");
-
-/** The admin urls the group answers, off the tree: a route group adds no segment of its own. */
-const GUARDED_URLS = filesUnder(GROUP_DIR, (name) => name === "page.tsx", 1)
-  .map((file) => `/admin/${path.relative(GROUP_DIR, path.dirname(file)).split(path.sep).join("/")}`)
-  .sort();
-
 /** Where a thrown redirect sends the reader, read off the digest Next's `redirect()` stamps. */
 const redirectTarget = (error: unknown): string | null => {
   const digest = (error as { digest?: unknown }).digest;
@@ -50,13 +40,9 @@ const redirectTarget = (error: unknown): string | null => {
 
 const RUNNING = { acknowledged: 1, saison: { id: "2026", status: "active" } };
 
+/* Which pages sit behind this layout is `fl_frontend/src/app/admin/omittedSaison.test.ts`'s, which
+   reads what each page asks the backend for. */
 describe("the admin pages that need a running season", () => {
-  /* The guard's reach: each page here passes an omitted season to a read the backend answers 404
-     while none runs. A page moved out renders the error page again; one moved in is sent away. */
-  it("are exactly the three whose reads default to the running season", () => {
-    assert.deepEqual(GUARDED_URLS, ["/admin/action_required", "/admin/finalrunden", "/admin/spielsuche"]);
-  });
-
   it("send the admin to the season list while no season runs", async () => {
     globals[ANSWER] = null;
 

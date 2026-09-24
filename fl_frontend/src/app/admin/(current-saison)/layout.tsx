@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 
 /**
- * The admin pages whose reads default to the running season, which answer 404 while none runs. The
+ * The admin pages passing an omitted season to a backend read, which answers 404 while none runs. The
  * state is refused here, once for all of them, rather than rendered by each (`docs/frontend/spec.md :: I359`).
  */
 export default async function CurrentSaisonLayout({ children }: { children: React.ReactNode }) {
