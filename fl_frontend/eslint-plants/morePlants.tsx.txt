@@ -42,3 +42,13 @@ export function plantedNavigations(): void {
   response.redirect("teams"); // expect: relative-nav
   permanentRedirect("teams"); // expect: relative-nav
 }
+
+// A target keeps the text its leftmost operand opens on through each wrapper.
+export function plantedWrappedTargets(): void {
+  appRouter.push("teams/" + String(appRouter)); // expect: relative-nav
+  appRouter.push(`teams/${String(appRouter)}` + "/kader" + String(appRouter)); // expect: relative-nav
+  appRouter.push("teams" as string); // expect: relative-nav
+  appRouter.push(("teams/" + String(appRouter)) satisfies string); // expect: relative-nav
+  appRouter.push(("teams" as string | null)!); // expect: relative-nav
+  appRouter.push("teams/".concat(String(appRouter))); // expect: relative-nav
+}

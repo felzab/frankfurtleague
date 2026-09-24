@@ -316,6 +316,13 @@ const DYNAMIC_LOADS = [
  * redirect. Its target is its FIRST argument: `redirect`'s second is the history mode.
  */
 const NAVIGATION = String.raw`CallExpression:matches([callee.property.name=/^(?:push|replace)$/]:matches([callee.object.name=/(?:^r|R)outer$/], [callee.object.property.name=/(?:^r|R)outer$/]), [callee.name=/^(?:redirect|permanentRedirect)$/], [callee.property.name=/^(?:redirect|permanentRedirect)$/])`;
+const NAVIGATION_TARGET = `${NAVIGATION} > *.arguments:first-child`;
+
+/** Text opening on neither `/` nor a scheme; a template opening on `pathname` stays on the page it names. */
+const RELATIVE_TEXT = String.raw`:matches(Literal[value=/^(?!\x2F|[a-z]+:)/], TemplateLiteral:not([quasis.0.value.raw=/^(?:\x2F|[a-z]+:)/]):not([expressions.0.name="pathname"][quasis.0.value.raw=""]))`;
+
+/** Where a target keeps the text it opens on: a `+`'s left, a type assertion's operand, a `concat`'s receiver. */
+const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left, :matches(TSAsExpression, TSSatisfiesExpression, TSNonNullExpression) > .expression, MemberExpression[property.name="concat"] > .object, CallExpression > MemberExpression.callee[property.name="concat"])`;
 
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
 // handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
@@ -462,11 +469,12 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: String.raw`${NAVIGATION} > Literal.arguments:first-child[value=/^(?!\x2F|[a-z]+:)/]`,
-    message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
-  },
-  {
-    selector: String.raw`${NAVIGATION} > TemplateLiteral.arguments:first-child:not([quasis.0.value.raw=/^(?:\x2F|[a-z]+:)/]):not([expressions.0.name="pathname"][quasis.0.value.raw=""])`,
+    // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
+    // a call's argument or a ternary's branch, takes the text out of the lead.
+    selector: [
+      `${NAVIGATION} > ${RELATIVE_TEXT}.arguments:first-child`,
+      `${NAVIGATION_TARGET} ${RELATIVE_TEXT}${LEADING_SLOT}:not(${NAVIGATION_TARGET} :not(${LEADING_SLOT}) *)`,
+    ].join(", "),
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {

@@ -36,6 +36,13 @@ export function allowedCalls(): void {
   redirect("https://example.org");
   // The target is the first argument alone; the second is the history mode.
   redirect("/teams", "replace");
+  // A wrapped target opening on `/`, and relative text that is no target's lead.
+  router.push("/teams/" + tint + "kader");
+  router.push(tint + "teams");
+  router.push(("/teams" as string | null)!);
+  router.push("/teams/".concat(tint));
+  router.push(labelBadge("teams" + tint) + "/kader");
+  router.push(tint === "" ? "/teams" : `/teams/${tint}`);
 }
 
 export function AdminCrudView({ facets }: { facets: unknown }) {
