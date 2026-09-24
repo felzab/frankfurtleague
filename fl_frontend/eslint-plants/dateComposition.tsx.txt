@@ -1,11 +1,20 @@
 // Linted as src/shared/components/ui/DateTimeFields.tsx.
 // The composition may import the segmented controls, and still only under their own names.
-// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: date-alias
-// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
-import * as Fields from "@heroui/react/date-field"; // expect: date-alias
+// A namespace import of any HeroUI subpath is read as taking its form as well.
+import * as Fields from "@heroui/react/date-field"; // expect: date-alias expect: heroui-form
+import { TimeField } from "@heroui/react/time-field";
+// Every other import ban still reaches it.
+import { DateField } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { HintPanel } from "./InfoHint"; // expect: hint-internals
+import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 
 declare const bounds: object;
+
+export const USED = [TimeField, DateField, AppRouterContext, HeroForm, HintPanel, captureStdout, TEAM_FACETS];
 
 export function AppDatePicker() {
   return (

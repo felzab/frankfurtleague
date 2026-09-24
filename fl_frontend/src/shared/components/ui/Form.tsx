@@ -1,4 +1,3 @@
-// eslint-disable-next-line no-restricted-imports -- the one wrapper every form renders through
 import { Form as HeroUIForm } from "@heroui/react/form";
 
 import type { FormProps } from "@heroui/react/form";

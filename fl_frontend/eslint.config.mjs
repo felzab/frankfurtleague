@@ -762,11 +762,20 @@ const eslintConfig = defineConfig([
     ignores: TEST_FILES,
     rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.shared),
   },
-  // The one importer `HINT_INTERNALS` allows, last among the blocks reaching it for `restrictImports`'s reason.
-  {
-    files: ["src/shared/components/ui/Hint.tsx"],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY, LAYER_BOUNDARY.shared),
-  },
+  // Each ban's one importer, last among the blocks reaching it for `restrictImports`'s reason, and left
+  // out of that ban alone: a disable comment would excuse every import ban on its line.
+  ...[
+    ["src/shared/components/ui/Hint.tsx", HINT_INTERNALS],
+    ["src/shared/components/ui/Form.tsx", HEROUI_FORM],
+    ["src/shared/components/ui/DateTimeFields.tsx", SEGMENTED_DATE_CONTROLS],
+  ].map(([file, allowed]) => ({
+    files: [file],
+    rules: restrictImports(
+      ...[NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS].filter((ban) => ban !== allowed),
+      ...TEST_ONLY,
+      LAYER_BOUNDARY.shared,
+    ),
+  })),
 
   {
     files: ["src/**/*.{ts,tsx}"],

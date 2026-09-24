@@ -5,12 +5,9 @@ import { useRef } from "react";
 import Xmark from "@gravity-ui/icons/Xmark";
 
 import { Calendar } from "@heroui/react/calendar";
-// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { DateField } from "@heroui/react/date-field";
-// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { DatePicker } from "@heroui/react/date-picker";
 import { FieldError } from "@heroui/react/field-error";
-// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { TimeField } from "@heroui/react/time-field";
 
 import { dismissControl } from "@/core/dismissControl";

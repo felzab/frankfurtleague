@@ -1,0 +1,12 @@
+// Linted as src/shared/components/ui/Form.tsx.
+// The wrapper may import HeroUI's form from its own subpath, and from nowhere else.
+import { Form as HeroUIForm } from "@heroui/react/form";
+import { Form as RootForm } from "@heroui/react"; // expect: vendor-root
+// Every other import ban still reaches it.
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { HintPopover } from "./InfoHint"; // expect: hint-internals
+import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+
+export const USED = [HeroUIForm, RootForm, AppRouterContext, DateField, HintPopover, captureStdout, TEAM_FACETS];
