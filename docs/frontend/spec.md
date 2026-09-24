@@ -2004,3 +2004,10 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | A matched address answers 200 on its 404 (I242), which is the price of the area chrome I232 asks for                                                 | Accepted — `cacheComponents` flushes a prerendered shell before any page runs, and a `proxy.ts` rewrite would drop its status; only a built response carries one                                                                |
 | A session a sign-in mints while a passkey removal runs outlives the removal (I313)                                                                   | Accepted — the sign-out deletes what its transaction's snapshot holds; closing it needs a session to record its authenticator, which the library does not                                                                       |
 | I356's ban misses a callback run from elsewhere, an update not called `set*`, an off-scheme start name, loops, `switch`, `?:`, `&&` and `.then`      | Accepted — the ban reads where a call sits in the syntax, not the order the code runs in; review holds the rest                                                                                                                 |
+
+- **A router call and a toast after a transition's `await` need no start call, so review asks for
+  neither (I356).** Next's router runs `push`, `replace` and `refresh` inside a `startTransition` of
+  its own, which joins the transition already pending; HeroUI's toast queue is an external store
+  read through `useSyncExternalStore`, whose changes React renders as blocking, so a toast shows at
+  once whether a start call wraps it or not. Both were read in the installed packages on 2026-09-24,
+  and both move without us.
