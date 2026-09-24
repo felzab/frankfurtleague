@@ -12,8 +12,8 @@ type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * The unique index's refusal, and the one code whose German is the shared reader's 409 fallback: a
- * slice's mapper answers it only where a box holds the value the index refused.
+ * The unique index's refusal, and the one code the shared reader's 409 fallback words. Which mapper
+ * answers it instead, on a box or in a banner, is `docs/frontend/spec.md` §1.9's.
  */
 export const DUPLICATE_KEY = "DB-COMMON-002";
 
@@ -112,9 +112,10 @@ export function refusedOn(operation: string, serverErrorCode: string, statusCode
 }
 
 /**
- * What a write shows for one refusal, asked as its action or route handler asks: the slice's mapper,
- * then `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`. `null` where the code
- * reaches that reader's fallback, which words `DUPLICATE_KEY` alone.
+ * What a write shows for one refusal: the slice's mapper, then
+ * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`, and `null` where the code
+ * reaches that reader's fallback, which words `DUPLICATE_KEY` alone. A public route words that code
+ * itself (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`).
  */
 export function answerShown(operation: string, code: string, mapper: (error: unknown) => unknown): unknown {
   const refusal = refusedOn(operation, code);

@@ -17,6 +17,12 @@ import type { NextRequest } from "next/server";
 const FREMDE_HERKUNFT = "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und versuche es noch einmal.";
 
 /**
+ * What a member of the public is told for a unique index's refusal, which no route maps: the shared
+ * reader's sentence is the administrator's, about an entry they can open, and a public form has none.
+ */
+export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
+
+/**
  * The spine every UNAUTHENTICATED route handler shares. **Nothing here authorizes anything**: the
  * backend endpoint's own guard decides whether a write may happen.
  *
@@ -50,6 +56,10 @@ export async function handlePublicRequest<T extends { success: boolean }>(
         server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
+
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "DB-COMMON-002") {
+        return { success: false, error: SCHON_VORLIEGEND };
+      }
 
       // The request this route answers, for a throw carrying none of its own: code after a POST's
       // write can throw with the row already stored.

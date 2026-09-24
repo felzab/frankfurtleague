@@ -52,6 +52,7 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
+const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -167,10 +168,9 @@ describe("the referee save's undo", () => {
   });
 
   /* Three sites per refusal: a code the route's table leaves unmapped falls through to the shared 409
-     sentence about an equivalent entry, which is the duplicate key's own. */
+     sentence about an equivalent entry, which says nothing of what became of the change. */
   it("words every refusal the replayed endpoint publishes", async () => {
     for (const code of publishedRefusals(REPLAY_OPERATION)) {
-      if (code === DUPLICATE_KEY) continue;
       recorders.__flUndoRefAnswer = () => {
         throw aRefusal(code);
       };
@@ -194,6 +194,18 @@ describe("the referee save's undo", () => {
       assert.match(answer.error ?? "", fragment);
     });
   }
+
+  /* The unique index's refusal keeps the shared reader's own sentence, opened with the outcome as every
+     row here is: two spellings of one sentence, held together. */
+  it("words the duplicate key as the shared reader does, saying the change stands", async () => {
+    recorders.__flUndoRefAnswer = () => {
+      throw aRefusal(DUPLICATE_KEY);
+    };
+
+    const answer = await bodyOf(aRequest(BODY));
+
+    assert.equal(answer.error, `Die Änderung steht weiterhin. ${String(toActionErrorResult(aRefusal(DUPLICATE_KEY)).error)}`);
+  });
 
   it("says the change stands where the replay committed nothing", async () => {
     recorders.__flUndoRefAnswer = () => ({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });

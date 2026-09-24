@@ -784,9 +784,20 @@ linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) an
 endpoint's own published set rather than a list somebody typed, and **it throws for an operation
 publishing no 409**, because a loop over an empty answer runs zero times and proves nothing.
 `fl_frontend/src/core/refusalCoverage.test.ts` holds the other half (I360): every published 409 is
-asked about by some test, and no test asks about an operation publishing none. **`DB-COMMON-002` is the
-one code the shared 409 fallback words**, so a slice's mapper answers it only where a box holds
-the refused value (`fl_frontend/src/shared/testing/publishedRefusals.ts :: answerShown`).
+asked about by some test, and no test asks about an operation publishing none. The system tier is
+left out, on the premise that its callers log a refusal and show it to no one.
+
+**`DB-COMMON-002`, the unique index's refusal, is the one code the shared 409 fallback words**, as an
+administrator's conflict with an entry that exists; a public route answers it in the visitor's words
+instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). A slice's mapper answers
+it itself on the box holding the refused value, and as a banner in three places where no box does:
+
+- `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal`, whose refused shorthand
+  the school typed onto the application and the club's page repairs
+- `fl_frontend/src/features/teams/refusals.ts :: mapAlreadyEnteredRefusal` and
+  `fl_frontend/src/features/spieler/refusals.ts :: mapAlreadyInSaisonRefusal`, whose refused pair is
+  the page's own record and the season, so the page is stale and a reload is the repair
+
 **Each caller of `fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween` pins its cut before
 reading it**, an assertion over a cut that has silently emptied proving nothing either.
 `fl_frontend/src/core/apiContract.test.ts` compares every Zod schema against the component
@@ -1929,7 +1940,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I348 | **The application and registration forms renew their key only where a box carries the refusal**; any other answer keeps it                                                                                                                 | `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx` and `fl_frontend/src/features/registrierungen/components/views/RegistrierungFormPanel.tsx` through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`; `fl_frontend/src/features/bewerbungen/submissionKey.test.ts` and `fl_frontend/src/features/registrierungen/submissionKey.test.ts`                                                                                          |
 | I351 | **A repeated submission's refused change is titled as arrived**, never I250's „nicht abgeschickt“: the first submission stands                                                                                                             | `fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal` and `fl_frontend/src/features/registrierungen/utils.ts :: mapRegistrierungSubmitRefusal` mark it; `fl_frontend/src/features/bewerbungen/form.test.ts`, `fl_frontend/src/features/registrierungen/publicRoutes.test.ts`                                                                                                                                                                                     |
 | I356 | **A state update after a transition's `await` runs inside a start call** until React lifts the limitation: bare, it commits before the transition ends                                                                                     | `fl_frontend/eslint.config.mjs :: TRANSITION_REWRAP` for a `set*` call in an inline callback of a `start*` function, driven by `fl_frontend/eslint-plants/transitions.tsx.txt`; review for the rest (§4)                                                                                                                                                                                                                                                                                |
-| I360 | **Every code `fl_backend/openapi.json` publishes on a 409 is put to the mapper answering it**, or the shared fallback calls it a duplicate entry                                                                                           | `fl_frontend/src/core/refusalCoverage.test.ts`; each slice's test, through `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals`                                                                                                                                                                                                                                                                                                                                   |
+| I360 | **Every 409 code `fl_backend/openapi.json` publishes outside the system tier is put to the mapper answering it**, or the shared fallback calls it a duplicate entry                                                                        | `fl_frontend/src/core/refusalCoverage.test.ts`; each slice's test, through `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` and `:: assertEachAnswered`                                                                                                                                                                                                                                                                                                       |
 | I361 | **A request payload's every published ceiling is refused one past and taken at by its Zod mirror**, or declared with the line saying why                                                                                                   | `fl_frontend/src/core/payloadBounds.test.ts`, over every component `fl_frontend/src/core/publishedCeilings.ts :: requestComponents` reaches, and `fl_frontend/src/core/payloadBounds.test.ts :: UNMIRRORED` held both ways                                                                                                                                                                                                                                                              |
 
 ## 3. Violation → remedy

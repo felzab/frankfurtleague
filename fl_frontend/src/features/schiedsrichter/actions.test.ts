@@ -108,12 +108,6 @@ const RENAME_ACTION = sliceBetween(
   "export async function deleteSchiedsrichterAction",
 );
 
-/** The route that REPLAYS the save, whose German is the third site `.claude/rules/cross-surface.md` names. */
-const UNDO_ROUTE = readFileSync(
-  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
-  "utf8",
-);
-
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
@@ -155,16 +149,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
         null,
         `${code} reaches the admin as an unhandled conflict`,
       );
-    }
-  });
-
-  /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
-     the administrator an equivalent entry exists (`.claude/rules/cross-surface.md`). */
-  it("words the ban the replayed save can be refused on, at the undo route too", () => {
-    for (const code of publishedRefusals(SAVE_OPERATION)) {
-      // The shared reader's own sentence, which the replay reaches as the save does.
-      if (code === DUPLICATE_KEY) continue;
-      assert.ok(UNDO_ROUTE.includes(code), `${code} reaches the admin through the undo as an unhandled conflict`);
     }
   });
 

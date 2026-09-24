@@ -153,6 +153,17 @@ describe("the registration handler", () => {
     assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
   });
 
+  /* The unique index's refusal, which no mapper here words: the shared reader's sentence is written
+     for an administrator about an entry they can open, which a visitor has none of. */
+  it("tells the visitor their details are on file where the unique index refuses them", async () => {
+    schreibAntwort = () => aRefusal(409, "DB-COMMON-002");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: "Diese Angaben liegen uns bereits vor." });
+    assert.deepEqual(mails, []);
+  });
+
   /* The same key over other details: the mark titles the press as the first one having arrived, and
      no box rides with it, so the panel keeps the key that first press is stored under. */
   it("carries the mark that the first press stands, and no box, on the changed replay's refusal", async () => {

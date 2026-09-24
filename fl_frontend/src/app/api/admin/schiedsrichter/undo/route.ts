@@ -12,6 +12,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-SCHIEDSRICHTER-007":
     "Die Änderung steht weiterhin. Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr " +
     "einen neuen Bestätigungslink schicken.",
+  // The shared reader's sentence, opened like every row here with what became of the change.
+  "DB-COMMON-002": "Die Änderung steht weiterhin. Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
 
 export async function POST(request: NextRequest) {

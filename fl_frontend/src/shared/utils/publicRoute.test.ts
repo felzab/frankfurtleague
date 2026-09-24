@@ -24,7 +24,9 @@ registerHooks({
   },
 });
 
-const { handlePublicRequest } = await import("./publicRoute.ts");
+const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
+const { toActionErrorResult } = await import("./actionError.ts");
+const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
 const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
@@ -89,6 +91,31 @@ describe("what stands in for a session on the public spine", () => {
       /Verbindung|Access Denied/,
       "a cross-site caller is sent to check their connection, or answered in English",
     );
+  });
+});
+
+describe("a refusal the route itself leaves unmapped", () => {
+  const refusedWith = async (serverErrorCode: string) =>
+    (
+      (await handlePublicRequest(request("same-origin", { body: 0 }), {
+        routeName: "publicRouteTest",
+        run: async () => {
+          throw refusedOn("POST /registrierungen", serverErrorCode);
+        },
+      })) as unknown as { body: unknown }
+    ).body;
+
+  /* The shared reader's sentence for it is an administrator's, about an entry they can open; a visitor
+     on a public form has none, and reads that their details are already on file. */
+  it("answers the unique index's refusal in the visitor's own words", async () => {
+    assert.deepEqual(await refusedWith(DUPLICATE_KEY), { success: false, error: SCHON_VORLIEGEND });
+    assert.notEqual(SCHON_VORLIEGEND, toActionErrorResult(refusedOn("POST /registrierungen", DUPLICATE_KEY)).error);
+  });
+
+  it("leaves every other conflict to the shared reader", async () => {
+    const refusal = refusedOn("POST /registrierungen", "REQ-UNCLAIMED-000");
+
+    assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), toActionErrorResult(refusal, { method: "POST", readOnly: false }));
   });
 });
 
