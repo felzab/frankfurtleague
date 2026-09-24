@@ -14,12 +14,14 @@ A planted violation never shares a line of THIS file with a hash or a triple quo
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
-from conftest import git, write
+from conftest import REPO_ROOT, git, write
 from test_check_docs import (
     BACKEND_SPEC,
     BLOCKED_ENTRY,
@@ -482,6 +484,19 @@ def test_a_span_s_offsets_index_the_line_it_sits_on_an_image_s_alt_text_included
     for span in spans:
         assert line[span.code_start : span.code_end] == span.code, span
         assert line[span.start] == line[span.end - 1] == "`", span
+
+
+def test_a_missing_markdown_parser_exits_as_a_broken_environment() -> None:
+    """The parser is imported before `run` can classify a failure, so unguarded its absence exits 1 and reads as findings."""
+    entry = REPO_ROOT / "scripts" / "checks" / "check_docs.py"
+    # As a script is run: its own folder first on the path, which is where the package sits.
+    blocked = (
+        "import os, runpy, sys; sys.modules['markdown_it'] = None; sys.path.insert(0, os.path.dirname(sys.argv[1]));"
+        " runpy.run_path(sys.argv[1], run_name='__main__')"
+    )
+    done = subprocess.run([sys.executable, "-c", blocked, str(entry)], capture_output=True, text=True, encoding="utf-8", check=False)
+    assert done.returncode == 3, (done.returncode, done.stdout, done.stderr)
+    assert "cannot import markdown_it" in done.stderr, done.stderr
 
 
 # A module the comment reader lexes: a regex literal's quotes and slashes are not a string or a comment.
