@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
 import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -169,16 +168,6 @@ type FieldFacts = {
   enumValues: string[] | null;
 };
 
-function findSchemaModules(dir: string): string[] {
-  // Sorted because `mirrors.set` below lets a later module overwrite an earlier one: without a
-  // fixed order, a name two modules both export would attribute to either of them run to run.
-  return filesUnder(dir, (name) => name === "schemas.ts", 8).sort();
-}
-
-function isZodSchema(value: unknown): value is z.ZodType {
-  return typeof value === "object" && value !== null && "_zod" in value;
-}
-
 /**
  * The sorted members of a closed string set, in any spelling either side emits, or `null`.
  *
@@ -324,12 +313,9 @@ const RESPONSE_REACHABLE = reachableFrom(document, "responses");
 const REQUEST_REACHABLE = reachableFrom(document, "requestBody");
 
 const mirrors = new Map<string, { schema: z.ZodType; module: string }>();
-for (const file of findSchemaModules(SRC_DIR)) {
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
-  for (const [name, value] of Object.entries(loaded)) {
-    if (isZodSchema(value) && name.endsWith("Schema")) {
-      mirrors.set(name.slice(0, -"Schema".length), { schema: value, module: path.relative(SRC_DIR, file) });
-    }
+for (const { module, exports } of await schemaModules(SRC_DIR)) {
+  for (const [name, value] of Object.entries(exports)) {
+    if (isZodSchema(value) && name.endsWith("Schema")) mirrors.set(name.slice(0, -"Schema".length), { schema: value, module });
   }
 }
 

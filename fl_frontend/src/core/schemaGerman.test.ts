@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
 import { sources } from "@/core/actionSources.ts";
 import { blankComments } from "@/core/blankComments.ts";
 import { openingTag } from "@/core/openingTag.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { schemaModules } from "@/core/schemaModules.ts";
+import { isTestFile } from "@/core/treeWalk.ts";
 
 /**
  * Zod's own wording, which is English. Matched rather than the German it replaces: a field MISSING its sentence
@@ -18,20 +18,16 @@ const ZOD_DEFAULT = /^(Invalid input|Invalid option|Invalid key|Too small|Too bi
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-/** Every `schemas.ts` under `features/`, discovered on disk — the same route `apiContract.test.ts` takes. */
-const findSchemaModules = (dir: string): string[] => filesUnder(dir, (name) => name === "schemas.ts", 8);
-
 /**
  * Every payload schema in the app, found by walking the modules rather than by naming them: a hand-written list
  * is one more place a new schema can be forgotten, and a forgotten schema is exactly the one still in English.
  */
 const BOUND: Record<string, unknown> = {};
-for (const file of findSchemaModules(path.join(SRC_DIR, "features"))) {
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
-  for (const [name, value] of Object.entries(loaded)) {
+for (const { module, exports } of await schemaModules(path.join(SRC_DIR, "features"))) {
+  for (const [name, value] of Object.entries(exports)) {
     const candidate = value as { safeParse?: unknown; def?: { shape?: unknown } };
     if (typeof candidate?.safeParse === "function" && candidate.def?.shape !== undefined && name.endsWith("PayloadSchema")) {
-      BOUND[`${path.relative(SRC_DIR, file).split(path.sep).join("/")} :: ${name}`] = value;
+      BOUND[`${module} :: ${name}`] = value;
     }
   }
 }

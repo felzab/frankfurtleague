@@ -1,25 +1,16 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-/** Every `schemas.ts` under `src`, the same set `apiContract.test.ts` walks. */
-const findSchemaModules = (dir: string): string[] => filesUnder(dir, (name) => name === "schemas.ts", 8).sort();
-
-function isZodSchema(value: unknown): value is z.ZodType {
-  return typeof value === "object" && value !== null && "_zod" in value;
-}
-
 const schemas = new Map<string, z.ZodType>();
-for (const file of findSchemaModules(SRC_DIR)) {
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
-  for (const [name, value] of Object.entries(loaded)) {
+for (const { exports } of await schemaModules(SRC_DIR)) {
+  for (const [name, value] of Object.entries(exports)) {
     if (isZodSchema(value) && name.endsWith("Schema")) schemas.set(name, value);
   }
 }

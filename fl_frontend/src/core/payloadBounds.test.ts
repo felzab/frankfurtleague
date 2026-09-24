@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
 
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { publishedCeilings, requestComponents } from "@/core/publishedCeilings.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 import type { PublishedCeiling, PublishedDocument } from "@/core/publishedCeilings.ts";
 import type { ZodType } from "zod";
@@ -21,12 +20,9 @@ const document = readPublishedDocument() as PublishedDocument;
 const PAYLOADS = [...requestComponents(document)].sort();
 
 const mirrors = new Map<string, ZodType>();
-for (const file of filesUnder(SRC_DIR, (name) => name === "schemas.ts", 8).sort()) {
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
-  for (const [name, value] of Object.entries(loaded)) {
-    if (name.endsWith("Schema") && typeof value === "object" && value !== null && "_zod" in value) {
-      mirrors.set(name.slice(0, -"Schema".length), value as ZodType);
-    }
+for (const { exports } of await schemaModules(SRC_DIR)) {
+  for (const [name, value] of Object.entries(exports)) {
+    if (name.endsWith("Schema") && isZodSchema(value)) mirrors.set(name.slice(0, -"Schema".length), value);
   }
 }
 
