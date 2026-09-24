@@ -6,9 +6,10 @@ helper raises `DocumentNotFoundException` on a miss and never returns `None`, an
 helper returns the empty result and never raises for absence.
 
 Every write here also appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: no WRITE reaches the driver outside this module. Reads are a different
-matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one`
-directly -- and a write shaped like one of those would escape the log.
+log complete by construction: a WRITE reaches the driver in this module alone, the log's own row
+aside, which `app/core/recording.py :: record_write` inserts. Reads are a different matter --
+several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
+and a write shaped like one of those would escape the log.
 """
 
 import re
