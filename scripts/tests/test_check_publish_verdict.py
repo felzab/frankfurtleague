@@ -68,10 +68,11 @@ def jobs(*listed: dict[str, Any]) -> dict[str, Any]:
 
 
 BUDGET_ONLY: Final = jobs(*SCOPES, aggregate("failure", **{publish.BUDGET_STEP: "failure"}))
+# The budget step runs whatever the scope jobs concluded, so a failed scope leaves it passed or failed.
 A_SCOPE_FAILED: Final = jobs(
     job("changes", "success"),
     job("scripts", "failure"),
-    aggregate("failure", **{"Fail if any scope job failed or was cancelled": "failure", publish.BUDGET_STEP: "skipped"}),
+    aggregate("failure", **{"Fail if any scope job failed or was cancelled": "failure"}),
 )
 
 
@@ -91,6 +92,17 @@ CASES: Final[tuple[Case, ...]] = (
     Case("a run that succeeded", [run(11, "success")], 0),
     Case("a run failed by the budget step alone", [run(12, "failure")], 0, {12: BUDGET_ONLY}),
     Case("a run in which a scope job failed", [run(13, "failure")], 1, {13: A_SCOPE_FAILED}),
+    Case(
+        "a run in which a scope job and the budget both failed",
+        [run(17, "failure")],
+        1,
+        {
+            17: jobs(
+                job("scripts", "failure"),
+                aggregate("failure", **{"Fail if any scope job failed or was cancelled": "failure", publish.BUDGET_STEP: "failure"}),
+            )
+        },
+    ),
     Case("no run at all", [], 1),
     Case("a run still in progress", [run(14, None)], 1),
     Case("a cancelled run", [run(15, "cancelled")], 1),

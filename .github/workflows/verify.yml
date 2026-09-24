@@ -571,9 +571,9 @@ jobs:
       - name: Hold every job to its wall-clock budget
         # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
         # required check, naming the job and both figures, and so does a job that ran with no row
-        # (`docs/ops/spec.md :: I17`). After the scope verdict and under its `success()`, so a
-        # failed gate is reported as the failure it is and a job's length is judged only where the
-        # job passed.
+        # (`docs/ops/spec.md :: I17`). Run whatever the scope jobs concluded, so an overrun never
+        # hides behind a failed scope; a failed job's length is not judged.
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
