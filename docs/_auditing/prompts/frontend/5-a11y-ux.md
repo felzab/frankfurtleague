@@ -22,10 +22,12 @@ it.
 SECTION A — ACCESSIBILITY
 
 A0. **WCAG 2.2 Level AA conformance table**, anchored per the shared protocol's rule on external
-standards. **WCAG 2.2 is the current W3C Recommendation** (<https://www.w3.org/TR/WCAG22/>); WCAG
-3.0 remains a draft and is not the target.
+standards. **The target is WCAG 2.2 Level AA, a decision rather than a reading of which
+Recommendation is current**: it moves only when this line does, whatever W3C has published since,
+WCAG 3.0 included.
 
-One row per Level A and Level AA success criterion — every one, no omissions: criterion | how
+One row per Level A and Level AA success criterion in WCAG 2.2's own list
+(<https://www.w3.org/TR/WCAG22/>) — every one, no omissions: criterion | how
 this app satisfies it, with the component or file | evidence, including how it was checked |
 `met` / `gap` / `not applicable` with reason / `needs-human`. Level AAA is out of scope except
 where the app already claims it.
