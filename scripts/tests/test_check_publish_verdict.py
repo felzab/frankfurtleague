@@ -404,6 +404,24 @@ def test_the_advisory_steps_are_the_aggregate_jobs_continue_on_error_steps():
     )
 
 
+CHANGES_OUTPUT_RE: Final = re.compile(r"^      ([a-z][a-z-]*): \$\{\{ (.+) \}\}$")
+MAP_CONDITION_RE: Final = re.compile(r"\bsteps\.map\.outputs\.[a-z-]+ *[!=]= *'[a-z]+'")
+
+
+def test_a_scope_the_mapping_printed_nothing_for_runs_rather_than_skips():
+    """The verdict reads a skipped job as passed, so a mapping that printed nothing would publish a commit no scope tested."""
+    workflow = (WORKFLOWS / "verify.yml").read_text(encoding="utf-8")
+    bodies = job_bodies(workflow)
+    outputs = bodies["changes"].split("    outputs:\n", 1)[1].split("    steps:\n", 1)[0]
+    declared = [found.groups() for line in outputs.splitlines() if (found := CHANGES_OUTPUT_RE.match(line))]
+
+    assert declared, "no output was read out of verify.yml's `changes` job: this reader went inert"
+    assert [key for key, value in declared if value != f"steps.map.outputs.{key} || 'true'"] == [], declared
+    conditions = MAP_CONDITION_RE.findall(bodies["frontend"])
+    assert conditions, "no condition on the frontend job's own mapping was read: this reader went inert"
+    assert [condition for condition in conditions if not condition.endswith("!= 'false'")] == [], conditions
+
+
 # The request main's tip is read from: a branch ref, which neither the commit being judged nor a tag
 # named `main` can stand in for.
 TIP_READ: Final = 'tip="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"'

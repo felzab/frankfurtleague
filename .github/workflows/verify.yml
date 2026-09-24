@@ -40,15 +40,17 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # A scope the mapping printed nothing for runs: read as false, an empty output skips its job, and
+    # `verify`, reading a skip as a pass, would conclude success over a commit nothing tested.
     outputs:
-      scripts: ${{ steps.map.outputs.scripts }}
-      docs: ${{ steps.map.outputs.docs }}
-      backend: ${{ steps.map.outputs.backend }}
-      db: ${{ steps.map.outputs.db }}
-      frontend: ${{ steps.map.outputs.frontend }}
-      ops: ${{ steps.map.outputs.ops }}
-      images: ${{ steps.map.outputs.images }}
-      format: ${{ steps.map.outputs.format }}
+      scripts: ${{ steps.map.outputs.scripts || 'true' }}
+      docs: ${{ steps.map.outputs.docs || 'true' }}
+      backend: ${{ steps.map.outputs.backend || 'true' }}
+      db: ${{ steps.map.outputs.db || 'true' }}
+      frontend: ${{ steps.map.outputs.frontend || 'true' }}
+      ops: ${{ steps.map.outputs.ops || 'true' }}
+      images: ${{ steps.map.outputs.images || 'true' }}
+      format: ${{ steps.map.outputs.format || 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -353,7 +355,9 @@ jobs:
           else
             ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
           fi
-      - if: steps.map.outputs.frontend == 'true'
+      # Each step below runs unless the mapping printed `false`, for the reason the `changes` job's
+      # outputs give.
+      - if: steps.map.outputs.frontend != 'false'
         # NOT unused, and this is the job where that is hardest to see: no step here runs python,
         # yet `scripts/gate/gate_pool.py` -- which starts this scope's checks together -- needs one at
         # the checkers' floor, above this image's own.
@@ -368,11 +372,11 @@ jobs:
         with:
           python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
-      - if: steps.map.outputs.frontend == 'true'
+      - if: steps.map.outputs.frontend != 'false'
         uses: ./.github/actions/frontend-toolchain
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
       # depends on hits exactly every run, and actions/cache does not write on an exact hit.
-      - if: steps.map.outputs.frontend == 'true'
+      - if: steps.map.outputs.frontend != 'false'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
@@ -383,10 +387,10 @@ jobs:
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
-        if: steps.map.outputs.frontend == 'true'
+        if: steps.map.outputs.frontend != 'false'
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
-        if: steps.map.outputs.frontend == 'true'
+        if: steps.map.outputs.frontend != 'false'
         # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
         # key that is absent -- one presence check, Next's `writeConfigurationDefaults`, documented at
         # that file's `allowJs` line -- then carry on.
