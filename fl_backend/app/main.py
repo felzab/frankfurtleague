@@ -1,4 +1,5 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from fastapi import FastAPI
@@ -239,15 +240,30 @@ def publish_refusals(app: FastAPI) -> None:
         if app.openapi_schema:
             return app.openapi_schema
 
-        document = generate()
-        for path, operations in document["paths"].items():
-            for method, operation in operations.items():
-                if found := codes.get((path, method)):
-                    operation["responses"][CONFLICT] = refusal_response(found)
+        # Stored, as FastAPI's "Extending OpenAPI" override stores its own: the wrapped call cached
+        # the document before this edit, and every later call answers with the cache.
+        app.openapi_schema = with_refusals(generate(), codes)
 
-        return document
+        return app.openapi_schema
 
     app.openapi = openapi
+
+
+def with_refusals(document: Mapping[str, Any], codes: Mapping[tuple[str, str], AbstractSet[str]]) -> dict[str, Any]:
+    """`document` with each operation's 409 replaced by one publishing exactly its `codes`, whatever 409 it carried."""
+
+    return {
+        **document,
+        "paths": {
+            path: {
+                method: {**operation, "responses": {**operation["responses"], CONFLICT: refusal_response(found)}}
+                if (found := codes.get((path, method)))
+                else operation
+                for method, operation in operations.items()
+            }
+            for path, operations in document["paths"].items()
+        },
+    }
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:

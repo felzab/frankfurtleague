@@ -18,11 +18,12 @@ from app.core.exception_handlers import (
     duplicate_key_exception_handler,
     pydantic_validation_exception_handler,
     refusal_response,
+    refused_codes,
     register_exception_handlers,
 )
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import api_routes, create_app, publish_refusals, refusal_codes
+from app.main import api_routes, create_app, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -352,9 +353,24 @@ def planted_app(conflict: dict[str, Any]) -> FastAPI:
 
 class TestTheDeclared409:
     def test_the_codes_a_declaration_names_are_published_and_no_other(self):
-        """A second reason a route conflicts for, where reading every declaration as the duplicate key would relabel it `DB-COMMON-002`."""
+        """A second reason a route conflicts for, where reading every declaration as the duplicate key would relabel it `DB-COMMON-002`.
 
-        assert refusal_codes(planted_app(refusal_response({A_SECOND_REASON})))[(PLANTED_PATH, "post")] == {A_SECOND_REASON}
+        Through the document pass as well as the reading: the pass is where a 409 FastAPI already
+        placed could be taken for the duplicate key.
+        """
+
+        app = planted_app(refusal_response({A_SECOND_REASON}))
+        published = with_refusals(app.openapi(), refusal_codes(app))["paths"][PLANTED_PATH]["post"]["responses"]["409"]
+
+        assert refused_codes(published) == {A_SECOND_REASON}
+
+    def test_every_read_of_the_document_answers_the_published_refusals(self):
+        """FastAPI answers each read after the first from `app.openapi_schema`, which a pass returning its edit alone would leave unedited."""
+
+        app = create_app(build_test_config())
+        first = app.openapi()
+
+        assert app.openapi() == first
 
     def test_a_409_declared_naming_no_code_stops_the_build(self):
         """Refused before `RULES` is checked against the routes, which this app serves none of."""
