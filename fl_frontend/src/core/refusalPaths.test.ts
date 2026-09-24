@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import ts from "typescript";
 import z from "zod";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
@@ -601,19 +602,47 @@ describe("every path a refusal mapper emits", () => {
   const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
 
   /**
-   * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
-   * read it (`docs/frontend/spec.md` §1.9). The `?` is what separates a declaration from a filling.
+   * The value of every `fieldErrors` an object literal FILLS, off the module's syntax tree, `null` for
+   * the shorthand `{ fieldErrors }`: a type declaring the field fills nothing, and a text reader cannot
+   * tell `fieldErrors: FieldErrors` in a return type from a map built where it cannot follow.
    */
-  const FORWARDED = /^\w+\.fieldErrors\b/;
+  function fieldErrorFillings(text: string, fileName = "mapper.ts"): (ts.Expression | null)[] {
+    const file = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
+    const fillings: (ts.Expression | null)[] = [];
 
-  function fieldErrorAssignments(text: string): { literals: number; opaque: number } {
+    const visit = (node: ts.Node): void => {
+      if (ts.isPropertyAssignment(node) && keyOf(node.name) === "fieldErrors") fillings.push(node.initializer);
+      if (ts.isShorthandPropertyAssignment(node) && node.name.text === "fieldErrors") fillings.push(null);
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+
+    return fillings;
+  }
+
+  /** A property's key as the map spells it, `null` for a computed one. */
+  const keyOf = (name: ts.PropertyName): string | null =>
+    ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name) ? name.text : null;
+
+  /**
+   * What each filling is made of, which is what decides whether this half can read it
+   * (`docs/frontend/spec.md` §1.9): a literal it reads, a Zod issue list and a map forwarded from the
+   * refusal it was handed are answered elsewhere, and anything else is a map it cannot follow.
+   */
+  function fieldErrorAssignments(text: string, fileName?: string): { literals: number; opaque: number } {
     let literals = 0;
     let opaque = 0;
 
-    for (const assignment of text.matchAll(/fieldErrors:\s*/g)) {
-      const value = text.slice(assignment.index + assignment[0].length);
-      if (value.startsWith("{")) literals++;
-      else if (!value.startsWith("toFieldErrors(") && !FORWARDED.test(value)) opaque++;
+    for (const value of fieldErrorFillings(text, fileName)) {
+      if (value !== null && ts.isObjectLiteralExpression(value)) literals++;
+      else if (
+        value === null ||
+        !(
+          (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === "toFieldErrors") ||
+          (ts.isPropertyAccessExpression(value) && ts.isIdentifier(value.expression) && value.name.text === "fieldErrors")
+        )
+      )
+        opaque++;
     }
     return { literals, opaque };
   }
@@ -621,76 +650,26 @@ describe("every path a refusal mapper emits", () => {
   const declaredMappers = production.filter(([, text]) => declaresFieldErrors(text) && NAMES_A_REFUSAL_CODE.test(text));
 
   /**
-   * The source between one `{` and the `}` closing it, scanned with depth so a brace inside a value
-   * cannot end the body early. A regex ends at the `}` inside `vor ${x}`, and every key written after
-   * it is then invisible.
-   */
-  function objectBodyAt(text: string, open: number): string {
-    let depth = 0;
-    let quote: string | null = null;
-
-    for (let index = open; index < text.length; index++) {
-      const character = text[index];
-      if (quote !== null) {
-        if (character === "\\") index++;
-        else if (character === quote) quote = null;
-        continue;
-      }
-      if (character === '"' || character === "'" || character === "`") quote = character;
-      else if (character === "{") depth++;
-      else if (character === "}" && --depth === 0) return text.slice(open + 1, index);
-    }
-    return "";
-  }
-
-  /** One body's own entries, split at ITS depth: a nested object's commas belong to that object. */
-  function topLevelParts(body: string): string[] {
-    const parts: string[] = [];
-    let depth = 0;
-    let quote: string | null = null;
-    let start = 0;
-
-    for (let index = 0; index < body.length; index++) {
-      const character = body[index];
-      if (quote !== null) {
-        if (character === "\\") index++;
-        else if (character === quote) quote = null;
-        continue;
-      }
-      if (character === '"' || character === "'" || character === "`") quote = character;
-      else if (character === "(" || character === "[" || character === "{") depth++;
-      else if (character === ")" || character === "]" || character === "}") depth--;
-      else if (character === "," && depth === 0) {
-        parts.push(body.slice(start, index));
-        start = index + 1;
-      }
-    }
-    parts.push(body.slice(start));
-    return parts;
-  }
-
-  /**
-   * Every path one module maps a refusal onto.
+   * Every path one module maps a refusal onto: each literal's own keys, a nested object's staying its own.
    *
    * Not read: a computed key, a spread, and a map built somewhere else and named here. The last of
    * those is not a silent gap — a mapper that assigns `fieldErrors` and yields no key fails below.
    */
-  function emittedKeys(text: string): string[] {
-    const keys: string[] = [];
-    for (const assignment of text.matchAll(/fieldErrors:\s*\{/g)) {
-      const open = assignment.index + assignment[0].length - 1;
-      for (const part of topLevelParts(objectBodyAt(text, open))) {
-        const key = /^\s*"?([\w.]+)"?\s*:/.exec(part)?.[1];
-        if (key !== undefined) keys.push(key);
-      }
-    }
-    return keys;
+  function emittedKeys(text: string, fileName?: string): string[] {
+    return fieldErrorFillings(text, fileName).flatMap((value) =>
+      value !== null && ts.isObjectLiteralExpression(value)
+        ? value.properties.flatMap((property) => {
+            const key = ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property) ? keyOf(property.name) : null;
+            return key === null ? [] : [key];
+          })
+        : [],
+    );
   }
 
   /** Keyed by FILE rather than by slice: a slice may hold two mappers, and each answers for its own paths. */
   const emitted = new Map<string, string[]>();
   for (const [file, text] of production) {
-    const keys = emittedKeys(text);
+    const keys = emittedKeys(text, file);
     if (keys.length > 0) emitted.set(file, [...new Set(keys)]);
   }
 
@@ -837,6 +816,20 @@ describe("every path a refusal mapper emits", () => {
     assert.deepEqual(emittedKeys(sample), ["beginn", "schule.shorthand", "nested", "zweite"]);
   });
 
+  /* A mapper whose return type REQUIRES the field declares `fieldErrors: FieldErrors`, which fills
+     nothing; read as a filling, it is a map built where the sweep cannot follow, and the type has to
+     be loosened to pass. */
+  it("reads a declared field as no filling, and a map built elsewhere as one it cannot follow", () => {
+    const declared =
+      'function map(e: unknown): { error: string; fieldErrors: FieldErrors } | null { return { error: "a", fieldErrors: { id: "a" } }; }';
+    const forwarded = "return { fieldErrors: refusal.fieldErrors, second: { fieldErrors: toFieldErrors(issues) } };";
+    const built = "return { fieldErrors: built, ...{ fieldErrors } };";
+
+    assert.deepEqual(fieldErrorAssignments(declared), { literals: 1, opaque: 0 });
+    assert.deepEqual(fieldErrorAssignments(forwarded), { literals: 0, opaque: 0 });
+    assert.deepEqual(fieldErrorAssignments(built), { literals: 0, opaque: 2 });
+  });
+
   it("emits from every mapper that names a field, and from nothing else", () => {
     // Two independent signals, compared both ways: a mapper written outside `actions.ts` fails until it
     // is swept, and a narrowed emission regex fails here rather than quietly sweeping less.
@@ -854,14 +847,14 @@ describe("every path a refusal mapper emits", () => {
         `${file} is excused as banner-only but maps no refusal any more — drop the entry`,
       );
 
-      const { literals, opaque } = fieldErrorAssignments(sources.get(file) ?? "");
+      const { literals, opaque } = fieldErrorAssignments(sources.get(file) ?? "", file);
       assert.equal(literals + opaque, 0, `${file} is excused as banner-only (${reason}) and names a field after all`);
     }
 
     // A map this cannot read is the shape the excuse above would otherwise absorb: it drops out of
     // `emitted`, and the equality then names BANNER_ONLY as the remedy. Named here instead.
     for (const [file, text] of declaredMappers) {
-      const { opaque } = fieldErrorAssignments(text);
+      const { opaque } = fieldErrorAssignments(text, file);
       assert.equal(opaque, 0, `${file} builds its field map somewhere this sweep cannot follow — write the map where the refusal is decided`);
     }
   });
