@@ -362,7 +362,7 @@ describe("buildSpielBanners", () => {
 
     assert.deepEqual(
       built.map((banner) => [banner.id, banner.severity, banner.title]),
-      [["spiel.void-preview-ungeprueft", "info", "Ob Spiele dadurch entfallen, konnte nicht geprüft werden."]],
+      [["spiel.void-preview-ungeprueft", "info", "Ob Spiele dadurch entfallen, konnte nicht geprüft werden"]],
     );
     assert.equal(resolveBlockingBanners(built), null);
   });

@@ -320,7 +320,7 @@ export function buildSpielBanners({
       id: "spiel.void-preview-ungeprueft",
       severity: "info",
       raisedBy: "change",
-      title: "Ob Spiele dadurch entfallen, konnte nicht geprüft werden.",
+      title: "Ob Spiele dadurch entfallen, konnte nicht geprüft werden",
       inline: null,
     });
   }

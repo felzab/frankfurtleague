@@ -105,7 +105,7 @@ async function renderAndPreview(t: TestContext): Promise<void> {
   );
 }
 
-const UNGEPRUEFT = "Ob Spiele dadurch entfallen, konnte nicht geprüft werden.";
+const UNGEPRUEFT = "Ob Spiele dadurch entfallen, konnte nicht geprüft werden";
 
 describe("the match editor's preview when its dry run is not answered", () => {
   beforeEach(() => {
