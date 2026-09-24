@@ -1627,20 +1627,23 @@ def _jsx_text_lines(text: str, sought: str) -> set[int]:
     return found
 
 
-def _lines_carrying(text: str, sought: str, *, rendered: bool) -> set[int]:
+def _lines_carrying(text: str, sought: str, *, rendered: bool, whole: bool = False) -> set[int]:
     """Every line spelling the fragment, a JSX text run's wrapped lines too where the file renders one.
 
     A line first: the run is read only for a fragment no single line holds.
     """
-    return {number for number, line in enumerate(text.split("\n"), start=1) if sought in line} or (
-        _jsx_text_lines(text, sought) if rendered else set()
-    )
+    # Bounded by what continues no name in a scanned language, `$` being TypeScript's.
+    spelled = re.compile(r"(?<![\w$])" + re.escape(sought) + r"(?![\w$])") if whole else None
+    return {
+        number for number, line in enumerate(text.split("\n"), start=1) if (sought in line if spelled is None else spelled.search(line))
+    } or (_jsx_text_lines(text, sought) if rendered else set())
 
 
 def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
 
-    By name in Python, by a table row for an invariant id, and by presence anywhere else.
+    By name in Python, by a table row for an invariant id, and by presence anywhere else, a name's
+    as a whole one.
     """
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
@@ -1686,7 +1689,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         return [Finding("fail", "citation", rel, detail)]
     # Presence is not resolution: `parse_unit` reads as alive inside `parse_units`, so a deleted
     # symbol surviving in a longer name certifies silently. Python's definitions list exactly; every
-    # other kind resolves by presence.
+    # other kind resolves a name by its presence as a whole one.
     names = _anchor_names(anchor)
     if names is not None and (defined := defined_symbols(target)) is not None:
         if defined.isdisjoint(names):
@@ -1717,7 +1720,9 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
     # A quoted fragment of a `.tsx` file alone is read across a wrap: a case name, a symbol and a
     # comment render nowhere, and read across a wrap a dead one resolves.
     rendered = quoted and has_suffix(where, (".tsx",))
-    spellings = _lines_carrying(content, sought, rendered=rendered)
+    # A quoted anchor is a fragment whatever it spells: `_anchor_names` reads its quotes as no name.
+    whole = names is not None
+    spellings = _lines_carrying(content, sought, rendered=rendered, whole=whole)
     if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
@@ -1727,7 +1732,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
-        if not _lines_carrying("\n".join(_uncited_lines(target)), sought, rendered=rendered) - on:
+        if not _lines_carrying("\n".join(_uncited_lines(target)), sought, rendered=rendered, whole=whole) - on:
             detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
             return [Finding("fail", "citation", rel, detail)]
     return []

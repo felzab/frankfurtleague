@@ -277,6 +277,24 @@ def test_a_citation_of_a_case_name_the_source_escapes_is_refused_before_any_coun
     _assert_corpus_restored()
 
 
+def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fragment_do() -> None:
+    """Read as a substring, a name resolves inside any longer one, and a symbol renamed by a suffix certifies.
+
+    `MARKED` catches a reader failing every name; the quoted run stays a fragment, matched as spelled.
+    """
+    _reset()
+    cited = [MARKER_TSX + " :: " + anchor for anchor in ("MARK", "MARKED", QUOTE + "MARK" + QUOTE)]
+    _append(NOTES, "The marker module's constant: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, "a whole name or a fragment of one was judged wrongly: " + _shape(reported)
+    assert "anchor 'MARK' no longer appears in " + MARKER_TSX in output, output
+    _assert_corpus_restored()
+
+
 def test_a_root_level_directory_the_tree_holds_is_a_prefix_the_resolver_reaches() -> None:
     """The live path is planted beside the dead one because silence is what a typed tuple produces.
 
