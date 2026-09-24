@@ -9,8 +9,10 @@ choose.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Final
 
@@ -29,9 +31,8 @@ RAW: Final = "export const v = {a:1};"
 FORMATTED: Final = "export const v = { a: 1 };"
 UNPARSEABLE: Final = "SYNTAX-ERROR"
 
-# Refuses the options the hook must pass as `pnpm format` would, reports a file named `ignored*` as
-# `.prettierignore` would, and plays a second writer: formatting a text naming `WRITE-TO:<file>`
-# appends a line to that file on disk, once.
+# Refuses the options the hook must pass as `pnpm format` would, and reports a file named
+# `ignored*` as `.prettierignore` would.
 STAND_IN: Final = r"""const fs = require("node:fs");
 const path = require("node:path");
 
@@ -52,14 +53,23 @@ exports.format = async (text, options) => {
     error.loc = { start: { line: 1, column: 1 } };
     throw error;
   }
-  const target = /WRITE-TO:(\S+)/.exec(text);
-  const written = target && path.resolve("..", target[1]);
-  if (written && !fs.readFileSync(written, "utf8").includes("writer")) fs.appendFileSync(written, "export const writer = 1;\n");
-  return text.replace(/\r\n/g, "\n").replaceAll("{a:1}", "{ a: 1 }");
+  // A second writer: each directive appends a line to, respaces or removes the file it names, once.
+  for (const [, verb, target] of text.matchAll(/(WRITE-TO|RESPACE|REMOVE):(\S+)/g)) {
+    const file = path.resolve("..", target);
+    if (!fs.existsSync(file)) continue;
+    const now = fs.readFileSync(file, "utf8");
+    if (verb === "WRITE-TO" && !now.includes("writer")) fs.appendFileSync(file, "export const writer = 1;\n");
+    if (verb === "RESPACE") fs.writeFileSync(file, now.replaceAll("{a:1}", "{a:1 }"));
+    if (verb === "REMOVE") fs.rmSync(file);
+  }
+  return text.replace(/\r\n/g, "\n").replaceAll("{a:1 }", "{a:1}").replaceAll("{a:1}", "{ a: 1 }");
 };
 """
 
 WRITER_LINE: Final = b"export const writer = 1;\n"
+
+# The words the race report is found by.
+RACED: Final = "while the hook ran"
 
 
 def _lines(*middle: str, last: str = "export const last = 3;", eol: str = "\n") -> str:
@@ -302,7 +312,7 @@ def test_a_name_with_a_space_and_one_opening_with_a_dash_are_formatted() -> None
     done = _commit(root)
     assert done.returncode == 0, done.stdout + done.stderr
     # A path read as an option fails a comparison, which reads as a writer's race.
-    assert "written while" not in done.stderr, done.stderr
+    assert RACED not in done.stderr, done.stderr
     for rel in ("a b.ts", "-dash.ts"):
         assert FORMATTED in _committed(root, rel), rel
         assert _on_disk(root, rel) == _lines(FORMATTED).encode(), rel
@@ -339,7 +349,7 @@ def test_a_write_landing_while_the_hook_runs_is_kept_and_reported() -> None:
     assert _committed(root, "whole.ts") == _lines(FORMATTED).strip()
     assert _on_disk(root, "a.ts") == _lines(FORMATTED, "// WRITE-TO:a.ts").encode() + WRITER_LINE
     assert _on_disk(root, "whole.ts") == _lines(RAW).encode() + WRITER_LINE
-    raced = done.stderr.partition("written while the hook ran")[2]
+    raced = done.stderr.partition(RACED)[2]
     assert "      a.ts\n" in raced and "      whole.ts\n" in raced, done.stderr
 
 
@@ -362,3 +372,39 @@ def test_the_helper_is_found_beside_the_hook_and_not_in_the_committing_tree() ->
     done = _commit(root)
     assert done.returncode == 0, done.stdout + done.stderr
     assert FORMATTED in _committed(root, "a.ts")
+
+
+def test_a_refusal_after_formatting_leaves_the_fully_staged_working_copy_unformatted() -> None:
+    """`git hash-object` refuses the formatted copy: a clean filter the path now names fails, after git listed the file clean."""
+    root = _repository()
+    write(root, "whole.ts", _lines(RAW))
+    # Older than the index git writes next, so git trusts the file's stat and runs no filter over it.
+    past = time.time() - 60
+    os.utime(root / "whole.ts", (past, past))
+    git(root, "add", "whole.ts")
+    git(root, "config", "filter.boom.clean", "false")
+    git(root, "config", "filter.boom.required", "true")
+    write(root, ".gitattributes", "whole.ts filter=boom\n")
+    index = git(root, "ls-files", "-s")
+    done = _commit(root)
+    assert done.returncode != 0, done.stdout + done.stderr
+    assert "could not store the formatted whole.ts" in done.stderr, done.stderr
+    assert git(root, "ls-files", "-s") == index
+    assert _on_disk(root, "whole.ts") == _lines(RAW).encode()
+
+
+def test_a_working_copy_edited_or_removed_after_git_listed_it_is_left_and_reported() -> None:
+    """`c.ts` is formatted first and plays the writer: `whole.ts` gains an edit changing formatting alone, and `gone.ts` goes."""
+    root = _repository()
+    write(root, "gone.ts", _lines(RAW))
+    write(root, "whole.ts", _lines(RAW))
+    write(root, "c.ts", _lines(RAW, "// RESPACE:whole.ts REMOVE:gone.ts"))
+    git(root, "add", "c.ts", "gone.ts", "whole.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert _committed(root, "whole.ts") == _lines(FORMATTED).strip()
+    assert _committed(root, "gone.ts") == _lines(FORMATTED).strip()
+    assert _on_disk(root, "whole.ts") == _lines(RAW.replace("{a:1}", "{a:1 }")).encode()
+    assert not (root / "gone.ts").exists()
+    raced = done.stderr.partition(RACED)[2]
+    assert "      whole.ts\n" in raced and "      gone.ts\n" in raced, done.stderr

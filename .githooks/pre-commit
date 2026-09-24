@@ -75,8 +75,8 @@ work="$(windows_path "$work")"
 trap 'rm -rf "$work"' EXIT
 
 # `diff.relative` would relativise these to the invoking directory; every line below joins them onto
-# the repository root. `--no-renames` turns a rename into the add `A` names, and `D` is left out
-# because a staged deletion has no file to format.
+# the root. `--no-renames` reports a rename as the add `A` names; a staged deletion `D` has nothing
+# to format.
 if ! git --literal-pathspecs -c diff.relative=false diff --cached --raw --no-abbrev -z --no-renames \
      --diff-filter=ACM > "$work/staged"; then
   # Through a file, never a process substitution: nothing observes one's status, `set -e` does not
@@ -143,7 +143,7 @@ fi
 
 # One node for the whole stage: a process per file pays prettier's and both plugins' load each time.
 status=0
-( cd fl_frontend && node "$helper" "$work" ) || status=$?
+( cd fl_frontend && node "$helper" format "$work" ) || status=$?
 if [ "$status" -ne 0 ]; then
   echo "  pre-commit hook: formatting exited $status, so the commit is refused and nothing was staged —" >&2
   echo "  its reason is above." >&2
@@ -199,6 +199,22 @@ if [ ${#restaged[@]} -gt 0 ]; then
   } >&2
 fi
 
+# Last, once the index holds what the commit will: every refusal above leaves the working copies as
+# they were.
+unwritten=()
+if [ -s "$work/rewrite" ]; then
+  if ! ( cd fl_frontend && node "$helper" write "$work" ); then
+    echo "  pre-commit hook: could not finish writing the formatted working copies. The commit holds them" >&2
+    echo "  formatted, and \`git status\` names any copy left as it was." >&2
+  fi
+  if [ -f "$work/raced-late" ]; then
+    while IFS= read -r -d '' index; do raced+=("${staged[$index]}"); done < "$work/raced-late"
+  fi
+  if [ -f "$work/unwritten" ]; then
+    while IFS= read -r -d '' index; do unwritten+=("${staged[$index]}"); done < "$work/unwritten"
+  fi
+fi
+
 if [ ${#in_part[@]} -gt 0 ]; then
   {
     echo "  pre-commit hook: ${#in_part[@]} of them are staged in part. The commit holds the staged half"
@@ -211,8 +227,16 @@ fi
 
 if [ ${#raced[@]} -gt 0 ]; then
   {
-    echo "  pre-commit hook: ${#raced[@]} file(s) were written while the hook ran. The commit holds the"
-    echo "  staged content formatted; the working copy is left exactly as that writer left it:"
+    echo "  pre-commit hook: ${#raced[@]} file(s) were written or removed while the hook ran. The commit"
+    echo "  holds the staged content formatted; the working copy is left exactly as that writer left it:"
     name_files "${raced[@]}"
+  } >&2
+fi
+
+if [ ${#unwritten[@]} -gt 0 ]; then
+  {
+    echo "  pre-commit hook: ${#unwritten[@]} working cop(ies) could not be written. The commit holds them"
+    echo "  formatted; \`git status\` shows what each holds now:"
+    name_files "${unwritten[@]}"
   } >&2
 fi

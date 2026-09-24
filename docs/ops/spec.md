@@ -585,20 +585,19 @@ each ignore, the reader knip cannot see; a configuration hint fails the step as 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
 commit time instead: `.githooks/pre-commit` refuses a commit on `main` and re-stages every staged
-file formatted from its staged copy. **Of the working tree it writes only a fully staged file's
-copy**, and only while that copy still formats to the staged result; a file staged in part keeps its
-working copy as the author left it, so `git status` shows the formatting as an unstaged change until
-the file is formatted and staged. It never stashes, hides or resets the working tree, and a commit it
-refuses leaves the index and the working tree as they were (I354). The hook is convenience and never
-the enforcement — a clone
-that has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what
-bind. The
-formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
-change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
-because a plugin moves only through the lockfile and CI runs uncached either way. **What the cache
-spares is the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and
-`.git` included, before it asks `.prettierignore` which files to read, so a tool cache that file does
-not name is read on every run.
+file prettier formats, formatted from its staged copy. **Of the working tree it writes only a fully
+staged file's copy**, last, once the index holds what the commit will, and only while that copy
+still holds the staged text; a file staged in part keeps its working copy as the author left it, so
+`git status` shows the formatting as an unstaged change until the file is formatted and staged. It
+never stashes, hides or resets the working tree, and a commit it refuses leaves the index and the
+working tree as they were (I354). The hook is convenience and never the enforcement — a clone that
+has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
+formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own change,
+so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted because
+a plugin moves only through the lockfile and CI runs uncached either way. **What the cache spares is
+the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
+included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
+name is read on every run.
 
 **An editor formats earlier still, and binds no more than the hook does**: `.vscode/settings.json`
 names the module, the configuration and the ignore file the gate itself reads, and a developer
