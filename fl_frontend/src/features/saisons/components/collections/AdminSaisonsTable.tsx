@@ -67,7 +67,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
   /**
    * `tabular-nums` asks the face for tabular figures, so it needs `font-numeric` beside it
-   * (`fl_frontend/src/core/numericFigures.test.ts :: PAIR`).
+   * (`fl_frontend/eslint.config.mjs :: SOURCE_BANS`).
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
     <span className="font-numeric flex flex-row items-baseline gap-x-1 tabular-nums">

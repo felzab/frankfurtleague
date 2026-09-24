@@ -1396,7 +1396,7 @@ Inter, through `font-numeric`.** Three tests decide a site the table below does 
   on no step at all.
 - **Does it column?** Digits a reader scans vertically take `font-numeric` beside `tabular-nums`,
   never one alone: Raleway carries no tabular figures, so the utility without the face delivers
-  nothing (`fl_frontend/src/core/numericFigures.test.ts`).
+  nothing (`fl_frontend/eslint.config.mjs :: SOURCE_BANS`).
 
 **An Anton element spells no weight utility, no `italic` and no `tracking-tight`** (I159). The face
 ships one weight, so a utility on it — or a weight inherited from a bold ancestor — is synthesised by
