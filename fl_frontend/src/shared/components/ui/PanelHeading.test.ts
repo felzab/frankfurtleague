@@ -18,7 +18,6 @@ const { PanelHeading } = await import("./PanelHeading.tsx");
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
-const COMPONENT = path.join(SRC, "shared", "components", "ui", "PanelHeading.tsx");
 const rel = (file: string) => path.relative(SRC, file).split(path.sep).join("/");
 
 /** Comments blanked, so a heading NAMED in prose is not scanned as one rendered. */
@@ -95,18 +94,8 @@ describe("a panel's hint sits beside its heading", () => {
     assert.deepEqual(nested.map(rel), []);
   });
 
-  it("leaves no panel heading spelled outside the shared one", () => {
-    // What closes the route the case above cannot follow: a hint handed in as a PROP crosses a module
-    // boundary no reader of one file can resolve. A panel that spells no heading can nest nothing in one.
-    const spelled = FILES.filter(
-      (file) => file !== COMPONENT && headings(code(readFileSync(file, "utf8")), rel(file)).some(({ tag }) => tag.includes("heading()")),
-    );
-
-    assert.deepEqual(spelled.map(rel), []);
-  });
-
   it("is the mechanism those headings use", () => {
-    // Anti-vacuity: both cases above are equally true of a tree that stopped rendering panels at all.
+    // Anti-vacuity: the case above is equally true of a tree that stopped rendering panels at all.
     const users = FILES.filter((file) => readFileSync(file, "utf8").includes("<PanelHeading"));
 
     assert.ok(users.length >= 35, `expected the shared heading in at least 35 panels, found ${String(users.length)}`);

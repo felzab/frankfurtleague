@@ -18,6 +18,7 @@ declare const auth: { api: { getSession: (options: object) => unknown } };
 declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
 declare const redirect: (to: string) => never;
 declare const heading: () => string;
+declare const panel: { heading: () => string };
 declare const headers: Headers;
 declare const request: Request;
 declare const id: string;
@@ -87,6 +88,7 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <DatePicker minValue={bounds} /* expect: date-bound */ />
       <DateField {...bounds} /* expect: date-spread */ />
       <h2 className={heading()} /* expect: heading */>Titel</h2>
+      <h2 className={panel.heading()} /* expect: heading */>Titel</h2>
       <h3>
         Titel <Hint /* expect: hint-nest */ />
       </h3>

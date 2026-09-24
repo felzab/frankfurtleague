@@ -432,7 +432,7 @@ const SOURCE_BANS = [
     message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
   },
   {
-    selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression[callee.name="heading"]',
+    selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',
     message: "Render `PanelHeading` rather than spelling a panel heading.",
     exempt: ["src/shared/components/ui/PanelHeading.tsx"],
   },
