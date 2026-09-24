@@ -561,9 +561,9 @@ const unparenthesised = (node: ts.Expression): ts.Expression => (ts.isParenthesi
 const isInlineFunction = (node: ts.Expression): boolean => ts.isArrowFunction(node) || ts.isFunctionExpression(node);
 
 /**
- * Whether `name` is bound to a component in one of the shapes `fl_frontend/eslint.config.mjs ::
- * ADMIN_VIEW` reads: a function declaration, an inline function, or a call taking one inline. An
- * `as`, a call around a named component, or a second call inside the first is no such shape.
+ * Whether `name` is bound in a shape `fl_frontend/eslint.config.mjs :: ADMIN_VIEW` reads — a function
+ * declaration, an inline function, a call taking one inline — rather than behind an `as`, a named
+ * component or a second call.
  */
 function bindsAReadableView(file: string, name: string): boolean {
   const tree = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);

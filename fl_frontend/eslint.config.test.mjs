@@ -158,16 +158,15 @@ describe("the lint bans, driven against planted source", () => {
     assert.deepEqual(unplanted, []);
   });
 
-  // Each block restating a ban is one more place to drop it, which a plant resolving to another block
-  // never sees. A plant is linted in a block when eslint resolves that block's whole entry, severity
-  // included, for its path: a block restating another's options at `warn` is a block of its own.
+  // A block restating a ban can drop it unseen by a plant linted in another block, and a plant is
+  // linted in the block whose whole entry, severity included, eslint resolves for its path.
   it("every block stating a ban has a plant linted in it, marking each ban it restates", () => {
     const gaps = statements.flatMap(({ block, index, rule, stated, keys }) => {
       const linted = plants.filter((plant) => isDeepStrictEqual(resolved.get(plant.name)?.[rule], stated));
       const marked = new Set(linted.flatMap((plant) => [...markedIn(plant)]));
-      // The syntax blocks are generated from two populations, the production bans and the test bans, then
-      // narrowed by scope and exemption. Each ban is marked by a plant of each population it reaches, and
-      // each block by one marked ban, which is what its own reach and exemption can get wrong.
+      // The syntax blocks come from two populations, production and test, narrowed by scope and exemption:
+      // each ban needs a plant of each population it reaches, and each block one marked ban for what its
+      // reach and exemption get wrong.
       const markedInPopulation = (population) =>
         new Set(plants.filter((plant) => isTestPath(plant.lintedAs ?? "") === population).flatMap((plant) => [...markedIn(plant)]));
       const missing =

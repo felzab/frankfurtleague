@@ -44,12 +44,11 @@ function filesUnder(relative) {
  *   - the route files `@next/next/no-html-link-for-pages` reads off disk with `existsSync` and
  *     `readdirSync`, turning their names into the URLs an `<a href>` may not point at, so adding a
  *     page leaves an anchor that now names it cached clean;
- *   - the rule implementations, which `stringify` drops because they are functions, so a plugin bump
- *     or an edit to `LOCAL_RULES` changes what the rules say and not what the key covers.
+ *   - the installed rule implementations, which `stringify` drops because they are functions, so a
+ *     plugin bump changes what the rules say and not what the key covers.
  *
  * Hashing all three into `settings` puts them inside eslint's own key. `pnpm-lock.yaml` stands in for
- * the installed rules: every version this tree resolves is in it, and nothing else names them all.
- * This file stands in for its own rules.
+ * the third: every version this tree resolves is in it, and nothing else names them all.
  *
  * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
  * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
@@ -59,7 +58,12 @@ function filesUnder(relative) {
  * cache lives, so its run of this step re-decides every file (`docs/ops/spec.md` section 1.6), and a
  * miss here is a false green on a development machine that the pull request's own gate run then fails.
  */
-const HASHED_CONTENTS = ["pnpm-lock.yaml", "eslint.config.mjs", ...filesUnder("src").filter((file) => file.endsWith(".css"))];
+const HASHED_CONTENTS = [
+  "pnpm-lock.yaml",
+  // For `LOCAL_RULES`, whose selectors live in the functions `stringify` drops, as the third input's do.
+  "eslint.config.mjs",
+  ...filesUnder("src").filter((file) => file.endsWith(".css")),
+];
 
 /**
  * Names only, because names are all the route rule reads: it maps a file's path to a URL and never
@@ -288,9 +292,9 @@ const TRANSITION_REWRAP = {
 };
 
 /**
- * Where a module is named to load it at run time, which `no-restricted-imports` never reads: an
- * `import()`, and a function `createRequire` makes, called where it is made. One held in a name
- * loads unseen, as `@typescript-eslint/no-require-imports` refuses a bare `require()` alone.
+ * The run-time loads `no-restricted-imports` never reads: `import()`, and a `createRequire` function
+ * called where it is made. One held in a name loads unseen; `@typescript-eslint/no-require-imports`
+ * refuses a bare `require()` alone.
  */
 const LOAD_SITES = [
   ["ImportExpression", ".source"],
@@ -392,9 +396,8 @@ const UNSEASONED_ADMIN_LINKS = [
 ];
 
 /**
- * The rules this config defines, registered as a plugin in the config itself. The admin-link ban is
- * one because its sites are excused one by one, and a disable comment names a rule: one naming
- * `no-restricted-syntax` would excuse every syntax ban on its line.
+ * The admin-link ban is a rule of its own because its sites are excused one by one, and a disable
+ * comment names a rule: one naming `no-restricted-syntax` would excuse every syntax ban on its line.
  */
 const LOCAL_RULES = {
   "admin-link": {
@@ -420,10 +423,11 @@ const ADMIN_VIEW = `:matches(FunctionDeclaration[id.name=${VIEW_NAME}], Function
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
+// A local `const Cal = Calendar` renames a date control past every ban.
 /**
  * The date controls the bound and spread bans find by the tag's name, which an alias, a namespace, a
  * re-export or HeroUI's `*Root` export would rename; `<X.Root>` is the compound's own spelling of the
- * same control. A local `const Cal = Calendar` renames it past every ban.
+ * same control.
  */
 const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
@@ -601,9 +605,8 @@ const SOURCE_BANS = [
 ];
 
 /**
- * Bans reaching only part of the production tree, each with the glob that is its population, in
- * chains: each scope lies inside every scope listed before it in its chain, which is what lets its
- * block restate theirs, and no two chains' scopes meet.
+ * Bans reaching part of the production tree, each with its population's glob. In a chain each scope
+ * lies inside every earlier one, which lets its block restate theirs, and no two chains' scopes meet.
  */
 const SCOPED_BANS = [
   [
