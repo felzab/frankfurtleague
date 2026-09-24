@@ -23,12 +23,18 @@ const compiled = (async (): Promise<Root> => {
   return (await postcss([tailwind()]).process(await readFile(from, "utf8"), { from })).root;
 })();
 
-/** The sheet's cascade layers, earliest first, read once from its `@layer` statement. */
-const layerOrder = (async (): Promise<string[]> =>
-  (await compiled).nodes
-    .filter((node): node is AtRule => node.type === "atrule" && node.name === "layer" && node.nodes === undefined)
-    .map((statement) => statement.params.split(",").map((layer) => layer.trim()))
-    .find((layers) => layers.includes("components") && layers.includes("utilities")) ?? assert.fail("globals.css orders no layers"))();
+/**
+ * The sheet's cascade layers, earliest first, each ranked where the sheet first names it, as a browser ranks it:
+ * Tailwind opens with a `properties` layer of its own ahead of the sheet's `@layer` statement.
+ */
+const layerOrder = (async (): Promise<string[]> => {
+  const order: string[] = [];
+  (await compiled).walkAtRules("layer", (layer) => {
+    for (const name of layer.params.split(",").map((part) => part.trim())) if (!order.includes(name)) order.push(name);
+  });
+
+  return order;
+})();
 
 /**
  * A rule's selectors with every ancestor folded in: Tailwind emits a variant as a nested `&[data-…]`. Split by
@@ -66,7 +72,6 @@ interface Declaration {
  * which one wins is a browser's to say, and each check is shaped so that no winner needs picking.
  */
 async function declarationsOf(prop: RegExp): Promise<Declaration[]> {
-  const order = await layerOrder;
   const found: Declaration[] = [];
 
   (await compiled).walkDecls((decl) => {
@@ -80,8 +85,6 @@ async function declarationsOf(prop: RegExp): Promise<Declaration[]> {
       // A keyframe's `0%` is no selector.
       if (atRule.name === "keyframes") return;
       if (atRule.name !== "layer") conditions.push(atRule.params);
-      // A layer the statement does not name ranks by first appearance instead, which no check here reads.
-      else if (!order.includes(atRule.params)) assert.fail(`@layer ${atRule.params} is missing from the sheet's @layer statement`);
       else layer ??= atRule.params;
     }
 
