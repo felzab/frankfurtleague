@@ -317,9 +317,10 @@ introduced and which predate it.
                 medium, and it replaces this section.
 ```
 
-### The driving form — a `general-purpose` re-auditor that must plant
+### The driving form — a `driving-reauditor` that must plant
 
-Sections 2 and 8 stand as written; it has the shell they assume. Replace sections 1, 3 and 11:
+`.claude/agents/driving-reauditor.md` carries its standing sections; a brief to it carries the subject
+and the values that definition names. Its sections 1, 3 and 11 read:
 
 ```
 1  OWNERSHIP.   You write no repository file except the violations you plant under section 8,

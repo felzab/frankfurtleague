@@ -139,14 +139,16 @@ Run it for every agent, the fifteenth as much as the first.
    against `HEAD` before its briefs are written** — half of them otherwise carry one the tree
    contradicts ([the brief](agent-brief-template.md)), each paid for twice, in the agent's
    rediscovery and in the fix round that follows.
-5. **Dispatch a judging auditor as `cold-auditor`**; an auditor needing a shell — to plant, run a
-   suite, read an exit code or committed state — goes as `general-purpose`, read-only by prose
+5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer` and an auditor
+   needing a shell — to plant, run a suite or read an exit code — as `driving-reauditor`**; each
+   definition under `.claude/agents/` carries its standing sections, so the brief carries the rest
    ([the brief](agent-brief-template.md)).
 6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
-7. **Record the dispatch in the register before it runs. An agent that writes the repository runs
-   in a worktree of its own** (`isolation: "worktree"`, which branches from your `HEAD` only under
-   `worktree.baseRef: "head"`), so commit what it needs first; a reader stays in yours.
+7. **Record the dispatch in the register before it runs. An agent that writes the repository or
+   plants runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
+   from your `HEAD` only under `worktree.baseRef: "head"` — so commit what it needs first; a reader
+   stays in yours. A definition added mid-session is not dispatchable until the session restarts.
 
 ## 4. Running the fleet
 
