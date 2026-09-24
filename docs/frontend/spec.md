@@ -1083,9 +1083,6 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 - **A navigation label is one or two words, and it is mine to choose** (my rule, 2026-09-06):
   navigation is scanned rather than read, so a label reading as a headline is the wrong label, and
   where a word is barred for another reason the answer is a different short word, never a phrase.
-- **_Already_ is `schon`** (my rule, 2026-08-31): never `bereits`, which takes a capital at the
-  head of a sentence, so a case-sensitive sweep leaves those occurrences standing; `bereit` and
-  `bereiten` are other words and stay.
 - **Refusal copy carries a second register on top of this**, declared at
   `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED`: a FIELD message stays one
   sentence about the value, a FORM message is two with the action second, and field messages are
@@ -1253,7 +1250,7 @@ speicherst`; emphasis on a verb that carries itself; and reassurance (`trotzdem`
   rule above.
 
 **The rules held mechanically are the ones `scripts/checks/docs_gate/copy_rules.py` reaches** — the
-dash rule with its date-range exception, the `Mannschaft` and `bereits` bans, and the register
+dash rule with its date-range exception, the `Mannschaft` ban, and the register
 rules — over every string literal and JSX element of
 `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
