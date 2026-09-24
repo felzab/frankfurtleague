@@ -311,8 +311,9 @@ check can see a row nobody wrote:
   `inactive_since`, which every collection whose validator declares it must account for; where the
   editability is a judgement, nothing can do the same.
 
-**No module under `app/` may import `domain.py`**, and `test_domain.py` enforces it: the moment production
-code reads these tables they stop being a declaration and become an engine a write can forget to consult.
+**No write path under `app/` may import `domain.py`**: `app/main.py :: publish_refusals` alone reads it, to
+publish each operation's refusals, and `test_domain.py` holds that importer set exact. The moment a write
+reads these tables they stop being a declaration and become an engine a write can forget to consult.
 
 ---
 

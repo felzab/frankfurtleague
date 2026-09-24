@@ -7,7 +7,7 @@ The ghost is that row, permanently retired so `REQ-BOOKING-001` refuses it every
 nameless so each surface reads it through the null-name path it already has.
 
 Its own module because the erasure, both referee routers and the migration all reach it, and
-because `app/core/domain.py` is a declaration no application code imports.
+because `app/core/domain.py` is a declaration no write path imports.
 """
 
 from typing import Final
