@@ -709,10 +709,7 @@ venv_python() {
 # Wider than `venv_python`: the step pool and the ops scope's checkers run on any interpreter at the
 # floor, and skipping them for a missing backend virtualenv buys a prerequisite for nothing.
 any_python() {
-  local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
-  local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
-  if   [[ -x "$win" ]]; then printf '%s' "$win"
-  elif [[ -x "$nix" ]]; then printf '%s' "$nix"
+  if venv_python; then return 0
   elif command -v python3 >/dev/null 2>&1; then printf 'python3'
   elif command -v python  >/dev/null 2>&1; then printf 'python'
   else return 1
@@ -753,11 +750,6 @@ require_file() { [[ -f "$1" ]] || refuse "Missing required file: $1${2:+
 $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
-
-# --- Git -------------------------------------------------------------------------------------------
-git_sha()    { git rev-parse --short=7 HEAD; }
-git_branch() { git rev-parse --abbrev-ref HEAD; }
-git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 
 # --- Redaction -------------------------------------------------------------------------------------
 
