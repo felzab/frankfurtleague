@@ -1,3 +1,6 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
@@ -5,12 +8,13 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { render } from "@testing-library/react";
 
-import "@/shared/testing/renderTest.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSaison, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas.ts";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 /** Every read a page asks the backend for, as the client was handed it. */
 const READS = "__flOmittedSaisonReads";
@@ -60,6 +64,7 @@ registerHooks({
 
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
+const { SaisonMetadataDisplay } = await import("@/features/saisons/components/ui/SaisonMetadataDisplay.tsx");
 
 type Read = { endpoint: string; params: Record<string, unknown> };
 type Schema = {
@@ -174,10 +179,16 @@ const spieler = (saisons: FLSaison[]) => ({
 
 /** The league every read answers from; each case sets its own. */
 let league: FLSaison[] = [];
+/** What the cached running-season read answers, where it lags the list; `undefined` answers from `league`. */
+let cachedCurrent: FLSaison | undefined;
 
 /** A response the page's schema takes, carrying `fields` over the emptiest one it accepts. */
 function answer(schema: Schema, endpoint: string, fields: Record<string, unknown>): unknown {
-  const parsed = schema.safeParse({ ...(emptiest(schema) as object), ...fields });
+  // Field by field: a body whose `fields` no empty value could stand in for has no emptiest whole.
+  const body = Object.fromEntries(
+    Object.entries(schema.shape ?? {}).map(([key, field]) => [key, key in fields ? fields[key] : emptiest(field)]),
+  );
+  const parsed = schema.safeParse(body);
   if (!parsed.success) throw new Error(`no answer for ${endpoint}`);
   return parsed.data;
 }
@@ -195,7 +206,7 @@ function withTrackedRows(schema: Schema, endpoint: string, key: string, holder: 
  * that page's render there.
  */
 globals[ANSWER] = (endpoint: string, schema: Schema): unknown => {
-  const running = league.find((entry) => entry.status === "active");
+  const running = cachedCurrent ?? league.find((entry) => entry.status === "active");
 
   if (endpoint === "/saisons/current") {
     if (running !== undefined) return answer(schema, endpoint, { saison: running });
@@ -298,6 +309,24 @@ async function visit(page: string, searchParams: Record<string, string>): Promis
 }
 
 /**
+ * The season the admin layout's selector shows at this address, as a person reads it off the trigger;
+ * `null` where it renders nothing at all.
+ */
+async function headerShows(searchParams: Record<string, string>): Promise<string | null> {
+  const { container, unmount } = render(
+    underNext((await SaisonMetadataDisplay({ tier: "admin" })) as ReactNode, { search: new URLSearchParams(searchParams) }),
+  );
+  const markup = container.innerHTML;
+  // The trigger's first line, never its whole text, which runs straight on into the season's dates.
+  const shown = /^Saison (\S+)$/.exec(container.querySelector("button span")?.textContent ?? "")?.[1] ?? null;
+  unmount();
+
+  // Its placeholder before hydration renders too, and names no season either.
+  if (shown === null && markup !== "") throw new Error(`the header rendered no season: ${markup}`);
+  return shown;
+}
+
+/**
  * Every published read, marked where it takes an optional `saison_id`: an omitted one is resolved to
  * the running season, which answers 404 while none runs.
  */
@@ -363,15 +392,18 @@ const PAGES = filesUnder(APP_DIR, (name) => name === "page.tsx", 20);
    fallback, so the header's season is not the one it reads. */
 const SEASON_ADDRESSED = PAGES.filter((page) => path.relative(APP_DIR, page).split(path.sep).includes("[saison_id]"));
 
-/** Every page visited in one league, sequentially, since the doubles record into one list each. */
+/** The header, then every page, in one league, sequentially, since the doubles record into one list each. */
 async function visitAll(
   saisons: FLSaison[],
   searchParams: Record<string, string>,
-): Promise<{ visits: Map<string, Visit>; planned: ReadonlySet<string> }> {
+  current?: FLSaison,
+): Promise<{ header: string | null; visits: Map<string, Visit>; planned: ReadonlySet<string> }> {
   league = saisons;
+  cachedCurrent = current;
+  const header = await headerShows(searchParams);
   const visits = new Map<string, Visit>();
   for (const page of PAGES) visits.set(page, await visit(page, searchParams));
-  return { visits, planned: new Set(saisons.filter((entry) => entry.status === "future").map((entry) => entry.id)) };
+  return { header, visits, planned: new Set(saisons.filter((entry) => entry.status === "future").map((entry) => entry.id)) };
 }
 
 /* One per state the header's selector resolves, which is what every admin page must agree with
@@ -382,6 +414,8 @@ const LEAGUES = [
   { name: "a season runs", ...(await visitAll(RUNNING_LEAGUE, {})), shows: "2026" },
   { name: "the address names a planned season", ...(await visitAll(RUNNING_LEAGUE, { saison_id: "2027" })), shows: "2027" },
   { name: "no season has run yet", ...(await visitAll([saison("2026", "future"), saison("2027", "future")], {})), shows: "2026" },
+  /* The cached running season still names the one before an activation a Playground paste made. */
+  { name: "a season was activated outside the app", ...(await visitAll(RUNNING_LEAGUE, {}, saison("2025", "active"))), shows: "2026" },
 ];
 const EMPTY_LEAGUE = await visitAll([], {});
 
@@ -405,22 +439,26 @@ describe("the season every admin page reads", () => {
     ]);
   });
 
-  for (const { name, visits, planned, shows } of LEAGUES) {
+  for (const { name, header, visits, planned, shows } of LEAGUES) {
+    it(`shows ${shows} in the header where ${name}`, () => {
+      assert.equal(header, shows);
+    });
+
     it(`reads the season the header shows where ${name}`, () => {
       const found = [...visits]
         .filter(([page]) => !SEASON_ADDRESSED.includes(page))
-        .flatMap(([page, { reads: pageReads }]) => naming(page, pageReads, shows));
+        .flatMap(([page, { reads: pageReads }]) => naming(page, pageReads, header ?? ""));
 
-      assert.deepEqual(found, [], `resolve the page's season with \`resolveAdminSaison\`; the header shows ${shows}`);
+      assert.deepEqual(found, [], `resolve the page's season with \`resolveAdminSaison\`; the header shows ${String(header)}`);
     });
 
     /* A list or an editor picking its rows locally sends no season for the case above to judge. */
     it(`resolves and picks the rows of the season the header shows where ${name}`, () => {
       const found = [...visits]
         .filter(([page]) => !SEASON_ADDRESSED.includes(page))
-        .flatMap(([page, entry]) => holding(page, entry, shows, planned));
+        .flatMap(([page, entry]) => holding(page, entry, header ?? "", planned));
 
-      assert.deepEqual(found, [], `the header shows ${shows}`);
+      assert.deepEqual(found, [], `the header shows ${String(header)}`);
     });
 
     /* A page redirected away makes no read for the cases above to judge, so the fallback it lost would
@@ -450,6 +488,10 @@ describe("the season every admin page reads", () => {
       assert.deepEqual(unjudged, [], "these pages resolved a season that neither a read nor a picked row shows");
     });
   }
+
+  it("shows no season in the header where the league holds none", () => {
+    assert.equal(EMPTY_LEAGUE.header, null);
+  });
 
   it("resolves no season where the league holds none", () => {
     const found = [...EMPTY_LEAGUE.visits].flatMap(([page, entry]) =>

@@ -17,7 +17,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { Key } from "@heroui/react/rac";
 import type { SaisonSelectorOption } from "../../types";
 
-export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption | null }) {
+export function SaisonSelector({ saisons, defaultSaison }: { saisons: SaisonSelectorOption[]; defaultSaison: SaisonSelectorOption | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -30,12 +30,12 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   // Validated against the list, never taken raw from the user-editable `?saison_id=`: an unknown id
-  // shows nothing selected while the range below falls back to the current season.
+  // shows nothing selected while the range below falls back to the default season.
   const requestedSaisonId = searchParams.get("saison_id");
   const activeSaisonData =
     saisons.find((saison) => saison.id === requestedSaisonId) ??
-    currentSaison ??
-    // The last resort, for the window between seasons where the backend has no current one.
+    defaultSaison ??
+    // The last resort, for the public tier between seasons, where the backend has no current one.
     saisons[0];
   const activeSaisonId = activeSaisonData?.id;
 
@@ -49,9 +49,9 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
     const selectedId = key.toString();
     const params = new URLSearchParams(searchParams.toString());
 
-    // The current season is the backend's default, so it is the ABSENCE of the parameter rather than
-    // a value. Keeps the common URL clean and shareable.
-    if (selectedId !== currentSaison?.id) {
+    // The default season is what an address naming none resolves to, so it is the ABSENCE of the
+    // parameter rather than a value. Keeps the common URL clean and shareable.
+    if (selectedId !== defaultSaison?.id) {
       params.set("saison_id", selectedId);
     } else {
       params.delete("saison_id");

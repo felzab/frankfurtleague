@@ -49,8 +49,9 @@ export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefin
 }
 
 /**
- * The season `SaisonSelector` shows, so a page and the header never name two. It returns rather than
- * redirecting, so each page's own answer to `undefined` stays where a reader of that page meets it.
+ * An admin page's season and the admin header's default (`SaisonMetadataDisplay`), so the two never
+ * differ. It returns rather than redirecting, so each page's own answer to `undefined` stays where a
+ * reader of that page meets it.
  */
 export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
   saisons: readonly T[],
