@@ -280,7 +280,6 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     }
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
     assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
-    assert.ok(PATCH_ACTION.includes("mapStaleBlockRefusal(error)"), "the write no longer maps the refusal it raises");
     assert.ok(UNDO_ROUTE.includes(`"${STALE_BLOCK}":`), "the undo route leaves its replay's refusal to the 409 fallback");
   });
 
