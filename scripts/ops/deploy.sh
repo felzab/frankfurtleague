@@ -35,6 +35,13 @@ LOG_DIR="/var/log/frankfurtleague"
 # carries the time of day: two deploys on one day would otherwise overwrite each other's.
 LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
 
+# Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it. A
+# pair missing here is a directory `edge_reads_checkout` never compares, so the two lists move
+# together (`scripts/tests/test_deploy_edge_config.py`).
+EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
+# How many times, 0.2 s apart, a reload is given to show a worker the master started for it.
+EDGE_APPLY_POLLS=50
+
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -203,6 +210,86 @@ answer is above."
   fi
 }
 
+# The worker PIDs, one per line. `nginx -s reload` answers 0 once the signal is sent, and the master
+# starts new workers only if it then applies the configuration, keeping the old ones where it rolls
+# it back (https://nginx.org/en/docs/control.html).
+edge_workers() {
+  docker compose -f "$COMPOSE" exec -T nginx pgrep -f 'nginx: worker process' 2>/dev/null
+}
+
+# 0 once a worker appears that `$1`, the list taken before the signal, does not hold; 1 where none
+# does in time; 2 where the workers could not be listed.
+edge_new_generation() {
+  local before="$1" now="" pid rc
+  for _ in $(seq 1 "$EDGE_APPLY_POLLS"); do
+    rc=0
+    now="$(edge_workers)" || rc=$?
+    if (( rc )) || [[ -z "$now" ]]; then return 2; fi
+    for pid in $now; do
+      [[ $'\n'"${before}"$'\n' == *$'\n'"${pid}"$'\n'* ]] || return 0
+    done
+    sleep 0.2
+  done
+  return 1
+}
+
+# A reload re-reads what the container's mounts show, so one that stopped showing the checkout
+# reloads the old files and answers 0 all the same (`docs/ops/spec.md :: I355`). 1 where the two
+# differ, 2 where either went unread.
+edge_reads_checkout() {
+  local pair host_dir edge_dir file sum path listed="" script="" rc=0
+  local -A want=() got=()
+  local -a differ=()
+  for pair in "${EDGE_CONFIG_DIRS[@]}"; do
+    host_dir="${pair%%:*}"
+    edge_dir="${pair#*:}"
+    for file in "$host_dir"/*; do
+      [[ -f "$file" ]] || continue
+      rc=0
+      sum="$(sha256sum -- "$file")" || rc=$?
+      if (( rc )); then
+        warn "${file} could not be read here (exit ${rc}), so nothing says whether nginx is running this
+checkout's configuration."
+        return 2
+      fi
+      want["${edge_dir}/${file##*/}"]="${sum%% *}"
+    done
+    # A file test before each sum, so a directory the container sees empty is a difference below
+    # rather than a failed read.
+    script+="for f in ${edge_dir}/*; do if [ -f \"\$f\" ]; then sha256sum -- \"\$f\" || exit 3; fi; done; "
+  done
+  rc=0
+  # Stdout alone: every line of it is parsed as a sum and a path, and compose warns on stderr.
+  listed="$(docker compose -f "$COMPOSE" exec -T nginx sh -c "$script" 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    warn "the running nginx could not be asked for the files it loads (exit ${rc}), so nothing here says
+whether it is running this checkout's configuration.
+Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx nginx -T"
+    return 2
+  fi
+  while IFS=' ' read -r sum path; do
+    if [[ -n "$path" ]]; then got["$path"]="$sum"; fi
+  done <<< "$listed"
+  for path in "${!want[@]}"; do
+    if [[ -z "${got[$path]:-}" ]]; then differ+=("${path}  absent from the running nginx")
+    elif [[ "${got[$path]}" != "${want[$path]}" ]]; then differ+=("${path}  differs from this checkout's")
+    fi
+  done
+  for path in "${!got[@]}"; do
+    [[ -n "${want[$path]:-}" ]] || differ+=("${path}  in the running nginx and not in this checkout")
+  done
+  if (( ${#differ[@]} )); then
+    fail "nginx is running a configuration that is not this checkout's. A reload re-reads what the
+container's mounts show, and a container created while its configuration was mounted as a file
+keeps that file whatever a pull put in its place. What differs, by the path nginx reads:"
+    printf '%s\n' "${differ[@]}" | sort | detail
+    detail "Recreate it, which mounts the checkout as it stands:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+    return 1
+  fi
+  ok "nginx loads this checkout's ${#want[@]} configuration files, byte for byte"
+  return 0
+}
+
 # Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
 # act -- which a caller has to be able to tell from a definite "the edge is not serving this build".
 serve_through_nginx() {
@@ -243,7 +330,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # resolved the new addresses as it started and has nothing to re-read.
   if [[ "$before" != "$after" ]]; then
     ok "started, so it resolved the containers this deploy created as it loaded"
-    return 0
+    edge_reads_checkout
+    return
   fi
   # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
   # in `nginx/shared/site.conf` are plain, so a container recreated at a new address is invisible to a proxy
@@ -261,7 +349,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
     if [[ "$test_out" == *"test failed"* ]]; then
       fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
 proxying to the addresses of the containers this deploy replaced. Its own output is above."
-      detail "Fix nginx/prod.conf or nginx/shared/, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+      detail "Fix nginx/prod/prod.conf or nginx/shared/, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
       return 1
     fi
     warn "nginx could not be asked to test its configuration (exit ${test_rc}), and nothing above is
@@ -270,14 +358,32 @@ way, so it may still be proxying to the addresses of the containers this deploy 
     detail "Ask it yourself:  docker compose -f ${COMPOSE} exec -T nginx nginx -t"
     return 2
   fi
+  # Listed before the signal, so a worker missing from this list is one the reload started. A failed
+  # listing still sends the signal: the replaced containers' addresses are 502s until it lands.
+  local workers="" workers_rc=0 applied=0
+  workers="$(edge_workers)" || workers_rc=$?
   if ! quietly docker compose -f "$COMPOSE" exec -T nginx nginx -s reload; then
     fail "nginx could not be reloaded, so it is still proxying to the addresses of the containers this
 deploy replaced and every request through it answers 502."
     detail "Recreate it by hand:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
     return 1
   fi
+  if (( workers_rc )) || [[ -z "$workers" ]]; then applied=2; else edge_new_generation "$workers" || applied=$?; fi
+  if (( applied == 1 )); then
+    fail "nginx was signalled to reload and is still running only the workers it had before, which is
+what its master does when it rolls a new configuration back, so it is still proxying to the
+addresses of the containers this deploy replaced."
+    detail "Its own reason:     docker compose -f ${COMPOSE} logs --tail 20 nginx" \
+           "Then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+    return 1
+  elif (( applied )); then
+    warn "nginx was signalled to reload, and its worker processes could not be listed, so nothing here
+says whether it applied the configuration or rolled it back.
+Ask it directly:  docker compose -f ${COMPOSE} logs --tail 20 nginx"
+    return 2
+  fi
   ok "reloaded, so it is proxying to the containers this deploy created"
-  return 0
+  edge_reads_checkout
 }
 
 # How many streams the last call wrote, because the callers' sentence about NONE of them differs:
@@ -489,6 +595,24 @@ not what a visitor is being served."
     detail "Reload the edge:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
   fi
 
+  # The edge's other half: a probe answered 200 by a configuration no pull reached reads as current.
+  step "The edge's configuration, against this checkout"
+  NGINX_RC=0
+  nginx_cid="$(service_cid nginx)" || NGINX_RC=$?
+  if (( NGINX_RC )); then
+    warn "nginx: compose could not answer (exit ${NGINX_RC}), which is not the same as not running.
+Ask it directly:  docker compose -f ${COMPOSE} ps"
+    UNANSWERED=1
+  elif [[ -z "$nginx_cid" ]]; then
+    # A finding for the application rows' reason: an edge that is not running serves nobody.
+    fail "nginx: not running, so nothing on this host is serving the site.
+Bring it back up:  docker compose -f ${COMPOSE} up -d nginx"
+  else
+    EDGE_CONFIG_RC=0
+    edge_reads_checkout || EDGE_CONFIG_RC=$?
+    if (( EDGE_CONFIG_RC == 2 )); then UNANSWERED=1; fi
+  fi
+
   step "Published builds available to roll back to"
   # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
   # `-sha-` substring — the tag carries no service prefix, so that would report "none" forever.
@@ -533,11 +657,12 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
-require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
-# The file each include names, not the directory alone: Docker would mount an empty one and nginx
-# refuse the include, with the edge still serving its previous configuration until it restarts.
-require_file "nginx/shared/http.conf" "nginx/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
-require_file "nginx/shared/site.conf" "nginx/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+# Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
+# loads no server of this site's or refuses the include, the edge serving its previous
+# configuration until it restarts.
+require_file "nginx/prod/prod.conf" "nginx loads it from the nginx/prod mount; without it nginx serves none of this site."
+require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
@@ -840,9 +965,9 @@ if (( HEALTHY )); then
   section "checks"
   SITE_VERIFIED=1
 
-  # First, and the two checks below are what prove it landed: `nginx -s reload` returns 0 when the
-  # signal is sent, not when the master has applied anything. Both of those read the site through
-  # this edge.
+  # First, because the two checks below read the site through this edge: this step establishes that
+  # nginx applied a configuration and that it is this checkout's, and those two that the site
+  # answers through it.
   step "nginx"
   EDGE_RC=0
   serve_through_nginx || EDGE_RC=$?
@@ -880,7 +1005,7 @@ This host's own DNS, egress and TLS trust sit between the two. Ask from somewher
     SITE_VERIFIED=0
     fail "the edge replied over HTTPS carrying neither Content-Security-Policy nor
 Strict-Transport-Security, so every visitor is being served without them."
-    detail "Check nginx/shared/security_headers.conf, nginx/prod.conf and the certificates in certs/."
+    detail "Check nginx/shared/security_headers.conf, nginx/prod/prod.conf and the certificates in certs/."
   fi
 
   # The container healthcheck calls this from inside, so it stays green while the edge answers a

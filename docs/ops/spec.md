@@ -27,7 +27,7 @@ The recurring procedures are in [`runbooks.md`](runbooks.md).
 **Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port at
 all** (I1): `cloudflared` dials out to Cloudflare and carries every
 request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
-internet, and the connector holds a static address on that network because `nginx/prod.conf` trusts
+internet, and the connector holds a static address on that network because `nginx/prod/prod.conf` trusts
 it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
 variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
 settings are dashboard state (§1.8).
@@ -78,22 +78,30 @@ where a version left behind breaks something; §3 carries what each failure look
 
 | Host path                        | Container path                   | Mode       |
 | -------------------------------- | -------------------------------- | ---------- |
-| `./nginx/prod.conf`              | `/etc/nginx/conf.d/default.conf` | read-only  |
+| `./nginx/prod`                   | `/etc/nginx/conf.d`              | read-only  |
 | `./nginx/shared`                 | `/etc/nginx/shared`              | read-only  |
 | `./certs`                        | `/etc/nginx/certs`               | read-only  |
 | `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
 | `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`      | read-only  |
 
-Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/shared`
-included, before anything is stopped or pulled, and creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a
-directory it left to Docker would be root-owned, and the host's `logrotate` file names it. If a
-mounted config file is missing, Docker creates a **directory** at that path and nginx fails with
-`not a directory`, and a missing `./nginx/shared` is mounted empty, failing nginx on its includes; the token is a Compose secret rather than a bind mount, so a missing one fails
-the `up` itself. The token file is owned by uid and gid 65532 with mode `400`: the pinned connector
+Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/prod`
+and `./nginx/shared` included, before anything is stopped or pulled, and creates the log directory
+itself in the same run ([`runbooks.md`](runbooks.md) §7); a directory it left to Docker would be
+root-owned, and the host's `logrotate` file names it. A missing config directory is mounted empty,
+so nginx loads no server of this site's or fails on its includes; the token is a Compose secret
+rather than a bind mount, so a missing one fails the `up` itself. The token file is owned by uid and gid 65532 with mode `400`: the pinned connector
 image runs as that user, and Compose hands the secret over with the host file's owner and mode, so
 a file readable by root alone leaves the connector restarting in a loop.
-**`./secrets/` is `.gitignore`d**, which is what keeps the credential
-uncommittable from a checkout that has to hold it.
+**`./secrets/` is `.gitignore`d**,
+which is what keeps the credential uncommittable from a checkout that has to hold it.
+
+**nginx's configuration is mounted as directories, never as a file** (I355). A bind-mounted file
+stays the inode it was created with, and a `git pull` writes a changed file as a new one, so a
+container mounting the file keeps reading the old one and a reload applies it again. A directory
+mount shows what the checkout holds, and the reload `deploy.sh` sends applies it with no restart.
+Recreating nginx on every change to its files would apply it too, while refusing connections and
+dropping the requests in flight for the length of a start, which a reload leaves the old workers to
+finish.
 
 ### 1.3 nginx routing
 
@@ -162,14 +170,14 @@ URI this block matches decodes either to the probe or to nothing — but the err
 the framework the origin runs.
 
 **`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
-that rewrite produced (`nginx/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
+that rewrite produced (`nginx/prod/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
 records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The trusted set is one address,
 the connector's** — nothing else reaches this origin (§1.1, I1) — which is what Cloudflare's
 published ranges could never be, being every customer's egress rather than this account's. **A
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address in `nginx/prod.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
+address in `nginx/prod/prod.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
@@ -207,7 +215,7 @@ What decides that number, and what it risks, is at the zone in `nginx/shared/htt
 
 **`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
 narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
-makes one directive count differently on the two stacks**: `nginx/local.conf` serves HTTP/1.1, so
+makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
@@ -291,7 +299,7 @@ would render unstyled. Every route this application declares carries none.
 **The policy is written once**, in `nginx/shared/security_headers.conf`, which
 `nginx/shared/site.conf` includes at server level and again in each location adding a header of
 its own, because `add_header` in a location replaces the inherited set (I2), and which
-`nginx/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location for it. A
+`nginx/prod/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location for it. A
 restated copy would be a second enforcing policy, which the
 [`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md) **csp** clause forbids.
 
@@ -1000,11 +1008,11 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 - **A remotely managed tunnel is the only route to the origin**, its public hostnames
   `frankfurtleague.de` and `www.frankfurtleague.de`. Each routes to nginx over
   `frankfurtleague-net` with TLS kept, its `Origin Server Name` set to the name the mounted
-  certificate carries (§1.2) and `No TLS Verify` off, so the header set and the certificates in
-  `nginx/prod.conf` are what a visitor's request still meets. **The dashboard is where its token is
-  issued**, and the server holds the issued value at `./secrets/tunnel_token` (§1.2). Each
-  hostname's DNS record is the tunnel's own, written when the hostname was added, so the zone holds
-  no record naming the origin's address.
+  certificate carries (§1.2) and `No TLS Verify` off, so the certificates `nginx/prod/prod.conf`
+  names and the header set `nginx/shared/security_headers.conf` holds are what a visitor's request
+  still meets. **The dashboard is where its token is issued**, and the server holds the issued
+  value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
+  when the hostname was added, so the zone holds no record naming the origin's address.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
@@ -1031,13 +1039,13 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                  |
 | I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts, and what makes the two length counts agree                                                                         |
 | I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                           |
-| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                       |
+| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/shared/http.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                      |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                                                                    |
 | I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                                                 |
-| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/prod.conf :: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                                                       |
+| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/prod/prod.conf :: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                                                  |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                          |
-| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                                                                     |
+| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/shared/site.conf` names no `/docs` location, and nothing checks either                                                                                                                              |
 | I149 | One `frontend` service, declared once, and no replica count is what lets the retention sweep hold one timer per process with no lease                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                          |
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` is declared in `docker-compose.local.yml` alone                                    | `scripts/checks/check_compose_exposure.py :: PRODUCTION_SERVICES`, over the model `docker compose config` renders                                                                                                                                                                  |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                    |
@@ -1050,15 +1058,15 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                                   |
 | I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                      |
 | I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
-| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod.conf` includes too                                                                                                                                    |
+| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                         |
 | I353 | A published build is a `main` commit whose own push run of `verify` passed every job, the aggregate job's wall-clock budget step alone excepted                               | `.github/workflows/publish.yml`, whose first two steps refuse any other ref and read that run's jobs through the runs API                                                                                                                                                          |
 | I354 | A commit never carries a file's unstaged half, and the commit hook never stashes, hides or resets the working tree (§1.6)                                                     | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
+| I355 | nginx loads its configuration through directory mounts, and a deploy leaving it on files this checkout does not hold ends in a finding (§1.2)                                 | `scripts/ops/deploy.sh :: edge_reads_checkout`, after every reload and in `--status`; `scripts/tests/test_deploy_edge_config.py` drives it and pins both compose files' mounts                                                                                                     |
 
 ## 3. Violation → remedy
 
 | Symptom                                                                           | Cause                                                                                                                                           | Remedy                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `not a directory` from nginx                                                      | A mounted config file was missing, so Docker created a directory                                                                                | `git pull`, remove the stray directory                                                                                                                                                                               |
 | `Invalid environment variables: <NAMES>` then no traffic                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
 | `The environment could not be read: <TYPE>` then no traffic                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
 | Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
@@ -1069,6 +1077,8 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Deploy refuses in preflight saying compose could not read its configuration       | The compose file or an environment file will not parse — an unterminated quote is the reachable case                                            | Nothing was pulled or recreated. Read the message by hand: `docker compose -f docker-compose.yml config --quiet`, whose output can carry a value (§1.5)                                                              |
 | `./scripts/ops/deploy.sh --status` exits 1 naming two different builds            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
 | `./scripts/ops/deploy.sh --status` exits 1 over a pair it has just called healthy | The edge is not serving them — nginx resolved its upstreams as it loaded, and nothing has re-resolved them since those containers were replaced | Reload the edge, then re-run `--status`; the report's own detail line names the command (`scripts/ops/deploy.sh :: serve_through_nginx`)                                                                             |
+| A deploy or `--status` fails: nginx runs a configuration not this checkout's      | nginx mounts something other than `nginx/prod` and `nginx/shared`; one created under a file mount keeps the file a pull replaced                | `docker compose -f docker-compose.yml up -d --force-recreate nginx`, then `./scripts/ops/deploy.sh --status` (I355)                                                                                                  |
+| A deploy fails: nginx still runs only the workers it had before the reload        | The master rolled the new configuration back, which it does where applying it fails after `nginx -t` passed                                     | `docker compose -f docker-compose.yml logs --tail 20 nginx` names the failure; fix it, then recreate nginx as above                                                                                                  |
 | `publish.yml` fails at the push with `denied` or `permission_denied`              | The package does not grant this repository's workflows write access                                                                             | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job (§1.5)                                                                                                       |
 | `EBUSY`, or `.next` locked during a build                                         | A `pnpm dev` is still running, or the folder is open in an editor                                                                               | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                                                                                                                      |
 | `./scripts/ops/local.sh` reports `mongo` unhealthy                                | The local database has not elected itself primary, so no transaction opens and no validator applies                                             | Read the log excerpt the script prints under `mongo`'s health step; it waits on `mongo` by name, so this reports as itself                                                                                           |
@@ -1081,7 +1091,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Static assets served without security headers                                     | A `location` block set a header and dropped the inherited set                                                                                   | I2 — repeat every header in that block                                                                                                                                                                               |
 | Backend healthcheck fails after an API version bump                               | The healthcheck spells the API version itself                                                                                                   | Move the path in both compose files, and in both nginx configs with them (§4)                                                                                                                                        |
 | The uptime monitor 404s while the backend container reports healthy               | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in both nginx configs, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                                          |
-| Sign-in returns 429                                                               | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                           |
+| Sign-in returns 429                                                               | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/shared/http.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                    |
 | Uptime monitor shows green during a backend outage                                | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale for up to a day                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |

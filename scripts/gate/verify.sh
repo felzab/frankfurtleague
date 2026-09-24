@@ -932,9 +932,9 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
     DOCS_OK=0
   fi
 
-  # This scope rather than `ops`: the check reads the App Router tree and `nginx/prod.conf`, whose
-  # scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching either
-  # selects.
+  # This scope rather than `ops`: the check reads the App Router tree and `nginx/shared/site.conf`,
+  # whose scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching
+  # either selects.
 
   step "docs · every route handler and metadata convention is metered or accounted for"
   unit_join public_routes
@@ -1236,9 +1236,12 @@ service, and docs/ops/spec.md I1 and I174 are the rules." \
     || die "could not generate a throwaway certificate for the nginx check."
   # The tag both compose files pin, so the nginx accepting prod.conf here is the one that serves
   # it. A floating tag would move this check to a version the servers do not run.
+
+  # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
+  # as the server would load it.
   MSYS_NO_PATHCONV=1 quietly docker run --rm \
     --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
-    -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
+    -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
     -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
@@ -1250,8 +1253,8 @@ service, and docs/ops/spec.md I1 and I174 are the rules." \
   # line CONTAINS (`docs/logging/spec.md` L11) or which headers a location sends
   # (`docs/ops/spec.md` I2). Below `nginx -t`, reusing its pull.
   step "ops · the edge logs no credential and sends every security header once"
-  # `nginx/local.conf` alone: prod.conf terminates TLS and could not serve a request without a
-  # certificate, and what it would serve is the same `nginx/shared/` files.
+  # `nginx/local/local.conf` alone: prod.conf terminates TLS and could not serve a request without
+  # a certificate, and what it would serve is the same `nginx/shared/` files.
   run_checker stop "nginx/edge_test.sh" "The running edge failed a case. Each failing case above is what nginx WROTE or SENT,
 and the files under nginx/shared/ are what decide it." \
     bash nginx/edge_test.sh

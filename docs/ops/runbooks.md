@@ -32,8 +32,8 @@ the machine is outside the repository. What it does tell you:
 
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
-  compose file, `nginx/prod.conf` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./nginx/shared/`, `./secrets/tunnel_token` and
+  compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token` and
   `./certs/` must all exist beside the compose file — preflight checks each before anything is pulled.
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
@@ -68,9 +68,13 @@ the machine is outside the repository. What it does tell you:
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
-  succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
-  run that applies an `nginx/prod.conf` or an `nginx/shared/` file the pull changed; a pull that changed
-  nginx's own service definition makes the same `up` recreate it.
+  succeeds costs seconds of 502 rather than a refused connection. The reload is also what applies a file
+  the pull changed under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running
+  container reads what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own
+  service definition makes the same `up` recreate it instead. **The deploy then compares every file nginx
+  loads with the checkout's, and a difference ends the run in a finding** naming the recreate that repairs
+  it (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355). So does a reload the
+  master rolled back, which leaves nginx on the workers it had before the signal.
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
@@ -88,10 +92,11 @@ the machine is outside the repository. What it does tell you:
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
   just failed, and the script says so instead ([`spec.md`](spec.md) §4).
-- After the health wait, what `deploy.sh` checks is the **running stack rather than a config file**: that
-  nginx is running and reloaded, the security headers as they are actually served, and the liveness probe
-  through the edge. `./scripts/ops/deploy.sh --status` reads that last one too — every other row it prints comes
-  from a container, and a healthy pair is no statement about what the edge in front of it resolves to.
+- After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
+  that nginx is running, reloaded and loading the checkout's configuration, the security headers as they
+  are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
+  probe and the configuration too — every other row it prints comes from a container, and a healthy pair is
+  no statement about what the edge in front of it resolves to or loads.
 
 ## 2. Before deploying a change to the database's constraints
 

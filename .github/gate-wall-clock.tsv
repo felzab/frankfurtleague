@@ -295,6 +295,14 @@
 # an upper bound. `--dist loadfile` hands it one worker beside the suite's longer modules, so it
 # sits inside the floor the `scripts` row carries and no row moves.
 #
+# `scripts` gained a module: `scripts/tests/test_deploy_edge_config.py` drives the deploy's edge
+# functions behind a stand-in `docker`, 7.3-8.5 s over three runs of the module alone against
+# 5.5-6.2 s for `scripts/tests/test_deploy_streams.py` interleaved with it, measured locally on
+# 2026-09-24 on a sixteen-core machine carrying a fleet of agent sessions, so an upper bound. It is
+# shorter than the pre-commit module above, so it sits inside the floor the `scripts` row carries
+# and no row moves. `ops` runs the same `nginx -t` and edge test over the same files, mounted by
+# directory, and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and gained four cases
 # driving `verify.sh` over a fixture branch -- two named runs against the mapping, two
 # `--changed` runs. `scripts/tests/test_scope_decisions.py` and the classifier's own module took

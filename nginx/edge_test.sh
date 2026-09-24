@@ -2,11 +2,11 @@
 # OPS · the running edge: what its logs CONTAIN and which security headers it sends.
 #
 # `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
-# location dropping a header both pass it. This serves `nginx/local.conf` itself, never a copy — a
-# copy proves the copy — and grades what nginx wrote and sent; prod.conf would need a certificate to
-# serve a request at all, and both entry files include the same `nginx/shared/` files. Which
-# locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
-# about.
+# location dropping a header both pass it. This serves `nginx/local/local.conf` itself, never a
+# copy — a copy proves the copy — and grades what nginx wrote and sent; prod.conf would need a
+# certificate to serve a request at all, and both entry files include the same `nginx/shared/`
+# files. Which locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this
+# answers nothing about.
 #
 # Invariants:
 # - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
@@ -74,10 +74,14 @@ STUB
 
 # The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
 # subject is the same MSYS exclusion that step uses.
+
+# The edge file mounted alone, where both stacks mount its directory: the stub below has to join it
+# in `conf.d`, which a read-only directory mount refuses, and nothing replaces a file under a
+# container this run removes.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
-  -v "/${REPO_ROOT}/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro" \
+  -v "/${REPO_ROOT}/nginx/local/local.conf:/etc/nginx/conf.d/default.conf:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \

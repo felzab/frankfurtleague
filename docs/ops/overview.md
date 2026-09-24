@@ -52,7 +52,7 @@ Nothing here manages the Cloudflare account, its DNS or its SSL mode, and none o
 visible from a configuration file in this repository.
 
 - **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
-  settings and OCSP stapling in `nginx/prod.conf` govern the hop from the tunnel connector to
+  settings and OCSP stapling in `nginx/prod/prod.conf` govern the hop from the tunnel connector to
   nginx inside the compose network, not what a browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
   ([`spec.md`](spec.md) §1.3).
 - **The headers a visitor receives are whatever survives the proxy.** They matched `prod.conf` when
