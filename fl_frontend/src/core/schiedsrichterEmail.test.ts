@@ -133,6 +133,11 @@ describe("the referee's confirmation message", () => {
       assert.match(words, /erscheint Dein Name nirgends auf der Website/);
       assert.ok(words.includes(KONTAKT_EMAIL), "the escape route names no address");
     }
+    assert.match(
+      mail.html,
+      /schreib uns an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>\.<\/p>/,
+      "the card's escape route is an address to copy, not a link",
+    );
   });
 
   /* A referee's first contact, and Art. 21(4) DSGVO asks the objection to reach them there apart from
