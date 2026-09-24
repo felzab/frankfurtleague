@@ -89,12 +89,15 @@ class Case:
     never: str | None = None
     # Through the Actions cache, as `VERIFY_IMAGES_CACHE=gha` asks in CI.
     cached: bool = False
+    # Whether that cache's credential is set, as the job's re-export step sets it.
+    credentialed: bool = True
     # Each check a unit of the step pool, the path a CI run takes; serial, it runs in place.
     pooled: bool = False
 
 
 CASES: Final[tuple[Case, ...]] = (
     Case("cache_clean", 0, "Green", cached=True),
+    Case("cache_uncredentialed", 2, "ACTIONS_RUNTIME_TOKEN is not set", "finding(s) in this run", cached=True, credentialed=False),
     Case("cache_build_failed", 1, "The frontend image failed to build", "layer cache", cached=True),
     Case("cache_export_failed", 2, "exporting its layer cache", "failed to build.", cached=True, pooled=True),
     Case("cache_export_crashed", 125, "exit status 125", "cache service", cached=True),
@@ -114,13 +117,16 @@ CASES: Final[tuple[Case, ...]] = (
 def _run(case: Case) -> tuple[int, str]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     environment = base_env()
-    # Past `base_env`: `VERIFY_TAG` and its cache name another run's images.
-    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE"):
+    # Past `base_env`: `VERIFY_TAG` and its cache name another run's images, and a runner's own
+    # credential would stand in for the one a case leaves unset.
+    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE", "ACTIONS_RUNTIME_TOKEN"):
         environment.pop(inherited, None)
     environment[CASE_VAR] = case.name
     if case.cached:
+        environment["VERIFY_IMAGES_CACHE"] = "gha"
+    if case.cached and case.credentialed:
         # A stand-in: the gate asks only that the variable is set before it builds.
-        environment.update({"VERIFY_IMAGES_CACHE": "gha", "ACTIONS_RUNTIME_TOKEN": "stand-in"})
+        environment["ACTIONS_RUNTIME_TOKEN"] = "stand-in"
     with tempfile.TemporaryDirectory() as scratch:
         stub = write_shell(Path(scratch) / "docker", STUB)
         # The execute bit is what puts this ahead of a real daemon on PATH.

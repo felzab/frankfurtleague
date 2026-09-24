@@ -1359,7 +1359,8 @@ if (( RUN_IMAGES )); then
   # unable to export a cache. The export runs after every layer, so an unauthenticated backend
   # costs the whole build before naming what is missing.
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" && -z "${ACTIONS_RUNTIME_TOKEN:-}" ]]; then
-    die "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
+    # `refuse`, not `die`: a job missing a step is nothing the change could be fixed to answer for.
+    refuse "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
 cannot authenticate and buildx would fail the cache export after building everything.
 The credential comes from .github/actions/actions-runtime-env, which must run before
 this step in the job."
