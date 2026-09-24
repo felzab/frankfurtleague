@@ -51,7 +51,7 @@ JSON_QUOTES: Final = '"'
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
 # A dotfile and a hook have no suffix for `Path.suffix` to dispatch on, so INC-6 reaches them by
 # whole name here or the In-code section's Scope would name files no check reads.
-OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg", "pre-push")
+OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg")
 # Read whole as prose, as a page is: each carries a record rather than code, and writes its paths
 # bare, so a comment reader would keep nothing of the file and `bare-path` would never see the text.
 PROSE_PATHS: Final[tuple[str, ...]] = ("NOTICE", ".github/gate-wall-clock.tsv")

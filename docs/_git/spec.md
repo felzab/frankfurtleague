@@ -197,11 +197,6 @@ scope runs and what it needs, the `--serial` oracle that its ordering is measure
 check that refuses an undersized scope and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
-`.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it. It maps
-against the remote's default branch, a **stand-in** for the target the pull request will name, so a
-branch chained onto another topic branch is over-reported; it blocks nothing on any path, its own
-failure included. §1.3's `core.hooksPath` line installs it.
-
 > **Verify formatting with a gate run whose scope includes the formatter —
 > `./scripts/gate/verify.sh --format`, or any run that implies it, such as `--frontend` or
 > `--quick` — never with a hand-written `prettier` command**, which covers the paths you happen to

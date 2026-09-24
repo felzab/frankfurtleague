@@ -796,93 +796,7 @@ for (const [event, entry] of registered) {
   else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
 fi
 
-step "13. The pre-push hook prints the CI scopes and blocks nothing"
-# The two properties `.githooks/pre-push`'s header states: exit 0 always, and a report line.
-PRE_PUSH="${REPO_ROOT}/.githooks/pre-push"
-prepush_out="${SELFCHECK_TMP}/pre-push.out"
-if [[ ! -f "$PRE_PUSH" ]]; then
-  note_fail "${PRE_PUSH#"${REPO_ROOT}/"} is not there, so the pre-push hook was not driven"
-else
-  # As git drives it: one ref line on stdin, remote and URL as arguments; the zero sha is a branch
-  # the remote lacks.
-  prepush_in="${SELFCHECK_TMP}/pre-push.in"
-  prepush_head="$(git rev-parse HEAD)"
-  prepush_refline() { # $1 the ref being pushed to — writes the line git feeds a hook
-    printf 'refs/heads/topic %s %s 0000000000000000000000000000000000000000\n' \
-      "$prepush_head" "$1" > "$prepush_in"
-  }
-  # Fed from a file, not a pipe: under pipefail a hook exiting before it reads would be graded by
-  # the writer's SIGPIPE rather than by its own status.
-  prepush_drive() { # $1 the ref · $2… the hook's own arguments — leaves the status in prepush_rc
-    prepush_refline "$1"; shift
-    prepush_rc=0
-    bash "$PRE_PUSH" "$@" <"$prepush_in" >"$prepush_out" 2>&1 || prepush_rc=$?
-  }
-
-  # The prefix, never the sentence: the wording is free to improve, and what it says is asserted
-  # below, where the answer is fixed.
-  prepush_drive refs/heads/topic origin https://example.invalid/repo.git
-  if (( prepush_rc != 0 )); then
-    note_fail "pre-push exited ${prepush_rc} on a plain push; it is advisory and must exit 0"
-  elif ! grep -q 'pre-push hook:' "$prepush_out"; then
-    note_fail "pre-push reported nothing on a plain push:"; excerpt 10 < "$prepush_out"
-  else
-    info "a plain push: exit 0 and a report line"
-  fi
-
-  # `--all` on the default branch: the one arm whose expected answer does not move with the tree.
-  prepush_default="$(git symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)"
-  prepush_default="${prepush_default#refs/remotes/origin/}"
-  prepush_drive "refs/heads/${prepush_default:-main}" origin https://example.invalid/repo.git
-  prepush_all="${SELFCHECK_TMP}/pre-push-scopes.txt"
-  prepush_all_rc=0
-  ./scripts/gate/scope_map.sh --all > "${prepush_all}.raw" 2>&1 || prepush_all_rc=$?
-  awk -F= '/^[a-z]+=true$/ { print $1 }' "${prepush_all}.raw" > "$prepush_all" || true
-  # Every scope name, asked of scope_map.sh: `scripts` alone also matches a path in the failure
-  # line.
-  prepush_missing=""
-  while IFS= read -r prepush_scope || [[ -n "$prepush_scope" ]]; do
-    grep -qw -- "$prepush_scope" "$prepush_out" || prepush_missing+=" $prepush_scope"
-  done < "$prepush_all"
-  if (( prepush_all_rc != 0 )) || [[ ! -s "$prepush_all" ]]; then
-    note_fail "scope_map.sh --all named no scope (exit ${prepush_all_rc}), so the hook's answer for a push to ${prepush_default:-main} was not checked"
-  elif (( prepush_rc != 0 )); then
-    note_fail "pre-push exited ${prepush_rc} on a push to ${prepush_default:-main}; it is advisory and must exit 0"
-  elif [[ -n "$prepush_missing" ]]; then
-    note_fail "pre-push left scope(s) out of its answer for a push to ${prepush_default:-main} —${prepush_missing} — where --all names every one:"
-    excerpt 10 < "$prepush_out"
-  else
-    info "a push to ${prepush_default:-main}: exit 0, and every scope --all names"
-  fi
-
-  # No git on PATH: says so, exit 0. `$BASH` by absolute path, since the emptied PATH that hides git
-  # would hide a bare `bash` first.
-  prepush_rc=0
-  PATH=/nonexistent "$BASH" "$PRE_PUSH" origin x >"$prepush_out" 2>&1 </dev/null || prepush_rc=$?
-  if (( prepush_rc != 0 )) || ! grep -q 'no git on PATH' "$prepush_out"; then
-    note_fail "pre-push without git must say so and exit 0; got exit ${prepush_rc}:"; excerpt 10 < "$prepush_out"
-  else
-    info "no git on PATH: says so, exit 0"
-  fi
-
-  # Stderr closed, the arm the hook's trap exists for. No redirect to a file here, which would make
-  # stderr writable and hide it.
-  prepush_refline refs/heads/topic
-
-  # Both argument shapes, because only one of them writes scope_map.sh's answer.
-  for prepush_args in "origin https://example.invalid/repo.git" "nosuchremote x"; do
-    prepush_rc=0
-    # shellcheck disable=SC2086  # two arguments held in one string, split on purpose
-    bash "$PRE_PUSH" $prepush_args <"$prepush_in" 2>&- || prepush_rc=$?
-    if (( prepush_rc != 0 )); then
-      note_fail "pre-push exited ${prepush_rc} with stderr closed (${prepush_args%% *}); git aborts a push on that, and this hook may never"
-    else
-      info "stderr closed (${prepush_args%% *}): exit 0"
-    fi
-  done
-fi
-
-step "14. Every deliberate non-run reaches the gate"
+step "13. Every deliberate non-run reaches the gate"
 # Any message shape, not a quoted one alone, so `skip bareword` is caught too.
 
 # The sweep's own status is kept and the exclusions are one pattern: `grep … || true` reports a file
@@ -915,7 +829,7 @@ else
   info "every deliberate non-run here is written to the ledger verify.sh replays (${sweep_lines} line(s) swept)"
 fi
 
-step "15. The container-log redaction"
+step "14. The container-log redaction"
 # Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
 # the host redacted out of the log a failing deploy is read from. Each case below is a real
 # error-message shape, the bound being a regex nobody re-derives.
@@ -991,7 +905,7 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
-step "16. The uv version is one number in two files"
+step "15. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
 UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
