@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { classText } from "@/shared/testing/jsxReader.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -62,16 +63,6 @@ function resolved<T>(declared: Map<string, T>, breakpoint: string): T | undefine
   const last = reachable.at(-1);
 
   return last === undefined ? undefined : declared.get(last);
-}
-
-/** The static halves of a class list, an interpolated constant contributing a break rather than its tokens. */
-function classText(node: ts.Node | undefined): string {
-  if (node === undefined) return "";
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
-  if (ts.isJsxExpression(node)) return classText(node.expression);
-  if (ts.isTemplateExpression(node)) return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(" ");
-
-  return "";
 }
 
 const isInterpolated = (node: ts.Node | undefined): boolean =>

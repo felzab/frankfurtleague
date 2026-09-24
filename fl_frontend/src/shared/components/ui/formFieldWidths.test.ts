@@ -5,22 +5,14 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
+import { classText } from "@/shared/testing/jsxReader.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
 function parse(relative: string): ts.SourceFile {
   const full = path.join(SRC_DIR, ...relative.split("/"));
 
   return ts.createSourceFile(relative, readFileSync(full, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-}
-
-/** The static halves of a class list, an interpolated constant contributing a break rather than its tokens. */
-function classText(node: ts.Node | undefined): string {
-  if (node === undefined) return "";
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
-  if (ts.isJsxExpression(node)) return classText(node.expression);
-  if (ts.isTemplateExpression(node)) return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(" ");
-
-  return "";
 }
 
 type Element = { tag: string; classes: string[] };

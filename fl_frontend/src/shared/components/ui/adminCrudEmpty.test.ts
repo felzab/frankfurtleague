@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { classAttribute, interpolatedNames } from "@/shared/testing/jsxReader.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const FEATURES = path.join(SRC, "features");
@@ -114,27 +115,6 @@ const STEP =
   SCROLLBAR;
 
 type Element = { tag: string; classes: readonly string[]; interpolated: readonly string[]; start: number; end: number };
-
-/** The class attribute of one element, however it is spelled, or `undefined` where the element declares none. */
-function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
-  const found = opening.attributes.properties.find(
-    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
-  );
-
-  return found !== undefined && ts.isJsxAttribute(found) ? found.initializer : undefined;
-}
-
-/** The names a class attribute interpolates: a shared inset arrives as one of these and never as a token `classesOf` can read. */
-function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
-  const declared = classAttribute(opening, source);
-  if (declared === undefined || !ts.isJsxExpression(declared) || declared.expression === undefined) return [];
-
-  const expression = declared.expression;
-  if (ts.isIdentifier(expression)) return [expression.text];
-  if (!ts.isTemplateExpression(expression)) return [];
-
-  return expression.templateSpans.flatMap((span) => (ts.isIdentifier(span.expression) ? [span.expression.text] : []));
-}
 
 /** A template's own text counts, so a width written beside an interpolation is still declared. */
 function classesOf(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
