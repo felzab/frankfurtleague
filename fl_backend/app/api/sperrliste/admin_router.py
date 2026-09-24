@@ -44,7 +44,7 @@ async def _pull_the_season_a_ban_counts_from(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
-    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `REQ-SPERRLISTE-002` where the league has run none."""
+    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `REQ-SPERRLISTE-002` while no season is running."""
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
@@ -102,8 +102,8 @@ async def post_sperrliste_eintrag(
     """
     Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
 
-    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has
-    never run a season, there being nothing to count the ban's five seasons from
+    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is
+    running, there being nothing to count the ban's five seasons from
     (`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one
     it covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.
     """

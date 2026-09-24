@@ -68,7 +68,7 @@ def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
 
 
 def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-002`: a league that has never run a season has nothing to count five seasons from.
+    """`REQ-SPERRLISTE-002`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
     """
@@ -78,7 +78,7 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
 
     return WriteRefusal(
         error_code=SPERRLISTE_KEINE_SAISON,
-        message="a ban lapses after five seasons and this league has run none, so there is no season to count them from",
+        message="a ban lapses after five seasons and no season is running, so there is no season to count them from",
     )
 
 

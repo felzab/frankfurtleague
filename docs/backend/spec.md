@@ -174,7 +174,7 @@ subject is an email address and travels in the body instead.
 | POST   | `/kontakte/erasure`                                         | Clears one contact person from every `saison_teams` and `bewerbungen` row and redacts the log images — I42's transaction. The SLOT is nulled, never the block                         |
 | POST   | `/schiedsrichter/{schiedsrichter_id}/anonymisieren`         | Deletes the referee and repoints their fixtures at the ghost; the echo is the ghost, never the person. Refuses the ghost. See I42, I212, I213                                         |
 | POST   | `/sperrliste`                                               | Records a ban on one address; no row and no log line holds it (I268), and the answer carries the last season it covers (I273)                                                         |
-|        | `/sperrliste`                                               | `REQ-SPERRLISTE-001` refuses a second ban of one address; `REQ-SPERRLISTE-002` refuses one in a league that has run no season                                                         |
+|        | `/sperrliste`                                               | `REQ-SPERRLISTE-001` refuses a second ban of one address; `REQ-SPERRLISTE-002` refuses one while no season is running                                                                 |
 | DELETE | `/sperrliste/{sperrliste_id}`                               | Lifts a ban, removing the row. HARD, with no soft form: a ban carries no `inactive_since`, and the row yields no address to enter again                                               |
 
 **No BARRED address leaves the ban list, on any route.** A ban is stored as an HMAC of the address

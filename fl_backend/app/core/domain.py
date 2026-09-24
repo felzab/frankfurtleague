@@ -1908,9 +1908,9 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SPERRLISTE-002",
         operation="POST /sperrliste",
         aggregate="Sperrliste",
-        summary="a league that has run no season enters no ban, the five seasons it lapses after having nothing to count from",
+        summary="no ban is entered while no season is running, the five seasons it lapses after having nothing to count from",
         implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
-        tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueThatHasRunNoSeason",
+        tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueWithNoSeasonRunning",
     ),
     Rule(
         code="REQ-EINLADUNG-001",
