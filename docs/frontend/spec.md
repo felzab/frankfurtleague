@@ -698,7 +698,9 @@ supplies the database URI a module reads past it** (`fl_frontend/package.json`),
 graph reaches that gate renders — a form through its slice's actions module, and every field panel
 that form composes. That environment is the base script's own, so every runner of the suite inherits
 it by invoking `pnpm test` or `pnpm run test:db` rather than spelling it — the gate's
-`scripts/gate/verify.sh :: do_unit_tests` and CI alike.
+`scripts/gate/verify.sh :: do_unit_tests` and CI alike. Run bare, `test:base` takes Node's whole
+default set, the db tier's `*.db.test.*` files among it, so it is never run without a tier's
+patterns.
 
 **A property only a database enforces is tested against one, in a `*.db.test.*` file `pnpm test`
 never collects.** The `test` script's patterns are Node's own default set with that suffix cut from

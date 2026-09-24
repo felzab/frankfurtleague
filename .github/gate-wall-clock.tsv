@@ -180,7 +180,7 @@
 # and rejected: Node's compile cache read slower than it saved, 3.8 s against 2.9 s, and dropping
 # source maps altogether saves 0.25 s a file at the cost of every stack trace naming lines no file
 # on disk holds. Both rejections stand: the compile cache re-measured on 2026-09-22 saved 4 percent
-# of a rendering file's CPU with overlapping spreads, and the `test` script maps the application's
+# of a rendering file's CPU with overlapping spreads, and the `test:base` script maps the application's
 # frames still, dropping only `node_modules`' (`fl_frontend/app-source-maps.mjs`), whose frames no
 # stack trace of ours reads.
 #
