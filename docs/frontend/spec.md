@@ -764,10 +764,12 @@ where a parameter is read, and `useRouter` throws for a router nothing has mount
 which a seat holding an address requires; neither hook puts a component out of reach.
 
 **A replacement reason names what the assertion is about, never what the runner cannot do** — a
-ratified decision (`.claude/rules/cross-surface.md`), not this sheet's to widen. Calling a server
-action for the sentence it returns is the standing exception — it raises Next's request-scope error —
-and a refusal's sentence is asked of the slice's mapper instead
-(`fl_frontend/src/features/saisons/refusals.ts :: mapRulesRefusal`).
+ratified decision (`.claude/rules/cross-surface.md`), not this sheet's to widen. **A server action is
+called for what it returns**, its slice's `mutations.ts` doubled by
+`fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActions` and the request Next would serve it
+in by `:: doubleActionRequest`. Which mapper an action consults is held by what it answers each
+published refusal with (`fl_frontend/src/shared/testing/publishedRefusals.ts :: assertEachAnswered`),
+never by its source naming the mapper.
 
 **A citation to this section never stands as that reason.** The shapes above decide whether a
 source-text assertion is available at all; what a test writes is the subject its own assertion has —

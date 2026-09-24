@@ -1,8 +1,11 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { APIBadStatusError } from "@/core/errors.ts";
 import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+
+import type { FieldErrors } from "@/shared/utils/validation.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -120,4 +123,53 @@ export function answerShown(operation: string, code: string, mapper: (error: unk
 
   const shared = toActionErrorResult(refusal).error;
   return code === DUPLICATE_KEY || shared !== toActionErrorResult(refusedOn(operation, UNCLAIMED)).error ? shared : null;
+}
+
+/** A failure as the form reads it back, where a key left `undefined` and a key left out read alike. */
+export const asRead = (result: unknown): unknown => JSON.parse(JSON.stringify(result)) as unknown;
+
+/**
+ * What an action returns for `refusal` where its mapper answers `mapped`: a sentence as the failure, a
+ * field map through `refusalResult`, or for `null` the shared reader's words a rethrow reaches.
+ */
+export async function actionAnswer(
+  refusal: APIBadStatusError,
+  mapped: string | { error?: string; fieldErrors?: FieldErrors } | null,
+  readOnly = false,
+): Promise<unknown> {
+  // Imported late: `adminMutation.ts` reaches the logger, which the caller's
+  // `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest` stands in for first.
+  const { refusalResult } = await import("@/shared/utils/adminMutation.ts");
+
+  if (mapped === null) return asRead(toActionErrorResult(refusal, { method: "POST", readOnly }));
+  return asRead(typeof mapped === "string" ? { success: false, error: mapped } : refusalResult(mapped));
+}
+
+/**
+ * Calls a real action once per code, its doubled write refusing with it, against `actionAnswer` over
+ * the mapper it should consult: an action asking another mapper, or none, fails by some code.
+ */
+export async function assertEachAnswered({
+  operation,
+  codes,
+  refuseWith,
+  act,
+  mapped,
+  readOnly = false,
+}: {
+  operation: string;
+  /** `publishedRefusals(operation)`, spelled at the call so the coverage sweep reads the operation there. */
+  codes: readonly string[];
+  /** The doubled write's `answerWith`. */
+  refuseWith: (next: () => Promise<unknown>) => void;
+  act: () => Promise<unknown>;
+  mapped: (refusal: APIBadStatusError) => string | { error?: string; fieldErrors?: FieldErrors } | null;
+  readOnly?: boolean;
+}): Promise<void> {
+  for (const code of codes) {
+    const refusal = refusedOn(operation, code);
+    refuseWith(() => Promise.reject(refusal));
+
+    assert.deepEqual(asRead(await act()), await actionAnswer(refusal, mapped(refusal), readOnly), `${code} on ${operation}`);
+  }
 }

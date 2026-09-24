@@ -3,12 +3,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapSpielRefusal } from "./refusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+/* The real actions, called: the request they run in and the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/spiele/mutations.ts"] });
+const { patchAdminSpielDataAction, previewAdminSpielDataAction } = await import("./actions.ts");
 
 /** The one endpoint both write paths send, the dry run included, so one operation carries every refusal either can draw. */
 const PATCH_OPERATION = "PATCH /spiele/{spiel_id}";
@@ -30,21 +33,23 @@ const PATCH_CODES = [
   "REQ-WIRING-003",
 ];
 
-const SAVE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function patchAdminSpielDataAction",
-  "export async function previewAdminSpielDataAction",
-);
-const PREVIEW_ACTION = sliceBetween(ACTIONS, "export async function previewAdminSpielDataAction", null);
+/** A fixture edit the schema takes as it stands, every field cleared, so each write reaches the doubled request. */
+const EDIT = {
+  datum: null,
+  uhrzeit: null,
+  ort: null,
+  schiedsrichter: null,
+  team1: null,
+  team2: null,
+  team1_quelle: null,
+  team2_quelle: null,
+  elfmeterschiessen: null,
+  notiz: null,
+  spiel_id: "6890a1b2c3d4e5f607182930",
+  sonderereignis: null,
+};
 
 describe("the match editor's refusals against the codes its endpoint publishes", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts both write paths out of the file before reading them", () => {
-    assert.ok(SAVE_ACTION.includes("patchAdminSpielData(validated.data)"), "the save's call is outside its slice");
-    assert.ok(!SAVE_ACTION.includes("previewAdminSpielData("), "the save's slice runs on into the preview");
-    assert.ok(PREVIEW_ACTION.includes("previewAdminSpielData(validated.data)"), "the preview's call is outside its slice");
-  });
-
   it("finds every rule the match endpoint publishes", () => {
     assert.deepEqual(
       publishedRefusals(PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
@@ -61,10 +66,23 @@ describe("the match editor's refusals against the codes its endpoint publishes",
     });
   }
 
-  /* The dry run draws every refusal the save does, so both consult the one mapper. */
-  it("consults the mapper on the save and on the dry run", () => {
-    assert.ok(SAVE_ACTION.includes("mapSpielRefusal(error)"), "the save rethrows a refusal the mapper would place");
-    assert.ok(PREVIEW_ACTION.includes("mapSpielRefusal(error)"), "the dry run rethrows a refusal the mapper would place");
+  /* The dry run draws every refusal the save does, so both answer through the one mapper. */
+  it("answers every refusal on the save and on the dry run through the mapper", async () => {
+    await assertEachAnswered({
+      operation: PATCH_OPERATION,
+      codes: publishedRefusals(PATCH_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchAdminSpielDataAction(EDIT, "2026"),
+      mapped: mapSpielRefusal,
+    });
+    await assertEachAnswered({
+      operation: PATCH_OPERATION,
+      codes: publishedRefusals(PATCH_OPERATION),
+      refuseWith: answerWith,
+      act: () => previewAdminSpielDataAction(EDIT),
+      mapped: mapSpielRefusal,
+      readOnly: true,
+    });
   });
 });
 

@@ -107,22 +107,11 @@ const RENAME_ACTION = sliceBetween(
   "export async function patchSchiedsrichterAction",
   "export async function deleteSchiedsrichterAction",
 );
-const CREATE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function postSchiedsrichterAction",
-  "export async function patchSchiedsrichterAction",
-);
 
 /** The route that REPLAYS the save, whose German is the third site `.claude/rules/cross-surface.md` names. */
 const UNDO_ROUTE = readFileSync(
   path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
   "utf8",
-);
-
-const REACTIVATE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function reactivateSchiedsrichterAction",
-  "export async function anonymiseSchiedsrichterAction",
 );
 
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
@@ -133,12 +122,11 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   it("cuts each action out of the file before reading it", () => {
     assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
+    assert.ok(RETIRE_ACTION.includes("deleteSchiedsrichter(validated.data)"), "the retire's call is outside its slice");
+    assert.ok(!RETIRE_ACTION.includes("reactivateSchiedsrichter("), "the retire's slice runs on into the reactivation");
 
     assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
     assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
-
-    assert.ok(REACTIVATE_ACTION.includes("reactivateSchiedsrichter(validated.data)"), "the reactivation's call is outside its slice");
   });
 
   /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
@@ -152,9 +140,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
       assert.notEqual(answerShown(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-
-    assert.ok(ANONYMISE_ACTION.includes("mapAnonymiseRefusal(error)"), "the anonymisation consults some other mapper");
-    assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
@@ -171,8 +156,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
         `${code} reaches the admin as an unhandled conflict`,
       );
     }
-
-    assert.ok(REACTIVATE_ACTION.includes("mapReactivateRefusal(error)"), "the reactivation consults no mapper");
   });
 
   /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
@@ -252,8 +235,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
-    assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
 
   /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
@@ -267,25 +248,12 @@ describe("the referee's writes against the codes their endpoints publish", () =>
 });
 
 describe("the referee name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the create out of the file before reading it", () => {
-    assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
-  });
-
   /* `uniq_schiedsrichter_name` is this collection's only unique index, so the 409 it raises is always
      the name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about
      an entry, which names no box and no way out. */
   it("lands the duplicate on the name box rather than in a banner", () => {
     // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
     assert.deepEqual(mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)), { fieldErrors: { name: "Diesen Namen gibt es schon." } });
-  });
-
-  /* The ban's mapper stands behind the name's in both actions, so the duplicate must be claimed by the
-     first or it drops into the conflict fallback, which names no box. */
-  it("consults the mapper on the create and on the edit", () => {
-    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
-    assert.ok(RENAME_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
   });
 
   /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one

@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import {
@@ -16,12 +17,24 @@ import {
   SHORTHAND_TAKEN_ON_EDIT,
 } from "./refusals.ts";
 
+/* The real actions, called: the request they run in and the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/teams/mutations.ts"] });
+const {
+  deleteTeamAction,
+  patchSaisonTeamAction,
+  patchTeamAction,
+  postSaisonTeamAction,
+  postTeamAction,
+  reactivateTeamAction,
+  replaceSaisonTeamAction,
+} = await import("./actions.ts");
+
+/** Read rather than called where what is asserted is which tags a write clears, which its answer never shows. */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
 /* The last declaration in the module, so its slice runs to the end of the file. */
 const REPLACE_ACTION = sliceBetween(ACTIONS, "export async function replaceSaisonTeamAction", null);
-const ENTRY_ACTION = sliceBetween(ACTIONS, "export async function postSaisonTeamAction", "export async function patchSaisonTeamAction");
-const RETIRE_ACTION = sliceBetween(ACTIONS, "export async function deleteTeamAction", "export async function reactivateTeamAction");
 
 /* Each operation is named once. Written twice, a route rename could be answered on one of the two
    and leave the other reading a string the document does not publish. */
@@ -37,6 +50,20 @@ const JUNCTION_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
 const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
 
+const TEAM_ID = "6890a1b2c3d4e5f607182932";
+const SAISON_ID = "2026";
+
+/** A club both write schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const CLUB = {
+  name: "SG Alpha",
+  shorthand: "SA",
+  description: "",
+  full_name: "Sportgemeinschaft Alpha",
+  website_url: null,
+  address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+  schulform: null,
+};
+
 /** The German the replacement shows for one code, or "" where its mapper leaves the code. */
 const replacementMessage = (code: string, statusCode = 409): string =>
   mapReplacementRefusal(refusedOn(REPLACEMENT_OPERATION, code, statusCode)) ?? "";
@@ -46,13 +73,9 @@ const entryAnswer = (error: unknown) => mapEntryRefusal(error) ?? mapAlreadyEnte
 
 describe("the team actions against the codes their endpoints publish", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each action out of the file before reading it", () => {
+  it("cuts the replacement out of the file before reading it", () => {
     assert.ok(REPLACE_ACTION.includes("replaceSaisonTeam(validated.data)"), "the replacement action is outside its slice");
     assert.ok(!REPLACE_ACTION.includes("patchSaisonTeam("), "the replacement action's slice reaches the junction patch");
-    assert.ok(ENTRY_ACTION.includes("postSaisonTeam(validated.data)"), "the entry action is outside its slice");
-    assert.ok(!ENTRY_ACTION.includes("patchSaisonTeam("), "the entry action's slice reaches the junction patch");
-    assert.ok(RETIRE_ACTION.includes("deleteTeam(validated.data)"), "the retire action is outside its slice");
-    assert.ok(!RETIRE_ACTION.includes("reactivateTeam("), "the retire action's slice reaches the reactivation");
   });
 
   /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's
@@ -70,30 +93,48 @@ describe("the team actions against the codes their endpoints publish", () => {
 
   /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 with the
      message about an entry that already exists — confidently wrong for three of these four. */
-  it("maps every refusal the replacement endpoint publishes", () => {
+  it("answers every refusal the replacement publishes with the replacement's own mapper", async () => {
     for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
       assert.notEqual(answerShown(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
+    await assertEachAnswered({
+      operation: REPLACEMENT_OPERATION,
+      codes: publishedRefusals(REPLACEMENT_OPERATION),
+      refuseWith: answerWith,
+      act: () => replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" }),
+      mapped: mapReplacementRefusal,
+    });
   });
 
-  it("maps every refusal the entry endpoint publishes", () => {
+  it("answers every refusal the entry publishes, its rules before its unique index", async () => {
     for (const code of publishedRefusals(ENTRY_OPERATION)) {
       assert.notEqual(answerShown(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin as a generic conflict`);
     }
-    assert.ok(ENTRY_ACTION.includes("mapEntryRefusal(error)"), "the entry answers its rules somewhere else");
-    assert.ok(ENTRY_ACTION.includes("mapAlreadyEnteredRefusal(error)"), "the entry leaves its unique index to the generic conflict message");
+    await assertEachAnswered({
+      operation: ENTRY_OPERATION,
+      codes: publishedRefusals(ENTRY_OPERATION),
+      refuseWith: answerWith,
+      act: () => postSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" }),
+      mapped: entryAnswer,
+    });
   });
 
-  it("maps every refusal the retirement publishes", () => {
+  it("answers every refusal the retirement publishes", async () => {
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement answers its refusal somewhere else");
+    await assertEachAnswered({
+      operation: RETIRE_OPERATION,
+      codes: publishedRefusals(RETIRE_OPERATION),
+      refuseWith: answerWith,
+      act: () => deleteTeamAction({ id: TEAM_ID }),
+      mapped: mapRetireRefusal,
+    });
   });
 
   /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
      reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", () => {
+  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, () => null),
@@ -101,12 +142,18 @@ describe("the team actions against the codes their endpoints publish", () => {
         `${code} reaches the admin as a generic conflict`,
       );
     }
+    await assertEachAnswered({
+      operation: REACTIVATE_OPERATION,
+      codes: publishedRefusals(REACTIVATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => reactivateTeamAction({ id: TEAM_ID }),
+      mapped: () => null,
+    });
   });
 
-  /* A club's only unique key is its shorthand, so the create and the edit each land every 409 on that
-     box, worded for the page it arrives on. That holds only while the duplicate is the one code
-     either publishes: a rule published later would be reported as a taken shorthand. */
-  it("lands every refusal the create and the edit publish on the shorthand box", () => {
+  /* A club's only unique key is its shorthand, so every 409 lands on that box, worded per page. Only
+     while the duplicate is the one code published: a later rule would read as a taken shorthand. */
+  it("lands every refusal the create and the edit publish on the shorthand box", async () => {
     assert.deepEqual(
       publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [],
@@ -125,8 +172,21 @@ describe("the team actions against the codes their endpoints publish", () => {
         );
       }
     }
-    assert.ok(ACTIONS.includes("mapShorthandRefusal(error, SHORTHAND_TAKEN_ON_CREATE)"), "the create words its shorthand as the edit does");
-    assert.ok(ACTIONS.includes("mapShorthandRefusal(error, SHORTHAND_TAKEN_ON_EDIT)"), "the edit words its shorthand as the create does");
+
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      codes: publishedRefusals(CREATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" }),
+      mapped: (refusal) => mapShorthandRefusal(refusal, SHORTHAND_TAKEN_ON_CREATE),
+    });
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      codes: publishedRefusals(EDIT_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchTeamAction({ id: TEAM_ID, ...CLUB }),
+      mapped: (refusal) => mapShorthandRefusal(refusal, SHORTHAND_TAKEN_ON_EDIT),
+    });
   });
 
   /* Three resources, because one write moves all three: the junction row, the fixtures' sides, and
@@ -135,11 +195,6 @@ describe("the team actions against the codes their endpoints publish", () => {
     assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("teams", validated.data.saison_id)'), "the league table keeps the old club");
     assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("spiele", validated.data.saison_id)'), "the schedule keeps the old club");
     assert.ok(REPLACE_ACTION.includes('updateTag("spieler")'), "the public squad serves the retired players for days");
-  });
-
-  it("consults the replacement's own mapper and never the entry mapper", () => {
-    assert.ok(REPLACE_ACTION.includes("mapReplacementRefusal(error)"), "the replacement answers its refusals somewhere else");
-    assert.ok(!REPLACE_ACTION.includes("mapEntryRefusal"), "the entry mapper's words reach a replacement");
   });
 });
 
@@ -246,6 +301,16 @@ describe("the junction edit's refusals when the undo replays it", () => {
       "the half-restore outcome is gone",
     );
     assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
+  });
+
+  it("answers every refusal the junction patch publishes with the entry's mapper", async () => {
+    await assertEachAnswered({
+      operation: JUNCTION_OPERATION,
+      codes: publishedRefusals(JUNCTION_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A", austritt: null, trikot_farbe: null }),
+      mapped: mapEntryRefusal,
+    });
   });
 
   for (const code of publishedRefusals(JUNCTION_OPERATION)) {

@@ -173,21 +173,16 @@ const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
 const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
-const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
-const ENTRY_ACTION = sliceBetween(ACTIONS, "export async function postSaisonSpielerAction", "export async function patchSaisonSpielerAction");
-/* The last declaration in the module, so its slice runs to the end of the file. */
-const REACTIVATE_ROW_ACTION = sliceBetween(ACTIONS, "export async function reactivateSaisonSpielerAction", null);
-
 /** What the squad mapper answers one code with, on the write the editor saves. */
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
 
+const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
+
 describe("the player actions against the codes their endpoints publish", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each action out of the file before reading it", () => {
+  it("cuts the erasure out of the file before reading it", () => {
     assert.ok(ERASE_ACTION.includes("eraseSpieler(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("postSaisonSpieler("), "the erasure's slice runs on into the junction create");
-    assert.ok(ENTRY_ACTION.includes("postSaisonSpieler(validated.data)"), "the entry's call is outside its slice");
-    assert.ok(!ENTRY_ACTION.includes("patchSaisonSpieler("), "the entry's slice runs on into the squad patch");
   });
 
   /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, and the erasure's mapper
@@ -204,16 +199,8 @@ describe("the player actions against the codes their endpoints publish", () => {
     }
   });
 
-  /* The squad mapper answers the same 409 status. Left reachable from here, a squad code would be
-     reported about a person nobody was entering. */
-  it("keeps the squad mapper out of the erasure's catch", () => {
-    assert.ok(ERASE_ACTION.includes("mapErasureRefusal(error)"), "the erasure consults some other mapper");
-    assert.ok(!ERASE_ACTION.includes("mapSquadRefusal(error)"), "a squad refusal is reported as the erasure's own");
-  });
-
-  /* The entry asks the squad's rules first and the junction's unique index after, so a repeat row —
-     which the index finds among retired ones too — is the sentence left once the rules are ruled out.
-     The index's mapper answers every 409 it is handed, so a rule published later reads as a repeat row. */
+  /* The squad's rules first and the unique index after, whose mapper answers every 409 it is handed:
+     pinned, so a rule published later fails here rather than reading as a repeat row. */
   it("maps every refusal the squad entry publishes", () => {
     assert.deepEqual(
       publishedRefusals(ENTRY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
@@ -224,15 +211,12 @@ describe("the player actions against the codes their endpoints publish", () => {
       const answered = answerShown(ENTRY_OPERATION, code, (error) => mapSquadRefusal(error) ?? mapAlreadyInSaisonRefusal(error));
       assert.notEqual(answered, null, `${code} reaches the admin as an unhandled conflict`);
     }
-    assert.ok(ENTRY_ACTION.includes("mapSquadRefusal(error)"), "the entry answers the squad's rules somewhere else");
-    assert.ok(ENTRY_ACTION.includes("mapAlreadyInSaisonRefusal(error)"), "the entry leaves its unique index to the generic conflict message");
   });
 
   it("maps every refusal the row's reactivation publishes", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
       assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-    assert.ok(REACTIVATE_ROW_ACTION.includes("mapSquadRefusal(error)"), "the row's reactivation answers the squad's rules somewhere else");
   });
 
   /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
@@ -435,7 +419,6 @@ describe("REQ-SQUAD-001 where no form is on screen", () => {
 
     assert.equal(typeof answered?.error, "string", "the reactivate paths toast the generic banner instead");
     assert.deepEqual(Object.keys(answered?.fieldErrors ?? {}), ["team_id"], "the form paths lose the refusal on their picker");
-    assert.match(REACTIVATE_ROW_ACTION, /refusal\.error \?\? VALIDATION_FAILED/, "the row button stopped reading the sentence");
   });
 
   /* The sentence is read by a caller that picked no team, so it may not describe a choice — and the

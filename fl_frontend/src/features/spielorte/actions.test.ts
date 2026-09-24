@@ -1,38 +1,34 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+/* The real actions, called: the request they run in and the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
+const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivateSpielortAction } = await import("./actions.ts");
 
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
 const CREATE_OPERATION = "POST /spielorte";
 const EDIT_OPERATION = "PATCH /spielorte/{spielort_id}";
 const REACTIVATE_OPERATION = "POST /spielorte/{spielort_id}/reactivate";
 
-/* Read per slice rather than over the file: four writes live here, and a search over the whole
-   source is satisfied by whichever one happens to carry the call. */
-const RETIRE_ACTION = sliceBetween(ACTIONS, "export async function deleteSpielortAction", "export async function reactivateSpielortAction");
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielortAction", "export async function patchSpielortAction");
-const EDIT_ACTION = sliceBetween(ACTIONS, "export async function patchSpielortAction", "export async function deleteSpielortAction");
+const SPIELORT_ID = "6890a1b2c3d4e5f607182934";
+
+/** A venue both write schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const VENUE = {
+  name: "Sportpark Nord",
+  default_mietpreis: 40,
+  address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+};
 
 describe("the venue retirement against the codes its endpoint publishes", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the action out of the file before reading it", () => {
-    assert.ok(RETIRE_ACTION.includes("deleteSpielort(validated.data)"), "the retirement's call is outside its slice");
-    assert.ok(!RETIRE_ACTION.includes("reactivateSpielort("), "the retirement's slice reaches the reactivate");
-  });
-
-  /* A code the mapper misses is rethrown, and `fl_frontend/src/shared/utils/actionError.ts` answers
-     a 409 with the sentence about an entry that already exists — false for a refusal about fixtures
-     still waiting for a result. The rule restated, so a code retired from the endpoint fails here
-     rather than leaving a dead arm behind. */
-  it("maps every refusal the retirement publishes", () => {
+  /* A missed code reaches the shared reader's sentence about an existing entry, false for fixtures
+     awaiting a result. Restated, so a code the endpoint retires fails here rather than leaving a dead arm. */
+  it("answers every refusal the retirement publishes", async () => {
     assert.deepEqual(
       publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       ["REQ-RETIRE-003"],
@@ -40,8 +36,13 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement consults no mapper");
+    await assertEachAnswered({
+      operation: RETIRE_OPERATION,
+      codes: publishedRefusals(RETIRE_OPERATION),
+      refuseWith: answerWith,
+      act: () => deleteSpielortAction({ id: SPIELORT_ID }),
+      mapped: mapRetireRefusal,
+    });
   });
 
   /* A dialog's refusal is two sentences, the way out second, and a hand-spelled pair drifts from that
@@ -57,7 +58,7 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
 
   /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
      reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", () => {
+  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
     assert.deepEqual(
       publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [],
@@ -70,18 +71,17 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
         `${code} reaches the admin as an unhandled conflict`,
       );
     }
+    await assertEachAnswered({
+      operation: REACTIVATE_OPERATION,
+      codes: publishedRefusals(REACTIVATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => reactivateSpielortAction({ id: SPIELORT_ID }),
+      mapped: () => null,
+    });
   });
 });
 
 describe("the venue name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts both write paths out of the file before reading them", () => {
-    assert.ok(CREATE_ACTION.includes("postSpielort(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSpielort("), "the create's slice runs on into the edit");
-    assert.ok(EDIT_ACTION.includes("patchSpielort(validated.data)"), "the edit's call is outside its slice");
-    assert.ok(!EDIT_ACTION.includes("deleteSpielort("), "the edit's slice reaches the retirement");
-  });
-
   /* `uniq_spielort_name` is this collection's only unique index, so the 409 it raises is always the
      name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about an
      entry, which names no box and no way out. */
@@ -112,8 +112,20 @@ describe("the venue name a unique index already holds", () => {
     assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 404)), null);
   });
 
-  it("consults the mapper on the create and on the edit, the two writes that send a name", () => {
-    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
-    assert.ok(EDIT_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
+  it("answers the create's and the edit's refusals on the name box, the two writes that send a name", async () => {
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      codes: publishedRefusals(CREATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => postSpielortAction(VENUE),
+      mapped: mapNameRefusal,
+    });
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      codes: publishedRefusals(EDIT_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchSpielortAction({ id: SPIELORT_ID, ...VENUE }),
+      mapped: mapNameRefusal,
+    });
   });
 });

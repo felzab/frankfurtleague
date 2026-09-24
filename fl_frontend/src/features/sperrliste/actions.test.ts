@@ -7,9 +7,11 @@ import { beforeEach, describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
+import { mapAdresseRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -29,7 +31,8 @@ const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent
 const MUTATIONS_DOUBLE = `export const postSperre = async (payload) => {
   globalThis.${EVENTS}.push("post");
   globalThis.${POSTED}.push(payload);
-  return globalThis.${ANSWER};
+  const answer = globalThis.${ANSWER};
+  return typeof answer === "function" ? answer() : answer;
 };
 export const deleteSperre = async () => {
   globalThis.${EVENTS}.push("delete");
@@ -112,23 +115,16 @@ function statementsOf(slice: string): string[] {
     .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
 }
 
-/* Read per slice rather than over the file: two writes live here, and a search over the whole source
-   is satisfied by whichever one happens to carry the arm. */
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSperreAction", "export async function deleteSperreAction");
+/* The removal alone, and the last declaration in the file: a search over the whole source is
+   satisfied by the create, which does carry a mapper. */
 const REMOVE_ACTION = sliceBetween(ACTIONS, "export async function deleteSperreAction", null);
+
+const CREATE_OPERATION = "POST /sperrliste";
 
 describe("the address a unique index already holds", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts both writes out of the file before reading them", () => {
-    assert.ok(CREATE_ACTION.includes("postSperre(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("deleteSperre("), "the create's slice runs on into the removal");
+  it("cuts the removal out of the file before reading it", () => {
     assert.ok(REMOVE_ACTION.includes("deleteSperre(validated.data)"), "the removal's call is outside its slice");
-  });
-
-  /* A wiring between two modules, which no render of this action can show (`docs/frontend/spec.md`
-     §1.9); what the mapper answers is asked of it in `fl_frontend/src/features/sperrliste/refusals.test.ts`. */
-  it("consults the mapper on the create, the one write that sends an address", () => {
-    assert.ok(CREATE_ACTION.includes("mapAdresseRefusal(error)"), "the create consults no mapper, so a duplicate reaches the error page");
   });
 });
 
@@ -139,6 +135,28 @@ const BARRED = "zorbanax@beispielschule.de";
 const GRUND = "Falsches Geburtsdatum angegeben";
 
 const anAddressIsBanned = () => postSperreAction({ email: BARRED, grund: GRUND });
+
+describe("the create's refusals", () => {
+  beforeEach(() => {
+    sent.length = 0;
+    globals[SEND_FAILS] = false;
+  });
+
+  /* The create is the one write that sends an address, so it is the one that answers through the
+     mapper; what the mapper answers is asked of it in `fl_frontend/src/features/sperrliste/refusals.test.ts`. */
+  it("answers every refusal the create publishes through the mapper, and tells nobody", async () => {
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      codes: publishedRefusals(CREATE_OPERATION),
+      refuseWith: (next) => {
+        globals[ANSWER] = next;
+      },
+      act: anAddressIsBanned,
+      mapped: mapAdresseRefusal,
+    });
+    assert.deepEqual(sent, [], "a refused ban mailed the address it refused");
+  });
+});
 
 describe("the message the barred person is sent", () => {
   beforeEach(() => {

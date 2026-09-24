@@ -4,16 +4,22 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { withoutPythonComments } from "@/core/pythonComments.ts";
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
-/**
- * Read rather than called where what is asserted is which site carries a behaviour — which action
- * asks which mapper, which clears which tags — and a call reports the outcome, never the site.
- */
+import type { FLSaisonRules } from "./schemas.ts";
+
+/* The real actions, called: the request they run in and the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/saisons/mutations.ts"] });
+const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
+  await import("./actions.ts");
+
+/** Read rather than called where what is asserted is which tags a write clears, which its answer never shows. */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
 const CREATE_OPERATION = "POST /saisons";
@@ -23,17 +29,25 @@ const DRAW_OPERATION = "POST /saisons/{saison_id}/spielplan";
 const UNDRAW_OPERATION = "DELETE /saisons/{saison_id}/spielplan";
 const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
 
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSaisonAction", "export async function patchSaisonAction");
-const EDIT_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonAction", "export async function activateSaisonAction");
-const ACTIVATE_ACTION = sliceBetween(ACTIONS, "export async function activateSaisonAction", "export async function swapGruppenAction");
-const SWAP_ACTION = sliceBetween(ACTIONS, "export async function swapGruppenAction", "export async function generateSpielplanAction");
-const DRAW_ACTION = sliceBetween(ACTIONS, "export async function generateSpielplanAction", "export async function undrawSpielplanAction");
-
 /** The last declaration in the file, so its slice runs to the end and the guard below pins that. */
 const UNDRAW_ACTION = sliceBetween(ACTIONS, "export async function undrawSpielplanAction", null);
 
-/** The create's own answer, as the action asks: the rules first, then the unique index on `_id`. */
-const createAnswer = (error: unknown) => mapRulesRefusal(error) ?? mapSaisonIdRefusal(error);
+const SAISON_ID = "2026";
+
+const RULES: FLSaisonRules = {
+  win_points: 3,
+  draw_points: 1,
+  qualifiers_per_group: 2,
+  number_of_groups: 2,
+  teams_per_group: 4,
+  max_kadergroesse: 18,
+  tiebreak_order: "tordifferenz",
+  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+  erlaubte_stufen: ["E1", "Q1"],
+};
+
+/** A season both schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
 
 /** The draw's answer on a first draw (`false`) or a replace carrying its own numbers (`true`). */
 const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplanRefusal(refusedOn(DRAW_OPERATION, code), carriedShape) ?? "";
@@ -70,36 +84,26 @@ const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})
 
 describe("the saison actions against the codes their endpoints publish", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each action out of the file before reading it", () => {
-    assert.ok(CREATE_ACTION.includes("postSaison(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSaison("), "the create's slice runs on into the edit");
-    assert.ok(ACTIVATE_ACTION.includes("activateSaison(validated.data)"), "the rollover's call is outside its slice");
-    assert.ok(!ACTIVATE_ACTION.includes("swapGruppen("), "the rollover's slice reaches the swap");
-
+  it("cuts the undraw out of the file before reading it", () => {
     assert.ok(UNDRAW_ACTION.includes("undrawSpielplan("), "the undraw's slice does not reach its own request");
     // It runs to the end of the file, so a function appended after it would widen the slice in silence.
     assert.equal(UNDRAW_ACTION.match(/export async function/g)?.length, 1, "the undraw's slice reaches another action");
   });
 
-  it("maps every refusal the create endpoint publishes", () => {
-    const published = publishedRefusals(CREATE_OPERATION);
-
-    /* `POST /saisons` is a prefix of the activate and the draw operations, and the create answers its
-       own set alone. */
+  /* The create answers its own set alone, though `POST /saisons` prefixes two other operations. The
+     rules come first: a rule reported as a taken id names a field that cannot repair it. */
+  it("answers every refusal the create publishes, the rules before the taken id", async () => {
     assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"],
     );
-    for (const code of published) {
-      assert.notEqual(answerShown(CREATE_OPERATION, code, createAnswer), null, `${code} reaches the admin as a generic conflict`);
-      // A mapped rule reported as a taken id would name a field the admin cannot repair it at.
-      if (code !== DUPLICATE_KEY)
-        assert.notEqual(
-          mapRulesRefusal(refusedOn(CREATE_OPERATION, code)),
-          null,
-          `${code} reaches the admin as the message about a taken Saison-ID`,
-        );
-    }
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      codes: publishedRefusals(CREATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => postSaisonAction(SAISON),
+      mapped: (refusal) => mapRulesRefusal(refusal) ?? mapSaisonIdRefusal(refusal),
+    });
   });
 
   /* `DB-COMMON-002` is the unique index refusing a duplicate `_id`, which names no rule: the rules
@@ -114,21 +118,13 @@ describe("the saison actions against the codes their endpoints publish", () => {
     const taken = mapSaisonIdRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY));
     assert.match(taken?.error ?? "", /Diese Saison-ID ist schon vergeben/);
     assert.deepEqual(taken?.fieldErrors, { id: taken?.error }, "the taken-id message no longer reaches the id field the admin has to change");
-
-    const mapperAt = CREATE_ACTION.indexOf("mapRulesRefusal(error)");
-    const fallbackAt = CREATE_ACTION.indexOf("mapSaisonIdRefusal(error)");
-
-    // Asked in this order, so a mapped rules code is never reported as a taken id.
-    assert.ok(mapperAt !== -1 && mapperAt < fallbackAt, "the create answers a taken id before it consults the mapper");
   });
 
   /* The same mapper serves the edit, so a code missing from it is rethrown as the generic conflict
      message rather than reaching the panel that still holds the wrong value. */
-  it("maps every refusal the edit endpoint publishes", () => {
-    const published = publishedRefusals(EDIT_OPERATION);
-
+  it("answers every refusal the edit publishes", async () => {
     assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [
         "REQ-DATE-004",
         "REQ-DATE-005",
@@ -147,37 +143,51 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "REQ-RULES-013",
       ],
     );
-    for (const code of published) {
+    for (const code of publishedRefusals(EDIT_OPERATION)) {
       assert.notEqual(answerShown(EDIT_OPERATION, code, mapRulesRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
-    assert.ok(EDIT_ACTION.includes("mapRulesRefusal(error)"), "the edit answers its refusals somewhere else");
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      codes: publishedRefusals(EDIT_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchSaisonAction(SAISON),
+      mapped: mapRulesRefusal,
+    });
   });
 
-  it("maps every refusal the rollover endpoint publishes", () => {
-    const published = publishedRefusals(ACTIVATE_OPERATION);
-
+  it("answers every refusal the rollover publishes", async () => {
     assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(ACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"],
     );
-    for (const code of published) {
+    for (const code of publishedRefusals(ACTIVATE_OPERATION)) {
       assert.notEqual(answerShown(ACTIVATE_OPERATION, code, mapActivateRefusal), null, `${code} reaches the admin as a generic failure`);
     }
-    assert.ok(ACTIVATE_ACTION.includes("mapActivateRefusal(error)"), "the rollover answers its refusals somewhere else");
+    await assertEachAnswered({
+      operation: ACTIVATE_OPERATION,
+      codes: publishedRefusals(ACTIVATE_OPERATION),
+      refuseWith: answerWith,
+      act: () => activateSaisonAction({ id: SAISON_ID }),
+      mapped: mapActivateRefusal,
+    });
   });
 
-  it("maps every refusal the group swap publishes", () => {
+  it("answers every refusal the group swap publishes", async () => {
     for (const code of publishedRefusals(SWAP_OPERATION)) {
       assert.notEqual(answerShown(SWAP_OPERATION, code, mapSwapRefusal), null, `${code} reaches the admin as a generic failure`);
     }
-    assert.ok(SWAP_ACTION.includes("mapSwapRefusal(error)"), "the swap answers its refusals somewhere else");
+    await assertEachAnswered({
+      operation: SWAP_OPERATION,
+      codes: publishedRefusals(SWAP_OPERATION),
+      refuseWith: answerWith,
+      act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
+      mapped: mapSwapRefusal,
+    });
   });
 
-  it("maps every refusal the draw endpoint publishes, the shared rules faults included", () => {
-    const published = publishedRefusals(DRAW_OPERATION);
-
+  it("answers every refusal the draw publishes, the shared rules faults included", async () => {
     assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(DRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [
         // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
         // the season has days. It measures the span for that, exactly as the create and the edit do.
@@ -194,28 +204,50 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "REQ-SPIELPLAN-005",
       ],
     );
-    for (const code of published) {
+    for (const code of publishedRefusals(DRAW_OPERATION)) {
       for (const carriedShape of [false, true]) {
         const answered = answerShown(DRAW_OPERATION, code, (error) => mapSpielplanRefusal(error, carriedShape));
         assert.notEqual(answered, null, `${code} reaches the admin as a generic failure`);
       }
     }
-    assert.ok(DRAW_ACTION.includes("mapSpielplanRefusal(error, "), "the draw answers its refusals somewhere else");
+  });
+
+  /* Which panel the answer sends the admin to follows the request: a first draw carries no numbers,
+     a replace carries its own, and the action reads that off what it sent. */
+  it("answers the draw's refusals for the panel the request took its numbers from", async () => {
+    const { number_of_groups, teams_per_group, qualifiers_per_group } = RULES;
+
+    for (const [payload, carriedShape] of [
+      [{ id: SAISON_ID }, false],
+      [{ id: SAISON_ID, replace: true, shape: { number_of_groups, teams_per_group, qualifiers_per_group } }, true],
+    ] as const) {
+      await assertEachAnswered({
+        operation: DRAW_OPERATION,
+        codes: publishedRefusals(DRAW_OPERATION),
+        refuseWith: answerWith,
+        act: () => generateSpielplanAction(payload),
+        mapped: (refusal) => mapSpielplanRefusal(refusal, carriedShape),
+      });
+    }
   });
 
   /* One code, and none of the draw's: the two share a path and a summary word, so a document read
      that leaked either way would leave a real refusal answered by the generic failure message. */
-  it("maps every refusal the undraw endpoint publishes", () => {
-    const published = publishedRefusals(UNDRAW_OPERATION);
-
+  it("answers every refusal the undraw publishes", async () => {
     assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(UNDRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       ["REQ-SPIELPLAN-006"],
     );
-    for (const code of published) {
+    for (const code of publishedRefusals(UNDRAW_OPERATION)) {
       assert.notEqual(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
     }
-    assert.ok(UNDRAW_ACTION.includes("mapUndrawRefusal(error)"), "the undraw answers its refusal somewhere else");
+    await assertEachAnswered({
+      operation: UNDRAW_OPERATION,
+      codes: publishedRefusals(UNDRAW_OPERATION),
+      refuseWith: answerWith,
+      act: () => undrawSpielplanAction({ id: SAISON_ID }),
+      mapped: mapUndrawRefusal,
+    });
   });
 });
 

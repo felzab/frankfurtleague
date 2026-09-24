@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -14,6 +15,11 @@ import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/b
 import { mapSpieltagRefusal } from "./refusals.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
+
+/* The real action, called: the request it runs in and the write it sends are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/mutations.ts"] });
+const { patchSpieltagAction } = await import("./actions.ts");
 
 const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
@@ -97,6 +103,16 @@ describe("the Spieltag refusals against the codes the matchday PATCH publishes",
       assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
+
+  it("answers every refusal the save publishes through the mapper", async () => {
+    await assertEachAnswered({
+      operation: PATCH_OPERATION,
+      codes: publishedRefusals(PATCH_OPERATION),
+      refuseWith: answerWith,
+      act: () => patchSpieltagAction({ id: "6890a1b2c3d4e5f607182931", beginn: "2026-03-12", ende: "2026-03-12" }),
+      mapped: mapSpieltagRefusal,
+    });
+  });
 });
 
 describe("the German the ordering refusal renders", () => {

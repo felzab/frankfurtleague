@@ -14,15 +14,14 @@ type Recorder = { push: (call: ActionCall) => void; answer: () => Promise<unknow
 let registered = 0;
 
 /**
- * Replaces an actions module at the module boundary, every export it declares answering `answer` and
- * recording its call: a real write needs a session and a backend, and a test-only prop would be a seam in
- * production code.
+ * Replaces an actions module, or the `mutations.ts` a real action calls, at the module boundary, every
+ * export answering `answer` and recording its call: a test-only prop would be a seam in production code.
  */
 export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
 }: {
-  /** Each actions module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
+  /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
@@ -66,6 +65,59 @@ export function doubleActions({
  */
 export function doubleEveryAction(): ReturnType<typeof doubleActions> {
   return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
+}
+
+const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
+
+/**
+ * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
+ * throw outside one, and `server-only` throws outside a server build.
+ */
+const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
+  "server-only": "export {};",
+  "next/cache":
+    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as revalidatePath };",
+  "next/headers": "export const headers = async () => new Headers();",
+};
+
+/** Every refusal an action logs would otherwise reach the run's output as an error line. */
+const SILENT_LOGGER = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
+
+/**
+ * The sign-in store with an administrator signed in, the real one opening the database driver as it
+ * loads. Every other export throws where called, its name read off the real module so an import links.
+ */
+function signedInStore(url: string): string {
+  return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
+    .map(([, name]) =>
+      name === "getAdminSession"
+        ? `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`
+        : `export const ${name ?? ""} = () => { throw new Error("the sign-in store's ${name ?? ""} is not doubled"); };`,
+    )
+    .join("\n");
+}
+
+/**
+ * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
+ * through `doubleActions`. Registered before the action's `await import`, as `doubleActions` is.
+ */
+export function doubleActionRequest(): void {
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      // The real module, which `runAdminMutation` rethrows a navigation through: `next` publishes no
+      // `exports` map, so Node finds the subpath only with the extension a bundler would supply.
+      if (specifier === "next/navigation") return nextResolve("next/navigation.js", context);
+
+      const double = REQUEST_PACKAGES[specifier];
+      return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+    },
+    load(url, context, nextLoad) {
+      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signedInStore(url), shortCircuit: true };
+      if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: SILENT_LOGGER, shortCircuit: true };
+      return nextLoad(url, context);
+    },
+  });
 }
 
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */
