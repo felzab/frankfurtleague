@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { startTransition, useId, useMemo, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
@@ -260,7 +260,7 @@ export function BestaetigungFormPanel({
   mindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
   const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
 
@@ -302,35 +302,39 @@ export function BestaetigungFormPanel({
 
     const antwort = gesendet.body;
 
-    if (!antwort.success) {
-      // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
-      // is an administrator's repair, and a reload of this page has lost its token.
-      if (antwort.outcome === "unknown") {
-        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+    // Wrapped again: both callers run this inside a transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      if (!antwort.success) {
+        // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
+        // is an administrator's repair, and a reload of this page has lost its token.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+          return;
+        }
+
+        // The link died between the open and the press: the answer is the panel, never a toast.
+        if (antwort.zustand !== undefined) {
+          onAbschluss({ zustand: antwort.zustand });
+          return;
+        }
+
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { einwilligung: payload },
+          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+        );
         return;
       }
 
-      // The link died between the open and the press: the answer is the panel, never a toast.
-      if (antwort.zustand !== undefined) {
-        onAbschluss({ zustand: antwort.zustand });
-        return;
-      }
-
-      // The hook owns the press's one toast: none where a field shows the refusal.
-      reportSubmitFailure(
-        { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-        { einwilligung: payload },
-        { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+      setSubmitFieldErrors({}, {});
+      onAbschluss(
+        antwort.ergebnis === "bestaetigt"
+          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
+          : { zustand: "widersprochen-neu" },
       );
-      return;
-    }
-
-    setSubmitFieldErrors({}, {});
-    onAbschluss(
-      antwort.ergebnis === "bestaetigt"
-        ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
-        : { zustand: "widersprochen-neu" },
-    );
+    });
   };
 
   /* Both presses of the objection hand the shared control the same write: the arming one drops it,
@@ -347,7 +351,7 @@ export function BestaetigungFormPanel({
 
     const payload = antwortPayload(token, entwurf, false);
     guardSubmit({ einwilligung: payload }, () => {
-      startTransition(async () => {
+      startSending(async () => {
         await sende(payload);
       });
     });

@@ -90,7 +90,11 @@ export function ConfirmDeleteModal({
       // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
       // the title: an action with nothing to add sends the title's own words.
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
-      onClose();
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        onClose();
+      });
     });
   };
 

@@ -72,7 +72,8 @@ describe("the create form", () => {
      unmount the form under a transition whose toast then reaches nobody. */
   it("holds its save and its way back while the write runs", async () => {
     const user = userEvent.setup();
-    renderTrimmingCaller(() => new Promise<ActionResult>(() => {}));
+    let answer = (_result: ActionResult): void => undefined;
+    renderTrimmingCaller(() => new Promise<ActionResult>((resolve) => (answer = resolve)));
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
@@ -82,6 +83,10 @@ describe("the create form", () => {
       assert.equal(button.getAttribute("data-pending"), "true", `„${name}“ still takes a press while the write runs`);
       assert.equal(button.disabled, false, `„${name}“ is closed as though something refused it`);
     }
+
+    // Answered before the case ends: React holds every later transition in this file behind an action left running.
+    answer({ success: true, message: "Angelegt" });
+    await screen.findByRole("button", { name: "Speichern" });
   });
 
   /* Only a page older than the running API sends a body no box can take: the dialog says the reload once,
@@ -93,6 +98,8 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    // The refusal commits with the save's release, one transition, so the toasts are read once it has let go.
+    await screen.findByRole("button", { name: "Speichern" });
 
     assert.deepEqual(
       raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),

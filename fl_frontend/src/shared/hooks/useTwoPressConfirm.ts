@@ -23,6 +23,8 @@ export function useTwoPressConfirm(guard?: () => boolean): {
   // A ref, not state: the timestamp decides inside the handler and renders nothing.
   const armedAt = useRef(0);
 
+  // `write` runs inside this hook's transition, so an update it makes after its own `await` takes
+  // React's standalone `startTransition` at that site, or it commits before the press lets go.
   const press = (write: () => Promise<void>) => {
     // Run on BOTH presses, not just the arming one: an editor's fields stay live between arming and
     // confirming, so a draft typed in that window would go with the revalidation the write ends on.
@@ -46,9 +48,13 @@ export function useTwoPressConfirm(guard?: () => boolean): {
 
     startWriting(async () => {
       await write();
-      // After the response and never before it: the open alert, the destructive fill and the closed
-      // cancel are what say a press is in flight, and clearing early drops all three at once.
-      setIsConfirming(false);
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so a bare clear commits while the write's refresh still holds the press.
+      startWriting(() => {
+        // After the response and never before it: the open alert, the destructive fill and the closed
+        // cancel are what say a press is in flight, and clearing early drops all three at once.
+        setIsConfirming(false);
+      });
     });
   };
 

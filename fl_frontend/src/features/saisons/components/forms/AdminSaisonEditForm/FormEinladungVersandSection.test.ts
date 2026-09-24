@@ -80,6 +80,9 @@ const panel = (isFinishedSaison = false) =>
 
 const RESTING = "Links an alle Teams senden";
 const ARMED = "Ja, Links an alle Teams senden";
+const RUNNING = "Sendet...";
+const CANCEL = "Abbrechen";
+const LISTE = "Wer den Link bekommt";
 
 /** The value the armed readout states beside `label`, read off the description list the readout renders as. */
 function readout(label: string): string | null {
@@ -152,6 +155,39 @@ describe("the season's bulk invite send", () => {
 
     assert.ok(armedWhileHeld.length > 0, "no render showed the armed press, so nothing here was observed");
     assert.equal(armedWhileHeld.includes(true), false, "a render showed the press armed while the read still held it");
+  });
+
+  /* The armed control and the list it sends to say what is in flight
+     (`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm`), so neither may drop
+     while the write still holds the press: bare, the alert counts zero teams over a running send. */
+  it("keeps the armed send and its list until the write lets go of the press", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    // Every render the panel commits, as in the case above: the dropped state lasts until the transition ends.
+    const droppedWhileSending: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      const buttons = [...document.querySelectorAll("button")];
+      if (buttons.some((button) => button.textContent.includes(RUNNING))) {
+        const armed = buttons.some((button) => button.textContent.includes(CANCEL));
+        droppedWhileSending.push(!armed || screen.queryByRole("heading", { name: LISTE }) === null);
+      }
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    try {
+      await pressTwice(user, {
+        resting: RESTING,
+        armed: ARMED,
+        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet." })),
+      });
+      await waitFor(() => assert.equal(screen.getByRole("button", { name: RESTING }).getAttribute("data-pending"), null));
+    } finally {
+      observer.disconnect();
+    }
+
+    assert.ok(droppedWhileSending.length > 0, "no render showed the send running, so nothing here was observed");
+    assert.equal(droppedWhileSending.includes(true), false, "a render dropped the armed send or its list while the write still held it");
   });
 
   /* The four are ordinary states of a season being set up, so each is named as itself: one sentence

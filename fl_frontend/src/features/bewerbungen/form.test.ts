@@ -271,6 +271,8 @@ describe("the public application form", () => {
      parse. `location = /api/bewerbung` is an EXACT nginx match: a path segment falls through to the
      unlimited catch-all. */
   it("posts the payload one composer built to the path the edge limits, and shows the send in flight", async () => {
+    let answer = (_response: Response): void => undefined;
+    fetchMock.mock.mockImplementation(() => new Promise<Response>((resolve) => (answer = resolve)));
     const { user, container } = renderApplicationPage();
 
     await fillIn(user, container, COMPLETE_DRAFT);
@@ -282,6 +284,10 @@ describe("the public application form", () => {
       "the submit posts something other than the composed payload",
     );
     assert.ok(screen.queryByRole("button", { name: "Schickt ab..." }), "the send in flight is not shown on its button");
+
+    // Answered before the case ends: React holds every later transition in this file behind an action left running.
+    answer(new Response(JSON.stringify({ success: true, message: "" })));
+    await settle();
   });
 
   /* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and

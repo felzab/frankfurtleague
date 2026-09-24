@@ -285,76 +285,80 @@ export function AdminTeamEditForm({
         }
       }
 
-      if (failures.length > 0) {
-        // One press, one failure: the half that saved leads each sentence, and one half of unknown
-        // outcome makes the whole press one, whatever the other half answered.
-        reportSubmitFailure(
-          {
-            success: false,
-            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
-            fieldErrors: collectedErrors,
-            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
-            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
-          },
-          { team: clubPayload, saisonTeam: saisonPayload },
-          {
-            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
-            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
-            // said nowhere else.
-            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
-          },
-        );
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (failures.length > 0) {
+          // One press, one failure: the half that saved leads each sentence, and one half of unknown
+          // outcome makes the whole press one, whatever the other half answered.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+              fieldErrors: collectedErrors,
+              unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+            },
+            { team: clubPayload, saisonTeam: saisonPayload },
+            {
+              raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+              // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+              // said nowhere else.
+              evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+            },
+          );
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // `team` and `storedMembership` are this render's props, so they still carry the pre-save
-      // values. Built BEFORE leaving, because the toast outlives the page.
-      const undoPayloads: TeamUndoPayloads = {
-        ...(clubDirty
-          ? {
-              club: {
-                id: team.id,
-                name: team.name,
-                shorthand: team.shorthand,
-                full_name: team.full_name,
-                website_url: team.website_url,
-                description: team.description,
-                address: team.address,
-                schulform: team.schulform,
-              },
-            }
-          : {}),
-        ...(saisonDirty && storedMembership !== null
-          ? {
-              saison: {
-                team_id: team.id,
-                saison_id: saison.saisonId,
-                gruppe: storedMembership.gruppe,
-                austritt: storedMembership.austritt,
-                trikot_farbe: storedMembership.trikot_farbe,
-              },
-            }
-          : {}),
-      };
-      // A lifted disqualification is the one thing this save can destroy that nothing else copies,
-      // so that grade is a warning; an ordinary save is a reversible success.
-      const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
-      offerUndo({
-        endpoint: "/api/admin/teams/undo",
-        body: undoPayloads,
-        message: consequenceNotes.join(" ") || undefined,
-        fallback: "Die Teamdaten wurden aktualisiert.",
-        warn: destroyedSomething,
-        router,
+        // `team` and `storedMembership` are this render's props, so they still carry the pre-save
+        // values. Built BEFORE leaving, because the toast outlives the page.
+        const undoPayloads: TeamUndoPayloads = {
+          ...(clubDirty
+            ? {
+                club: {
+                  id: team.id,
+                  name: team.name,
+                  shorthand: team.shorthand,
+                  full_name: team.full_name,
+                  website_url: team.website_url,
+                  description: team.description,
+                  address: team.address,
+                  schulform: team.schulform,
+                },
+              }
+            : {}),
+          ...(saisonDirty && storedMembership !== null
+            ? {
+                saison: {
+                  team_id: team.id,
+                  saison_id: saison.saisonId,
+                  gruppe: storedMembership.gruppe,
+                  austritt: storedMembership.austritt,
+                  trikot_farbe: storedMembership.trikot_farbe,
+                },
+              }
+            : {}),
+        };
+        // A lifted disqualification is the one thing this save can destroy that nothing else copies,
+        // so that grade is a warning; an ordinary save is a reversible success.
+        const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
+        offerUndo({
+          endpoint: "/api/admin/teams/undo",
+          body: undoPayloads,
+          message: consequenceNotes.join(" ") || undefined,
+          fallback: "Die Teamdaten wurden aktualisiert.",
+          warn: destroyedSomething,
+          router,
+        });
+
+        // AFTER the undo payloads are built: leaving with typed values still in state lets a
+        // save-then-undo reopen on values the club does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payloads are built: leaving with typed values still in state is what let a
-      // save-then-undo reopen on values the club no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

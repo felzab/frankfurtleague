@@ -255,40 +255,44 @@ export function AdminSaisonEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSaisonAction(payload).catch(unansweredAction);
 
-      if (!res.success) {
-        reportSubmitFailure(res, { saison: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { saison: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
-      // on read, so the move goes unnoticed.
-      const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
-      const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
+        // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
+        // on read, so the move goes unnoticed.
+        const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
+        const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
 
-      offerUndo({
-        endpoint: "/api/admin/saisons/undo",
-        body: undoPayload,
-        // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
-        // sentence.
-        message: pointsMoved
-          ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
-          : tiebreakMoved
-            ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-            : undefined,
-        // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
-        // `fallback` carries why the register asks for a sentence there anyway.
-        fallback: "Die Saisondaten wurden aktualisiert.",
-        warn: pointsMoved || tiebreakMoved,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/saisons/undo",
+          body: undoPayload,
+          // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
+          // sentence.
+          message: pointsMoved
+            ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
+            : tiebreakMoved
+              ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
+              : undefined,
+          // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
+          // `fallback` carries why the register asks for a sentence there anyway.
+          fallback: "Die Saisondaten wurden aktualisiert.",
+          warn: pointsMoved || tiebreakMoved,
+          router,
+        });
+
+        // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
+        // values the season does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
-      // values the season no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

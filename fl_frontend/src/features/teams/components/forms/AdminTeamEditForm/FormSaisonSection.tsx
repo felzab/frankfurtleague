@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
@@ -102,10 +102,14 @@ function GruppenTauschControl({
       }
 
       appToast.success("Gruppen getauscht", { description: res.message });
-      setPartner(null);
-      // Re-renders the page the admin is still standing on, whose locked group row has to show the
-      // group the swap produced.
-      router.refresh();
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        setPartner(null);
+        // Re-renders the page the admin is still standing on, whose locked group row has to show the
+        // group the swap produced.
+        router.refresh();
+      });
     });
   };
 
@@ -270,19 +274,23 @@ export function FormSaisonSection({
     startEntering(async () => {
       const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
 
-      if (res.success) {
-        setEntryGruppeError(null);
-        appToast.success("Team aufgenommen", { description: res.message });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startEntering(() => {
+        if (res.success) {
+          setEntryGruppeError(null);
+          appToast.success("Team aufgenommen", { description: res.message });
+          return;
+        }
 
-      const gruppeError = res.fieldErrors?.gruppe ?? null;
-      setEntryGruppeError(gruppeError);
-      // Suppressed where the picker carries the message, so a refusal about the chosen group is not
-      // also said in a toast that names no field.
-      if (gruppeError === null) {
-        appToast.failure("Team nicht aufgenommen", res);
-      }
+        const gruppeError = res.fieldErrors?.gruppe ?? null;
+        setEntryGruppeError(gruppeError);
+        // Suppressed where the picker carries the message, so a refusal about the chosen group is not
+        // also said in a toast that names no field.
+        if (gruppeError === null) {
+          appToast.failure("Team nicht aufgenommen", res);
+        }
+      });
     });
   };
 

@@ -101,19 +101,23 @@ export function FormKaderSection({
         rolle: null,
       });
 
-      if (res.success) {
-        setEntryTeamError(null);
-        appToast.success("Spieler aufgenommen", { description: res.message });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startEntering(() => {
+        if (res.success) {
+          setEntryTeamError(null);
+          appToast.success("Spieler aufgenommen", { description: res.message });
+          return;
+        }
 
-      const teamError = res.fieldErrors?.team_id ?? null;
-      setEntryTeamError(teamError);
-      // Suppressed where the picker carries the message, so a refusal about the chosen team is not
-      // also said in a toast that names no field.
-      if (teamError === null) {
-        appToast.failure("Spieler nicht aufgenommen", res);
-      }
+        const teamError = res.fieldErrors?.team_id ?? null;
+        setEntryTeamError(teamError);
+        // Suppressed where the picker carries the message, so a refusal about the chosen team is not
+        // also said in a toast that names no field.
+        if (teamError === null) {
+          appToast.failure("Spieler nicht aufgenommen", res);
+        }
+      });
     });
   };
 

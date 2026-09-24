@@ -94,9 +94,11 @@ describe("the team's invite panel", () => {
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
 
     assert.deepEqual(sent("postEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
+    // Found rather than got: the mint's update commits with the press's transition, after the click.
+    const feld = await screen.findByRole("textbox", { name: "Registrierungslink" });
     // The property and not the attribute: React writes a textarea's value as neither markup nor an
     // attribute, so an attribute read here would compare the empty string against the link forever.
-    assert.equal((screen.getByRole("textbox", { name: "Registrierungslink" }) as HTMLTextAreaElement).value, LINK);
+    assert.equal((feld as HTMLTextAreaElement).value, LINK);
     assert.ok(screen.getByRole("button", { name: "Link kopieren" }));
     assert.ok(screen.getByRole("button", { name: "Link per E-Mail senden" }));
     assert.ok(isInTheFlow("Der Link selbst wird nicht gespeichert"), "nothing says the value is gone when the page is left");
@@ -113,6 +115,7 @@ describe("the team's invite panel", () => {
 
     const { rerender } = render(held(`${TEAM_ID}:${SAISON_ID}`, "vor dem Speichern"));
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    await screen.findByRole("textbox", { name: "Registrierungslink" });
     assert.equal(wert(), LINK, "the mint never put the value on the page, so the two reads below prove nothing");
 
     // The key the editor wears is the stored state a save moves, so any other panel's save remounts

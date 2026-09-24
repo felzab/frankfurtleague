@@ -253,64 +253,68 @@ export function AdminSpielerEditForm({
         }
       }
 
-      if (failures.length > 0) {
-        // One press, one failure: the half that saved leads each sentence, and one half of unknown
-        // outcome makes the whole press one, whatever the other half answered.
-        reportSubmitFailure(
-          {
-            success: false,
-            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
-            fieldErrors: collectedErrors,
-            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
-            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
-          },
-          { spieler: personPayload, saisonSpieler: saisonPayload },
-          {
-            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
-            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
-            // said nowhere else.
-            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
-          },
-        );
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (failures.length > 0) {
+          // One press, one failure: the half that saved leads each sentence, and one half of unknown
+          // outcome makes the whole press one, whatever the other half answered.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+              fieldErrors: collectedErrors,
+              unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+            },
+            { spieler: personPayload, saisonSpieler: saisonPayload },
+            {
+              raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+              // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+              // said nowhere else.
+              evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+            },
+          );
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
-      // values. Built BEFORE leaving, because the toast outlives the page.
-      const undoPayloads: SpielerUndoPayloads = {
-        ...(personDirty
-          ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
-          : {}),
-        ...(saisonDirty && storedMembership !== null
-          ? {
-              saison: {
-                spieler_id: spieler.id,
-                saison_id: saison.saisonId,
-                team_id: storedMembership.team_id,
-                nummer: storedMembership.nummer,
-                position: storedMembership.position,
-                stufe: storedMembership.stufe,
-                rolle: storedMembership.rolle,
-              },
-            }
-          : {}),
-      };
-      // A success rather than a warning: this save destroys nothing without another copy.
-      offerUndo({
-        endpoint: "/api/admin/spieler/undo",
-        body: undoPayloads,
-        message: consequenceNotes.join(" ") || undefined,
-        fallback: "Die Spielerdaten wurden aktualisiert.",
-        router,
+        // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
+        // values. Built BEFORE leaving, because the toast outlives the page.
+        const undoPayloads: SpielerUndoPayloads = {
+          ...(personDirty
+            ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
+            : {}),
+          ...(saisonDirty && storedMembership !== null
+            ? {
+                saison: {
+                  spieler_id: spieler.id,
+                  saison_id: saison.saisonId,
+                  team_id: storedMembership.team_id,
+                  nummer: storedMembership.nummer,
+                  position: storedMembership.position,
+                  stufe: storedMembership.stufe,
+                  rolle: storedMembership.rolle,
+                },
+              }
+            : {}),
+        };
+        // A success rather than a warning: this save destroys nothing without another copy.
+        offerUndo({
+          endpoint: "/api/admin/spieler/undo",
+          body: undoPayloads,
+          message: consequenceNotes.join(" ") || undefined,
+          fallback: "Die Spielerdaten wurden aktualisiert.",
+          router,
+        });
+
+        // AFTER the undo payloads are built: leaving with typed values still in state lets a
+        // save-then-undo reopen on values the player does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payloads are built: leaving with typed values still in state is what let a
-      // save-then-undo reopen on values the player no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

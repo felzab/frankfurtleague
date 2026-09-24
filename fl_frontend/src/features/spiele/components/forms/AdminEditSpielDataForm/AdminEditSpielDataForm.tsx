@@ -365,44 +365,48 @@ export function AdminEditSpielDataForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
 
-      if (!res.success) {
-        // A field error rather than a toast, so the message lands on the control to change.
-        const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
-        reportSubmitFailure({ ...res, fieldErrors: { ...(res.fieldErrors ?? {}), ...occupantErrors } }, { spiel: payload });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          // A field error rather than a toast, so the message lands on the control to change.
+          const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
+          reportSubmitFailure({ ...res, fieldErrors: { ...(res.fieldErrors ?? {}), ...occupantErrors } }, { spiel: payload });
 
-        // The remedies the field's one sentence has no room for, keyed to the draft just judged.
-        setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
-        return;
-      }
+          // The remedies the field's one sentence has no room for, keyed to the draft just judged.
+          setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setRefusal(null);
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setRefusal(null);
+        setHasSaved(true);
 
-      // Built BEFORE leaving: these are this render's props and the toast outlives the page.
-      const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
+        // Built BEFORE leaving: these are this render's props and the toast outlives the page.
+        const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
-      offerUndo({
-        endpoint: "/api/admin/spiele/undo",
-        // Every fixture from the SAVE's own answer, in the order it reported them: the props this
-        // render was served are older than the save, so an undo built from them would revert a field
-        // another writer moved.
-        body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
-        message: res.message,
-        fallback: "Die Spieldaten wurden aktualisiert.",
-        warn: affected.length > 0,
-        router,
-        // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
-        // so no server log holds the diagnosis. One that reached the server stays generic.
-        reportRejection: (dispatchError) =>
-          appToast.danger("Änderung nicht zurückgenommen", {
-            description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
-            timeout: DIAGNOSIS_TIMEOUT_MS,
-          }),
+        offerUndo({
+          endpoint: "/api/admin/spiele/undo",
+          // Every fixture from the SAVE's own answer, in the order it reported them: the props this
+          // render was served are older than the save, so an undo built from them would revert a field
+          // another writer moved.
+          body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
+          message: res.message,
+          fallback: "Die Spieldaten wurden aktualisiert.",
+          warn: affected.length > 0,
+          router,
+          // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
+          // so no server log holds the diagnosis. One that reached the server stays generic.
+          reportRejection: (dispatchError) =>
+            appToast.danger("Änderung nicht zurückgenommen", {
+              description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
+              timeout: DIAGNOSIS_TIMEOUT_MS,
+            }),
+        });
+
+        resetDraftToStored();
+        leavePage();
       });
-
-      resetDraftToStored();
-      leavePage();
     });
   };
 

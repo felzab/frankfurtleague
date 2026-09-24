@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Calendar from "@gravity-ui/icons/Calendar";
@@ -191,13 +191,17 @@ export function FormSpielplanSection({
         report(removedNothing ? "Kein Spielplan vorhanden" : "Spielplan zurückgenommen", { description: res.message });
       }
 
-      // Cleared with the write that consumed it: this operation is done, and a choice left standing
-      // would preselect itself the next time both acts are open.
-      setPicked(null);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        // Cleared with the write that consumed it: this operation is done, and a choice left standing
+        // would preselect itself the next time both acts are open.
+        setPicked(null);
 
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-      // which now reports the draw that stands and what the control would do to it next.
-      router.refresh();
+        // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
+        // which now reports the draw that stands and what the control would do to it next.
+        router.refresh();
+      });
     });
   };
 

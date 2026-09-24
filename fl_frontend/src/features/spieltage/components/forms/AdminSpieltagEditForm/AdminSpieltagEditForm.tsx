@@ -131,31 +131,35 @@ export function AdminSpieltagEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSpieltagAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { spieltag: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { spieltag: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      if (undoPayload === null) {
-        appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
-      } else {
-        // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
-        // back as `REQ-DATE-003` rather than a restore.
-        offerUndo({
-          endpoint: "/api/admin/spieltage/undo",
-          body: undoPayload,
-          fallback: "Der Spieltag wurde aktualisiert.",
-          router,
-        });
-      }
+        if (undoPayload === null) {
+          appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
+        } else {
+          // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
+          // back as `REQ-DATE-003` rather than a restore.
+          offerUndo({
+            endpoint: "/api/admin/spieltage/undo",
+            body: undoPayload,
+            fallback: "Der Spieltag wurde aktualisiert.",
+            router,
+          });
+        }
 
-      // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
-      // left in state let a save-then-undo reopen on values the matchday no longer holds.
-      resetDraftToStored();
-      leavePage();
+        // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
+        // left in state let a save-then-undo reopen on values the matchday does not hold.
+        resetDraftToStored();
+        leavePage();
+      });
     });
   };
 

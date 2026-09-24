@@ -394,33 +394,42 @@ function SpielerBestaetigungForm({
 
       const antwort = gesendet.body;
 
-      if (!antwort.success) {
-        // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-        // sentence is an administrator's repair, and a reload of this page has lost its token.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!antwort.success) {
+          // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
+          // sentence is an administrator's repair, and a reload of this page has lost its token.
+          if (antwort.outcome === "unknown") {
+            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+            return;
+          }
+
+          // The link died between the open and the press: the answer is the panel, never a toast.
+          if (antwort.zustand !== undefined) {
+            onAbschluss({ zustand: antwort.zustand });
+            return;
+          }
+
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: antwort.error ?? NICHT_GESPEICHERT,
+              fieldErrors: antwort.fieldErrors,
+              unplacedError: antwort.unplacedError,
+            },
+            { bestaetigung: body },
+            { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+          );
           return;
         }
 
-        // The link died between the open and the press: the answer is the panel, never a toast.
-        if (antwort.zustand !== undefined) {
-          onAbschluss({ zustand: antwort.zustand });
-          return;
-        }
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { bestaetigung: body },
-          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
-        );
-        return;
-      }
-
-      setSubmitFieldErrors({}, {});
-      onAbschluss({
-        zustand: "erfolg",
-        gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+        setSubmitFieldErrors({}, {});
+        onAbschluss({
+          zustand: "erfolg",
+          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+        });
       });
     });
   };

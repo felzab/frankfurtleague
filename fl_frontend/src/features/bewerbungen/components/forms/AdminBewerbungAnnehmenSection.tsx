@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import SealCheck from "@gravity-ui/icons/SealCheck";
@@ -83,21 +83,25 @@ export function AdminBewerbungAnnehmenSection({
     press(async () => {
       const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe });
 
-      if (!res.success) {
-        const fieldError = res.fieldErrors?.gruppe ?? null;
-        setGruppeError(fieldError);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        if (!res.success) {
+          const fieldError = res.fieldErrors?.gruppe ?? null;
+          setGruppeError(fieldError);
 
-        // Suppressed where the picker carries the message, so a refusal about the chosen group is
-        // not also said in a toast that names no field.
-        if (fieldError === null) appToast.failure("Bewerbung nicht angenommen", res);
-        return;
-      }
+          // Suppressed where the picker carries the message, so a refusal about the chosen group is
+          // not also said in a toast that names no field.
+          if (fieldError === null) appToast.failure("Bewerbung nicht angenommen", res);
+          return;
+        }
 
-      setGruppeError(null);
-      appToast.success("Bewerbung angenommen", { description: res.message });
-      // The application is decided now, so this page has to come back showing that: the two decision
-      // panels go and the Entscheidung block takes their place.
-      router.refresh();
+        setGruppeError(null);
+        appToast.success("Bewerbung angenommen", { description: res.message });
+        // The application is decided now, so this page has to come back showing that: the two decision
+        // panels go and the Entscheidung block takes their place.
+        router.refresh();
+      });
     });
   };
 

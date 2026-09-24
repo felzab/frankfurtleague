@@ -146,26 +146,30 @@ export function AdminSpielortEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSpielortAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { spielort: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { spielort: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      offerUndo({
-        endpoint: "/api/admin/spielorte/undo",
-        body: undoPayload,
-        message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
-        fallback: "Die Spielortdaten wurden aktualisiert.",
-        router,
+        offerUndo({
+          endpoint: "/api/admin/spielorte/undo",
+          body: undoPayload,
+          message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
+          fallback: "Die Spielortdaten wurden aktualisiert.",
+          router,
+        });
+
+        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
+        // reopen on values the venue does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // After the undo payload is built: leaving with typed values still in state let a save-then-undo
-      // reopen on values the venue no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

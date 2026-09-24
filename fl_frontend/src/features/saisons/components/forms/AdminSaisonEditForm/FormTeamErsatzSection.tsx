@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
@@ -89,11 +89,15 @@ export function FormTeamErsatzSection({
       }
 
       appToast.success("Team ersetzt", { description: res.message });
-      setOutgoingId(null);
-      setIncomingId(null);
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-      // whose pickers now have to show the season this write produced.
-      router.refresh();
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        setOutgoingId(null);
+        setIncomingId(null);
+        // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
+        // whose pickers now have to show the season this write produced.
+        router.refresh();
+      });
     });
   };
 

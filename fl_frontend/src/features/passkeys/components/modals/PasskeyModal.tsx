@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import Plus from "@gravity-ui/icons/Plus";
 
@@ -200,15 +200,24 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     if (held !== null) {
       // The server's refusal may answer a list another change moved -- a row already gone, or one
       // added or removed at the same moment -- so the list is read again before the control reopens.
-      if (held.reread) await lade();
-      setIstBeschaeftigt(false);
+      const gelesen = held.reread ? await readPasskeysAction() : null;
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        if (gelesen !== null) uebernimm(gelesen);
+        setIstBeschaeftigt(false);
+      });
       appToast.danger("Passkey nicht gelöscht", { description: held.description });
       return;
     }
 
     appToast.success("Passkey gelöscht", { description: "Alle anderen Geräte wurden abgemeldet." });
-    await lade();
-    setIstBeschaeftigt(false);
+    const gelesen = await readPasskeysAction();
+    // Wrapped again, as above: the list and the released hold commit with the press's own release.
+    startTransition(() => {
+      uebernimm(gelesen);
+      setIstBeschaeftigt(false);
+    });
   };
 
   return (

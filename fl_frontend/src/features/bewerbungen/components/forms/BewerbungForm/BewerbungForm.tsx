@@ -261,32 +261,41 @@ export function BewerbungForm({
 
       const antwort = gesendet.body;
 
-      if (!antwort.success) {
-        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!antwort.success) {
+          // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+          if (antwort.outcome === "unknown") {
+            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+            return;
+          }
+
+          // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
+          // nothing, or the refusal saying the first details stand, and either keeps its replay
+          // (`docs/frontend/spec.md :: I348`).
+          if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: antwort.error ?? NICHT_ABGESCHICKT,
+              fieldErrors: antwort.fieldErrors,
+              unplacedError: antwort.unplacedError,
+            },
+            { bewerbung: payload },
+            {
+              raise: (shown) =>
+                appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
+            },
+          );
           return;
         }
 
-        // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
-        // nothing, or the refusal saying the first details stand, and either keeps its replay
-        // (`docs/frontend/spec.md :: I348`).
-        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { bewerbung: payload },
-          {
-            raise: (shown) =>
-              appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
-          },
-        );
-        return;
-      }
-
-      setSubmitFieldErrors({}, {});
-      setIsEingereicht(true);
+        setSubmitFieldErrors({}, {});
+        setIsEingereicht(true);
+      });
     });
   };
 

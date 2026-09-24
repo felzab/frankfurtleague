@@ -82,18 +82,22 @@ export function EntityForm<TDraft, TPayload = TDraft>({
       // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
       const res = await onSubmit(payload).catch(unansweredAction);
 
-      if (!res.success) {
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(res, { entity: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(res, { entity: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setDraft(initialDraft);
-      // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
-      // the title: an action with nothing to add sends the title's own words.
-      appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
-      onClose();
+        setSubmitFieldErrors({}, {});
+        setDraft(initialDraft);
+        // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+        // the title: an action with nothing to add sends the title's own words.
+        appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
+        onClose();
+      });
     });
   };
 

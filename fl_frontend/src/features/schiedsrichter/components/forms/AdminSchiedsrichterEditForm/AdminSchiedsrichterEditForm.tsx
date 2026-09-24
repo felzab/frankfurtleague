@@ -198,38 +198,42 @@ export function AdminSchiedsrichterEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { schiedsrichter: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { schiedsrichter: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // The save's own sentence FIRST: where the address moved it reports a link that went out, and
-      // dropping it leaves an administrator with no record that a message was sent at all.
-      const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
-        .filter((satz) => satz !== undefined)
-        .join(" ");
+        // The save's own sentence FIRST: where the address moved it reports a link that went out, and
+        // dropping it leaves an administrator with no record that a message was sent at all.
+        const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
+          .filter((satz) => satz !== undefined)
+          .join(" ");
 
-      offerUndo({
-        endpoint: "/api/admin/schiedsrichter/undo",
-        body: undoPayload,
-        message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-        // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
-        // referee having no working link and nobody else being told.
-        warn: res.versandFehlgeschlagen === true,
-        fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-        // Judged here and not left to the undo route: the shared spine can only answer a body the
-        // schema refuses with a reload nothing would change.
-        unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/schiedsrichter/undo",
+          body: undoPayload,
+          message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
+          // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
+          // referee having no working link and nobody else being told.
+          warn: res.versandFehlgeschlagen === true,
+          fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
+          // Judged here and not left to the undo route: the shared spine can only answer a body the
+          // schema refuses with a reload nothing would change.
+          unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
+          router,
+        });
+
+        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
+        // reopen on values the referee does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // After the undo payload is built: leaving with typed values still in state let a save-then-undo
-      // reopen on values the referee no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import Envelope from "@gravity-ui/icons/Envelope";
@@ -137,12 +137,16 @@ export function FormEinladungVersandSection({
       return;
     }
 
-    setErgebnis(res.zeilen);
-    // Dropped rather than kept: the rows it held were true before this write, and the skips it
-    // listed have just moved.
-    setVorschau(null);
-    appToast.success("Registrierungslinks gesendet", { description: res.message });
-    router.refresh();
+    // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setErgebnis(res.zeilen);
+      // Dropped rather than kept: the rows it held were true before this write, and the skips it
+      // listed have just moved.
+      setVorschau(null);
+      appToast.success("Registrierungslinks gesendet", { description: res.message });
+      router.refresh();
+    });
   };
 
   const handlePress = () => {

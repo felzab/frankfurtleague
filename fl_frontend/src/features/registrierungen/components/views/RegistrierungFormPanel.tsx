@@ -112,38 +112,50 @@ export function RegistrierungFormPanel({
 
       const antwort = gesendet.body;
 
-      if (!antwort.success) {
-        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: REGISTRIERUNG_UNKLAR });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!antwort.success) {
+          // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+          if (antwort.outcome === "unknown") {
+            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: REGISTRIERUNG_UNKLAR });
+            return;
+          }
+
+          // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
+          // the corrected address is a new registration. A sentence alone keeps its replay
+          // (`docs/frontend/spec.md :: I348`).
+          if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
+          // The invite died between the open and the press: the answer is the whole page, never a toast.
+          if (antwort.zustand !== undefined) {
+            onLinkTot();
+            return;
+          }
+
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: antwort.error ?? NICHT_ABGESCHICKT,
+              fieldErrors: antwort.fieldErrors,
+              unplacedError: antwort.unplacedError,
+            },
+            { registrierung: payload },
+            {
+              raise: (shown) =>
+                appToast.failure(
+                  antwort.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt",
+                  shown,
+                ),
+            },
+          );
           return;
         }
 
-        // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
-        // the corrected address is a new registration. A sentence alone keeps its replay
-        // (`docs/frontend/spec.md :: I348`).
-        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
-
-        // The invite died between the open and the press: the answer is the whole page, never a toast.
-        if (antwort.zustand !== undefined) {
-          onLinkTot();
-          return;
-        }
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { registrierung: payload },
-          {
-            raise: (shown) =>
-              appToast.failure(antwort.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt", shown),
-          },
-        );
-        return;
-      }
-
-      setSubmitFieldErrors({}, {});
-      setIsEingereicht(true);
+        setSubmitFieldErrors({}, {});
+        setIsEingereicht(true);
+      });
     });
   };
 

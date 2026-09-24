@@ -167,38 +167,42 @@ export function AdminKontakteEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
 
-      if (!res.success) {
-        reportSubmitFailure(res, { kontakte: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startTransition(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { kontakte: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
-      // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
-      const nachStand = res.saison_team?.kontakte_stand;
-      // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-      // shape the undo route parses.
-      const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-      // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
-      // malformed address on read, that row is no legal write, and the shared spine can only
-      // answer such a body with a reload nothing would change.
-      const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
+        // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
+        // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
+        const nachStand = res.saison_team?.kontakte_stand;
+        // The same value seen as the endpoint's own payload, so what the toast replays is held to the
+        // shape the undo route parses.
+        const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
+        // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
+        // malformed address on read, that row is no legal write, and the shared spine can only
+        // answer such a body with a reload nothing would change.
+        const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
 
-      offerUndo({
-        endpoint: "/api/admin/kontakte/undo",
-        body: undoPayload,
-        message: res.message,
-        fallback: "Die Kontakte wurden aktualisiert.",
-        unrestorable,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/kontakte/undo",
+          body: undoPayload,
+          message: res.message,
+          fallback: "Die Kontakte wurden aktualisiert.",
+          unrestorable,
+          router,
+        });
+
+        // AFTER the undo payload is built: leaving with typed values still in state lets a
+        // save-then-undo reopen the editor on values the season does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payload is built: leaving with typed values still in state is what let a
-      // save-then-undo reopen the editor on values the season no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 

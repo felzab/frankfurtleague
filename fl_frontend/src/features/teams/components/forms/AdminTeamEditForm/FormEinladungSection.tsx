@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
@@ -93,11 +93,15 @@ export function FormEinladungSection({
       return;
     }
 
-    setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
-    appToast.success("Registrierungslink angelegt", { description: res.message });
-    // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-    // whose state read now has to show the row this press wrote.
-    router.refresh();
+    // Wrapped again: both callers run this inside a transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
+      appToast.success("Registrierungslink angelegt", { description: res.message });
+      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
+      // whose state read now has to show the row this press wrote.
+      router.refresh();
+    });
   };
 
   const widerrufen = async () => {
@@ -108,9 +112,13 @@ export function FormEinladungSection({
       return;
     }
 
-    setFrisch(null);
-    appToast.success("Link zurückgezogen", { description: res.message });
-    router.refresh();
+    // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setFrisch(null);
+      appToast.success("Link zurückgezogen", { description: res.message });
+      router.refresh();
+    });
   };
 
   const handlePress = () => {
@@ -119,9 +127,13 @@ export function FormEinladungSection({
 
     press(async () => {
       await (gewaehlt === "ersetzen" ? mint() : widerrufen());
-      // Cleared with the write that consumed it: a choice left standing would preselect itself the
-      // next time both acts are open.
-      setGewaehlt(null);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        // Cleared with the write that consumed it: a choice left standing would preselect itself the
+        // next time both acts are open.
+        setGewaehlt(null);
+      });
     });
   };
 
