@@ -253,6 +253,32 @@ const QUERY_IN_EQUALITY = {
     "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
 };
 
+/**
+ * A transition's start function is known by its name alone: React's standalone `startTransition`,
+ * and every `useTransition` start function, named `start` and the act it runs. One named otherwise
+ * escapes the ban below.
+ */
+const TRANSITION_START = "CallExpression[callee.name=/^start[A-Z]/]";
+const AWAITING_TRANSITION = `${TRANSITION_START} > :function[async=true]`;
+
+/**
+ * A `set*` call React leaves outside the transition that awaited (`docs/frontend/spec.md ::
+ * I356`). Read by position, so a callback run inside a transition from another
+ * function, and an update not spelled `set*`, pass unseen.
+ */
+const TRANSITION_REWRAP = {
+  selector: [
+    "BlockStatement > :has(AwaitExpression) ~ * CallExpression",
+    "CallExpression:has(AwaitExpression)",
+    "TryStatement:has(> BlockStatement.block:has(AwaitExpression)) > :matches(CatchClause, BlockStatement.finalizer) CallExpression",
+    "IfStatement:has(> :matches(AwaitExpression, :has(AwaitExpression)).test) > :not(.test) CallExpression",
+  ]
+    .map((arm) => `${AWAITING_TRANSITION} ${arm}[callee.name=/^set[A-Z]/]:not(${TRANSITION_START} > :function[async!=true] *)`)
+    .join(", "),
+  message:
+    "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` (docs/frontend/spec.md :: I356).",
+};
+
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
@@ -342,6 +368,7 @@ const SOURCE_BANS = [
       'CallExpression[callee.type="MemberExpression"][callee.object.type="MemberExpression"][callee.object.property.name="api"] > ObjectExpression.arguments > Property[key.name="request"]',
     message: "A `request` handed to an `auth.api` call carries that call onto the browser's paths.",
   },
+  TRANSITION_REWRAP,
   {
     selector: inLiteral(String.raw`api\.resend\.com\x2Femails`),
     message: "The provider's endpoint is named in fl_frontend/src/core/mail.ts alone.",
