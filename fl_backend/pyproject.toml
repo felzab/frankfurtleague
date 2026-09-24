@@ -97,6 +97,9 @@ select = [
     "D209",  # multi-line docstring closing quotes on their own line
     "D210",  # no surrounding whitespace in docstrings
     "D419",  # docstring is empty
+    # A `noqa` that suppresses nothing still reads as a reason the line needs one, and the reason
+    # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
+    "RUF100",  # unused noqa directive
 ]
 ignore = ["B008"]
 [tool.ruff.format]

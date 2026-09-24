@@ -16,9 +16,9 @@ from pathlib import Path
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import run  # noqa: E402 -- the insert above is what resolves it
-from docs_gate.branch import check_comment_bounds  # noqa: E402
-from docs_gate.checks import (  # noqa: E402
+from checker_kernel import run
+from docs_gate.branch import check_comment_bounds
+from docs_gate.checks import (
     METADATA_LINE_RE,
     RULE_ID_RE,
     check_enforced_by,
@@ -27,7 +27,7 @@ from docs_gate.checks import (  # noqa: E402
     check_template_fragments,
     main,
 )
-from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids  # noqa: E402
+from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids
 
 # Named for export rather than for use here: every one below is cited from a document, a command
 # file or a sibling checker.

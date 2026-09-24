@@ -30,7 +30,7 @@ from typing import Final
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import (
     CONTINUATION,
     EXIT_REFUSED,
     REPO_ROOT,

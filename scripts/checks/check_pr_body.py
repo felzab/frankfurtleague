@@ -16,7 +16,7 @@ from typing import Final
 # `scripts/lib/` is a sibling of this directory, and a script's sys.path opens with this one.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import EXIT_OK, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import EXIT_OK, Finding, report_findings, run
 
 SUMMARY_TARGET: Final = 200  # reported: past a generous reading of "one or two paragraphs"
 SUMMARY_MAX: Final = 500  # failed: past any reading of it
