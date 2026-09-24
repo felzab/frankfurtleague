@@ -12,7 +12,7 @@ import type { FormState } from "@/shared/types/types";
  * does must not differ. `disarm` is each surface's own escape, that gesture differing where the reset does not.
  */
 export function useSignOut(onSignOut: () => Promise<FormState>) {
-  const [isSigningOut, startSignOut] = useTransition();
+  const [isSigningOut, startSigningOut] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
   const router = useRouter();
 
@@ -37,7 +37,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
   // The toast fires before navigating: `Toast.Provider` sits above the router, and one queued after
   // `push()` races the caller's unmount.
   const signOutNow = () => {
-    startSignOut(async () => {
+    startSigningOut(async () => {
       try {
         const result = await onSignOut();
 

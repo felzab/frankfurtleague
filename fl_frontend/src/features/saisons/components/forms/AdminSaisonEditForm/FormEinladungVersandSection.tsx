@@ -123,7 +123,7 @@ export function FormEinladungVersandSection({
   const [vorschau, setVorschau] = useState<readonly FLEinladungVersandVorschauZeile[] | null>(null);
   const [ergebnis, setErgebnis] = useState<readonly EinladungVersandErgebnis[] | null>(null);
   const [erneut, setErneut] = useState(false);
-  const [isLoadingVorschau, startVorschau] = useTransition();
+  const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
   const { isConfirming, isPending: isSending, press, cancel } = useTwoPressConfirm();
 
@@ -155,7 +155,7 @@ export function FormEinladungVersandSection({
       return;
     }
 
-    startVorschau(async () => {
+    startLoadingVorschau(async () => {
       // The value the PRESS will carry, so the list names the teams that press will write to: read
       // with the other value it would show a skip the press is about to ignore.
       const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut });
@@ -168,7 +168,7 @@ export function FormEinladungVersandSection({
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so unwrapped the armed label commits a render before the hold lifts, and a press in that
       // render is dropped.
-      startVorschau(() => {
+      startLoadingVorschau(() => {
         setVorschau(res.zeilen);
         // Armed in the gesture that asked for the list, so the reader meets the list and the armed
         // control together rather than pressing a third time to reach the same state.
