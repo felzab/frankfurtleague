@@ -418,9 +418,9 @@ deliberate: this API is reached server-side from the frontend's own origin, neve
 an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
 request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
 
-**The internal keys' character class is what `secrets.compare_digest` can read**, and what holds the
-two sides' length checks to one answer (`docs/ops/spec.md :: I11`): a key the length bound alone
-admits boots and then answers every internal request 500.
+**The internal keys' character class is what `secrets.compare_digest` can read**
+(`docs/ops/spec.md :: I11`): a key the length bound alone admits boots and then answers every
+internal request 500.
 
 **`SPERRLISTE_SCHLUESSEL` is the one variable here that can never be replaced.** Every row of
 `sperrliste` holds an HMAC taken under it and no address survives to re-hash
