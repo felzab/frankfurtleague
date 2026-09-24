@@ -6,6 +6,7 @@ import { Label } from "@heroui/react/label";
 import { NumberField } from "@heroui/react/number-field";
 import { TextField } from "@heroui/react/textfield";
 
+import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import {
   FIELD_COUNT_INPUT_CLASSES,
   FIELD_ERROR_CLASSES,
@@ -42,7 +43,8 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         onChange={(next) => onChange({ ...draft, name: next })}
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
         // API, and on the input react-aria's field state never sees a value at all.
-        isInvalid={errors?.["name"] ? true : undefined}>
+        isInvalid={errors?.["name"] ? true : undefined}
+        maxLength={KONTAKT_NAME_MAX_LENGTH}>
         <Label className={FIELD_LABEL_CLASSES}>Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"

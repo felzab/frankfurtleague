@@ -17,21 +17,23 @@ const MARKUP = renderTree(
   h(DraftStatusProvider, {
     status: STATUS,
     children: h(FormPersonSection, {
-      draft: { vorname: "Lena", nachname: "Meier", geburtsdatum: null },
-      onChange: () => undefined,
+      name: "Anna Schmidt",
+      onNameChange: () => undefined,
+      schule: null,
+      onSchuleChange: () => undefined,
       onFieldLeft: () => undefined,
     }),
   }),
 );
 
 // Read off the edit's own payload rather than listed, so a ceiling it publishes later is judged here too.
-const WIDTHS = widthsAgainstBoxes(MARKUP, "FLPatchSpielerPayload");
+const WIDTHS = widthsAgainstBoxes(MARKUP, "FLPatchSchiedsrichterPayload");
 
 // The box stops the keystroke the save would refuse, as every box writing a name held to this ceiling
 // does; uncapped, the administrator types past it and learns so only from the field's refusal.
-describe("the pupil editor's boxes against the ceilings its payload publishes", () => {
+describe("the referee editor's person boxes against the ceilings its payload publishes", () => {
   it("finds a ceiling to judge", () => {
-    assert.ok(WIDTHS.length > 0, "FLPatchSpielerPayload publishes no character ceiling, so this section compares nothing");
+    assert.ok(WIDTHS.length > 0, "FLPatchSchiedsrichterPayload publishes no character ceiling, so this section compares nothing");
   });
 
   it("renders a box for every published ceiling", () => {
