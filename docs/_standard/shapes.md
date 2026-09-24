@@ -18,7 +18,7 @@ skeletons against nothing, and the rule each cites is the only thing holding it 
 | [A spec sheet](#a-spec-sheet)                 | OUT-4, and COR-7 for the table | `spec-spine`, `invariant-row`, `invariant-id` |
 | [An overview](#an-overview)                   | OUT-5                          | `overview-spine`                              |
 | [A README](#a-readme)                         | OUT-3                          | `readme-cap`                                  |
-| [A module header](#a-module-header)           | INC-2, and INC-7 for placement | `module-header`, `header-see`                 |
+| [A module header](#a-module-header)           | INC-2, and INC-7 for placement | `module-header`                               |
 | [What has no skeleton](#what-has-no-skeleton) | —                              | —                                             |
 
 ## A spec sheet

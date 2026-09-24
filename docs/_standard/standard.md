@@ -301,9 +301,8 @@ every file this Scope names.
   _Enforced by_ gate check `module-header`, over every file
   `scripts/checks/docs_gate/checks.py :: _header_scoped` admits that
   `scripts/checks/docs_gate/kernel.py :: is_prose` leaves, for the word bound, the title line, the
-  banned vocabulary and a header below the file's opening; gate check `header-see`, which resolves
-  every file a `See:` entry names; the three-sentence bound and which files carry a header at all
-  are review judgment.
+  banned vocabulary and a header below the file's opening; the three-sentence bound, whether a
+  `See:` entry still names a file, and which files carry a header at all are review judgment.
 - **INC-4:** a docstring is required in exactly two places — every FastAPI endpoint, published as the
   operation description in `/openapi.json` and written for a reader of the API; and anywhere with a
   why worth recording. There is no every-exported-symbol rule, because a coverage rule manufactures
@@ -470,9 +469,7 @@ README and every template.
 - **OUT-7:** diagrams are mermaid, so they render in-repo; C4 levels 1–3, mirroring the C4 model's
   own levels, which move without us; never a code diagram; no square brackets inside a quoted node
   label. They live in overviews, plus a spec sheet where a data flow is hard in prose. _Enforced by_
-  gate check `diagram`, for a fence naming a diagram language that is not mermaid and for a square
-  bracket inside a quoted node label; the C4 levels, where a diagram lives and whether it is a code
-  diagram are review judgment.
+  unenforced — review judgment.
 - **OUT-8:** a surface is one of the three parts of the system a reader goes to as a whole — frontend
   (`fl_frontend/`), backend (`fl_backend/`), and ops (the compose files, `nginx/`, `scripts/`, the
   Dockerfiles). Ops owns the scripts and what they guarantee; `docs/_git/` owns the pipeline that

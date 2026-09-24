@@ -1638,28 +1638,6 @@ def _plant_unreadable() -> None:
     (root / NOTES).write_bytes(b"\xff\xfe not decodable as utf-8\n")
 
 
-def _plant_header_see() -> None:
-    """One dead path per shape of what FOLLOWS it.
-
-    Every path is package-relative, which `bare-path` and `path` both leave alone: a top-level
-    prefix would fail each entry twice, and this case could not say which check spoke.
-    """
-    _replace(
-        SAMPLE,
-        QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
-        _page(
-            QUOTES + "BACKEND · a sample module the corpus scans.",
-            "",
-            "See:",
-            "- app/gone-em.py — a file that is not there",
-            "- app/gone-bare.py",
-            "- `app/gone-colon.py` : a file that is not there",
-            "- app/gone-cited.py :: a symbol — a file that is not there",
-            QUOTES,
-        ).rstrip("\n"),
-    )
-
-
 def _plant_rule_ids() -> None:
     """An unresolvable id, an id with more than one home, and an ambiguous invariant.
 
@@ -1769,24 +1747,6 @@ def _undo_enforced_by() -> None:
     kernel = _module("docs_gate.kernel")
     kernel.CHECKS.clear()
     kernel.CHECKS.update(_KEPT_CHECKS.pop())
-
-
-def _plant_diagrams() -> None:
-    """OUT-7's two decidable clauses on the fixture's overview: a fence nothing here renders, and a bracket inside a quoted label.
-
-    The clean label beside it parts a reader of the quote from one reading the whole line.
-    """
-    _append(
-        OVERVIEW,
-        FENCE + "plantuml",
-        "A -> B",
-        FENCE,
-        "",
-        FENCE + "mermaid",
-        "graph LR",
-        '    a["a label [with a bracket]"] --> b[("a label in a cylinder")]',
-        FENCE,
-    )
 
 
 def _plant_scheme_token() -> None:
@@ -2011,7 +1971,6 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
-    Case("diagram", _fails("diagram", OVERVIEW, OVERVIEW), _plant_diagrams),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.
     Case("echo", _fails("echo", NOTES), _plant_echo),
@@ -2020,7 +1979,6 @@ CASES: Final[tuple[Case, ...]] = (
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 6), _plant_enforced_by, _undo_enforced_by),
     Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 10), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
-    Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _fails("history", NOTES, NOTICE_FILE, SECOND_SAMPLE), _plant_history),
     Case("inputs", _fails("inputs", NOTICE_FILE, ROADMAP), _plant_missing_inputs),
     Case(

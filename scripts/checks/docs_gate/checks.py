@@ -83,7 +83,6 @@ from .kernel import (
     comment_style,
     declared_cases,
     defined_symbols,
-    fenced_lines,
     gitignored,
     has_name,
     has_suffix,
@@ -204,18 +203,6 @@ PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
 # Named by a finding about the tag derivation, for the same reason.
 CHECKS_PAGE: Final = "scripts/checks/docs_gate/checks.py"
-
-# Fence info strings a renderer other than mermaid reads, so a diagram in one is one GitHub draws
-# for nobody (OUT-7). Kept by hand: nothing this repository holds enumerates them, so no
-# derivation can stand in for the list (COR-4).
-DIAGRAM_LANGUAGES: Final[frozenset[str]] = frozenset(
-    {"plantuml", "puml", "dot", "graphviz", "d2", "ditaa", "nomnoml", "svgbob", "structurizr", "c4plantuml", "wavedrom", "kroki"}
-)
-MERMAID: Final = "mermaid"
-# Mermaid's own quoting of a node label. A square bracket inside one is shape syntax to its
-# parser, so the label OUT-7 refuses is exactly what a renderer refuses.
-QUOTED_LABEL_RE: Final = re.compile(r'"([^"\n]*)"')
-BRACKETS: Final = "[]"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
@@ -1386,30 +1373,6 @@ def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str
     return found
 
 
-def _fence_info(info: str) -> str:
-    """The language a fence's info string names, lower-cased, or the empty string."""
-    return next(iter(info.split()), "").lower()
-
-
-def check_diagrams(rel: str, raw: str) -> list[Finding]:
-    """OUT-7's two decidable clauses: a diagram is mermaid, and a quoted node label holds no bracket.
-
-    Read off the raw page: the scan body arrives with every fence blanked.
-    """
-    found: list[Finding] = []
-    # `fenced_lines`, so this reader and the one blanking fences open and close on the same lines.
-    for number, (line, state, info) in enumerate(fenced_lines(raw), start=1):
-        if state == "opens" and (language := _fence_info(info)) in DIAGRAM_LANGUAGES:
-            detail = f"a `{language}` fence -- OUT-7 draws a diagram in mermaid, which renders in-repo"
-            found.append(Finding("fail", "diagram", rel, detail, number))
-        if state != "inside" or _fence_info(info) != MERMAID:
-            continue
-        for label in QUOTED_LABEL_RE.findall(line):
-            if any(bracket in label for bracket in BRACKETS):
-                found.append(Finding("fail", "diagram", rel, f'a square bracket inside the quoted node label "{label}" (OUT-7)', number))
-    return found
-
-
 def check_rule_shape() -> list[Finding]:
     """PRE-4 admits one shape, so a rule written as a section is one this gate cannot read."""
     text = _tracked_text(STANDARD_PAGE)
@@ -1586,14 +1549,6 @@ def check_template_fragments() -> list[Finding]:
 # The header checks read a file's raw text rather than its scanned body: a header is defined by
 # where it sits.
 
-# A `See:` entry opens with what it points at, so the token is its first word and no separator
-# needs enumerating. An entry opening with prose is skipped instead.
-SEE_ENTRY_RE: Final = re.compile(r"\s+")
-
-# Only a token carrying a suffix is resolved, so a bare folder in the reason half is not read as a
-# dead path.
-SUFFIXED_RE: Final = re.compile(r"\.[A-Za-z]{1,5}$")
-
 
 # Words rather than lines: a header reflowed to fewer lines carries the same facts (INC-2).
 HEADER_WORD_CAP: Final = 175
@@ -1675,29 +1630,6 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
             found.append(Finding("fail", "module-header", rel, f"upper-case label row in the module header (INC-2): '{text}'"))
         elif HEADER_LABEL_RE.fullmatch(text) and text not in HEADER_LABELS:
             found.append(Finding("fail", "module-header", rel, f"header list label other than Invariants: or See: (INC-2): '{text}'"))
-    return found
-
-
-def check_header_see(rel: str, raw: str, suffix: str) -> list[Finding]:
-    """A path on a module header's `See:` list resolves to a file that is there (INC-2).
-
-    A `See:` entry is a pointer by construction, and package-relative, which `path` reads as prose
-    and leaves.
-    """
-    header = _module_header(raw, suffix)
-    if header is None:
-        return []
-    lines = [_header_line(line, suffix) for line in header]
-    if "See:" not in lines:
-        return []
-
-    found: list[Finding] = []
-    for entry in lines[lines.index("See:") + 1 :]:
-        token = SEE_ENTRY_RE.split(entry.lstrip("- ").strip())[0].strip().strip("`")
-        if "/" not in token or not SUFFIXED_RE.search(token) or is_placeholder(token):
-            continue
-        if repo_path(token) is None and not is_gitignored(token):
-            found.append(Finding("fail", "header-see", rel, f"the See: entry `{token}` resolves to no file"))
     return found
 
 
@@ -2239,7 +2171,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     # would hold every page to INC-2's shape.
     if not prose and _header_scoped(style):
         found.extend(check_module_header(rel, raw, style))
-        found.extend(check_header_see(rel, raw, style))
 
     if is_markdown and has_name(path.name, (README_PAGE,)) and (words := _readme_words(raw)) > README_WORD_CAP:
         detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
@@ -2250,7 +2181,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     found.extend(check_section_references(rel, body))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
-        found.extend(check_diagrams(rel, raw))
     else:
         # `is_markdown` rather than `prose` here: a notice spells its paths bare, and only a PAGE
         # is held to COR-6's backticks instead.

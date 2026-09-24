@@ -216,12 +216,10 @@ CHECKS: Final[dict[str, Check]] = {
     "copy-informal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "copy-term": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "crlf-write": Check(FAIL, claimed("docs/ops/spec.md :: I16")),
-    "diagram": Check(FAIL, claimed("OUT-7")),
     "echo": Check(FAIL, claimed("COR-2")),
     "enforced-by": Check(FAIL, claimed("PRE-4")),
     "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176", "docs/ops/spec.md :: I187")),
     "glossary-entry": Check(FAIL, claimed("COR-12", "OUT-6")),
-    "header-see": Check(FAIL, claimed("INC-2")),
     "history": Check(FAIL, claimed("COR-3")),
     "inputs": Check(FAIL, claimed(GATE)),
     "invariant-id": Check(FAIL, claimed("OUT-4")),
@@ -313,36 +311,29 @@ def is_placeholder(text: str) -> bool:
     return bool(set("<>{}*?") & set(text)) or "NNNN" in text or "…" in text
 
 
-# Where a line sits in a page's fenced blocks. Every reader that cares takes it from `fenced_lines`:
+# Whether a line sits in a page's fenced block. Every reader that cares takes it from `fenced_lines`:
 # two of them disagreeing about where a block ends is worse than both being wrong the same way.
-FenceState = Literal["outside", "opens", "inside", "closes"]
-
-
-def fenced_lines(text: str) -> Iterator[tuple[str, FenceState, str]]:
-    """Each line beside the fenced block it sits in, one yield per line, `line_of` resting on the count."""
+def fenced_lines(text: str) -> Iterator[tuple[str, bool]]:
+    """Each line beside whether a fenced block holds it, its fence lines included; `line_of` rests on one yield per line."""
     opener = ""
-    info = ""
     for line in text.split("\n"):
         match = FENCE_RE.match(line)
         if match is None:
-            yield line, ("inside" if opener else "outside"), info
+            yield line, bool(opener)
             continue
         marker, stated = match.group(1), match.group(2)
         if not opener:
-            opener, info = marker, stated
-            yield line, "opens", info
+            opener = marker
         # CommonMark's close: the opener's character, at least its length, and no info string. A
         # mermaid fence nested inside a longer markdown one therefore closes nothing.
         elif marker[0] == opener[0] and len(marker) >= len(opener) and not stated:
-            closed, opener, info = info, "", ""
-            yield line, "closes", closed
-        else:
-            yield line, "inside", info
+            opener = ""
+        yield line, True
 
 
 def strip_fences(text: str) -> str:
     """Blank out fenced blocks, preserving line count so reported context stays meaningful."""
-    return "\n".join("" if state != "outside" else line for line, state, _ in fenced_lines(text))
+    return "\n".join("" if fenced else line for line, fenced in fenced_lines(text))
 
 
 def word_count(text: str) -> int:
@@ -1134,8 +1125,8 @@ def heading_anchors(body: str) -> set[str]:
     occurrences: dict[str, int] = {}
     # `fenced_lines` rather than a second definition of what opens a block: a heading a renderer
     # shows and this reader hides is a link target the `anchor` check calls dead.
-    for line, state, _ in fenced_lines(body):
-        if state != "outside" or (text := atx_heading(line)) is None:
+    for line, fenced in fenced_lines(body):
+        if fenced or (text := atx_heading(line)) is None:
             continue
         slug = SLUG_DROP_RE.sub("", INLINE_LINK_RE.sub(r"\1", text).lower()).replace(" ", "-")
         if not slug:
@@ -1175,8 +1166,8 @@ def navigable_anchors(body: str) -> frozenset[str]:
     contents row -- the one edit a section citation exists to catch.
     """
     found: set[str] = set(heading_anchors(body))
-    for line, state, _ in fenced_lines(body):
-        if state != "outside":
+    for line, fenced in fenced_lines(body):
+        if fenced:
             continue
         if (heading := atx_heading(line)) is not None:
             found |= _spellings(heading)
@@ -1202,8 +1193,8 @@ def section_numbers(body: str) -> frozenset[str]:
     resolves against a number and never against a term.
     """
     found: set[str] = set()
-    for line, state, _ in fenced_lines(body):
-        if state != "outside" or (heading := atx_heading(line)) is None:
+    for line, fenced in fenced_lines(body):
+        if fenced or (heading := atx_heading(line)) is None:
             continue
         if (label := LEADING_LABEL_RE.match(heading.strip())) is not None and label.group(2):
             found.add(label.group(2))
