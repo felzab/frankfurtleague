@@ -82,8 +82,13 @@ const marksOf = (text) =>
 
 const markedIn = (plant) => new Set(marksOf(plant.text).map((mark) => mark.split(" ")[1]));
 
-/** A rule's options follow its severity; a block turning a rule `"off"` carries none. */
-const optionsOf = (entry) => (Array.isArray(entry) ? entry.slice(1) : []);
+const SEVERITIES = { off: 0, warn: 1, error: 2 };
+
+/** A rule's entry as eslint resolves it for a file: the severity as its number, then the options. */
+function normalised(entry) {
+  const [severity, ...options] = Array.isArray(entry) ? entry : [entry];
+  return [typeof severity === "number" ? severity : SEVERITIES[severity], ...options];
+}
 
 /** The rules whose options are bans, each reading the messages a block's options state. */
 const BAN_RULES = {
@@ -93,7 +98,24 @@ const BAN_RULES = {
   "react/forbid-component-props": (options) => options.flatMap((option) => option.forbid.map((ban) => ban.message)),
   // The rule's own message, which no option carries.
   "react/jsx-props-no-spreading": () => ["Prop spreading is forbidden"],
+  // A rule the config defines states its ban in its own messages.
+  ...Object.fromEntries(
+    config.flatMap(({ plugins = {} }) =>
+      Object.entries(plugins.local?.rules ?? {}).map(([name, rule]) => [`local/${name}`, () => Object.values(rule.meta.messages)]),
+    ),
+  ),
 };
+
+/** Every block stating a ban, with the rule, its normalised entry and the keys of what it states. */
+const statements = config.flatMap((block, index) =>
+  Object.entries(BAN_RULES).flatMap(([rule, messagesOf]) => {
+    if (block.rules?.[rule] === undefined) return [];
+    const stated = normalised(block.rules[rule]);
+    return stated[0] === 0 ? [] : [{ block, index, rule, stated, keys: [...new Set(messagesOf(stated.slice(1)).map(keyOf))] }];
+  }),
+);
+
+const isTestPath = (file) => /\.test\.tsx?$/.test(file);
 
 const eslint = new ESLint({ cwd: HERE });
 const reports = new Map();
@@ -122,38 +144,35 @@ describe("the lint bans, driven against planted source", () => {
   }
 
   it("every ban the config states is planted", () => {
-    const messages = config.flatMap(({ rules = {} }) =>
-      Object.entries(BAN_RULES).flatMap(([rule, messagesOf]) => {
-        const options = optionsOf(rules[rule]);
-        return options.length === 0 ? [] : messagesOf(options);
-      }),
-    );
+    const keys = statements.flatMap((statement) => statement.keys);
     if (config.some(({ linterOptions }) => linterOptions?.reportUnusedDisableDirectives === "error")) {
-      messages.push("Unused eslint-disable directive");
+      keys.push(keyOf("Unused eslint-disable directive"));
     }
-    const unplanted = [...new Set(messages.map(keyOf))].filter((key) => !plants.some((plant) => markedIn(plant).has(key)));
+    const unplanted = [...new Set(keys)].filter((key) => !plants.some((plant) => markedIn(plant).has(key)));
     assert.deepEqual(unplanted, []);
   });
 
   // Each block restating a ban is one more place to drop it, which a plant resolving to another block
-  // never sees; a plant is linted in a block when eslint resolves that block's options for its path.
+  // never sees. A plant is linted in a block when eslint resolves that block's whole entry, severity
+  // included, for its path: a block restating another's options at `warn` is a block of its own.
   it("every block stating a ban has a plant linted in it, marking each ban it restates", () => {
-    const gaps = config.flatMap((block, index) =>
-      Object.entries(BAN_RULES).flatMap(([rule, messagesOf]) => {
-        const stated = optionsOf(block.rules?.[rule]);
-        if (stated.length === 0) return [];
-        const keys = [...new Set(messagesOf(stated).map(keyOf))];
-        const marked = new Set(
-          plants
-            .filter((plant) => isDeepStrictEqual(optionsOf(resolved.get(plant.name)?.[rule]), stated))
-            .flatMap((plant) => [...markedIn(plant)]),
-        );
-        // The syntax blocks are one generator's output over `SOURCE_BANS`, so a ban reaches all of them or
-        // none; what one gets wrong alone is its reach and its exemption, which one marked ban drives.
-        const missing = rule === "no-restricted-syntax" && keys.some((key) => marked.has(key)) ? [] : keys.filter((key) => !marked.has(key));
-        return missing.length === 0 ? [] : [`${rule}, block ${index} (${JSON.stringify(block.files)}): ${missing.join(", ")}`];
-      }),
-    );
+    const gaps = statements.flatMap(({ block, index, rule, stated, keys }) => {
+      const linted = plants.filter((plant) => isDeepStrictEqual(resolved.get(plant.name)?.[rule], stated));
+      const marked = new Set(linted.flatMap((plant) => [...markedIn(plant)]));
+      // The syntax blocks are generated from two populations, the production bans and the test bans, then
+      // narrowed by scope and exemption. Each ban is marked by a plant of each population it reaches, and
+      // each block by one marked ban, which is what its own reach and exemption can get wrong.
+      const markedInPopulation = (population) =>
+        new Set(plants.filter((plant) => isTestPath(plant.lintedAs ?? "") === population).flatMap((plant) => [...markedIn(plant)]));
+      const missing =
+        rule === "no-restricted-syntax" && keys.some((key) => marked.has(key))
+          ? [...new Set(linted.map((plant) => isTestPath(plant.lintedAs)))].flatMap((population) => {
+              const populationMarks = markedInPopulation(population);
+              return keys.filter((key) => !populationMarks.has(key)).map((key) => `${key} (no ${population ? "test" : "production"} plant)`);
+            })
+          : keys.filter((key) => !marked.has(key));
+      return missing.length === 0 ? [] : [`${rule}, block ${index} (${JSON.stringify(block.files)}): ${missing.join(", ")}`];
+    });
     assert.deepEqual(gaps, []);
   });
 });

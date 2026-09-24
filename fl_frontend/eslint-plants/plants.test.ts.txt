@@ -4,6 +4,7 @@ import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
+import { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
 
 declare const router: { back: () => void };
 
@@ -16,6 +17,7 @@ export const FORM = HeroForm;
 export const ICON = Bars;
 export const FIELD = DateField;
 export const POPOVER = HintPopover;
+export const DAYS = Days;
 export const ICONS_LOADED = await import("@gravity-ui/icons"); // expect: vendor-root-load
 export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
 export const ROUTER_LOADED = await import("next/dist/shared/lib/app-router-context.shared-runtime.js"); // expect: next-private-load
