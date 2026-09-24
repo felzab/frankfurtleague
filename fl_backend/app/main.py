@@ -45,6 +45,7 @@ from app.core.db import lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
     COMPONENT_REF,
+    JSON_MEDIA_TYPE,
     STORES_NOTHING_WHEN,
     refusal_response,
     refused_codes,
@@ -173,7 +174,7 @@ def publish_stores_nothing(app: FastAPI) -> None:
 
 
 def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
-    return {"description": description, "content": {"application/json": {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
+    return {"description": description, "content": {JSON_MEDIA_TYPE: {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
 
 
 def publish_failure_bodies(app: FastAPI) -> None:

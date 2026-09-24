@@ -13,6 +13,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, Writ
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
+    JSON_MEDIA_TYPE,
     NO_DATA_TEXT,
     db_exception_handler,
     duplicate_key_exception_handler,
@@ -237,7 +238,7 @@ def published_operations() -> list[tuple[str, dict[str, Any]]]:
 
 
 def published_schema(response: dict[str, Any]) -> str:
-    return response["content"]["application/json"]["schema"]["$ref"].removeprefix("#/components/schemas/")
+    return response["content"][JSON_MEDIA_TYPE]["schema"]["$ref"].removeprefix("#/components/schemas/")
 
 
 # The operations publishing a 409 on the tree this was written against, so an equality over two
@@ -259,7 +260,7 @@ def refusal_codes_by_operation() -> dict[str, set[str]]:
             if str(status) == "409":
                 for method in route.methods or ():
                     declared.setdefault(f"{method} {route.path_format}", set()).update(
-                        narrowed_codes(response["content"]["application/json"]["schema"])
+                        narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])
                     )
 
     return declared
@@ -267,7 +268,7 @@ def refusal_codes_by_operation() -> dict[str, set[str]]:
 
 def published_refusals() -> dict[str, dict[str, Any]]:
     return {
-        name: operation["responses"]["409"]["content"]["application/json"]["schema"]
+        name: operation["responses"]["409"]["content"][JSON_MEDIA_TYPE]["schema"]
         for name, operation in published_operations()
         if "409" in operation["responses"]
     }
