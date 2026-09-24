@@ -107,6 +107,9 @@ def test_accepts_http_and_https_urls(value):
         "https://1.2.3.4",
         "http://192.168.1.10/status",
         "https://example.com.",
+        # A newline the strip cannot see: decoded before `DOMAIN_REGEX`, Python's `$` would match
+        # ahead of it where zod's refuses.
+        "https://example.com%0A",
         # `new URL` throws on an invalid port; `urlsplit`'s `.port` is lazy, so it has to be touched
         # for the two ends to agree.
         "https://example.com:notaport/",

@@ -135,6 +135,10 @@ PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 # character is refused. NUL is the exception both ends agree on: it is not whitespace either side.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
+# Python's `$` also matches before one final newline, and zod's does not. Harmless here:
+# `validate_external_url` removes `URL_STRIPPED_CHARACTERS`, the newline among them, before
+# parsing, and an encoded `%0A` keeps its `%`, which no label admits.
+
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
 # parsed hostname against exactly this and both ends must accept or reject a value alike.
 DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$")
