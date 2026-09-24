@@ -43,7 +43,7 @@ THE CHECKS, in priority order:
      ineffective. Sweep specifically for same-named and near-identical classes.
    - `.claude/rules/backend.md` bears directly on this check: the `$jsonSchema` validators duplicate the
      Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration no write path may
-     import, `app/main.py :: publish_refusals` being its one reader.
+     import, `app/main.py :: declared_refusals` being its one reader.
 
 4. **TYPING AND MODERNISATION.** `fl_backend/pyproject.toml` selects ruff's `UP` family, so a
    deprecated `typing` alias and a pre-PEP-604 annotation are both refused at the linter and are
