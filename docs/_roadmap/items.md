@@ -856,9 +856,9 @@ edge's header check green on every location.
 2026-09-07 clears its two obstacles here.**
 [`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md)'s `csp` clause forbids a
 second _enforcing_ policy, so a Report-Only header may stand beside the one that enforces; and
-`nginx/edge_test.sh` counts each security header by its exact name, so the Report-Only header
-joins its `:: SECURITY_HEADERS` in the commit that serves it, or no location is held to sending
-it. The ingest route takes the shape of
+`nginx/edge_test.sh` reads its `:: SECURITY_HEADERS` off `nginx/shared/security_headers.conf`,
+name and value, so the Report-Only header is written into that file in the commit that serves it,
+or no location is held to sending it. The ingest route takes the shape of
 `fl_frontend/src/app/api/client-error/route.ts`: public and unauthenticated, since a browser posts a
 report with no session, and metered at the edge by an exact-match location of its own, which
 `scripts/checks/check_public_routes.py` fails until that location exists.

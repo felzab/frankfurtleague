@@ -103,6 +103,17 @@ Recreating nginx on every change to its files would apply it too, while refusing
 dropping the requests in flight for the length of a start, which a reload leaves the old workers to
 finish.
 
+**Every file under `nginx/prod/` and `nginx/shared/` is one nginx loads.** The deploy compares
+each with what nginx holds in memory, so a file nothing includes, a README among them, reads as
+absent and fails every deploy (`scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS`).
+
+**nginx also takes a tmpfs at `/run/nginx-control`, mode 700**, where it opens the Control API
+the deploy reloads through (`docker-compose.yml :: nginx`, `scripts/ops/deploy.sh ::
+EDGE_CONTROL_SOCKET`). A tmpfs because a master killed outright leaves its socket behind and the
+next start refuses to bind it; mode 700 because Docker's default, 1777, lets every user in the
+container into the directory. `scripts/checks/check_compose_exposure.py :: control_socket` holds
+both, and `nginx/edge_test.sh` reads the mode off a running edge.
+
 ### 1.3 nginx routing
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
@@ -270,8 +281,9 @@ extending it** — the mechanism I2 records for `add_header`, and what decides w
 edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream (L7 and L10,
 [`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
-place in `api_trusted_hosts` (I13); `location /_next/static/` restates `Host` alone, dropping the
-other two with it, nothing under that prefix running application code.
+place in `api_trusted_hosts` (I13). It is the only location declaring one, and
+`nginx/edge_test.sh` fails any location proxying to the frontend that hands Next either header as
+a visitor sent it.
 
 ### 1.4 Security headers
 
@@ -747,16 +759,22 @@ decides nothing and can shrink no scope.
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
 time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real request
-through a real edge, reads the access line back (`docs/logging/spec.md` L11) and asks every
-location for its security headers (I2).
+through a real edge started as `docker-compose.yml` starts it, reads the access line back
+(`docs/logging/spec.md` L11), asks every location and the www redirect for its security headers,
+each compared with `nginx/shared/security_headers.conf` (I2), fails a frontend location handing
+Next a visitor's `traceparent` or `X-FL-Actor` (`docs/logging/spec.md` L7 and L10), and drives
+the Control API the deploy reloads through: an applied reload, a refused one, the dump, and a
+worker user it refuses.
 
 **The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what
 the override writes differs, and each difference is argued at its key. What no merge can hold is
 exposure, so `scripts/checks/check_compose_exposure.py` reads the two models
 `docker compose config` renders, production's alone and the merged pair: production publishes no
 port and declares exactly `:: PRODUCTION_SERVICES`, and locally only nginx leaves loopback (I1,
-I174). A model it cannot read, a short-syntax port among them, is a refusal rather than a verdict
-(§1.7).
+I174). It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
+production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (I355), and the
+edge's Control API socket and tmpfs to the deploy's. A model it cannot read, a short-syntax port
+or volume among them, is a refusal rather than a verdict (§1.7).
 
 **An arm reaches across the package boundary wherever one package's suite reads the other's file as
 source text**, and what makes it necessary is that the assertion sits on the far side: a scope

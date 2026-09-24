@@ -1166,10 +1166,11 @@ written at the rule, never suppressed at this call site." \
   elif ! python_at_floor "$OPS_PY"; then
     skip "this python is below the checkers' floor, so neither stack's exposure was judged"
   else
-    run_checker stop "scripts/checks/check_compose_exposure.py" "A stack exposes more than its edge. The findings above name the
-service, and docs/ops/spec.md I1 and I174 are the rules." \
+    run_checker stop "scripts/checks/check_compose_exposure.py" "A stack exposes more than its edge, or mounts or starts the edge
+other than the deploy reads it. The findings above name the service and the rule: docs/ops/spec.md
+I1, I174 or I355." \
       "$OPS_PY" scripts/checks/check_compose_exposure.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
-    ok "production publishes nothing and declares no database; locally only nginx leaves loopback"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it"
   fi
 
   step "ops · nginx accepts prod.conf"
@@ -1204,12 +1205,12 @@ service, and docs/ops/spec.md I1 and I174 are the rules." \
   # line CONTAINS (`docs/logging/spec.md` L11) or which headers a location sends
   # (`docs/ops/spec.md` I2). Below `nginx -t`, reusing its pull.
   step "ops · the edge logs no credential and sends every security header once"
-  # `nginx/local/local.conf` alone: prod.conf terminates TLS and could not serve a request without
-  # a certificate, and what it would serve is the same `nginx/shared/` files.
+  # `nginx/local/` for every location, started with the command and tmpfs the rendered model
+  # gives the edge, and `nginx/prod/` behind a certificate the test makes, for the www redirect.
   run_checker stop "nginx/edge_test.sh" "The running edge failed a case. Each failing case above is what nginx WROTE or SENT,
 and the files under nginx/shared/ are what decide it." \
     bash nginx/edge_test.sh
-  ok "every spelling in the table logged with its token and address gone, and every location sent each header once"
+  ok "every spelling in the table logged with its token and address gone, every location and the www redirect sent each header once as written, no visitor's traceparent or actor reached Next, and the Control API answered as the deploy reads it"
 fi
 
 # --- db --------------------------------------------------------------------------------------------
