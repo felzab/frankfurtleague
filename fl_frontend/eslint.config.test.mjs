@@ -57,6 +57,7 @@ const BANS = [
   ["layer-shared", /shared must not import features/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["class-constant-name", /is named `\*_CLASSES`/],
+  ["transition-rewrap", /wrap it in another `startTransition`/],
   ["unknown-class", /^Unknown class detected/],
   ["unused-disable", /^Unused eslint-disable directive/],
 ];
