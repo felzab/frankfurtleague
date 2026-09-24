@@ -6,6 +6,7 @@
 #
 # What reaches the index is formatted from the index, never read back off disk, so an editor
 # autosave or a second agent writing while prettier runs cannot put unstaged content in the commit.
+# The working copy of a file staged in part is never written.
 #
 # Convenience, never the enforcement, exactly as `commit-msg` is: a clone that has not run
 # `git config core.hooksPath .githooks` has no hook, and one that has not installed the frontend has
@@ -34,6 +35,12 @@ formattable() {
     .prettierrc | */.prettierrc | .babelrc | */.babelrc) return 0 ;;
   esac
   return 1
+}
+
+# Ten names and a count, so a bulk commit's report stays readable.
+name_files() {
+  printf '      %s\n' "${@:1:10}"
+  if [ $# -gt 10 ]; then echo "      ... and $(($# - 10)) more"; fi
 }
 
 if ! repo_root="$(git rev-parse --show-toplevel)"; then
@@ -160,21 +167,11 @@ while IFS= read -r -d '' path; do
 done < "$work/after"
 
 raced=()
-merged=()
-kept=()
+restaged=()
+in_part=()
 restage_failed=0
 
 if [ ${#changed[@]} -gt 0 ]; then
-  {
-    echo "  pre-commit hook: formatting ${#changed[@]} staged file(s) from the index:"
-    printf '      %s\n' "${changed[@]:0:10}"
-    if [ ${#changed[@]} -gt 10 ]; then echo "      ... and $((${#changed[@]} - 10)) more"; fi
-    if [ ${#changed[@]} -gt 20 ]; then
-      echo "  Each one costs a prettier run of its own, so this will take a moment. Running \`pnpm format\`"
-      echo "  from fl_frontend before a bulk commit leaves this step nothing to do."
-    fi
-  } >&2
-
   if ! git ls-files -s -z > "$work/index"; then
     echo "  pre-commit hook: could not read the index — the commit is refused." >&2
     exit 1
@@ -196,84 +193,28 @@ if [ ${#changed[@]} -gt 0 ]; then
   # the real path, which no temporary tree reproduces.
   : > "$work/stage"
   for path in "${changed[@]}"; do
-    if [ -z "${index_oid["$path"]:-}" ]; then
-      restage_failed=$((restage_failed + 1))
-      continue
-    fi
     if ! git cat-file blob "${index_oid["$path"]}" > "$work/blob"; then
       echo "  pre-commit hook: could not read the staged copy of $path — the commit is refused." >&2
       exit 1
     fi
-    if ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
-           --ignore-unknown --ignore-path ../.prettierignore \
-           < "$work/blob" > "$work/formatted" ); then
-      # Nothing to stage where the staged copy is already formatted, as a file staged in part can be.
-      if cmp -s "$work/blob" "$work/formatted"; then continue; fi
-      if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted")"; then
-        echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
-        exit 1
-      fi
-      printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
-      if [ -z "${partial["$path"]:-}" ]; then
-        if ! cmp -s "$work/formatted" "$path"; then raced+=("$path"); fi
-      # The unstaged half stays as its author left it: the formatting joins it only through a clean
-      # merge onto the bytes read here, and only while the file still holds them, so a writer
-      # landing meanwhile keeps its write.
-      elif [ ! -e "$path" ]; then
-        continue
-      elif cp -- "$path" "$work/current" \
-           && git merge-file -p --quiet "$work/current" "$work/blob" "$work/formatted" > "$work/merged" \
-           && cmp -s "$work/current" "$path"; then
-        cat "$work/merged" > "$path"
-        merged+=("$path")
-      else
-        kept+=("$path")
-      fi
-    else
+    if ! ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
+             --ignore-unknown --ignore-path ../.prettierignore \
+             < "$work/blob" > "$work/formatted" ); then
       restage_failed=$((restage_failed + 1))
+      continue
     fi
+    # Ahead of the restage below, which a staged copy already formatted skips: a writer on a fully
+    # staged file is reported either way.
+    if [ -z "${partial["$path"]:-}" ] && ! cmp -s -- "$work/formatted" "$path"; then raced+=("$path"); fi
+    if cmp -s -- "$work/blob" "$work/formatted"; then continue; fi
+    if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted")"; then
+      echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
+      exit 1
+    fi
+    printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
+    restaged+=("$path")
+    if [ -n "${partial["$path"]:-}" ]; then in_part+=("$path"); fi
   done
-
-  if ! git update-index -z --index-info < "$work/stage"; then
-    echo "  pre-commit hook: could not write the index — the commit is refused." >&2
-    exit 1
-  fi
-
-  # `git commit --only` commits a temporary index and has already written the real one, at its
-  # lock, from the unformatted worktree copy; staging into the temporary one alone leaves the next
-  # commit reading that file as staged in part.
-  if [[ "${GIT_INDEX_FILE:-}" == *.lock ]] \
-     && default_lock="$(git rev-parse --path-format=absolute --git-path index.lock)" \
-     && [ "$GIT_INDEX_FILE" != "$default_lock" ] \
-     && ! GIT_INDEX_FILE="$default_lock" git update-index -z --index-info < "$work/stage"; then
-    echo "  pre-commit hook: could not write the real index beside the commit's — the commit is refused." >&2
-    exit 1
-  fi
-fi
-
-if [ ${#raced[@]} -gt 0 ]; then
-  {
-    echo "  pre-commit hook: ${#raced[@]} file(s) were written while prettier ran. The commit holds the"
-    echo "  staged content formatted; the working copy is left exactly as that writer left it:"
-    printf '      %s\n' "${raced[@]:0:10}"
-  } >&2
-fi
-
-if [ ${#merged[@]} -gt 0 ]; then
-  {
-    echo "  pre-commit hook: ${#merged[@]} file(s) are staged in part. The commit holds the staged half"
-    echo "  formatted, and the working copy keeps its unstaged half with that formatting merged in:"
-    printf '      %s\n' "${merged[@]:0:10}"
-  } >&2
-fi
-
-if [ ${#kept[@]} -gt 0 ]; then
-  {
-    echo "  pre-commit hook: ${#kept[@]} file(s) are staged in part and the formatting does not merge"
-    echo "  cleanly into the working copy. The commit holds the staged half formatted; the working copy"
-    echo "  is left exactly as it was, so \`git diff\` shows the formatting reversed until it is staged:"
-    printf '      %s\n' "${kept[@]:0:10}"
-  } >&2
 fi
 
 if [ "$restage_failed" -gt 0 ]; then
@@ -285,7 +226,55 @@ fi
 # installed. Both refuse: the first is a verdict on the commit, the second a tree nothing can
 # format. Absent, handled above, is the only case that stands aside.
 if [ "$status" -ne 0 ]; then
-  echo "  pre-commit hook: prettier exited $status, so the commit is refused — its reason is above." >&2
+  echo "  pre-commit hook: prettier exited $status, so the commit is refused and nothing was staged —" >&2
+  echo "  its reason is above." >&2
+  exit "$status"
 fi
 
-exit "$status"
+if [ ${#restaged[@]} -gt 0 ]; then
+  if ! git update-index -z --index-info < "$work/stage"; then
+    echo "  pre-commit hook: could not write the index — the commit is refused." >&2
+    exit 1
+  fi
+
+  # `git commit -- <path>` commits a temporary index and has already written the real one, at its
+  # lock, from the unformatted worktree copy; staged in the temporary one alone, the file reads as
+  # staged in part at the next commit.
+  index_name="${GIT_INDEX_FILE:-}"
+  index_name="${index_name##*/}"
+  # The temporary index's name is git's internals, no documented interface: `prepare_index` in
+  # https://github.com/git/git/blob/9a2fb147f2c61d0cab52c883e7e26f5b7948e3ed/builtin/commit.c
+  # (v2.52.0) names it `next-index-<pid>.lock` in the git directory, beside the real index's lock.
+  if [[ "$index_name" == next-index-*.lock ]] \
+     && git_dir="$(git rev-parse --absolute-git-dir)" \
+     && [ "$GIT_INDEX_FILE" -ef "$git_dir/$index_name" ] \
+     && default_lock="$(git rev-parse --path-format=absolute --git-path index.lock)" \
+     && [ -f "$default_lock" ] \
+     && ! GIT_INDEX_FILE="$default_lock" git update-index -z --index-info < "$work/stage"; then
+    echo "  pre-commit hook: could not write the real index beside the commit's — the commit is refused." >&2
+    exit 1
+  fi
+
+  {
+    echo "  pre-commit hook: staged ${#restaged[@]} file(s) formatted from the index:"
+    name_files "${restaged[@]}"
+  } >&2
+fi
+
+if [ ${#in_part[@]} -gt 0 ]; then
+  {
+    echo "  pre-commit hook: ${#in_part[@]} of them are staged in part. The commit holds the staged half"
+    echo "  formatted, and the working copy is left as it is, since writing it would rewrite work nobody"
+    echo "  has staged. So \`git status\` shows each as changed, and \`git diff\` shows the formatting"
+    echo "  reversed beside the unstaged edits, until the file is formatted and staged:"
+    name_files "${in_part[@]}"
+  } >&2
+fi
+
+if [ ${#raced[@]} -gt 0 ]; then
+  {
+    echo "  pre-commit hook: ${#raced[@]} file(s) were written while prettier ran. The commit holds the"
+    echo "  staged content formatted; the working copy is left exactly as that writer left it:"
+    name_files "${raced[@]}"
+  } >&2
+fi

@@ -584,9 +584,12 @@ each ignore, the reader knip cannot see; a configuration hint fails the step as 
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
-commit time instead: `.githooks/pre-commit` refuses a commit on `main`, formats what is staged and
-re-stages it, a file staged in part from its staged copy alone, and never stashes, hides or resets
-the working tree (I354). The hook is convenience and never the enforcement — a clone
+commit time instead: `.githooks/pre-commit` refuses a commit on `main` and re-stages every staged
+file formatted from its staged copy. **Of the working tree it writes only a fully staged file's
+copy**; a file staged in part keeps its working copy as the author left it, so `git status` shows the
+formatting as an unstaged change until the file is formatted and staged. It never stashes, hides or
+resets the working tree, and a commit it refuses stages nothing (I354). The hook is convenience and never
+the enforcement — a clone
 that has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what
 bind. The
 formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
@@ -1058,7 +1061,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
 | I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                         |
 | I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, once it has refused any other ref; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the step's name to `.github/workflows/verify.yml`           |
-| I354 | A commit never carries a file's unstaged half, and the commit hook never stashes, hides or resets the working tree (§1.6)                                                     | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
+| I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_exposure.py :: edge_mounts` holds both stacks' mounts                                                                                   |
 
 ## 3. Violation → remedy
