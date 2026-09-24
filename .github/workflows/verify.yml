@@ -281,9 +281,9 @@ jobs:
         # first, which is a bare 141 with nothing printed, the guard below never having run.
 
         # The conftest's one tag is every tier's: `fl_frontend/src/core/mongoImage.test.ts` holds
-        # the frontend's db-tier files to it.
+        # the frontend's db-tier files to it, reading only a call no `#` precedes, as `^[^#]*` does here.
         run: |
-          image="$(awk -F'"' '/Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
+          image="$(awk -F'"' '/^[^#]*Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
           if [ -z "$image" ]; then
             echo "::error::no mongo image tag found in fl_backend/tests/conftest.py -- the spelling this step reads has moved."
             exit 1

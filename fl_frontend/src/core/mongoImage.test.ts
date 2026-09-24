@@ -10,7 +10,9 @@ const PACKAGE = path.resolve(import.meta.dirname, "../..");
 // The backend's db tier names its image here.
 const CONFTEST = path.resolve(PACKAGE, "..", "fl_backend", "tests", "conftest.py");
 
-const BACKEND_IMAGE = /Container\("(mongo:[^"]+)"/g;
+// Only where no `#` precedes the call on its line: a commented-out tag above the live one is a
+// second image to this reader otherwise. `.github/workflows/verify.yml`'s pull step reads the same way.
+const BACKEND_IMAGE = /^[^#\n]*Container\("(mongo:[^"]+)"/gm;
 const FRONTEND_IMAGE = /MongoDBContainer\("(mongo:[^"]+)"\)/g;
 
 const imagesIn = (source: string, pattern: RegExp): string[] => [...source.matchAll(pattern)].map(([, image]) => image ?? "");
@@ -28,6 +30,11 @@ describe("the mongod image both db tiers start (`docs/frontend/spec.md` §1.9)",
   it("reads the backend's image off both of its spellings", () => {
     assert.deepEqual(imagesIn('with MongoDbContainer("mongo:8").with_tmpfs_mount(x) as c:', BACKEND_IMAGE), ["mongo:8"]);
     assert.deepEqual(imagesIn('DockerContainer("mongo:7.0")', BACKEND_IMAGE), ["mongo:7.0"]);
+  });
+
+  it("reads no image off a commented-out line or a trailing comment", () => {
+    const source = '    # with MongoDbContainer("mongo:7") as c:\nwith MongoDbContainer("mongo:8") as c:  # not DockerContainer("mongo:6")';
+    assert.deepEqual(imagesIn(source, BACKEND_IMAGE), ["mongo:8"]);
   });
 
   // One image across both tiers: a bump on one side alone tests the two against different servers.
