@@ -27,9 +27,8 @@ const literalOf = (node: ts.Expression): string | null =>
   ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) ? node.text : null;
 
 /**
- * The literal a name is bound to, through the checker's own scopes over this one module, and `null`
- * for any binding but a module-scope `const` holding a literal: a parameter, a `let` or a loop
- * variable of the same name can hold another operation at the call.
+ * The literal a name is bound to, resolved through the checker's scopes: `null` for any binding but a
+ * module-scope `const`, since a parameter or `let` of that name can hold another operation.
  */
 function moduleConstantOf(file: ts.SourceFile): (name: ts.Identifier) => string | null {
   const options: ts.CompilerOptions = { noLib: true, noResolve: true, types: [] };

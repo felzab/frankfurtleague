@@ -602,9 +602,8 @@ describe("every path a refusal mapper emits", () => {
   const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
 
   /**
-   * The value of every `fieldErrors` an object literal FILLS, off the module's syntax tree, `null` for
-   * the shorthand `{ fieldErrors }`: a type declaring the field fills nothing, and a text reader cannot
-   * tell `fieldErrors: FieldErrors` in a return type from a map built where it cannot follow.
+   * Every `fieldErrors` value an object literal FILLS, `null` for the shorthand. Off the syntax tree:
+   * a text reader takes `fieldErrors: FieldErrors` in a return type for a map it cannot follow.
    */
   function fieldErrorFillings(text: string, fileName = "mapper.ts"): (ts.Expression | null)[] {
     const file = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
@@ -625,9 +624,8 @@ describe("every path a refusal mapper emits", () => {
     ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name) ? name.text : null;
 
   /**
-   * What each filling is made of, which is what decides whether this half can read it
-   * (`docs/frontend/spec.md` §1.9): a literal it reads, a Zod issue list and a map forwarded from the
-   * refusal it was handed are answered elsewhere, and anything else is a map it cannot follow.
+   * A literal is read; a Zod issue list and a map forwarded from the refusal are answered elsewhere;
+   * anything else is a map this half cannot follow (`docs/frontend/spec.md` §1.9).
    */
   function fieldErrorAssignments(text: string, fileName?: string): { literals: number; opaque: number } {
     let literals = 0;
@@ -650,10 +648,8 @@ describe("every path a refusal mapper emits", () => {
   const declaredMappers = production.filter(([, text]) => declaresFieldErrors(text) && NAMES_A_REFUSAL_CODE.test(text));
 
   /**
-   * Every path one module maps a refusal onto: each literal's own keys, a nested object's staying its own.
-   *
-   * Not read: a computed key, a spread, and a map built somewhere else and named here. The last of
-   * those is not a silent gap — a mapper that assigns `fieldErrors` and yields no key fails below.
+   * Every path one module maps a refusal onto. Not read: a computed key, a spread, and a map built
+   * elsewhere — no silent gap, a mapper assigning `fieldErrors` and yielding no key failing below.
    */
   function emittedKeys(text: string, fileName?: string): string[] {
     return fieldErrorFillings(text, fileName).flatMap((value) =>
