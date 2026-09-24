@@ -690,9 +690,10 @@ def test_both_test_tiers_start_under_one_launcher() -> None:
     assert unit == db, f"`{UNIT_TIER_SCRIPT}` starts under\n  {unit}\nand `{DB_TIER_SCRIPT}` under\n  {db}"
 
 
-# A module named by string after `from`, as a bare `import`, or inside a dynamic `import(`. A package
-# falls out at resolution, the manifests' own arm carrying every one.
-IMPORTED_RE: Final = re.compile(r"""(?:\bfrom|\bimport)\s*\(?\s*["']([^"'\n]+)["']""")
+# A module named by string after `from`, a bare `import`, a dynamic `import(`, or
+# `import.meta.resolve(`, which a db-tier file loads the production client through. A package falls
+# out at resolution, the manifests' own arm carrying every one.
+IMPORTED_RE: Final = re.compile(r"""(?:\bfrom|\bimport(?:\.meta\.resolve)?)\s*\(?\s*["']([^"'\n]+)["']""")
 
 # A hook or a reporter `node` loads ahead of every test file. A reporter named bare is built in.
 LOADED_RE: Final = re.compile(r"--(?:import|require|test-reporter)[= ](\./[^\s\"]+)")
