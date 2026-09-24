@@ -8,7 +8,7 @@
 #
 #   ./scripts/gate/scope_map.sh origin/main   scopes for the diff against the merge base with that ref
 #   ./scripts/gate/scope_map.sh --all         every scope true — a push to main proves everything
-#   ./scripts/gate/scope_map.sh --stdin      scopes for a file list on stdin, one path per line
+#   ./scripts/gate/scope_map.sh --stdin       scopes for a file list on stdin, one path per line
 #   ./scripts/gate/scope_map.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
