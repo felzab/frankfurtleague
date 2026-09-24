@@ -16,7 +16,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt
@@ -198,7 +197,7 @@ class TestWhatTheWriteRecords:
 
 class TestTheSeasonTheBanIsCountedFrom:
     def test_the_running_season_answers_while_one_is_active(self, mongo_replica_set_url: str):
-        """The ordinary state, and the control under the next two: a helper answering the newest season at all times passes each of them."""
+        """The ordinary state, and the control under the two cases answering nothing: a helper always answering `None` passes both."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
             return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
@@ -207,10 +206,10 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
 
-    def test_the_last_season_that_ran_answers_between_two_seasons(self, mongo_replica_set_url: str):
-        """A status set by hand: no route leaves the league here.
+    def test_a_league_holding_only_ended_seasons_answers_nothing(self, mongo_replica_set_url: str):
+        """A status set by hand, the rollover promoting in the transaction that demotes (`docs/backend/spec.md :: I18`).
 
-        The rollover promotes in the transaction that demotes (`docs/backend/spec.md :: I18`).
+        The newest ended season sorts first, so a helper guessing it answers `ENTERED_UNDER` here.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
@@ -218,7 +217,7 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
+        assert on_a_league(mongo_replica_set_url, seasons, body) is None
 
     def test_a_league_holding_only_a_future_season_answers_nothing(self, mongo_replica_set_url: str):
         """A planned season has been played under by nobody, so counting five from it would bar a person five seasons early."""
@@ -248,14 +247,14 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
 
-    def test_the_last_season_that_ran_is_read_through_the_session_too(self, mongo_replica_set_url: str):
-        """A season the transaction wrote is seen through its session alone, so the fallback answers it only when handed that session."""
+    def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
+        """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
             saisons = database[Collection.SAISONS]
 
             async def write_then_read(session: AsyncClientSession) -> tuple[str | None, str | None]:
-                await saisons.insert_one(saison_document("2028", "past"), session=session)
+                await saisons.insert_one(saison_document("2028", "active"), session=session)
 
                 return (
                     await pull_massgebliche_saison_id(saisons_collection=saisons, session=session),
@@ -267,11 +266,18 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         seasons = [saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", ENTERED_UNDER)
+        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", None)
 
 
-class TestALeagueThatHasNotRunASeasonYet:
-    def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+class TestALeagueWithNoSeasonRunning:
+    @pytest.mark.parametrize(
+        "seasons",
+        [
+            pytest.param([saison_document("2027", "future")], id="before its first activation"),
+            pytest.param([saison_document(ENTERED_UNDER, "past")], id="holding only an ended season"),
+        ],
+    )
+    def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, seasons: list[dict[str, Any]]):
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
@@ -282,7 +288,7 @@ class TestALeagueThatHasNotRunASeasonYet:
 
             return await database[Collection.SPERRLISTE].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) == 0
+        assert on_a_league(mongo_replica_set_url, seasons, body) == 0
 
     def test_the_check_answers_not_barred_rather_than_refusing(self, mongo_replica_set_url: str):
         """A public submission must not be turned away for the league's own state, and the refusal above is what leaves the list empty."""
@@ -346,11 +352,9 @@ class TestTheSweepAtAnActivation:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await ban(database, client)
-            await database[Collection.SAISONS].update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
-            invalidate_saison_cache()
             await a_drawn_target(database, FIRST_CLEAR)
-            # Entered with 2026 set `past` by hand and nothing active, so this one is counted from
-            # 2026 as well and lapses five seasons after the row above.
+            # Counted from the running season like the row above, then moved to the season the
+            # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.SPERRLISTE].update_one(
                 {"adresse_hash": adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel)},

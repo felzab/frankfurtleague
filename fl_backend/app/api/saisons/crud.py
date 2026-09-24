@@ -1,21 +1,15 @@
 from collections.abc import Mapping
 from typing import Any
 
-from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import CURRENT_SAISON_CACHE_KEY, read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import FLSaisonRules
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import pull_one_from_db
 from app.core.exceptions import DocumentNotFoundException
 
 CURRENT_SAISON_FILTER = {"status": "active"}
-
-# A season the league has already played. `future` is out because nothing has been played under one,
-# and `active` because the helper below answers that season first and reaches this filter only where
-# no season holds it.
-RAN_SAISON_FILTER = {"status": "past"}
 
 
 async def pull_current_saison(saisons_collection: AsyncCollection) -> Mapping[str, Any]:
@@ -50,9 +44,9 @@ async def pull_current_saison_id(saisons_collection: AsyncCollection) -> str:
 
 
 async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, session: AsyncClientSession | None = None) -> str | None:
-    """The season a count of seasons is reckoned from: the running one, else the last one that ran.
+    """The season a count of seasons is reckoned from: the running one.
 
-    `None` rather than a 404 where the league has run none, so the caller decides what that means.
+    `None` rather than a 404 where none runs, so the caller decides what that means.
     """
 
     try:
@@ -65,23 +59,10 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
 
         return str(running["_id"])
     except DocumentNotFoundException:
-        # Ordinary rather than a fault before the league's first activation; after it the rollover
-        # demotes and promotes in one transaction (`docs/backend/spec.md :: I18`), so the `past` read
-        # below finds a season only where a status was set by hand.
-        pass
-
-    # Read rather than stored beside the cached season: what this answers is a projection over the
-    # season list, and `.claude/CLAUDE.md` §7's **saisons** clause caches none.
-    ran = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=RAN_SAISON_FILTER,
-        limit=1,
-        sort_by=[("_id", DESCENDING)],
-        projection=["_id"],
-        session=session,
-    )
-
-    return str(ran[0]["_id"]) if ran else None
+        # Never the newest `past` season instead: after the first activation no route leaves the
+        # league without a running one (`docs/backend/spec.md :: I18`), and a ban counted from a
+        # guessed season bars a person for the wrong five.
+        return None
 
 
 async def pull_saison_id_and_rules(
