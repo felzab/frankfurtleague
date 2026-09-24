@@ -73,13 +73,12 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import stores_nothing, stores_nothing_when
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
@@ -467,7 +466,7 @@ async def previewing(
     return dry_run
 
 
-@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel", responses={409: {"model": FLFailureBody}})
+@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel", responses={409: DUPLICATE_KEY_RESPONSE})
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
@@ -512,7 +511,7 @@ async def patch_spiel_data(
     "/paarungen",
     response_model=FLPatchSpielePaarungenResponse,
     summary="Restore the Paarungen one save moved",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_spiele_paarungen(
     payload: Annotated[FLPatchSpielePaarungenPayload, Body()],

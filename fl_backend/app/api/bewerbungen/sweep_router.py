@@ -57,11 +57,11 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
-from app.shared.schemas.responses import FLFailureBody
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
 # and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
@@ -151,7 +151,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbun
     "/{saison_id}",
     response_model=FLBewerbungSweepResponse,
     summary="Run one season's retention clocks",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_saison(
     saison_id: str,
@@ -479,7 +479,7 @@ async def sweep_saison(
     "/{saison_id}/angekuendigt",
     response_model=FLBewerbungSweepAngekuendigtResponse,
     summary="Stamp the candidates whose notice was delivered",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def angekuendigt_bewerbungen(
     saison_id: str,

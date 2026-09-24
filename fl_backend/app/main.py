@@ -42,8 +42,14 @@ from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
-from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
-from app.core.exceptions import DUPLICATE_KEY
+from app.core.exception_handlers import (
+    COMPONENT_REF,
+    STORES_NOTHING_WHEN,
+    refusal_response,
+    refused_codes,
+    register_exception_handlers,
+    stores_nothing,
+)
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
@@ -110,7 +116,6 @@ STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
 # never sends (`docs/backend/spec.md :: I345`).
 FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
 FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
-COMPONENT_REF = "#/components/schemas/{model}"
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
@@ -181,15 +186,7 @@ def publish_failure_bodies(app: FastAPI) -> None:
     app.openapi = openapi
 
 
-REFUSAL_DESCRIPTION = "The current state refuses the write"
-
-
-def refusal_response(codes: set[str]) -> dict[str, Any]:
-    # The component narrowed rather than restated, so the failure body keeps one published shape.
-    narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
-    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=FLFailureBody.__name__)}, narrowed]}
-
-    return {"description": REFUSAL_DESCRIPTION, "content": {"application/json": {"schema": schema}}}
+CONFLICT = "409"
 
 
 def declared_refusals() -> dict[tuple[str, str], set[str]]:
@@ -204,13 +201,36 @@ def declared_refusals() -> dict[tuple[str, str], set[str]]:
     return declared
 
 
-def publish_refusals(app: FastAPI) -> None:
-    """Each operation's refusals as its 409, derived rather than listed, so the document cannot drift from `RULES`."""
+def refusal_codes(app: FastAPI) -> dict[tuple[str, str], set[str]]:
+    """Each operation's 409 codes: its rules', merged with the codes its route's own 409 declaration names."""
 
-    served = {(route.path_format, method.lower()) for route in api_routes(app) for method in route.methods or ()}
+    codes = declared_refusals()
+    unnamed: list[str] = []
+    for route in api_routes(app):
+        for status_code, response in route.responses.items():
+            if str(status_code) != CONFLICT:
+                continue
+            # Read off the declaration and never assumed from it, so a route conflicting for a
+            # second reason publishes that reason's code rather than the duplicate key's.
+            if not (named := refused_codes(response)):
+                unnamed.extend(f"{method} {route.path_format}" for method in sorted(route.methods or ()))
+            for method in route.methods or ():
+                codes.setdefault((route.path_format, method.lower()), set()).update(named)
+
+    if unnamed:
+        raise ValueError(f"these declare a 409 naming no code, so the document would publish none: {sorted(unnamed)}")
+
+    return codes
+
+
+def publish_refusals(app: FastAPI) -> None:
+    """Each operation's refusals as its 409, derived rather than listed, so the document cannot drift from `RULES` or a route's declaration."""
+
     # At build rather than when the document is asked for: FastAPI caches what it generated before
     # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
-    if unserved := sorted(declared_refusals().keys() - served):
+    codes = refusal_codes(app)
+    served = {(route.path_format, method.lower()) for route in api_routes(app) for method in route.methods or ()}
+    if unserved := sorted(codes.keys() - served):
         raise LookupError(f"RULES names operations the application does not serve: {unserved}")
 
     generate = app.openapi
@@ -220,17 +240,10 @@ def publish_refusals(app: FastAPI) -> None:
             return app.openapi_schema
 
         document = generate()
-        declared = declared_refusals()
         for path, operations in document["paths"].items():
             for method, operation in operations.items():
-                codes = set(declared.get((path, method), ()))
-                # Only a route's own declaration puts a 409 here before this runs: no rule declares
-                # `DUPLICATE_KEY`, so a route writing where a unique index can refuse declares the 409
-                # itself, held to its writes by `tests/core/test_duplicate_key_publication.py`.
-                if "409" in operation["responses"]:
-                    codes.add(DUPLICATE_KEY)
-                if codes:
-                    operation["responses"]["409"] = refusal_response(codes)
+                if found := codes.get((path, method)):
+                    operation["responses"][CONFLICT] = refusal_response(found)
 
         return document
 

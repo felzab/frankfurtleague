@@ -25,11 +25,11 @@ from app.api.sperrliste.services import (
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/sperrliste",
@@ -88,7 +88,7 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection) -> FLSperr
 
 
 @router.post(
-    "", response_model=FLPostSperrlisteResponse, status_code=201, summary="Ban an email address", responses={409: {"model": FLFailureBody}}
+    "", response_model=FLPostSperrlisteResponse, status_code=201, summary="Ban an email address", responses={409: DUPLICATE_KEY_RESPONSE}
 )
 async def post_sperrliste_eintrag(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],

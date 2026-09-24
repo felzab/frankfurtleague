@@ -50,9 +50,9 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
-from app.shared.schemas.responses import FLFailureBody
 
 # Base-tier at a prefix whose other two routers are admin: a member of the public applies here, and
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).
@@ -282,7 +282,7 @@ async def _answer_as_the_first(
     )
 
 
-@router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung", responses={409: {"model": FLFailureBody}})
+@router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung", responses={409: DUPLICATE_KEY_RESPONSE})
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,

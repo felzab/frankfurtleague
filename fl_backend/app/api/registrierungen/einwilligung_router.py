@@ -30,11 +30,10 @@ from app.api.registrierungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
-from app.core.exception_handlers import stores_nothing
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
-from app.shared.schemas.responses import FLFailureBody
 
 # A router of its own beside the public submission and the administrator's read: the token is the
 # whole credential, so both endpoints are base-tier and bind the public actor rather than the
@@ -127,7 +126,7 @@ async def get_bestaetigung_ansicht(
     "",
     response_model=FLRegistrierungBestaetigungResponse,
     summary="Confirm one registration and record the pupil's consent",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],

@@ -30,10 +30,9 @@ from app.api.schiedsrichter.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
-from app.core.exception_handlers import stores_nothing
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
-from app.shared.schemas.responses import FLFailureBody
 
 # A THIRD router beside the admin one and the reference read, both guarded whole: the token is the
 # whole credential, so these two endpoints alone are base-tier and bind the public actor — no
@@ -96,7 +95,7 @@ async def get_bestaetigung_ansicht(
     "",
     response_model=FLSchiedsrichterBestaetigungResponse,
     summary="Confirm one Schiedsrichter's entry and consent",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bestaetigung(
     antwort_data: Annotated[FLSchiedsrichterBestaetigungPayload, Body()],

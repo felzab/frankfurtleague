@@ -17,12 +17,12 @@ from app.core.exception_handlers import (
     db_exception_handler,
     duplicate_key_exception_handler,
     pydantic_validation_exception_handler,
+    refusal_response,
     register_exception_handlers,
 )
-from app.core.exceptions import DUPLICATE_KEY
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import api_routes, create_app
+from app.main import api_routes, create_app, publish_refusals, refusal_codes
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -254,9 +254,12 @@ def refusal_codes_by_operation() -> dict[str, set[str]]:
             declared.setdefault(f"{method} /api/v{API_VERSION}{route}", set()).add(rule.code)
 
     for route in api_routes(APP):
-        if 409 in route.responses:
-            for method in route.methods or ():
-                declared.setdefault(f"{method} {route.path_format}", set()).add(DUPLICATE_KEY)
+        for status, response in route.responses.items():
+            if str(status) == "409":
+                for method in route.methods or ():
+                    declared.setdefault(f"{method} {route.path_format}", set()).update(
+                        narrowed_codes(response["content"]["application/json"]["schema"])
+                    )
 
     return declared
 
@@ -329,6 +332,35 @@ class TestThePublishedFailureBodies:
         body = client().get("/api/v0/spiele").json()
 
         assert FLFailureBody.model_validate(body).model_dump() == body
+
+
+PLANTED_PATH = "/planted"
+# A code no rule and no handler raises, so only the declaration can put it on the 409.
+A_SECOND_REASON = "REQ-PLANTED-001"
+
+
+def planted_app(conflict: dict[str, Any]) -> FastAPI:
+    """One route declaring `conflict` as its 409, on a path `RULES` never names."""
+
+    app = FastAPI()
+
+    @app.post(PLANTED_PATH, responses={409: conflict})
+    def planted() -> None: ...
+
+    return app
+
+
+class TestTheDeclared409:
+    def test_the_codes_a_declaration_names_are_published_and_no_other(self):
+        """A second reason a route conflicts for, where reading every declaration as the duplicate key would relabel it `DB-COMMON-002`."""
+
+        assert refusal_codes(planted_app(refusal_response({A_SECOND_REASON})))[(PLANTED_PATH, "post")] == {A_SECOND_REASON}
+
+    def test_a_409_declared_naming_no_code_stops_the_build(self):
+        """Refused before `RULES` is checked against the routes, which this app serves none of."""
+
+        with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
+            publish_refusals(planted_app({"model": FLFailureBody}))
 
 
 class TestErrorCodeLogging:

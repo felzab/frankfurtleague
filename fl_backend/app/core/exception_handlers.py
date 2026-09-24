@@ -1,6 +1,6 @@
 import re
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, Final
 
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
@@ -12,6 +12,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from app.core.exceptions import DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
 from app.core.security import SAFE_METHODS
+from app.shared.schemas.responses import FLFailureBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
@@ -124,6 +125,35 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
 
     return match.group(1) if match else None
+
+
+COMPONENT_REF = "#/components/schemas/{model}"
+REFUSAL_DESCRIPTION = "The current state refuses the write"
+JSON_MEDIA_TYPE = "application/json"
+
+
+def refusal_response(codes: Iterable[str]) -> dict[str, Any]:
+    """A 409 as an OpenAPI Response Object: the failure body, its `error_code` narrowed to `codes`."""
+
+    # The component narrowed rather than restated, so the failure body keeps one published shape.
+    narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
+    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=FLFailureBody.__name__)}, narrowed]}
+
+    return {"description": REFUSAL_DESCRIPTION, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
+
+
+def refused_codes(response: Mapping[str, Any]) -> set[str]:
+    """The codes a `refusal_response` narrows to, and none for a response of any other shape."""
+
+    schema = response.get("content", {}).get(JSON_MEDIA_TYPE, {}).get("schema", {})
+
+    return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
+
+
+# A Response Object and never a status-keyed dict: two such dicts unpacked into one `responses` keep
+# the second 409 alone, so a second reason joins this code in one `refusal_response`
+# (`docs/backend/spec.md :: I358`).
+DUPLICATE_KEY_RESPONSE: Final = refusal_response({DUPLICATE_KEY})
 
 
 def stores_nothing(request: Request) -> None:

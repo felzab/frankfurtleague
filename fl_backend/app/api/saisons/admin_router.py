@@ -84,12 +84,11 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import UNKNOWN_OUTCOME
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -222,7 +221,7 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
-@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: {"model": FLFailureBody}})
+@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: DUPLICATE_KEY_RESPONSE})
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
@@ -593,7 +592,7 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,
@@ -1219,7 +1218,7 @@ async def preview_einladungen_versand(
     "/{saison_id}/einladungen/versand",
     response_model=FLEinladungVersandResponse,
     summary="Mint every admitted team a link",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladungen_versand(
     saison_id: str,

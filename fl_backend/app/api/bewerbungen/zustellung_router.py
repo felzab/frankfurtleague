@@ -16,8 +16,8 @@ from app.api.bewerbungen.services import KONTAKT_SEATS, compose_zustellung_updat
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, DBClient
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
-from app.shared.schemas.responses import FLFailureBody
 
 # Its own router rather than an endpoint on the sweep's: `.claude/rules/backend.md` **routing**
 # refuses a merge that moves a guard onto an endpoint. System tier and the system actor for the
@@ -83,7 +83,7 @@ async def _apply(
     "/angenommen",
     response_model=FLBewerbungZustellungResponse,
     summary="Record the message the provider accepted for these seats",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def angenommen_zustellung(
     angenommen_data: Annotated[FLBewerbungZustellungAngenommenPayload, Body()],
@@ -122,7 +122,7 @@ async def angenommen_zustellung(
     "",
     response_model=FLBewerbungZustellungResponse,
     summary="Apply one delivery event to the seats its message was sent to",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_zustellung(
     ereignis_data: Annotated[FLBewerbungZustellungEreignisPayload, Body()],

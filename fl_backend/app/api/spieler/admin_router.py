@@ -55,11 +55,11 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
@@ -332,7 +332,7 @@ async def erase_spieler(
     response_model=FLSaisonSpielerResponse,
     status_code=201,
     summary="Add a Spieler to a squad",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -416,7 +416,7 @@ async def post_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Update a squad entry",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -494,7 +494,7 @@ async def patch_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Remove a Spieler from a squad",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -522,7 +522,7 @@ async def delete_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
     response_model=FLSaisonSpielerResponse,
     summary="Put a Spieler back in a squad they left",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,

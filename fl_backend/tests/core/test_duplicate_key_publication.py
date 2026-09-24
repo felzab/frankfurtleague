@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.dependencies import DB
-from app.core.exception_handlers import duplicate_key_exception_handler
+from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
 from app.main import api_routes, create_app
@@ -306,12 +306,13 @@ def _write_operations() -> Mapping[str, tuple[Any, tuple[Write, ...]]]:
 
 
 def _declaring_operations() -> set[str]:
-    """Every operation whose route declares a 409, reads included, so a read declaring one is compared too."""
+    """Every operation whose route's 409 names `DB-COMMON-002`, reads included, so a read declaring it is compared too."""
 
     return {
         f"{method} {route.path_format}"
         for route in _routes()
-        if CONFLICT in {str(status) for status in route.responses}
+        for status, response in route.responses.items()
+        if str(status) == CONFLICT and DUPLICATE_KEY in refused_codes(response)
         for method in route.methods or ()
     }
 

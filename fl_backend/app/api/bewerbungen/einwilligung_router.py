@@ -35,10 +35,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, TeamsCollection, get_german_date_str, get_germany_now
-from app.core.exception_handlers import stores_nothing
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
-from app.shared.schemas.responses import FLFailureBody
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
 # credential, as for a sign-in link, so both endpoints are base-tier and bound to the public actor
@@ -117,7 +116,7 @@ async def get_einwilligung_ansicht(
     "",
     response_model=FLBewerbungEinwilligungAntwortResponse,
     summary="Confirm or decline one seat of a Bewerbung",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],

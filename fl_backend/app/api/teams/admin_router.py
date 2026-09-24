@@ -79,10 +79,10 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
@@ -184,7 +184,7 @@ async def get_teams_for_admin(
     )
 
 
-@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team", responses={409: {"model": FLFailureBody}})
+@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team", responses={409: DUPLICATE_KEY_RESPONSE})
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
     teams_collection: TeamsCollection,
@@ -203,7 +203,7 @@ async def post_team(
     by_id("team_id"),
     response_model=FLPatchTeamResponse,
     summary="Update a team and fan the rename out",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_team(
     team_id: CustomRouteObjectId,
@@ -272,7 +272,7 @@ async def patch_team(
 
 
 @router.delete(
-    by_id("team_id"), response_model=FLTeamWriteResponse, summary="Retire a team (soft delete)", responses={409: {"model": FLFailureBody}}
+    by_id("team_id"), response_model=FLTeamWriteResponse, summary="Retire a team (soft delete)", responses={409: DUPLICATE_KEY_RESPONSE}
 )
 async def delete_team(
     team_id: CustomRouteObjectId,
@@ -323,7 +323,7 @@ async def delete_team(
     f"{by_id('team_id')}/reactivate",
     response_model=FLTeamWriteResponse,
     summary="Bring a retired team back",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_team(
     team_id: CustomRouteObjectId,
@@ -341,7 +341,7 @@ async def reactivate_team(
     response_model=FLSaisonTeamResponse,
     status_code=201,
     summary="Enter a team into a season",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_saison_team(
     team_id: CustomRouteObjectId,
@@ -428,7 +428,7 @@ async def post_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
     summary="Rewrite a team's season row: group, exit record and kit colour",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -522,7 +522,7 @@ async def patch_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
     summary="Rewrite a team's season contacts, and nothing else on the row",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison_team_kontakte(
     team_id: CustomRouteObjectId,
@@ -585,7 +585,7 @@ async def patch_saison_team_kontakte(
     f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
@@ -721,7 +721,7 @@ async def replace_saison_team(
     response_model=FLEinladungMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladung(
     team_id: CustomRouteObjectId,
@@ -805,7 +805,7 @@ async def post_einladung(
     f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
     response_model=FLEinladungWriteResponse,
     summary="Revoke this team's live registration link for a season",
-    responses={409: {"model": FLFailureBody}},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def delete_einladung(
     team_id: CustomRouteObjectId,
