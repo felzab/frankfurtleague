@@ -95,10 +95,10 @@ The ending, in order:
    ending still holds a whole round — that audit, and the fix the cycle ends on (§6). **Count both
    in the floor above**, which an ending enumerated without them under-counts.
 2. **Run §2's enumeration again here**, against the branch this time: a slice nobody dispatched and
-   a slice deliberately deferred are indistinguishable until someone asks. Then run the gate at the
-   branch's scope over a tree that has stopped moving. **The branch is stable only here** — the last
-   fix committed, the gate green, no live agent still able to return a finding, and every worktree
-   row closed ([register-template.md](register-template.md)).
+   a slice deliberately deferred are indistinguishable until someone asks. Then run
+   `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. **The branch is
+   stable only here** — the last fix committed, the gate green, no live agent still able to return a
+   finding, and every worktree row closed ([register-template.md](register-template.md)).
 3. Open the draft pull request, its body written once, here (CLAUDE.md §2), and **start the handoff
    in the same action, which is its moment**: the checks then run for as long as the handoff takes
    to write, audit and fix.
