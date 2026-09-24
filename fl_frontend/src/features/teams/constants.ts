@@ -80,7 +80,7 @@ export const DESCRIPTION_MAX_LENGTH = 4096;
 export const TEAM_NAME_MAX_LENGTH = 60;
 export const TEAM_FULL_NAME_MAX_LENGTH = 120;
 export const TEAM_WEBSITE_URL_MAX_LENGTH = 300;
-// One part of one name, at every field the backend types with
+// A person's name, or one part of one, at every field the backend types with
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
 export const KONTAKT_NAME_MAX_LENGTH = 80;
 // The one refusal of that ceiling, for every form that holds a name to it.

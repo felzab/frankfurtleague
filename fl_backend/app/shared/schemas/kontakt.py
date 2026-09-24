@@ -13,8 +13,8 @@ CustomEmail = Annotated[
     str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address), Field(json_schema_extra={"format": "email"})
 ]
 
-# One part of a name the public application form takes, and of every payload held to refuse what
-# that form refuses.
+# A person's name, or one part of one: what the public application form takes, and every payload
+# held to refuse what that form refuses, a referee's whole name among them.
 CustomKontaktName = Annotated[
     str,
     # Stripped first, so the padding the pattern's trailing space class admits is never stored and
