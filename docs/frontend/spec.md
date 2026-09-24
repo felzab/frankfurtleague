@@ -1005,9 +1005,13 @@ HeroUI's own run, so an entry there would sit outside the load-bearing order bel
    in the other file renders an unstyled box inside a styled one.
 4. **Grep both files before you finish.** A component in neither renders unstyled; a component in both
    ships to visitors who never see it.
-5. **Its entrance and exit scale do not come with it.** Whatever `zoom-in-*` or
-   `zoom-out-*` the vendored stylesheet declares is pinned to `1` document-wide, so the component
-   arrives and leaves as a pure fade and nothing reports that it was overridden.
+5. **Its entrance and exit scale do not come with it.** Whatever `zoom-in-*` or `zoom-out-*` the
+   vendored stylesheet declares is pinned to `1` document-wide
+   (`fl_frontend/src/app/globals.css :: No scale in the arrival language`), so the component arrives
+   and leaves without growing or shrinking, and nothing reports that it was overridden. **A component
+   that scales through a property of its own is out of that pin's reach**: grep its stylesheet for
+   `scale`, and hold each entrance or exit value at its resting one where the component is composed,
+   as `fl_frontend/src/core/providers/AppToaster.tsx :: toastCard` holds the toast's `--toast-scale`.
 6. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
    padding and a background that are not the browser defaults. For an `admin.css` entry that means
    signing in and opening the admin page, because no public route will show the mistake.

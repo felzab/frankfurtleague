@@ -704,9 +704,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   padding-block: 0;
 }
 
-/* No scale in the arrival language, vendored ones included (`@heroui/styles` 3.2.4).
-   Unlayered on `*`: inside a layer specificity loses, and tw-animate-css declares both properties
-   `inherits: false`, so they land on the animating element. */
+/* No scale in the arrival language, vendored ones included (`@heroui/styles` 3.2.6); the toast's own
+   `--toast-scale` is `AppToaster`'s. Unlayered on `*`: inside a layer specificity loses, and
+   tw-animate-css declares both properties `inherits: false`, so they land on the animating element. */
 *,
 *::before,
 *::after {
@@ -811,14 +811,15 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
      function, so everything with an element to hang a class on is ordinary TSX.
-     Written against `@heroui/styles` 3.2.4 (`docs/frontend/spec.md :: 1.11`). */
+     Written against `@heroui/styles` 3.2.6 (`docs/frontend/spec.md :: 1.11`). */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */
   .toast {
     @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
-    /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
-    @apply items-start gap-2 overflow-hidden whitespace-normal;
+    /* Never `overflow-hidden`: it clips HeroUI's `::after` hit area over the gap between expanded
+       toasts, and the stack collapses under a pointer crossing it. `AppToaster` clips the timer bar. */
+    @apply items-start gap-2 whitespace-normal;
   }
 
   /* Severity is the border and the timer bar, so on a settled toast the border carries it alone —
@@ -842,10 +843,10 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   /* THE DISMISS CONTROL — a WCAG 2.2.1 fix. HeroUI restores its opacity and
      pointer events only under `:hover`, and a touch screen has none, so a timed
      message carrying an undo offer could only be waited out. */
-  /* Frontmost only. The stacked toasts behind are inert by design, and HeroUI's rule saying so is
-     more specific than this one, so they keep their hidden close button.
-     Vendored: `@heroui/styles` `toast.css`, `[data-frontmost]` included. */
-  .toast[data-frontmost="true"] .toast__close-button {
+  /* Frontmost and not closing. HeroUI reveals a stacked toast's control under the pointer expanding
+     the stack, and hides a closing toast's by a rule this one would outrank by source order.
+     Vendored: `@heroui/styles` `toast.css`, both attributes included. */
+  .toast[data-frontmost="true"]:not([data-exiting="true"]) .toast__close-button {
     @apply pointer-events-auto opacity-100;
   }
 

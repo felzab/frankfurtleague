@@ -13,6 +13,13 @@ import { dismissControl } from "@/core/dismissControl";
  */
 const toastCard = tv({
   slots: {
+    /**
+     * A closing toast keeps the scale it rested at, where HeroUI shrinks one behind the front through `--toast-scale`,
+     * out of reach of the document's scale pin. Written against `@heroui/styles` 3.2.6.
+     */
+    toast: "data-exiting:[--toast-scale:var(--scale-collapsed,1)] data-exiting:data-expanded:[--toast-scale:1]",
+    /** Clips the bar to the rounded corners, which the toast itself may not: see the `.toast` rule in `globals.css`. */
+    clip: "pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]",
     /** `origin-left` is what makes the scaleX read as draining. */
     timer: "toast__timer absolute inset-x-0 bottom-0 h-0.5 origin-left",
   },
@@ -50,6 +57,7 @@ export function AppToaster() {
           <Toast
             toast={queued}
             variant={variant}
+            className={styles.toast()}
             placement="bottom">
             {/* Rendered conditionally rather than with `indicator === null`, so a settled toast has no
                 empty box and its text starts at the padding edge. */}
@@ -96,9 +104,12 @@ export function AppToaster() {
             {hasTimer && (
               <span
                 aria-hidden="true"
-                className={styles.timer()}
-                style={{ animationDuration: `${timeout}ms` }}
-              />
+                className={styles.clip()}>
+                <span
+                  className={styles.timer()}
+                  style={{ animationDuration: `${timeout}ms` }}
+                />
+              </span>
             )}
           </Toast>
         );
