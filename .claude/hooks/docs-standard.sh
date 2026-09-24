@@ -69,11 +69,10 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const ext = path.extname(base);
   let isDocs = false;
   // NOTICE is read whole, as prose that is no page, by the documentation gate, whose prose-filename
-  // register tests the name case-exactly, so the arm reads the basename as the write spelled it,
-  // before the fold.
+  // register folds case, so the arm compares the folded basename as the gate does.
 
   // No backtick in a comment here: inside the single-quoted script it reads as a substitution.
-  if (ext === ".md" || ext === ".mdx" || path.basename(strip(raw)) === "NOTICE") {
+  if (ext === ".md" || ext === ".mdx" || base === "notice") {
     isDocs = true;
   } else if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].indexOf(ext) !== -1) {
     isDocs = fresh.indexOf("//") !== -1 || fresh.indexOf("/*") !== -1;
