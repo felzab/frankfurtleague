@@ -422,8 +422,8 @@ jobs:
           VERIFY_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: ./scripts/gate/verify.sh --frontend-units
 
-  # The compose files and nginx's prod.conf have no compiler and no test suite; this scope is the
-  # only thing standing between a typo in either and a failed deploy.
+  # The compose files and the nginx configuration have no compiler; this scope parses and serves
+  # them, and is the only thing standing between a typo in either and a failed deploy.
   ops:
     needs: changes
     if: needs.changes.outputs.ops == 'true'
