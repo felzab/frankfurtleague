@@ -63,7 +63,7 @@ function answerBeside(fieldErrors: FieldErrors | null, sentence: string): Refuse
 }
 
 /**
- * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
+ * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
  * Three name an OCCUPANT, which the form places at fault; the two REQ-STATE codes name none, so
  * their code rides back unused and the message lands as a toast.
  */

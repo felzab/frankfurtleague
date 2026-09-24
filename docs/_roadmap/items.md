@@ -320,17 +320,16 @@ The cost of each is a false red somebody rewrites around. Both need a parse acro
 boundary — Python's `ast` spawned from the frontend's unit tests, a new precondition on its test run,
 or ast-grep on each side, which is a new dependency on each — so neither is built until I rule on it.
 
-**Five sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
+**Four sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
 correct only for source `ruff format` wrote, and a formatter setting that moves a break is a change to
 them: `fl_frontend/src/features/saisons/recordedFactMirror.test.ts`,
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts`,
-`fl_frontend/src/features/spieltage/actions.test.ts`,
-`fl_frontend/src/shared/components/ui/tabIndicator.test.ts` and
-`fl_frontend/src/shared/testing/refusalRegister.ts`.
+`fl_frontend/src/features/spieltage/actions.test.ts` and
+`fl_frontend/src/shared/components/ui/tabIndicator.test.ts`.
 
 **Done when** each class's verdict is recorded at COR-14's rung — the header of
 `fl_backend/tests/core/app_source.py`, the readers in `scripts/checks/docs_gate/kernel.py`, and
-`fl_frontend/src/shared/testing/refusalRegister.ts` for the cross-language reads — and each of the two
+`fl_frontend/src/shared/testing/sourceText.ts` for the cross-language reads — and each of the two
 spellings is either read correctly, its parser arriving as a pin in `fl_frontend/package.json` or
 `fl_backend/pyproject.toml` that states which gate scope and which job in
 `.github/workflows/verify.yml` runs it, or accepted as a loud false red by my ruling, the acceptance

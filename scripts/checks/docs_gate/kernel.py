@@ -318,7 +318,7 @@ CHECKS: Final[dict[str, Check]] = {
     "crlf-write": Check(FAIL, claimed("docs/ops/spec.md :: I16")),
     "echo": Check(FAIL, claimed("COR-2")),
     "enforced-by": Check(FAIL, claimed("PRE-4")),
-    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176", "docs/ops/spec.md :: I187")),
+    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176")),
     "glossary-entry": Check(FAIL, claimed("COR-12", "OUT-6")),
     "history": Check(FAIL, claimed("COR-3")),
     "inputs": Check(FAIL, claimed(GATE)),

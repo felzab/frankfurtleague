@@ -10,10 +10,9 @@ REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 
 SAISONS: Final = REPO_ROOT / "fl_frontend" / "src" / "features" / "saisons"
 
-# Source text rather than a call: the sentence is a server action's return, and calling one outside
-# a request raises Next's request-scope error, the mapper being module-private besides -- the
-# standing exception (`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
-ACTIONS: Final = (SAISONS / "actions.ts").read_text(encoding="utf-8")
+# Source text rather than a call: the sentence is a TypeScript mapper's, which no Python process
+# runs (`fl_frontend/src/features/saisons/refusals.ts :: mapRulesRefusal`).
+REFUSALS: Final = (SAISONS / "refusals.ts").read_text(encoding="utf-8")
 
 SHAPE_REFUSAL: Final = "REQ-RULES-011"
 
@@ -30,12 +29,12 @@ def _arm(code: str) -> str:
     """One `case` of the German mapper, up to the next — empty where either boundary is gone, so the cut fails its own test."""
 
     opening = f'case "{code}":'
-    start = ACTIONS.find(opening)
+    start = REFUSALS.find(opening)
     if start == -1:
         return ""
-    end = ACTIONS.find('case "', start + len(opening))
+    end = REFUSALS.find('case "', start + len(opening))
 
-    return "" if end == -1 else ACTIONS[start:end]
+    return "" if end == -1 else REFUSALS[start:end]
 
 
 ARM: Final = _arm(SHAPE_REFUSAL)
@@ -63,7 +62,7 @@ def test_the_german_arm_is_still_where_this_module_cuts_it():
     """Anti-vacuity: a boundary that stopped matching would leave every case below true of an empty string."""
 
     assert ARM, f"no {SHAPE_REFUSAL} case was cut out of the saisons mapper"
-    assert len(ARM) < len(ACTIONS), "the cut reaches the whole module, so it separates nothing"
+    assert len(ARM) < len(REFUSALS), "the cut reaches the whole module, so it separates nothing"
 
 
 def test_the_table_names_exactly_the_fields_the_write_path_freezes():

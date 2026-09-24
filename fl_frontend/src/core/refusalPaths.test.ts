@@ -701,7 +701,7 @@ describe("every path a refusal mapper emits", () => {
   const BANNER_ONLY: Record<string, string> = {
     // Both codes it maps are about the SEASON and the junction row rather than about anything typed:
     // the panel renders no input either refusal could land on, so a field map would name nothing.
-    "features/einladungen/actions.ts":
+    "features/einladungen/refusals.ts":
       "the invite's two refusals are the season's and the junction's, and no control on either panel holds a value they judge",
   };
 

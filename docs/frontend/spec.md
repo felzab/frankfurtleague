@@ -431,7 +431,7 @@ What the table cannot carry:
   state, full ones disabled. **A club that has left the LEAGUE is refused by every season and every
   group alike** (`REQ-ENTER-005`), so the editor withholds the affordance entirely and says so in a
   banner. The junction write's refusals stay authoritative;
-  `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` turns each into its German answer,
+  `fl_frontend/src/features/teams/refusals.ts :: mapEntryRefusal` turns each into its German answer,
   on the group field where the group is what was refused.
 
 **A mutation addressing a ROW puts that row's id in the PATH** — an admin-prefixed namespace would
@@ -763,9 +763,9 @@ which a seat holding an address requires; neither hook puts a component out of r
 
 **A replacement reason names what the assertion is about, never what the runner cannot do** — a
 ratified decision (`.claude/rules/cross-surface.md`), not this sheet's to widen. Calling a server
-action for the sentence it returns is the standing exception — it raises Next's request-scope error, and a
-refusal mapper is module-private besides
-(`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
+action for the sentence it returns is the standing exception — it raises Next's request-scope error —
+and a refusal's sentence is asked of the slice's mapper instead
+(`fl_frontend/src/features/saisons/refusals.ts :: mapRulesRefusal`).
 
 **A citation to this section never stands as that reason.** The shapes above decide whether a
 source-text assertion is available at all; what a test writes is the subject its own assertion has —

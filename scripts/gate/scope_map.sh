@@ -167,7 +167,7 @@ else
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
       # module below and asserts over the German inside, so a renamed refusal code or a reworded
       # phrase would reach that comparison no earlier than the push to main.
-      fl_frontend/src/features/saisons/actions.ts| \
+      fl_frontend/src/features/saisons/refusals.ts| \
       fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/core/test_request_deadline.py` holds the backend's request deadline under

@@ -6,7 +6,7 @@ lines.
 
 ## Folder overview
 
-| Read                               | For                                                                       |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| [`spec.md`](spec.md)               | The trace id, the stream contract, the invariants, and a symptom's remedy |
-| [`error-codes.md`](error-codes.md) | Every `error_code` either service emits, and which reach a response body  |
+| Read                               | For                                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`spec.md`](spec.md)               | The trace id, the stream contract, the invariants, and a symptom's remedy                    |
+| [`error-codes.md`](error-codes.md) | Every `error_code` either service emits but a domain rule's, and which reach a response body |

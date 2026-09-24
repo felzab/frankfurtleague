@@ -98,9 +98,8 @@ class FieldPolicy:
     enforced_by: str = ""
 
 
-# `fl_frontend/src/shared/testing/refusalRegister.ts :: OPERATION_SEPARATOR` spells it again, and a
-# change here alone leaves that reader splitting nothing, so every slice's refusal check goes quiet
-# rather than red.
+# Spelled between the endpoints of every multi-endpoint `Rule.operation` below, so a change here
+# alone leaves each such rule naming an operation `app/main.py :: publish_refusals` refuses by name.
 OPERATION_SEPARATOR = " · "
 
 
