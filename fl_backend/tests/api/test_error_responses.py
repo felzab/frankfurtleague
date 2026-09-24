@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
@@ -377,6 +377,20 @@ class TestTheDeclared409:
 
         with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
             publish_refusals(planted_app({"model": FLFailureBody}))
+
+    def test_a_409_an_include_declares_naming_no_code_stops_the_build(self):
+        """Declared at `include_router`, which the document publishes and a walk over the original routes never sees."""
+
+        router = APIRouter()
+
+        @router.post(PLANTED_PATH)
+        def planted() -> None: ...
+
+        app = FastAPI()
+        app.include_router(router, responses={409: {"model": FLFailureBody}})
+
+        with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
+            publish_refusals(app)
 
 
 class TestErrorCodeLogging:

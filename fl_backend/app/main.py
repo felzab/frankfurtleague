@@ -1,11 +1,11 @@
 from collections.abc import Iterator, Mapping
 from collections.abc import Set as AbstractSet
-from typing import Any
+from typing import Any, NamedTuple
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 
@@ -131,6 +131,25 @@ def api_routes(app: FastAPI) -> Iterator[APIRoute]:
                 yield route
 
 
+class DocumentedRoute(NamedTuple):
+    path_format: str
+    methods: set[str]
+    responses: Mapping[int | str, Any]
+
+
+def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
+    """Each operation as FastAPI builds the document from it: an include's prefix and `responses=` applied, nested includes opened.
+
+    A copy rather than the route: an edit made to what this yields reaches neither the route nor the
+    document, so `publish_key_tiers` edits `api_routes`' instead.
+    """
+
+    for context in iter_route_contexts(app.routes):
+        # The one kind `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never `None`.
+        if isinstance(context.original_route, APIRoute) and context.path_format is not None:
+            yield DocumentedRoute(context.path_format, context.methods or set(), context.responses)
+
+
 def publish_key_tiers(app: FastAPI) -> None:
     for route in api_routes(app):
         # The route object rather than the include context: `add_api_route` copies the router's
@@ -207,7 +226,7 @@ def refusal_codes(app: FastAPI) -> dict[tuple[str, str], set[str]]:
 
     codes = declared_refusals()
     unnamed: list[str] = []
-    for route in api_routes(app):
+    for route in document_routes(app):
         for status_code, response in route.responses.items():
             if str(status_code) != CONFLICT:
                 continue
@@ -230,7 +249,7 @@ def publish_refusals(app: FastAPI) -> None:
     # At build rather than when the document is asked for: FastAPI caches what it generated before
     # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
     codes = refusal_codes(app)
-    served = {(route.path_format, method.lower()) for route in api_routes(app) for method in route.methods or ()}
+    served = {(route.path_format, method.lower()) for route in document_routes(app) for method in route.methods or ()}
     if unserved := sorted(codes.keys() - served):
         raise LookupError(f"RULES names operations the application does not serve: {unserved}")
 
@@ -317,6 +336,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     publish_key_tiers(app)
     publish_stores_nothing(app)
     publish_failure_bodies(app)
+    # After the two route edits: it builds FastAPI's include contexts, which copy each route's
+    # `openapi_extra` then and serve that copy to the document.
     publish_refusals(app)
 
     return app
