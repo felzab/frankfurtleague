@@ -292,7 +292,7 @@ the enum has lost `erziehungsberechtigt` once the reset removed every row carryi
 birthdate is required on the person from then on, `fl_backend/app/core/domain.py :: UNENFORCED`
 carrying the state that ends there. The notice's referee publication row is `pw5c-zps5`'s.
 
-### `dgdv-27yw` · No rule engine reads this repository's sources, and three spellings its own readers refuse wait on a parse across the language boundary
+### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -307,24 +307,21 @@ application's runtime objects and across modules, which an engine states neither
 sweep compares a runtime value with a source value, so an engine reaches only its extraction half; and
 the prose rules that resolve against the tree are the gate's own whichever engine parses the page.
 
-**Three spellings are still read wrong, and each fails loud rather than passing a defect:**
+**Two spellings are still read wrong, and each fails loud rather than passing a defect:**
 
 - **The backend's domain pattern spelled over two lines, or as a plain string with its escape
   doubled.** The value is unchanged, and `fl_frontend/src/shared/schemas.test.ts`, which reads it,
   refuses both spellings.
-- **A refusal's sentence moved into a named constant inside its switch arm.**
-  `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts the arm at the next `case "` and refuses
-  what it finds there.
 
-The cost of each is a false red somebody rewrites around. All three need a parse across the language
+The cost of each is a false red somebody rewrites around. Both need a parse across the language
 boundary — Python's `ast` spawned from the frontend's unit tests, a new precondition on its test run,
 or ast-grep on each side, which is a new dependency on each — so none is built until I rule on it.
 
-**Four sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
+**Five sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
 correct only for source `ruff format` wrote, and a formatter setting that moves a break is a change to
 them: `fl_frontend/src/features/saisons/recordedFactMirror.test.ts`,
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts`,
-`fl_frontend/src/features/spieltage/actions.test.ts` and
+`fl_frontend/src/features/saisons/actions.test.ts`, `fl_frontend/src/features/spieltage/actions.test.ts` and
 `fl_frontend/src/shared/components/ui/tabIndicator.test.ts`.
 
 **Done when** each class's verdict is recorded at COR-14's rung — the header of
