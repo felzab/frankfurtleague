@@ -352,6 +352,7 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # keeps the flag one word under `_lib.sh`'s IFS.
 do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
+do_knip()       { ( cd fl_frontend && pnpm knip ); }
 # The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
 # appends after them reaches the runner unapplied, every shard then running the whole suite.
 do_unit_tests() {
@@ -366,7 +367,7 @@ do_next_build() {
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
 # through Next's `writeConfigurationDefaults`, so a unit in both lists would read it mid-write.
-FRONTEND_POOL=(typecheck eslint audit)
+FRONTEND_POOL=(typecheck eslint knip audit)
 FRONTEND_WRITERS=(typegen next_build)
 frontend_phases_disjoint() {
   local unit writer
@@ -1082,7 +1083,8 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   run_writer typegen || die "next typegen failed — its own output is above."
   ok "route types generated"
 
-  # Readers only: each writes its own cache, and the audit is a network call touching nothing.
+  # Readers only: tsc and eslint each write their own cache, knip writes nothing, and the audit is a
+  # network call touching nothing.
   start_steps --frontend "${FRONTEND_POOL[@]}"
 
   step "frontend · tsc"
@@ -1094,6 +1096,12 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   unit_join eslint
   unit_verdict eslint "${LINENO}" "eslint failed."
   ok "lint clean"
+
+  step "frontend · knip  (unused files, exports and dependencies)"
+  unit_join knip
+  unit_verdict knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
+Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.json beside the entry."
+  ok "nothing unused"
 
   # Advisory, not fatal: something published upstream overnight must not block an unrelated merge.
   # Never `unit_verdict`, which turns this check's 1 into `die`.

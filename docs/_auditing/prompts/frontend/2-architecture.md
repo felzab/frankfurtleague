@@ -40,9 +40,10 @@ THE CHECKS:
    | `simpler`     | A plainly simpler construction reaching the same result                                           |
    | `dead-export` | Exported and imported by nothing                                                                  |
    | `dead-config` | A config key, script, asset or dependency nothing reads                                           |
-   - `pnpm dlx knip` is the sanctioned tool for `dead-export` and `dead-config` — run it and triage
+   - `pnpm knip` is the sanctioned tool for `dead-export` and `dead-config` — run it and triage
      its output rather than grepping from scratch, and confirm zero importers by hand before
-     reporting anything it flags.
+     reporting anything it flags. It does not see past the entries `fl_frontend/knip.json` ignores,
+     so read those files by hand.
    - The shared recipes and shells (`card`, `formButton`, `ModalShell`, `EntityForm`, `EmptyState`,
      the formatters) are the enforcement layer, so the `duplicated` shape to hunt hardest is
      **bypass**: hand-written strings or components duplicating a recipe that already exists.

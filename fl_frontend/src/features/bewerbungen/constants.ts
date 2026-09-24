@@ -1,6 +1,5 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
-import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
@@ -99,17 +98,6 @@ export const BEWERBUNG_MAX_ALTER = 120;
  * contractual capacity rather than the age a person consents for themselves at.
  */
 export const VERTRETUNG_MIN_ALTER = 18;
-
-/**
- * Which floor each seat asks of its own person, paired with
- * `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`. A TABLE rather than the two
- * numbers alone: a seat given the wrong one of two correct numbers offers a date the endpoint refuses.
- */
-export const SEAT_MIN_ALTER: Record<KontaktRolle, number> = {
-  ansprechperson: VERTRETUNG_MIN_ALTER,
-  stellvertretung: VERTRETUNG_MIN_ALTER,
-  trainer: BEWERBUNG_MIN_ALTER,
-};
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
