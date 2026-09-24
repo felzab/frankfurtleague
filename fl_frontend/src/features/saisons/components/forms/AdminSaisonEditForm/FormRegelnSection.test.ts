@@ -11,9 +11,9 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { withoutPythonComments } from "@/shared/testing/sourceText.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";

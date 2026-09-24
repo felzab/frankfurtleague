@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
-import { sliceBetween, withoutPythonComments } from "@/shared/testing/sourceText.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { FLSaisonPhaseSchema } from "./schemas.ts";
