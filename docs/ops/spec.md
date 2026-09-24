@@ -652,8 +652,9 @@ of the machine rather than of the tier, and neither half of it belongs in
 `.github/gate-wall-clock.tsv`.
 
 CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
-`scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
-the mapping and the flag that proves it are one word. Which paths select `format` is decided by
+`scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` scope but
+`frontend-units`, so a scope's name in the mapping and the flag that proves it are one word
+(`scripts/tests/test_scope_decisions.py :: UNMAPPED_SCOPES`). Which paths select `format` is decided by
 extension, because prettier's reach is; CI's `format` job runs wherever the formatter's paths
 changed, and the `frontend-units` shards beside the frontend job wherever it runs, that job running
 neither. **The `frontend` job maps its own scope** in its first step rather
