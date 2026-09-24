@@ -1,6 +1,6 @@
 // Linted as src/core/zzPlant.test.ts.
 import { Button } from "@heroui/react"; // expect: vendor-root
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private expect: layer-core
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core

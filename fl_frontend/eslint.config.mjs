@@ -87,14 +87,17 @@ for (const relative of HASHED_CONTENTS) {
 }
 const crossFileDigest = digest.digest("hex");
 
+/**
+ * A layer named through the `@/` alias or a relative path. A package's own path never matches, so
+ * Next's `next/dist/shared/...` crosses no layer.
+ */
 const LAYER_BOUNDARY = {
   core: {
-    // Any directory, so the `@/` alias is read with every relative path.
-    group: ["**/features/**", "**/shared/**"],
+    regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)(?:features|shared)/`,
     message: "core is infrastructure: it must not depend on shared or features.",
   },
   shared: {
-    group: ["**/features/**"],
+    regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)features/`,
     message: "shared must not import features. Inject via props/children (see Sidemenu.tsx:20).",
   },
 };
@@ -327,18 +330,19 @@ const MODULE_SOURCES = [
 ].join(", ");
 
 /**
- * A `no-restricted-imports` glob as the pattern a load's specifier is read against, for the shapes
- * the import bans write: `**` then a path, or a path then `**`. Any other shape throws rather than
- * leave a load ban reading less than its import ban.
+ * A `no-restricted-imports` glob as the pattern a load's specifier is read against, for the one
+ * shape the module groups write, `**` then a file. Any other shape throws rather than leave a load
+ * ban reading less than its import ban.
  */
 function specifierOf(glob) {
-  const shape = /^(\*\*\/)?([\w@.-]+(?:\/[\w@.-]+)*?)(\/\*\*)?$/.exec(glob);
-  if (shape === null) throw new Error(`${glob} is a glob shape no load ban reads`);
-  const [, underAny, fixed, anyBelow] = shape;
-  const text = fixed.replaceAll(".", String.raw`\.`).replaceAll("/", String.raw`\x2F`);
-  return `${underAny === undefined ? "^" : String.raw`(?:^|\x2F)`}${text}${anyBelow === undefined ? "$" : String.raw`\x2F`}`;
+  const file = /^\*\*\/([\w.-]+)$/.exec(glob)?.[1];
+  if (file === undefined) throw new Error(`${glob} is a glob shape no load ban reads`);
+  return String.raw`(?:^|\x2F)${file.replaceAll(".", String.raw`\.`)}$`;
 }
 const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
+
+/** An import ban's `regex` as a selector's pattern, where a slash would close the expression. */
+const selectorPattern = (regex) => regex.replaceAll("/", String.raw`\x2F`);
 
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
@@ -351,7 +355,7 @@ const DYNAMIC_LOADS = [
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\x2F`)),
+    selector: loadOf(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex)),
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
   {
@@ -448,7 +452,7 @@ const SOURCE_BANS = [
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled
     // at run time passes.
-    selector: `${inLiteral(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\x2F`))}:not(${MODULE_SOURCES})`,
+    selector: `${inLiteral(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex))}:not(${MODULE_SOURCES})`,
     message: "Name Next's private contexts in fl_frontend/src/shared/testing/nextContexts.ts alone, in a string as much as in an import.",
     tests: true,
   },
@@ -618,14 +622,14 @@ const SCOPED_BANS = [
   [
     {
       files: ["src/core/**/*.{ts,tsx}"],
-      selector: loadOf(specifiersOf(LAYER_BOUNDARY.core.group)),
+      selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
   ],
   [
     {
       files: ["src/shared/**/*.{ts,tsx}"],
-      selector: loadOf(specifiersOf(LAYER_BOUNDARY.shared.group)),
+      selector: loadOf(selectorPattern(LAYER_BOUNDARY.shared.regex)),
       message: "An `import()` in shared is an import: features stay out of shared.",
     },
   ],

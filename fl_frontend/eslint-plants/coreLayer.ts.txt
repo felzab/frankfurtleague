@@ -7,7 +7,7 @@ import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private expect: layer-core
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 // Every glob of the test-only and layer groups, each spelling once.
 import { captureStdout as captureTyped } from "./stdoutCapture.ts"; // expect: test-only
 import { installAuthDoubles } from "./authDoubles"; // expect: test-only
@@ -19,9 +19,12 @@ import { redact } from "./edgeRedaction"; // expect: test-only
 import { redact as redactTyped } from "./edgeRedaction.ts"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
+import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
-export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE];
+export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
+// A package's own path crosses no layer, however its directories are named.
+export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
 export const LOADED_SHARED = import(`../shared/components/ui/formFieldStyles`); // expect: layer-core-load
 export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only-load
