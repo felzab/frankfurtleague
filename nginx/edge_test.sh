@@ -3,8 +3,9 @@
 #
 # `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
 # location dropping a header both pass it. This serves the checkout's own files, never a copy — a
-# copy proves the copy — and grades what nginx wrote and sent: `nginx/local/` for every location,
-# and `nginx/prod/` behind a throwaway certificate for the block production alone serves. Which
+# copy proves the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every
+# location and the Control API the deploy reloads through, started as `docker-compose.yml` starts
+# it, and `nginx/prod/` behind a throwaway certificate for the block production alone serves. Which
 # locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
 # about.
 #
@@ -80,6 +81,8 @@ server {
     location / { return 200 "stub\n"; }
 }
 STUB
+# Empty, and written below the redaction cases to drive a reload nginx refuses.
+: > "${SCRATCH}/zz-reload-probe.conf"
 
 # Each `*.conf` of `nginx/local/` mounted by name beside the stub, which a read-only directory
 # mount would refuse. The empty tmpfs under them hides the image's own `default.conf`, as the
@@ -91,16 +94,64 @@ for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
+# The edge's `command` and `tmpfs` off the model Compose renders for the local stack, beside
+# stand-in environment files as `scripts/gate/verify.sh`'s compose step renders it: the Control API
+# the deploy reloads through exists only as that command starts nginx.
+EDGE_PY="$(any_python || true)"
+if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
+  refuse "no python at the checkers' floor, so the edge's command could not be read off its model."
+fi
+mkdir -p "${SCRATCH}/model/fl_backend" "${SCRATCH}/model/fl_frontend"
+cp docker-compose.yml docker-compose.local.yml "${SCRATCH}/model/"
+: > "${SCRATCH}/model/fl_backend/.env"
+: > "${SCRATCH}/model/fl_frontend/.env"
+quietly docker compose -f "${SCRATCH}/model/docker-compose.yml" -f "${SCRATCH}/model/docker-compose.local.yml" \
+  config --format json --no-env-resolution --output "${SCRATCH}/model/local.json" \
+  || refuse "compose could not render the local stack's model, so the edge's command is unknown."
+EDGE_MODEL_READ='
+import json
+import sys
+
+nginx = json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]
+for argument in nginx.get("command") or []:
+    print("command", argument, sep="\t")
+tmpfs = nginx.get("tmpfs") or []
+for entry in [tmpfs] if isinstance(tmpfs, str) else tmpfs:
+    print("tmpfs", entry, sep="\t")
+'
+EDGE_COMMAND=()
+EDGE_TMPFS=()
+mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
+  || echo "unread")
+for model_line in "${EDGE_MODEL[@]}"; do
+  model_line="${model_line%$'\r'}"
+  case "$model_line" in
+    command$'\t'*) EDGE_COMMAND+=( "${model_line#*$'\t'}" ) ;;
+    tmpfs$'\t'*) EDGE_TMPFS+=( --tmpfs "${model_line#*$'\t'}" ) ;;
+    *) refuse "the local stack's model could not be read: ${model_line}" ;;
+  esac
+done
+EDGE_SOCKET=""
+for _i in "${!EDGE_COMMAND[@]}"; do
+  if [[ "${EDGE_COMMAND[_i]}" == "-l" && "${EDGE_COMMAND[_i + 1]:-}" == unix:* ]]; then
+    EDGE_SOCKET="${EDGE_COMMAND[_i + 1]#unix:}"
+  fi
+done
+[[ -n "$EDGE_SOCKET" ]] \
+  || refuse "the edge's command in docker-compose.yml opens no Control API socket (-l unix:...), which the deploy reloads through."
+
 # The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
 # subject is the same MSYS exclusion that step uses.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   "${LOCAL_MOUNTS[@]}" \
+  "${EDGE_TMPFS[@]}" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
-  nginx:1.31-alpine >/dev/null \
+  nginx:1.31-alpine "${EDGE_COMMAND[@]}" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
@@ -501,6 +552,85 @@ for _i in "${!HEADER_PATHS[@]}"; do
   fi
 done
 
+# --- the Control API the deploy reloads through ----------------------------------------------------
+
+# Asked as `scripts/ops/deploy.sh :: edge_control` asks it, and its dump decoded by the deploy's own
+# `EDGE_LOADED_SUMS`, read off the script rather than restated.
+EDGE_LOADED_SUMS="$(sed -n "/^EDGE_LOADED_SUMS='\$/,/^'\$/p" scripts/ops/deploy.sh | sed '1d;$d')"
+[[ -n "$EDGE_LOADED_SUMS" ]] || refuse "scripts/ops/deploy.sh assigns no EDGE_LOADED_SUMS block to decode the dump with."
+CONTROL_URL="http://localhost/1/control/config"
+CONTROL_FAILURES=0
+control() { # $1 the reload's expected status; answers the status in CONTROL_STATUS, the body in CONTROL_BODY
+  local reply="" rc=0
+  reply="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" curl -sS --max-time 30 --unix-socket "$EDGE_SOCKET" -X PATCH -w '\n%{http_code}' "$CONTROL_URL" 2>&1)" || rc=$?
+  reply="${reply//$'\r'/}"
+  CONTROL_STATUS="${reply##*$'\n'}"
+  CONTROL_BODY="${reply%$'\n'*}"
+  if (( rc )) || [[ "$CONTROL_STATUS" != "$1" ]]; then
+    fail "CONTROL PATCH, expecting $1"
+    detail "curl exited ${rc}, the API answered '${CONTROL_STATUS}': ${CONTROL_BODY}"
+    CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
+  elif verbose; then
+    info "the reload answered ${CONTROL_STATUS}: ${CONTROL_BODY}"
+  fi
+}
+
+# Applied: 200, and the dump then holds exactly the checkout's files under the two directories.
+control 200
+CONTROL_RC=0
+CONTROL_DUMP="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" curl -sS --fail --max-time 30 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL")" || CONTROL_RC=$?
+CONTROL_LISTED="$(printf '%s' "$CONTROL_DUMP" | "$EDGE_PY" -c "$EDGE_LOADED_SUMS")" || CONTROL_RC=$?
+declare -A LOADED=() CHECKED_OUT=()
+while IFS=' ' read -r loaded_sum loaded_path; do
+  loaded_path="${loaded_path%$'\r'}"
+  case "$loaded_path" in
+    # The stub and the reload probe are this test's own, and no checkout's.
+    /etc/nginx/conf.d/zz-upstream-stub.conf|/etc/nginx/conf.d/zz-reload-probe.conf) ;;
+    /etc/nginx/conf.d/*|/etc/nginx/shared/*) LOADED["$loaded_path"]="$loaded_sum" ;;
+  esac
+done <<< "$CONTROL_LISTED"
+for conf in nginx/local/*.conf nginx/shared/*; do
+  [[ -f "$conf" ]] || continue
+  checked_out_sum="$(sha256sum -- "$conf")"
+  case "$conf" in
+    nginx/local/*) CHECKED_OUT["/etc/nginx/conf.d/${conf##*/}"]="${checked_out_sum%% *}" ;;
+    *) CHECKED_OUT["/etc/nginx/shared/${conf##*/}"]="${checked_out_sum%% *}" ;;
+  esac
+done
+CONTROL_DIFFER=()
+for loaded_path in "${!CHECKED_OUT[@]}"; do
+  [[ "${LOADED[$loaded_path]:-}" == "${CHECKED_OUT[$loaded_path]}" ]] || CONTROL_DIFFER+=( "$loaded_path" )
+done
+for loaded_path in "${!LOADED[@]}"; do
+  [[ -n "${CHECKED_OUT[$loaded_path]:-}" ]] || CONTROL_DIFFER+=( "$loaded_path" )
+done
+if (( CONTROL_RC || ${#CONTROL_DIFFER[@]} || ${#LOADED[@]} == 0 )); then
+  fail "CONTROL GET"
+  detail "the dump (exit ${CONTROL_RC}) does not hold the checkout's files as they stand: ${CONTROL_DIFFER[*]:-none loaded}"
+  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
+elif verbose; then
+  info "the dump holds the checkout's ${#CHECKED_OUT[@]} files, byte for byte"
+  printf '%s\n' "${CONTROL_LISTED//$'\r'/}" | detail
+fi
+
+# Refused: 422 carrying nginx's own line, and the configuration it had still serving.
+printf 'fl_edge_probe_unknown_directive on;\n' > "${SCRATCH}/zz-reload-probe.conf"
+control 422
+if [[ "$CONTROL_STATUS" == 422 && "$CONTROL_BODY" != *fl_edge_probe_unknown_directive* ]]; then
+  fail "CONTROL PATCH, refused"
+  detail "the 422 does not name the directive nginx refused: ${CONTROL_BODY}"
+  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
+fi
+: > "${SCRATCH}/zz-reload-probe.conf"
+control 200
+
+# The worker's user may not reach the socket (`docker-compose.yml :: nginx`'s tmpfs mode).
+if MSYS_NO_PATHCONV=1 docker exec -u nginx "$CONTAINER" curl -sS --max-time 5 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL" >/dev/null 2>&1; then
+  fail "CONTROL as nginx"
+  detail "the worker's user reached the Control API at ${EDGE_SOCKET}"
+  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
+fi
+
 # --- the block production alone serves -----------------------------------------------------------
 
 # `nginx/prod/` mounted as production mounts it, behind a certificate made for this run: the www
@@ -542,10 +672,12 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-if (( HEADER_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header cases failed. Each is what nginx SENT, or what reached Next through it."
+if (( HEADER_FAILURES + CONTROL_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header and ${CONTROL_FAILURES} Control API cases failed. Each is what nginx SENT or
+ANSWERED, or what reached Next through it."
 fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
-${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, and
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor"
+${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, and the
+Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"

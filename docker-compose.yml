@@ -109,10 +109,11 @@ services:
     # (https://nginx.org/en/docs/switches.html, `-l`). A socket, never a port: a port answers on every
     # interface of this network, reloads included.
     command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
-    # A master killed outright leaves its socket behind, and the next start refuses to bind it and
-    # exits; a tmpfs starts empty with every start of the container.
+    # A tmpfs, so the socket a killed master leaves behind goes with it, where the next start
+    # would refuse to bind it and exit. Mode 700, so the worker user cannot reach the socket and
+    # reload nginx.
     tmpfs:
-      - /run/nginx-control
+      - /run/nginx-control:mode=700
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
     # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
 
