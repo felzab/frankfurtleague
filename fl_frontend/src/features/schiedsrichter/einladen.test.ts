@@ -369,20 +369,4 @@ describe("the re-send of a row holding the placeholder", () => {
     assert.deepEqual(calls, []);
     assert.deepEqual(mails, []);
   });
-
-  /* A row stored before the address rule holds a real address the payload's rule refuses: whether a
-     link may go there is the API's to answer, and its refusal reaches the panel in the same words. */
-  it("asks the API about a row whose address predates the address rule, and words its refusal", async () => {
-    recorders.__flEinladenRow = withRow("jürgen@schule.de");
-    recorders.__flEinladenMint = () => {
-      throw aRefusal("REQ-SCHIEDSRICHTER-006");
-    };
-
-    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
-
-    assert.equal(calls.length, 1, "the re-send judged the address itself rather than asking the API");
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse/);
-    assert.deepEqual(mails, []);
-  });
 });

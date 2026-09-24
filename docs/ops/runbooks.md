@@ -568,12 +568,9 @@ window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
 keyed on an email address, so it clears every seat that address holds, in every season and both
 collections. **The erasure takes the address the seat it is pressed on stores, and reaches another
-seat only where that one's address folds to the same spelling**: the match lowers the 26 ASCII
-capitals alone (`fl_backend/app/shared/folding.py :: sign_in_identifier`), so a seat stored before
-the address rule with a letter above ASCII before the @, in another case, is not on the list. Where
-the person's address carries such a letter, check the list against every seat found under their
-name, and erase one it misses from that seat's own panel where it has one. **Read the armed panel's
-list before pressing**: it names every one of those seats, by
+seat only where that one's address folds to the same spelling** once its capitals are lowered
+(`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the armed panel's list before
+pressing**: it names every one of those seats, by
 person and by the season or application it sits in, and the press stays shut until that list is on
 screen
 (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),

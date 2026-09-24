@@ -72,8 +72,6 @@ export function withAsciiDomain(address: string): string | undefined {
 
   const ascii = asAsciiHost(host);
 
-  // A row stored before the address rule may hold a local part above ASCII, and only SMTPUTF8 carries
-  // one: nothing here can promise the receiving server speaks it, so it crosses untouched.
   return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
 }
 

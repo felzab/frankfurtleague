@@ -1013,10 +1013,6 @@ rather than by the handler remembering to conceal one.
   code point newer than one runtime's release converts on one side alone; no registry issues such a
   label yet, and `fl_backend/tests/shared/email_addresses.json` holds the two to one answer on the
   domains that occur (I332).
-- **A row stored before the address rule may hold a local part above ASCII.** It joins only its own
-  spelling and no sign-in, a referee holding one is sent no link, and its next save is refused at the
-  box in a sentence of its own, so the address has to be replaced before that record changes
-  (I332).
 - **A ban stored on a Greek domain may not match the address it bars.** Those keys were taken with
   NFKC and a full lower-casing ahead of the domain's conversion, which turn a lunate sigma, a
   mathematical final sigma, and a capital sigma ending the domain or standing before a hyphen into

@@ -6,7 +6,6 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from pydantic import EmailStr, TypeAdapter
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
@@ -17,7 +16,7 @@ from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -48,10 +47,10 @@ PUPIL_STORED = "ortrud.zwiebelmayer@schule.de"
 REFEREE_STORED = "ORTRUD.ZWIEBELMAYER@schule.de"
 REFEREE_STORED_MIXED = "Ortrud.Zwiebelmayer@schule.de"
 
-# A spelling the database's case-blind match takes and the fold parts from the asker: a row stored
-# before the address rule, its local part holding a long s the match reads as „s“.
+# A spelling the database's case-blind match takes and the fold parts from the asker: a row edited by
+# hand past the address rule, its local part holding a long s the match reads as „s“.
 PARTED_ASKED = "ortrud.schmidt@schule.de"
-LEGACY_LOCAL_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
+HAND_EDITED_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
 
 # The „ß“ decision, never a `casefold`: IDNA 2008 keeps „ß“ in a domain, so these are two mailboxes,
 # each holding a seat. The sharp-s one is stored in punycode, as a payload stores it.
@@ -84,7 +83,7 @@ SEAT_ROW_B_OID = ObjectId("6890a1b2c3d4e5f607820012")
 BYSTANDER_ROW_OID = ObjectId("6890a1b2c3d4e5f607820013")
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820014")
 DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
-LEGACY_LOCAL_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
+HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
@@ -92,7 +91,7 @@ IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
-LEGACY_LOCAL_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
+HAND_EDITED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
 IDN_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820034")
 BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 
@@ -192,7 +191,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _junction(BYSTANDER_ROW_OID, ACTIVE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=BYSTANDER),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
-            _junction(LEGACY_LOCAL_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=LEGACY_LOCAL_STORED),
+            _junction(HAND_EDITED_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=HAND_EDITED_STORED),
             _junction(IDN_ROW_OID, PAST_SAISON, TEAM_C_OID, name="Krautzberg", trainer=IDN_SEAT_STORED),
         ]
     )
@@ -208,7 +207,7 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             _referee(REFEREE_ONE_OID, REFEREE_STORED, "A. Referee"),
             _referee(REFEREE_TWO_OID, REFEREE_STORED_MIXED, "C. Zweitpfeife"),
-            _referee(LEGACY_LOCAL_REFEREE_OID, LEGACY_LOCAL_STORED, "D. Umlaut"),
+            _referee(HAND_EDITED_REFEREE_OID, HAND_EDITED_STORED, "D. Umlaut"),
             _referee(IDN_REFEREE_OID, IDN_SEAT_STORED, "E. Umlaut"),
             _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
         ]
@@ -324,14 +323,15 @@ def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_url: str):
 
     seat_ids, referee_ids = on_a_league(mongo_url, candidates)
 
-    assert (LEGACY_LOCAL_ROW_OID in seat_ids, LEGACY_LOCAL_REFEREE_OID in referee_ids) == (True, True)
+    assert (HAND_EDITED_ROW_OID in seat_ids, HAND_EDITED_REFEREE_OID in referee_ids) == (True, True)
 
 
-def test_the_parted_spelling_is_one_an_older_rule_stored_and_the_fold_parts():
-    """The premise of the three cases above: seeded any other way, they would judge a row no write produced."""
+def test_the_parted_spelling_is_one_no_payload_stores_and_the_fold_parts():
+    """The premise of the three cases above: the row is a hand edit the fold still keeps from the asker, no write storing it."""
 
-    assert TypeAdapter(EmailStr).validate_python(LEGACY_LOCAL_STORED) == LEGACY_LOCAL_STORED
-    assert sign_in_identifier(LEGACY_LOCAL_STORED) != sign_in_identifier(PARTED_ASKED)
+    with pytest.raises(ValueError):
+        league_address(HAND_EDITED_STORED)
+    assert sign_in_identifier(HAND_EDITED_STORED) != sign_in_identifier(PARTED_ASKED)
 
 
 @pytest.mark.db

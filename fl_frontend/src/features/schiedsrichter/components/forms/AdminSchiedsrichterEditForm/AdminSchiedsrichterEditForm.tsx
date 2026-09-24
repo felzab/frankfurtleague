@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { bestehtSchreibregel, FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
+import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
@@ -100,7 +100,7 @@ export function AdminSchiedsrichterEditForm({
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
   // link can go and no undo may write back.
-  const gespeicherteAdresseGilt = bestehtSchreibregel(schiedsrichter.kontakt.email);
+  const gespeicherteAdresseGilt = hatAdresse(schiedsrichter.kontakt.email);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);

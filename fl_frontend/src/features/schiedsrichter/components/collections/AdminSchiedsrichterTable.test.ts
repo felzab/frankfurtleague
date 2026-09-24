@@ -95,12 +95,11 @@ describe("the referee row's copy control", () => {
     );
   });
 
-  /* A row stored before the address rule holds a real address no payload takes now: shown as none,
-     the administrator who has to replace it never sees it. */
-  it("shows and offers to copy an address that predates the address rule", () => {
-    const html = table([{ ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800006", kontakt: { telefon: null, email: "jürgen@schule.de" } }]);
+  // No number beside it, so the address alone is what the copy is offered for.
+  it("shows and offers to copy the address a row holds", () => {
+    const html = table([{ ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800006", kontakt: { telefon: null, email: "anna.koerner@schule.de" } }]);
 
-    assert.ok(textOf(html).includes("jürgen@schule.de"), "the address is shown as none");
+    assert.ok(textOf(html).includes("anna.koerner@schule.de"), "the address is shown as none");
     assert.notDeepEqual(
       accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],

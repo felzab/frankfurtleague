@@ -47,9 +47,8 @@ async def get_subjekt(
     so both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the
     fold decides on each candidate's own stored value.
 
-    A row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII
-    local part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it
-    holds: a second copy on two collections has to be kept true by every writer that touches either.
+    Neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by
+    every writer that touches either.
 
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
     An address the league holds nothing for is answered with three empty lists rather than a 404.

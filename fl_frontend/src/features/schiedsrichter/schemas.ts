@@ -42,18 +42,10 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
 /**
- * Whether a row holds an address rather than none or the placeholder a row without one is given, as
- * a surface shows the row and files it: a surface reading the bare value files the placeholder as reached.
+ * Whether a row holds an address rather than none or the placeholder a row without one is given: a
+ * surface reading the bare value files the placeholder as reached, and an undo would write it back.
  */
-// Never the write rule below: a row stored before the address rule fails it, yet holds a real
-// address an administrator has to see in order to replace it.
 export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "" && !isPlaceholderAddress(email);
-
-/**
- * Whether a stored address passes the payload's own rule: the editor's question alone, asked for whether
- * an undo may write it back and whether its panel offers the re-send.
- */
-export const bestehtSchreibregel = (email: string | null): boolean => FLKontaktPayloadSchema.shape.email.safeParse(email).success;
 
 /**
  * Widened at each field whose emptied box holds `null`, which the schema above refuses at the submit. `Omit`, not an intersection: `T & { default_payment: number | null }` stays

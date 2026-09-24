@@ -63,14 +63,6 @@ describe("the Angaben facet of the referee list", () => {
     assert.deepEqual(applyFacets([PLATZHALTER, MIT_TELEFON], SCHIEDSRICHTER_FACETS, selection("angaben=ohne_kontakt")), [PLATZHALTER]);
   });
 
-  /* A row stored before the address rule holds a real address no payload takes now: filed under
-     „Ohne Kontakt“, the filter reports a gap where the repair is replacing what is held. */
-  it("files a row whose address predates the address rule under „Mit Kontakt“", () => {
-    const VOR_DER_REGEL = referee("6890a1b2c3d4e5f607910015", { kontakt: { telefon: null, email: "jürgen@schule.de" } });
-
-    assert.deepEqual(applyFacets([VOR_DER_REGEL, OHNE_ALLES], SCHIEDSRICHTER_FACETS, selection("angaben=kontakt")), [VOR_DER_REGEL]);
-  });
-
   it("adds rather than narrows where two options are picked, which is what OR within a facet promises", () => {
     assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=schule,ohne_kontakt")), [MIT_SCHULE, OHNE_ALLES]);
   });
