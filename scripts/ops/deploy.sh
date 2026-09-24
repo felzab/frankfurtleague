@@ -834,29 +834,33 @@ info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
 
 # A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
 # rather than two, because a label nobody could read is not an absent one.
-FE_RC=0; BE_RC=0
-FE_BUILD="$(published_tag "$IMAGE_FRONTEND")" || FE_RC=1
-BE_BUILD="$(published_tag "$IMAGE_BACKEND")"  || BE_RC=1
-if (( FE_RC || BE_RC )); then
-  refuse "the pulled images' build labels could not be read, so nothing says whether these two
+compare_pulled_pair() {
+  local fe="" be="" fe_rc=0 be_rc=0
+  fe="$(published_tag "$IMAGE_FRONTEND")" || fe_rc=1
+  be="$(published_tag "$IMAGE_BACKEND")"  || be_rc=1
+  if (( fe_rc || be_rc )); then
+    refuse "the pulled images' build labels could not be read, so nothing says whether these two
 packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
-elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
-  # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
-  # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
-  # names the pair itself, which keeps an unlabelled build reachable for a rollback.
-  if [[ -z "$PIN" ]]; then
-    refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
-packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
-  fi
-  info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
-elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
-  die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
+  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+  elif [[ -z "$fe" || -z "$be" ]]; then
+    # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
+    # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
+    # names the pair itself, which keeps an unlabelled build reachable for a rollback.
+    if [[ -z "$PIN" ]]; then
+      refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
+packages are the same build. NOTHING has been recreated. Publish a build, which labels both:
+  gh workflow run publish.yml --ref main
+or pin one:  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+    fi
+    info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
+  elif [[ "$fe" != "$be" ]]; then
+    die "The two :latest tags are different builds: frontend ${fe}, backend ${be}.
 A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
 sees it: each service is healthy against its own half. NOTHING has been recreated.
-Deploy the build both packages have:  ./scripts/ops/deploy.sh ${BE_BUILD}"
-fi
+Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
+  fi
+}
+compare_pulled_pair
 
 # What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
 # second full outage ending where this run started, so it is read here rather than reasoned about.
