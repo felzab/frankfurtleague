@@ -14,7 +14,10 @@ const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 /** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
-/** The slots a record fills from the person who opened the link (`BestaetigungPanels.tsx :: Gefuellt`). */
+/**
+ * The slots a record fills from the person who opened the link
+ * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ */
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */

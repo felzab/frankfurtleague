@@ -94,7 +94,10 @@ const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es er
 /** This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here made. */
 const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 
-/** The slots a record fills from the person who opened the link (`BestaetigungPanels.tsx :: Gefuellt`). */
+/**
+ * The slots a record fills from the person who opened the link
+ * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ */
 const EIGENE_SLOTS = new Set(["vorname"]);
 
 /** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
@@ -104,7 +107,7 @@ const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as co
 // renders and the label its press stores are then one source, which a rewording cannot part.
 type Schluessel = keyof typeof SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel;
 
-/** A stamped sentence, filled as `BestaetigungPanels.tsx :: Gefuellt` fills one. */
+/** A stamped sentence, filled as `:: Gefuellt` fills one. */
 function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
   return (
     <Gefuellt
