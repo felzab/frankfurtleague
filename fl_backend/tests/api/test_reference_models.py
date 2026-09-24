@@ -257,8 +257,10 @@ class TestSpieler:
 class TestEinwilligung:
     """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
 
-    def test_accepts_a_collected_consent(self, spieler):
-        assert FLSpieler.model_validate(spieler()).einwilligung.umfang == "kader_oeffentlich"
+    def test_accepts_a_collected_consent(self, spieler, einwilligung):
+        collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
+
+        assert FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
@@ -280,7 +282,7 @@ class TestEinwilligung:
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(text_version="liga-2026-03", medien=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", text_version="liga-2026-03", medien=True))
 
         assert parsed.text_version == "liga-2026-03"
         assert parsed.medien is True

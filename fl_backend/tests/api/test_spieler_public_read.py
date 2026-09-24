@@ -73,10 +73,17 @@ STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus."""
+def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
+    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
 
-    return spieler_document(SPIELER_OIDS[key], vorname, nachname, inactive_since=inactive_since)
+
+def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
+    """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus.
+
+    A confirmed, published record passed rather than defaulted: the initials this corpus serves are the mask's published arm.
+    """
+
+    return spieler_document(SPIELER_OIDS[key], vorname, nachname, einwilligung=_consent("kader_oeffentlich"), inactive_since=inactive_since)
 
 
 def _squad_row(
@@ -697,10 +704,6 @@ class MaskedRow(NamedTuple):
     # False stores NO `vorname` key. The mask's published arm is `$vorname` itself, so such a row
     # leaves `$project` short of the key rather than carrying a null, which is a different shape.
     stores_a_vorname_key: bool = True
-
-
-def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
-    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
 
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the

@@ -1,9 +1,14 @@
 """
-TESTS · the stored documents a db test seeds, each as the shipped validator judges it
+TESTS · the stored shapes both tiers build from: seeds, and the rules and consent that payload fixtures and rules models take
 
-Plain functions rather than fixtures: the `on_a_*` helpers and module-scoped corpora that seed them
-take no fixture. A default here is a value no test reads, so a test asserting on a value passes it
-at the call even where it equals the default.
+Each document as the shipped validator judges it. Plain functions rather than fixtures: the `on_a_*`
+helpers and module-scoped corpora that seed them take no fixture.
+
+Invariants:
+- A value default (an address, a date, a rule, a consent) is one no test reads: a test asserting on a
+  value passes it at the call, even one equal to the default.
+- A null, `False` or `gruppenphase` default is the ordinary state a seed stands in (active, not
+  withdrawn, not yet filled in), which tests rely on: a test wanting another state passes it.
 """
 
 import copy
@@ -91,7 +96,7 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
 
 
 def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id: Any, **fields: Any) -> dict[str, Any]:
-    """Every nullable key written null rather than omitted: the validator requires each, and a drawn fixture holds null until filled in.
+    """Every nullable key written null rather than omitted: the validator requires each but `notiz`, which `FLSpiel` defaults.
 
     `spiel_nr` has no default: `uniq_saison_id_spiel_nr` refuses a second fixture reusing one.
     """

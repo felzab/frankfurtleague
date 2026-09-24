@@ -569,6 +569,13 @@ and cannot suffer same-basename collisions.
   it invalid and no two cases can leak state through a shared mutable dict
   (`fl_backend/tests/conftest.py :: _factory`). Payloads are keyed the way MongoDB serves them — `_id`,
   not `id` — because that is the validation alias the models declare.
+- **A stored document a `db` test seeds is built by `fl_backend/tests/documents.py`**, as are the
+  rules block and consent record the payload fixtures take. A test passes every value it reads at the
+  call, even one equal to the builder's default, so changing a value default moves no assertion; a
+  null, `False` or `gruppenphase` default is instead the ordinary state a seed stands in — active, not
+  withdrawn, not yet filled in — which tests rely on and depart from by passing the field. Plain
+  functions rather than fixtures, because the `on_a_*` helpers and module-scoped corpora that seed
+  take no fixture.
 - **Reject-cases are parametrised**, one `pytest.mark.parametrize` per rule, holding one value per code
   path the rule refuses on and that path's boundaries. A value reaching a branch another case already
   reaches passes and fails with that case, so it pins nothing of its own and is not added. **A value
