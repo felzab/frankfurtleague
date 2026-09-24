@@ -60,8 +60,9 @@ the change (CLAUDE.md §2).
    resource to be provided, a convention to check before anything changes, options to choose
    between, a standing question to raise.
 
-4. **Do the work**, closing per CLAUDE.md §2 and `docs/_git/spec.md`: the gate at the scope the
-   change earns, its actual exit code reported, the draft pull request's link handed over, and every
+4. **Do the work**, closing per CLAUDE.md §2 and `docs/_git/spec.md`: the bare
+   `./scripts/gate/verify.sh` before the push, a named scope being only for iterating, its actual
+   exit code reported, the draft pull request's link handed over, and every
    check that pull request started read to its conclusion. Read
    `docs/_auditing/lessons.md` before verifying anything at runtime and before closing out against
    the gate.

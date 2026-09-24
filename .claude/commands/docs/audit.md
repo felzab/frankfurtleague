@@ -229,7 +229,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      (PRE-4). Prove it by silence on the repository too, and narrow a check that fires on something
      correct by design before it lands.
 
-5. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/gate/verify.sh --docs --format`, push,
+5. **Ship it**, per `docs/_git/spec.md`: branch first, the bare `./scripts/gate/verify.sh`, push,
    open the draft pull request, hand over its link, and name the conclusion of every check that pull
    request started, `verify`'s run being one of several (`.claude/CLAUDE.md` §2). Report the gate's
    actual exit code, and report

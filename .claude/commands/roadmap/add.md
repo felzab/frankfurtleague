@@ -120,7 +120,8 @@ branch named for the change (CLAUDE.md §2).
 
    Correct what is wrong, and report what this step caught.
 
-10. **Ship it as one commit**, closing per CLAUDE.md §2 with the gate at `--docs --format`. The
+10. **Ship it as one commit**, closing per CLAUDE.md §2 with the bare `./scripts/gate/verify.sh`
+    before the push; `--docs --format` is only for iterating. The
     `Closes:` trailer belongs to closing an item and does not apply here.
 
 11. **Hand over:** the new ids · the questions answered and how each shaped

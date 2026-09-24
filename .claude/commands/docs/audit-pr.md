@@ -44,12 +44,12 @@ stop.
 7. **Close with the gate**, reporting its actual exit code:
 
    ```bash
-   ./scripts/gate/verify.sh --docs --format
+   ./scripts/gate/verify.sh
    ```
 
-   **One run, at the end.** `--docs --format` is the slice's floor, the formatter being what holds
-   the prose and the comments this command rewrites; where the branch touched more than
-   documentation the gate refuses that scope, names the one it needs, and the run is repeated there.
+   **One run, at the end, and the bare one**: the branch is pushed on it (`.claude/CLAUDE.md` §2),
+   and nothing local reads which scopes the diff needs. `--docs --format` is only for iterating on
+   the prose and the comments this command rewrites.
 
    Report **net lines, separating relocated from removed** ([`audit.md`](audit.md#fix-mode)). The
    fixes then ride the branch's normal close per `docs/_git/spec.md`; this command opens no pull
