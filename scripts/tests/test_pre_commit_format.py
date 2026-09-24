@@ -2,55 +2,64 @@
 
 `.githooks/pre-commit` writes the index and the working copy of a fully staged file, so a regression
 either commits bytes the author never staged or overwrites bytes nobody saved anywhere else. A
-stand-in `node` plays prettier with one rewrite, so each case reads the exact bytes that land rather
-than whatever a real formatter would choose.
+stand-in prettier package, run by a real node through `.githooks/format-staged.mjs`, makes one
+rewrite, so each case reads the exact bytes that land rather than whatever a real formatter would
+choose.
 """
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, REPO_ROOT, base_env, configure, git, new_root, write, write_shell
+from conftest import REPO_ROOT, base_env, configure, git, new_root, write
 
 HOOK: Final = REPO_ROOT / ".githooks" / "pre-commit"
+HELPER: Final = REPO_ROOT / ".githooks" / "format-staged.mjs"
 
+# Not a skip condition, as `scripts/tests/conftest.py :: BASH` is not: the hook formats nothing
+# without one, and every case below would then pass by asserting on an unformatted commit.
+NODE: Final = shutil.which("node")
 
 # The stand-in's one rewrite, and the marker it refuses as prettier refuses a file that will not
-# parse, with its exit 2.
+# parse.
 RAW: Final = "export const v = {a:1};"
 FORMATTED: Final = "export const v = { a: 1 };"
 UNPARSEABLE: Final = "SYNTAX-ERROR"
 
-# Line endings go to LF, as the repository's `endOfLine` sends them.
-STAND_IN: Final = r"""#!/usr/bin/env bash
-set -u
-shift
-mode=write
-files=()
-while [ $# -gt 0 ]; do
-  case $1 in
-    --stdin-filepath | --log-level | --ignore-path) [ "$1" = --stdin-filepath ] && mode=stdin; shift 2 ;;
-    --*) shift ;;
-    *) files+=("$1"); shift ;;
-  esac
-done
-if [ "$mode" = stdin ]; then
-  input="$(mktemp)"
-  cat > "$input"
-  if grep -q SYNTAX-ERROR "$input"; then exit 2; fi
-  exec sed 's/\r$//; s/{a:1}/{ a: 1 }/g' "$input"
-fi
-rc=0
-for f in "${files[@]}"; do
-  if grep -q SYNTAX-ERROR "$f"; then rc=2; continue; fi
-  sed -i 's/\r$//; s/{a:1}/{ a: 1 }/g' "$f"
-done
-exit "$rc"
+# Refuses the options the hook must pass as `pnpm format` would, reports a file named `ignored*` as
+# `.prettierignore` would, and plays a second writer: formatting a text naming `WRITE-TO:<file>`
+# appends a line to that file on disk, once.
+STAND_IN: Final = r"""const fs = require("node:fs");
+const path = require("node:path");
+
+exports.getFileInfo = async (file, options) => {
+  if (options.ignorePath !== path.resolve("../.prettierignore")) throw new Error(`ignorePath ${options.ignorePath}`);
+  return { ignored: path.basename(file).startsWith("ignored"), inferredParser: "typescript" };
+};
+
+exports.resolveConfig = async (file, options) => {
+  if (options?.editorconfig !== true) throw new Error("resolveConfig without editorconfig");
+  return {};
+};
+
+exports.format = async (text, options) => {
+  if (!path.isAbsolute(options.filepath)) throw new Error(`relative filepath ${options.filepath}`);
+  if (text.includes("SYNTAX-ERROR")) {
+    const error = new SyntaxError("Unexpected token (1:1)");
+    error.loc = { start: { line: 1, column: 1 } };
+    throw error;
+  }
+  const target = /WRITE-TO:(\S+)/.exec(text);
+  const written = target && path.resolve("..", target[1]);
+  if (written && !fs.readFileSync(written, "utf8").includes("writer")) fs.appendFileSync(written, "export const writer = 1;\n");
+  return text.replace(/\r\n/g, "\n").replaceAll("{a:1}", "{ a: 1 }");
+};
 """
+
+WRITER_LINE: Final = b"export const writer = 1;\n"
 
 
 def _lines(*middle: str, last: str = "export const last = 3;", eol: str = "\n") -> str:
@@ -64,11 +73,13 @@ def _repository() -> Path:
     root = new_root("fl-pre-commit-format-")
     (root / ".githooks").mkdir()
     shutil.copy2(HOOK, root / ".githooks" / "pre-commit")
+    shutil.copy2(HELPER, root / ".githooks" / "format-staged.mjs")
     configure(root, hooks=str(root / ".githooks"))
     # Off main, where the hook's own refusal would answer every case below before any formatting.
     git(root, "symbolic-ref", "HEAD", "refs/heads/work")
     write(root, ".gitignore", "node_modules/\n")
-    write(root, "fl_frontend/node_modules/prettier/bin/prettier.cjs", "")
+    write(root, "fl_frontend/node_modules/prettier/package.json", '{"name": "prettier", "main": "index.cjs"}\n')
+    write(root, "fl_frontend/node_modules/prettier/index.cjs", STAND_IN)
     write(root, "a.ts", _lines("export const middle = 0;"))
     write(root, "u.ts", "export const u = 1;\n")
     git(root, "add", "-A")
@@ -77,13 +88,9 @@ def _repository() -> Path:
 
 
 def _commit(root: Path, *args: str, stdin: str | None = None, index: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """`git commit` run to its end with the stand-in first on PATH, on `index` in place of the repository's own where one is given."""
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    stand_in = root / "bin"
-    stand_in.mkdir(exist_ok=True)
-    os.chmod(write_shell(stand_in / "node", STAND_IN), 0o755)
+    """`git commit` run to its end, on `index` in place of the repository's own where one is given."""
+    assert NODE is not None, "no node on PATH -- the hook formats through one"
     env = base_env()
-    env["PATH"] = str(stand_in) + os.pathsep + env["PATH"]
     if index is not None:
         # Spelled with `/` on every platform, as git spells the paths it builds itself.
         env["GIT_INDEX_FILE"] = index.as_posix()
@@ -133,6 +140,21 @@ def test_a_partly_staged_file_commits_its_staged_half_formatted_and_its_working_
     assert _committed(root, "a.ts") == _lines(FORMATTED).strip()
     assert _on_disk(root, "a.ts") == before
     assert "left as it is" in done.stderr, done.stderr
+
+
+def test_a_working_copy_differing_from_its_staged_copy_by_formatting_alone_is_left_as_it_is() -> None:
+    """Both copies format to the same bytes, so only the file's being staged in part keeps the hook off its working copy."""
+    root = _repository()
+    # So the CRLF copy reads as changed on every platform, as it does wherever git keeps line endings.
+    git(root, "config", "core.autocrlf", "false")
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    write(root, "a.ts", _lines(RAW, eol="\r\n"))
+    before = _on_disk(root, "a.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert _committed(root, "a.ts") == _lines(FORMATTED).strip()
+    assert _on_disk(root, "a.ts") == before
 
 
 def test_an_unstaged_edit_the_formatting_overlaps_is_left_byte_for_byte() -> None:
@@ -216,8 +238,8 @@ def test_a_stale_default_lock_beside_an_index_in_the_git_directory_is_left_as_it
     assert stale.read_bytes() == before
 
 
-def test_a_file_that_will_not_parse_refuses_the_commit_and_stages_nothing() -> None:
-    """Beside a partly staged file and a fully staged one needing formatting, so a restage of either shows."""
+def test_a_file_that_will_not_parse_refuses_the_commit_and_writes_nothing() -> None:
+    """Beside a partly staged file and a fully staged one needing formatting, so a refusal after either write shows."""
     root = _repository()
     head = git(root, "rev-parse", "HEAD")
     in_part = _stage_in_part(root)
@@ -228,9 +250,12 @@ def test_a_file_that_will_not_parse_refuses_the_commit_and_stages_nothing() -> N
     index = git(root, "ls-files", "-s")
     done = _commit(root)
     assert done.returncode != 0, done.stdout + done.stderr
+    # The hook's own refusal, not a later step tripping over the files a refused run never wrote.
+    assert "bad.ts" in done.stderr and "the commit is refused and nothing was staged" in done.stderr, done.stderr
     assert git(root, "rev-parse", "HEAD") == head
     assert git(root, "ls-files", "-s") == index
     assert _on_disk(root, "a.ts") == in_part
+    assert _on_disk(root, "whole.ts") == _lines(RAW).encode()
     assert _on_disk(root, "u.ts") == b"export const u = 2;\n"
 
 
@@ -292,3 +317,33 @@ def test_a_crlf_working_copy_is_formatted_when_fully_staged_and_left_when_staged
     assert _on_disk(root, "whole.ts") == _lines(FORMATTED).encode()
     assert _committed(root, "a.ts") == _lines(FORMATTED).strip()
     assert _on_disk(root, "a.ts") == in_part
+
+
+def test_a_write_landing_while_the_hook_runs_is_kept_and_reported() -> None:
+    """Both windows: the formatting of `a.ts`'s own staged copy, and the one between reading `whole.ts` and writing it back.
+
+    `a.ts`'s staged copy is already formatted, so its report must not hang on a restage.
+    """
+    root = _repository()
+    write(root, "a.ts", _lines(FORMATTED, "// WRITE-TO:a.ts"))
+    write(root, "whole.ts", _lines(RAW))
+    write(root, "z.ts", _lines(RAW, "// WRITE-TO:whole.ts"))
+    git(root, "add", "a.ts", "whole.ts", "z.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert _committed(root, "a.ts") == _lines(FORMATTED, "// WRITE-TO:a.ts").strip()
+    assert _committed(root, "whole.ts") == _lines(FORMATTED).strip()
+    assert _on_disk(root, "a.ts") == _lines(FORMATTED, "// WRITE-TO:a.ts").encode() + WRITER_LINE
+    assert _on_disk(root, "whole.ts") == _lines(RAW).encode() + WRITER_LINE
+    raced = done.stderr.partition("written while the hook ran")[2]
+    assert "      a.ts\n" in raced and "      whole.ts\n" in raced, done.stderr
+
+
+def test_a_file_prettier_ignores_is_committed_as_staged() -> None:
+    root = _repository()
+    write(root, "ignored.ts", _lines(RAW))
+    git(root, "add", "ignored.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert RAW in _committed(root, "ignored.ts")
+    assert _on_disk(root, "ignored.ts") == _lines(RAW).encode()

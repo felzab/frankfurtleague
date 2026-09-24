@@ -586,9 +586,10 @@ each ignore, the reader knip cannot see; a configuration hint fails the step as 
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
 commit time instead: `.githooks/pre-commit` refuses a commit on `main` and re-stages every staged
 file formatted from its staged copy. **Of the working tree it writes only a fully staged file's
-copy**; a file staged in part keeps its working copy as the author left it, so `git status` shows the
-formatting as an unstaged change until the file is formatted and staged. It never stashes, hides or
-resets the working tree, and a commit it refuses stages nothing (I354). The hook is convenience and never
+copy**, and only while that copy still formats to the staged result; a file staged in part keeps its
+working copy as the author left it, so `git status` shows the formatting as an unstaged change until
+the file is formatted and staged. It never stashes, hides or resets the working tree, and a commit it
+refuses leaves the index and the working tree as they were (I354). The hook is convenience and never
 the enforcement — a clone
 that has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what
 bind. The

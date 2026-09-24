@@ -15,11 +15,6 @@
 
 set -euo pipefail
 
-# Windows refuses a command line past 32,767 bytes, and the formattable tree already costs more
-# than that in the `../` spelling below. A batch flushes before crossing this budget; Linux has
-# no practical limit here.
-ARGV_BUDGET=24000
-
 # Prettier's parser set, from `--support-info`, minus the editor and interchange aliases. Missing
 # one costs a later gate failure, never a wrong commit, so where it is unsure the list stays small.
 # The bare names are the two this stack could grow.
@@ -70,7 +65,7 @@ trap 'rm -rf "$work"' EXIT
 # `diff.relative` would relativise these to the invoking directory; every line below joins them onto
 # the repository root. `--no-renames` turns a rename into the add `A` names, and `D` is left out
 # because a staged deletion has no file to format.
-if ! git --literal-pathspecs -c diff.relative=false diff --cached --name-only -z --no-renames \
+if ! git --literal-pathspecs -c diff.relative=false diff --cached --raw --no-abbrev -z --no-renames \
      --diff-filter=ACM > "$work/staged"; then
   # Through a file, never a process substitution: nothing observes one's status, `set -e` does not
   # fire on it, and a query that failed there reads as an empty stage — an unformatted commit with
@@ -80,8 +75,20 @@ if ! git --literal-pathspecs -c diff.relative=false diff --cached --name-only -z
 fi
 
 staged=()
-while IFS= read -r -d '' path; do
-  if formattable "$path"; then staged+=("$path"); fi
+declare -A index_mode index_oid
+while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+  # `:<old mode> <new mode> <old oid> <new oid> <status>`, the new side being the index's.
+  meta="${meta#* }"
+  mode="${meta%% *}"
+  meta="${meta#* * }"
+  oid="${meta%% *}"
+  # A symlink's blob is its target's name, which prettier has no business rewriting.
+  case "$mode" in 100644 | 100755) ;; *) continue ;; esac
+  if formattable "$path"; then
+    staged+=("$path")
+    index_mode["$path"]="$mode"
+    index_oid["$path"]="$oid"
+  fi
 done < "$work/staged"
 
 # Nothing prettier reads, so a backend or shell commit pays no node startup.
@@ -89,11 +96,6 @@ if [ ${#staged[@]} -eq 0 ]; then
   exit 0
 fi
 
-declare -A candidate
-for path in "${staged[@]}"; do candidate["$path"]=1; done
-
-# A file staged in part never reaches the write pass below, which would format its unstaged half on
-# disk too; its commit copy is formatted from the index like every other file's.
 if ! git --literal-pathspecs -c diff.relative=false diff --name-only -z > "$work/dirty"; then
   echo "  pre-commit hook: could not read the worktree state — refusing rather than guessing." >&2
   exit 1
@@ -101,135 +103,59 @@ fi
 
 declare -A partial
 while IFS= read -r -d '' path; do
-  if [ -n "${candidate["$path"]:-}" ]; then partial["$path"]=1; fi
+  if [ -n "${index_oid["$path"]:-}" ]; then partial["$path"]=1; fi
 done < "$work/dirty"
 
-# By path rather than through `node_modules/.bin`, whose shim differs per platform and needs node on
-# PATH anyway. Absent means an install nobody has run, which is a reason to let the commit through
-# rather than block work the gate judges regardless.
-prettier_entry="node_modules/prettier/bin/prettier.cjs"
-if ! command -v node >/dev/null 2>&1 || [ ! -f "fl_frontend/$prettier_entry" ]; then
+# Absent means an install nobody has run, which is a reason to let the commit through rather than
+# block work the gate judges regardless.
+if ! command -v node >/dev/null 2>&1 || [ ! -f fl_frontend/node_modules/prettier/package.json ]; then
   echo "  pre-commit hook: no prettier found — skipping." >&2
   echo "  ./scripts/gate/verify.sh --frontend and CI still check this." >&2
   exit 0
 fi
 
-# Invoked exactly as `pnpm format` invokes it, same directory and same ignore file, so the hook
-# cannot reach a file the gate's own run leaves alone. The `../` prefix stops a file named like an
-# option from being read as one.
-prettier_write() {
-  ( cd fl_frontend && node "$prettier_entry" --write --log-level warn --ignore-unknown \
-      --ignore-path ../.prettierignore "$@" )
-}
-
-# Never called with an empty batch: prettier with no file argument reads stdin, and a hook that
-# waits on stdin hangs the commit. Each batch's status is kept, so an early failure is not lost
-# behind a later success.
-run_batched() {
-  local -a batch=()
-  local bytes=0 rc=0 one arg
-  for arg in "$@"; do
-    if [ ${#batch[@]} -gt 0 ] && [ $((bytes + ${#arg} + 1)) -gt "$ARGV_BUDGET" ]; then
-      one=0
-      prettier_write "${batch[@]}" || one=$?
-      if [ "$one" -gt "$rc" ]; then rc="$one"; fi
-      batch=()
-      bytes=0
-    fi
-    batch+=("$arg")
-    bytes=$((bytes + ${#arg} + 1))
-  done
-  if [ ${#batch[@]} -gt 0 ]; then
-    one=0
-    prettier_write "${batch[@]}" || one=$?
-    if [ "$one" -gt "$rc" ]; then rc="$one"; fi
-  fi
-  return "$rc"
-}
-
-args=()
+: > "$work/manifest"
+: > "$work/oids"
 for path in "${staged[@]}"; do
-  if [ -z "${partial["$path"]:-}" ]; then args+=("../$path"); fi
+  if [ -n "${partial["$path"]:-}" ]; then flag=P; else flag=W; fi
+  printf '%s\0%s\0' "$flag" "$path" >> "$work/manifest"
+  printf '%s\n' "${index_oid["$path"]}" >> "$work/oids"
 done
-status=0
-run_batched "${args[@]}" || status=$?
 
-# Filtered against the candidate set rather than passed as a pathspec: a pathspec naming the whole
-# formattable tree is itself over the argv ceiling.
-if ! git --literal-pathspecs -c diff.relative=false diff --name-only -z > "$work/after"; then
-  echo "  pre-commit hook: could not read the worktree after formatting — the commit is refused." >&2
+# The index copies, never the working copies: whatever the worktree holds by now cannot reach the
+# commit.
+if ! git cat-file --batch < "$work/oids" > "$work/blobs"; then
+  echo "  pre-commit hook: could not read the staged copies — the commit is refused." >&2
   exit 1
 fi
 
-changed=()
-while IFS= read -r -d '' path; do
-  if [ -n "${candidate["$path"]:-}" ]; then changed+=("$path"); fi
-done < "$work/after"
-
-raced=()
-restaged=()
-in_part=()
-restage_failed=0
-
-if [ ${#changed[@]} -gt 0 ]; then
-  if ! git ls-files -s -z > "$work/index"; then
-    echo "  pre-commit hook: could not read the index — the commit is refused." >&2
-    exit 1
-  fi
-
-  declare -A index_mode index_oid
-  while IFS= read -r -d '' entry; do
-    meta="${entry%%$'\t'*}"
-    path="${entry#*$'\t'}"
-    if [ -n "${candidate["$path"]:-}" ]; then
-      index_mode["$path"]="${meta%% *}"
-      meta="${meta#* }"
-      index_oid["$path"]="${meta%% *}"
-    fi
-  done < "$work/index"
-
-  # The staged bytes are prettier's output for the INDEX copy, so whatever the worktree holds by now
-  # cannot reach the commit. `--stdin-filepath` keeps it exact: config and ignore rules resolve from
-  # the real path, which no temporary tree reproduces.
-  : > "$work/stage"
-  for path in "${changed[@]}"; do
-    if ! git cat-file blob "${index_oid["$path"]}" > "$work/blob"; then
-      echo "  pre-commit hook: could not read the staged copy of $path — the commit is refused." >&2
-      exit 1
-    fi
-    if ! ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
-             --ignore-unknown --ignore-path ../.prettierignore \
-             < "$work/blob" > "$work/formatted" ); then
-      restage_failed=$((restage_failed + 1))
-      continue
-    fi
-    # Ahead of the restage below, which a staged copy already formatted skips: a writer on a fully
-    # staged file is reported either way.
-    if [ -z "${partial["$path"]:-}" ] && ! cmp -s -- "$work/formatted" "$path"; then raced+=("$path"); fi
-    if cmp -s -- "$work/blob" "$work/formatted"; then continue; fi
-    if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted")"; then
-      echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
-      exit 1
-    fi
-    printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
-    restaged+=("$path")
-    if [ -n "${partial["$path"]:-}" ]; then in_part+=("$path"); fi
-  done
-fi
-
-if [ "$restage_failed" -gt 0 ]; then
-  echo "  pre-commit hook: could not format $restage_failed staged file(s) from the index." >&2
-  if [ "$status" -eq 0 ]; then status=1; fi
-fi
-
-# Prettier answers 2 for a file that will not parse and 1 for a config naming a plugin nobody
-# installed. Both refuse: the first is a verdict on the commit, the second a tree nothing can
-# format. Absent, handled above, is the only case that stands aside.
+# One node for the whole stage: a process per file pays prettier's and both plugins' load each time.
+status=0
+( cd fl_frontend && node ../.githooks/format-staged.mjs "$work" ) || status=$?
 if [ "$status" -ne 0 ]; then
-  echo "  pre-commit hook: prettier exited $status, so the commit is refused and nothing was staged —" >&2
+  echo "  pre-commit hook: formatting exited $status, so the commit is refused and nothing was staged —" >&2
   echo "  its reason is above." >&2
   exit "$status"
 fi
+
+restaged=()
+in_part=()
+: > "$work/stage"
+while IFS= read -r -d '' index; do
+  path="${staged[$index]}"
+  # `--path` applies the real path's `.gitattributes`, as `git add` would; the temporary file's own
+  # name would not.
+  if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted/$index")"; then
+    echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
+    exit 1
+  fi
+  printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
+  restaged+=("$path")
+  if [ -n "${partial["$path"]:-}" ]; then in_part+=("$path"); fi
+done < "$work/restage"
+
+raced=()
+while IFS= read -r -d '' index; do raced+=("${staged[$index]}"); done < "$work/raced"
 
 if [ ${#restaged[@]} -gt 0 ]; then
   if ! git update-index -z --index-info < "$work/stage"; then
@@ -273,7 +199,7 @@ fi
 
 if [ ${#raced[@]} -gt 0 ]; then
   {
-    echo "  pre-commit hook: ${#raced[@]} file(s) were written while prettier ran. The commit holds the"
+    echo "  pre-commit hook: ${#raced[@]} file(s) were written while the hook ran. The commit holds the"
     echo "  staged content formatted; the working copy is left exactly as that writer left it:"
     name_files "${raced[@]}"
   } >&2
