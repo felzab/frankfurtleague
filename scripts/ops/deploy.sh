@@ -833,6 +833,71 @@ if (( RECORDED )); then ok "recorded before anything is pulled or recreated"; fi
 
 # --- pull -------------------------------------------------------------------------------------------
 
+# What each `:latest` named before a bare run's pull, read by `image ls`: `inspect` answers an absent
+# image and a dead daemon alike. A pinned run leaves them empty, its tags moving only once the pair
+# is accepted.
+LATEST_BEFORE_FE=""
+LATEST_BEFORE_BE=""
+LATEST_BEFORE_RC=0
+
+# A pair this run refuses leaves the host's tags as it found them: an `up` reaching the application
+# recreates it from whatever `:latest` names, a refused pair included.
+put_latest_back() {
+  local rc=0
+  if (( LATEST_BEFORE_RC )); then
+    warn "what the :latest tags named before this run could not be read (exit ${LATEST_BEFORE_RC}), so
+they cannot be put back, and this host's pair may be the refused one until a deploy pulls both again:
+  ./scripts/ops/deploy.sh --status"
+    return 0
+  fi
+  [[ -z "$LATEST_BEFORE_FE" ]] || quietly docker tag "$LATEST_BEFORE_FE" "$IMAGE_FRONTEND" || rc=1
+  [[ -z "$LATEST_BEFORE_BE" ]] || quietly docker tag "$LATEST_BEFORE_BE" "$IMAGE_BACKEND"  || rc=1
+  if (( rc )); then
+    warn "the :latest tags could not both be put back, so this host's pair may be the refused one until
+a deploy pulls both again:  ./scripts/ops/deploy.sh --status"
+  elif [[ -n "$LATEST_BEFORE_FE$LATEST_BEFORE_BE" ]]; then
+    info "the :latest tags were put back to the images they named before this run"
+  fi
+}
+
+# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
+# rather than two, because a label nobody could read is not an absent one.
+compare_pulled_pair() { # $1 the frontend image as pulled, $2 the backend's
+  local fe="" be="" fe_rc=0 be_rc=0
+  fe="$(published_tag "$1")" || fe_rc=1
+  be="$(published_tag "$2")" || be_rc=1
+  if (( fe_rc || be_rc )); then
+    put_latest_back
+    refuse "the pulled images' build labels could not be read, so nothing says whether these two
+packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
+  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+  elif [[ -z "$fe" || -z "$be" ]]; then
+    # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
+    # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
+    # names the pair itself, which keeps an unlabelled build reachable for a rollback.
+    if [[ -z "$PIN" ]]; then
+      put_latest_back
+      refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
+packages are the same build. NOTHING has been recreated. Publish a build, which labels both:
+  gh workflow run publish.yml --ref main
+or pin one:  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+    fi
+    info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
+  elif [[ "$fe" != "$be" && -n "$PIN" ]]; then
+    # Each label names the tag its image was pushed under, so one of these was pushed under a tag
+    # that is not its own, and no deploy of this pin runs the build it names.
+    die "The two images tagged ${PIN} carry different build labels: frontend ${fe}, backend ${be}.
+NOTHING has been recreated, and neither :latest tag has moved. Deploy a build both packages
+carry under its own label:  ./scripts/ops/deploy.sh <tag>  (https://github.com/felzab?tab=packages)"
+  elif [[ "$fe" != "$be" ]]; then
+    put_latest_back
+    die "The two :latest tags are different builds: frontend ${fe}, backend ${be}.
+A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
+sees it: each service is healthy against its own half. NOTHING has been recreated.
+Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
+  fi
+}
+
 section "pull"
 
 step "The edge's images, before anything the application runs moves"
@@ -850,71 +915,32 @@ List what exists locally: docker image ls '${REPO_FRONTEND}'
 Published builds are at https://github.com/felzab?tab=packages"
   docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
 own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
-  # Only now, with both pulls behind us, do the moving tags compose reads by name move.
+  compare_pulled_pair "${REPO_FRONTEND}:${PIN}" "${REPO_BACKEND}:${PIN}"
+  # Only now, with both pulls behind us and the pair accepted, do the moving tags compose reads by
+  # name move.
   quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
   quietly docker tag "${REPO_BACKEND}:${PIN}"  "$IMAGE_BACKEND"  || die "could not point ${IMAGE_BACKEND} at ${PIN}.
 The frontend tag has already moved, so this host's pair is mismatched: re-run this command."
   ok "both :latest tags now point at ${PIN} locally"
 else
   step "Pulling the current published images"
-  # What :latest names before the pull moves it, so a failed second pull leaves no new frontend
-  # beside an old backend. `image ls`, not `inspect`, which reads an absent image and a dead daemon
-  # alike where only the second may skip the restore.
-  BEFORE_RC=0
-  before_fe="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || BEFORE_RC=$?
+  LATEST_BEFORE_FE="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
+  LATEST_BEFORE_BE="$(docker image ls --quiet --no-trunc "$IMAGE_BACKEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
   docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
 The packages are public, so this server needs no login. An authentication or
 'not found' error almost always means the package was left PRIVATE after a
 first push — check https://github.com/felzab?tab=packages"
   if ! docker pull "$IMAGE_BACKEND"; then
-    if (( BEFORE_RC )); then
-      warn "what ${IMAGE_FRONTEND} named before this run could not be read (exit ${BEFORE_RC}), so the
-frontend tag cannot be put back. This host's pair may be mismatched until a deploy pulls both again:
-  ./scripts/ops/deploy.sh --status"
-    elif [[ -n "$before_fe" ]]; then
-      if quietly docker tag "$before_fe" "$IMAGE_FRONTEND"; then
-        info "the frontend tag was put back to the image it named before this run"
-      else
-        warn "could not put the frontend tag back — this host's pair stays mismatched until the next deploy"
-      fi
-    fi
+    # A new frontend beside an old backend is a pair no build names.
+    put_latest_back
     die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
   fi
   ok "both packages pulled"
+  compare_pulled_pair "$IMAGE_FRONTEND" "$IMAGE_BACKEND"
 fi
 
 info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
 info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
-
-# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
-# rather than two, because a label nobody could read is not an absent one.
-compare_pulled_pair() {
-  local fe="" be="" fe_rc=0 be_rc=0
-  fe="$(published_tag "$IMAGE_FRONTEND")" || fe_rc=1
-  be="$(published_tag "$IMAGE_BACKEND")"  || be_rc=1
-  if (( fe_rc || be_rc )); then
-    refuse "the pulled images' build labels could not be read, so nothing says whether these two
-packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
-  elif [[ -z "$fe" || -z "$be" ]]; then
-    # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
-    # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
-    # names the pair itself, which keeps an unlabelled build reachable for a rollback.
-    if [[ -z "$PIN" ]]; then
-      refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
-packages are the same build. NOTHING has been recreated. Publish a build, which labels both:
-  gh workflow run publish.yml --ref main
-or pin one:  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
-    fi
-    info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
-  elif [[ "$fe" != "$be" ]]; then
-    die "The two :latest tags are different builds: frontend ${fe}, backend ${be}.
-A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
-sees it: each service is healthy against its own half. NOTHING has been recreated.
-Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
-  fi
-}
-compare_pulled_pair
 
 # What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
 # second full outage ending where this run started, so it is read here rather than reasoned about.

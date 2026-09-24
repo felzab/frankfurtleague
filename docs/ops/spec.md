@@ -441,6 +441,11 @@ applies, so a tag the host holds is never refreshed under a running edge. A fail
 exit 2 with nothing recreated; left to the `up` that reloads nginx, it would arrive once the
 application pair was replaced, nginx still proxying to the containers it replaced.
 
+**A pair the deploy refuses leaves the host's `:latest` tags as it found them**: a pinned run moves
+them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, and a bare run puts
+back what they named before its pull (`:: put_latest_back`), since an `up` reaching the application
+recreates it from whatever they name.
+
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it; every other statement of which paths select which scope — the packaging list
 included — cites that file rather than repeating it.
