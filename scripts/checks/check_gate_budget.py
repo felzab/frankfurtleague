@@ -500,9 +500,8 @@ def main() -> int:
             reason = f"The reference table {reference} was not read, so there is nothing to compare against."
             summarise(no_comparison(reason))
             warn(reason)
-            # 0, as every no-comparison state: the report is advisory, and failing beside the budget
-            # step it would refuse a publish `publish.yml` allows a run that step alone failed.
-            # `--jobs` and `--base` still refuse this with 2.
+            # 0, as every no-comparison state: the report is advisory. `--jobs` and `--base` still
+            # refuse this with 2.
             return EXIT_OK
         return EXIT_REFUSED
 

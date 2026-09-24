@@ -470,8 +470,9 @@ pushes each under `sha-<commit>`, and only then moves both `:latest` tags (I353,
 publishes nothing, and re-running an old publish run refuses rather than moving `:latest` backward.
 **A `verify` run failed on its wall-clock budget alone still counts as passed**: the budget judges
 how long the gate took, not the tree, so `scripts/checks/check_publish_verdict.py` reads that run's
-jobs and accepts it when the aggregate job's budget step is the one step that failed. The token can
-push only because each package grants this repository's workflows write access — the package
+jobs and accepts it when the aggregate job's budget step is the one step that failed, its
+`continue-on-error` reports apart (`scripts/checks/check_publish_verdict.py :: ADVISORY_STEPS`). The
+token can push only because each package grants this repository's workflows write access — the package
 settings' **Manage Actions access** — so a package created or re-created by hand needs that grant
 first. The server needs no
 token, both packages pulling anonymously. **A publish that failed between the two `:latest` moves
