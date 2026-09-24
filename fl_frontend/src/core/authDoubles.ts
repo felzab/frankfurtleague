@@ -77,7 +77,8 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
       return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {
-      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+      // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
+      // run in, and a query-suffixed url passes: both db-tier suites load the real `db.ts` that way.
       const double = sources.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
       if (double !== undefined) return { format: "module", source: double[1], shortCircuit: true };
       return nextLoad(url, context);
