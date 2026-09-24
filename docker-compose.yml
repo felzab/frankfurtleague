@@ -110,8 +110,8 @@ services:
     # interface of this network, reloads included.
     command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
     # A tmpfs, so the socket a killed master leaves behind goes with it, where the next start
-    # would refuse to bind it and exit. Mode 700, so the worker user cannot reach the socket and
-    # reload nginx.
+    # would refuse to bind it and exit. Mode 700, so no user but root reaches the socket and reloads
+    # nginx whatever mode nginx gives the socket itself.
     tmpfs:
       - /run/nginx-control:mode=700
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx

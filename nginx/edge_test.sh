@@ -624,12 +624,23 @@ fi
 : > "${SCRATCH}/zz-reload-probe.conf"
 control 200
 
-# The worker's user may not reach the socket (`docker-compose.yml :: nginx`'s tmpfs mode).
-if MSYS_NO_PATHCONV=1 docker exec -u nginx "$CONTAINER" curl -sS --max-time 5 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL" >/dev/null 2>&1; then
+# The worker's user may not reach the socket, and the directory holding it is root's alone
+# (`docker-compose.yml :: nginx`'s tmpfs mode).
+CONTROL_MODES="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" stat -c '%a %U %n' "${EDGE_SOCKET%/*}" "$EDGE_SOCKET" 2>&1 || true)"
+CONTROL_MODES="${CONTROL_MODES//$'\r'/}"
+if [[ "$CONTROL_MODES" != "700 root ${EDGE_SOCKET%/*}"$'\n'* ]]; then
+  fail "CONTROL directory mode"
+  detail "expected ${EDGE_SOCKET%/*} at 700, owned by root: ${CONTROL_MODES}"
+  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
+elif verbose; then
+  printf '%s\n' "$CONTROL_MODES" | detail
+fi
+CONTROL_WORKER="$(MSYS_NO_PATHCONV=1 docker exec -u nginx "$CONTAINER" curl -sS --max-time 5 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL" 2>&1)" && {
   fail "CONTROL as nginx"
   detail "the worker's user reached the Control API at ${EDGE_SOCKET}"
   CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-fi
+}
+if verbose; then detail "as nginx: ${CONTROL_WORKER//$'\r'/}"; fi
 
 # --- the block production alone serves -----------------------------------------------------------
 
