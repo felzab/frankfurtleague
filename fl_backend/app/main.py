@@ -257,8 +257,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
     is passed.
     """
-    # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import
-    # past the ruff ban, which names `app.core.config.get_config` alone.
+    # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
+    # the ruff ban names that path too, since ruff matches the path an import spells.
     from app.core.config import get_config  # noqa: TID251
 
     config = config or get_config()
