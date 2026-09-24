@@ -8,7 +8,7 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_SEATS, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
@@ -181,6 +181,9 @@ export function mapBewerbungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // A seat names words other than the form's, which only a page loaded before a deploy sends.
+    case "REQ-BEWERBUNG-016":
+      return { error: BEWERBUNG_VERALTET };
     default:
       return null;
   }
@@ -194,17 +197,6 @@ export function mapBewerbungSubmitRefusal(
  */
 export function nenntLaufendeFassung(body: unknown, textVersion: string): boolean {
   return typeof body === "object" && body !== null && "text_version" in body && body.text_version === textVersion;
-}
-
-/** `nenntLaufendeFassung` for an application, whose form stamps one label per seat as it opens: every seat must name it. */
-export function bewerbungNenntLaufendeFassung(body: unknown, textVersion: string): boolean {
-  const kontakte: unknown = typeof body === "object" && body !== null && "kontakte" in body ? body.kontakte : null;
-
-  return BEWERBUNG_SEATS.every(({ value }) => {
-    const sitz: unknown = typeof kontakte === "object" && kontakte !== null ? Reflect.get(kontakte, value) : null;
-
-    return typeof sitz === "object" && sitz !== null && "einwilligung" in sitz && nenntLaufendeFassung(sitz.einwilligung, textVersion);
-  });
 }
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */

@@ -33,6 +33,7 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
+    find_veraltete_fassung_refusal,
     find_window_refusal,
     mint_token,
     payload_fingerabdruck,
@@ -307,6 +308,9 @@ async def post_bewerbung(
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     application it holds and stores none: fresh links where no message to any seat is known to have
     reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
+
+    A seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),
+    and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -325,6 +329,10 @@ async def post_bewerbung(
             return await _answer_as_the_first(
                 bewerbungen_collection=bewerbungen_collection, stored=stored, fingerabdruck=fingerabdruck, today=today, session=session
             )
+
+        # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
+        # the first press's words, and refusing it here would have its reload store a second application.
+        refuse(find_veraltete_fassung_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
 
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up. The window is read under the same projection the public GET uses.

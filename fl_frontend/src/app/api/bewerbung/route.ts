@@ -1,6 +1,5 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
@@ -14,7 +13,7 @@ import {
 } from "@/features/bewerbungen/notifications";
 import { getBewerbungSchulen } from "@/features/bewerbungen/queries";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { BEWERBUNG_VERALTET, bewerbungNenntLaufendeFassung, empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
+import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
@@ -37,10 +36,8 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Judged BEFORE the parse, as the three confirmation handlers judge theirs: a page opened before a
-      // deploy moved the label stamps words the running build does not serve, and a stored record would cite them.
-      if (!bewerbungNenntLaufendeFassung(body, LIGA_KENNTNISNAHME.textVersion)) return { success: false as const, error: BEWERBUNG_VERALTET };
-
+      // No label check here, unlike the three confirmation handlers: the backend judges the label after
+      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-BEWERBUNG-016`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };

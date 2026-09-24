@@ -1889,6 +1889,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheSubmissionKey",
     ),
     Rule(
+        code="REQ-BEWERBUNG-016",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a new submission names on every seat the consent wording the form now shows, a stored key being replayed whatever it names",
+        implemented_by="app.api.bewerbungen.services.find_veraltete_fassung_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWordingTheFormShows",
+    ),
+    Rule(
         code="REQ-PURGE-001",
         operation="DELETE /spieler/{spieler_id}/erasure",
         aggregate="Spieler",

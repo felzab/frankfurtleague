@@ -13,11 +13,14 @@ from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.bewerbungen import services
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
+    BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
+    BEWERBUNG_LAUFENDE_FASSUNG,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SCHLUESSEL_ABWEICHEND,
@@ -77,7 +80,7 @@ def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str,
         "nachname": f"{vorname}-Mustermann",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"text_version": "v3", "erteilt": True},
+        "einwilligung": {"text_version": BEWERBUNG_LAUFENDE_FASSUNG, "erteilt": True},
     }
 
 
@@ -88,6 +91,19 @@ KONTAKTE: Mapping[str, Any] = {
     "stellvertretung": person("Bramblewick", telefon="+49 170 3333333"),
     "trainer_ist_zugleich": None,
 }
+
+
+# A label the registry still resolves, as a page loaded under the build before the running one stamps it.
+EARLIER_FASSUNG = "2026-09-bestaetigung-4"
+
+
+def kontakte_labelled(text_version: str) -> dict[str, Any]:
+    """`KONTAKTE` with every seat naming `text_version`."""
+
+    return {
+        seat: {**value, "einwilligung": {**value["einwilligung"], "text_version": text_version}} if isinstance(value, dict) else value
+        for seat, value in KONTAKTE.items()
+    }
 
 
 def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -224,7 +240,7 @@ class TestWhatASubmissionStores:
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
                 "erfasst_von": "administrativ",
-                "text_version": "v3",
+                "text_version": BEWERBUNG_LAUFENDE_FASSUNG,
                 "datum": TODAY,
                 "bestaetigt_am": None,
             }
@@ -520,6 +536,21 @@ class TestTheSubmissionKey:
 
         assert first == second
 
+    def test_a_replay_is_answered_whatever_wording_its_first_press_named(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Looked up before the wording is judged: a deploy between the presses moved the label, and the retry resends the first one's."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with monkeypatch.context() as earlier_build:
+                earlier_build.setattr(services, "BEWERBUNG_LAUFENDE_FASSUNG", EARLIER_FASSUNG)
+                first = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
+            second = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
+
+            return first.created_id, second.created_id, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        first, second, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (second, stored) == (first, 1)
+
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
@@ -735,6 +766,11 @@ class TestTheRefusalsTheWritePathAnswers:
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
+
+    def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
+        """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
+
+        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == BEWERBUNG_FASSUNG_VERALTET
 
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""

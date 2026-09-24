@@ -22,7 +22,9 @@ from app.api.bewerbungen.schemas import (
     normalise_telefon,
 )
 from app.api.bewerbungen.services import (
+    BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
+    BEWERBUNG_LAUFENDE_FASSUNG,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
@@ -36,6 +38,7 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
+    find_veraltete_fassung_refusal,
     find_window_refusal,
     payload_fingerabdruck,
     saison_nimmt_bewerbungen_an,
@@ -391,6 +394,34 @@ class TestTheProposedKuerzel:
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_SHORTHAND_TAKEN
+
+
+def labelled(**labels: str) -> dict[str, Any]:
+    """The three seats as the payload dumps them, each naming the running label unless the case names another."""
+
+    return {
+        seat: {"einwilligung": {"text_version": labels.get(seat, BEWERBUNG_LAUFENDE_FASSUNG), "erteilt": True}}
+        for seat in ("trainer", "ansprechperson", "stellvertretung")
+    }
+
+
+class TestTheWordingTheFormShows:
+    """`REQ-BEWERBUNG-016`: a stored record cites the words its seat was shown, so a new one names the running label."""
+
+    def test_every_seat_naming_the_running_label_passes(self):
+        """The floor: without it the case below would pass on a check that refuses everything."""
+
+        assert find_veraltete_fassung_refusal(kontakte=labelled()) is None
+
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    def test_one_seat_naming_an_earlier_label_is_refused(self, seat: str):
+        """Each seat alone: the form stamps one label per seat, so a check reading one of them passes a stale label on another."""
+
+        refusal = find_veraltete_fassung_refusal(kontakte=labelled(**{seat: "2026-09-bestaetigung-4"}))
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_FASSUNG_VERALTET
+        assert seat in refusal.message
 
 
 # A date no living contact person could carry: born after the bound's floor whatever `today` is.

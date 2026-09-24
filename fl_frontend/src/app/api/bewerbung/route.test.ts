@@ -224,7 +224,6 @@ describe("the application handler's own parse", () => {
   /* The parse shares the running API's rules, so a path it names and the page renders no box for comes
      from a page older than the deploy: the page's reload, never the generic retry. */
   it("refuses a body it cannot parse in the slice's own sentence, writing nothing", async () => {
-    // Every label the running one, so the parse and not the label check is what refuses it.
     const answer = await bodyOf(aRequest({}, { ...BODY, kader: null }));
     const body = answer.body as { success: boolean; unplacedError?: string };
 
@@ -235,26 +234,24 @@ describe("the application handler's own parse", () => {
 });
 
 describe("the application handler's consent label", () => {
-  const SEATS: readonly Sitz[] = ["ansprechperson", "stellvertretung", "trainer"];
+  /* A retry across a deploy that moved the label resends the first press's words, and only the write
+     can tell a stored key from a new one (`docs/frontend/spec.md :: I148`). */
+  it("passes an earlier label on to the write, which answers a stored key's replay", async () => {
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn("trainer", "2026-09-bestaetigung-4")));
 
-  /* The form stamps one label per seat, so a check reading one seat passes a stale label on another:
-     each seat is driven alone, and the stored record would cite words the running build does not serve. */
-  it("refuses a label no wording carries on any one seat, writing and mailing nothing", async () => {
-    for (const seat of SEATS) {
-      const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn(seat, "2026-08-erfunden")));
-
-      assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET }, seat);
-    }
-    assert.deepEqual(writes(), []);
-    assert.deepEqual(mails, []);
+    assert.equal(writes().length, 1);
+    assert.equal((answer.body as { success: boolean }).success, true);
   });
 
-  /* A page opened before a deploy moved the label names words the running build still resolves, and
-     the rule is the running label, never a known one. */
-  it("refuses an older label the running build still resolves, writing nothing", async () => {
+  /* A new press under that label is the write's to refuse, and the page's reload is the answer. */
+  it("answers the write's refusal of an earlier label with the page's reload, mailing nothing", async () => {
+    schreibAntwort = () => {
+      throw aRefusal("REQ-BEWERBUNG-016");
+    };
+
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn("trainer", "2026-09-bestaetigung-4")));
 
     assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET });
-    assert.deepEqual(writes(), []);
+    assert.deepEqual(mails, []);
   });
 });

@@ -17,6 +17,7 @@ import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_M
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
 import {
   abiJahrgang,
+  BEWERBUNG_VERALTET,
   bewerbungHerkunft,
   bewerbungJudgedPaths,
   bewerbungTeamName,
@@ -498,6 +499,10 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     assert.match(fieldOf("REQ-BEWERBUNG-007"), /\bspielt\b/);
     assert.match(fieldOf("REQ-BEWERBUNG-007"), /dieser Saison/);
     assert.doesNotMatch(fieldOf("REQ-BEWERBUNG-007"), /beworben|Bewerbung|gespielt|früher|einmal/);
+
+    // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
+    // sentence the form's own parse gives such a page, and no box, none of them being at fault.
+    assert.deepEqual(mapBewerbungSubmitRefusal(refusalFor("REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
