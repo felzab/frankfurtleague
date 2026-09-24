@@ -31,10 +31,12 @@ const ABSATZ_CLASSES = "fluid-sm text-foreground leading-relaxed font-medium tex
 const STAND = "24. September 2026";
 
 /**
- * German writes a small count in words. Indexed with a constant's literal type, so a constant moved
- * to a count this table holds no word for fails `tsc` rather than rendering a digit or nothing.
+ * German writes a count from one to twelve in words, and a fortnight as „vierzehn Tage“; a larger count
+ * stays in digits. Indexed by a constant's literal type: a constant moved to a count with no word here fails `tsc`.
  */
-const ZAHLWORT = { 3: "drei", 14: "vierzehn" } as const;
+const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const;
+
+const amSatzanfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 
 /** Every recipient outside the league, as one card each: a recipient's facts, read as a table, are a row nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -140,9 +142,9 @@ const VEROEFFENTLICHT = [
 const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
-    frist: `${String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet, längstens bis zum Ende der beworbenen Saison; die angekündigte Löschung ginge sonst an niemanden`,
+    frist: `${amSatzanfang(ZAHLWORT[BEWERBUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet, längstens bis zum Ende der beworbenen Saison; die angekündigte Löschung ginge sonst an niemanden`,
   },
-  { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
+  { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "Ein Monat nach der Entscheidung" },
   {
     daten: "Angenommene Bewerbung samt den Daten der drei Kontaktpersonen",
     frist: "Bis zum Ende der Saison, die auf die beworbene Saison folgt",
@@ -153,7 +155,7 @@ const FRISTEN = [
   },
   {
     daten: "Registrierung eines Spielers oder einer Spielerin",
-    frist: `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung`,
+    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung`,
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
@@ -165,7 +167,7 @@ const FRISTEN = [
   {
     daten:
       "Bestätigung einer Schiedsrichterin oder eines Schiedsrichters: Geburtsdatum, die beiden Antworten (Veröffentlichung, Medien) und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
-    frist: `Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt ${String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht`,
+    frist: `Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt ${ZAHLWORT[SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE]} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -176,11 +178,11 @@ const FRISTEN = [
     daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldelink gilt ${String(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+    frist: `Ein Anmeldelink gilt ${ZAHLWORT[LINK_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
   },
   {
     daten: "Änderungsprotokoll der Verwaltung",
-    frist: "12 Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+    frist: "Zwölf Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -190,7 +192,7 @@ const FRISTEN = [
     daten: "Betriebsprotokoll der Anwendung",
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
   },
-  { daten: "Sicherungskopien der Datenbank", frist: "Etwa 8 Tage" },
+  { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
     frist:

@@ -16,6 +16,8 @@ import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrlist
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
+// After the harness, as the view is: the module is `server-only`, which the harness stands in for.
+const { LINK_VALIDITY_MINUTES } = await import("@/core/authEmail.ts");
 
 const MARKUP = renderMarkup(DatenschutzView, {});
 
@@ -41,7 +43,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
 
 /* German writes a small count in words, so the notice states its clocks in words. This table is the
    case's own, never the view's, so a wrong word in the view's table fails rather than agreeing with itself. */
-const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "sieben", 14: "vierzehn" };
+const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "sieben", 10: "zehn", 14: "vierzehn" };
 
 function inWorten(zahl: number): string {
   const wort = ZAHLWORT[zahl];
@@ -49,6 +51,9 @@ function inWorten(zahl: number): string {
 
   return wort;
 }
+
+/** The word opening a sentence, as each retention cell opens on its clock. */
+const amAnfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 
 describe("the privacy notice's account of the association", () => {
   it("states the joint representation without naming a single board member", () => {
@@ -125,7 +130,7 @@ describe("the privacy notice's retention table", () => {
   it("gives an unconfirmed application the clock the sweep deletes on", () => {
     assert.equal(
       ANGABEN.get("Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben"),
-      `${String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt ` +
+      `${amAnfang(inWorten(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt ` +
         "die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, " +
         "bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet, " +
         "längstens bis zum Ende der beworbenen Saison; die angekündigte Löschung ginge sonst an niemanden",
@@ -149,7 +154,7 @@ describe("the privacy notice's retention table", () => {
   it("gives a pupil's registration three fates, one per decision", () => {
     assert.equal(
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
-      `${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
+      `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
         "bestätigt wird, dann Löschung; eine Erinnerung " +
         "verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen " +
         "ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung " +
@@ -164,9 +169,33 @@ describe("the privacy notice's retention table", () => {
           "und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
       ),
       "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt " +
-        `${String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
+        `${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
         "Eintrag gelöscht",
     );
+  });
+
+  it("gives a rejected application, the action log and the backups their clocks in words", () => {
+    assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
+    assert.ok(ANGABEN.get("Änderungsprotokoll der Verwaltung")?.startsWith("Zwölf Monate ab dem Eintrag;"));
+    assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
+  });
+
+  it("gives a sign-in link its lifetime in words, at the constant the sign-in enforces", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey")?.startsWith(
+        `Ein Anmeldelink gilt ${inWorten(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ),
+    );
+  });
+});
+
+/* German writes one to twelve in words, as the notice's own clocks read: the same count in digits in one place and
+   in a word in another reads as two clocks. The larger figures, a session's lifetime and the ages, stay digits. */
+describe("the privacy notice writes its small counts in words", () => {
+  it("states no count from one to twelve in digits, anywhere on the page", () => {
+    const inZiffern = SEITE.match(/(?<![\d.,/])(?:[1-9]|1[0-2]) (?:Tage?n?|Wochen?|Monate?n?|Jahre?n?|Stunden?|Minuten?|Saisons?)\b/g) ?? [];
+
+    assert.deepEqual(inZiffern, []);
   });
 });
 
@@ -303,7 +332,7 @@ describe("the privacy notice states the registration, referee-link and ban clock
   });
 
   it("gives a referee's link its own clock and no second one", () => {
-    const phrase = `Der Link gilt ${String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand`;
+    const phrase = `Der Link gilt ${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand`;
 
     assert.equal(vorkommen(phrase), 1);
     assert.equal(vorkommen("Der Link gilt"), 1, "a second sentence states how long a link lasts");
