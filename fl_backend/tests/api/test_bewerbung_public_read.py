@@ -92,15 +92,24 @@ def _junction(
     return saison_team_document(saison_id, team_id, name, shorthand, austritt=austritt, trikot_farbe=trikot_farbe)
 
 
+# Searched for in the picker's body too, which imports them with `website_host`: a copy spelled
+# there drifts from the seed and then searches for nothing (`tests/api/test_bewerbung_public_picker.py`).
+DESCRIPTION = "Eine Schule mit langer Tradition."
+SCHULFORM = "gymnasium_g9"
+
+
+def website_host(name: str) -> str:
+    return f"{name.lower()}.example.de"
+
+
 def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
     return team_document(
         team_id,
         name,
         shorthand,
-        description="Eine Schule mit langer Tradition.",
-        # Searched for in the picker's body too, so passed rather than defaulted.
-        website_url=f"https://{name.lower()}.example.de",
-        schulform="gymnasium_g9",
+        description=DESCRIPTION,
+        website_url=f"https://{website_host(name)}",
+        schulform=SCHULFORM,
         address=dict(ADDRESS),
         inactive_since=inactive_since,
     )
