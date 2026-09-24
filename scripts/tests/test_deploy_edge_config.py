@@ -26,14 +26,20 @@ DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
-# `ps` answers one container id, or a second from the second ask on where the `up` recreated nginx.
-# A PATCH is the reload, marked in the state directory; any other `exec` is the dump.
+# `ps` answers one container id, or a second from the second ask where `up` recreated nginx. A
+# PATCH is the reload; any other `exec` is the dump, refused for the first `FL_EDGE_GET_FAILS` asks
+# as a socket not yet open.
 STUB: Final = r"""#!/usr/bin/env bash
 set -u
 state="${FL_EDGE_STATE}"
 case "${1:-}" in
   compose) ;;
   run)
+    # A decode that could pull an image or reach a network, which `--status` must never do.
+    if [[ " $* " != *" --pull never "* || " $* " != *" --network none "* ]]; then
+      echo "stand-in: a decode without --pull never and --network none: $*" >&2
+      exit 99
+    fi
     if [[ -n "${FL_EDGE_RUN_RC:-}" ]]; then exit "${FL_EDGE_RUN_RC}"; fi
     while (( $# )) && [[ "$1" != "python" ]]; do shift; done
     shift
@@ -56,6 +62,9 @@ case " $* " in
     exit 0 ;;
 esac
 if [[ -n "${FL_EDGE_CONTROL_RC:-}" ]]; then exit "${FL_EDGE_CONTROL_RC}"; fi
+n=$(( $(cat "${state}/get-count" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "${state}/get-count"
+if (( n <= ${FL_EDGE_GET_FAILS:-0} )); then exit 7; fi
 cat "${state}/loaded.json"
 """
 
@@ -127,7 +136,13 @@ def _run(loaded: dict[str, bytes], body: str = RELOAD, **overrides: str) -> str:
         _assignment("EDGE_CONFIG_DIRS"),
         _assignment("EDGE_CONTROL_SOCKET"),
         _assignment("EDGE_LOADED_SUMS"),
-        *(lift_function(DEPLOY, name) for name in ("service_cid", "edge_control", "edge_reads_checkout", "serve_through_nginx")),
+        _assignment("EDGE_RELOAD_LOGS"),
+        # Three polls rather than the script's own count: a case whose socket never opens waits them out.
+        "EDGE_START_POLLS=3",
+        *(
+            lift_function(DEPLOY, name)
+            for name in ("service_cid", "edge_control", "decode_json", "edge_control_opened", "edge_reads_checkout", "serve_through_nginx")
+        ),
         body,
         "",
     )
@@ -200,7 +215,8 @@ def test_a_reload_the_master_refused_fails_with_its_own_lines_before_any_file_is
 
     assert "rc=1" in output, output
     assert "reloaded=yes" in output, output
-    assert "unknown directive" in output, output
+    # Decoded: the quotes nginx wrote, not the reply's escaped ones.
+    assert 'unknown directive "proxy_passs" in /etc/nginx/shared/site.conf:3' in output, output
     assert "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it" in output, output
     assert "byte for byte" not in output, output
 
@@ -221,6 +237,14 @@ def test_a_recreated_edge_is_compared_too() -> None:
     assert "rc=1" in output, output
     assert "reloaded=no" in output, output
     assert "/etc/nginx/shared/site.conf  differs from this checkout's" in output, output
+
+
+def test_a_recreated_edge_is_given_time_to_open_its_socket() -> None:
+    """The `up` returns before nginx listens, so the first asks meet no socket; this is every deploy changing nginx's own definition."""
+    output = _run(CURRENT, FL_EDGE_RECREATED="1", FL_EDGE_GET_FAILS="2", **APPLIED)
+
+    assert "rc=0" in output, output
+    assert "holds this checkout's 3 configuration files" in output, output
 
 
 def test_the_status_report_compares_the_edge_as_well() -> None:

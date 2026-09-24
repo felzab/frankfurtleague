@@ -74,8 +74,10 @@ the machine is outside the repository. What it does tell you:
   what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
   makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
   nginx's own lines**: fix what they name, then recreate nginx. **The deploy then compares every file
-  nginx holds in memory with the checkout's, and a difference ends the run in a finding** naming the
-  recreate that repairs it (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355).
+  under `nginx/prod/` and `nginx/shared/`, as nginx holds it in memory, with the checkout's, and a
+  difference ends the run in a finding** naming the recreate that repairs it
+  (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355). A file there that nginx
+  never loads, a README among them, reads as absent and fails every deploy.
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored

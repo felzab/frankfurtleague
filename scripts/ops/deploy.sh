@@ -35,13 +35,16 @@ LOG_DIR="/var/log/frankfurtleague"
 # carries the time of day: two deploys on one day would otherwise overwrite each other's.
 LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
 
-# Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it. A
-# pair missing here is a directory `edge_reads_checkout` never compares, so the two lists move
-# together (`scripts/checks/check_compose_exposure.py :: edge_mounts`).
+# Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it; the
+# two lists move together (`scripts/checks/check_compose_exposure.py :: edge_mounts`). Every file in
+# them must be one nginx loads: any other, a README included, fails every deploy as absent.
 EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
 # Where `docker-compose.yml :: nginx` starts its Control API, the one address that answers whether a
-# reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/).
+# reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
+# the two spellings move together (`scripts/checks/check_compose_exposure.py :: control_socket`).
 EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
+# How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
+EDGE_START_POLLS=50
 
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
@@ -229,6 +232,32 @@ for entry in json.loads(sys.stdin.buffer.read()):
     print(hashlib.sha256(entry["content"].encode()).hexdigest(), entry["name"])
 '
 
+# The lines a refused reload's `{"logs": [...]}` carries, as nginx wrote them.
+EDGE_RELOAD_LOGS='
+import json
+import sys
+
+for line in json.loads(sys.stdin.buffer.read())["logs"]:
+    print(line.rstrip("\n"))
+'
+
+# Stdin decoded by the program `$1`, in the backend image's interpreter: the one JSON reader this host
+# is sure to hold, having pulled that image. `--pull never`, because `--status` changes nothing, and
+# `--network none`, because it reads nothing but stdin.
+decode_json() {
+  docker run -i --rm --pull never --network none "$IMAGE_BACKEND" python -c "$1" 2>/dev/null
+}
+
+# 0 once the Control API answers, polling a freshly started nginx that has not yet opened its socket;
+# 1 where it never does in time, which the read after it reports.
+edge_control_opened() {
+  for _ in $(seq 1 "$EDGE_START_POLLS"); do
+    if edge_control --fail http://localhost/1/control/config >/dev/null 2>&1; then return 0; fi
+    sleep 0.2
+  done
+  return 1
+}
+
 # What nginx LOADED against this checkout (`docs/ops/spec.md :: I355`): its mounts show what a pull
 # wrote whether or not anything reloaded it since. 1 where the two differ, 2 where either went unread.
 edge_reads_checkout() {
@@ -260,9 +289,7 @@ Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-sock
     return 2
   fi
   rc=0
-  # The backend image's interpreter, the one JSON reader this host is sure to hold: it pulled that
-  # image. `--pull never`, because `--status` changes nothing.
-  listed="$(printf '%s' "$dump" | docker run -i --rm --pull never --network none "$IMAGE_BACKEND" python -c "$EDGE_LOADED_SUMS" 2>/dev/null)" || rc=$?
+  listed="$(printf '%s' "$dump" | decode_json "$EDGE_LOADED_SUMS")" || rc=$?
   if (( rc )); then
     warn "nginx answered with its configuration, and ${IMAGE_BACKEND} could not read it back (exit ${rc}),
 so nothing here says whether nginx is running this checkout's."
@@ -334,6 +361,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # resolved the new addresses as it started and has nothing to re-read.
   if [[ "$before" != "$after" ]]; then
     ok "started, so it resolved the containers this deploy created as it loaded"
+    # The `up` returns before nginx opens its socket; an answer never arriving is the read's to report.
+    edge_control_opened || true
     edge_reads_checkout
     return
   fi
@@ -363,7 +392,8 @@ Recreate it, which loads the checkout and resolves the new containers:  docker c
       edge_reads_checkout
       ;;
     422)
-      printf '%s\n' "$body" | detail
+      # The reply undecoded where it cannot be decoded: nginx's reason is worth more escaped than lost.
+      printf '%s' "$body" | decode_json "$EDGE_RELOAD_LOGS" | detail || printf '%s\n' "$body" | detail
       fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, so it
 is still proxying to the addresses of the containers this deploy replaced. Its own lines are above."
       detail "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
@@ -954,7 +984,8 @@ the new version is healthy — and the containers WERE recreated, so the site's 
 nginx has NOT been reloaded, so it is still resolving the containers this deploy replaced and every
 request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
-Reload the edge first:  docker compose -f ${COMPOSE} exec -T nginx nginx -s reload
+Reload the edge first, which answers 200 once applied:
+  docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
 Then ask what is running:  docker compose -f ${COMPOSE} ps
 And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
