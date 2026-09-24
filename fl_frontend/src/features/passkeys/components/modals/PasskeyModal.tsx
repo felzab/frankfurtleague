@@ -14,6 +14,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { readPasskeysAction, removePasskeyAction } from "../../actions";
 import { PasskeyEintragRow } from "./PasskeyEintragRow";
@@ -66,6 +67,14 @@ const NICHT_GELADEN = "Deine Passkeys ließen sich nicht laden.";
 const KEINE_PASSKEYS = "Für diesen Zugang ist kein Passkey eingetragen.";
 
 /**
+ * The list read, whose rejection wrote nothing and so answers as the failed read it is
+ * (`docs/frontend/spec.md` §1.3): uncaught, the opening's spinner stands for good and a removal's
+ * re-read takes the page down.
+ */
+const liesPasskeys = (): ReturnType<typeof readPasskeysAction> =>
+  readPasskeysAction().catch(() => ({ success: false, error: UNKNOWN_REFUSAL }));
+
+/**
  * The dialog the sidemenu's options drop-up opens, never a page under `/admin`: managing one's own
  * credentials is account business rather than a section of the league's administration.
  */
@@ -97,7 +106,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
   /** Whether the list read now stands at the cap. */
   const lade = async (): Promise<boolean> => {
-    const result = await readPasskeysAction();
+    const result = await liesPasskeys();
     uebernimm(result);
     return result.success && !result.kannHinzufuegen;
   };
@@ -119,7 +128,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     // Guarded rather than awaited: a dialog closed and opened again while the first read is still
     // in flight would otherwise take that read's answer over the second's.
     let current = true;
-    void readPasskeysAction().then((result) => {
+    void liesPasskeys().then((result) => {
       if (current) uebernimm(result);
     });
 
@@ -207,7 +216,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     if (held !== null) {
       // The server's refusal may answer a list another change moved -- a row already gone, or one
       // added or removed at the same moment -- so the list is read again before the control reopens.
-      const gelesen = held.reread ? await readPasskeysAction() : null;
+      const gelesen = held.reread ? await liesPasskeys() : null;
       // Wrapped again, to the end of the path: the press runs this inside its transition, and React
       // leaves an update after an `await` outside it. The toast queue is an external store, so no
       // wrap holds the toast back.
@@ -219,7 +228,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     }
 
     appToast.success("Passkey gelöscht", { description: "Alle anderen Geräte wurden abgemeldet." });
-    const gelesen = await readPasskeysAction();
+    const gelesen = await liesPasskeys();
     // Wrapped again, as above: the list commits with the press's own release, and the hold with it.
     startTransition(() => {
       uebernimm(gelesen);

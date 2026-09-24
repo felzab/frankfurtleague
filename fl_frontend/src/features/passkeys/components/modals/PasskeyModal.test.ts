@@ -61,6 +61,7 @@ const { raised } = doubleToasts();
 
 const { PasskeyModal } = await import("./PasskeyModal.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
 
 function open() {
   return render(h(PasskeyModal, { isOpen: true, onClose: () => undefined }));
@@ -138,6 +139,20 @@ describe("what the dialog puts in front of the administrator", () => {
 
     assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null);
     assert.ok(screen.queryByText("Windows Hello") === null, "the list resolved, so this case proves nothing");
+  });
+
+  /* A read the edge cut wrote nothing, so it is the failed read it is: uncaught, the opening's
+     spinner stood for good and nothing was said. */
+  it("answers a rejected opening read as a failed read", async () => {
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    open();
+
+    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    assert.ok(screen.queryByLabelText("Lädt") === null, "the spinner still stands over a read that has answered");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL]],
+    );
   });
 });
 
@@ -293,6 +308,36 @@ describe("the step-up both writes take", () => {
       assert.ok(screen.queryByText("Windows Hello") !== null, "the removal took the dialog's list off the page");
     });
   }
+
+  /* The re-read runs inside the row's press transition, where a cut read, uncaught, replaces the page
+     with the error page over a removal that landed. */
+  it("reports a landed removal whose re-read is cut, and the list it could not read", async (t) => {
+    const user = userEvent.setup();
+    answerWith(() => {
+      const action = calls.at(-1)?.action;
+      if (action === "removePasskeyAction") return Promise.resolve({ success: true, message: "Passkey gelöscht" });
+      // The opening read answers; the one after the removal is cut.
+      return calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server."));
+    });
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+
+    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["success", "Passkey gelöscht", "Alle anderen Geräte wurden abgemeldet."],
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+      ],
+    );
+  });
 
   /* A removal changes the list both of the add control's refusals are read off, so the control is
      held for as long as the removal runs rather than offered over a list about to move. */

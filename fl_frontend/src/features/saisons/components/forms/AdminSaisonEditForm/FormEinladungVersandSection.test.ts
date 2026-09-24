@@ -28,6 +28,7 @@ const sent = (action: string): unknown[] => calls.filter((call) => call.action =
 const { raised } = doubleToasts();
 
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
+const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
 const SAISON_ID = "2627";
@@ -129,6 +130,24 @@ describe("the season's bulk invite send", () => {
     });
 
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
+  });
+
+  /* A preview the edge cut wrote nothing, so it is the failed read it is: uncaught in the preview's
+     transition, it replaced the page with the error page. */
+  it("answers a rejected preview as a failed read, and leaves the press at rest", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Vorschau nicht geladen", UNKNOWN_REFUSAL, undefined]],
+    );
+    assert.equal(sent("postEinladungVersandAction").length, 0, "a failed preview wrote");
+    await screen.findByRole("button", { name: RESTING });
   });
 
   /* The read holds the press until its list lands, and the list arms it: a render showing the press
