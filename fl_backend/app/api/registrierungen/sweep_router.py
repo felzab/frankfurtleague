@@ -77,8 +77,8 @@ async def _team_names(
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
     """Every log row naming the erased registrations, emptied and stamped (`docs/backend/spec.md :: I42`).
 
-    Its own rather than an import of `app/api/bewerbungen/sweep_router.py :: _redact`, which names
-    that flow's collection.
+    A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two slices
+    of two instances each fall short of `.claude/CLAUDE.md` §3's three.
     """
 
     if not ids:
