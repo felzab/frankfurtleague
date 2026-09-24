@@ -69,12 +69,10 @@ Resume this session. Do not continue any work until you have finished this proto
    restore command still correct. A gap is where a configuration change made to let a fleet run
    overnight gets committed by the session that inherits it.
 
-6. VERIFY, DO NOT TRUST. Re-establish the last verification result from the register's `Last gate
-   run`, and confirm the commit it names is still the tip. Your checkout holds landed work only, so
-   run the gate there at the scope the branch demands whether or not agents are live, and report
-   the real exit code, taken from the command and never through a pipe; a figure it prints while
-   the fleet runs is contended (the brief's section 12). A previous report of a clean run is not
-   evidence of a clean tree now.
+6. VERIFY, DO NOT TRUST. Read the register's `Last gate run` and check that the commit it names is
+   still the tip. Run the gate only where the next action is the ending's (`SKILL.md` §7 step 2):
+   it judges the finished branch, and a resume mid-session has none. A previous report of a clean
+   run is not evidence of a clean tree now.
 
 7. RESUME POINT. State the single next action and why it is next, and write it into the register in
    the same edit as the action itself, not after it. Then continue, at the same parallelism the

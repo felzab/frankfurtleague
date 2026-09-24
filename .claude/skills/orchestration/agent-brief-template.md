@@ -110,8 +110,9 @@ did the reasonable thing in their absence.
                 by every worktree, so name what you stash and pop it by its `stash@{n}`.
                 One commit per reason, each message complete in `docs/_git/templates.md`'s form:
                 `commit-msg` checks it and `.githooks/pre-commit` formats what you stage, where
-                prettier is installed in your worktree. Run the second route
-                `register-template.md` gives as well, and report both exit codes in section 14.
+                prettier is installed in your worktree. Then run
+                `python scripts/checks/check_commits.py --base <session branch>`, which prints the
+                advisory tier the hook leaves out, and report both exit codes in section 14.
                 Write no `Closes:` trailer -- which entries a commit retires depends on what I land.
                 I land your commits on the session branch and may reword or combine them.
                 Install what your checks need in your worktree: `pnpm install --frozen-lockfile`
@@ -119,8 +120,8 @@ did the reasonable thing in their absence.
                 again after a rebase that moves a manifest or a lockfile. Never link either
                 directory in from another tree. Run git in Bash, never PowerShell: the harness
                 checks a PowerShell command's directory only, not where its git points.
-                `./scripts/gate/verify.sh` at your branch's scope runs over your worktree; its db
-                tier claims a machine-wide lock, so it can refuse while another tree holds it.
+                Run the checks your items name, never `./scripts/gate/verify.sh`: the gate runs
+                once, in my checkout, over the finished branch.
                 `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed, whose
                 draft pull request is open and whose every check has concluded. That definition is
                 addressed to me, not to you:
@@ -136,9 +137,8 @@ did the reasonable thing in their absence.
                 repository and outside your worktree, for everything you write that is not a file
                 you own: a hunk for someone else's file, a copy to measure against. Your report
                 is not a file at all (section 14).
-                Agents sharing one directory overwrite each other in it.
-                Keep scratch out of the repository: an untracked file there is part of the tree
-                every scoped gate run reads, so it widens or refuses somebody else's run.
+                Agents sharing one directory overwrite each other in it, and a scratch file in
+                your worktree is one `git add` from your commit.
 
 8  PLANT AND    Proving a check can fail means planting a violation and restoring it. Your
    RESTORE.     worktree is yours, so you may plant in any file of it, yours or not; no other
@@ -171,11 +171,6 @@ did the reasonable thing in their absence.
                   smaller, and add the check holding them in order -- two files enforce nothing.
                 - One purpose per shell command. A deny rule matching any one command of a compound
                   line refuses the whole line, and every other command in it goes unrun.
-                - Once your branch touches a path `scripts/gate/scope_map.sh` maps to the images
-                  scope, the gate hard-refuses any scope without `--images`. That file decides the
-                  set and it is wider than the Dockerfiles and the build manifests: three
-                  `fl_frontend/src/` modules are in it, and so is every path no arm there
-                  recognises at all. Report it rather than run the images scope yourself.
                 - A worktree nests inside the repository: `.claude/hooks/` scripts run from
                   `<coordinator checkout>` whatever your directory, and a `node_modules` or `.venv`
                   linked in from another tree breaks the build and rewrites the other tree's
@@ -183,17 +178,11 @@ did the reasonable thing in their absence.
                 - The machine's resources are not per worktree. Never run
                   `./scripts/ops/local.sh` in yours: ports 3000 and 27017 are fixed, and
                   `--seed` would take a second copy of production data into your tree's
-                  `.local-db`. The db tier's claim under `${TMPDIR:-/tmp}` is machine-wide, so its
-                  refusal naming the claim is another tree's run, not a failure of yours.
-                - Everything in `.claude/CLAUDE.md` binds you too -- it is in your context without
-                  your reading it -- and the pipe rule, the text-mode write rule and §2's branch
-                  trigger are there. Three parts of it are mine rather than yours, and each would
-                  otherwise send you into a file you do not own: §2's branch-cutting, push and
-                  pull-request clauses, which are section 5 above; §3's "a finding outside the task
-                  is fixed on the branch that found it", which is section 14(f) for you and mine to
-                  route — to a fixer in this wave or to the owner, never to the roadmap by an agent;
-                  and §8's "update every claim a change invalidates in the same commit", which is
-                  section 11 for you.
+                  `.local-db`.
+                - `.claude/CLAUDE.md` binds you except where this brief keeps a step as mine: §2's
+                  branch-cutting, push, pull request and gate (section 5); §3's finding outside the
+                  task, which you report under 14(f) and I route; and §8's stale claim in a file
+                  you do not own, which is section 11.
                 - <plus the traps specific to this work>
 
 10 TELL ME.     Two things stop your work and come to me. Both are cheap for you to raise and
@@ -254,30 +243,12 @@ did the reasonable thing in their absence.
                     matcher. That is a finding about the check and you are the only one who can
                     see it, so it reads as process narration and gets left out unless asked for.
 
-15 THE STANDARD. `docs/_standard/standard.md` binds every document, comment, commit message and pull
-                request body you write, and `docs/_standard/worked-examples.md` is those rules applied to
-                real passages. Read both in full, at those paths, before your first
-                documentation-shaped write. `.claude/hooks/docs-standard.sh` puts the Spine and
-                the bounds in front of every such write, sliced out of the standard at runtime --
-                one section of it, and never a substitute for the read.
-                A GREEN TYPE-CHECKER, LINTER, FORMATTER AND TEST RUN ARE NOT A GREEN DOCS GATE.
-                Not one of the four reads a comment's bounds or resolves a citation, so every one
-                of them passes over an over-long block and a path that names nothing, and a report
-                saying "all checks green" on their evidence alone is wrong. Nothing you write is
-                green until the checker has come back clean, run from the repository root with
-                the virtualenv's interpreter, since a system python lacks its parser:
-                `uv run --project fl_backend --frozen python scripts/checks/check_docs.py`.
-                Read its exit code from the command itself, never through a
-                pipe, and read its findings on stdout. It reads the whole corpus rather than your
-                diff, so findings naming files you do not own are somebody else's.
+15 THE STANDARD. A type-checker, linter, formatter and test run read no comment bound and resolve
+                no citation, so a documentation-shaped write is green only once
+                `uv run --project fl_backend --frozen python scripts/checks/check_docs.py`, run
+                from the repository root, has come back clean. It reads the whole corpus, so a
+                finding naming a file you do not own is somebody else's.
 ```
-
-**Section 15 names `docs/_standard/standard.md` and `docs/_standard/worked-examples.md` rather than copying either.**
-Each rule keeps the one home COR-2 gives it, `.claude/hooks/docs-standard.sh` slices the same file
-at every documentation-shaped write, and a rename that misses one of the three fails the `path`
-check here and the `bare-path` check in the hook. The paths are repeated in this sentence because
-the fenced block above is stripped before any check reads it, so a path named only inside it
-resolves to nothing the day the file moves and nothing fails.
 
 **(d) and (f) are load-bearing.** The most useful reports in this programme said "not measurable
 here" rather than quoting a number nobody could trust, and (f) is what stops a found-means-fixed

@@ -61,7 +61,8 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
    it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
    reason spread over two agents' branches is one `-n` over both. On a conflict, `--abort`; the
-   agent rebases onto the session branch and resolves in its own worktree.
+   agent rebases onto the session branch and resolves in its own worktree. A later fix to a landed
+   commit lands as a commit of its own, naming the commit it corrects.
 2. **A commit message is good enough when both routes accept it and its claims are true of its own
    diff.** Check it against the diff, never against the proposal it came from: for every path in the
    diff, does the body account for it? Validate with both routes
@@ -71,17 +72,17 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    **A claim about the code is checked against that commit**, never against where the branch ends —
    the tooling claims being the ones nobody re-reads. Qualify every blanket negative to what
    you checked — "nothing else is shared" missed a process-global two frames down.
-4. **Order commits by what each commit's own checks can see**, never by what reads tidily. A citation
-   resolves only once its file is tracked — `scripts/checks/docs_gate/checks.py` reads the working
-   tree, so a document naming an untracked file passes locally and fails the CI checkout.
+4. **Only the branch's final state passes the gate and CI**; a commit is held to its hooks and the
+   range check, never probed or reordered to be green alone. Land a branch once
+   `git -C <worktree> status --porcelain` is empty: the agent's checks read files its commits lack.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
    table has landed. Remove a landed one and delete its branch, which is your routine work and
    never the owner's question ([register-template.md](register-template.md)); the harness removes
    only an unchanged one.
-6. **Push once per wave; the gate and the local stack run in your checkout**, which holds landed
-   work only, so neither waits for the fleet (§4). The stack still holds port 3000 against the next
-   build.
+6. **Push once per wave, and run no gate for it**: the gate runs once, over the branch's final state
+   (item 4, §7). The local stack runs in your checkout, which holds landed work only, so it never
+   waits for the fleet (§4), and it still holds port 3000 against the next build.
 
 ## 7. Ending the session
 
@@ -141,9 +142,8 @@ Run it for every agent, the fifteenth as much as the first.
 5. **Dispatch a judging auditor as `cold-auditor`**; an auditor needing a shell — to plant, run a
    suite, read an exit code or committed state — goes as `general-purpose`, read-only by prose
    ([the brief](agent-brief-template.md)).
-6. **Pass `model: "opus"` on every dispatch unless the owner or the programme's register names
-   another for that work**: nothing inherits it, and a wave sent on the wrong model is stopped and
-   re-sent.
+6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
+   the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
 7. **Record the dispatch in the register before it runs. An agent that writes the repository runs
    in a worktree of its own** (`isolation: "worktree"`, which branches from your `HEAD` only under
    `worktree.baseRef: "head"`), so commit what it needs first; a reader stays in yours.

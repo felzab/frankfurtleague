@@ -31,9 +31,8 @@ taken from a handoff, which is written before a session ends. Beneath it sits a 
 quality bears, which is learned by watching quality rather than taken from a figure some earlier
 session remembered.
 Sub-agent cap per agent: zero, always -- a fresh agent is a second dispatch of mine.
-Model: every dispatch passes "opus" unless the owner or a ruling below names another for that
-work; design and plan-audit work may take the stronger model the owner names for it, one such agent
-at a time, and whether a piece of work earns it is mine to decide rather than to ask.
+Model: <what the owner last named for subagents>; a dispatch passes `model` only where the owner
+names another for that work, and whether a piece of work earns it is mine to decide.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every
 brief>.
 Starter prompt: <path>. Previous handoff: <path, or none>. These two are what a resume re-reads
@@ -82,17 +81,10 @@ the landed diff (`SKILL.md` §4, §5).
 `core.fileMode` is false here, so a new file lands 100644 whatever the filesystem says, and a hook
 without the executable bit is skipped in silence on Linux.
 
-**Validate every message twice.** `python scripts/checks/check_commits.py --message-file <file>`
-prints only what fails, so an over-long subject and an unknown scope come back at exit 0 with no
-output at all. The second route is the checking function itself, which prints both tiers:
-
-    python -c "import sys;sys.path.insert(0,'scripts/checks');from check_commits import check_message;[print(f.severity,f.detail) for f in check_message(open(sys.argv[1],encoding='utf-8').read(),'pending')]" <file>
-
-Run both, read both, and treat a message that passes only the hook's route as unvalidated. Neither
-route judges the `Closes:` trailer, which needs a diff: a bare
-`python scripts/checks/check_commits.py` over the branch range does, and prints the report tier
-besides, but only once the commit exists -- so run it in the turn the commit lands, while
-`git commit --amend` still reaches the tip. Past that a reword is a rebase.
+**A message has two routes.** `commit-msg` runs `check_commits.py --message-file`, which prints
+only what fails, so an over-long subject and an unknown scope pass it in silence. The range check,
+the recipe's last line, prints that advisory tier too and alone judges the `Closes:` trailer, so
+read it in the turn the commit lands, while `git commit --amend` still reaches the tip.
 
 **Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
 and tree hold exactly what you staged:
@@ -199,7 +191,7 @@ works the same machine measures contention.
 **My own serial work is a row here, and it is the row a wave estimate cannot contain.** A wave's
 figure is its longest agent's and mine is a sum over every commit, report and routing decision, and
 one session's assembly outran the waves it had been estimated against for exactly that reason. Give
-it a row, mark it estimated, and mechanise it rather than try to shorten it by hand.
+it a row and mark it estimated; the landing recipe above is the whole of its per-commit part.
 
 ## The ending -- enumerated before the last wave goes out
 
@@ -229,9 +221,8 @@ repository goes to their own `~/.claude/CLAUDE.md`.
 
 ## Open, awaiting the owner
 
-<A batch goes to the owner as prose. The question tool caps at four questions of four options, so
-a longer batch cannot go through it, and flattening one into buttons drops the sub-questions that
-were the reason for asking; keep the tool for the crisp blocker, which is what it is good at.>
+<Each question goes through the ask tool the moment it exists, the recommended option first; a
+batch longer than one call holds goes as several calls, never as prose.>
 
 ## Cross-agent handoffs in flight
 

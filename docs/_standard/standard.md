@@ -19,7 +19,7 @@ and not the hook, so the rules below bind an edit that was never prompted with t
 `.mdx`, a `.jsx` and a `.bash` file are prompted with rules the gate reads neither their prose nor
 their comments against. It names
 this file and `docs/_standard/worked-examples.md` — these rules applied to real passages, each shown before and
-after — to be read in full; every agent brief names both, and the examples cite these rules rather
+after — to be read in full; `.claude/CLAUDE.md` §8 names both too, and the examples cite these rules rather
 than restating them (COR-2). The mechanical defence is `scripts/checks/check_docs.py`,
 run by `./scripts/gate/verify.sh` in its docs scope; its checks are registered at
 `scripts/checks/docs_gate/kernel.py :: CHECKS`, and the finding a check prints says what its failure
