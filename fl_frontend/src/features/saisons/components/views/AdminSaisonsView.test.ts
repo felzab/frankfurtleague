@@ -39,11 +39,25 @@ const viewText = (saisons: AdminSaisonRow[]): string =>
     .trim();
 
 describe("what the season list says while no season runs", () => {
-  /* The pages needing a running season send the admin here, and a list with no word about it reads
-     as a redirect that went wrong. A league holding no season at all stands in the same state. */
+  /* An empty league is sent here from the pages reading a season, and a list with no word about it
+     reads as a redirect that went wrong. A league whose seasons are all planned or ended runs none either. */
   it("says no season is active, before any season exists and while every one is planned or ended", () => {
     for (const saisons of [[], [saison("2027", "future")], [saison("2025", "past"), saison("2027", "future")]]) {
       assert.match(viewText(saisons), /Derzeit ist keine Saison aktiv/, JSON.stringify(saisons.map(({ status }) => status)));
+    }
+  });
+
+  /* Only an empty league leaves those pages nothing to show: before a first activation they open on the
+     planned season. */
+  it("asks for a season only where the league holds none", () => {
+    const ANLEGEN = /Lege eine Saison an, damit Handlungsbedarf, Finalrunden und Spielsuche etwas zeigen\./;
+
+    assert.match(viewText([]), ANLEGEN);
+    for (const saisons of [[saison("2027", "future")], [saison("2025", "past")], [saison("2025", "past"), saison("2027", "future")]]) {
+      const text = viewText(saisons);
+
+      assert.match(text, /Derzeit ist keine Saison aktiv/, "the notice is gone, so the absence below proves nothing");
+      assert.doesNotMatch(text, ANLEGEN, JSON.stringify(saisons.map(({ status }) => status)));
     }
   });
 
@@ -58,11 +72,7 @@ describe("what the season list says while no season runs", () => {
     for (const saisons of [[], [saison("2025", "past")]]) {
       const text = viewText(saisons);
 
-      assert.match(
-        text,
-        /öffnen sich, sobald eine Saison aktiv ist\./,
-        "the notice's first sentence is gone, so the absence below proves nothing",
-      );
+      assert.match(text, /Derzeit ist keine Saison aktiv/, "the notice is gone, so the absence below proves nothing");
       assert.doesNotMatch(text, UMSTELLUNG, JSON.stringify(saisons.map(({ status }) => status)));
     }
   });

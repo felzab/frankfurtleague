@@ -15,6 +15,19 @@ import type { AdminSaisonRow } from "@/features/saisons/types";
 const SEARCH_KEYS = ["id", "start_date", "end_date", "searchable_start_date", "searchable_end_date"] as const;
 
 /**
+ * Each sentence only where it is true, and `undefined` rather than an empty string where neither is, which
+ * `Callout` would still give a paragraph's gap.
+ */
+function noticeBody(saisons: readonly AdminSaisonRow[]): string | undefined {
+  // An empty league is the one the season-reading pages send here (`docs/frontend/spec.md :: I363`).
+  if (saisons.length === 0) return "Lege eine Saison an, damit Handlungsbedarf, Finalrunden und Spielsuche etwas zeigen.";
+  // The page it names is the planned season's, which a league holding ended seasons alone lacks.
+  if (saisons.some((saison) => saison.status === "future")) return "Umgestellt wird auf der Seite der geplanten Saison.";
+
+  return undefined;
+}
+
+/**
  * **No `renderDeleteModal`**: a season is never deleted, and its editor is a page, so the table's
  * pencil is a `<Link>` rather than a press.
  */
@@ -33,16 +46,11 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Read off the list this page already holds: the pages needing a running season send the admin
-          here while none runs (`fl_frontend/src/app/admin/(current-saison)/layout.tsx`), and this says why. */}
       {!saisons.some((saison) => saison.status === "active") && (
         <Callout
           severity="info"
           title="Derzeit ist keine Saison aktiv">
-          Handlungsbedarf, Finalrunden und Spielsuche öffnen sich, sobald eine Saison aktiv ist.
-          {/* Only where a planned season exists: the page it names is that season's, and a league with none
-              has no such page to send the admin to. */}
-          {saisons.some((saison) => saison.status === "future") && " Umgestellt wird auf der Seite der geplanten Saison."}
+          {noticeBody(saisons)}
         </Callout>
       )}
 

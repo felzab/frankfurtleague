@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import z from "zod";
 
 import { AdminBracketWiringView } from "@/features/admin/components/views/AdminBracketWiringView";
-import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
+import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas";
@@ -18,12 +18,11 @@ import type { NextPageProps } from "@/shared/types/types";
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
   await connection();
-  const specifiedSaisonId = await resolveSaisonId(props.searchParams, "admin");
+  const saison = await requireAdminSaison(props.searchParams);
 
-  const [spieltageRes, spieleRes, isFinishedSaison] = await Promise.all([
-    getAdminSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
-    getAdminSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
-    resolveIsFinishedSaison(specifiedSaisonId),
+  const [spieltageRes, spieleRes] = await Promise.all([
+    getAdminSpieltage({ saison_phase: "playoffs", saison_id: saison.id }),
+    getAdminSpiele({ saison_phase: "playoffs", saison_id: saison.id }),
   ]);
 
   // Parsed, not cast: the type system cannot know the joined rows still satisfy the shape after an
@@ -41,8 +40,8 @@ export default async function AdminFinalrundenPage(props: NextPageProps) {
   return (
     <AdminBracketWiringView
       rounds={rounds}
-      saisonId={specifiedSaisonId ?? null}
-      isFinishedSaison={isFinishedSaison}
+      saisonId={saison.id}
+      isFinishedSaison={saison.status === "past"}
     />
   );
 }

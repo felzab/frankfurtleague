@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
@@ -48,12 +47,13 @@ export default function AdminSpielerPage(props: NextPageProps) {
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
-  const saisons = saisonsRes.saisons;
-  const activeSaisonId = saisons.find((saison) => saison.status === "active")?.id;
-  const selectedSaisonId = requestedSaisonId ?? activeSaisonId ?? saisons[0]?.id ?? "";
+  const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
+    getSpielerMemberships(),
+    resolveAdminSaison(searchParams),
+    getTeamMemberships(),
+  ]);
+  const selectedSaisonId = selectedSaison?.id ?? "";
 
   const teamById = new Map(teamsRes.teams.map((team) => [team.id, team]));
 
@@ -62,7 +62,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   // a retired row alone.
   const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaisonId, exceptSpielerId: null });
   // Absent where an id names no season, which `squadIsFull` reads as unknown and refuses nothing.
-  const maxKadergroesse = saisons.find((saison) => saison.id === selectedSaisonId)?.rules.max_kadergroesse ?? null;
+  const maxKadergroesse = selectedSaison?.rules.max_kadergroesse ?? null;
 
   const saisonTeams: SpielerTeamOption[] = teamsInSaison(teamsRes.teams, selectedSaisonId).map((team) => ({
     ...team,

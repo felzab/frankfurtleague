@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminKontakteView } from "@/features/teams/components/views/AdminKontakteView";
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -40,16 +39,10 @@ export default function AdminKontaktePage(props: NextPageProps) {
  */
 async function KontakteTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  // Not `"use cache"`, a cross-request store keyed on arguments rather than the caller:
-  // `fl_frontend/src/features/saisons/queries.ts :: getAdminSaisons`.
-  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
-  // Stops where `/admin/teams` stops: falling through to the first season would list one season while
-  // the header's selector names another.
-  const selectedSaisonId = requestedSaisonId ?? saisonsRes.saisons.find((saison) => saison.status === "active")?.id;
+  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
 
-  const rows = buildKontaktRows(membershipsRes.teams, selectedSaisonId);
+  const rows = buildKontaktRows(membershipsRes.teams, selectedSaison?.id);
 
   // Plain data, never the facets themselves: a facet carries a `read` function and this is a Server
   // Component. Read from the ROWS rather than from every club, so the filter offers no club whose

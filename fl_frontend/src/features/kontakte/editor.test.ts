@@ -393,7 +393,7 @@ describe("the editor's shape", () => {
       "the data component no longer opens with await connection()",
     );
     assert.match(PAGE, /await resolveTeamId\(params\)/, "the route's own id is resolved outside the boundary");
-    assert.match(PAGE, /resolveSaisonId\(searchParams, "admin"\)/, "the season is resolved at the wrong tier, or not at all");
+    assert.match(PAGE, /resolveAdminSaison\(searchParams\)/, "the season is resolved at the wrong tier, or not at all");
   });
 
   /* Re-seeding is a `key`, not a prop: every field is `useState` initialised from the row, and an

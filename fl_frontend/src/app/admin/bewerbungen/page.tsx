@@ -5,8 +5,7 @@ import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/Ad
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
 import { getBewerbungenQueue } from "@/features/bewerbungen/queries";
 import { buildBewerbungRows } from "@/features/bewerbungen/utils";
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -43,19 +42,14 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const params = (await searchParams) ?? {};
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
   const richtung = parseLeserichtung(params);
 
-  const [teamsRes, saisonsRes] = await Promise.all([
+  const [teamsRes, selectedSaison] = await Promise.all([
     // The clubs, because a picked one is stored as an id.
     getTeamMemberships(),
-    // Memoized per render pass, so `resolveSaisonId` above and this pay one round trip between them.
-    getAdminSaisons(),
+    resolveAdminSaison(searchParams),
   ]);
-
-  // Stops where `/admin/teams` stops: falling through to the first season would narrow to one season
-  // while the header's selector names another.
-  const selectedSaisonId = requestedSaisonId ?? saisonsRes.saisons.find((saison) => saison.status === "active")?.id;
+  const selectedSaisonId = selectedSaison?.id;
 
   // After the season rather than beside it: the bar's season facet narrows the READ, so the request
   // cannot be composed before the season it is relative to is known.

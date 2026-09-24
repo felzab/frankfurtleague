@@ -4,8 +4,7 @@ import { connection } from "next/server";
 
 import { EinladungLinkHolder } from "@/features/einladungen/components/EinladungLinkHolder";
 import { getEinladung } from "@/features/einladungen/queries";
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId, selectSaison } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
@@ -44,10 +43,8 @@ async function AdminTeamEditContent({
 }) {
   await connection();
   const teamId = await resolveTeamId(params);
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
-  const selectedSaison = selectSaison(saisonsRes.saisons, requestedSaisonId);
+  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
   if (!selectedSaison) {
     notFound();
   }

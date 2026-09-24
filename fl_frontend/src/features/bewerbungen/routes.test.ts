@@ -77,17 +77,16 @@ describe("how the list page reads the header's season", () => {
     assert.match(LIST_PAGE, /searchParams=\{props\.searchParams\}/, "the list page keeps its search parameters from the boundary");
   });
 
-  /* The `"admin"` tier, or a planned season the selector offers is redirected straight back off:
-     `fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId`. */
+  /* The admin pages' one resolver, or a planned season the selector offers is redirected straight back
+     off: `fl_frontend/src/features/saisons/resolvers.ts :: resolveAdminSaison`. */
   it("resolves the season at the admin tier", () => {
-    assert.match(LIST_PAGE, /resolveSaisonId\(searchParams, "admin"\)/, "the list page no longer resolves the season at the admin tier");
+    assert.match(LIST_PAGE, /resolveAdminSaison\(searchParams\)/, "the list page no longer resolves the season at the admin tier");
   });
 
   /* Where the season actually lands: the rows carry it, and the facet reads it off them. Dropped,
      every row would answer the season facet the same way and the list would open on nothing. */
   it("hands the resolved season to the row build", () => {
     assert.match(LIST_PAGE, /buildBewerbungRows\([^)]*selectedSaisonId\)/, "the season never reaches the rows the facet reads");
-    assert.match(LIST_PAGE, /status === "active"/, "the page no longer falls back to the active season");
   });
 });
 

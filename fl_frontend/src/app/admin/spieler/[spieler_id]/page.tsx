@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId, selectSaison } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships, getSpielerNachnominierung } from "@/features/spieler/queries";
@@ -39,10 +38,12 @@ async function AdminSpielerEditContent({
 }) {
   await connection();
   const spielerId = await resolveSpielerId(params);
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
-  const selectedSaison = selectSaison(saisonsRes.saisons, requestedSaisonId);
+  const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
+    getSpielerMemberships(),
+    resolveAdminSaison(searchParams),
+    getTeamMemberships(),
+  ]);
   if (!selectedSaison) {
     notFound();
   }
@@ -54,7 +55,7 @@ async function AdminSpielerEditContent({
 
   const membership = spieler.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
-  // Asked once the season resolves, since `selectSaison` can fall back from the requested id, and only
+  // Asked once the season resolves, since the URL may name none, and only
   // for a player holding no row there: the entry branch is the one place the verdict is shown.
   const nachnominierung = membership === null ? await getSpielerNachnominierung(selectedSaison.id) : null;
 
