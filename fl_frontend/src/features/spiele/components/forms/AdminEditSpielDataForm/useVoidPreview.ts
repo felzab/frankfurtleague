@@ -18,9 +18,9 @@ export type VoidPreview = {
 const PREVIEW_DEBOUNCE_MS = 450;
 
 /**
- * **`preview: null` is "no answer", never "nothing would be destroyed"**: the first render, an
- * in-flight request and a failed one all produce it, so a caller rendering reassurance would promise
- * what the preview never said. `failed` parts the failed one out, which the editor says.
+ * **`preview: null` is "no answer", never "nothing would be destroyed"**: the first render, a request
+ * in flight and a failed one all produce it, and reassurance would promise what the preview never
+ * said. `failed` parts out the failed one.
  */
 export function useVoidPreview({
   previewKey,

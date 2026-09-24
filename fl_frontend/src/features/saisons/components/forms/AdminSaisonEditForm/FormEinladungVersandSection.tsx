@@ -168,8 +168,8 @@ export function FormEinladungVersandSection({
 
     startLoadingVorschau(async () => {
       // The value the PRESS will carry, so the list names the teams that press will write to: read
-      // with the other value it would show a skip the press is about to ignore.
-      // Uncaught here, a rejected read takes the page down with it.
+      // with the other value it would show a skip the press is about to ignore. Uncaught, a rejection
+      // takes the page down.
       const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredRead);
 
       if (!res.success) {

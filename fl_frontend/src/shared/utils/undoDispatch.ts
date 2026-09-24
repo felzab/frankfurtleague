@@ -19,9 +19,9 @@ const TURNED_AWAY = {
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
 
 /**
- * An undo nobody can tell landed: a dispatch whose answer never came, any status but the route's own
- * included, may have restored the change on its way, and „nicht zurückgenommen“ would send the admin
- * to undo by hand what may already be undone.
+ * An undo nobody can tell landed: a dispatch unanswered, or answered by anything but the route, may
+ * have restored the change, and „nicht zurückgenommen“ would send the admin to undo by hand what is
+ * already undone.
  */
 export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
