@@ -85,35 +85,17 @@ fi
 declare -A candidate
 for path in "${staged[@]}"; do candidate["$path"]=1; done
 
-# A file staged in part has an index copy the worktree no longer matches, so formatting it would put
-# the unstaged half in the commit. Refused, not resolved: the two ways out are different commits,
-# and only the author knows which was meant.
+# A file staged in part never reaches the write pass below, which would format its unstaged half on
+# disk too; its commit copy is formatted from the index like every other file's.
 if ! git --literal-pathspecs -c diff.relative=false diff --name-only -z > "$work/dirty"; then
   echo "  pre-commit hook: could not read the worktree state — refusing rather than guessing." >&2
   exit 1
 fi
 
-partial=()
+declare -A partial
 while IFS= read -r -d '' path; do
-  if [ -n "${candidate["$path"]:-}" ]; then partial+=("$path"); fi
+  if [ -n "${candidate["$path"]:-}" ]; then partial["$path"]=1; fi
 done < "$work/dirty"
-
-# `git commit --only` leaves the real index holding pre-format bytes -- git writes the worktree copy
-# there before the hook sees a temporary index -- so a refusal below can name a partial stage the
-# author never made.
-if [ ${#partial[@]} -gt 0 ]; then
-  # %q so a name carrying a space or a glob character is pasteable as it stands.
-  quoted="$(printf '%q ' "${partial[@]}")"
-  {
-    echo "  pre-commit hook: refusing — these files are staged in part:"
-    printf '      %s\n' "${partial[@]}"
-    echo "  Formatting rewrites the file on disk, so re-staging it would put the unstaged half in the"
-    echo "  commit too. Stage the whole file, or take it out of this commit:"
-    echo "      git add -- ${quoted% }"
-    echo "      git restore --staged -- ${quoted% }"
-  } >&2
-  exit 1
-fi
 
 # By path rather than through `node_modules/.bin`, whose shim differs per platform and needs node on
 # PATH anyway. Absent means an install nobody has run, which is a reason to let the commit through
@@ -159,7 +141,9 @@ run_batched() {
 }
 
 args=()
-for path in "${staged[@]}"; do args+=("../$path"); done
+for path in "${staged[@]}"; do
+  if [ -z "${partial["$path"]:-}" ]; then args+=("../$path"); fi
+done
 status=0
 run_batched "${args[@]}" || status=$?
 
@@ -176,11 +160,13 @@ while IFS= read -r -d '' path; do
 done < "$work/after"
 
 raced=()
+merged=()
+kept=()
 restage_failed=0
 
 if [ ${#changed[@]} -gt 0 ]; then
   {
-    echo "  pre-commit hook: prettier reformatted ${#changed[@]} file(s); staging them from the index:"
+    echo "  pre-commit hook: formatting ${#changed[@]} staged file(s) from the index:"
     printf '      %s\n' "${changed[@]:0:10}"
     if [ ${#changed[@]} -gt 10 ]; then echo "      ... and $((${#changed[@]} - 10)) more"; fi
     if [ ${#changed[@]} -gt 20 ]; then
@@ -221,12 +207,28 @@ if [ ${#changed[@]} -gt 0 ]; then
     if ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
            --ignore-unknown --ignore-path ../.prettierignore \
            < "$work/blob" > "$work/formatted" ); then
+      # Nothing to stage where the staged copy is already formatted, as a file staged in part can be.
+      if cmp -s "$work/blob" "$work/formatted"; then continue; fi
       if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted")"; then
         echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
         exit 1
       fi
       printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
-      if ! cmp -s "$work/formatted" "$path"; then raced+=("$path"); fi
+      if [ -z "${partial["$path"]:-}" ]; then
+        if ! cmp -s "$work/formatted" "$path"; then raced+=("$path"); fi
+      # The unstaged half stays as its author left it: the formatting joins it only through a clean
+      # merge onto the bytes read here, and only while the file still holds them, so a writer
+      # landing meanwhile keeps its write.
+      elif [ ! -e "$path" ]; then
+        continue
+      elif cp -- "$path" "$work/current" \
+           && git merge-file -p --quiet "$work/current" "$work/blob" "$work/formatted" > "$work/merged" \
+           && cmp -s "$work/current" "$path"; then
+        cat "$work/merged" > "$path"
+        merged+=("$path")
+      else
+        kept+=("$path")
+      fi
     else
       restage_failed=$((restage_failed + 1))
     fi
@@ -236,6 +238,17 @@ if [ ${#changed[@]} -gt 0 ]; then
     echo "  pre-commit hook: could not write the index — the commit is refused." >&2
     exit 1
   fi
+
+  # `git commit --only` commits a temporary index and has already written the real one, at its
+  # lock, from the unformatted worktree copy; staging into the temporary one alone leaves the next
+  # commit reading that file as staged in part.
+  if [[ "${GIT_INDEX_FILE:-}" == *.lock ]] \
+     && default_lock="$(git rev-parse --path-format=absolute --git-path index.lock)" \
+     && [ "$GIT_INDEX_FILE" != "$default_lock" ] \
+     && ! GIT_INDEX_FILE="$default_lock" git update-index -z --index-info < "$work/stage"; then
+    echo "  pre-commit hook: could not write the real index beside the commit's — the commit is refused." >&2
+    exit 1
+  fi
 fi
 
 if [ ${#raced[@]} -gt 0 ]; then
@@ -243,6 +256,23 @@ if [ ${#raced[@]} -gt 0 ]; then
     echo "  pre-commit hook: ${#raced[@]} file(s) were written while prettier ran. The commit holds the"
     echo "  staged content formatted; the working copy is left exactly as that writer left it:"
     printf '      %s\n' "${raced[@]:0:10}"
+  } >&2
+fi
+
+if [ ${#merged[@]} -gt 0 ]; then
+  {
+    echo "  pre-commit hook: ${#merged[@]} file(s) are staged in part. The commit holds the staged half"
+    echo "  formatted, and the working copy keeps its unstaged half with that formatting merged in:"
+    printf '      %s\n' "${merged[@]:0:10}"
+  } >&2
+fi
+
+if [ ${#kept[@]} -gt 0 ]; then
+  {
+    echo "  pre-commit hook: ${#kept[@]} file(s) are staged in part and the formatting does not merge"
+    echo "  cleanly into the working copy. The commit holds the staged half formatted; the working copy"
+    echo "  is left exactly as it was, so \`git diff\` shows the formatting reversed until it is staged:"
+    printf '      %s\n' "${kept[@]:0:10}"
   } >&2
 fi
 

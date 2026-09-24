@@ -212,7 +212,7 @@ only in a session started after it.
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
 - **ci** — Let anything but `scripts/gate/scope_map.sh`'s path mapping shrink a CI job; suppress the images refusal
-- **format** — Let the gate write a formatted file; merge a partly-staged file's halves
+- **format** — Let the gate write a formatted file; commit a partly-staged file's unstaged half; stash, hide or reset the working tree to format a commit
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`
 - **probes** — Add a probe no failure needs alone; leave a guard thinly probed because its refusals resist enumeration, not because they protect less

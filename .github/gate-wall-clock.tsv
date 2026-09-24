@@ -284,6 +284,12 @@
 # bounds; `check_compose_exposure.py` is a standard-library read of two JSON files. Both sit inside
 # the floor the `ops` row carries, and no row moves.
 #
+# `scripts` gained a module: `scripts/tests/test_pre_commit_format.py` commits through
+# `.githooks/pre-commit` in six fresh repositories, 9.4-14.9 s over three runs of the module alone,
+# measured locally on 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so
+# an upper bound. `--dist loadfile` hands it one worker beside the suite's longer modules, so it
+# sits inside the floor the `scripts` row carries and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and gained four cases
 # driving `verify.sh` over a fixture branch -- two named runs against the mapping, two
 # `--changed` runs. `scripts/tests/test_scope_decisions.py` and the classifier's own module took

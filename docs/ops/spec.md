@@ -590,8 +590,10 @@ measurements behind the trade are in the body of the commit that moved the cache
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
 commit time instead: `.githooks/pre-commit` refuses a commit on `main`, formats what is staged and
-re-stages it, and refuses a file staged in part. The hook is convenience and never the enforcement — a clone that has not
-pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
+re-stages it, a file staged in part from its staged copy alone, and never stashes, hides or resets
+the working tree (I354). The hook is convenience and never the enforcement — a clone
+that has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what
+bind. The
 formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
 change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
 because a plugin moves only through the lockfile and CI runs uncached either way. **What the cache
@@ -1067,6 +1069,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
 | I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod.conf` includes too                                                                                                                                    |
 | I353 | A published build is a `main` commit whose own push run of `verify` passed every job, the aggregate job's wall-clock budget step alone excepted                               | `.github/workflows/publish.yml`, whose first two steps refuse any other ref and read that run's jobs through the runs API                                                                                                                                                          |
+| I354 | A commit never carries a file's unstaged half, and the commit hook never stashes, hides or resets the working tree (§1.6)                                                     | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
 
 ## 3. Violation → remedy
 
