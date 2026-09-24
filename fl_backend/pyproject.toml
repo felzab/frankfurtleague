@@ -108,8 +108,21 @@ select = [
     # A `noqa` that suppresses nothing still reads as a reason the line needs one, and the reason
     # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
     "RUF100",  # unused noqa directive
+    "TID251",  # banned-api, the list below
 ]
 ignore = ["B008"]
+
+# A handler reading the environment's settings answers with those whatever the app was built with,
+# and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are `create_app`'s and the CLI's."
+
+[tool.ruff.lint.per-file-ignores]
+# The two callers, and the suite that tests the builder itself.
+"app/main.py" = ["TID251"]
+"app/core/constraints.py" = ["TID251"]
+"tests/core/test_config.py" = ["TID251"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
