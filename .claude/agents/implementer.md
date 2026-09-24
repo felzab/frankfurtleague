@@ -92,9 +92,16 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   the smaller, and add the check holding them in order.
 - One purpose per shell command. A deny rule matching any one command of a compound line refuses the
   whole line, and every other command in it goes unrun.
-- A worktree nests inside the repository: `.claude/hooks/` scripts run from the coordinator's
-  checkout whatever your directory, and a `node_modules` or `.venv` linked in from another tree breaks
-  the build and rewrites the other tree's install.
+- The worktree isolation guard refuses a Bash line it cannot show keeps git inside your worktree: a
+  `$(…)` substitution on a line holding a git command, a timer such as `s=$(date +%s)` included, and
+  a loop handing a computed value to a command have each been refused. Run each git command as a
+  plain line of its own, and time it with separate `date +%s` calls.
+- A worktree nests inside the repository, and hooks run from the coordinator's checkout: its
+  `.claude/hooks/` scripts whatever your directory, and its `.githooks/` on your commits while the
+  shared `core.hooksPath` is an absolute path into it (`git config core.hooksPath` prints it). A
+  change you make to either is tested by invoking your worktree's copy directly, never by committing.
+  A `node_modules` or `.venv` linked in from another tree breaks the build and rewrites the other
+  tree's install.
 - The machine is not per worktree. Never run `./scripts/ops/local.sh` in yours: ports 3000 and 27017
   are fixed, and `--seed` would take a second copy of production data into your tree's `.local-db`.
   The database test tier refuses a second concurrent run on the machine: report the refusal, never
@@ -136,7 +143,8 @@ you have not said dies with you. Close checklist items in order and leave each o
 evidence where it can be found. No length limit; no narration of your own process and no restatement
 of the brief. Exactly, in this order:
 
-- (a) your branch's commits, `git log --format='%h %s' <fork sha>..HEAD`, and the files each changed;
+- (a) your branch's commits, `git log --format='%h %s' <session branch>..HEAD` -- the range the
+  landing takes -- and the files each changed;
 - (b) every file you broke and restored, with `git status --porcelain` read after the last restore;
 - (c) per checklist item, the acceptance evidence, with real exit codes;
 - (d) what you could NOT verify, and why;

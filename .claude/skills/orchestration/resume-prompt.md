@@ -51,10 +51,13 @@ Resume this session. Do not continue any work until you have finished this proto
        Where this harness has no send tool at all, or the resume fails, re-brief
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
+       Land what it committed first: the fresh dispatch forks from your `HEAD`, which holds none
+       of those commits until they land.
 
 4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
-   For each, `git -C <path> log --format='%h %s' <forked at>..HEAD` names the commits it holds and
-   `git -C <path> status --porcelain`, not `git diff --name-only`, the work it has not committed: a
+   For each, `git log --format='%h %s' $(git merge-base HEAD <branch>)..<branch>`, the landing's
+   range, names the commits it holds and `git -C <path> status --porcelain`, not
+   `git diff --name-only`, the work it has not committed: a
    file an agent created and never staged is invisible to the second. A worktree no row names is a
    lost agent; your own checkout holding any change is a conflict incident. Land nothing you cannot
    attribute.

@@ -127,8 +127,8 @@ evidence.
                 this brief instead: <the diff, and the committed text of every file you must
                 judge that another agent owns>. Where answering something needs a command, report
                 it not established under section 13 and name the command. Never substitute a
-                working-tree read for it: the tree you can read holds the session branch as
-                landed, not the diff you judge, and answers a different question.
+                working-tree read for it: any tree you can read holds some state other than the
+                diff you judge, and answers a different question.
 
 3  THE SUBJECT. You are given the intent and the diff -- never the implementer's report, which
                 would tell you what to believe. Reading a check cannot tell you whether it can

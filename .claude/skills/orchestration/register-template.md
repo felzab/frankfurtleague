@@ -76,9 +76,10 @@ workflow's manifest -- never prose elsewhere. "Audit dispatched to" is filled in
 who drafted the message: the agent's commit carries a draft, and what lands is mine, read against
 the landed diff (`SKILL.md` §4, §5).
 
-**Stage a file that must execute with its mode, and read it back with `git ls-files -s`.**
-`core.fileMode` is false here, so a new file lands 100644 whatever the filesystem says, and a hook
-without the executable bit is skipped in silence on Linux.
+**A file that must execute arrives with its mode or not at all.** `core.fileMode` is false here, so
+a new file lands 100644 whatever the filesystem says, and a hook without the executable bit is
+skipped in silence on Linux. The agent stages its mode (`.claude/agents/implementer.md` section 9);
+the recipe's `--summary` shows the mode each created file arrived with.
 
 **A message has two routes.** `commit-msg` runs `check_commits.py --message-file`, which prints
 only what fails, so an over-long subject and an unknown scope pass it in silence. The range check,
@@ -88,21 +89,31 @@ read it in the turn the commit lands, while `git commit --amend` still reaches t
 **Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
 and tree hold exactly what you staged:
 
+    git -C <worktree> status --porcelain   # prints nothing: an uncommitted edit would not land
     git status --porcelain                 # prints nothing: -n picks onto whatever the index holds
-    git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: a second -n
-    git diff --cached --stat               # read against the commit table's Files cell
+    git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: its range here too
+    git diff --cached --stat --summary     # against the Files cell; --summary: created, deleted, modes
     git commit -F <message file>           # pre-commit formats, commit-msg checks
     python scripts/checks/check_commits.py # the Closes: trailer, over the range
 
 **A clean cherry-pick is not a correct one.** Two agents making the same change merge without a
 conflict and land it twice, which no exit code reports; the ownership map prevents it, and the
-`--stat` read catches it. A conflict, even part-way through a range, is `git cherry-pick --abort`,
-which leaves `HEAD` and the tree as they were. Land an agent's branch whole, or name its commits
-one by one: the merge-base range still lists a commit an earlier `-n` already landed.
+`--stat` read catches it only at file level — a hub file shared by region needs its whole
+`git diff --cached -- <file>` read, since a doubled hunk inside a file the Files cell names shows in
+no stat.
+
+**Pick ranges, never a commit named alone.** After a range's conflict, `git cherry-pick --abort`
+returns the index and tree to `HEAD`, dropping every pick staged since the last commit — an earlier
+command's included; after a conflict on one commit named alone it refuses, no pick being in
+progress, and leaves the conflict staged, which `git reset --merge` clears (both driven on git
+2.52). So land an agent's branch whole, or its commits one at a time as `<sha>~1..<sha>`: the
+merge-base range still lists a commit an earlier `-n` already landed.
 
 **Confirm which hooks your commit route actually runs.** A plain `git cherry-pick`, `-e` included,
 runs neither `.githooks/pre-commit` nor `commit-msg`, and says nothing about not having run; the
-`-n` and `git commit` pair runs both.
+`-n` and `git commit` pair runs both. The hooks are always your checkout's: an agent's own commits
+run them too while the shared `core.hooksPath` is an absolute path into it, so a hook change on an
+agent's branch has run on nothing until it lands.
 
 ## The cycle, per slice -- decided here, before any finding exists
 
@@ -257,10 +268,11 @@ violation.>
   this page, reconcile that derivation — can name one destination without ever sounding alike. Two
   agents held one file that way, and nothing mechanical noticed: `git status`
   shows a modified file, never two owners.
-- **Fill "last write to an owned file" from the file's timestamp**, never from the agent's status
-  label, and take the timestamp across every file the agent owns rather than one of them: agents
-  have stalled silently behind a live-looking label, and one read as stalled while only its notes
-  file was being watched.
+- **Fill "last write to an owned file" from the file's timestamp inside the agent's worktree**, never
+  from the agent's status label nor from the same path in your checkout, which does not move while
+  the agent works, and take the timestamp across every file the agent owns rather than one of them:
+  agents have stalled silently behind a live-looking label, and one read as stalled while only its
+  notes file was being watched.
 - **An agent owns every path in its brief until its report lands, never only the paths it happens
   to be writing.** "Owns" is the column a dispatch is diffed against (`SKILL.md` §3); "last write
   to an owned file" answers whether an agent has stalled and answers nothing about scope. Reading
@@ -273,16 +285,17 @@ violation.>
   marks `locked` is a running agent's: the harness holds that lock until the agent finishes, and
   `git worktree prune` keeps a locked entry however its directory went. Once the agent has finished
   and `git -C <path> status --porcelain` is empty:
-  - **Remove the tree.** On Windows `git worktree remove --force` fails on a pnpm install or a venv
-    past the path limit ("Filename too long", and with `core.longpaths` "Directory not empty"), so
-    run `rm -rf <path>` in Git Bash, then `git worktree prune`. The stores' files are hard links
-    that survive it.
+  - **Remove the tree** with `git worktree remove <path>`. On Windows it fails part-way on a pnpm
+    install or a venv past the path limit ("Filename too long", and with `core.longpaths`
+    "Directory not empty"): delete what is left with `rm -rf <path>` in Git Bash, which reaches
+    past the limit, then run `git worktree prune -v`. The stores' files are hard links that survive
+    it.
   - **Then delete the branch**, which is routine and never the owner's question, once
     `git cherry -v <session branch> <branch>` marks every commit `-`, or the commit table names the
-    combined commit that landed each one it marks `+`: git matches a cherry-picked commit by its
-    diff, so one landed inside a combined commit still reads `+`. It takes `git branch -D`, since
-    `-d` counts a cherry-picked commit as unmerged, and git refuses either while a worktree entry
-    still holds the branch. Write the `(was <sha>)` it prints into the row:
+    commit that landed each one it marks `+`: git matches a cherry-picked commit by its diff, so one
+    landed inside a combined commit, or one the landing's pre-commit reformatted beyond whitespace,
+    still reads `+`. It takes `git branch -D`, since `-d` counts a cherry-picked commit as
+    unmerged, and git refuses either while a worktree entry still holds the branch. Write the `(was <sha>)` it prints into the row:
     `git branch <branch> <sha>` restores the branch until `git gc` prunes the unreachable commits.
 - **Write the standing action's whole brief when you queue it**, not a note to write one, and tick
   it only against evidence that it went out. A queued brief recovered from memory later is a

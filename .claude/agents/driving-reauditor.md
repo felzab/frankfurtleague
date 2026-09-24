@@ -60,7 +60,12 @@ agent, say so and stop.
 - A text-mode stream writes CRLF on Windows; write bytes. Git Bash `grep` cannot see a CR; count
   bytes.
 - One purpose per shell command: a deny rule matching one member of a compound line refuses the whole
-  line.
+  line. The worktree isolation guard refuses a line it cannot show keeps git inside your worktree --
+  a `$(…)` substitution beside a git command, a loop handing a computed value to a command: run each
+  git command as a plain line of its own.
+- Hooks run from the coordinator's checkout: `.claude/hooks/` always, and `.githooks/` while the
+  shared `core.hooksPath` is an absolute path into it. A plant in either is driven by invoking your
+  worktree's copy directly.
 - The machine is not per worktree: never run `./scripts/ops/local.sh`; the database tier refuses a
   second concurrent run on the machine -- report the refusal, never retry it in a loop.
 - A test run carries a memory ceiling and a timeout.

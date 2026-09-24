@@ -5,8 +5,8 @@ description: Coordinating a long multi-agent session — planning file ownership
 
 # Coordinating a multi-agent session
 
-You are the coordinator. Agents write files; you own every commit, every routing decision, and every
-claim that reaches a permanent artefact.
+You are the coordinator. Agents write files; you own every landed commit, every routing decision,
+and every claim that reaches a permanent artefact.
 
 | You are…                                   | Read                                  |
 | ------------------------------------------ | ------------------------------------- |
@@ -15,7 +15,7 @@ claim that reaches a permanent artefact.
 | about to dispatch any agent                | [§3](#3-every-dispatch)               |
 | running the fleet or replying to the owner | [§4](#4-running-the-fleet)            |
 | planning a wave, or asked how long         | [§4](#the-schedule-is-read-back)      |
-| about to change the tree, or to measure    | [§4](#tree-and-machine-are-shared)    |
+| about to change the tree, or to measure    | [§4](#machine-and-refs-are-shared)    |
 | judging a landed report, or committing     | [§5](#5-commits-and-the-boundary)     |
 | taking a slice through the audit cycle     | [§6](#6-the-cycle)                    |
 | ending the session                         | [§7](#7-ending-the-session)           |
@@ -60,9 +60,9 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    Neither waits for the wave boundary. **Land it in your own checkout with
    `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
    it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
-   reason spread over two agents' branches is one `-n` over both. On a conflict, `--abort`; the
-   agent rebases onto the session branch and resolves in its own worktree. A later fix to a landed
-   commit lands as a commit of its own, naming the commit it corrects.
+   reason spread over two agents' branches is one `-n` over both ranges. On a conflict, `--abort`;
+   the agent rebases onto the session branch and resolves in its own worktree. A later fix to a
+   landed commit lands as a commit of its own, naming the commit it corrects.
 2. **A commit message is good enough when both routes accept it and its claims are true of its own
    diff.** Check it against the diff, never against the proposal it came from: for every path in the
    diff, does the body account for it? Validate with both routes
@@ -78,11 +78,10 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
    table has landed. Remove a landed one and delete its branch, which is your routine work and
-   never the owner's question ([register-template.md](register-template.md)); the harness removes
-   only an unchanged one.
-6. **Push once per wave, and run no gate for it**: the gate runs once, over the branch's final state
-   (item 4, §7). The local stack runs in your checkout, which holds landed work only, so it never
-   waits for the fleet (§4), and it still holds port 3000 against the next build.
+   never the owner's question ([register-template.md](register-template.md)).
+6. **Push once per wave, and run no gate for it** (item 4, §7). The local stack runs in your
+   checkout, which holds landed work only, so it never waits for the fleet (§4), and it still holds
+   port 3000 against the next build.
 
 ## 7. Ending the session
 
@@ -144,8 +143,10 @@ Run it for every agent, the fifteenth as much as the first.
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
 7. **Record the dispatch in the register before it runs. An agent that writes the repository or
    plants runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
-   from your `HEAD` only under `worktree.baseRef: "head"` — so commit what it needs first; a reader
-   stays in yours. A definition added mid-session is not dispatchable until the session restarts.
+   from your `HEAD` only under `worktree.baseRef: "head"`, and the call's own
+   `isolation: "worktree"`, without which a named call launches as a teammate while agent teams are
+   on — so commit what it needs first; a reader stays in yours. A definition added mid-session is
+   dispatchable from the next turn on.
 
 ## 4. Running the fleet
 
@@ -166,16 +167,16 @@ Run it for every agent, the fifteenth as much as the first.
 - **A follow-up on an agent's own files goes to that agent (§3)** rather than to a stranger, an
   audit's fixes included **where the finding is SETTLED** — by a driven plant, an owner's
   ruling, a quoted never-clause. A finding that argues the shape is wrong goes to a fresh reader
-  instead, being one the author can dispute from inside the reasoning that produced it; the
-  re-audit's agent wrote none of the fixes either way (§6).
+  instead, being one the author can dispute from inside the reasoning that produced it.
 - **Size a brief by what losing its whole output costs** — a report is the agent's final message,
   banked into the register in the turn it lands
   ([register-template.md](register-template.md)).
 - **Verify every count, file list and exit code in a report yourself**, against the agent's branch —
-  `git log --stat <forked at>..<branch>` and `git show <branch>:<path>` — since what lands is what it
-  committed, never what its worktree or its report says. **A finding about a file its reporter does
-  not own is checked at `HEAD` before it is routed**: findings have dissolved that way. Route one agent's
-  conclusion to another as a claim with its source named, never as a premise; your own inference,
+  `git log --stat $(git merge-base HEAD <branch>)..<branch>` and `git show <branch>:<path>` — since
+  what lands is what it committed, never what its worktree or its report says. **A finding about a
+  file its reporter does not own is checked at `HEAD` before it is routed**: findings have dissolved
+  that way. Route one agent's conclusion to another as a claim with its source named, never as a
+  premise; your own inference,
   stated one notch wider than its evidence, reaches an agent as fact. When two agents disagree about
   one file, drive the difference — never pick a side, never average.
 - **Route every out-of-scope finding in the turn you read it**, from the report's separately headed
@@ -204,7 +205,7 @@ earlier. **Re-take any figure a decision rests on with the fleet listed and stop
 bare number** — every figure a fleet takes is an upper bound, and its spread measures contention
 rather than the change (`.claude/agents/implementer.md` section 12).
 
-### Tree and machine are shared
+### Machine and refs are shared
 
 - **The trees are not; the machine, the stores and the refs are.** A plant in an agent's worktree
   reaches nobody, but a timing loop still contends for the CPU, so a figure is taken in an
