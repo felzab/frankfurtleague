@@ -2,7 +2,7 @@
 CORE · the domain model, as a declaration
 
 Data only, and read by no write path: a write consulting these tables would make them an engine
-every write must remember to ask. `app/main.py :: publish_refusals` alone reads them, to publish
+every write must remember to ask. `app/main.py :: declared_refusals` alone reads them, to publish
 each operation's refusals. Enforcement stays at the write endpoints, and
 `fl_backend/tests/core/test_domain.py` compares the declaration against the code.
 """

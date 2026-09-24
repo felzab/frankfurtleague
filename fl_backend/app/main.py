@@ -183,6 +183,7 @@ def publish_failure_bodies(app: FastAPI) -> None:
 
 REFUSAL_DESCRIPTION = "The current state refuses the write"
 
+
 def refusal_response(codes: set[str]) -> dict[str, Any]:
     # The component narrowed rather than restated, so the failure body keeps one published shape.
     narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
@@ -206,6 +207,12 @@ def declared_refusals() -> dict[tuple[str, str], set[str]]:
 def publish_refusals(app: FastAPI) -> None:
     """Each operation's refusals as its 409, derived rather than listed, so the document cannot drift from `RULES`."""
 
+    served = {(route.path_format, method.lower()) for route in api_routes(app) for method in route.methods or ()}
+    # At build rather than when the document is asked for: FastAPI caches what it generated before
+    # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
+    if unserved := sorted(declared_refusals().keys() - served):
+        raise LookupError(f"RULES names operations the application does not serve: {unserved}")
+
     generate = app.openapi
 
     def openapi() -> dict[str, Any]:
@@ -216,7 +223,7 @@ def publish_refusals(app: FastAPI) -> None:
         declared = declared_refusals()
         for path, operations in document["paths"].items():
             for method, operation in operations.items():
-                codes = declared.pop((path, method), set())
+                codes = set(declared.get((path, method), ()))
                 # Only a route's own declaration puts a 409 here before this runs: no rule declares
                 # `DUPLICATE_KEY`, so a route writing where a unique index can refuse declares the 409
                 # itself, held to its writes by `tests/core/test_duplicate_key_publication.py`.
@@ -224,11 +231,6 @@ def publish_refusals(app: FastAPI) -> None:
                     codes.add(DUPLICATE_KEY)
                 if codes:
                     operation["responses"]["409"] = refusal_response(codes)
-
-        # Named rather than dropped: a rule declared against a route that moved would otherwise
-        # publish its code nowhere, and every client mapping that endpoint would lose it in silence.
-        if declared:
-            raise LookupError(f"RULES names operations the application does not serve: {sorted(declared)}")
 
         return document
 

@@ -19,9 +19,10 @@ from app.core.exception_handlers import (
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
+from app.core.exceptions import DUPLICATE_KEY
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import DUPLICATE_KEY, api_routes, create_app
+from app.main import api_routes, create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config

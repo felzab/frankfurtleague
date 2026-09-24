@@ -2,9 +2,9 @@
 TESTS · where a write can answer `DB-COMMON-002`, traced from each route's own source
 
 Traced rather than declared in a table: nothing states which collections a route writes, so each
-route's handler is followed through the application's helpers to the `app/core/crud.py` writes it
-makes, and a write reaching a collection a unique index covers is where the code can occur. By
-collection and never by field, so an update that touches no key field still counts.
+route's handler is followed through the application's helpers to the writes it makes, and a write
+reaching a collection a unique index covers, or inserting an `_id` its caller chose, is where the
+code can occur. By collection and never by field, so an update that touches no key field still counts.
 """
 
 import ast
@@ -18,14 +18,21 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
+from httpx2 import ASGITransport, AsyncClient, Response
+from pymongo import AsyncMongoClient, MongoClient
 from pymongo.errors import DuplicateKeyError
+from starlette.requests import Request
 
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler
-from app.main import DUPLICATE_KEY, api_routes, create_app
-from tests.config import build_test_config
+from app.core.exceptions import DUPLICATE_KEY
+from app.core.security import ACTOR_HEADER
+from app.main import api_routes, create_app
+from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -39,14 +46,43 @@ from tests.core.app_source import (
     resolve_callee,
     scoped_calls,
 )
+from tests.database import a_clean_database_sync
+from tests.worker import worker_database
 
 CRUD = APP_ROOT / "core" / "crud.py"
 
-# `insert_many` reports a duplicate as `BulkWriteError`, which is no `DuplicateKeyError`, so the
-# draw answers it 500 `DB-FAIL-001`
+# The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
+DRIVER_WRITES = frozenset(
+    {
+        "bulk_write",
+        "delete_many",
+        "delete_one",
+        "find_one_and_delete",
+        "find_one_and_replace",
+        "find_one_and_update",
+        "insert_many",
+        "insert_one",
+        "replace_one",
+        "update_many",
+        "update_one",
+    }
+)
+
+# Any insert or update except a batch's: `insert_many` and `bulk_write` report a duplicate as
+# `BulkWriteError`, which is no `DuplicateKeyError`, so the draw answers it 500 `DB-FAIL-001`
 # (`fl_backend/tests/api/test_error_responses.py :: test_a_bulk_writes_refused_document_never_reaches_the_line`).
 BULK_INSERT = "post_many_to_db"
-SINGLE_DOCUMENT_WRITES = WRITE_HELPERS - {BULK_INSERT}
+KEY_WRITES = (WRITE_HELPERS - {BULK_INSERT}) | {
+    "find_one_and_replace",
+    "find_one_and_update",
+    "insert_one",
+    "replace_one",
+    "update_many",
+    "update_one",
+}
+INSERTS = frozenset({"insert_live", "insert_one", "post_one_to_db"})
+# Every collection carries a unique index on it that `UNIQUE_INDEXES` never lists, the server's own.
+ID_KEY = "_id"
 
 UNIQUE_COLLECTIONS = frozenset(Collection(index.collection) for index in UNIQUE_INDEXES)
 COLLECTION_NAMES = frozenset(str(member) for member in Collection)
@@ -56,7 +92,7 @@ CONFLICT = "409"
 
 # The operations the trace reached a unique index from on the tree this was written against, so an
 # equality over two sets that both went empty still fails.
-DECLARING_OPERATIONS_FLOOR = 49
+DECLARING_OPERATIONS_FLOOR = 50
 
 
 class _Marker:
@@ -83,6 +119,19 @@ class Write:
     #: The module and the line of the call, so a write the routes reach and one the application
     #: makes are compared as the same call site.
     site: tuple[str, int]
+    #: An insert whose document literal names its own `_id`, which a second insert can collide on
+    #: whatever other index the collection carries.
+    chooses_id: bool = False
+
+
+def _chooses_id(call: ast.Call, helper: str) -> bool:
+    document = _argument(call, "document", 0 if helper == "insert_one" else None)
+
+    return (
+        helper in INSERTS
+        and isinstance(document, ast.Dict)
+        and any(isinstance(key, ast.Constant) and key.value == ID_KEY for key in document.keys)
+    )
 
 
 def _distinct(values: Iterator[Any]) -> Values:
@@ -112,8 +161,14 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
         return (getattr(module, node.id, UNRESOLVED),)
 
     if isinstance(node, ast.Attribute):
+        # A collection's `database` is the handle `app/core/recording.py :: record_write` inserts through.
         return _distinct(
-            UNRESOLVED if value is UNRESOLVED else getattr(value, node.attr, UNRESOLVED) for value in _values(node.value, scope, module)
+            DATABASE
+            if isinstance(value, Collection) and node.attr == "database"
+            else UNRESOLVED
+            if value is UNRESOLVED
+            else getattr(value, node.attr, UNRESOLVED)
+            for value in _values(node.value, scope, module)
         )
 
     if isinstance(node, ast.Subscript):
@@ -187,7 +242,7 @@ def _endpoint_scope(declaration: Declaration, module: ModuleType) -> dict[str, V
 
 
 def _writes(declaration: Declaration, path: Path, bound: Mapping[str, Values], seen: set[tuple[Any, ...]]) -> Iterator[Write]:
-    """Every `app/core/crud.py` write `declaration` reaches, each helper followed with its own arguments bound.
+    """Every write `declaration` reaches, a `app/core/crud.py` helper or the driver's own, each helper followed with its arguments bound.
 
     Nested functions are read with the one declaring them: a transaction's callback is handed to the
     driver, never called by name.
@@ -196,19 +251,23 @@ def _writes(declaration: Declaration, path: Path, bound: Mapping[str, Values], s
     module = _module(path)
     scope = _local_scope(declaration, bound, module)
     nested = {id(node) for node in ast.walk(declaration) if node is not declaration}
+    here = path.relative_to(BACKEND_ROOT).as_posix()
 
     for chain, call in scoped_calls(declaration, (declaration,)):
+        if isinstance(call.func, ast.Attribute) and call.func.attr in DRIVER_WRITES:
+            yield Write(call.func.attr, _values(call.func.value, scope, module), (here, call.lineno), _chooses_id(call, call.func.attr))
+            continue
+
         resolved = resolve_callee(call, chain, path)
         if resolved is None:
             continue
 
         target, target_path = resolved
-        if target_path == CRUD:
-            if target.name in WRITE_HELPERS:
-                argument = _argument(call, "collection", None)
-                collections = (UNRESOLVED,) if argument is None else _values(argument, scope, module)
-                yield Write(target.name, collections, (path.relative_to(BACKEND_ROOT).as_posix(), call.lineno))
-            continue
+        # Followed on into the helper as well, which is how the log row every write files is reached.
+        if target_path == CRUD and target.name in WRITE_HELPERS:
+            argument = _argument(call, "collection", None)
+            collections = (UNRESOLVED,) if argument is None else _values(argument, scope, module)
+            yield Write(target.name, collections, (here, call.lineno), _chooses_id(call, target.name))
 
         if id(target) in nested:
             continue
@@ -226,11 +285,16 @@ def _writes(declaration: Declaration, path: Path, bound: Mapping[str, Values], s
 
 
 @functools.cache
+def _routes() -> tuple[Any, ...]:
+    return tuple(api_routes(create_app(build_test_config())))
+
+
+@functools.cache
 def _write_operations() -> Mapping[str, tuple[Any, tuple[Write, ...]]]:
     """Each operation that is not a read, with its route and every write the trace reaches from it."""
 
     found: dict[str, tuple[Any, tuple[Write, ...]]] = {}
-    for route in api_routes(create_app(build_test_config())):
+    for route in _routes():
         endpoint = declared(route.endpoint)
         path = module_of(route.endpoint)
         writes = tuple(_writes(endpoint, path, _endpoint_scope(endpoint, _module(path)), set()))
@@ -240,17 +304,30 @@ def _write_operations() -> Mapping[str, tuple[Any, tuple[Write, ...]]]:
     return found
 
 
+def _declaring_operations() -> set[str]:
+    """Every operation whose route declares a 409, reads included, so a read declaring one is compared too."""
+
+    return {
+        f"{method} {route.path_format}"
+        for route in _routes()
+        if CONFLICT in {str(status) for status in route.responses}
+        for method in route.methods or ()
+    }
+
+
 def _reaches_a_unique_index(writes: tuple[Write, ...]) -> bool:
-    return any(write.helper in SINGLE_DOCUMENT_WRITES and UNIQUE_COLLECTIONS.intersection(write.collections) for write in writes)
+    return any(write.helper in KEY_WRITES and (write.chooses_id or UNIQUE_COLLECTIONS.intersection(write.collections)) for write in writes)
 
 
 def test_every_write_names_a_collection_the_trace_resolves():
+    """A `Collection` member and nothing else: any other value is one no unique index is keyed on, and would pass as reaching none."""
+
     unresolved = sorted(
         {
-            f"{operation}: {write.helper} at {write.site}"
+            f"{operation}: {write.helper} at {write.site} names {write.collections}"
             for operation, (_, writes) in _write_operations().items()
             for write in writes
-            if UNRESOLVED in write.collections
+            if not all(isinstance(value, Collection) for value in write.collections)
         }
     )
 
@@ -265,7 +342,9 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
     made = {
         (module, call.lineno)
         for module, _, call in app_calls()
-        if callee(call) in WRITE_HELPERS and module != CRUD.relative_to(BACKEND_ROOT).as_posix()
+        if module != CRUD.relative_to(BACKEND_ROOT).as_posix()
+        if (isinstance(call.func, ast.Name) and callee(call) in WRITE_HELPERS)
+        or (isinstance(call.func, ast.Attribute) and callee(call) in DRIVER_WRITES)
     }
     reached = {write.site for _, writes in _write_operations().values() for write in writes}
 
@@ -281,12 +360,23 @@ def test_the_bulk_insert_is_traced_and_left_out():
     assert any(UNIQUE_COLLECTIONS.intersection(write.collections) for write in bulk)
 
 
-def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index():
-    """Both ways: a declaration the trace does not reach publishes a code that cannot occur, and a reach with none hides one that can."""
+def test_an_insert_naming_its_own_id_reaches_the_id_index():
+    """`saisons` carries no index `UNIQUE_INDEXES` lists, so only the chosen `_id` puts the season's create on the list."""
 
-    operations = _write_operations()
-    reaching = {operation for operation, (_, writes) in operations.items() if _reaches_a_unique_index(writes)}
-    declaring = {operation for operation, (route, _) in operations.items() if CONFLICT in {str(status) for status in route.responses}}
+    route, writes = _write_operations()[f"POST /api/v{API_VERSION}/saisons"]
+
+    assert UNIQUE_COLLECTIONS.isdisjoint(write for found in writes for write in found.collections)
+    assert _reaches_a_unique_index(writes)
+
+
+def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index():
+    """Both ways: a declaration the trace does not reach publishes a code that cannot occur, and a reach with none hides one that can.
+
+    Over every route, so a read declaring one fails the second half.
+    """
+
+    reaching = {operation for operation, (_, writes) in _write_operations().items() if _reaches_a_unique_index(writes)}
+    declaring = _declaring_operations()
 
     assert sorted(reaching - declaring) == [], "these reach a unique index and declare no 409 for `DB-COMMON-002`"
     assert sorted(declaring - reaching) == [], "these declare a 409 for `DB-COMMON-002` and reach no unique index"
@@ -294,6 +384,57 @@ def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index()
 
 
 def test_the_code_published_is_the_one_the_handler_answers_with():
-    response = asyncio.run(duplicate_key_exception_handler(None, DuplicateKeyError("E11000 duplicate key error", 11000, None)))  # type: ignore[arg-type]
+    request = Request({"type": "http", "method": "POST", "headers": []})
+    response = asyncio.run(duplicate_key_exception_handler(request, DuplicateKeyError("E11000 duplicate key error", 11000, None)))
 
     assert (response.status_code, json.loads(bytes(response.body))["error_code"]) == (int(CONFLICT), DUPLICATE_KEY)
+
+
+# A database of this case's own: the season it creates twice would stand in any shared corpus.
+DUPLICATE_SEASON_DATABASE = worker_database("fl_duplicate_key_publication_test")
+SAISONS = f"/api/v{API_VERSION}/saisons"
+
+
+def _posted_twice(uri: str, payload: Mapping[str, Any]) -> tuple[Response, Response]:
+    """Both creates on one client and one loop, with no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
+
+    async def _both() -> tuple[Response, Response]:
+        app = create_app(build_test_config().model_copy(update={"db_base_name": DUPLICATE_SEASON_DATABASE}))
+        app.state.db_client = AsyncMongoClient(host=uri)
+
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                headers = {**ADMIN_AUTH, ACTOR_HEADER: "admin@example.com"}
+                first = await http.post(SAISONS, json=dict(payload), headers=headers)
+                second = await http.post(SAISONS, json=dict(payload), headers=headers)
+                return first, second
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_both())
+
+
+@pytest.mark.db
+def test_a_season_created_twice_answers_the_published_duplicate_key(mongo_url: str, saison):
+    """The `_id` index refuses the second create, which no index `UNIQUE_INDEXES` lists would."""
+
+    client = MongoClient(mongo_url)
+    try:
+        a_clean_database_sync(client, mongo_url, DUPLICATE_SEASON_DATABASE)
+    finally:
+        client.close()
+
+    stored = saison()
+    payload = {
+        "id": stored["_id"],
+        "rules": stored["rules"],
+        "start_date": stored["start_date"],
+        "end_date": stored["end_date"],
+        "bewerbung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
+        "registrierung": {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"},
+    }
+    first, second = _posted_twice(mongo_url, payload)
+
+    assert first.status_code == 201, first.json()
+    assert (second.status_code, second.json()["error_code"]) == (int(CONFLICT), DUPLICATE_KEY)

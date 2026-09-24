@@ -62,6 +62,7 @@ _CODE_PATTERN = "REQ-"
 # every listing built out of the source trees, and a citation naming it resolves against nothing
 # (`docs/_standard/standard.md :: PRE-4`).
 DECLARATION = APP_ROOT / "core" / "domain.py"
+DECLARATION_MODULE = "app.core.domain"
 
 # A `READ-*` rule refuses nothing, so no endpoint carries its code and `_codes_in` cannot reach one.
 # Its home is the read-rules table in `docs/backend/spec.md`, whose every row opens on the code.
@@ -312,6 +313,23 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
                 origins[alias.asname or alias.name] = (node.module, alias.name)
 
     return origins
+
+
+def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[str]:
+    """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved against its package."""
+
+    # A module's package and an `__init__.py`'s package are both the path without its last part.
+    package = file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1]
+    found: set[str] = set()
+    for node in ast.walk(tree or _parsed(file)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = ".".join((*package[: len(package) - node.level + 1], *([node.module] if node.module else []))) if node.level else node.module
+            found.add(base or "")
+            found.update(f"{base}.{alias.name}" for alias in node.names)
+
+    return frozenset(found)
 
 
 def _module_file(dotted: str) -> Path:
@@ -652,9 +670,17 @@ def test_the_document_publisher_is_the_one_application_module_reading_the_domain
     """
 
     importers = [
-        path.relative_to(BACKEND_ROOT).as_posix()
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        if path != DECLARATION and "core.domain" in path.read_text(encoding="utf-8")
+        path.relative_to(BACKEND_ROOT).as_posix() for path in sorted(APP_ROOT.rglob("*.py")) if DECLARATION_MODULE in _modules_imported(path)
     ]
 
-    assert importers == ["app/main.py"], f"the declaration is read by {importers}, where `app/main.py :: publish_refusals` alone may read it"
+    assert importers == ["app/main.py"], f"the declaration is read by {importers}, where `app/main.py :: declared_refusals` alone may read it"
+
+
+def test_the_importer_reading_resolves_every_spelling_of_the_import():
+    """Relative and plain imports name the module without the dotted path a text search keys on."""
+
+    spellings = ["import app.core.domain", "from app.core import domain", "from . import domain", "from .domain import RULES"]
+    beside = APP_ROOT / "core" / "reader.py"
+
+    assert all(DECLARATION_MODULE in _modules_imported(beside, ast.parse(source)) for source in spellings)
+    assert DECLARATION_MODULE not in _modules_imported(beside, ast.parse("from . import collections"))

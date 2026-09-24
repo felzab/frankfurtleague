@@ -222,7 +222,7 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
-@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison")
+@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: {"model": FLFailureBody}})
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
