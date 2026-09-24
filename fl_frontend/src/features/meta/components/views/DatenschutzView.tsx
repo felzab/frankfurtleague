@@ -548,6 +548,8 @@ export function DatenschutzView() {
               verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung zur Verwaltung
               ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur berechtigte Personen die Verwaltung erreichen.
             </li>
+            {/* Typed: `@better-auth/passkey` (1.7.5, read 2026-09-24) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
+                300, which it neither exports nor takes as an option, and moves it without us. */}
             <li className={ABSATZ_CLASSES}>
               Während eine Administratorin oder ein Administrator einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das
               diesen einen Vorgang zusammenhält. Es läuft nach fünf Minuten ab.
