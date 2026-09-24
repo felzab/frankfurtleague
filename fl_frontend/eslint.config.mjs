@@ -300,6 +300,11 @@ const DYNAMIC_LOADS = [
     selector: loadOf(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\/`)),
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
+  {
+    selector: loadOf(String.raw`^@heroui\/react\/(?:date-picker|date-field|time-field|date-range-picker)$`),
+    message:
+      "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
+  },
 ];
 
 /**
