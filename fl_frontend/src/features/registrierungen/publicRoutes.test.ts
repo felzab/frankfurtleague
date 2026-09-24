@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it, mock } from "node:test";
+import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -14,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -25,12 +26,9 @@ import { MAIL_ABGEWIESEN } from "./utils.ts";
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 import type { SpielerBestaetigungGeoeffnet, SpielerFassung } from "./types.ts";
 
-/** The write, answered by the case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<(input?: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => new Promise<never>(() => undefined));
-
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
-globalThis.fetch = ((input, init) => fetchMock(input, init)) as typeof fetch;
+const fetchMock = doubleFetch();
 
 const { raised } = doubleToasts();
 

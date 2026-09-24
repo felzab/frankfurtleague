@@ -13,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { blankComments } from "@/core/blankComments";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -22,12 +23,9 @@ import type { BewerbungFormDraft } from "./types.ts";
 
 type User = ReturnType<typeof userEvent.setup>;
 
-/** Every request the form makes, answered by each case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<(url: string, init?: RequestInit) => Promise<Response>>();
-
 // The browser's own `fetch` rather than the transport's module: the form reaches both routes through it,
 // so a request is observed at the edge the paths are limited at.
-globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init)) as typeof fetch;
+const fetchMock = doubleFetch();
 
 const { raised } = doubleToasts();
 
@@ -35,10 +33,7 @@ const { raised } = doubleToasts();
 const toastsOf = (variant: string) => raised.filter((toast) => toast.variant === variant).map((toast) => [toast.title, toast.description]);
 
 beforeEach(() => {
-  fetchMock.mock.resetCalls();
-  fetchMock.mock.restore();
   raised.length = 0;
-  fetchMock.mock.mockImplementation(() => new Promise<never>(() => undefined));
 });
 
 /*
@@ -195,7 +190,10 @@ const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab:
 
 /** The requests the form made, by path and parsed body. */
 const requestsMade = () =>
-  fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({ url, body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined }));
+  fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({
+    url: String(url),
+    body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+  }));
 
 /** A request's answer arriving, and everything it sets off. */
 const settle = (): Promise<void> =>
@@ -373,12 +371,14 @@ describe("the public application form", () => {
   /* The route's `length(2)` refuses an incomplete code, and the check is rate-limited per address at an
      EXACT nginx location: a half-typed box would spend requests, and a path segment escape the limit. */
   it("asks about a code only once it is the full width, at the path the edge limits", async () => {
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, vergeben: false }))));
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "G", { leaveBox: true });
     assert.deepEqual(requestsMade(), [], "the check fires on a code nobody finished typing");
 
     await typeInto(user, kuerzel, "gg", { leaveBox: true });
+    await settle();
     assert.deepEqual(
       requestsMade().map(({ url }) => url),
       ["/api/bewerbung/kuerzel?shorthand=GG"],

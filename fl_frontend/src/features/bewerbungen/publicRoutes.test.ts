@@ -18,6 +18,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -29,12 +30,9 @@ import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
-/** The confirmation's write, answered by the case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<() => Promise<Response>>(() => new Promise<never>(() => undefined));
-
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
-globalThis.fetch = (() => fetchMock()) as typeof fetch;
+const fetchMock = doubleFetch();
 
 /** The toasts, replaced at the module boundary: the real module raises into HeroUI's queue. */
 const { raised } = doubleToasts();

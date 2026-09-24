@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -10,14 +10,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 
-/** The write, answered by the case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<(input?: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => new Promise<never>(() => undefined));
-
 // The browser's own `fetch`, so the key is read off the request the panel actually makes.
-globalThis.fetch = ((input, init) => fetchMock(input, init)) as typeof fetch;
+const fetchMock = doubleFetch();
 
 const { raised } = doubleToasts();
 
@@ -61,7 +59,6 @@ async function registerOnce(user: ReturnType<typeof userEvent.setup>): Promise<v
 }
 
 beforeEach(() => {
-  fetchMock.mock.resetCalls();
   raised.length = 0;
   cleanup();
 });
