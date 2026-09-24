@@ -4,7 +4,16 @@ import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
-import { ADMIN_EMAIL, Barrier, BARRIER_TIMEOUT_MS, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  Barrier,
+  BARRIER_TIMEOUT_MS,
+  configDouble,
+  cookieHeader,
+  lastMailedToken,
+  ORIGIN,
+  registerAuthDoubles,
+} from "./authDoubles.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
@@ -19,10 +28,13 @@ const LOGGED = "__flAuthDbLogged";
 const CONSUMING = "__flAuthDbConsuming";
 const REAL_CLIENT = "__flAuthDbRealClient";
 
+// A second URL for the production module, which the load hook's match on a path's end lets past the
+// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
+const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
+
 /* The real client, held where a request makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. */
-const DB_DOUBLE = `import mongodb from ${JSON.stringify(import.meta.resolve("mongodb"))};
-const real = new mongodb.MongoClient(${JSON.stringify(MONGO_URL)});
+const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
 globalThis.${REAL_CLIENT} = real;
 const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
 const HELD = { passkey: "insertOne", user: "findOneAndUpdate" };
@@ -48,7 +60,9 @@ const LOGGING_DOUBLE = `export const logger = {
   error: () => {},
 };`;
 
-registerAuthDoubles({ core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE } });
+registerAuthDoubles({
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+});
 
 /**
  * Holds the one write that arrives first until `release`, and passes every later one: the order in

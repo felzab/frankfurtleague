@@ -10,6 +10,7 @@ import {
   asDataUrl,
   Barrier,
   BARRIER_TIMEOUT_MS,
+  configDouble,
   cookieHeader,
   lastMailedToken,
   ORIGIN,
@@ -31,11 +32,14 @@ const REAL_CLIENT = "__flPasskeyDbRealClient";
 const COMMITTED = "__flPasskeyDbCommitted";
 const GATE = "__flPasskeyDbGate";
 
+// A second URL for the production module, which the load hook's match on a path's end lets past the
+// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
+const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
+
 /* The real client, held where a removal makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. The session
    `deleteMany` runs `signingOut` first, inside the removal's transaction. */
-const DB_DOUBLE = `import mongodb from ${JSON.stringify(import.meta.resolve("mongodb"))};
-const real = new mongodb.MongoClient(${JSON.stringify(MONGO_URL)});
+const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
 globalThis.${REAL_CLIENT} = real;
 const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
 const HELD = { passkey: "deleteOne", user: "findOneAndUpdate" };
@@ -81,7 +85,7 @@ const LOGGING_DOUBLE = `export const logger = {
 };`;
 
 registerAuthDoubles({
-  core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(CACHE_DOUBLE) },
 });
 
