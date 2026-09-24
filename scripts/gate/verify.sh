@@ -459,9 +459,10 @@ run_checker() {
     "$@" || rc=$?
   else
     quietly "$@" || rc=$?
-    # `quietly` prints its capture only on a non-zero status, and a green run's scanned-population
-    # line is the whole of what a passing checker says. Guarded on rc, or a failure prints twice.
-    if [[ "$mode" == "annotate" ]] && (( ! rc )) && [[ -n "$QUIETLY_OUTPUT" ]]; then
+    # A green run's scanned-population line is the whole of what a passing checker says, and
+    # `quietly` replays nothing on a pass. Not on a failure or under `--verbose`: `quietly` has
+    # shown the output there already.
+    if [[ "$mode" == "annotate" ]] && (( ! rc )) && ! verbose && [[ -n "$QUIETLY_OUTPUT" ]]; then
       printf '%s\n' "$QUIETLY_OUTPUT" | detail
     fi
   fi
@@ -1021,8 +1022,7 @@ if (( RUN_FRONTEND )); then
   quietly do_lockfile || LOCKFILE_RC=$?
 
   # pnpm checks every committed entry against its release-age policy before it compares, and only
-  # its error code tells a young release from a drift; `--verbose` streams that code uncaptured,
-  # hence a third arm.
+  # its error code tells a young release from a drift.
   if (( LOCKFILE_RC )); then
     case "$QUIETLY_OUTPUT" in
       # The second code is a drift in a workspace setting the lockfile records, such as `overrides`

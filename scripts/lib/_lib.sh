@@ -277,25 +277,37 @@ excerpt() {
   fi
 }
 
-# Readable because `add_findings <n>` needs a count only the tool's output carries, and re-running
-# it to read that back would pay for the gate's slowest steps twice.
+# Readable because a caller grades a failure by the tool's own words, and re-running the tool to
+# read them back would pay for the gate's slowest steps twice.
 
 QUIETLY_OUTPUT=""
+# The streaming arm's copy while its command runs, so an interrupt can reclaim it.
+_QUIETLY_CAPTURE=""
 
 quietly() {
   local out rc=0
+  local -a piped=()
   QUIETLY_OUTPUT=""
   if (( VERBOSE )); then
-    "$@" || rc=$?
+    # Kept as well as streamed, or a caller grading by the output grades this form differently. A
+    # file rather than `/dev/fd/1`, which Linux reopens: a redirected log would lose its start.
+    _QUIETLY_CAPTURE="$(mktemp)"
+    # `PIPESTATUS`, not the pipeline's status, which is `tee`'s without `pipefail`. Left of `||`, so
+    # neither `set -e` nor the ERR trap acts on the tool's own failure.
+    { "$@" 2>&1 | tee "$_QUIETLY_CAPTURE"; piped=("${PIPESTATUS[@]}"); } || :
+    rc="${piped[0]}"
+    out="$(<"$_QUIETLY_CAPTURE")"
+    rm -f -- "$_QUIETLY_CAPTURE"
+    _QUIETLY_CAPTURE=""
   else
     # The one wrapper the spinner needs: a captured command is the stretch where a run looks hung.
     if (( _CHROME )); then spinner_start "$_STEP_LABEL"; fi
     out="$("$@" 2>&1)" || rc=$?
     spinner_stop
-    # shellcheck disable=SC2034  # read by the scripts that source this file
-    QUIETLY_OUTPUT="$out"
     if (( rc )); then printf '%s\n' "$out" | detail; fi
   fi
+  # shellcheck disable=SC2034  # read by the scripts that source this file
+  QUIETLY_OUTPUT="$out"
   return "$rc"
 }
 
@@ -658,6 +670,7 @@ trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 # fires each script's own EXIT trap, so fixtures and throwaway tags are still reclaimed.
 on_interrupt() {
   spinner_stop
+  if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
   printf '\n' >&2
   if (( _CHROME )); then
     _closing interrupted
