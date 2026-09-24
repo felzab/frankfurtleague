@@ -1,8 +1,9 @@
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from collections.abc import Set as AbstractSet
 from typing import Any, NamedTuple
 
 from fastapi import FastAPI
+from fastapi.dependencies.models import Dependant
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.routing import APIRoute, iter_route_contexts
@@ -121,21 +122,37 @@ FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
-    for entry in app.routes:
-        # `include_router` appends a wrapper holding the original router rather than copying its
-        # routes across, so a pass reading `app.routes` for `APIRoute` instances alone sees a
-        # handful of routes and none of the API.
-        original_router = getattr(entry, "original_router", None)
+    """Every route the application serves, nested includes opened.
 
-        for route in original_router.routes if original_router is not None else [entry]:
-            if isinstance(route, APIRoute):
-                yield route
+    Read and never edited: each is the object its module-level router holds, which every `create_app`
+    in a process shares.
+    """
+
+    for context in iter_route_contexts(app.routes):
+        if isinstance(context.original_route, APIRoute):
+            yield context.original_route
+
+
+Operation = tuple[str, str]
 
 
 class DocumentedRoute(NamedTuple):
     path_format: str
     methods: set[str]
     responses: Mapping[int | str, Any]
+    dependant: Dependant
+
+    @property
+    def operations(self) -> list[Operation]:
+        """Keyed as the document keys an operation: its path, then its lower-case method."""
+
+        return [(self.path_format, method.lower()) for method in sorted(self.methods)]
+
+    @property
+    def calls(self) -> set[Callable[..., Any]]:
+        """What the operation depends on directly, an include's dependencies and the router's among them."""
+
+        return {dependency.call for dependency in self.dependant.dependencies if dependency.call is not None}
 
 
 def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
@@ -145,29 +162,54 @@ def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
         # The routes `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never
         # `None`; a hidden one read here would pass a rule naming it as served while publishing nothing.
         if isinstance(context.original_route, APIRoute) and context.path_format is not None and context.include_in_schema:
-            yield DocumentedRoute(context.path_format, context.methods or set(), context.responses)
+            yield DocumentedRoute(context.path_format, context.methods or set(), context.responses, context.dependant)
+
+
+def publish_extension(app: FastAPI, extension: str, values: Mapping[Operation, Any]) -> None:
+    """Written into the document and never onto a route.
+
+    A route's `openapi_extra` belongs to its module-level router, so an edit there is inherited by
+    every later build in the process and hides a defect showing only on the first.
+    """
+
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        # `generate` returns the document FastAPI caches on the app, so this edit is made once.
+        document = generate()
+        for (path, method), value in values.items():
+            document["paths"][path][method][extension] = value
+
+        return document
+
+    app.openapi = openapi
 
 
 def publish_key_tiers(app: FastAPI) -> None:
-    for route in api_routes(app):
-        # The route object rather than the include context: `add_api_route` copies the router's
-        # own dependencies into every route it builds, so both arrive here as one set.
-        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
-        tiers = sorted(KEY_TIERS[guard] for guard in calls & KEY_TIERS.keys())
-
+    tiers: dict[Operation, str] = {}
+    for route in document_routes(app):
         # Joined rather than picked: no single key satisfies two guards, so a value equal to no
         # declared tier fails the comparison rather than naming one of the two as the answer.
-        route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
+        joined = "+".join(sorted(KEY_TIERS[guard] for guard in route.calls & KEY_TIERS.keys()))
+        tiers.update(dict.fromkeys(route.operations, joined or UNGUARDED_TIER))
+
+    publish_extension(app, KEY_TIER_EXTENSION, tiers)
 
 
 def publish_stores_nothing(app: FastAPI) -> None:
-    for route in api_routes(app):
-        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
+    declared: dict[Operation, bool | str] = {}
+    for route in document_routes(app):
+        calls = route.calls
         # `true`, or the query flag under which it holds: the frontend marks each call it makes to
         # such an operation a read, and is compared against this (`docs/backend/spec.md :: I327`).
-        declared = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
-        if declared is not None:
-            route.openapi_extra = {**(route.openapi_extra or {}), STORES_NOTHING_EXTENSION: declared}
+        flag = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
+        if flag is not None:
+            declared.update(dict.fromkeys(route.operations, flag))
+
+    publish_extension(app, STORES_NOTHING_EXTENSION, declared)
 
 
 def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
@@ -232,8 +274,8 @@ def refusal_codes(app: FastAPI) -> dict[tuple[str, str], set[str]]:
             # second reason publishes that reason's code rather than the duplicate key's.
             if not (named := refused_codes(response)):
                 unnamed.extend(f"{method} {route.path_format}" for method in sorted(route.methods or ()))
-            for method in route.methods or ():
-                codes.setdefault((route.path_format, method.lower()), set()).update(named)
+            for operation in route.operations:
+                codes.setdefault(operation, set()).update(named)
 
     if unnamed:
         raise ValueError(f"these declare a 409 naming no code, so the document would publish none: {sorted(unnamed)}")
@@ -247,7 +289,7 @@ def publish_refusals(app: FastAPI) -> None:
     # At build rather than when the document is asked for: FastAPI caches what it generated before
     # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
     codes = refusal_codes(app)
-    served = {(route.path_format, method.lower()) for route in document_routes(app) for method in route.methods or ()}
+    served = {operation for route in document_routes(app) for operation in route.operations}
     if unserved := sorted(codes.keys() - served):
         raise LookupError(f"RULES names operations the application does not serve: {unserved}")
 
@@ -334,8 +376,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     publish_key_tiers(app)
     publish_stores_nothing(app)
     publish_failure_bodies(app)
-    # After the two route edits: it builds FastAPI's include contexts, which copy each route's
-    # `openapi_extra` then and serve that copy to the document.
     publish_refusals(app)
 
     return app

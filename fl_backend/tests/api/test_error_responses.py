@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+import subprocess
+import sys
 from typing import Any
 
 import pytest
@@ -28,6 +30,7 @@ from app.main import api_routes, create_app, document_routes, publish_refusals, 
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
+from tests.core.app_source import BACKEND_ROOT
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
@@ -406,6 +409,27 @@ class TestTheDeclared409:
         published = {(path, method) for path, operations in app.openapi()["paths"].items() for method in operations}
 
         assert read == published == {(PLANTED_PATH, "post")}
+
+
+# Two builds in a process of their own, exiting non-zero where their documents differ.
+TWO_BUILDS = (
+    "import sys\n"
+    "from app.main import create_app\n"
+    "from tests.config import build_test_config\n"
+    "sys.exit(create_app(build_test_config()).openapi() != create_app(build_test_config()).openapi())\n"
+)
+
+
+class TestEveryBuildPublishesOneDocument:
+    def test_a_processs_first_build_publishes_what_its_second_does(self):
+        """Never in this process, which has built the app already.
+
+        A build inheriting an earlier one's edits to a shared route hides a defect of the first.
+        """
+
+        done = subprocess.run([sys.executable, "-c", TWO_BUILDS], cwd=BACKEND_ROOT, capture_output=True, text=True, check=False)
+
+        assert done.returncode == 0, done.stderr
 
 
 class TestErrorCodeLogging:
