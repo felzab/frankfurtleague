@@ -14,6 +14,7 @@ export const WRAPPED = withSaisonId("/admin/teams", saisonId);
 export const BY_THE_HOOK = saisonHref("/admin/spiele");
 export const NAMES_THE_PARAMETER = "/admin/teams?saison_id=2627";
 export const HAND_BUILT = `${base}/admin/spiele`; // expect: admin-link
+export const TEMPLATED = `/admin/teams/${saisonId}`; // expect: admin-link
 export const SINGLE_QUOTED = '/admin/spielorte'; // expect: admin-link
 export const SECOND_ARGUMENT = withSaisonId(saisonId as never, "/admin/x" as never); // expect: admin-link
 export const LANDING: Landing = "/";

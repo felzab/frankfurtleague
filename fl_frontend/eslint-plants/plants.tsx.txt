@@ -50,10 +50,25 @@ export const CAPTURE = captureStdout;
 export const DELETION = "deletePasskey"; // expect: passkey-deletion
 // eslint-disable-next-line no-restricted-syntax -- an excuse whose line spells nothing, expect: unused-disable
 export const EXCUSED = "flex";
+// Each literal ban's template arm, a hole beside the spelling.
+export const FADE_TEMPLATE = `p-2 ${extra} hover:opacity-60`; // expect: hover-opacity
+export const TINT_TEMPLATE = `${extra} hover:bg-brand/20`; // expect: hover-alpha
+export const GAP_TEMPLATE = `flex gap-5 ${extra}`; // expect: gap
+export const LINK_TEMPLATE = `${extra} hover:underline`; // expect: link-decoration
+export const GRADE_TEMPLATE = `${extra} hover:text-brand-solid`; // expect: brand-grade
+export const TONES_TEMPLATE = { offen: `bg-muted text-foreground-muted ${extra}` }; // expect: neutral-pill
+export const EMPTY_TEMPLATE = `Für diese Saison gibt es ${extra}`; // expect: season-empty
+export const TALL_TEMPLATE = `min-h-[100vh] ${extra}`; // expect: vh
+export const ENDPOINT_TEMPLATE = `https://api.resend.com/emails`; // expect: resend
+export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
+export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
+export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
+export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
 
 export async function plantedCalls(): Promise<void> {
   await auth.api.getSession({ headers, request }); // expect: auth-request
   router.push("teams"); // expect: relative-nav
+  router.replace(`teams/${id}`); // expect: relative-nav
   router.back(); // expect: history-back
   redirect(`teams/${id}`); // expect: relative-nav
 }
@@ -68,6 +83,7 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <h3>
         Titel <Hint /* expect: hint-nest */ />
       </h3>
+      <span>fluid-xs tabular-nums</span>{/* expect: numeric-pair */}
       {String(facets)}
     </div>
   );

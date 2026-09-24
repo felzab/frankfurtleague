@@ -18,8 +18,17 @@ export const FIELD = DateField;
 export const POPOVER = HintPopover;
 
 declare const assert: { equal: (a: unknown, b: unknown) => void };
-declare const screen: { queryByText: (text: string) => unknown };
+declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };
+declare const queryByText: (text: string) => unknown;
+declare const findByText: (text: string) => Promise<unknown>;
 assert.equal(screen.queryByText("Titel"), null); // expect: query-in-equality
+assert.equal(await screen.findByText("Titel"), null); // expect: query-in-equality
+assert.equal(queryByText("Titel"), null); // expect: query-in-equality
+assert.equal(await findByText("Titel"), null); // expect: query-in-equality
+assert.equal(null, screen.queryByText("Titel")); // expect: query-in-equality
+assert.equal(null, await screen.findByText("Titel")); // expect: query-in-equality
+assert.equal(null, queryByText("Titel")); // expect: query-in-equality
+assert.equal(null, await findByText("Titel")); // expect: query-in-equality
 // A test calls the plugin's deletion to hold it closed, so the passkey ban stays out of tests.
 export const HOLDS_IT_CLOSED = "deletePasskey";
 
