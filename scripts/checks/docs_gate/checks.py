@@ -294,7 +294,7 @@ OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
 
 def _tracked_text(rel: str) -> str | None:
-    """One named page's fence-stripped body, or None where the tracked corpus does not yield it."""
+    """One named page's body with its code blocks blanked, or None where the tracked corpus does not yield it."""
     page = tracked_page(rel)
     return None if page is None else _readable(page)
 
@@ -303,7 +303,7 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
     """Each section rule the standard states: id, the rest of the heading line, and the lines under it.
 
     Ends at the next heading of any level, so a rule's fields never come from the rule below.
-    Fenced examples arrive already blanked.
+    Code-block examples arrive already blanked.
     """
     lines = text.split("\n")
     starts = [(number, head) for number, line in enumerate(lines) if (head := atx_heading(line, 3)) is not None]
@@ -1807,7 +1807,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         found.extend(check_module_header(rel, raw, style))
 
     if is_markdown and has_name(path.name, (README_PAGE,)) and (words := _readme_words(body)) > README_WORD_CAP:
-        detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
+        detail = f"a README of {words} words outside its tables and code blocks -- OUT-3 caps one at {README_WORD_CAP}"
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
@@ -2047,7 +2047,7 @@ def _prose_blocks(path: Path) -> list[tuple[int, str]]:
     blocks: list[tuple[int, str]] = []
     current: list[str] = []
     first = 0
-    # A page's fenced blocks arrive blanked, so a shared example is not a duplicated claim.
+    # A page's code blocks arrive blanked, so a shared example is not a duplicated claim.
     for number, line in enumerate((_readable(path) or "").split("\n"), start=1):
         if line.strip():
             if not current:
