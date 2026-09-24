@@ -1,4 +1,4 @@
-"""SCRIPTS · what `scripts/ops/deploy.sh :: serve_through_nginx` establishes about the edge it reloads.
+"""SCRIPTS · what `scripts/ops/deploy.sh` establishes about the edge: its images, and the configuration it reloads.
 
 nginx's Control API answers a reload 200 or 422 and dumps the configuration its master holds, where
 a signal answers 0 once sent and the mounts show what a pull wrote whether or not anything loaded
@@ -17,7 +17,9 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, lift_function, new_root, run_shell, write_shell
+from conftest import base_env, import_scripts, lift_function, new_root, run_shell, write_shell
+
+[exposure] = import_scripts("check_compose_exposure")
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
@@ -49,6 +51,10 @@ case "${1:-}" in
   *) exit 0 ;;
 esac
 case " $* " in
+  *" pull "*)
+    printf '%s\n' "$@" > "${state}/pull-argv"
+    if [[ -n "${FL_EDGE_PULL_RC:-}" ]]; then echo "stand-in: manifest unknown" >&2; exit "${FL_EDGE_PULL_RC}"; fi
+    exit 0 ;;
   *" ps "*)
     n=$(( $(cat "${state}/ps-count" 2>/dev/null || echo 0) + 1 ))
     echo "$n" > "${state}/ps-count"
@@ -135,13 +141,22 @@ def _run(loaded: dict[str, bytes], body: str = RELOAD, **overrides: str) -> str:
         'COMPOSE="docker-compose.yml"',
         _assignment("EDGE_CONFIG_DIRS"),
         _assignment("EDGE_CONTROL_SOCKET"),
+        _assignment("EDGE_IMAGE_SERVICES"),
         _assignment("EDGE_LOADED_SUMS"),
         _assignment("EDGE_RELOAD_LOGS"),
         # Three polls rather than the script's own count: a case whose socket never opens waits them out.
         "EDGE_START_POLLS=3",
         *(
             lift_function(DEPLOY, name)
-            for name in ("service_cid", "edge_control", "decode_json", "edge_control_opened", "edge_reads_checkout", "serve_through_nginx")
+            for name in (
+                "service_cid",
+                "edge_control",
+                "decode_json",
+                "edge_control_opened",
+                "edge_reads_checkout",
+                "serve_through_nginx",
+                "fetch_edge_images",
+            )
         ),
         body,
         "",
@@ -253,3 +268,52 @@ def test_the_status_report_compares_the_edge_as_well() -> None:
     status = text[text.index("if (( STATUS_ONLY )); then\n  section") : text.index('section "preflight"')]
 
     assert "edge_reads_checkout" in status, "scripts/ops/deploy.sh --status never compares the edge's configuration"
+
+
+# --- the edge's images, fetched before anything the application runs moves ---------------------------
+
+FETCH: Final = """( fetch_edge_images ) || rc=$?
+printf 'rc=%s\\n' "${rc:-0}"
+if [[ -f "${FL_EDGE_STATE}/pull-argv" ]]; then printf 'argv=%s\\n' "$(tr '\\n' ' ' < "${FL_EDGE_STATE}/pull-argv")"; fi
+"""
+
+
+def _argv(output: str) -> list[str]:
+    found = re.search(r"^argv=(.*)$", output, re.MULTILINE)
+    assert found is not None, output
+    return found.group(1).split()
+
+
+def test_every_image_the_application_pair_does_not_run_is_fetched_where_missing() -> None:
+    """Held to production's declared services, so one joining them is fetched before the recreate too.
+
+    `missing` is the policy `up` applies; `--include-deps` would reach nginx's dependencies and refresh
+    the application's `:latest` over a pin.
+    """
+    output = _run(CURRENT, FETCH)
+    argv = _argv(output)
+
+    assert "rc=0" in output, output
+    assert argv[:4] == ["compose", "-f", "docker-compose.yml", "pull"], argv
+    assert argv[argv.index("--policy") + 1] == "missing", argv
+    assert "--include-deps" not in argv, argv
+    assert set(argv[argv.index("--policy") + 2 :]) == exposure.PRODUCTION_SERVICES - {"frontend", "backend"}, argv
+
+
+def test_a_fetch_that_fails_refuses_before_any_application_image_is_pulled() -> None:
+    output = _run(CURRENT, FETCH, FL_EDGE_PULL_RC="18")
+
+    assert "rc=2" in output, output
+    assert "(exit 18)" in output, output
+    assert "No application image has been pulled, NOTHING has been recreated" in output, output
+    # Compose's own reason, which the refusal sends the operator to.
+    assert "manifest unknown" in output, output
+
+
+def test_the_edge_images_are_fetched_before_either_application_image_or_the_recreate() -> None:
+    text = DEPLOY.read_text(encoding="utf-8")
+    fetched = text.index("\nfetch_edge_images\n")
+
+    assert text.index("\ncheck_compose_config\n") < fetched, "the edge's images are fetched before compose's configuration is read"
+    for later in ('docker pull "${REPO_FRONTEND}:${PIN}"', 'docker pull "$IMAGE_FRONTEND"', 'step "Recreating the application containers"'):
+        assert fetched < text.index(later), f"scripts/ops/deploy.sh fetches the edge's images after {later}"

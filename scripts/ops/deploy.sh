@@ -45,6 +45,10 @@ EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared
 EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
 # How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
 EDGE_START_POLLS=50
+# Every production service `.github/workflows/publish.yml` does not build, held to
+# `scripts/checks/check_compose_exposure.py :: PRODUCTION_SERVICES` by
+# `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
+EDGE_IMAGE_SERVICES=(nginx cloudflared)
 
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
@@ -122,6 +126,23 @@ environment file that line is a value. Ask it yourself, where the answer is not 
   docker compose -f ${COMPOSE} config --quiet"
   fi
   ok "compose parses ${COMPOSE} and the two environment files it names"
+}
+
+# Before either application image moves: the `up` that reloads nginx would otherwise fetch a missing
+# edge image after the pair was replaced, and a fetch failing there leaves nginx proxying to the
+# containers it replaced.
+fetch_edge_images() {
+  local rc=0
+  # `missing`, the policy `up` applies, so a tag this host holds is not refreshed under a running
+  # edge. Never `--include-deps`: it would refresh the application's `:latest` over a pin.
+  quietly docker compose -f "$COMPOSE" pull --policy missing "${EDGE_IMAGE_SERVICES[@]}" || rc=$?
+  if (( rc )); then
+    refuse "compose could not fetch the images ${EDGE_IMAGE_SERVICES[*]} run (exit ${rc}), so this deploy
+stopped here rather than at the reload, after the application containers were replaced.
+No application image has been pulled, NOTHING has been recreated, and the site is untouched.
+Compose's own output is above."
+  fi
+  ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
 # `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
@@ -813,6 +834,9 @@ if (( RECORDED )); then ok "recorded before anything is pulled or recreated"; fi
 # --- pull -------------------------------------------------------------------------------------------
 
 section "pull"
+
+step "The edge's images, before anything the application runs moves"
+fetch_edge_images
 
 if [[ -n "$PIN" ]]; then
   step "Pinning to ${PIN}"

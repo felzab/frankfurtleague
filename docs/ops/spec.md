@@ -435,6 +435,12 @@ and report a build that broke over a stack nothing stopped. The refusal names th
 prints nothing compose itself said: the filter in §1.7 reaches a container's log alone, and a parse
 error quotes the line it could not read.
 
+**Before either application image is pulled, the deploy fetches every image the edge runs that the
+host lacks** (`scripts/ops/deploy.sh :: fetch_edge_images`), under the `missing` policy `up` itself
+applies, so a tag the host holds is never refreshed under a running edge. A failed fetch refuses at
+exit 2 with nothing recreated; left to the `up` that reloads nginx, it would arrive once the
+application pair was replaced, nginx still proxying to the containers it replaced.
+
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it; every other statement of which paths select which scope — the packaging list
 included — cites that file rather than repeating it.

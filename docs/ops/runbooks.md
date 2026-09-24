@@ -41,6 +41,10 @@ the machine is outside the repository. What it does tell you:
   said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
   message, run the same check on the server, where its answer is not being captured:
   `docker compose -f docker-compose.yml config --quiet`.
+- **The images the edge runs are fetched next, where the host lacks them, before either application
+  image is pulled** (`scripts/ops/deploy.sh :: fetch_edge_images`): a fetch that fails refuses at
+  exit 2 with nothing recreated, and compose's own reason is printed above the refusal
+  ([`spec.md`](spec.md) §1.5).
 - **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the
