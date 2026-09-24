@@ -12,7 +12,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient, monitoring
 from pymongo.database import Database
 
-from tests.tier import UNMARKED_USE, is_db_marked, refuse_server_fixtures
+from tests.tier import TIER_GUARD, UNMARKED_USE
 from tests.worker import guard_every_database, release_every_database, worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
@@ -451,25 +451,7 @@ def _default_tier_markexpr(config: pytest.Config) -> str | None:
 def pytest_configure(config: pytest.Config) -> None:
     guard_every_database()
     monitoring.register(UNMARKED_USE)
-
-
-# Setup as well as call: a fixture the test takes seeds in setup, and that is the test's own use. Not
-# teardown, where a session fixture a db test opened is finalised after whichever test ran last.
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
-    if is_db_marked(item):
-        return (yield)
-    refuse_server_fixtures(item.nodeid, getattr(item, "fixturenames", ()))
-    with UNMARKED_USE.watching(item.nodeid):
-        return (yield)
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_call(item: pytest.Item) -> Iterator[None]:
-    if is_db_marked(item):
-        return (yield)
-    with UNMARKED_USE.watching(item.nodeid):
-        return (yield)
+    config.pluginmanager.register(TIER_GUARD, "fl-db-tier-guard")
 
 
 # `optionalhook`, because xdist SPECS this hook. Where an environment is behind `uv.lock` the plugin

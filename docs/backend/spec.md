@@ -495,13 +495,17 @@ test as it runs, the way pytest-django blocks its database:
 
 - **at setup**, where pytest's own fixture closure holds `:: SERVER_FIXTURES`, before a container
   starts
-- **at any command it sends**, through the driver's documented `pymongo.monitoring` listener, which
-  sees every client however the test reached it
+- **at any command it sends, in setup, call or teardown**, through the driver's documented
+  `pymongo.monitoring` listener, which sees every client built in the test process once
+  `fl_backend/tests/conftest.py :: pytest_configure` has registered it, however the test reached
+  it: a thread the test starts is seen, a process it starts is not
+
+**A command sent while a fixture tears down is charged to the test that fixture was built for**
+(`fl_backend/tests/tier.py :: UnmarkedDatabaseUse`), because a session fixture a db test opened
+finishes in the teardown of whichever test ends the session.
 
 **A client aimed where nothing answers sends no command and passes**, which is how a default-tier
 test proves a refusal lands before the database (`fl_backend/tests/config.py :: UNANSWERED_URI`).
-A command sent from a thread the test starts is seen; one sent during teardown is
-not, a session fixture a db test opened being finalised after whichever test ran last.
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because
 `mongomock` cannot execute this pipeline and a check against the live database tests the data rather
