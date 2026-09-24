@@ -62,6 +62,10 @@ SEEDED_SQUAD = 3
 # The other order the season could rank a group by. NOT a shape field, so `REQ-RULES-011` passes it
 # on a drawn season and `REQ-RULES-012` is the only rule left to refuse it.
 REORDERED_TIEBREAK = "direkter_vergleich"
+STORED_TIEBREAK = "tordifferenz"
+
+# Above `SEEDED_SQUAD`, so the narrowing patch is a real narrowing.
+STORED_KADER = 18
 
 # The one squad the seed and the rival both write, the first seeded club's.
 SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
@@ -69,7 +73,14 @@ SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
     return documents.rules_document(
-        **{"qualifiers_per_group": QUALIFIERS, "number_of_groups": GROUPS, "teams_per_group": TEAMS_PER_GROUP, **overrides}
+        **{
+            "qualifiers_per_group": QUALIFIERS,
+            "number_of_groups": GROUPS,
+            "teams_per_group": TEAMS_PER_GROUP,
+            "max_kadergroesse": STORED_KADER,
+            "tiebreak_order": STORED_TIEBREAK,
+            **overrides,
+        }
     )
 
 
@@ -355,7 +366,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
         # refuses before any write.
         assert season_reads == 2, "a third read means the retry itself conflicted"
 
-        assert stored["rules"]["max_kadergroesse"] == 18, "the narrowing landed on top of the rival's insert"
+        assert stored["rules"]["max_kadergroesse"] == STORED_KADER, "the narrowing landed on top of the rival's insert"
         assert squad == SEEDED_SQUAD + 1, "the rival's insert was lost, so the refusal above had nothing to refuse"
 
     def test_the_same_narrowing_commits_when_no_player_is_added(self, mongo_replica_set_url: str):

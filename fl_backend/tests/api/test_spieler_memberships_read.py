@@ -320,7 +320,19 @@ class TestTheAddressASignedInPersonIsJoinedOn:
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return spieler_document(SPIELER_OIDS[name], name[0], name, inactive_since=inactive_since)
+    # The consent record passed rather than defaulted: `test_the_consent_record_reaches_this_read_whole` reads all four fields.
+    return spieler_document(
+        SPIELER_OIDS[name],
+        name[0],
+        name,
+        einwilligung={
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "erziehungsberechtigt",
+            "datum": "2026-01-15",
+            "bestaetigt_am": "2026-01-20",
+        },
+        inactive_since=inactive_since,
+    )
 
 
 def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since: str | None = None) -> dict[str, Any]:

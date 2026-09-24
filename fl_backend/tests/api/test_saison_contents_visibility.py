@@ -68,7 +68,7 @@ def team_document() -> dict[str, Any]:
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG")
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe="A")
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:

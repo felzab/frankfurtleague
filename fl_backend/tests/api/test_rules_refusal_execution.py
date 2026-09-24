@@ -45,6 +45,7 @@ REFUSED_KADER = 2
 
 # The other value of the closed set, so a case moves `tiebreak_order` to something the model accepts.
 OTHER_TIEBREAK = "direkter_vergleich"
+STORED_TIEBREAK = "tordifferenz"
 
 # 4 groups x 2 qualifiers is 8, which the ladder enters at the Viertelfinale: 4 fixtures.
 KNOCKOUT_FIXTURES = 4
@@ -60,7 +61,9 @@ SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    return documents.rules_document(**{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
+    return documents.rules_document(
+        **{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, "tiebreak_order": STORED_TIEBREAK, **overrides}
+    )
 
 
 def saison_document() -> dict[str, Any]:

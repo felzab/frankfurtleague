@@ -108,7 +108,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = NAMES[team_id]
 
-    return documents.saison_team_document(SAISON_ID, team_id, name, shorthand)
+    return documents.saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe="A")
 
 
 def saison_document() -> dict[str, Any]:

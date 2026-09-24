@@ -94,6 +94,7 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
         TEAM_OIDS[key],
         key,
         shorthand,
+        gruppe="A",
         trikot_farbe="dunkelblau",
         # What every case below is about. Stored on both clubs, so no read can pass by holding the
         # one team that happens to carry none.

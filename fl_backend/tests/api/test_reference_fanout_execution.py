@@ -174,7 +174,7 @@ def junction_document(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
 
     name, shorthand = CLUB_NAMES[team_id]
 
-    return saison_team_document(saison_id, team_id, name, shorthand)
+    return saison_team_document(saison_id, team_id, name, shorthand, gruppe="A")
 
 
 def side(team_id: ObjectId, tore: int) -> dict[str, Any]:
