@@ -416,7 +416,8 @@ const SOURCE_BANS = [
   },
   {
     // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-    // handed to `ShellNotFound` is carried by that component, which a test holds to `useSaisonHref()`.
+    // handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
+    // renders under a season.
     selector: String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
     message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
   },
