@@ -23,8 +23,7 @@ function heading(html: string): string {
   const found = [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/gs)];
   assert.equal(found.length, 1, `the shell renders ${String(found.length)} h1 elements`);
 
-  // The hint's glyph sits inside the heading and is named „Hinweis zu …“, which is not the heading's text.
-  return textOf((found[0]?.[1] ?? "").replace(/<button[\s\S]*?<\/button>/g, ""), " ")
+  return textOf(found[0]?.[1] ?? "", " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -36,6 +35,18 @@ describe("the heading the admin shell puts over a page", () => {
   it("names a listed section by its nav entry, a detail route beneath it included", () => {
     assert.equal(heading(shellAt("/admin/teams")), "Teams");
     assert.equal(heading(shellAt("/admin/teams/6890a1b2c3d4e5f607190001")), "Teams");
+  });
+
+  /* A heading names itself from its contents, so a hint inside it is read out as part of the page's name. */
+  it("renders the page's hint beside the heading rather than inside it", () => {
+    const [, inside = "", after = ""] = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(shellAt("/admin/teams")) ?? [];
+
+    // Booleans rather than a match over `after`: a failing match prints the whole rendered page.
+    assert.ok(!/<button|role="button"/.test(inside), "the heading holds a control");
+    assert.ok(
+      /^<[a-z]+ [^>]*role="button"[^>]*aria-label="Was auf „Teams“ zu finden ist"/.test(after),
+      "the hint's control does not follow the heading",
+    );
   });
 
   /* The match editor has a route and no nav entry, there being no fixture index to link to. */

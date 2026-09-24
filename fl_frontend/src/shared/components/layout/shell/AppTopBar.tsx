@@ -75,10 +75,11 @@ export function AppTopBar({
       {/* No left padding below `lg`: the brand block's own `px-4` is already the gutter, and a second one doubles
           it on a narrow screen. From `lg` a border separates the two blocks, so each wants its own inset. */}
       <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
-        {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. The glyph
-            sits inside the h1 to inherit its font size, so `InfoHint`'s 1em icon matches. */}
-        <h1 className="fluid-base text-foreground min-w-0 truncate font-semibold tracking-wide">
-          {title}
+        {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. */}
+        <div className="fluid-base min-w-0 truncate">
+          {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
+              inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
+          <h1 className="text-foreground inline font-semibold tracking-wide">{title}</h1>
           {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
           {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>
@@ -98,7 +99,7 @@ export function AppTopBar({
               {hint.note && <p className="text-foreground-muted">{hint.note}</p>}
             </InfoHint>
           )}
-        </h1>
+        </div>
 
         {/* Inline rather than behind a menu, so ending a session does not need the drawer opened first. Inside this
             block rather than beside it, so the pair takes the same inset the title does. */}
