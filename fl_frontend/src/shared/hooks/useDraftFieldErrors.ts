@@ -17,7 +17,7 @@ import type { ZodType } from "zod";
  * `null` is "this one is fine now". `differs` records that the draft holds something other than what the last submit was
  * answering about, which is the only ground on which a browser verdict may speak over a server's refusal.
  */
-export type FieldVerdict = { message: string | null; differs: boolean };
+type FieldVerdict = { message: string | null; differs: boolean };
 
 /** Every path this form's browser-side validation has judged, keyed as the payload spells it. */
 export type FieldVerdicts = Record<string, FieldVerdict>;

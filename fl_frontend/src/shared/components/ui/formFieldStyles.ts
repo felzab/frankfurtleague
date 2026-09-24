@@ -8,7 +8,7 @@ export const FIELD_LABEL_CLASSES = "fluid-xs text-foreground font-bold";
  * The height every field-shaped control resolves to. HeroUI gives `.number-field__group` a fixed `h-9`
  * while a trigger sizes itself from `py-2` plus its line box — a visible 4px step across one grid row.
  */
-export const FIELD_HEIGHT_CLASSES = "h-10";
+const FIELD_HEIGHT_CLASSES = "h-10";
 
 /**
  * No focus or hover classes: both live once in the unlayered block at the end of `globals.css`, keyed off HeroUI's

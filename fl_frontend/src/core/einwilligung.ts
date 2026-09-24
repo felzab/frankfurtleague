@@ -245,7 +245,7 @@ const SCHIEDSRICHTERSEITE_ABSAETZE_2026_09 = [
  * in nouns: a pupil's record is an Einwilligung, so „Eine Einwilligung ist das nicht“ has no
  * counterpart here.
  */
-export const SPIELER_ABSAETZE = {
+const SPIELER_ABSAETZE = {
   worum:
     "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser " +
     "Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team " +

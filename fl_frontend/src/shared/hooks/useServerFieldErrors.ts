@@ -96,7 +96,7 @@ export function focusFirstRefusal(form: HTMLFormElement, fieldErrors: FieldError
 }
 
 /** Whether some refused path is one no control in the form carries, however many others one does. */
-export function leavesSomeUnshown(form: HTMLFormElement, fieldErrors: FieldErrors): boolean {
+function leavesSomeUnshown(form: HTMLFormElement, fieldErrors: FieldErrors): boolean {
   const named = new Set(Array.from(form.elements, (control) => control.getAttribute("name")));
 
   return Object.keys(fieldErrors).some((path) => !named.has(path));

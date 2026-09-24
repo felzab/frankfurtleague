@@ -89,7 +89,7 @@ export function undeclaredNames(found, declared) {
  * A required name the file gives no value. A bare pass-through takes its value from the shell that
  * ran compose, and a deploy's shell holds none, so the variable never reaches the container.
  */
-export function missingNames(valued, required) {
+function missingNames(valued, required) {
   const present = new Set(valued);
   return required.filter((name) => !present.has(name));
 }

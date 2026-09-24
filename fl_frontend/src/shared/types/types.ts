@@ -69,7 +69,7 @@ export type ActionFailure = {
   outcome?: "unknown";
 };
 
-export type ActionSuccess<TPayload extends object = object> = TPayload & {
+type ActionSuccess<TPayload extends object = object> = TPayload & {
   success: true;
   /** Required: every write composes one, and a caller may raise it unguarded. */
   message: string;

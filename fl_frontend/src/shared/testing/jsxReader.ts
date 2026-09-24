@@ -28,7 +28,7 @@ export function classText(node: ts.Node | undefined): string {
 const tokensOf = (text: string): string[] => text.split(/\s+/).filter((token) => token !== "");
 
 /** One named attribute of an opening tag, or `undefined` where it declares none. */
-export function attributeNode(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile, name: string): ts.JsxAttribute | undefined {
+function attributeNode(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile, name: string): ts.JsxAttribute | undefined {
   const found = opening.attributes.properties.find((property) => ts.isJsxAttribute(property) && property.name.getText(source) === name);
 
   return found !== undefined && ts.isJsxAttribute(found) ? found : undefined;

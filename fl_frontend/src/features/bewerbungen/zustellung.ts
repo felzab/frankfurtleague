@@ -124,7 +124,7 @@ type ZustellGemeinsam = {
 };
 
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
-export type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar";
+type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar";
 
 /**
  * **`bewerbung` is the fall-through**: no message the application flow sends carries a `ziel`, so an

@@ -310,7 +310,7 @@ const sessionOptions = {
   },
 } satisfies BetterAuthOptions["session"];
 
-export function isUserAdmin(email?: string | null): boolean {
+function isUserAdmin(email?: string | null): boolean {
   if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
 
   // Folded here because the library folds only CASE, and only on the row it stores: the address a

@@ -232,7 +232,7 @@ export function BestaetigungErgebnis({
 }
 
 /** The action a result panel offers, in the width the panel gives it rather than the page's. */
-export function Aktion({ children }: { children: ReactNode }) {
+function Aktion({ children }: { children: ReactNode }) {
   return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 
