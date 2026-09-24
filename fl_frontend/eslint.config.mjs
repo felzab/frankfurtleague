@@ -566,11 +566,12 @@ const eslintConfig = defineConfig([
           })),
         },
       ],
-      // Spreading stays free everywhere but on the segmented controls, whose bounds a spread hides.
-      "react/jsx-props-no-spreading": [
-        "error",
-        { html: "ignore", custom: "ignore", exceptions: tagsOf([...JUDGING_DATE_CONTROLS, "DateRangePicker"]) },
-      ],
+      // Spreading stays free everywhere but on the date controls, whose bounds a spread hides: the
+      // calendar offering the days as much as the fields judging them.
+
+      // The rule reads a tag's name, so the gravity icon named `Calendar` is refused a spread too, which
+      // no icon takes.
+      "react/jsx-props-no-spreading": ["error", { html: "ignore", custom: "ignore", exceptions: tagsOf(DATE_CONTROLS) }],
     },
   },
   { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": "off" } },

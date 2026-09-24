@@ -42,7 +42,7 @@ export function AdminCrudView({ facets }: { facets: unknown }) {
   return (
     <div {...bounds}>
       <span className={labelBadge(TONE)} />
-      <Calendar minValue={bounds} {...bounds}>
+      <Calendar minValue={bounds}>
         {String(facets)}
       </Calendar>
     </div>

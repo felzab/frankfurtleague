@@ -3,6 +3,7 @@
 
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { Calendar } from "@heroui/react/calendar";
 import * as HeroUI from "@heroui/react"; // expect: segmented-import expect: heroui-form expect: vendor-root expect: date-alias
 import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: segmented-import expect: date-alias
 import { CalendarRoot } from "@heroui/react/calendar"; // expect: date-alias
@@ -106,6 +107,8 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <DateField {...bounds} /* expect: date-spread */ />
       <DatePicker.Root maxValue={bounds} /* expect: date-bound */ />
       <DateField.Root {...bounds} /* expect: date-spread */ />
+      <Calendar {...bounds} /* expect: date-spread */ />
+      <Calendar.Root {...bounds} /* expect: date-spread */ />
       <h2 className={heading()} /* expect: heading */>Titel</h2>
       <h2 className={panel.heading()} /* expect: heading */>Titel</h2>
       <h3>

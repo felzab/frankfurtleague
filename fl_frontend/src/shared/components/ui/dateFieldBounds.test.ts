@@ -30,7 +30,7 @@ const sources = new Map(
   collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
 );
 
-type Site = { file: string; tag: string; line: number; bounds: string[]; hasSpread: boolean };
+type Site = { file: string; tag: string; line: number; bounds: string[] };
 
 /** `minValue={undefined}` is an attribute with no bound in it: present to a name check, absent to the user. */
 function carriesAValue(attribute: ts.JsxAttribute, source: ts.SourceFile): boolean {
@@ -85,18 +85,14 @@ function sitesIn(file: string, text: string): Site[] {
 
       if (tag !== undefined && (SEGMENTED.has(tag) || tag === OFFERING)) {
         const bounds: string[] = [];
-        let hasSpread = false;
 
         for (const attribute of opening.attributes.properties) {
-          if (!ts.isJsxAttribute(attribute)) {
-            hasSpread = true;
-            continue;
-          }
+          if (!ts.isJsxAttribute(attribute)) continue;
           const spelt = attribute.name.getText(source);
           if (BOUNDS.includes(spelt) && carriesAValue(attribute, source)) bounds.push(spelt);
         }
 
-        sites.push({ file, tag, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, bounds, hasSpread });
+        sites.push({ file, tag, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, bounds });
       }
     }
     ts.forEachChild(node, visit);
@@ -158,10 +154,4 @@ describe("where a date control's bounds live", () => {
       }
     });
   }
-
-  it("reads every date control's attributes rather than guessing past a spread", () => {
-    const spread = sites.filter((site) => site.hasSpread).map(idOf);
-
-    assert.deepEqual(spread, [], `${spread.join(", ")} passes props through a spread, so its bounds cannot be read`);
-  });
 });
