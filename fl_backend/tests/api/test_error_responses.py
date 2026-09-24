@@ -24,7 +24,7 @@ from app.core.exception_handlers import (
 )
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import api_routes, create_app, publish_refusals, refusal_codes, with_refusals
+from app.main import api_routes, create_app, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -337,6 +337,7 @@ class TestThePublishedFailureBodies:
 
 
 PLANTED_PATH = "/planted"
+HIDDEN_PATH = "/hidden"
 # A code no rule and no handler raises, so only the declaration can put it on the 409.
 A_SECOND_REASON = "REQ-PLANTED-001"
 
@@ -392,6 +393,19 @@ class TestTheDeclared409:
 
         with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
             publish_refusals(app)
+
+    def test_the_operations_read_are_the_operations_the_document_publishes(self):
+        """A hidden route beside a shown one: read as served, a rule naming it would pass the build and publish nothing."""
+
+        app = planted_app(refusal_response({A_SECOND_REASON}))
+
+        @app.get(HIDDEN_PATH, include_in_schema=False)
+        def hidden() -> None: ...
+
+        read = {(route.path_format, method.lower()) for route in document_routes(app) for method in route.methods}
+        published = {(path, method) for path, operations in app.openapi()["paths"].items() for method in operations}
+
+        assert read == published == {(PLANTED_PATH, "post")}
 
 
 class TestErrorCodeLogging:

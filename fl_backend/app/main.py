@@ -142,8 +142,9 @@ def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
     """Each operation as FastAPI builds the document from it: an include's prefix and `responses=` applied, nested includes opened."""
 
     for context in iter_route_contexts(app.routes):
-        # The one kind `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never `None`.
-        if isinstance(context.original_route, APIRoute) and context.path_format is not None:
+        # The routes `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never
+        # `None`; a hidden one read here would pass a rule naming it as served while publishing nothing.
+        if isinstance(context.original_route, APIRoute) and context.path_format is not None and context.include_in_schema:
             yield DocumentedRoute(context.path_format, context.methods or set(), context.responses)
 
 
