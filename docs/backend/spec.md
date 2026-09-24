@@ -576,6 +576,10 @@ and cannot suffer same-basename collisions.
   withdrawn, not yet filled in — which tests rely on and depart from by passing the field. Plain
   functions rather than fixtures, because the `on_a_*` helpers and module-scoped corpora that seed
   take no fixture.
+- **A test serving the app in process enters `fl_backend/tests/app_client.py :: app_client`** inside
+  the coroutine that makes the request. Ruff's banned-api (TID251, `fl_backend/pyproject.toml`)
+  refuses any other import of `httpx2.ASGITransport`, a construction beside the helper being a copy
+  of it; a suite whose app carries routes of its own imports it under a `noqa` on that line.
 - **Reject-cases are parametrised**, one `pytest.mark.parametrize` per rule, holding one value per code
   path the rule refuses on and that path's boundaries. A value reaching a branch another case already
   reaches passes and fails with that case, so it pins nothing of its own and is not added. **A value

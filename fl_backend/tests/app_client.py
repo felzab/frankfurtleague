@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from httpx2 import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
 from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
