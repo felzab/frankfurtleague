@@ -40,7 +40,7 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
     return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
 
-# What each code below refuses is `docs/logging/error-codes.md`.
+# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 RULES_BRACKET_IMPOSSIBLE = "REQ-RULES-001"
 RULES_GROUPS_IN_USE = "REQ-RULES-002"
 RULES_CAPACITY_BELOW_USE = "REQ-RULES-003"
@@ -492,7 +492,7 @@ def find_activation_refusal(
     )
 
 
-# What each code below refuses is `docs/logging/error-codes.md`.
+# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 SPIELPLAN_ALREADY_DRAWN = "REQ-SPIELPLAN-001"
 SPIELPLAN_MATCHDAYS_HELD = "REQ-SPIELPLAN-002"
 SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"

@@ -21,7 +21,7 @@ from app.shared.schemas.bounds import (
     VERTRETUNG_MIN_AGE_YEARS,
 )
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 BEWERBUNG_ALREADY_DECIDED = "REQ-BEWERBUNG-001"
 BEWERBUNG_SUBJECT_UNRESOLVED = "REQ-BEWERBUNG-002"
 BEWERBUNG_SCHULE_UNUSABLE = "REQ-BEWERBUNG-003"

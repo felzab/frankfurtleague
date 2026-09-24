@@ -329,7 +329,8 @@ cache tags in the same action — the data it caches changed even though no team
 ### 1.4 Error codes and failure responses
 
 **Every failure response body is `{error_code, trace_id}`**, a refused payload's adding `fields` —
-the full code table is in [`docs/logging/error-codes.md`](../logging/error-codes.md), each entry of
+a domain rule's code is stated at `fl_backend/app/core/domain.py :: RULES` and every other code in
+[`docs/logging/error-codes.md`](../logging/error-codes.md), each entry of
 `fields` is `fl_backend/app/shared/schemas/responses.py :: FLRefusedField`, the trace-id design in
 [`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must follow them.
 The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
@@ -612,8 +613,9 @@ and cannot suffer same-basename collisions.
 ### 1.7 Tier rules
 
 A `REQ-*` rule raised under `app/api/` refuses a write and answers 409, so it has a row in
-`fl_backend/app/core/domain.py :: RULES` and a status in [`docs/logging/error-codes.md`](../logging/error-codes.md),
-where the protocol codes are set apart from it. A `READ-*` rule refuses nothing.
+`fl_backend/app/core/domain.py :: RULES` and is published on its operations' 409s in
+`fl_backend/openapi.json`, while the protocol codes set apart from it take theirs in
+[`docs/logging/error-codes.md`](../logging/error-codes.md). A `READ-*` rule refuses nothing.
 It decides which tier a field reaches, and the enforcement is the shape of a response model or the guard on
 a router — neither of which returns a `WriteRefusal`. They are stated here because they belong to the
 contract rather than to the failure taxonomy.

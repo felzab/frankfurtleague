@@ -44,7 +44,7 @@ from app.shared.schemas.bounds import (
 # decline a later programme builds.
 SUBMITTED = "eingereicht"
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 REGISTRIERUNG_FENSTER_GESCHLOSSEN = "REQ-REGISTRIERUNG-001"
 REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN = "REQ-REGISTRIERUNG-002"
 REGISTRIERUNG_STUFE_NICHT_ERLAUBT = "REQ-REGISTRIERUNG-003"
@@ -295,7 +295,7 @@ def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, i
 # --- The CONFIRMATION. Every predicate below reads a missing `bestaetigung` block as "nothing to
 # confirm".
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 REGISTRIERUNG_TOKEN_UNKNOWN = "REQ-REGISTRIERUNG-004"
 REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
 REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"

@@ -179,7 +179,7 @@ class TestWhatTheCheckAnswers:
     def test_a_banned_address_is_refused_under_the_published_code(self):
         """The LITERAL: comparing the code to the constant that produced it would hold after a rename the frontend never heard of.
 
-        `docs/logging/error-codes.md` and each slice's own mapper both key on this string.
+        `fl_backend/app/core/domain.py :: RULES` and each slice's own mapper both key on this string.
         """
 
         refusal = find_sperrliste_refusal(gesperrt=True)

@@ -77,7 +77,7 @@ def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
     return isinstance(beginn, str) and beginn <= today
 
 
-# What each code below refuses is `docs/logging/error-codes.md`.
+# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
 # `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
 SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"

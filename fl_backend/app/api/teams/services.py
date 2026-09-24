@@ -990,7 +990,7 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
     return composed
 
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
 
 

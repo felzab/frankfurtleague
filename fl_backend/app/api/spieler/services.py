@@ -220,7 +220,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
 # The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
 SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
-# What every code here refuses is `docs/logging/error-codes.md`.
+# What every code here refuses is `fl_backend/app/core/domain.py :: RULES`.
 SQUAD_FULL = "REQ-SQUAD-003"
 
 # One code for both roles, as `REQ-BOOKING-001` covers a venue and a referee: this is one rule read

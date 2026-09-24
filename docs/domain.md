@@ -248,7 +248,8 @@ entry, because a stale form and a direct request each reach it, and on a public 
 anyone's.
 
 Every refusal reaches a client as a **code** rather than as a message, the English text beside it going only
-to the log; [`logging/error-codes.md`](logging/error-codes.md) lists every code with the status it answers.
+to the log; `fl_backend/openapi.json` publishes on each operation's 409 the rules it refuses on, and
+[`logging/error-codes.md`](logging/error-codes.md) lists every other code with the status it answers.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
@@ -297,13 +298,9 @@ source tree spells outside the declaration itself, so one still written anywhere
 whatever it names there.
 
 **Most of what a model change owes is caught at the gate**, `test_domain.py` resolving what the declaration
-names and holding the claims it makes rather than merely the addresses. Three obligations are not, because no
+names and holding the claims it makes rather than merely the addresses. Two obligations are not, because no
 check can see a row nobody wrote:
 
-- **A refusal code the API has not answered with before** owes a row in
-  [`logging/error-codes.md`](logging/error-codes.md) and a German message where its feature maps refusals.
-  Unmapped, it falls through to what `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`
-  answers a bare 409 with, telling an admin the entry conflicts with one that already exists.
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks
   inward from a validator, so an id field nobody declared is invisible.
@@ -321,4 +318,4 @@ reads these tables they stop being a declaration and become an engine a write ca
 
 - **[`backend/spec.md`](backend/spec.md)** — the endpoint inventory and the backend's own invariants
 - **[`glossary.md`](glossary.md)** — the German vocabulary, which is not optional
-- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits, and the response body and log line that carry it
+- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits outside the domain rules, and the response body and log line that carry it

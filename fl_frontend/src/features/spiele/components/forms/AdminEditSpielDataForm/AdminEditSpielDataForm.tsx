@@ -411,7 +411,7 @@ export function AdminEditSpielDataForm({
   };
 
   /**
-   * The backend answers one code per RULE (`docs/logging/error-codes.md`), so the client works out
+   * The backend answers one code per RULE (`fl_backend/app/core/domain.py :: RULES`), so the client works out
    * the side. A side it cannot identify produces no entry and the caller falls back to the toast,
    * so a refusal is never swallowed.
    */

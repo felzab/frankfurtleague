@@ -62,7 +62,8 @@ and is why the format is not negotiable.
 ## Errors
 
 Every failure the application raises carries an `error_code`, so a log line names a specific failure
-rather than a status class ([`docs/logging/error-codes.md`](../logging/error-codes.md)).
+rather than a status class: a domain rule's is `fl_backend/app/core/domain.py :: RULES`'s, and every
+other code is [`docs/logging/error-codes.md`](../logging/error-codes.md)'s.
 
 ## Read next
 

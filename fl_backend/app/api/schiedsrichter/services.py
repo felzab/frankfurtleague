@@ -156,7 +156,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 # --- The CONFIRMATION LINK. Every predicate below reads a missing `bestaetigung` block as "nothing
 # was ever mailed": a referee entered before this flow is neither refused nor swept.
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 SCHIEDSRICHTER_RETIRED = "REQ-SCHIEDSRICHTER-001"
 SCHIEDSRICHTER_TOKEN_UNKNOWN = "REQ-SCHIEDSRICHTER-002"
 SCHIEDSRICHTER_TOKEN_EXPIRED = "REQ-SCHIEDSRICHTER-003"
