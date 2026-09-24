@@ -155,11 +155,9 @@ empty_parameter_set_mark = "fail_at_collect"
 # type, so without this section a type error reaches only whoever has the file open in Pylance,
 # while `scripts/gate/verify.sh` goes green past it.
 
-# venvPath/venv are what make this meaningful in an EDITOR, which resolves a third-party import
-# from whatever interpreter it has and otherwise reports a phantom error for every one.
-
-# The gate needs neither, invoking pyright with this environment already
-# (`scripts/gate/verify.sh :: do_backend_pyright`); `scripts/pyrightconfig.json` names the same one.
+# venvPath/venv are what resolve a third-party import, in the gate as in an editor: pyright run by
+# this environment's own python (`scripts/gate/verify.sh :: do_backend_pyright`) still reads none of
+# it without them. `scripts/pyrightconfig.json` names the same one.
 venvPath = "."
 venv = ".venv"
 # Pinned rather than read from whichever interpreter pyright finds: CI's Linux run judged the tree
