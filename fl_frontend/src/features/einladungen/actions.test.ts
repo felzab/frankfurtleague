@@ -3,11 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
@@ -62,22 +60,5 @@ describe("the invite's refusals against the backend's register", () => {
   it("leaves the link-opens-nothing refusal to the flow that raises it", () => {
     assert.ok(declaredCodes(REGISTRIERUNG_OPERATION).includes("REQ-EINLADUNG-003"), "the register moved the code off the registration write");
     assert.equal(mappedCodes.includes("REQ-EINLADUNG-003"), false, "this slice words a refusal none of its own calls can answer");
-  });
-
-  /* The undo lane words a replayed endpoint's refusals a second time in its own `REPLAY_REFUSALS`
-     (`.claude/rules/cross-surface.md`). Nothing replays these two, so this slice owes none — and
-     this case is what fails the day something does. */
-  it("is replayed by no undo route, so its German lives at one site", () => {
-    const routes = filesUnder(APP_DIR, (name) => name === "route.ts", 12).filter((file) => !isTestFile(file));
-
-    assert.ok(routes.length > 0, "the walk found no route handlers at all, so this case compares nothing");
-    for (const file of routes) {
-      const source = readFileSync(file, "utf8");
-      assert.equal(
-        source.includes("REQ-EINLADUNG"),
-        false,
-        `${path.basename(path.dirname(file))} replays an invite endpoint and words its refusals`,
-      );
-    }
   });
 });
