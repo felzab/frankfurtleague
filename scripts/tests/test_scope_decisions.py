@@ -174,23 +174,40 @@ def test_the_base_ref_mode_reads_a_rename_by_both_of_its_paths() -> None:
     assert answered.get("images"), "a renamed image path asked for no image build: " + repr(answered)
 
 
+# A scope's name as `verify.sh` spells it, hyphen included: a class stopping at one reads
+# `frontend-units` as `frontend`, a name the mapping does emit.
+SCOPE_NAME: Final = r"[a-z][a-z-]*"
+
+# Declared by `verify.sh` and emitted by no arm: CI runs its shards wherever the frontend job runs
+# (`docs/ops/spec.md` §1.6).
+UNMAPPED_SCOPES: Final = frozenset({"frontend-units"})
+
+
 def test_the_two_lists_of_scope_names_agree() -> None:
-    """A scope the mapping emits and verify.sh declares no flag for is a CI job with nothing to run."""
-    declared = set(re.findall(r"^add_scope\s+([a-z]+)", VERIFY.read_text(encoding="utf-8"), flags=re.MULTILINE))
+    """A scope the mapping emits and verify.sh takes no flag for is a CI job with nothing to run.
+
+    The option parser's arms are read beside `add_scope`, being what a job's `--<scope>` reaches.
+    """
+    gate = VERIFY.read_text(encoding="utf-8")
+    declared = set(re.findall(rf"^add_scope\s+({SCOPE_NAME})", gate, flags=re.MULTILINE))
+    flags = set(re.findall(rf"^\s+--({SCOPE_NAME})\)", gate, flags=re.MULTILINE))
+    emitted = set(_mapped([]))
     assert declared, "no add_scope line was read out of scripts/gate/verify.sh: that reader went inert"
-    assert set(_mapped([])) == declared
+    assert flags, "no option arm was read out of scripts/gate/verify.sh: that reader went inert"
+    assert emitted <= declared & flags, f"emitted with no scope and flag in verify.sh: {sorted(emitted - (declared & flags))}"
+    assert declared - emitted == UNMAPPED_SCOPES, f"declared by verify.sh and emitted by no arm: {sorted(declared - emitted)}"
 
 
 def test_a_push_to_main_turns_every_scope_on() -> None:
     """`--all` is the mode `.github/workflows/verify.yml` runs for every push to main, and no other case runs it.
 
-    Its names are held to `--stdin`'s, so a scope the mapping gains and `all` leaves off fails here.
+    The mapping prints every scope it knows on every run, so one it gains and `all` leaves off comes out false here.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     done = run_shell(BASH, MAPPING, "--all", cwd=REPO_ROOT)
     assert done.returncode == 0, "scope_map.sh --all could not be run: " + done.stderr
     answered = {name: value for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
-    assert set(answered) == set(_mapped([]))
+    assert answered, "scope_map.sh --all printed no scope at all"
     assert [name for name, value in answered.items() if value != "true"] == [], "scope_map.sh --all left these scopes off"
 
 
