@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -39,6 +40,33 @@ const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplan
 
 /** The editor's banner for one code, where it words one rather than seating it under a field. */
 const editBanner = (code: string): string => mapRulesRefusal(refusedOn(EDIT_OPERATION, code))?.error ?? "";
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+
+/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it. */
+const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
+
+/**
+ * `REQ-RULES-011`'s frozen set, read off the write path that composes it. A wrapped value runs to the
+ * paren the formatter closes alone on a line.
+ */
+const SHAPE_RULES_FIELDS = [
+  ...withoutPythonComments(/^SHAPE_RULES_FIELDS(?::[^=\n]*)? = (\(\n[\s\S]*?\n\)|.*)$/m.exec(SERVICES)?.[1] ?? "").matchAll(/"([^"]*)"/g),
+].map((literal) => literal[1] ?? "");
+
+/* One German noun phrase per frozen field. The refusal states the freeze in one sentence, so a
+   further shape field would go unnamed in it while nothing here failed but the first case below. */
+const GERMAN_OF: Record<string, string> = {
+  number_of_groups: "Gruppen",
+  teams_per_group: "Teams pro Gruppe",
+  qualifiers_per_group: "Qualifikanten",
+};
+
+/**
+ * Whether one phrase stands in a text as a whole word. German compounds a term into a longer word
+ * meaning something else, so „Gruppenphase“ satisfies a substring search for the group COUNT.
+ */
+const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
 
 describe("the saison actions against the codes their endpoints publish", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
@@ -224,6 +252,32 @@ describe("the undraw action", () => {
     // The shared sentence rather than a copy: `fl_frontend/src/features/saisons/utils.test.ts` pins the
     // categories against their backend mirror, and a second spelling here could name a different set.
     assert.ok(message.includes(RECORDED_FACTS_NONE), "the refusal spells the recorded facts itself");
+  });
+});
+
+describe("the German the shape freeze renders", () => {
+  /* The authority is `SHAPE_RULES_FIELDS` and not the table above, so a fourth shape field fails here
+     rather than leaving the case below looping over a set the write path has grown past. */
+  it("names a phrase for exactly the fields the refusal freezes", () => {
+    assert.ok(SHAPE_RULES_FIELDS.length > 0, "no shape field was read off the write path, so the cases below compare nothing");
+    assert.deepEqual(Object.keys(GERMAN_OF).sort(), [...SHAPE_RULES_FIELDS].sort());
+    assert.equal(new Set(Object.values(GERMAN_OF)).size, Object.keys(GERMAN_OF).length, "two fields share one phrase");
+  });
+
+  it("reads a phrase inside a longer German word as naming no field", () => {
+    assert.ok(names("Gruppen", "Für Gruppen und Teams pro Gruppe"));
+    assert.ok(!names("Gruppen", "Die Gruppenphase ist gesperrt"));
+    assert.ok(!names("Qualifikant", "Die Qualifikanten pro Gruppe"));
+  });
+
+  /* A sentence naming some of the frozen fields reads as complete and is not: the admin reloads to a
+     panel holding a field the sentence never said was closed. */
+  it("names every field the refusal freezes", () => {
+    const message = editBanner("REQ-RULES-011");
+
+    for (const [field, german] of Object.entries(GERMAN_OF)) {
+      assert.ok(names(german, message), `REQ-RULES-011 freezes ${field} and its message never names ${german}`);
+    }
   });
 });
 
