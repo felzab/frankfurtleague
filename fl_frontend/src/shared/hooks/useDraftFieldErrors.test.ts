@@ -12,6 +12,8 @@ import ts from "typescript";
 import { z } from "zod";
 
 import { filesUnder, isTestFile } from "../../core/treeWalk.ts";
+import { bodyField, refusedPayload } from "../testing/refusedPayload.ts";
+import { toActionErrorResult } from "../utils/actionError.ts";
 import { appToast } from "../utils/appToast.ts";
 // Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
@@ -32,6 +34,7 @@ import {
 import { UNHANDLED_FIELD_REFUSAL } from "./useServerFieldErrors.ts";
 
 import type { BlockingBanners, RailBanner } from "../components/ui/railBanner.ts";
+import type { ActionFailure } from "../types/types.ts";
 import type { FieldErrors } from "../utils/validation.ts";
 import type { FieldVerdicts } from "./useDraftFieldErrors.ts";
 
@@ -499,6 +502,10 @@ async function pressSave(
     press.toasts.push(`${title}: ${options?.description ?? ""}`);
     return "";
   });
+  const failure = mock.method(appToast, "failure", (title: string, answer: { error: string; unplacedError?: string }) => {
+    press.toasts.push(`${title}: ${answer.unplacedError ?? answer.error}`);
+    return "";
+  });
   const { unmount } = render(
     createElement(GateProbe, {
       names,
@@ -522,6 +529,7 @@ async function pressSave(
     press.fieldErrors = latest.hook?.fieldErrors ?? {};
   } finally {
     danger.mock.restore();
+    failure.mock.restore();
     // Before the next press in the same case mounts its own form.
     unmount();
   }
@@ -606,6 +614,80 @@ describe("a blocked press's announcement", () => {
       "the press raised a toast beside the report, or no report",
     );
     assert.equal(press.writes, 0, "a press nothing marked still wrote");
+  });
+});
+
+/** One failed write answered through the hook, in a mounted form holding one control under each name given. */
+async function answerFailedWrite(
+  failure: ActionFailure,
+  names: readonly string[],
+  announcement?: Parameters<GateHook["reportSubmitFailure"]>[2],
+): Promise<string[]> {
+  const toasts: string[] = [];
+  const latest: { hook: GateHook | null } = { hook: null };
+  const raise = mock.method(appToast, "failure", (title: string, answer: { error: string; unplacedError?: string }) => {
+    toasts.push(`${title}: ${answer.unplacedError ?? answer.error}`);
+    return "";
+  });
+  const { unmount } = render(createElement(GateProbe, { names, onRender: (hook) => void (latest.hook = hook) }));
+
+  try {
+    await act(async () => {
+      latest.hook?.reportSubmitFailure(failure, { team: { shorthand: "FC", full_name: "FC Beispiel" } }, announcement);
+    });
+  } finally {
+    raise.mock.restore();
+    unmount();
+  }
+
+  return toasts;
+}
+
+/** The API refusing a payload's `shorthand`, as `toActionErrorResult` answers it. */
+const REFUSED_SHORTHAND = toActionErrorResult(refusedPayload([bodyField(["shorthand"])]));
+
+describe("a failed write's one announcement", () => {
+  it("speaks the answer's own sentence, once, where no control renders the refused path", async () => {
+    // The double toast this closes: the editor's own failure beside the hook's report of a map nobody sees.
+    const toasts = await answerFailedWrite(REFUSED_SHORTHAND, ["full_name"]);
+
+    assert.deepEqual(toasts, ["Änderung nicht gespeichert: Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
+  });
+
+  it("raises nothing where a control shows the refusal, which speaks for the press", async () => {
+    assert.deepEqual(await answerFailedWrite(REFUSED_SHORTHAND, ["shorthand"]), []);
+  });
+
+  // The mark on the shown path speaks for that path alone: the one beside it is said nowhere else.
+  it("speaks the answer's own sentence, once, where one refused path is shown and another reaches no control", async () => {
+    const partly = toActionErrorResult(refusedPayload([bodyField(["shorthand"]), bodyField(["nicht_gerendert"])]));
+
+    assert.deepEqual(await answerFailedWrite(partly, ["shorthand"]), [
+      "Änderung nicht gespeichert: Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.",
+    ]);
+  });
+
+  it("raises the failure's own sentence over a shown refusal where the failure says more than the mark", async () => {
+    const toasts = await answerFailedWrite(
+      { ...REFUSED_SHORTHAND, error: "Stammdaten gespeichert. Überprüfe Deine Eingaben." },
+      ["shorthand"],
+      {
+        evenWhenShown: true,
+      },
+    );
+
+    // Never the sentence for a map nothing shows: the mark is right there.
+    assert.deepEqual(toasts, ["Änderung nicht gespeichert: Stammdaten gespeichert. Überprüfe Deine Eingaben."]);
+  });
+
+  it("raises a failure naming no field at once, under the site's own raise where it passes one", async () => {
+    const titled: string[] = [];
+    const toasts = await answerFailedWrite({ success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." }, ["shorthand"], {
+      raise: (shown) => void titled.push(shown.error),
+    });
+
+    assert.deepEqual(titled, ["Der Eintrag wurde nicht gefunden. Lade die Seite neu."]);
+    assert.deepEqual(toasts, [], "the hook raised its own toast beside the site's");
   });
 });
 
@@ -888,7 +970,12 @@ describe("every page-owned editor", () => {
 
       // A refusal recorded with no payload behind it grades every later verdict as differing, which is
       // the old recency rule again: the next blur on the refused field deletes the message.
-      assert.ok(/setSubmitFieldErrors\([^)]*,\s*\{/.test(source), `${file} records a refusal without the payload the submit was refused on`);
+
+      // A payload naming a schema, never the empty `{}` a clear passes, which would satisfy a looser pattern.
+      assert.ok(
+        /(?:setSubmitFieldErrors|reportSubmitFailure)\([^;]*?,\s*\{\s*\w+:/.test(source),
+        `${file} records a refusal without the payload the submit was refused on`,
+      );
     });
   }
 });

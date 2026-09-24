@@ -5,10 +5,13 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

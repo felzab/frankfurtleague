@@ -1,5 +1,6 @@
 import "server-only";
 
+import { mailboxKey } from "@/core/emailAddress";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
@@ -85,8 +86,8 @@ export function rolleText(rolle: BewerbungRolle): string {
  * a domain compared without case (RFC 5321 §2.4).
  */
 function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: BewerbungRolle[] }[] {
-  // Stricter than `fl_backend/app/api/kontakte/services.py :: _same_address`, which folds the whole
-  // address, on purpose: over-matching leaves an erasure nothing behind and costs a fan-out a person.
+  // Stricter than `fl_backend/app/api/kontakte/services.py :: find_matching_slots`, which folds the whole
+  // address as sign-in does, on purpose: over-matching here costs a fan-out a person.
   const mailboxes = new Map<string, { address: string; rollen: BewerbungRolle[] }>();
 
   // The three seats are read here and nowhere else, so no caller can notify two of them. In the
@@ -96,11 +97,10 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
     const address = person === null ? "" : person.email.trim();
     if (address === "") continue;
 
-    const at = address.lastIndexOf("@");
-    const mailbox = at === -1 ? address : `${address.slice(0, at)}@${address.slice(at + 1).toLowerCase()}`;
+    const mailbox = mailboxKey(address);
 
-    // Keyed by mailbox and valued by the address as stored, so what is sent to is what was typed. A
-    // second seat on a known mailbox ADDS its role rather than opening a second message.
+    // Keyed by mailbox and valued by the address as stored, never by the key. A second seat on a
+    // known mailbox ADDS its role rather than opening a second message.
     const known = mailboxes.get(mailbox) ?? { address: address, rollen: [] };
     known.rollen.push(seat.value);
     mailboxes.set(mailbox, known);

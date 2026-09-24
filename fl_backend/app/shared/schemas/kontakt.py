@@ -1,15 +1,16 @@
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
+from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from app.shared.schemas.custom import CustomOptionalPhoneString, parse_empty_string_to_none
+from app.shared.schemas.custom import CustomOptionalPhoneString
 
-# An empty string coerces to `None` BEFORE validation: an untouched box is "not provided".
-# `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema` mirrors it and the ceiling declared
-# here, which `email-validator` would otherwise own.
-CustomOptionalEmail = Annotated[
-    EmailStr | None, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), BeforeValidator(parse_empty_string_to_none)
+# Every address payload's type but the erasure's lookup (`docs/backend/spec.md :: I329`).
+# Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
+# domain. The ceiling and the format are stated so the published schema carries both.
+CustomEmail = Annotated[
+    str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address), Field(json_schema_extra={"format": "email"})
 ]
 
 
@@ -30,4 +31,6 @@ class FLKontaktPayload(FLKontakt):
     model_config = ConfigDict(extra="forbid")
 
     telefon: CustomOptionalPhoneString
-    email: CustomOptionalEmail
+    # Required where the telephone is not: an administrator enters a referee, and the address is the
+    # only route by which that person learns they were entered (Art. 14(3) GDPR).
+    email: CustomEmail

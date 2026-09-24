@@ -5,15 +5,11 @@ import { logger } from "@/core/logging";
 
 import { toActionErrorResult } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
+import { VALIDATION_FAILED } from "./validation";
 
+import type { SentRequest } from "@/core/errors";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
-
-/**
- * The generic banner for a payload the schema refused, declared once, in the refusal format §1.12 of
- * `docs/frontend/spec.md` sets. The field messages beside it carry the specifics.
- */
-export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
 /**
  * What every admin write answers when the session carries no admin role. It becomes `FormState.error` and reaches a
@@ -35,7 +31,13 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
  * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
  */
-export async function runAdminMutation<T extends { success: boolean }>(mutationName: string, fn: () => Promise<T>): Promise<T | ActionFailure> {
+export async function runAdminMutation<T extends { success: boolean }>(
+  mutationName: string,
+  // Required at every call: a throw after a write may leave its row standing, a read's changed nothing,
+  // and a default would answer one of them wrongly.
+  { readOnly }: Pick<SentRequest, "readOnly">,
+  fn: () => Promise<T>,
+): Promise<T | ActionFailure> {
   return runWithIncomingTrace(async () => {
     try {
       return await fn();
@@ -50,7 +52,8 @@ export async function runAdminMutation<T extends { success: boolean }>(mutationN
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      return toActionErrorResult(error);
+      // A server action is a POST whatever it does, so its declaration is what tells the two apart.
+      return toActionErrorResult(error, { method: "POST", readOnly: readOnly });
     }
   });
 }

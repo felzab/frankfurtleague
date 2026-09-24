@@ -333,13 +333,14 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
                 nummer=str(index),
                 position="Angriff",
                 stufe="Q2",
-                ist_nachnominiert=False,
                 rolle=None,
             ),
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=saisons,
+            spieltage_collection=database[Collection.SPIELTAGE],
             db=client,
+            today=STANDING_FIRST,
         )
 
     def _run(self, url: str, under_test: Callable[[AsyncDatabase, AsyncMongoClient, Any], Awaitable[Any]]) -> Any:
@@ -369,9 +370,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
             return await patch_saison_spieler(
                 spieler_id=oid(2091),
                 saison_id=SAISON,
-                saison_spieler_data=FLPatchSaisonSpielerPayload(
-                    team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", ist_nachnominiert=False, rolle=None
-                ),
+                saison_spieler_data=FLPatchSaisonSpielerPayload(team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", rolle=None),
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 saisons_collection=saisons,

@@ -1,8 +1,11 @@
 # Prettier runs over the whole repository from fl_frontend, and --ignore-path replaces its default
-# lookup of ./.gitignore and ./.prettierignore, so every tree it must not enter is named here.
-# Patterns resolve relative to this file.
+# lookup of ./.gitignore and ./.prettierignore, so every tree it must not check is named here.
+# Patterns resolve relative to this file. A line spares the reads and never the walk: prettier lists
+# every entry under `..` before it asks this file.
 
+# Prettier's own .git exclusion does not match under the `..` root it runs from.
 .git
+
 docs/audit
 certs
 fl_backend/.venv
@@ -10,8 +13,7 @@ __pycache__
 .pytest_cache
 .ruff_cache
 
-# Installed and built trees: walking node_modules alone is the difference between seconds and
-# minutes, and nothing under any of these is written by hand.
+# Installed and built trees, nothing under which is written by hand.
 node_modules
 fl_frontend/.next/
 fl_frontend/out/

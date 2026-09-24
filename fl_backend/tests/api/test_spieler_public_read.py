@@ -30,9 +30,8 @@ from app.api.spieler.services import build_spieler_memberships_pipeline, build_s
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.main import create_app
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -53,9 +52,7 @@ WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "ist_nachnominie
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
-BASE_QUERY_PARAMETERS = {
-    parameter["name"] for parameter in create_app(build_test_config()).openapi()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]
-}
+BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in build_document()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]}
 
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),

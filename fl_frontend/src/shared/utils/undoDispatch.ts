@@ -1,7 +1,9 @@
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
+import type { ActionFailure } from "@/shared/types/types";
+
 /** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
-type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean };
+type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean; outcome?: ActionFailure["outcome"] };
 
 /**
  * Where the route turned the caller away rather than judging the replay, and what the danger toast
@@ -135,7 +137,10 @@ export function offerUndo<TPayload>({
             }
 
             if (!result.success) {
-              appToast.danger("Änderung nicht zurückgenommen", { description: result.error ?? "Die Änderung steht weiterhin." });
+              appToast.failure("Änderung nicht zurückgenommen", {
+                error: result.error ?? "Die Änderung steht weiterhin.",
+                outcome: result.outcome,
+              });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.

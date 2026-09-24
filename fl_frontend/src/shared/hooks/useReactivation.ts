@@ -14,7 +14,7 @@ export function useReactivation<TPayload>({
   action,
   noun,
 }: {
-  action: (payload: TPayload) => Promise<ActionResult>;
+  action: (payload: TPayload) => Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>>;
   /** What comes back, nominative and without an article: both titles are built around it. */
   noun: string;
 }): { isReactivating: boolean; reactivate: (payload: TPayload) => void } {
@@ -25,14 +25,18 @@ export function useReactivation<TPayload>({
       const res = await action(payload);
 
       if (!res.success) {
-        appToast.danger(`${noun} nicht reaktiviert`, { description: res.error });
+        appToast.failure(`${noun} nicht reaktiviert`, res);
         return;
       }
 
       const title = `${noun} reaktiviert`;
+      // A warning where the link the return minted did not leave, graded and titled as the save's
+      // `offerUndo` grades the same send: the person holds no working link and nobody else is told.
+      const warn = res.versandFehlgeschlagen === true;
+      const raise = warn ? appToast.warning : appToast.success;
       // Dropped where the action's sentence IS the title: every row-level reactivation answers with
       // the words the title already carries, and only the squad row answers with a detail.
-      appToast.success(title, { description: res.message === title ? undefined : res.message });
+      raise(warn ? "Mit Folgen reaktiviert" : title, { description: res.message === title ? undefined : res.message });
     });
   };
 

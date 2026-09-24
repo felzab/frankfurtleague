@@ -17,6 +17,11 @@ export const REGISTRIERUNG_ERINNERUNG_TAGE = 3;
 // judging a date against this copy would refuse where the endpoint accepts.
 export const REGISTRIERUNG_MIN_ALTER = 16;
 
+// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice as well, which
+// states the media floor for pupils and referees alike; the pages take the served
+// `medien_mindestalter` for the reason given above.
+export const MEDIEN_MIN_ALTER = 18;
+
 /**
  * The two publication scopes, paired with `fl_backend/app/core/constraints.py :: _EINWILLIGUNG_UMFANG`.
  *

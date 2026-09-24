@@ -80,8 +80,8 @@ describe("the team's invite panel", () => {
     render(panel());
 
     assert.ok(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
-    assert.equal(screen.queryByRole("button", { name: "Link zurückziehen" }), null, "a team with no link is offered a withdrawal");
-    assert.equal(screen.queryByRole("textbox", { name: "Registrierungslink" }), null, "a link nobody has minted is on the page");
+    assert.ok(screen.queryByRole("button", { name: "Link zurückziehen" }) === null, "a team with no link is offered a withdrawal");
+    assert.ok(screen.queryByRole("textbox", { name: "Registrierungslink" }) === null, "a link nobody has minted is on the page");
   });
 
   /* The mint shows the link for copying, and a second press is what mails it. Both controls
@@ -145,11 +145,10 @@ describe("the team's invite panel", () => {
     assert.ok(isInTheFlow("01.09.2026"), "the day the standing link was minted is not stated");
     assert.ok(isInTheFlow("vorstand@beispiel.de"), "the administrator who minted it is not named");
     assert.ok(isInTheFlow("Noch nicht gesendet"), "an unmailed link reads as a delivery that failed");
-    assert.equal(screen.queryByRole("textbox", { name: "Registrierungslink" }), null, "a reloaded page shows a value the store does not hold");
+    assert.ok(screen.queryByRole("textbox", { name: "Registrierungslink" }) === null, "a reloaded page shows a value the store does not hold");
     assert.equal(document.body.textContent.includes(TOKEN), false, "the link value survived the reload the store cannot serve it back from");
-    assert.equal(
-      screen.queryByRole("button", { name: "Link per E-Mail senden" }),
-      null,
+    assert.ok(
+      screen.queryByRole("button", { name: "Link per E-Mail senden" }) === null,
       "a mail press stands with no link to put in a message",
     );
   });
@@ -214,7 +213,7 @@ describe("the team's invite panel", () => {
 
     await user.click(screen.getByRole("radio", { name: "Zurückziehen" }));
 
-    assert.equal(screen.queryByRole("alert"), null, "the armed step survived a pick it does not describe");
+    assert.ok(screen.queryByRole("alert") === null, "the armed step survived a pick it does not describe");
     assert.ok(screen.getByRole("button", { name: "Link zurückziehen" }), "the control still offers the operation it was armed for");
   });
 
@@ -222,7 +221,7 @@ describe("the team's invite panel", () => {
     render(panel({ isMember: false }));
 
     assert.ok(isInTheFlow("Einen Registrierungslink bekommt nur ein Team, das in dieser Saison steht"));
-    assert.equal(screen.queryByRole("button", { name: "Registrierungslink anlegen" }), null, "a club outside the season is offered a mint");
+    assert.ok(screen.queryByRole("button", { name: "Registrierungslink anlegen" }) === null, "a club outside the season is offered a mint");
   });
 
   /* A link outlives a shut window and opens nothing while it is shut, so the panel says which of the

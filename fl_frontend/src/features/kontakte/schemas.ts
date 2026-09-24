@@ -6,14 +6,16 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
+import { addressSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
  * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
  * a person and not a row. Its own declaration, so no value typed for a write reaches the deletion.
  */
 export const FLKontaktErasurePayloadSchema = z.object({
-  email: KontaktEmailSchema,
+  // No address rule, as the API's lookup holds none: a stored address that a rule came to refuse
+  // later must stay erasable (GDPR Art. 17).
+  email: addressSchema((address) => address.includes("@")),
 });
 export type FLKontaktErasurePayload = z.infer<typeof FLKontaktErasurePayloadSchema>;
 

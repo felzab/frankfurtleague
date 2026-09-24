@@ -209,8 +209,8 @@ Where anything changed after a row or section was written, revise it in place.
 ### 4.7 Push and hand over
 
 Push the branch, then print the pull request title and body in one copy-paste block, to
-[`../_git/spec.md`](../_git/spec.md) §1.4. The draft pull request, its link and the `verify` run's
-conclusion are `.claude/CLAUDE.md` §2's.
+[`../_git/spec.md`](../_git/spec.md) §1.4. The draft pull request, its link and the conclusion
+of every check it started are `.claude/CLAUDE.md` §2's.
 
 ---
 

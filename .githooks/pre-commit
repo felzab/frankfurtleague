@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# GITHOOKS · format the staged files and re-stage them, so every commit is born formatted.
+# GITHOOKS · refuse a commit on main, and format and re-stage the staged files of any other.
 #
 # Formatting happens at commit time and the gate only checks.
 #
@@ -41,6 +41,14 @@ if ! repo_root="$(git rev-parse --show-toplevel)"; then
   exit 1
 fi
 cd "$repo_root"
+
+# `main` takes changes only through a pull request: the ruleset refuses the push, and this refuses
+# the commit that would otherwise have to be moved off `main` afterwards.
+if [ "$(git branch --show-current 2>/dev/null)" = "main" ]; then
+  echo "  pre-commit hook: HEAD is main, which takes changes only through a pull request — the commit is refused." >&2
+  echo "  Branch first, and the uncommitted work comes with you:  git checkout -b <short-kebab-name>" >&2
+  exit 1
+fi
 
 # Ahead of the first query, because every one of them is read from a file in here.
 if ! work="$(mktemp -d)"; then

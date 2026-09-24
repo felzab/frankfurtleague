@@ -32,16 +32,15 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -187,6 +186,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
       <section className={ABSCHNITT}>
         <h3 className={FORM_SECTION_HEADING}>Deine Rechte</h3>
         <p className={ABSATZ}>{absatz("widerruf")}</p>
+        <p className={ABSATZ}>{absatz("art21")}</p>
       </section>
     </BestaetigungAbschnitt>
   );
@@ -218,7 +218,7 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
 
 type Antwort =
   | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean }
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: SpielerLinkZustand };
+  | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
  * The pupil's own confirmation.
@@ -371,12 +371,19 @@ function SpielerBestaetigungForm({
   const klickPunkteId = useId();
   const panel = formPanel();
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     // Built from the floor the link answered, never the module's own: the endpoint judges this
     // person, so a schema on a constant would let the press through at the wrong number.
     schemas: { bestaetigung: buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter) },
     failureTitle: "Antwort nicht gespeichert",
   });
+
+  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
+
+  // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
+  // and a switch offered then would be one the write refuses for anybody under it.
+  const medienAngeboten =
+    entwurf.geburtsdatum !== "" && entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_mindestalter).spaeteste;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
@@ -384,13 +391,13 @@ function SpielerBestaetigungForm({
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
     umfang: entwurf.umfang,
-    medien: entwurf.medien,
+    // Never the draft's own `true` where no switch stands: a returning pupil's stored answer, or one
+    // given before the date moved below the media age, would send a consent this page withheld.
+    medien: medienAngeboten && entwurf.medien,
     text_version: fassung.textVersion,
   });
 
   useForgiveFixed({ bestaetigung: payload() });
-
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old to ask their team for a place is the wrong repair.
@@ -402,6 +409,7 @@ function SpielerBestaetigungForm({
     schule: ansicht.schule,
     saison: ansicht.saison_id,
     minAlter: String(ansicht.mindestalter),
+    medienMinAlter: String(ansicht.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
     // Filled rather than left standing: `fuelleFassung` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
@@ -424,17 +432,25 @@ function SpielerBestaetigungForm({
       const antwort = gesendet.body;
 
       if (!antwort.success) {
+        // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
+        // sentence is an administrator's repair, and a reload of this page has lost its token.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+          return;
+        }
+
         // The link died between the open and the press: the answer is the panel, never a toast.
         if (antwort.zustand !== undefined) {
           onAbschluss({ zustand: antwort.zustand });
           return;
         }
 
-        setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bestaetigung: body });
-
-        if (!hasFieldErrors(antwort.fieldErrors)) {
-          appToast.danger("Antwort nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
-        }
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { bestaetigung: body },
+          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+        );
         return;
       }
 
@@ -545,18 +561,22 @@ function SpielerBestaetigungForm({
 
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
-          <Switch
-            className="flex w-full flex-col gap-y-1"
-            name="medien"
-            isSelected={entwurf.medien}
-            onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
-            <Switch.Content className={panel.switchContent()}>
-              {fassung.schalter}
-              <Switch.Control className={panel.switchControl()}>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
+          {/* The paragraph below stands for every age and the switch alone goes: the record's label
+              then reproduces the screen whichever of the two its person was shown. */}
+          {medienAngeboten && (
+            <Switch
+              className="flex w-full flex-col gap-y-1"
+              name="medien"
+              isSelected={entwurf.medien}
+              onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
+              <Switch.Content className={panel.switchContent()}>
+                {fassung.schalter}
+                <Switch.Control className={panel.switchControl()}>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
+          )}
           <p className={ABSATZ}>
             <Gefuellt
               text={fassung.absaetze.medien}

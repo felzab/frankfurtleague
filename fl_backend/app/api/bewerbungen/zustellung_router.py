@@ -3,6 +3,7 @@ from typing import Annotated
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
@@ -68,6 +69,7 @@ async def _apply(
             db_filter={"_id": bewerbung_id},
             update=compose_zustellung_update(seats=applying, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return applying

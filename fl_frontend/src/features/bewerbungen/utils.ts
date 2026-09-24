@@ -1,7 +1,10 @@
 import { parseDate } from "@internationalized/date";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
@@ -128,25 +131,24 @@ export function geburtsdatumSpanne(today: string, mindestalter: number): { frueh
   };
 }
 
+/** A body the running API refuses on a path no box takes, which only a page older than the deploy sends. */
+export const BEWERBUNG_VERALTET = buildRefusal({
+  reason: "Einzelne Angaben konnten wir nicht übernehmen",
+  repair: "Lade die Seite neu und versuche es noch einmal",
+});
+
 /**
- * A submission 409 as what the form should show, or `null` where the code is none of these.
- *
- * A refusal naming a field goes to that field's dotted path, so it lands under the control at
- * fault; the two that name none reach the applicant as a banner.
+ * A submission refusal as what the form should show, or `null` where the code is none of these: a
+ * refusal naming a field lands under the control at fault, and the rest reach the applicant as a sentence.
  */
-export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+export function mapBewerbungSubmitRefusal(
+  error: unknown,
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; schonAngekommen?: true } | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // Every body rule the form can break is mirrored, so reaching this means a drifted client, which a
-  // reload replaces. `REQ-VAL-001` names no field, so nothing here may point at one either.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({
-        reason: "Einzelne Angaben konnten wir nicht übernehmen",
-        repair: "Lade die Seite neu und versuche es noch einmal",
-      }),
-    };
-  }
+  // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
+  // client, which a reload replaces.
+  if (error.statusCode === 422) return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
 
   if (error.statusCode !== 409) return null;
 
@@ -178,25 +180,39 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
       return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit. Wähle eine andere aus, wenn Du Dich vertan hast." } };
     case "REQ-BEWERBUNG-008":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
+    // The press this form repeated stands, under the details first sent: a banner rather than a
+    // field, since whichever box changed since then is not the one at fault.
+    case "REQ-BEWERBUNG-015":
+      return {
+        schonAngekommen: true,
+        error: buildRefusal({
+          reason: "Deine Bewerbung ist schon angekommen, mit den Angaben, die Du zuerst abgeschickt hast",
+          repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
     default:
       return null;
   }
 }
 
+// Takes an unjudged body: judged first, an older page's answer is the one sentence rather than marks
+// on boxes whose values may be right, and a stale label the newer schema accepts never reaches the write.
 /**
- * The label a stored answer cites, written here rather than taken from the request.
- *
- * Which words the page rendered is not a claim a browser may make; the field stays on the payload
- * because the endpoint's shape requires it.
+ * Whether a confirmation names the label the running build renders, the only one a stored answer may
+ * cite: a page opened before a deploy posts the label of words the running build does not serve.
  */
-// Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
-// is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
-export function stampEinwilligungFassung<T extends object>(payload: T, textVersion: string): T & { text_version: string } {
-  return { ...payload, text_version: textVersion };
+export function nenntLaufendeFassung(body: unknown, textVersion: string): boolean {
+  return typeof body === "object" && body !== null && "text_version" in body && body.text_version === textVersion;
 }
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
-export type EinwilligungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand; nachlesen?: true };
+export type EinwilligungRefusal = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  unplacedError?: string;
+  zustand?: LinkZustand;
+  nachlesen?: true;
+};
 
 /**
  * A confirmation 409 as what the page should show, or `null` where the code is none of these.
@@ -207,12 +223,9 @@ export type EinwilligungRefusal = { error?: string; fieldErrors?: FieldErrors; z
 export function mapEinwilligungRefusal(error: unknown, mindestalter: number): EinwilligungRefusal | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
-    };
-  }
+  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+  // mail's link replaces.
+  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
 
   if (error.statusCode !== 409) return null;
 
@@ -263,8 +276,8 @@ export function fensterZustand(fenster: FLBewerbungFensterResponse | null, today
   if (!fenster.offen) return "geschlossen";
   if (today < fenster.von) return "noch-nicht";
 
-  // Never `vorbei` by default: `laeuft` is false with the span still open only where this clock and
-  // the server's disagree, and "abgelaufen" would then be a deadline nobody has reached.
+  // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the
+  // server's disagree or the season has ended, and "abgelaufen" would name a deadline nobody reached.
   return today > fenster.bis ? "vorbei" : "geschlossen";
 }
 

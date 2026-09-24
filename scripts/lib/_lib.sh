@@ -129,8 +129,9 @@ _RUN_T0="$(_now_ms)"
 
 # --- Spinner -----------------------------------------------------------------------------------------
 
-# NO_SPINNER is offered because some terminals mangle a carriage return.
-if [[ -t 1 && -z "${CI:-}" && -z "${GITHUB_ACTIONS:-}" && -z "${NO_SPINNER:-}" ]]; then
+# NO_SPINNER is offered because some terminals mangle a carriage return. `GITHUB_ACTIONS` rather
+# than `CI`, which a developer's shell may export.
+if [[ -t 1 && -z "${GITHUB_ACTIONS:-}" && -z "${NO_SPINNER:-}" ]]; then
   _SPINNER=1
   # Dupped before any verb redirects: `warn` points stdout at stderr, and the frame has to be
   # erased from the screen it was drawn on.

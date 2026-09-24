@@ -51,11 +51,10 @@ function filesUnder(relative) {
  * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
  * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
  *
- * GROW THIS when a rule gains a cross-file input that is none of the three. What bounds the cost of
- * getting it wrong is that the cache is a local accelerator and never an authority: CI checks out
- * fresh and restores no `.eslintcache`, so its run of this step re-decides every file
- * (`docs/ops/spec.md` section 1.6). A miss here is a false green on a development machine that the
- * pull request's own gate run then fails.
+ * GROW THIS when a rule gains a cross-file input that is none of the three. The cache is a local
+ * accelerator and never an authority: CI restores the pnpm store and never `node_modules`, where this
+ * cache lives, so its run of this step re-decides every file (`docs/ops/spec.md` section 1.6), and a
+ * miss here is a false green on a development machine that the pull request's own gate run then fails.
  */
 const HASHED_CONTENTS = ["pnpm-lock.yaml", ...filesUnder("src").filter((file) => file.endsWith(".css"))];
 
@@ -96,17 +95,16 @@ const LAYER_BOUNDARY = {
   },
 };
 
-/**
- * Modules belonging to the suite alone; nothing else in the toolchain would say so.
- *
- * `stdoutCapture` swaps `process.stdout.write` out for a call's length, swallowing a server's log
- * stream; `actionSources`, `schemeReader` and `edgeRedaction` read a repository a deployed bundle
- * does not carry.
- */
+/** Modules belonging to the suite alone, each message saying why; nothing else in the toolchain would say so. */
 const TEST_ONLY = [
   {
     group: ["**/stdoutCapture.ts", "**/stdoutCapture"],
     message: "stdoutCapture replaces process.stdout.write: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    group: ["**/authDoubles.ts", "**/authDoubles"],
+    message:
+      "authDoubles replaces the config, the database and the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
     group: ["**/actionSources.ts", "**/actionSources", "**/schemeReader.ts", "**/schemeReader", "**/edgeRedaction.ts", "**/edgeRedaction"],
@@ -121,6 +119,41 @@ const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
  * merging the matches, so a block covering a subset restates every pattern that reaches it.
  */
 const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: patterns }] });
+
+// A syntax rule rather than a test sweep: two comments in this tree name `router.back()` without
+// calling it, and a matcher over source text cannot tell them from a call. The exemption below is the
+// one guarded site.
+const HISTORY_BACK = {
+  selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
+  message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
+};
+
+// The name in every literal spelling -- a call, an alias, a destructured key, a computed member --
+// since an alias reaches the endpoint with no call spelled. A name assembled at run time passes.
+const PASSKEY_DELETION = {
+  selector: 'Identifier[name="deletePasskey"], Literal[value="deletePasskey"], TemplateElement[value.cooked="deletePasskey"]',
+  message:
+    "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
+};
+
+const ASSERT_EQUALITY = 'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|deepEqual|deepStrictEqual)$/]';
+const QUERY_NAME = "/^(query|get|find)(All)?By/";
+
+const queryOperand = (index) =>
+  ["callee.property.name", "callee.name"].flatMap((path) => [
+    `[arguments.${index}.type="CallExpression"][arguments.${index}.${path}=${QUERY_NAME}]`,
+    `[arguments.${index}.type="AwaitExpression"][arguments.${index}.argument.type="CallExpression"][arguments.${index}.argument.${path}=${QUERY_NAME}]`,
+  ]);
+
+/**
+ * A failed equality serialises both operands, and a query's DOM node reaches the whole React tree: one
+ * failing case exhausted the machine's memory. Literal shapes only: a node held in a variable passes.
+ */
+const QUERY_IN_EQUALITY = {
+  selector: [...queryOperand(0), ...queryOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
+  message:
+    "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
+};
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -139,16 +172,7 @@ const eslintConfig = defineConfig([
 
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
 
-      // A syntax rule rather than a test sweep: two comments in this tree name `router.back()`
-      // without calling it, and a matcher over source text cannot tell them from a call. The
-      // exemption below is the one guarded site.
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
-          message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
-        },
-      ],
+      "no-restricted-syntax": ["error", HISTORY_BACK, PASSKEY_DELETION],
     },
   },
 
@@ -163,9 +187,13 @@ const eslintConfig = defineConfig([
   { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.core) },
   { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.shared) },
 
-  // The one site the rule above exists to protect: it IS the guard, so it is the only place the
-  // platform call belongs.
-  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-syntax": "off" } },
+  // The one site the history ban exists to protect: it IS the guard, so it is the only place the
+  // platform call belongs. Only that ban is lifted here.
+  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-syntax": ["error", PASSKEY_DELETION] } },
+
+  // A later block replaces an earlier one's options for the same rule, so the history ban is restated.
+  // The deletion ban is not: `src/core/auth.test.ts` calls the plugin's deletion to hold it closed.
+  { files: TEST_FILES, rules: { "no-restricted-syntax": ["error", HISTORY_BACK, QUERY_IN_EQUALITY] } },
 
   {
     files: ["src/**/*.{ts,tsx}"],

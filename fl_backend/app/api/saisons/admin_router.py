@@ -23,7 +23,7 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     plan_einladung_versand,
 )
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -84,6 +84,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -252,14 +253,13 @@ async def post_saison(
         )
     )
 
-    post_operation = await post_one_to_db(
-        collection=saisons_collection,
-        # `_id` rather than `id`: this payload's `id` IS the document key.
-        document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
-    )
-
     # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
-    invalidate_saison_cache()
+    with dropping_the_saison_cache():
+        post_operation = await post_one_to_db(
+            collection=saisons_collection,
+            # `_id` rather than `id`: this payload's `id` IS the document key.
+            document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+        )
 
     return FLPostSaisonResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -447,11 +447,9 @@ async def patch_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it (I53).
-    async with db.start_session() as session:
-        patched = await session.with_transaction(judge_and_write_the_rules)
-
-    # After the commit: an aborted patch leaves the cache nothing to unlearn.
-    invalidate_saison_cache()
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            patched = await session.with_transaction(judge_and_write_the_rules)
 
     return patched
 
@@ -583,11 +581,9 @@ async def activate_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    async with db.start_session() as session:
-        rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
-
-    # After the commit: an aborted rollover leaves the cache nothing to unlearn.
-    invalidate_saison_cache()
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     return rolled_over
 
@@ -725,6 +721,7 @@ async def swap_gruppen(
                 db_filter={"saison_id": saison_id, "team_id": team_id},
                 update={"$set": {"gruppe": target_gruppe}},
                 session=session,
+                return_document=ReturnDocument.BEFORE,
             )
 
         return swapped
@@ -878,9 +875,8 @@ async def generate_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
-            # NOT extracted, though `undraw_spielplan` repeats it: a shared helper takes both removals
-            # out of `tests/core/app_source.py :: transactional_callbacks`, which reads a callback's
-            # own lexical body, and a `session=` dropped inside it then stays green.
+            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
+            # (`.claude/CLAUDE.md` §3).
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -925,11 +921,9 @@ async def generate_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    async with db.start_session() as session:
-        drawn_response = await session.with_transaction(draw_the_whole_season)
-
-    # After the commit: an aborted draw leaves the cache nothing to unlearn.
-    invalidate_saison_cache()
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            drawn_response = await session.with_transaction(draw_the_whole_season)
 
     return drawn_response
 
@@ -1008,11 +1002,9 @@ async def undraw_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    async with db.start_session() as session:
-        undrawn = await session.with_transaction(undraw_the_whole_season)
-
-    # After the commit: an aborted undraw leaves the cache nothing to unlearn.
-    invalidate_saison_cache()
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            undrawn = await session.with_transaction(undraw_the_whole_season)
 
     return undrawn
 
@@ -1058,12 +1050,22 @@ async def _mail_one_team(
     # Outside the callback, for `app/api/teams/admin_router.py :: post_einladung`'s reason.
     raw_token, token_hash = mint_token()
 
+    # What the callback's last run read and planned, kept for a transaction that raises: whether the
+    # team held a link, and whether that commit may have revoked it, is what its row then tells the admin.
+    ersetzt_link = False
+    hatte_link: bool | None = None
+
     async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLEinladungVersandZeile:
         """Plan this team, then revoke and mint where the plan says to.
 
         The INVITE alone is read in-session: the withdrawal and the contacts come from the read
         before the loop, so a retry re-decides on those as they stood then.
         """
+
+        nonlocal ersetzt_link, hatte_link
+        # Reset before the read: a retry raising ahead of it would otherwise report the previous
+        # attempt's link, which a rival's press may have revoked since.
+        ersetzt_link, hatte_link = False, None
 
         live = await pull_many_from_db(
             collection=einladungen_collection,
@@ -1075,6 +1077,7 @@ async def _mail_one_team(
         plan = plan_einladung_versand(
             austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=live[0] if live else None, erneut=erneut
         )
+        ersetzt_link, hatte_link = plan.ersetzt_link, bool(live)
 
         if plan.uebersprungen is not None:
             return FLEinladungVersandZeile(
@@ -1085,6 +1088,7 @@ async def _mail_one_team(
                 empfaenger=[],
                 uebersprungen=plan.uebersprungen,
                 ersetzt_link=plan.ersetzt_link,
+                hatte_link=bool(live),
             )
 
         # Only where the read above found one: an unconditional revoke files a log row per team
@@ -1117,17 +1121,21 @@ async def _mail_one_team(
             empfaenger=plan.empfaenger,
             uebersprungen=None,
             ersetzt_link=plan.ersetzt_link,
+            hatte_link=bool(live),
         )
 
     async with db.start_session() as session:
         try:
             return await session.with_transaction(mint_where_the_team_qualifies)
         except PyMongoError as failure:
-            # Per TEAM: the transaction aborted, so this team's earlier link still stands, while
-            # every team already done holds a fresh link whose raw value exists only in this list.
+            # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
+            # list. A commit sent and never answered may have revoked this team's link too, so its
+            # row says unknown rather than failed.
+            ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
             fl_logger.error(
-                f"The registration link for team {team['team_id']} in season {saison_id} was not minted: {type(failure).__name__}",
-                extra={"error_code": "DB-FAIL-001"},
+                f"The registration link for team {team['team_id']} in season {saison_id} was "
+                f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
+                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else "DB-FAIL-001"},
             )
 
             return FLEinladungVersandZeile(
@@ -1136,8 +1144,11 @@ async def _mail_one_team(
                 einladung_id=None,
                 token=None,
                 empfaenger=[],
-                uebersprungen="erzeugung_fehlgeschlagen",
-                ersetzt_link=False,
+                uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
+                # A failed commit replaced nothing; an unanswered one may have replaced the link the
+                # plan found, and a team that held none must not read about one.
+                ersetzt_link=ungewiss and ersetzt_link,
+                hatte_link=hatte_link,
             )
 
 

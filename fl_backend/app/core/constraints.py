@@ -354,6 +354,14 @@ _BEWERBUNG_ENTSCHEIDUNG = _object(
 # admits it deletes the row.
 _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 
+# The key a public submission is replayed by, and the digest of the payload it first carried
+# (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
+# before the key carries none.
+_IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
+    "idempotenz_schluessel": {"bsonType": "string"},
+    "idempotenz_fingerabdruck": {"bsonType": "string"},
+}
+
 # The registration's own confirmation bookkeeping, and never `_BEWERBUNG_BESTAETIGUNG`: that one
 # declares the decline a contact seat may give, which a pupil's page does not offer, and carries no
 # deadline of its own, the application's sitting on the application.
@@ -713,11 +721,13 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
-                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: a referee
-                # entered with no address is mailed nothing, so that create composes no key here.
+                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: the ghost and
+                # a row never minted a link carry none, and correcting a retired referee's address
+                # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
-                # Out of `required` for `bestaetigung`'s reason, and nullable besides: only the
-                # person's own confirmation writes it, so a live row awaiting one carries null.
+                # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
+                # besides: only the person's own confirmation writes it, so a live row awaiting one
+                # carries null.
                 "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
                 # Out of `required` for `saisons.spielplan`'s reason. The person's own to enter, as
                 # a contact seat's is: no admin payload carries it.
@@ -768,6 +778,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # it emptied. The erasure's second condition: without it a failed erasure mails
                 # again every hour. Out of `required` for `wunschgegner`'s reason.
                 "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -890,8 +901,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": "string"},
-                # As the pupil typed it, and never folded: this is the address the confirmation link
-                # was mailed to, and `spieler.email` holds the folded form the sign-in seam joins on.
+                # Unfolded, as the address rule stores it (`docs/backend/spec.md :: I332`). This is the
+                # address the confirmation link was mailed to, and `spieler.email` holds the folded
+                # form the sign-in seam joins on.
                 "email": {"bsonType": "string"},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.
@@ -906,6 +918,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # row seeded without one still stores. Every submission composes it.
                 "bestaetigung": _REGISTRIERUNG_BESTAETIGUNG,
                 "entscheidung": _REGISTRIERUNG_ENTSCHEIDUNG,
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -960,6 +973,22 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "team_id"),
         "one live invite per team per season",
         partial_filter={"widerrufen_am": {"$type": "null"}},
+    ),
+    # `$type` for the reason above: a missing key indexes as null, so without the filter the second
+    # row stored before the key would collide with the first.
+    UniqueIndex(
+        Collection.BEWERBUNGEN,
+        "uniq_bewerbung_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one application per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+    ),
+    UniqueIndex(
+        Collection.REGISTRIERUNGEN,
+        "uniq_registrierung_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one registration per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
     ),
 )
 

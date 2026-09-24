@@ -9,10 +9,10 @@ import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
@@ -213,7 +213,7 @@ async function notifyBewerbung({
 export async function annehmenBewerbungAction(
   rawPayload: FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
-  return runAdminMutation("annehmenBewerbungAction", async () => {
+  return runAdminMutation("annehmenBewerbungAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -294,7 +294,7 @@ export async function annehmenBewerbungAction(
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
-  return runAdminMutation("ablehnenBewerbungAction", async () => {
+  return runAdminMutation("ablehnenBewerbungAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -476,7 +476,7 @@ async function sendeBestaetigungErneut({
  * the league acts on either way.
  */
 export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
-  return runAdminMutation("einwilligungErneutSendenAction", async () => {
+  return runAdminMutation("einwilligungErneutSendenAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -523,9 +523,11 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
       saisonId: bewerbung.saison_id,
-      person: person,
+      // The address and the seats the WRITE matched, never the read above: a correction landing
+      // between the two moved the mailbox, and this link replaces the one the correction mailed.
+      person: { vorname: person.vorname, email: erneutOperation.email },
       benanntesTeam: benanntesTeam,
-      sitze: gepaarteSitze(bewerbung, validated.data.rolle),
+      sitze: erneutOperation.rollen,
       token: erneutOperation.token,
     });
 
@@ -566,7 +568,7 @@ function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?:
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("kontaktEmailKorrigierenAction", async () => {
+  return runAdminMutation("kontaktEmailKorrigierenAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -668,7 +670,7 @@ function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldErrors?: 
  * send is a link to try again rather than a person who was never seated.
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("besetzeKontaktSitzAction", async () => {
+  return runAdminMutation("besetzeKontaktSitzAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

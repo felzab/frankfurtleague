@@ -1,6 +1,7 @@
 from collections.abc import Mapping, Sequence, Set
 from typing import Any, Literal
 
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -468,6 +469,7 @@ async def advance_bracket_winners(
                 }
             },
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
     return [report_advancement(advancement) for advancement in resolution.advancements], resolution.bracket_faults, booked_again
@@ -637,6 +639,7 @@ async def release_spieltag_sides(
             db_filter={"_id": spiel_id},
             update={"$set": changes},
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
     return [report_release(release) for release in releases], booked_again

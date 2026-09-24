@@ -517,6 +517,14 @@ function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean):
   return `Für die Schule ${schule} wurde eine Bewerbung zur ${saison} der ${BRAND_NAME} eingereicht.`;
 }
 
+// A paragraph and a line group of its own, never beside the sentence offering to contradict the
+// entry: Art. 21(4) DSGVO asks the objection apart from every other piece of information, and the
+// entry's own `Widerspruch` is a different door.
+const art21Satz = (mehrere: boolean, adresse: string): string =>
+  mehrere
+    ? `Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`
+    : `Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
+
 /** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
   const site = mailOrigin(origin);
@@ -562,6 +570,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
         ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht."
         : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
     ),
+    // The address as a marked link, as every address standing in this card's prose is.
+    paragraph(art21Satz(mehrere, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
     ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
 
@@ -588,6 +598,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
       ? "ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben."
       : "ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
     "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+    "",
+    art21Satz(mehrere, KONTAKT_EMAIL),
   ]);
 
   return { subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };

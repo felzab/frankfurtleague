@@ -7,7 +7,10 @@ import { frontend_config } from "./config";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
 import { logger } from "./logging";
 import { getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+
+import type { SentRequest } from "./errors";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
@@ -22,6 +25,12 @@ export interface FetchOptions extends RequestInit {
    * record of which function asked for it.
    */
   cacheFill?: { name: string; args: unknown };
+  /**
+   * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
+   * a dry run: its timeout is a read that failed, never a write of unknown outcome
+   * (`docs/frontend/spec.md :: I326`).
+   */
+  readOnly?: true;
 }
 
 const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
@@ -47,7 +56,17 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
-const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<unknown> => {
+const handleFetchResponse = async ({
+  res,
+  traceId,
+  endpoint,
+  sent,
+}: {
+  res: Response;
+  traceId: string;
+  endpoint: string;
+  sent: SentRequest;
+}): Promise<unknown> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return null;
     return res.json();
@@ -61,23 +80,29 @@ const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; 
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
+      ...sent,
       traceId: traceId,
     });
   }
 
   // Read defensively: an unparseable failure body must not compound a bad status.
-  const serverErrorCode = await res
+  const body: unknown = await res
     .clone()
     .json()
-    .then((body: unknown) => (body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined))
     .catch(() => undefined);
+  const serverErrorCode = body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined;
+  // All or nothing: a list that fails its shape marks no field, rather than one this parse invented.
+  const refusedFields =
+    body && typeof body === "object" && "fields" in body ? FLRefusedPayloadBodySchema.shape.fields.safeParse(body.fields) : undefined;
 
   throw new APIBadStatusError({
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
     serverErrorCode: serverErrorCode,
+    refusedFields: refusedFields?.success ? refusedFields.data : [],
     endpoint: endpoint,
+    ...sent,
     traceId: traceId,
   });
 };
@@ -89,7 +114,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const traceId = scopedTraceId ?? mintTraceId();
   const spanId = getRequestSpanId() ?? mintSpanId();
 
-  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, ...customOptions } = options;
+  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, readOnly, ...customOptions } = options;
 
   // INFO rather than DEBUG: a fill is rare beside requests, and the default `LOG_LEVEL` must show
   // the join between a fill and what asked for it. The arguments are cache-key filters, never a
@@ -144,11 +169,19 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const sent: SentRequest = {
+    // `fetch`'s own default, upper-cased so `toActionErrorResult`'s safe-method test reads any
+    // spelling alike: `fetch` itself sends `patch` exactly as typed.
+    method: (customOptions.method ?? "GET").toUpperCase(),
+    readOnly: readOnly === true,
+  };
+
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
       message: "Network request failed. Please check your connection.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: urlObj.toString(),
+      ...sent,
       traceId: traceId,
       originalError: error,
     });
@@ -165,7 +198,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     }
 
     try {
-      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint, sent: sent });
     } catch (error) {
       // Already the right error, and re-wrapping it would lose the status code.
       if (error instanceof APIBadStatusError) throw error;
@@ -177,6 +210,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
         url: res.url,
         statusCode: res.status,
         endpoint: endpoint,
+        ...sent,
         traceId: traceId,
       });
     }
@@ -193,6 +227,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
+      ...sent,
       traceId: traceId,
       zodIssues: z.treeifyError(validated.error),
     });

@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest";
@@ -32,6 +33,8 @@ const SECTION = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

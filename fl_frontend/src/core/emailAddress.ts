@@ -15,17 +15,17 @@ import { z } from "zod";
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
 /**
- * RFC 5322 3.2.3's atext, extended by RFC 6531 3.3 to every code point above ASCII and narrowed by
- * the two categories `EmailStr` calls unsafe, `Z` and `C`.
+ * RFC 5322 3.2.3's atext and nothing above ASCII, as the HTML standard's `type=email` address takes
+ * it: the API stores only what every mail system carries (`docs/backend/spec.md :: I332`).
  */
-const EMAIL_ATOM = "(?:[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]|[^\\p{ASCII}\\p{Z}\\p{C}])+";
+const EMAIL_ATOM = "[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]+";
 
-// A combining mark may not OPEN the local part: it would combine with whatever text precedes the address.
 /**
- * No ceiling on the local part: email-validator applies RFC 5321's 64 only under `strict`, which
- * pydantic does not pass, so one here would refuse an address the API accepts.
+ * Dots only between atoms, where the HTML standard also takes a leading, trailing or doubled one the
+ * API refuses. No 64-character ceiling: email-validator applies RFC 5321's only under `strict`, which
+ * the API does not pass.
  */
-const EMAIL_LOCAL_PART_REGEX = new RegExp(`^(?!\\p{M})${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`, "u");
+const EMAIL_LOCAL_PART_REGEX = new RegExp(`^${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`);
 
 /**
  * Exclusions enumerated rather than allowances united (I226): a union of two classes needs the
@@ -44,7 +44,7 @@ const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
 const EMAIL_HOST_MAX_OCTETS = 253;
 const EMAIL_HOST_LABEL_MAX_OCTETS = 63;
 
-/** The only punycode route a browser offers, and the one both callers below take: a second spelling is what drifts from this one. */
+/** The only punycode route a browser offers, and the one every caller below takes: a second spelling is what drifts from this one. */
 function asAsciiHost(host: string): string | undefined {
   try {
     return new URL(`https://${host}`).hostname;
@@ -72,14 +72,14 @@ export function withAsciiDomain(address: string): string | undefined {
 
   const ascii = asAsciiHost(host);
 
-  // The local part crosses untouched: only SMTPUTF8 carries a non-ASCII one, and nothing here can
-  // promise the receiving server speaks it.
+  // A row stored before the address rule may hold a local part above ASCII, and only SMTPUTF8 carries
+  // one: nothing here can promise the receiving server speaks it, so it crosses untouched.
   return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
 }
 
 // The API's refusals that rest on a registry rather than on characters stay the API's: IDNA 2008's
 // code-point tables, RFC 5890's reserved labels, and IANA's special-use names.
-/** `EmailStr`'s own three checks: the local part's alphabet, the host's, and the host's lengths after punycoding. */
+/** The API's address rule: the local part's alphabet, the host's, and the lengths it measures in octets. */
 export function isDeliverableAddress(value: string): boolean {
   const at = value.lastIndexOf("@");
   if (at < 1 || !EMAIL_LOCAL_PART_REGEX.test(value.slice(0, at))) return false;
@@ -87,14 +87,25 @@ export function isDeliverableAddress(value: string): boolean {
   const host = value.slice(at + 1);
   if (!EMAIL_HOST_CHARS_REGEX.test(host)) return false;
 
-  // `EmailStr` measures the two lengths below on the punycoded form too.
   const punycoded = asAsciiHost(host);
   if (punycoded === undefined) return false;
   if (punycoded.length > EMAIL_HOST_MAX_OCTETS || !EMAIL_HOST_TLD_REGEX.test(punycoded)) return false;
 
+  // email-validator holds the whole address to the ceiling in UTF-8 octets, as typed and with its host
+  // punycoded, where an umlaut domain reaches it first. Its third form, a punycode-typed host decoded
+  // back, goes unmeasured: nobody types one that long.
+  const whole = Math.max(new TextEncoder().encode(value).length, at + 1 + punycoded.length);
+  if (whole > KONTAKT_EMAIL_MAX_LENGTH) return false;
+
   const labels = punycoded.split(".");
-  // A host with no dot is deliverable nowhere, which is the reason `EmailStr` refuses one.
+  // A host with no dot is deliverable nowhere, which is the reason the API refuses one.
   return labels.length > 1 && labels.every((label) => label.length <= EMAIL_HOST_LABEL_MAX_OCTETS && EMAIL_HOST_LABEL_REGEX.test(label));
+}
+
+/** Whether what stands before the at sign is ASCII: the one refusal a box words apart, the rest reading as a mistyped address. */
+export function hasAsciiLocalPart(value: string): boolean {
+  const at = value.lastIndexOf("@");
+  return at === -1 || /^\p{ASCII}*$/u.test(value.slice(0, at));
 }
 
 /**
@@ -109,13 +120,35 @@ export function isSignInLibraryAddress(value: string): boolean {
   return SIGN_IN_LIBRARY_EMAIL.safeParse(value).success;
 }
 
+/** ASCII's 26 letters, never `toLowerCase`, whose tables move with the runtime's Unicode release: the API lowers the same 26. */
+function asciiLowerCase(value: string): string {
+  return value.replace(/[A-Z]+/g, (run) => run.toLowerCase());
+}
+
+/** A domain above ASCII converted as the address rule converts it, so a row stored in Unicode before the rule joins its punycode spelling. */
+function foldedDomain(domain: string): string {
+  const converted = ASCII_HOST_REGEX.test(domain) || !EMAIL_HOST_CHARS_REGEX.test(domain) ? domain : (asAsciiHost(domain) ?? domain);
+  return asciiLowerCase(converted);
+}
+
 /**
  * The one folded form `fl_frontend/src/core/auth.ts :: isUserAdmin` compares an allowlist entry
  * against, and the form each entry is stored in: the sign-in library lower-cases only the row it
  * stores, and normalises nothing on either lane.
  */
 export function asSignInIdentifier(value: string): string {
-  // NFKC before the fold, in that order: the composed and decomposed spellings of one umlaut are
-  // different strings, so an entry normalised any other way matches nothing anybody can type.
-  return value.normalize("NFKC").toLowerCase().trim();
+  const trimmed = value.trim();
+  const at = trimmed.lastIndexOf("@");
+  return at === -1 ? asciiLowerCase(trimmed) : `${asciiLowerCase(trimmed.slice(0, at))}@${foldedDomain(trimmed.slice(at + 1))}`;
+}
+
+/**
+ * What makes two stored addresses one inbox, the key every send and the correction's press dedupe
+ * on, as `fl_backend/app/shared/folding.py :: mailbox_key` does. Never `asSignInIdentifier`: folded
+ * whole, two people are one recipient and one of them is never written to.
+ */
+export function mailboxKey(address: string): string {
+  const at = address.lastIndexOf("@");
+  // The local part byte for byte and the domain without case (RFC 5321 §2.4).
+  return at === -1 ? address : `${address.slice(0, at)}@${foldedDomain(address.slice(at + 1))}`;
 }

@@ -3,18 +3,20 @@ import asyncio
 import inspect
 import sys
 import textwrap
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from types import FunctionType, ModuleType
 from typing import Any, cast
 
 import pytest
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import ExecutionTimeout
 
 import app
 from app.api.saisons import cache
 from app.api.saisons.cache import (
     CURRENT_SAISON_CACHE_KEY,
     SAISON_CACHE_TTL_SECONDS,
+    dropping_the_saison_cache,
     invalidate_saison_cache,
     read_cached_saison,
     saison_cache_generation,
@@ -24,6 +26,7 @@ from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
+from tests.core.app_source import APP_ROOT, parsed
 
 RULES = {
     "win_points": 3,
@@ -318,11 +321,17 @@ def _season_collection_names(tree: ast.AST) -> frozenset[str]:
         names |= copies
 
 
-def _writes_the_season(tree: ast.AST) -> bool:
-    """Whether this source writes a `saisons` document, through a crud helper or the driver."""
+def _writes_the_season(tree: ast.AST, *, names: frozenset[str] | None = None) -> bool:
+    """Whether this source writes a `saisons` document, through a crud helper or the driver.
 
-    names = _season_collection_names(tree)
-    for node in ast.walk(tree):
+    `names` is the enclosing function's, for a block inside it that binds none of its own.
+    """
+
+    return _season_write_among(ast.walk(tree), names=_season_collection_names(tree) if names is None else names)
+
+
+def _season_write_among(nodes: Iterable[ast.AST], *, names: frozenset[str]) -> bool:
+    for node in nodes:
         if not isinstance(node, ast.Call):
             continue
 
@@ -339,10 +348,93 @@ def _writes_the_season(tree: ast.AST) -> bool:
     return False
 
 
-def _drops_the_cache(tree: ast.AST) -> bool:
-    dropped = invalidate_saison_cache.__name__
+def _drops(node: ast.AST) -> bool:
+    dropping = dropping_the_saison_cache.__name__
 
-    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == dropped for node in ast.walk(tree))
+    return isinstance(node, (ast.With, ast.AsyncWith)) and any(
+        isinstance(item.context_expr, ast.Call) and isinstance(item.context_expr.func, ast.Name) and item.context_expr.func.id == dropping
+        for item in node.items
+    )
+
+
+def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
+    """Whether a season write is reached from INSIDE `with dropping_the_saison_cache()`, never merely beside one.
+
+    Followed into the callbacks the body names, which the handler nests and hands to
+    `with_transaction` uncalled, and into this package's functions.
+    """
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(endpoint)))
+    names = _season_collection_names(tree)
+    namespace = vars(sys.modules[endpoint.__module__])
+    nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+    for drop in (node for node in ast.walk(tree) if _drops(node)):
+        pending: list[ast.AST] = [drop]
+        followed: set[str] = set()
+        while pending:
+            block = pending.pop()
+            if _writes_the_season(block, names=names):
+                return True
+            if any(
+                _writes_the_season(reached)
+                for called in _called_functions(ast.walk(block), namespace)
+                for reached in _source_reached_by(called)
+            ):
+                return True
+
+            for name in {node.id for node in ast.walk(block) if isinstance(node, ast.Name) and node.id in nested} - followed:
+                followed.add(name)
+                pending.append(nested[name])
+
+    return False
+
+
+def _outside_the_drops(block: ast.AST) -> Iterator[ast.AST]:
+    """Every node under `block` but those inside a drop, and those of a nested definition, which run only where it is named."""
+
+    pending = list(ast.iter_child_nodes(block))
+    while pending:
+        node = pending.pop()
+        if _drops(node) or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        yield node
+        pending.extend(ast.iter_child_nodes(node))
+
+
+def _writes_the_season_outside_the_drop(endpoint: Any) -> bool:
+    """Whether any season write is reached WITHOUT passing through a drop, however many others sit inside one.
+
+    Walked with every drop's subtree removed, into the nested callbacks the rest names and this
+    package's functions the rest calls.
+    """
+
+    walked: set[Any] = set()
+    pending_functions: list[Any] = [endpoint]
+    while pending_functions:
+        function = pending_functions.pop()
+        if function in walked:
+            continue
+        walked.add(function)
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+        names = _season_collection_names(tree)
+        namespace = vars(sys.modules[function.__module__])
+        nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+        blocks: list[ast.AST] = [tree.body[0]]
+        followed: set[str] = set()
+        while blocks:
+            reached = list(_outside_the_drops(blocks.pop()))
+            if _season_write_among(reached, names=names):
+                return True
+            pending_functions.extend(_called_functions(reached, namespace))
+
+            for name in {node.id for node in reached if isinstance(node, ast.Name) and node.id in nested} - followed:
+                followed.add(name)
+                blocks.append(nested[name])
+
+    return False
 
 
 # Every function this sweep follows a call into is defined in this package: `inspect.getsource` has
@@ -350,11 +442,11 @@ def _drops_the_cache(tree: ast.AST) -> bool:
 APPLICATION_PACKAGE = app.__name__
 
 
-def _called_functions(tree: ast.AST, namespace: Mapping[str, Any]) -> list[FunctionType]:
+def _called_functions(nodes: Iterable[ast.AST], namespace: Mapping[str, Any]) -> list[FunctionType]:
     """Every function of this package this source calls, resolved through the calling module's own namespace."""
 
     resolved: list[FunctionType] = []
-    for node in ast.walk(tree):
+    for node in nodes:
         if not isinstance(node, ast.Call):
             continue
 
@@ -396,19 +488,19 @@ def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
         # Dedented, so a handler that is not at column zero still parses.
         tree = ast.parse(textwrap.dedent(inspect.getsource(current)))
         reached.append(tree)
-        pending.extend(_called_functions(tree, vars(sys.modules[current.__module__])))
+        pending.extend(_called_functions(ast.walk(tree), vars(sys.modules[current.__module__])))
 
     return tuple(reached)
 
 
-def _season_write_handlers() -> dict[str, tuple[ast.AST, ...]]:
+def _season_write_handlers() -> dict[str, Any]:
     """Every write endpoint that writes a season, by function name, whichever tier serves it.
 
     Scoped to the writers, not to every write endpoint: a handler touching only the junction rows or
     the fixtures changes nothing the cached projection carries.
     """
 
-    handlers: dict[str, tuple[ast.AST, ...]] = {}
+    handlers: dict[str, Any] = {}
     # Both tiers, the rule being about writing a season rather than about who may: the retention
     # sweep stamps every season from a router of its own, which an admin-only walk cannot see.
     for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS):
@@ -416,9 +508,8 @@ def _season_write_handlers() -> dict[str, tuple[ast.AST, ...]]:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
                 continue
-            reached = _source_reached_by(endpoint)
-            if any(_writes_the_season(tree) for tree in reached):
-                handlers[endpoint.__name__] = reached
+            if any(_writes_the_season(tree) for tree in _source_reached_by(endpoint)):
+                handlers[endpoint.__name__] = endpoint
 
     return handlers
 
@@ -440,8 +531,53 @@ assert len(SEASON_WRITE_HANDLERS) >= SEASON_WRITE_HANDLER_FLOOR, (
 
 class TestEverySeasonWriteDropsIt:
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
-    def test_a_handler_writing_a_season_calls_the_invalidation(self, handler: str):
+    def test_a_handler_writing_a_season_runs_it_inside_the_drop(self, handler: str):
         """A source sweep, because the call leaves no trace on the wire: an execution test could only observe it through a stale read."""
-        assert any(_drops_the_cache(tree) for tree in SEASON_WRITE_HANDLERS[handler]), (
-            f"{handler} writes a season without calling {invalidate_saison_cache.__name__}(), so the cache serves the old one"
+        endpoint = SEASON_WRITE_HANDLERS[handler]
+        dropping = dropping_the_saison_cache.__name__
+
+        # Both halves: a handler reaching no write through the drop, and one reaching a second write
+        # beside it, each leave the cache serving the season as it stood.
+        assert _writes_the_season_inside_the_drop(endpoint), f"{handler} reaches no season write through `with {dropping}()`"
+        assert not _writes_the_season_outside_the_drop(endpoint), (
+            f"{handler} writes a season outside `with {dropping}()`, so the cache serves the old one"
         )
+
+    def test_nothing_drops_it_but_the_one_mechanism(self):
+        """A bare drop after the commit is the shape that skips a write whose answer was lost, and the sweep above would still pass it."""
+
+        dropped = invalidate_saison_cache.__name__
+        bare = [
+            f"{path.relative_to(APP_ROOT).as_posix()}:{node.lineno}"
+            for path in sorted(APP_ROOT.rglob("*.py"))
+            if path != APP_ROOT / "api" / "saisons" / "cache.py"
+            for node in ast.walk(parsed(path))
+            if (isinstance(node, ast.Name) and node.id == dropped) or (isinstance(node, ast.Attribute) and node.attr == dropped)
+        ]
+
+        assert bare == []
+
+
+class TestTheDropRunsHoweverTheWriteEnds:
+    @pytest.mark.parametrize("raises", [True, False], ids=("a write that raised", "a write that committed"))
+    def test_the_next_read_goes_back_to_the_database(self, raises: bool):
+        """The raised arm is a commit whose answer was lost, which may stand.
+
+        The read inside the block is a reader racing the write: a drop on entry would leave its
+        pre-write copy served afterwards.
+        """
+        stub = CountingCollection(dict(SAISON_DOC))
+
+        async def _run() -> None:
+            try:
+                with dropping_the_saison_cache():
+                    await pull_current_saison(saisons_collection=as_collection(stub))
+                    if raises:
+                        raise ExecutionTimeout("timed out", 50, {"ok": 0, "code": 50, "errorLabels": ["UnknownTransactionCommitResult"]})
+            except ExecutionTimeout:
+                pass
+            await pull_current_saison(saisons_collection=as_collection(stub))
+
+        asyncio.run(_run())
+
+        assert stub.find_one_calls == 2

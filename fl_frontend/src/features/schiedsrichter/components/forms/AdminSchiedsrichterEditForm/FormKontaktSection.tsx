@@ -34,13 +34,16 @@ export function FormKontaktSection({
         <PanelHeading
           className={panel.heading()}
           title="Kontakt">
-          {/* That both fields are optional is said by the missing required marker. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Kontakt"
             body={{
               lead: "Wie Du den Schiedsrichter erreichst.",
-              points: [{ term: "E-Mail und Telefon", text: "stehen auf keiner öffentlichen Seite." }],
+              points: [
+                { term: "E-Mail und Telefon", text: "stehen auf keiner öffentlichen Seite." },
+                // The one reason the address is required and the telephone is not, which no marker says.
+                { term: "Über die E-Mail", text: "erfährt die Person, dass sie eingetragen ist." },
+              ],
             }}
           />
         </PanelHeading>
@@ -49,6 +52,7 @@ export function FormKontaktSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR}>
           <TextField
+            isRequired
             type="email"
             name="kontakt.email"
             value={kontakt.email ?? ""}

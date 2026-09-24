@@ -187,7 +187,7 @@ describe("who a decision is sent to", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(null, null, null)), []);
   });
 
-  /* Stored as typed, and never folded: the local part of an address belongs to the mailbox owner. */
+  /* Stored unfolded, its local part as typed: the local part of an address belongs to the mailbox owner. */
   it("keeps an address as it was stored", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), [
       { address: "Trainer@Schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },

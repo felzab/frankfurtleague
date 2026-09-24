@@ -11,18 +11,28 @@ from typing import Any, Final
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, one_month_after, season_has_ended
+from app.api.bewerbungen.services import (
+    ZUSTELLUNG_ABGEWIESEN,
+    days_after,
+    latest_decision_due,
+    one_month_after,
+    season_has_ended,
+    zustellung_unerreicht_term,
+)
 
-# The window predicate is the invite slice's: one function answers `GET …/einladung`'s `laeuft` and
-# this flow's refusal, so a link and the write it opens cannot disagree about the window.
+# The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
+# every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
+# cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
+from app.shared.folding import person_name_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
+    MEDIEN_MIN_AGE_YEARS,
     REGISTRIERUNG_ERINNERUNG_TAGE,
     REGISTRIERUNG_MIN_ALTER_JAHRE,
 )
@@ -45,30 +55,30 @@ REGISTRIERUNG_KADER_VOLL = "REQ-REGISTRIERUNG-008"
 REGISTRIERUNG_ADRESSE_GESPERRT = "REQ-REGISTRIERUNG-009"
 
 
-def find_fenster_refusal(*, registrierung: Any, today: str) -> WriteRefusal | None:
-    """Why this season takes no registration today, or `None`.
+def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any, today: str) -> bool:
+    """Whether this season takes a registration on `today`.
 
-    ONE code for all three ways -- no window, the flag off, the day outside the span. Naming which
-    would report a season's administrative state to an anonymous visitor.
+    A finished season's window is over for good, whatever dates it still stores: a link minted
+    while the season was `future` outlives the season, and the dates alone would still admit.
     """
 
-    if registrierungsfenster_laeuft(registrierung=registrierung, today=today):
+    return not season_has_ended(saison_status=saison_status) and registrierungsfenster_laeuft(registrierung=registrierung, today=today)
+
+
+def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) -> WriteRefusal | None:
+    """Why this season takes no registration today, or `None`.
+
+    ONE code for every way `saison_nimmt_registrierungen_an` says no: naming which would report a
+    season's administrative state to an anonymous visitor.
+    """
+
+    if saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today):
         return None
 
     return WriteRefusal(
         error_code=REGISTRIERUNG_FENSTER_GESCHLOSSEN,
         message="this season is not taking registrations today; the registration window is closed",
     )
-
-
-def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
-    """Whether this registration is a Nachnominierung on `today`.
-
-    Matchday 1's `beginn` and never the first fixture's date, which can sit days inside the span. An
-    undated matchday has begun nothing: a drawn season holds none until somebody dates it.
-    """
-
-    return isinstance(beginn, str) and beginn <= today
 
 
 def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
@@ -166,8 +176,9 @@ def compose_registrierung(
         "status": SUBMITTED,
         "vorname": vorname,
         "nachname": nachname,
-        # AS TYPED, where a person's own `email` is stored folded: the confirmation link goes to
-        # this address, and the admission is what folds it onto the person it writes.
+        # UNFOLDED -- its domain in punycode and its local part as typed (`docs/backend/spec.md :: I332`)
+        # -- where a person's own `email` is folded: the link goes to this address, and the admission
+        # folds it onto the person it writes.
         "email": email,
         # Written EXPLICITLY, all three: `required` in the `$jsonSchema` means the key is present,
         # so an omitted null is a validator rejection rather than a stored null.
@@ -192,6 +203,61 @@ def compose_bestaetigung(*, token_hash: str, today: str, frist: str) -> dict[str
     """
 
     return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "frist": frist}
+
+
+# --- The SUBMISSION KEY, as the application's submission keeps it
+# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`, `docs/backend/spec.md :: I346`).
+
+REGISTRIERUNG_SCHLUESSEL_ABWEICHEND = "REQ-REGISTRIERUNG-011"
+
+
+def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+    """Why this key cannot be replayed, or `None`: it already carries a registration sent with other details.
+
+    Refused rather than answered as the stored one, which would tell the pupil a changed field had
+    arrived.
+    """
+
+    if gespeichert == fingerabdruck:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
+        message="this submission key already carries a registration sent with other details; the first one stands as it was sent",
+    )
+
+
+def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
+    """The state a replay hands a fresh link in, as its update's filter; `None` where the row holds no live hash.
+
+    Unconfirmed, unreminded and not on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    """
+
+    block = registrierung_raw.get("bestaetigung")
+    token_hash = block.get("token_hash") if isinstance(block, Mapping) else None
+    if not isinstance(token_hash, str):
+        return None
+
+    return {
+        "_id": registrierung_raw["_id"],
+        "status": SUBMITTED,
+        "einwilligung.bestaetigt_am": None,
+        # The deadline's own day still takes a link, as `link_is_over` reads it.
+        "bestaetigung.frist": {"$gte": today},
+        "bestaetigung.erinnert_am": None,
+        **zustellung_unerreicht_term(pfad="bestaetigung.zustellung"),
+    }
+
+
+def compose_wiederholung_update(*, token_hash: str, bestaetigung: Any) -> Mapping[str, Any]:
+    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
+
+    Neither `erinnert_am` nor `frist` moves, a replay being neither a reminder nor a re-send.
+    """
+
+    block = bestaetigung if isinstance(bestaetigung, Mapping) else {}
+
+    return {"$set": {"bestaetigung.token_hash": token_hash, "bestaetigung.token_hash_zuvor": block.get("token_hash")}}
 
 
 def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
@@ -234,6 +300,7 @@ REGISTRIERUNG_TOKEN_UNKNOWN = "REQ-REGISTRIERUNG-004"
 REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
 REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
 REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
+REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
 
 # What a pupil's own press records. `volljaehrig` names who spoke and pins no age
 # (`docs/glossary.md :: Einwilligung`), so it is the member a sixteen-year-old's own answer takes.
@@ -375,16 +442,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
 PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 
 
-def folded_identity(value: Any) -> str:
-    """One spelling of a name, so „ida“ and „ Ida“ are one person.
-
-    Case and inner whitespace, which is the seat editor's fold
-    (`app/api/teams/services.py :: _identity_of`) and the erasure's before it.
-    """
-
-    return " ".join(str(value or "").split()).casefold()
-
-
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
@@ -393,9 +450,11 @@ def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: 
     birthdate.
     """
 
-    wanted = tuple(folded_identity(value) for value in (vorname, nachname))
+    # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
+    # one family mailbox are two pupils and neither is shown the other's record.
+    wanted = tuple(person_name_key(value) for value in (vorname, nachname))
 
-    return [row for row in rows if tuple(folded_identity(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
+    return [row for row in rows if tuple(person_name_key(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
 
 
 def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
@@ -419,6 +478,22 @@ def answers_shown_back(*, registrierung_raw: Mapping[str, Any], spieler_raw: Map
         return registrierung_raw
 
     return spieler_raw if spieler_raw is not None else {}
+
+
+def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
+    """Why this pupil's media consent is refused, or `None`.
+
+    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
+    page sends every pupil below the floor.
+    """
+
+    if not medien or whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_MEDIEN_ALTER,
+        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
+    )
 
 
 def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str) -> Mapping[str, Any]:
@@ -521,25 +596,13 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose decision was taken on or before today.
+    """Every declined row whose month is behind it, as `decline_erasure_is_due` judges it.
 
-    Never a month counted backwards: that month CLAMPS to a short month's end, and the clamp would
-    drop a row that is due.
+    In the query: a page of decisions still inside their month would fill the read ahead of a due
+    one, and the stall refuses the pass.
     """
 
-    return {"saison_id": saison_id, "status": DECLINED, "entscheidung.getroffen_am": {"$lte": today}}
-
-
-def refuse_a_stalled_page(*, read: int, moved: int, clock: str, saison_id: str) -> None:
-    """Raise where a full page moved nothing: the same rows come back for ever.
-
-    A page that moved something is drained instead (`docs/backend/spec.md :: I295`).
-    """
-
-    if read > SWEEP_PAGE and moved == 0:
-        raise ValueError(
-            f"season {saison_id} fills the {clock} clock's page of {SWEEP_PAGE} with rows it takes none of, so no pass can make progress"
-        )
+    return {"saison_id": saison_id, "status": DECLINED, "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}}
 
 
 def link_is_unreachable(*, bestaetigung: Any) -> bool:

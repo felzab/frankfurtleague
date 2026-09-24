@@ -18,7 +18,7 @@ from functools import cache
 from pathlib import Path
 from typing import Final
 
-from .kernel import REPO_ROOT, UNPARSEABLE, Finding, _read_text, scanned_files
+from .kernel import REPO_ROOT, Finding, _read_text, python_tree, scanned_files
 
 PLATFORM_CHECK: Final = "platform-branch"
 CRLF_CHECK: Final = "crlf-write"
@@ -71,9 +71,6 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate/selfcheck.sh :: mount_source": "`cygpath` for Git Bash's /tmp mount, which a POSIX spelling binds to an unrelated directory",
     "scripts/gate/selfcheck.sh :: run_shellcheck": "MSYS rewrites the container-side mount path unless told not to",
     "scripts/gate/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",
-    "scripts/gate/selfcheck.sh :: compose guard: behind an env assignment": "a probe's command TEXT, proving the compose guard sees through it",
-    'scripts/gate/selfcheck.sh :: case "$(uname -s)" in': "the hook probes only a Windows path spelling can separate run on Windows alone",
-    "scripts/gate/selfcheck.sh :: the Windows-only path spellings were not probed": "that case's other arm, what a Linux run left unproven",
     "scripts/gate/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
     "scripts/gate/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
@@ -132,18 +129,6 @@ def _shell_files() -> tuple[Path, ...]:
 def _source_lines(path: Path) -> tuple[str, ...] | None:
     text = _read_text(path)[0]
     return None if text is None else tuple(text.split("\n"))
-
-
-@cache
-def _tree(path: Path) -> ast.Module | None:
-    """None where it will not parse, which ruff reports."""
-    text = _read_text(path)[0]
-    if text is None:
-        return None
-    try:
-        return ast.parse(text)
-    except UNPARSEABLE:
-        return None
 
 
 def _tail_name(node: ast.AST) -> str:
@@ -469,7 +454,7 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
     scan = _Scan()
     reached: set[str] = set()
     for path in _python_files():
-        tree = _tree(path)
+        tree = python_tree(path)
         if tree is None:
             continue
         rel = _rel(path)
@@ -478,7 +463,7 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
     names = frozenset(name for _, name, _ in scan.constants)
     sites = list(scan.sites)
     for path in _test_files():
-        tree = _tree(path)
+        tree = python_tree(path)
         if tree is not None and (rel := _rel(path)) in reached:
             sites.extend(_scan_tests(rel, tree, _source_lines(path) or (), names))
     sites.extend(_both_values(scan))
@@ -573,7 +558,7 @@ def check_text_writes(allow: Mapping[str, str] = TEXT_WRITE_ALLOW) -> list[Findi
     sites: list[_Site] = []
     reached: set[str] = set()
     for path in _python_files():
-        tree = _tree(path)
+        tree = python_tree(path)
         if tree is None:
             continue
         rel = _rel(path)

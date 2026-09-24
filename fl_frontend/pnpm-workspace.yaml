@@ -1,5 +1,11 @@
 allowBuilds:
+  # Refused: testcontainers reaches its container engine over the local socket, never SSH, so ssh2's
+  # optional native binding and the cpu-features probe it builds with serve nothing, and protobufjs's
+  # script only prints a version notice.
+  cpu-features: false
+  protobufjs: false
   sharp: true
+  ssh2: false
   unrs-resolver: true
 overrides:
   # Each pins past an advisory in the version next would otherwise pull. Only sharp is
@@ -8,6 +14,7 @@ overrides:
   sharp: "^0.35.4"
   postcss: "^8.5.26"
 patchedDependencies:
-  # One line, so the assertion asks for the user verification `authenticatorSelection` already asks
-  # of the enrolment. better-auth pull request 11155 is the same change upstream, and retires this.
+  # The assertion asks for the user verification `authenticatorSelection` asks of the enrolment,
+  # which better-auth pull request 11155 retires; every registration runs in the transaction
+  # `fl_frontend/src/core/auth.ts :: claimAccount` needs, which nothing upstream offers.
   "@better-auth/passkey@1.7.5": patches/@better-auth__passkey@1.7.5.patch

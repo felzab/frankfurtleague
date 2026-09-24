@@ -1,31 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { setImmediate as settled } from "node:timers/promises";
 
-type RaisedToast = { variant: string; title: string; options?: { description?: string; actionProps?: { onPress: () => void } } };
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 
-const raised: RaisedToast[] = [];
-(globalThis as unknown as Record<string, unknown>).__flRaisedToasts = raised;
+import type { RaisedToast } from "@/shared/testing/actionDoubles.ts";
 
 /* Replaced at the module boundary: the cases below press the offer's own `onPress` and read which
    toasts followed it, and the real module hands both to HeroUI's queue rather than back to its caller. */
-const APP_TOAST = `const raise = (variant) => (title, options) => {
-  globalThis.__flRaisedToasts.push({ variant, title, options });
-  return String(globalThis.__flRaisedToasts.length);
-};
-export const UNDO_TIMEOUT_MS = 1;
-export const appToast = { success: raise("success"), warning: raise("warning"), danger: raise("danger"), pending: raise("pending"), close: () => {}, clear: () => {} };`;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+const { raised } = doubleToasts();
 
 const FEATURES = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -79,7 +64,7 @@ async function pressAgainst(answer: Response | Error): Promise<Pressed> {
         },
       },
     });
-    raised[0]?.options?.actionProps?.onPress();
+    raised[0]?.options?.actionProps?.onPress?.();
     await settled();
 
     return { replacedWith, toastsBeforeLeaving, refreshed, toasts: raised.slice(1) };
@@ -156,6 +141,18 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     const refused = await pressAgainst(Response.json({ success: false, error: "Die Änderung steht weiterhin." }));
     assert.deepEqual(refused.replacedWith, []);
     assert.equal(refused.refreshed, 1);
+  });
+
+  /* A restore whose commit answer was lost may stand: titled „nicht zurückgenommen“ it would send the
+     admin to undo by hand a change that may already be undone. */
+  it("hands a replay of unknown outcome on to the failure toast with its marker", async () => {
+    const error = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
+    const pressed = await pressAgainst(Response.json({ success: false, error, outcome: "unknown" }));
+
+    assert.deepEqual(
+      pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description, toast.options?.outcome]),
+      [["Änderung nicht zurückgenommen", error, "unknown"]],
+    );
   });
 });
 

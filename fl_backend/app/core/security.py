@@ -7,7 +7,7 @@ from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 
-from app.core.config import BackendConfig, get_config
+from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, actor_var, request_var
 
@@ -39,7 +39,7 @@ def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
 
     def dependency(
         token: Annotated[str, Security(get_token)],
-        config: Annotated[BackendConfig, Depends(get_config)],
+        config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
         if not secrets.compare_digest(token, select_key(config).get_secret_value()):
             raise RequestAuthorizationException(error_code=error_code)

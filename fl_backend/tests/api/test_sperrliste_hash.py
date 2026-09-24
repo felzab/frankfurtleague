@@ -1,6 +1,5 @@
 import pytest
 from pydantic import SecretStr, TypeAdapter
-from pydantic.networks import EmailStr
 
 from app.api.sperrliste.schemas import GRUND_HOLDS_AN_ADDRESS, FLPostSperrlistePayload
 from app.api.sperrliste.services import (
@@ -8,22 +7,23 @@ from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
     find_sperrliste_refusal,
-    sperrliste_identifier,
 )
+from app.shared.schemas.kontakt import CustomEmail
 
 # Obviously fake and distinct: two equal keys would let the separation case below pass vacuously.
 KEY = SecretStr("key-one".ljust(64, "0"))
 OTHER_KEY = SecretStr("key-two".ljust(64, "0"))
 
-ADDRESS = "Müller@Beispielschule.de"
+ADDRESS = "Anna.Mueller@Müllerschule.de"
 
-# The same address as a person could type it. The decomposed umlaut is the one that looks equal and
-# is a different string; the trailing space is what a paste out of a mail client carries.
+# The same address as a person could type it. The decomposed umlaut looks equal and is a different
+# string, so it is built from its code point; the trailing space is what a paste out of a mail client
+# carries.
 SAME_ADDRESS = [
-    pytest.param("müller@beispielschule.de", id="lower case"),
-    pytest.param("MÜLLER@BEISPIELSCHULE.DE", id="upper case"),
-    pytest.param("Müller@Beispielschule.de", id="decomposed umlaut"),
-    pytest.param("müller@beispielschule.de  ", id="decomposed umlaut, folded, padded"),
+    pytest.param("anna.mueller@müllerschule.de", id="lower case"),
+    pytest.param("ANNA.MUELLER@MÜLLERSCHULE.DE", id="upper case"),
+    pytest.param(f"Anna.Mueller@Mu{chr(0x308)}llerschule.de", id="decomposed umlaut"),
+    pytest.param("anna.mueller@xn--mllerschule-thb.de  ", id="punycode, folded, padded"),
 ]
 
 
@@ -37,7 +37,7 @@ class TestTheStoredFormOfAnAddress:
     def test_another_address_reaches_another_row(self):
         """The control: a fold wide enough to collapse two people would pass every case above."""
 
-        assert adresse_hash("mueller@beispielschule.de", schluessel=KEY) != adresse_hash(ADDRESS, schluessel=KEY)
+        assert adresse_hash("anna.mueller@muellerschule.de", schluessel=KEY) != adresse_hash(ADDRESS, schluessel=KEY)
 
     def test_one_address_hashes_differently_under_two_keys(self):
         """What the keying buys, and the reason the key can never be rotated: every stored row was taken under the one in force."""
@@ -50,7 +50,7 @@ class TestTheStoredFormOfAnAddress:
         stored = adresse_hash(ADDRESS, schluessel=KEY)
 
         assert "@" not in stored
-        assert "beispielschule" not in stored.lower()
+        assert "mllerschule" not in stored.lower()
         # Hex, and the digest's full width: a truncated one is a collision surface nothing reports.
         assert len(stored) == 64
         assert set(stored) <= set("0123456789abcdef")
@@ -103,11 +103,11 @@ class TestTheConstructionItself:
 class TestOneCanonicalFormWhateverTheRoute:
     """The two normalisations that meet on this path.
 
-    `EmailStr` decodes a punycode domain and the fold does not, so an address arriving outside a
-    validated payload would otherwise key a row nothing afterwards matches.
+    A payload stores a Unicode domain as its punycode, and an address arriving outside one may carry
+    either, so each has to key the row the other does.
     """
 
-    EMAIL = TypeAdapter(EmailStr)
+    EMAIL = TypeAdapter(CustomEmail)
 
     # The realistic divergence: one internationalised domain, in the two spellings a client can send.
     PUNYCODE = "Anna@xn--mller-kva.de"
@@ -117,23 +117,25 @@ class TestOneCanonicalFormWhateverTheRoute:
         assert adresse_hash(self.PUNYCODE, schluessel=KEY) == adresse_hash(self.UNICODE, schluessel=KEY)
 
     def test_the_payload_route_and_the_bare_route_agree(self):
-        """The two normalisations, driven apart: one address through `EmailStr` first and one straight in."""
+        """The two routes, driven apart: one address through the payload's rule first and one straight in."""
 
-        through_a_payload = str(self.EMAIL.validate_python(self.PUNYCODE))
+        through_a_payload = str(self.EMAIL.validate_python(self.UNICODE))
 
-        assert adresse_hash(through_a_payload, schluessel=KEY) == adresse_hash(self.PUNYCODE, schluessel=KEY)
+        # Apart, or the assertion below compares one string's hash with itself.
+        assert through_a_payload != self.UNICODE
+        assert adresse_hash(through_a_payload, schluessel=KEY) == adresse_hash(self.UNICODE, schluessel=KEY)
 
     def test_a_value_that_is_no_address_is_refused_rather_than_hashed(self):
         """Loud rather than silent: a digest over junk matches no row and reports nothing."""
 
         with pytest.raises(ValueError):
-            sperrliste_identifier("nonsense")
+            adresse_hash("nonsense", schluessel=KEY)
 
     def test_the_refusal_quotes_nothing_of_the_value(self):
         """The library's own message carries the rejected value, and this slice keeps addresses out of every traceback."""
 
         with pytest.raises(ValueError) as raised:
-            sperrliste_identifier("Zorbanax-Geheim@")
+            adresse_hash("Zorbanax-Geheim@", schluessel=KEY)
 
         assert "zorbanax" not in str(raised.value).lower()
         assert raised.value.__cause__ is None

@@ -8,8 +8,11 @@ import { createElement as h } from "react";
 
 import { render } from "@testing-library/react";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+
+doubleEveryAction();
 
 const { FormGruppenSwapSection } = await import("./FormGruppenSwapSection.tsx");
 

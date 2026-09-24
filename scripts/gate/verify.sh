@@ -7,7 +7,8 @@
 # in this block: `scripts/gate/selfcheck.sh` reads every double-dashed word here as one this takes.
 #
 #   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
-#   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend --ops --db --images
+#   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
+#   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
@@ -15,7 +16,7 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
-RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
+RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND_UNITS=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
 SERIAL=0
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
@@ -24,6 +25,7 @@ for arg in "$@"; do
     --docs)     RUN_DOCS=1 ;;
     --backend)  RUN_BACKEND=1 ;;
     --format)   RUN_FORMAT=1 ;;
+    --frontend-units) RUN_FRONTEND_UNITS=1 ;;
     --frontend) RUN_FRONTEND=1 ;;
     --ops)      RUN_OPS=1 ;;
     --db)       RUN_DB=1 ;;
@@ -38,19 +40,39 @@ for arg in "$@"; do
   esac
 done
 
-if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
-  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
+  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# A frontend file of a prettier kind selects the formatter too (`scripts/gate/scope_map.sh`), so
-# this scope carries it rather than leaving `check_scope.py` to call format unproven. Never in a
-# worker, where it would run prettier twice.
-if (( RUN_FRONTEND )) && ! worker; then RUN_FORMAT=1; fi
+# The implication `docs/ops/spec.md` §1.6 states, so `check_scope.py` never calls either scope
+# unproven. Never in a worker, which would run each twice.
+if (( RUN_FRONTEND )) && ! worker; then
+  # Not on a runner, whose workflow runs each as a job of its own beside this one and no scope check.
+  # `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+  if [[ -z "${GITHUB_ACTIONS:-}" ]]; then RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; fi
+fi
+
+# A shard proves part of one scope, so it is taken only where that scope runs alone, whose closing
+# line already withholds "Safe to merge." `node --test` counts shards from 1.
+VERIFY_TEST_SHARD="${VERIFY_TEST_SHARD:-}"
+if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+  if [[ ! "$VERIFY_TEST_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+    refuse "VERIFY_TEST_SHARD is '${VERIFY_TEST_SHARD}', which names no shard. Spell it <index>/<count>, counting from 1, with the index no larger than the count."
+  fi
+  if (( ! RUN_FRONTEND_UNITS || RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES )); then
+    refuse "VERIFY_TEST_SHARD is set, and a shard is taken only by --frontend-units run alone: beside another scope, the run would read as the whole suite proven."
+  fi
+fi
 
 # Fail on a missing prerequisite now: otherwise a full run on a sleeping Docker discovers it at
 # the db tier, minutes of green checks in.
 if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
   require_docker
+fi
+# Every frontend tool runs out of this directory. Missing, the formatter's failure reads as
+# unformatted files, and the db tier's frontend half finds it gone only after the backend half.
+if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )); then
+  require_dir fl_frontend/node_modules "Every frontend tool this run starts is installed there. Install it with:  cd fl_frontend && pnpm install"
 fi
 
 # One capture directory per pool run, holding its units file, their output and its manifest.
@@ -132,8 +154,9 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   require_python_floor "$PY"
   # Existing is not current: a virtualenv holding what the lockfile dropped, or missing what it
   # added, fails the tools below in their own vocabulary rather than the environment's.
-  if ! worker && ! step_worker && [[ -z "${CI:-}" ]] && command -v uv >/dev/null 2>&1; then
-    # Never in CI, where `uv sync --dev` has just run, and once per run rather than once per unit.
+  if ! worker && ! step_worker && [[ -z "${GITHUB_ACTIONS:-}" ]] && command -v uv >/dev/null 2>&1; then
+    # Never on a runner, where the job's own `uv sync --locked` has just run, and once per run rather
+    # than once per unit. `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
     quietly uv sync --project fl_backend --dev --check \
       || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so nothing this run reported
 would be about the change rather than about this machine. Sync it with:
@@ -203,7 +226,7 @@ do_ruff() {
   "$PY" -m ruff format --check scripts
 }
 # From inside scripts/, where pyright finds its config; the absolute `$PY` survives the `cd`.
-do_pyright() { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
+do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
 # `loadfile` keeps each module's session-scoped fixture repository whole: `load` would rebuild the
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
@@ -222,7 +245,6 @@ do_docs_gate() {
 }
 do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
-do_regenerate_spelling() { "$PY" scripts/checks/check_regenerate_spelling.py; }
 do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
@@ -238,7 +260,7 @@ do_backend_ruff() {
   if (( rc )); then printf '%s\n' "$lint"; return "$rc"; fi
   ( cd fl_backend && "$PY" -m ruff format --check app tests )
 }
-do_backend_pyright() { ( cd fl_backend && "$PY" -m pyright ); }
+do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
 do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
@@ -311,13 +333,21 @@ do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
-do_eslint()     { ( cd fl_frontend && pnpm lint ); }
+# Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
+# while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`). The `=`
+# keeps the flag one word under `_lib.sh`'s IFS.
+do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
-do_unit_tests() { ( cd fl_frontend && pnpm test ); }
-# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone.
+# The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
+# appends after them reaches the runner unapplied, every shard then running the whole suite.
+do_unit_tests() {
+  ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
+}
+# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
+# pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
   ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
-      NEXT_TELEMETRY_DISABLED=1 pnpm build )
+      NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
 }
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
@@ -348,7 +378,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(tracked_text docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
+DOCS_POOL=(tracked_text docs_gate commit_messages public_routes log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -412,6 +442,7 @@ add_scope scripts  "$RUN_SCRIPTS"
 add_scope docs     "$RUN_DOCS"
 add_scope backend  "$RUN_BACKEND"
 add_scope format   "$RUN_FORMAT"
+add_scope frontend-units "$RUN_FRONTEND_UNITS"
 add_scope frontend "$RUN_FRONTEND"
 add_scope ops      "$RUN_OPS"
 add_scope db       "$RUN_DB"
@@ -471,11 +502,15 @@ change. Its own reason is above." ;;
 # Never while watched: `--verbose` streams each tool's output, and `--serial` is the oracle.
 STEP_JOBS=1
 if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
+# Every scope whose section calls `start_steps`, and no other: a run holding none of them has no
+# step pool to lose, so the fallback notice below would describe a slowdown it does not have.
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES) )); then STEP_JOBS=0; fi
 
-# Replayed in written order, so a parallel run reads as the serial one it must match. Serial where
-# concurrency cannot pay or be watched: CI runs one scope per job, streaming cannot be replayed.
+# Replayed in written order, so a parallel run reads as the serial one it must match.
 PARALLEL=1
-if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
+# Serial where concurrency cannot pay or be watched: a runner runs one scope per job, streaming
+# cannot be replayed. `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+if (( SERIAL || VERBOSE )) || worker || [[ -n "${GITHUB_ACTIONS:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
 
 POOL_PY=""; POOL_BASH=""; POOL_FALLBACK=0
 if (( PARALLEL || STEP_JOBS )); then
@@ -622,8 +657,9 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
   fi
 
   # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
-  # being typed: one job would fail for a scope another job is running.
-  if [[ -n "${CI:-}" ]]; then
+  # being typed: one job would fail for a scope another job is running. `GITHUB_ACTIONS` rather than
+  # `CI`, which a developer's shell may export.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
   else
     step "scope · does this run cover what the branch changed?"
@@ -706,6 +742,14 @@ if (( PARALLEL )); then
   # Exported here alone: the scopes compete only in a pool, and elsewhere -- serial, verbose, a
   # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
   export FL_GATE_BUDGET FL_GATE_DEMAND
+
+  # `pnpm install` and every pnpm call the `packageManager` pin switches open a store, writing and
+  # deleting a probe file in fl_frontend that the format scope's walk can list and then not read.
+  # Handed its store, pnpm writes none.
+  if (( RUN_FORMAT )); then
+    export pnpm_config_store_dir
+    pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
+  fi
 
   pool_open
   for u_scope in "${SCOPE_ORDER[@]}"; do pool_add_scope "$u_scope"; done
@@ -929,20 +973,6 @@ trailing-slash pair standing without the other." \
     DOCS_OK=0
   fi
 
-  # This scope because it is the one every site selects: their own scopes run
-  # `docs format frontend backend db` between them and share `docs` alone.
-
-  step "docs · one spelling of the command that regenerates openapi.json"
-  unit_join regenerate_spelling
-  if run_checker collect "scripts/checks/check_regenerate_spelling.py" "The regenerate command has drifted. Above is a site spelling it differently from the
-declaration, a registered site that has stopped naming it, or a tracked file naming it that the
-register does not cover." \
-    unit_replay regenerate_spelling; then
-    ok "every site spells the regenerate command the declared way"
-  else
-    DOCS_OK=0
-  fi
-
   # This scope because the two literals sit one per package: their own edits select
   # `backend db docs` and `format frontend docs`, and `docs` is the only one both reach.
 
@@ -1042,6 +1072,29 @@ Where it names files, they are unformatted:  cd fl_frontend && pnpm format  -- t
   ok "the tree is formatted"
 fi
 
+# --- frontend-units --------------------------------------------------------------------------------
+
+# Its own scope, so CI can run the suite in shards beside the frontend job rather than inside it.
+if (( RUN_FRONTEND_UNITS )); then
+  section frontend-units
+
+  if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+    info "shard ${VERIFY_TEST_SHARD} of the unit tests: the other shards' files are not run here"
+  fi
+  step "frontend-units · unit tests"
+  # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
+  # collected, a crashed worker -- is a run that reached no verdict.
+  UNIT_TESTS_RC=0
+  quietly do_unit_tests || UNIT_TESTS_RC=$?
+  case "$UNIT_TESTS_RC" in
+    0) ;;
+    1) die "frontend unit tests failed." ;;
+    130) on_interrupt ;;
+    *) on_error "$UNIT_TESTS_RC" "${LINENO}" "pnpm test" ;;
+  esac
+  ok "unit tests pass"
+fi
+
 # --- frontend --------------------------------------------------------------------------------------
 
 if (( RUN_FRONTEND )); then
@@ -1090,21 +1143,6 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
     130) on_interrupt ;;
     *)   on_error "$AUDIT_RC" "${LINENO}" "pnpm audit:prod" ;;
   esac
-
-  # Alone and before the build: the tests already run one process per core less one, and the
-  # build takes every core.
-  step "frontend · unit tests"
-  # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
-  # collected, a crashed worker -- is a run that reached no verdict.
-  UNIT_TESTS_RC=0
-  quietly do_unit_tests || UNIT_TESTS_RC=$?
-  case "$UNIT_TESTS_RC" in
-    0) ;;
-    1) die "frontend unit tests failed." ;;
-    130) on_interrupt ;;
-    *) on_error "$UNIT_TESTS_RC" "${LINENO}" "pnpm test" ;;
-  esac
-  ok "unit tests pass"
 
   # A writer, and last: it also writes `.next/`, which tsconfig.json's `include` covers.
   step "frontend · next build"
@@ -1375,6 +1413,22 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${DB_WIDTH}\` to see whe
     *) on_error "$DB_RC" "${LINENO}" "pytest -m db" ;;
   esac
   ok "db-tier tests pass"
+
+  # Each file starts its own replica set through `@testcontainers/mongodb`
+  # (`docs/frontend/spec.md` §1.9), so the claim above covers them and no shared server is touched.
+  step "db · the frontend's *.db.test.ts files"
+  # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
+  # that reached no verdict.
+  FRONTEND_DB_RC=0
+  ( cd fl_frontend && quietly pnpm run test:db ) || FRONTEND_DB_RC=$?
+  case "$FRONTEND_DB_RC" in
+    0) ;;
+    1) die "fl_frontend db-tier tests failed.
+testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon." ;;
+    130) on_interrupt ;;
+    *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
+  esac
+  ok "frontend db-tier tests pass"
 fi
 
 # --- images ----------------------------------------------------------------------------------------

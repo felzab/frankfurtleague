@@ -229,6 +229,9 @@ describe("emptiedSeatLabels", () => {
 });
 
 describe("renamedConfirmedSeatLabels", () => {
+  const howStored = (heldBack: Partial<KontaktpersonDraft>, typed: Partial<KontaktpersonDraft>): readonly string[] =>
+    renamedConfirmedSeatLabels(block({ trainer: person(heldBack) }), block({ trainer: person(typed) }));
+
   /* Both halves. Without the stamp, a seat nobody confirmed raises the dialog over a save that loses
      nothing; without the identity, correcting a telephone number raises it too. */
   it("names a seat only where a confirmed person is replaced by another", () => {
@@ -247,15 +250,25 @@ describe("renamedConfirmedSeatLabels", () => {
   });
 
   /* The server reads these as one person and keeps the stamp, so each is a save the banner must let
-     through silently — the „ß“ pair being the one a lower-casing fold gets wrong. */
-  it("stays silent where the case, the inner spacing or „ß“ against „ss“ is the whole difference", () => {
-    const howStored = (heldBack: Partial<KontaktpersonDraft>, typed: Partial<KontaktpersonDraft>): readonly string[] =>
-      renamedConfirmedSeatLabels(block({ trainer: person(heldBack) }), block({ trainer: person(typed) }));
-
+     through silently. The decomposed probe is built from code points, rendering as its partner. */
+  it("stays silent where the case, the inner spacing or the Unicode form is the whole difference", () => {
     assert.deepEqual(howStored({ vorname: "Erika" }, { vorname: "ERIKA" }), []);
     assert.deepEqual(howStored({ vorname: "Anna Maria" }, { vorname: " Anna   Maria " }), []);
-    assert.deepEqual(howStored({ nachname: "Weiß" }, { nachname: "WEISS" }), []);
+    assert.deepEqual(howStored({ nachname: `Mu${String.fromCharCode(0x308)}ller` }, { nachname: "Müller" }), []);
     assert.deepEqual(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
+  });
+
+  /* A row stored before the address rule holds its domain in Unicode, where the address typed now is
+     stored as punycode: the server reads the two as one person and keeps the stamp. */
+  it("stays silent where a domain stored in Unicode meets its punycode", () => {
+    assert.deepEqual(howStored({ email: "anna@müller.de" }, { email: "anna@xn--mller-kva.de" }), []);
+  });
+
+  /* „Weiß“ and „Weiss“ are two families, and „straße“ and „strasse“ two domains to sign-in: the save
+     drops each stamp, so the banner has to name the seat. */
+  it("names a seat where „ß“ against „ss“ is the whole difference", () => {
+    assert.deepEqual(howStored({ nachname: "Weiß" }, { nachname: "WEISS" }), ["Trainer"]);
+    assert.deepEqual(howStored({ email: "erika@straße.de" }, { email: "erika@strasse.de" }), ["Trainer"]);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however

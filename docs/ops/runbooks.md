@@ -19,7 +19,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                                    | The one call that answers it, and what each answer means       |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
-| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The order the two halves run in, and what is lost with them    |
+| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
 
@@ -174,28 +174,26 @@ previous one lists the old name under `required`, so a `$rename` run under it pr
 missing a required field and is refused for every row; the same strictness refuses an erasure's
 `$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
 which is why the rename cannot wait either. **This repository holds no migration runner and no
-migration**: the command belongs to the change that needs it and is run by hand against the
-database, so what is written here is the order alone.
+migration**: the command belongs to the change that needs it and is run by hand as a MongoDB
+Playground paste against the cluster, as every migration here is, so what is written here is the
+order alone.
 
 1. `--check` from the new checkout while the old image still serves. Every row is reported as
    missing the new name, which is the confirmation that the rename is owed rather than a finding to
    fix — and it is the count step 3 is read against.
 2. Deploy. The boot attaches the new validator before the image serves.
 3. **At once**, the rename. Between this step and the previous one every read of the renamed field
-   fails and an erasure over such a row is refused, so type it as the deploy reports healthy.
+   fails and an erasure over such a row is refused, so paste it as the deploy reports healthy.
 4. `--check` again: clean.
 5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
    different options and creates nothing under a name it does not declare, so the boot leaves the old
    one standing forever.
 
-**Four things decide whether the command typed at step 3 is the right one.**
+**Three things decide whether the command pasted at step 3 is the right one.**
 
-- **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
-  one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
-  than `--check`'s eight.
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
-- **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
-  new validator refuses for a reason of its own. Repair the row the raised error names and run again:
+- **`updateMany` is ordered**, so a count below what step 1 reported means it stopped at a row the
+  new validator refuses for a reason of its own. Repair the row the error names and paste it again:
   a filter on the old name's `$exists` skips every row already moved, which is what makes the command
   re-runnable rather than a thing to get right once.
 - **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
@@ -257,7 +255,7 @@ and the drop is only half the procedure.** `collMod` reaches the filter in neith
 live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
 inside the wide one, so any that would collide have to move before the boot rebuilds it, which fixes
 the order: move the rows while the old build still serves, drop the index in the deploy's own window
-as above. The moves are typed by hand as every migration here is, keyed on a state the previous
+as above. The moves are a Playground paste as every migration here is, keyed on a state the previous
 statement leaves so a paste that dies partway is repaired by pasting it again. **Run the `--check` at
 the head of this section only once the rows have moved**: it groups every row against the widened
 rule, so before the move it answers about a database the boot will not meet.
@@ -320,10 +318,10 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
   The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
   after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
-  never the entry. An umlaut is the case that turns up, and the two halves of an address differ:
-  a domain one is entered in its punycoded spelling, which that administrator then has to type at the
-  sign-in box as well, while an umlaut in the local part has no such form — that person needs a
-  mailbox the sign-in box will accept before there is anything to allowlist.
+  never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  such address, so that person needs a mailbox it will accept before there is anything to allowlist.
+  An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
+  to punycode.
 - **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.
@@ -430,8 +428,8 @@ section never exercised against a real page load.
 ## 5. When somebody asks for their data, or asks us to change it
 
 Access, rectification, objection, restriction, portability and the withdrawal of a consent all
-arrive the same way and are answered by one person by hand. Erasure has its own three mechanisms and
-is [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
+arrive the same way and are answered by one person by hand. Erasure has its own mechanisms and is
+[`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
 **Every request arrives at the league's mailbox**
@@ -499,9 +497,10 @@ as them.
 - **A referee who HAS confirmed.** Correct `kontakt.email` in the referee editor. Their link is not
   re-minted — the record is already given — so the correction is the ordinary rectification above
   and no message goes out. Tell them by hand that the address on file has moved.
-- **A referee who is RETIRED and has not confirmed.** The save is refused, because correcting the
-  address would mail them a consent link for a role they take no booking in. Reactivate them first,
-  or leave the address as it stands.
+- **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
+  The save stores the address, mails nothing and kills the old link, since a retired referee takes
+  no booking to consent for; reactivating them later mints a fresh link and mails it to the
+  corrected address (`docs/backend/spec.md :: I309`).
 - **A contact seat.** Correct it through
   `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
@@ -551,6 +550,13 @@ Two answers, and which one you give is the person's to choose:
 
 Tell them which of the two you did, and that the second is reversible and the first is not.
 
+**A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
+[section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
+as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and the log
+images naming them stand until that section's reset or the retention index takes them. Where the
+person has registered again since, erase the new row under „Daten löschen“ in that referee's own
+editor.
+
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
@@ -559,7 +565,13 @@ agreed, the only reliable form it can take here is removing the data, which is t
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
 keyed on an email address, so it clears every seat that address holds, in every season and both
-collections. **Read the armed panel's list before pressing**: it names every one of those seats, by
+collections. **The erasure takes the address the seat it is pressed on stores, and reaches another
+seat only where that one's address folds to the same spelling**: the match lowers the 26 ASCII
+capitals alone (`fl_backend/app/shared/folding.py :: sign_in_identifier`), so a seat stored before
+the address rule with a letter above ASCII before the @, in another case, is not on the list. Where
+the person's address carries such a letter, check the list against every seat found under their
+name, and erase one it misses from that seat's own panel where it has one. **Read the armed panel's
+list before pressing**: it names every one of those seats, by
 person and by the season or application it sits in, and the press stays shut until that list is on
 screen
 (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
@@ -580,7 +592,7 @@ mails the person itself**, naming the reason you typed and the last season the b
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
 anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
 registration asks it and is
-refused (`REQ-REGISTRIERUNG-009`), and so do the three referee writes that mint a link; every other
+refused (`REQ-REGISTRIERUNG-009`), and so does every referee write that mints a link; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
 still what keeps a barred address out of everything a sign-up does not cover.
@@ -667,8 +679,9 @@ container** (`scripts/ops/deploy.sh :: copy_streams`), one file per service stam
 refuses at exit 2 with nothing stopped where it cannot write there. **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
-`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts as the edge's access log —
-the one application-visible stream that is a host file rather than a container's. Both are created
+`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
+and error log — host files rather than a container's stream, because every line naming a visitor
+is in one of the two ([`spec.md`](spec.md#2-invariants) I352). Both directories are created
 by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
 
 ```bash
@@ -677,23 +690,26 @@ sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfur
 
 **The age bounds are four host files no file in this repository can install** — written on the
 server in the same deployment that ships the published texts stating them
-([`../datenschutz.md`](../datenschutz.md) §6): eight days for the access log, thirty for the copied
-application logs. **They are two mechanisms because they are two kinds of file.** The access log is
-open and growing, so its bound is a rotation the edge has to be told about; a deploy's copy is
-written once and never appended, so its bound is a deletion, and a rotation of it renames a file
-nothing will ever add a line to.
+([`../datenschutz.md`](../datenschutz.md) §6): eight days for the edge's two logs, thirty for the
+copied application logs. **They are two mechanisms because they are two kinds of file.** The edge's
+logs are open and growing, so their bound is a rotation the edge has to be told about; a deploy's
+copy is written once and never appended, so its bound is a deletion, and a rotation of it renames a
+file nothing will ever add a line to.
 
-**The access log, at `/etc/frankfurtleague/access-log.conf`.** Substitute the server's own checkout
-path for `<checkout>` — `docker compose` takes its project name from the directory holding the file
-`-f` names, so a path pointing anywhere else finds no `nginx` service and the rotation goes on
-without the reopen. Spell `docker` with the path `command -v docker` prints if it is not on
-systemd's own PATH, which is what this runs under rather than a login shell's.
+**The edge's two logs, at `/etc/frankfurtleague/access-log.conf`.** **A host carrying an earlier
+stanza that names `access.log` alone takes the one below whole**: nginx writes `error.log` from the
+first time it loads a configuration naming it, and that file then grows past the eight days with
+nothing on the host reporting it. Substitute the server's own checkout path for `<checkout>` —
+`docker compose` takes its project name from the directory holding the file `-f` names, so a path
+pointing anywhere else finds no `nginx` service and the rotation goes on without the reopen. Spell
+`docker` with the path `command -v docker` prints if it is not on systemd's own PATH, which is what
+this runs under rather than a login shell's.
 
 ```text
-# nginx writes this file through a bind mount, so it outlives the container and can be rotated by
-# rename: the master reopens on USR1 and the renamed file stops growing, the lines written in
-# between having gone to the renamed file rather than nowhere.
-/var/log/frankfurtleague/nginx/access.log {
+# nginx writes these files through a bind mount, so they outlive the container and can be rotated
+# by rename: the master reopens every log it holds on USR1 and a renamed file stops growing, the
+# lines written in between having gone to the renamed file rather than nowhere.
+/var/log/frankfurtleague/nginx/access.log /var/log/frankfurtleague/nginx/error.log {
     daily
     # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
     # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
@@ -712,6 +728,8 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
     # skip every rotation after this one, so nothing would ever send USR1 again.
     compress
     delaycompress
+    # One USR1 for both files, which one reopen covers; without it each rotated file sends its own.
+    sharedscripts
     postrotate
         docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
     endscript
@@ -722,11 +740,12 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
 which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
 stays unproven until the first real rotation.
 
-**A failed reopen leaves an empty `access.log` beside a dated file that keeps growing**: the rename
+**A failed reopen leaves each live log empty beside a dated file that keeps growing**: the rename
 has happened and nginx still writes through its open descriptor, and nothing on the host says so —
-the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, the live file at
-zero bytes under a dated file with a newer mtime. The next rotation sends USR1 again and recovers,
-losing only the lines written to the orphaned file between its compression and the signal.
+the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, a live file at
+zero bytes under a dated file of its own name with a newer mtime. The next rotation sends USR1
+again and recovers, losing only the lines written to the orphaned file between its compression and
+the signal.
 
 **That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
 cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
@@ -737,7 +756,7 @@ happened.
 ```text
 # /etc/systemd/system/frankfurtleague-logrotate.service
 [Unit]
-Description=Rotate the Frankfurt League access log
+Description=Rotate the Frankfurt League edge logs
 
 [Service]
 Type=oneshot
@@ -747,7 +766,7 @@ ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/
 ```text
 # /etc/systemd/system/frankfurtleague-logrotate.timer
 [Unit]
-Description=Hourly size check on the Frankfurt League access log
+Description=Hourly size check on the Frankfurt League edge logs
 
 [Timer]
 OnCalendar=hourly
@@ -768,8 +787,8 @@ adds. The command below is what confirms it is running on this host.
 # Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
 # chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
 e /var/log/frankfurtleague - - - m:30d
-# The line above reaches every level below it, and the live access.log is one of them: on a quiet
-# month the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
+# The line above reaches every level below it, and the edge's live logs are there: on a quiet month
+# the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
 x /var/log/frankfurtleague/nginx
 ```
 
@@ -807,7 +826,8 @@ cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runti
 `copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
 document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
 above runs. The copies are what carry an application log past a deploy, and their thirty days is the
-only age bound over one.
+only age bound over one. The edge's own container stream is bounded by that cap alone, which is why
+nothing written there may name a visitor ([`spec.md`](spec.md#2-invariants) I352).
 
 **The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
 reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
@@ -865,9 +885,10 @@ whatever closed the host's inbound 80 and 443 since is opened.
 
 ## 9. Checking that the retention sweep has run
 
-**One call answers it**, on the system key, against the origin rather than through the tunnel:
+**One call answers it**, on the system key, from inside the frontend container: the backend publishes
+no port on the host, and the container holds the key, so it never passes through your shell.
 
-    curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
+    docker compose exec frontend sh -c 'wget -qO- --header "Authorization: Bearer $INTERNAL_API_KEY_SYSTEM" http://backend:8000/api/v0/bewerbungen/sweep'
 
 **`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
 and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
@@ -938,10 +959,9 @@ and no validator expresses the pairing either
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
 were collected on
 ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. **The clear is typed by hand in `mongosh` against the
-cluster, as every migration here is** (§2) — the backend image carries none, and §2 says what a
-command run through that image instead looks like. Four things decide whether the one typed is
-right:
+so an accepted school holds each date twice. **The clear is run by hand as a MongoDB Playground
+paste against the cluster, as every migration here is** (§2), the backend image carrying no
+database shell. Four things decide whether the one pasted is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
   that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
@@ -978,8 +998,42 @@ no `at_date` says how many are left.
 **Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
 write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
 so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
-first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is typed by
-hand in `mongosh`, as every migration here is (§2).
+first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
+hand as a MongoDB Playground paste, as every migration here is (§2).
+
+**The player half is what lets the old late-entry key go**: once it has run, no stored squad row
+carries the marker under its old spelling, and the leniency that reads it is removed in one change
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I303).
+
+**The referee rows standing today go at a different moment, not at this season's end**: immediately
+before the deploy whose fixture read first consults a referee's own consent record, so that read
+never meets a live row nobody asked
+([`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)). The rows are
+the ones carrying no consent record; a row whose confirmation link went out and is still unanswered
+carries none either, so read what the term matches before dropping anything. It is run by hand as a
+MongoDB Playground paste as well, and it is **not** a referee's erasure, though it repoints as one
+does: every fixture naming one of those rows is repointed at the ghost
+(`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled, the
+update `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds. Three things
+decide whether the one pasted is right:
+
+- **The ghost exists first.** Only an erasure writes it, inside its own transaction, so a league
+  that has had none holds no such row: insert exactly the document
+  `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` builds, and a repoint
+  run without it points every fixture at a document nobody has.
+- **Repoint before deleting, counting both** — the fixtures naming the rows, and the rows — and read
+  each count the database reports against it. `spiele.schiedsrichter.schiedsrichter_id` is a
+  required id, so a null is refused rather than stored.
+- **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
+  holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
+  reads „anonym“.
+
+A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
+until a referee is assigned
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so the drop belongs
+in a break between match weeks; and the ghost claims no slot
+(`fl_backend/app/api/spiele/services.py :: find_slot_claims`), so no double booking among those
+fixtures is ever reported.
 
 ## 13. After a restore from a snapshot
 

@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
@@ -60,7 +61,12 @@ export function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | n
   return error.statusCode === 422 || error.statusCode === 409 ? "ungueltig" : null;
 }
 
-export type SchiedsrichterBestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: SchiedsrichterLinkZustand };
+export type SchiedsrichterBestaetigungRefusal = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  unplacedError?: string;
+  zustand?: SchiedsrichterLinkZustand;
+};
 
 // A thunk, never a number: the floor is read for the age arm alone, and a caller resolving it first
 // answers the three arms that SPEND the link out of a second read, which finds nothing to read.
@@ -74,16 +80,17 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 ): Promise<SchiedsrichterBestaetigungRefusal | null> {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
-  if (error.statusCode === 422) {
-    return {
-      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
-    };
-  }
+  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+  // mail's link replaces.
+  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
 
   if (error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
+    // The page offers no media switch below the served age, so only a page older than that rule
+    // sends this answer, and its repair is the 422's.
+    case "REQ-SCHIEDSRICHTER-008":
+      return { error: ANTWORT_NEU_OEFFNEN };
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":

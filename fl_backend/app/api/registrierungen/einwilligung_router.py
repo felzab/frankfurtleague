@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
@@ -20,6 +21,7 @@ from app.api.registrierungen.services import (
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
+    find_medien_refusal,
     find_unknown_token_refusal,
     persons_named,
     sole_person,
@@ -28,9 +30,10 @@ from app.api.registrierungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
-from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.folding import sign_in_identifier, stored_spellings
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
 # whole credential, so both endpoints are base-tier and bind the public actor rather than the
@@ -45,7 +48,12 @@ router = APIRouter(
 _PERSONS_READ = 8
 
 
-@router.post("/ansicht", response_model=FLRegistrierungBestaetigungAnsichtResponse, summary="What one registration confirmation link opens")
+@router.post(
+    "/ansicht",
+    response_model=FLRegistrierungBestaetigungAnsichtResponse,
+    summary="What one registration confirmation link opens",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLRegistrierungBestaetigungAnsichtPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
@@ -57,11 +65,11 @@ async def get_bestaetigung_ansicht(
     Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
 
     The link's state, the team and its school, the season, the pupil's own first name, the age floor the press
-    will be judged by, and the wording's version. Beside them the three answers the league already holds for this
-    person -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what
-    stands rather than entering it again. That person is matched on the registration's folded address AND its
-    folded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one
-    of them another's birthdate. All three are null wherever that match is not exactly one person.
+    will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
+    three answers the league already holds for this person -- the birthdate, the publication scope and the media
+    switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
+    the registration's folded address AND its folded name: a mailbox a family shares stands behind more than one
+    pupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -81,18 +89,21 @@ async def get_bestaetigung_ansicht(
     # paragraph missing its subject reads as finished.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": raw.get("team_id")}, projection=["name", "full_name"])
 
-    # An equality on the folded form, which is what `spieler.email` stores
-    # (`app/shared/folding.py :: sign_in_identifier`).
+    # An equality on the folded form, which is what `spieler.email` stores, in either spelling a row
+    # may hold it in (`app/shared/folding.py :: stored_spellings`).
     persons = await pull_many_from_db(
         collection=spieler_collection,
-        db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        limit=_PERSONS_READ,
+        db_filter={"email": {"$in": list(stored_spellings(sign_in_identifier(str(raw.get("email") or ""))))}},
+        # One PAST the bound, so a larger household is seen to be larger: capped at the bound, the read
+        # answers a subset of a larger household, and a namesake left outside it makes the other look sole.
+        limit=_PERSONS_READ + 1,
         projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
     )
+    household = persons if len(persons) <= _PERSONS_READ else []
 
     # Narrowed by the NAME before anything is shown back: a mailbox a family shares stands behind
-    # more than one pupil, and `_PERSONS_READ` bounds the read so a larger household shows nothing.
-    named = persons_named(persons, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
+    # more than one pupil.
+    named = persons_named(household, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}
@@ -105,6 +116,7 @@ async def get_bestaetigung_ansicht(
         vorname=str(raw["vorname"]),
         text_version=einwilligung.get("text_version"),
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
+        medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
         geburtsdatum=shown_back.get("geburtsdatum"),
         umfang=einwilligung.get("umfang"),
         medien=einwilligung.get("medien"),
@@ -126,9 +138,9 @@ async def post_bestaetigung(
     given under older words is renewed under the words this person just read.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age
-    below the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and
-    the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age
+    below the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged
+    before anything is written, so a mistyped year spends nothing and the pupil keeps the link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
@@ -152,6 +164,7 @@ async def post_bestaetigung(
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
+        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
@@ -164,6 +177,7 @@ async def post_bestaetigung(
                 today=today,
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # The payload's own three rather than the updated document's: this answer is what the page

@@ -698,6 +698,40 @@ describe("what the mail transport reports when a send fails", () => {
     }
   });
 
+  /* The accepted twin: a stalled reply is not the unreadable one that still reports the message as
+     sent, since the abort is this module's own and nobody read what the provider decided. */
+  it("reports an acceptance whose body stalls as a timeout, not as a message sent", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+      respond = async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              const signal = sends[0]!.init.signal as AbortSignal;
+              signal.addEventListener("abort", () => controller.error(Object.assign(new Error("aborted"), { name: "AbortError" })));
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+
+      const pending = sendMail(MESSAGE);
+      await new Promise((resolve) => setImmediate(resolve));
+      mock.timers.tick(MAIL_TIMEOUT_MS);
+
+      const error = await pending.then(
+        () => assert.fail("the stalled acceptance resolved as a message sent"),
+        (thrown: Error) => thrown,
+      );
+
+      assert.ok(error instanceof APINetworkError);
+      assert.equal(error.isTimeout, true);
+      assertHidesRecipient(error, "the stalled acceptance");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
   /* A proxy's HTML 502 is the shape this answers, and a 5xx with no token to read is temporary by
      status, so the refusal reported is the third attempt's. */
   it("refuses on a bad status whose body is not JSON, rather than failing to parse it", async () => {

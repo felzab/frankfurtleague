@@ -260,8 +260,8 @@ const A_ROWS_OWN_SEND = "the referee whose panel this is: the id is in the path 
 /** Opaque to this side: the page carries it from the link to the press and never composes one. */
 const THE_TOKEN_THE_LINK_CARRIED = "the token the mailed link carried, held by the page; no control offers it";
 
-/** Written by the handler over whatever arrived, so no value a control could carry reaches the endpoint. */
-const THE_WORDING_THIS_SERVER_STAMPED = "the label this server rendered, stamped at the route handler; the browser's own is discarded";
+/** Judged by the handler before the parse, so no value a control could carry reaches the endpoint. */
+const THE_LABEL_THE_HANDLER_ADMITS = "the label this page rendered, admitted by the route handler only as the one its build serves";
 
 /** Opaque to this side: the page carries it from the read to the save and never composes one. */
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
@@ -295,7 +295,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLBewerbungKontaktSitzPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY, text_version: THE_LABEL_THE_REGISTRY_HOLDS },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLSchiedsrichterEinladenPayloadSchema: { id: A_ROWS_OWN_SEND },
-  FLSchiedsrichterBestaetigungPayloadSchema: { token: THE_TOKEN_THE_LINK_CARRIED, text_version: THE_WORDING_THIS_SERVER_STAMPED },
+  FLSchiedsrichterBestaetigungPayloadSchema: { token: THE_TOKEN_THE_LINK_CARRIED, text_version: THE_LABEL_THE_HANDLER_ADMITS },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -421,12 +421,10 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    ist_nachnominiert: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
-    ist_nachnominiert: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
   FLSwapGruppenPayloadSchema: {
     saison_id: IN_THE_PATH,

@@ -594,7 +594,7 @@ describe("both decisions", () => {
       const cells = rows.flatMap((row) => [...row.matchAll(/<td[^>]*style="([^"]*)"[^>]*>([\s\S]*?)<\/td>/g)]);
 
       assert.ok(cells.length >= 6, `${name} renders no panel cells, so this test proves nothing`);
-      /* Read off `faktRows`, which strips the colon to key its map: a label rendered without one
+      /* Read off `factRows`, which strips the colon to key its map: a label rendered without one
          leaves the raw cell equal to the bare key, so this cannot pass by skipping the cell. */
       const raw = cells.map(([, , inhalt]) => readable(inhalt ?? ""));
       for (const label of factRows(mail.html).keys()) {
@@ -1059,6 +1059,34 @@ describe("buildBewerbungBestaetigungEmail", () => {
     assert.deepEqual(controlsIn(mail.html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
     assert.equal(factRows(mail.html).get("Eingetragen als"), zugleich.rolleText);
     assert.ok(flat(mail.text).includes(`Darin bist Du als ${zugleich.rolleText} eingetragen.`));
+  });
+
+  /* The first contact for every contact seat, so Art. 21(4) DSGVO asks the objection here, apart
+     from every other piece of information and never beside the entry's own `Widerspruch` door. */
+  it("states the objection in a paragraph of its own, to one reader and to a shared mailbox", () => {
+    // Whole sentences, the condition included: an objection stated without it is a right the article
+    // does not grant, and a pattern skipping the middle passes that sentence.
+    for (const [daten, anrede] of [
+      [
+        BESTAETIGUNG,
+        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+      ],
+      [
+        BESTAETIGUNG_POSTFACH,
+        "Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+      ],
+    ] as const) {
+      const mail = buildBewerbungBestaetigungEmail(daten);
+      const adresse = KONTAKT_EMAIL.replaceAll(".", "\\.");
+      const absatz = new RegExp(`<p\\b[^>]*>${anrede} <a href="mailto:${adresse}"[^>]*>${adresse}</a> genügt\\.</p>`);
+
+      assert.match(mail.html, absatz, `the card to "${anrede}" carries no objection of its own`);
+      assert.match(
+        mail.text,
+        new RegExp(`\\n\\n${anrede} ${adresse} genügt\\.`),
+        `the text part to "${anrede}" carries no objection of its own`,
+      );
+    }
   });
 });
 

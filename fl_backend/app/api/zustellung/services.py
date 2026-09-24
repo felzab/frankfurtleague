@@ -29,7 +29,7 @@ ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
     # `zustellung.zustellung`, which `zustellung_pfad` cannot spell.
     "einladung": ZielPfad(Collection.EINLADUNGEN, "versand"),
     # The confirmation bookkeeping, as a referee's is: the message this state is about is the link
-    # mailed to the address the pupil typed.
+    # mailed to the registration's own address, the payload's normalisation of what the pupil typed.
     "registrierung": ZielPfad(Collection.REGISTRIERUNGEN, "bestaetigung"),
 }
 

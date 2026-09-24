@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Iterator, Mapping
 from typing import Any
 
+import pymongo
 import pytest
 from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient, Response
@@ -30,7 +31,10 @@ UNREACHED_DATABASE = "DB-FAIL-001"
 # answers gives each control something other than the failure it asserts.
 UNANSWERED_URI = "mongodb://localhost:1"
 
-UNANSWERED_SELECTION_MS = 100
+# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
+# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
+UNANSWERED_DEADLINE_S = 0.001
+
 CONTAINER_SELECTION_MS = 10_000
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
@@ -132,24 +136,31 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
     ]
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int, database_name: str = CORPUS_DATABASE) -> Response:
+def answered(
+    uri: str,
+    path: str,
+    headers: Mapping[str, str],
+    *,
+    database_name: str = CORPUS_DATABASE,
+) -> Response:
     """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
 
     async def _answered() -> Response:
         app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
         try:
             transport = ASGITransport(app=app, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(headers))
+                with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+                    return await http.get(path, headers=dict(headers))
         finally:
             await app.state.db_client.close()
 
     return asyncio.run(_answered())
 
 
-def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int, database_name: str) -> Response:
+def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Response:
     """POST one venue, on its own client and loop for `answered`'s reason.
 
     `X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying
@@ -158,7 +169,7 @@ def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int, 
 
     async def _created() -> Response:
         app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
         try:
             transport = ASGITransport(app=app, raise_app_exceptions=False)
@@ -209,7 +220,7 @@ def test_the_base_key_no_longer_reaches_a_venue_or_a_referee(path: str):
     number, the school they attend, and what the league pays for a ground.
     """
 
-    response = answered(UNANSWERED_URI, path, BASE_AUTH, selection_timeout_ms=UNANSWERED_SELECTION_MS)
+    response = answered(UNANSWERED_URI, path, BASE_AUTH)
 
     assert response.status_code == 401
     assert response.json()["error_code"] == ADMIN_GUARD_REFUSED
@@ -219,7 +230,7 @@ def test_the_base_key_no_longer_reaches_a_venue_or_a_referee(path: str):
 def test_the_admin_key_clears_the_guard_and_reaches_the_database(path: str):
     """The control: without it, a refusal from a route that stopped existing would read as the guard's."""
 
-    response = answered(UNANSWERED_URI, path, ADMIN_AUTH, selection_timeout_ms=UNANSWERED_SELECTION_MS)
+    response = answered(UNANSWERED_URI, path, ADMIN_AUTH)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -235,7 +246,7 @@ LIST_CASES = [pytest.param(SPIELORTE, "spielorte", field, id=f"a venue's {field}
 def test_the_admin_list_still_serves_every_privileged_field(seeded_url: str, path: str, key: str, field: str):
     """Moving the tier may not narrow the shape: the admin tables, both editors and both pickers read these."""
 
-    rows = answered(seeded_url, path, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS).json()[key]
+    rows = answered(seeded_url, path, ADMIN_AUTH).json()[key]
 
     assert rows, "the seeded row did not come back, so a present key would prove nothing"
     assert field in rows[0]
@@ -260,7 +271,7 @@ SINGLE_CASES = [
 def test_the_single_read_moved_with_its_list(seeded_url: str, path: str, key: str, document_id: str, field: str):
     """`GET /{id}` serves one row of what the list serves, so a tier decision reaching only the list would decide nothing."""
 
-    document = answered(seeded_url, path, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS).json()[key]
+    document = answered(seeded_url, path, ADMIN_AUTH).json()[key]
 
     assert document["id"] == document_id
     assert field in document
@@ -270,8 +281,8 @@ def test_the_single_read_moved_with_its_list(seeded_url: str, path: str, key: st
 def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(seeded_url: str):
     """The values the venue and referee pickers copy onto a fixture; without them the editor offers what it cannot book."""
 
-    venue = answered(seeded_url, SPIELORTE, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS).json()["spielorte"][0]
-    referees = answered(seeded_url, SCHIEDSRICHTER, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS).json()["schiedsrichter"]
+    venue = answered(seeded_url, SPIELORTE, ADMIN_AUTH).json()["spielorte"][0]
+    referees = answered(seeded_url, SCHIEDSRICHTER, ADMIN_AUTH).json()["schiedsrichter"]
 
     assert (venue["default_mietpreis"], venue["maps_link"]) == (MIETPREIS, MAPS_LINK)
     assert (referees[0]["default_payment"], referees[0]["schule"]) == (LOWER_PAYMENT, SCHULE)
@@ -286,11 +297,11 @@ def test_the_street_address_is_still_public_through_the_maps_link(empty_url: str
     `app/api/spielorte/admin_router.py :: _maps_link` and not a string this file wrote.
     """
 
-    creation = created(empty_url, POSTED_VENUE, selection_timeout_ms=CONTAINER_SELECTION_MS, database_name=CREATED_VENUE_DATABASE)
+    creation = created(empty_url, POSTED_VENUE, database_name=CREATED_VENUE_DATABASE)
     assert creation.status_code == 201, creation.json()
 
     path = f"{SPIELORTE}/{creation.json()['created_id']}"
-    read_back = answered(empty_url, path, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS, database_name=CREATED_VENUE_DATABASE)
+    read_back = answered(empty_url, path, ADMIN_AUTH, database_name=CREATED_VENUE_DATABASE)
 
     assert read_back.json()["spielort"]["maps_link"] == COMPOSED_MAPS_LINK
 
@@ -303,13 +314,11 @@ def test_the_fee_still_filters_and_sorts(seeded_url: str):
         seeded_url,
         f"{SCHIEDSRICHTER}?sort_by=default_payment&order=desc",
         ADMIN_AUTH,
-        selection_timeout_ms=CONTAINER_SELECTION_MS,
     )
     filtered_response = answered(
         seeded_url,
         f"{SCHIEDSRICHTER}?default_payment={HIGHER_PAYMENT}",
         ADMIN_AUTH,
-        selection_timeout_ms=CONTAINER_SELECTION_MS,
     )
 
     assert [row["default_payment"] for row in sorted_response.json()["schiedsrichter"]] == [HIGHER_PAYMENT, LOWER_PAYMENT]

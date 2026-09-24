@@ -21,18 +21,17 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
@@ -41,7 +40,7 @@ export type BestaetigungAbschluss =
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
-  | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand };
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand });
 
 /** A control, not a link: it arms the objection and navigates nowhere. Named in the information text too. */
 const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
@@ -271,7 +270,7 @@ export function BestaetigungFormPanel({
 
   // The payload the write is judged by, judging the draft too: a second schema here would be the
   // page refusing at numbers the endpoint does not, on the day the two disagree.
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { einwilligung: antwortSchema },
     // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
     // change nobody here made, and two titles for one failure read as two failures.
@@ -301,19 +300,25 @@ export function BestaetigungFormPanel({
     const antwort = gesendet.body;
 
     if (!antwort.success) {
+      // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
+      // is an administrator's repair, and a reload of this page has lost its token.
+      if (antwort.outcome === "unknown") {
+        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+        return;
+      }
+
       // The link died between the open and the press: the answer is the panel, never a toast.
       if (antwort.zustand !== undefined) {
         onAbschluss({ zustand: antwort.zustand });
         return;
       }
 
-      setSubmitFieldErrors(antwort.fieldErrors ?? {}, { einwilligung: payload });
-
-      // For a failure belonging to no field alone: a field's refusal speaks at it, and one naming only paths
-      // no control renders is announced by `useServerFieldErrors`, which a second toast here would repeat.
-      if (!hasFieldErrors(antwort.fieldErrors)) {
-        appToast.danger("Antwort nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
-      }
+      // The hook owns the press's one toast: none where a field shows the refusal.
+      reportSubmitFailure(
+        { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+        { einwilligung: payload },
+        { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+      );
       return;
     }
 

@@ -1,4 +1,6 @@
 import argparse
+import copy
+import functools
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -11,7 +13,6 @@ DOCUMENT_PATH: Final = Path(__file__).resolve().parents[1] / "openapi.json"
 
 # `uv run` rather than a bare `python`: outside an activated virtualenv the interpreter has neither
 # FastAPI nor this package, so the command fails as a broken import.
-# `scripts/checks/check_regenerate_spelling.py` holds every other site to this exact string.
 REGENERATE: Final = "cd fl_backend && uv run python -m tests.openapi_document --write"
 
 # Both repairs, because the rewrite alone is the wrong one for a narrowing nobody asked for: it
@@ -31,8 +32,15 @@ VALUE_LEAD: Final = 40
 DIFFERENCE_CAP: Final = 20
 
 
-def build_document() -> dict[str, Any]:
+@functools.cache
+def _built_once() -> dict[str, Any]:
+    """Built once a process: modules read it at collection, every xdist worker collects each of them, and a build costs most of a second."""
     return create_app(build_test_config()).openapi()
+
+
+def build_document() -> dict[str, Any]:
+    """A copy of the one build: a caller planting on the shared dict would plant into every later reader's."""
+    return copy.deepcopy(_built_once())
 
 
 def read_document() -> dict[str, Any]:

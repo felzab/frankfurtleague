@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index e22a1ce93080807b06d818dd03074add11f39e16..711145bfc0d964b5db1df6f6c2759837be7960ee 100644
+index e22a1ce93080807b06d818dd03074add11f39e16..916a8558c5ed3d6f66c4b292e6a9d2ba936f0a7f 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -275,7 +275,7 @@ const generatePasskeyAuthenticationOptions = (opts, { maxAgeInSeconds }) => crea
@@ -11,3 +11,12 @@ index e22a1ce93080807b06d818dd03074add11f39e16..711145bfc0d964b5db1df6f6c2759837
  		extensions: authenticationExtensions,
  		...userPasskeys.length ? { allowCredentials: userPasskeys.map((passkey) => ({
  			id: passkey.credentialID,
+@@ -408,7 +408,7 @@ const verifyPasskeyRegistration = (options) => {
+ 					user
+ 				};
+ 			};
+-			const registration = ctx.body.createSession ? await runWithTransaction(ctx.context.adapter, persistRegistration) : await persistRegistration();
++			const registration = await runWithTransaction(ctx.context.adapter, persistRegistration);
+ 			if (registration.session && registration.user) {
+ 				await setSessionCookie(ctx, {
+ 					session: registration.session,

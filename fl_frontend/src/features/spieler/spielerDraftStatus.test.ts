@@ -19,7 +19,6 @@ const stored: FLSpielerDraftFields = {
     nummer: "10",
     position: "Mittelfeld",
     stufe: "Q1",
-    ist_nachnominiert: false,
     rolle: null,
   },
 };
@@ -122,20 +121,6 @@ describe("deriveSpielerDraftStatus", () => {
     assert.ok(row?.isChanged);
     assert.equal(row.draftText, null);
     assert.equal(row.storedText, "Mittelfeld");
-  });
-
-  it("ignores ist_nachnominiert entirely, because nothing on the page edits it", () => {
-    // It still travels on the payload — the patch replaces the row wholesale — but a draft that
-    // differs on it is not a change the save bar counts.
-    const status = deriveSpielerDraftStatus({
-      stored,
-      draft: draftFrom(squad({ ist_nachnominiert: true })),
-      fieldErrors: {},
-      teams: TEAMS,
-    });
-
-    assert.equal(status.byPath.get("ist_nachnominiert"), undefined);
-    assert.equal(status.isDirty, false);
   });
 
   it("reads a role as a value gained and giving it up as a removal", () => {

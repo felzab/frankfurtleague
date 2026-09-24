@@ -9,6 +9,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { labelBadge } from "@/shared/components/ui/badges.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -16,6 +17,8 @@ import { SPIELER_CRUD_COPY } from "../../constants.ts";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView.tsx";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types.ts";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

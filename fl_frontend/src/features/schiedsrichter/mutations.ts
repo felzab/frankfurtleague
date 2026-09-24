@@ -6,6 +6,7 @@ import {
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
+  FLSchiedsrichterReactivateResponseSchema,
   FLSchiedsrichterWriteResponseSchema,
 } from "./schemas";
 
@@ -22,6 +23,7 @@ import type {
   FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
   FLSchiedsrichterMintResponse,
+  FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterWriteResponse,
 } from "./schemas";
 
@@ -52,8 +54,8 @@ export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): 
 
 // Clearing `inactive_since` returns the referee to the picker and to every default read, which makes
 // retirement a state rather than a disappearance.
-export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterWriteResponseSchema, {
+export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterReactivateResponse> {
+  return apiClient<FLSchiedsrichterReactivateResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterReactivateResponseSchema, {
     method: "POST",
     authType: "admin",
   });
@@ -87,7 +89,7 @@ export async function postSchiedsrichterBestaetigungAnsicht(
   return apiClient<FLSchiedsrichterBestaetigungAnsichtResponse>(
     "/schiedsrichter/bestaetigung/ansicht",
     FLSchiedsrichterBestaetigungAnsichtResponseSchema,
-    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
   );
 }
 

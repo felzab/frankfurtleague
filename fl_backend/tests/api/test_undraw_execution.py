@@ -458,8 +458,9 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # The draw's three rows and nothing else: the removals record in-session, so the abort takes
         # their rows back too.
         assert aborted.log == 3
-        # The drop runs after the commit, so an undraw that never committed leaves the cache nothing to unlearn.
-        assert aborted.cached is not None
+        # Dropped however the undraw ended: from here a refusal and a commit whose answer was lost look
+        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
+        assert aborted.cached is None
 
     def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
         """Drop `session=` from the watermark clear and this fails.
@@ -818,8 +819,8 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
         assert undrawn.watermark is None
 
 
-class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
-    """One process, one cache, keyed by season id -- so dropping it early unlearns a season nothing has changed yet."""
+class TestTheSeasonCacheIsDroppedHoweverTheUndrawEnds:
+    """An undraw that raised may still have landed, so no outcome leaves the cached season standing."""
 
     def test_a_committed_undraw_drops_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -831,8 +832,8 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
 
         assert on_a_seeded_saison(mongo_replica_set_url, body) is None
 
-    def test_a_refused_undraw_leaves_it_standing(self, mongo_replica_set_url: str):
-        """The control: a drop before the refusal would pass the case above while costing every reader a re-read for nothing."""
+    def test_a_refused_undraw_drops_it_too(self, mongo_replica_set_url: str):
+        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
@@ -844,7 +845,7 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
 
             return read_cached_saison(SAISON_ID)
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is not None
+        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
 
 
 @dataclass(frozen=True)

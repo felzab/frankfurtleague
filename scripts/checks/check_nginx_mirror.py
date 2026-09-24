@@ -124,7 +124,6 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     ),
     Delta("server[catch-all].ssl_reject_handshake", ANY, ABSENT, "refusing a handshake needs a handshake to refuse"),
     Delta("server[catch-all].return", ABSENT, ANY, "the plaintext refusal local.conf spells where production drops the connection"),
-    Delta("server[catch-all].access_log", ABSENT, ANY, "a rejected handshake produces no request to log; a 421 does"),
     Delta("server[main].listen", (("443", "ssl"), ("[::]:443", "ssl")), (("80",), ("[::]:80",)), NO_TLS),
     Delta("server[main].http2", ANY, ABSENT, "HTTP/2 is negotiated in the TLS handshake here"),
     Delta("server[main].server_name", (("frankfurtleague.de",),), (("localhost", "127.0.0.1"),), "the names each stack answers for"),

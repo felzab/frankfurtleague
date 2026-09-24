@@ -298,15 +298,22 @@ const ADDRESS_TABLE: [clause: string, address: string][] = [
 ];
 
 describe("the administrator allowlist", () => {
-  /* Fullwidth, so NFKC folds it to pure ASCII: an entry the fold leaves above ASCII is one the
-     sign-in library refuses, and the case below would then be proving a refusal instead. */
-  const WIDE = "Ｖｏｒｓｔａｎｄ@ｓｃｈｕｌｅ.ｄｅ";
-  const FOLDED = "vorstand@schule.de";
+  /* Capitals and an umlaut domain, which the fold makes the lower-case punycode the sign-in library
+     takes: an entry the fold leaves above ASCII is one the library refuses, and the case below would
+     then be proving a refusal instead. */
+  const UNFOLDED = "Vorstand@MÜNCHEN.de";
+  const FOLDED = "vorstand@xn--mnchen-3ya.de";
 
   /* One refused entry fails the whole variable and `refuseInvalidEnvironment` throws, so an address
      a link can be mailed to has to pass here or the site does not boot at all. */
   it("takes an address both the sign-in box and the sign-in library accept", () => {
-    for (const raw of ["vorstand@schule.de", "vorstand+admin@schule.de", "VORSTAND@Schule.de", "vorstand@xn--mnchen-3ya.de"]) {
+    for (const raw of [
+      "vorstand@schule.de",
+      "vorstand+admin@schule.de",
+      "VORSTAND@Schule.de",
+      "vorstand@xn--mnchen-3ya.de",
+      "vorstand@münchen.de",
+    ]) {
       assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, true, `refused ${raw}`);
     }
   });
@@ -322,7 +329,7 @@ describe("the administrator allowlist", () => {
   /* The second assertion is what makes each row drive THIS rule: an address the API's own rule
      refuses would be refused here whatever the sign-in library says. */
   it("refuses an address the sign-in library will not take, whatever the API's own rule says", () => {
-    for (const raw of ["jörg@schule.de", "vorstand@münchen.de", "a!b@schule.de", "vorstand@schule.a"]) {
+    for (const raw of ["a!b@schule.de", "vorstand@schule.a"]) {
       assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, false, `accepted ${raw}`);
       assert.equal(isDeliverableAddress(asSignInIdentifier(raw)), true, `${raw} drives nothing: the API's rule refuses it too`);
     }
@@ -331,9 +338,9 @@ describe("the administrator allowlist", () => {
   /* An entry stored in any other form matches nothing anybody can type
      (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
   it("holds each entry in the form the allowlist check folds an address into", () => {
-    assert.notEqual(WIDE, FOLDED);
+    assert.notEqual(UNFOLDED, FOLDED);
 
-    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${WIDE} , ${FOLDED.toUpperCase()} `).data, [FOLDED, FOLDED]);
+    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${UNFOLDED} , ${FOLDED.toUpperCase()} `).data, [FOLDED, FOLDED]);
   });
 
   /* An entry over the sign-in box's own ceiling boots and then cannot be typed at the box

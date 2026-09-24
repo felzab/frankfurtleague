@@ -31,6 +31,7 @@ const { calls, answerWith } = doubleActions({
 const { raised } = doubleToasts();
 
 const { BewerbungBestaetigungStrip } = await import("./BewerbungBestaetigungStrip.tsx");
+const { BestaetigungHinweise } = await import("./BestaetigungHinweise.tsx");
 
 const { router, seen } = recordingRouter();
 
@@ -275,6 +276,17 @@ describe("the address correction", () => {
     );
   });
 
+  /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
+     capital before the at sign is a repair to send. */
+  it("sends a correction whose only change the sign-in fold would erase", async () => {
+    const user = userEvent.setup();
+    renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "Clara@schule.example") } }) });
+
+    await correctClara(user, "clara@schule.example{Enter}");
+
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
+  });
+
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,
      and a second correction to an address already stored is refused. */
   it("sends one correction however often Enter is pressed while it runs", async () => {
@@ -285,6 +297,28 @@ describe("the address correction", () => {
     await user.type(addressBox(), "{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
+  });
+
+  it("reports a refusal, a sent link and an address corrected behind a message that did not go", async () => {
+    const user = userEvent.setup();
+
+    for (const answer of [
+      { success: false, error: "Die Bewerbung ist entschieden." },
+      { success: true, verschickt: false, message: "Der Link ging nicht raus." },
+      { success: true, verschickt: true, message: "Der Link ging an clara.neu@schule.example." },
+    ]) {
+      const { unmount } = renderStrip();
+      answerWith(() => Promise.resolve(answer));
+
+      await correctClara(user, "clara.neu@schule.example{Enter}");
+      unmount();
+    }
+
+    // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
+    // refusal would otherwise reach through the hook's default raise.
+    assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
+    assert.deepEqual(titles("warning"), ["Link nicht gesendet"]);
+    assert.deepEqual(titles("success"), ["Adresse korrigiert"]);
   });
 });
 
@@ -322,20 +356,47 @@ describe("two re-sends running at once", () => {
   });
 });
 
+/** What each toast raised over a write of unknown outcome was titled and said. */
+const unknowns = (): string[][] =>
+  raised.filter((toast) => toast.options?.outcome === "unknown").map((toast) => [toast.title, toast.description ?? ""]);
+
+/** The sentence an admin write's answered unknown outcome carries, which every control shows as it stands. */
+const ANSWERED = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
+
+/**
+ * The two ways a write nobody can tell landed arrives: the action rejecting, which carries no status and no
+ * body, and the action answering that the commit's own answer was lost. One toast for both.
+ */
+const UNCLEAR_ARMS: Record<string, () => Promise<unknown>> = {
+  thrown: () => Promise.reject(new TypeError("Failed to fetch")),
+  answered: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }),
+};
+
+/** What the toast over each arm says: the control's own repair where the action threw, the answer's sentence where it answered. */
+const repairOn = (arm: string, own: string): string => (arm === "thrown" ? own : ANSWERED);
+
 describe("a write whose answer never arrives", () => {
   /* Awaited outside a transition, a rejected action reaches no error boundary: without the catch it
      leaves „Sendet...“ standing for good and says nothing. */
-  it("releases the re-send, refreshes the row and says the outcome is unknown", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip();
+  for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
+    it(`releases the re-send, refreshes the row and says the outcome is unknown, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip();
 
-    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+      await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
-    assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
-    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
+      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.deepEqual(unknowns(), [
+        [
+          "Link nicht erneut gesendet",
+          repairOn(arm, "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
+  }
 
   /* The answered arms beside it, so the catch cannot have swallowed the ordinary outcomes. */
   it("still reports a refused re-send and a sent one as themselves", async () => {
@@ -348,38 +409,53 @@ describe("a write whose answer never arrives", () => {
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
+    assert.deepEqual(unknowns(), [], "a refusal was raised as a write of unknown outcome");
     assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
   });
 
-  it("releases the correction and keeps the box open over its draft", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip();
+  for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
+    it(`releases the correction and keeps the box open over its draft, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip();
 
-    await correctClara(user, "clara.neu@schule.example{Enter}");
+      await correctClara(user, "clara.neu@schule.example{Enter}");
 
-    assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
-    assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
-    assert.equal(seen.refresh, 1);
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
+      assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
+      assert.equal(seen.refresh, 1);
+      assert.deepEqual(unknowns(), [
+        [
+          "Adresse nicht korrigiert",
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
 
-  it("releases the reseat and keeps its box open over the person typed into it", async () => {
-    const user = userEvent.setup();
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    renderStrip({ stands: standsOf(claraStieAus) });
+    it(`releases the reseat and keeps its box open over the person typed into it, ${arm}`, async () => {
+      const user = userEvent.setup();
+      answerWith(answer);
+      renderStrip({ stands: standsOf(claraStieAus) });
 
-    await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
 
-    assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
-    assert.equal(
-      screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
-      "Doreen",
-      "the person a second press would send is gone",
-    );
-    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
-    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
-  });
+      assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
+      assert.equal(
+        screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
+        "Doreen",
+        "the person a second press would send is gone",
+      );
+      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.deepEqual(unknowns(), [
+        [
+          "Rolle nicht neu besetzt",
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal."),
+        ],
+      ]);
+      assert.equal(raised.length, 1, "one press raised more than one toast");
+    });
+  }
 });
 
 describe("seating another person where one stepped out", () => {
@@ -411,24 +487,44 @@ describe("seating another person where one stepped out", () => {
     assert.ok(!reseat("Ansprechperson"), "one person's two seats each carry their own control");
   });
 
-  /* The stored record cites a Kenntnisnahme, and the person it names is not here to read it: the
-     administrator writing the record is the only one who can weigh what it claims. */
-  it("shows the wording the record it writes will cite, linked to the privacy notice", async () => {
+  /* The person reads the confirmation page and never the form, whose words address the submitter. */
+  it("shows the confirmation page's opening words every person reads alike, in its order, and none of the form's", async () => {
+    // Read off the page itself, rendered with a marker in every slot, so a paragraph the page adds,
+    // drops or moves fails here rather than drifting from the box.
+    const markiert = "MARKIERT-SLOT";
+    const seite = render(
+      underNext(h(BestaetigungHinweise, { schule: markiert, saison: markiert, rolle: markiert, mindestalter: 987, ablehnenLabel: markiert }), {
+        router,
+      }),
+    );
+    const seitenAbsaetze = [...seite.container.querySelectorAll("p, li")].map((absatz) => absatz.textContent ?? "");
+    seite.unmount();
+
     const user = userEvent.setup();
     renderStrip({ stands: standsOf(claraStieAus) });
-
     await user.click(reseat("Trainer") ?? assert.fail("the emptied seat offers no control"));
 
+    const kopf = screen.getByText("Diese Person bekommt den Bestätigungslink und wird dort gefragt:");
+    const box = kopf.parentElement ?? assert.fail("the box's heading stands in no box");
     // Read off `textContent` rather than matched as one node: the linked notice splits the paragraph
     // that names it into three, and a node matcher then finds neither half.
-    const gerendert = document.body.textContent ?? "";
+    const gezeigt = [...box.querySelectorAll("p")].filter((absatz) => absatz !== kopf).map((absatz) => absatz.textContent ?? "");
 
+    assert.notEqual(gezeigt.length, 0, "the box shows none of the page's words");
+    assert.deepEqual(
+      gezeigt,
+      seitenAbsaetze.filter((absatz) => !absatz.includes(markiert) && !absatz.includes("987")),
+      "the box shows other words than the page opens with, or in another order",
+    );
     for (const absatz of LIGA_KENNTNISNAHME.absaetze) {
-      assert.ok(gerendert.includes(absatz), `the box withholds a paragraph of the wording it stamps: ${absatz.slice(0, 40)}`);
+      assert.ok(
+        !(box.textContent ?? "").includes(absatz),
+        `the box shows the form's words to a person who never sees the form: ${absatz.slice(0, 40)}`,
+      );
     }
     assert.ok(
       screen.getAllByRole("link", { name: "Datenschutzerklärung" }).length > 0,
-      "the wording names the notice and the box gives the reader no way to it",
+      "the page links the notice and the box gives the reader no way to it",
     );
   });
 

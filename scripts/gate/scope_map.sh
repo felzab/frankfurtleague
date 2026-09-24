@@ -77,9 +77,9 @@ else
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;
-      # selfcheck.sh compares each hook registration's timeout with its child's budget, so the
-      # registrations select the scripts scope, ahead of the markdown arm an agent file would take.
-      .claude/settings.json|.claude/agents/*) scripts=true; docs=true ;;
+      # selfcheck.sh looks for the script each hook registration here names, so an edit that drops
+      # or renames one is proven by the scripts scope rather than by the session it fails.
+      .claude/settings.json) scripts=true; docs=true ;;
       # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the docs
       # gate and the formatter check it, and no test tier can say anything about it.
       *.md) docs=true ;;
@@ -99,14 +99,34 @@ else
       # the internal key's alphabet, so it owes the backend scope as well as the image's.
       fl_frontend/src/core/config.ts)
         frontend=true; images=true; backend=true; db=true; docs=true ;;
-      # Its own arm, the config.ts mapping above: joined to it, an edit here would buy the whole
-      # backend and database tier for two files no backend suite reads.
-      fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
+      # The frontend's db-tier files drive these against a real replica set, so each owes the db
+      # scope (`docs/frontend/spec.md` §1.9); the patch also ships in the image.
+      fl_frontend/src/core/auth.ts|fl_frontend/patches/*)
+        frontend=true; images=true; db=true; docs=true ;;
+      # What a db-tier file imports directly, or `test:db`'s command line loads, owes the scope that
+      # runs it (`scripts/tests/test_scope_decisions.py` derives the set). A module reached only
+      # through one of these waits for the push to main.
+      fl_frontend/src/core/passkeyRefusal.ts|fl_frontend/src/features/passkeys/actions.ts| \
+      fl_frontend/src/core/authDoubles.ts|fl_frontend/src/shared/utils/refusal.ts| \
+      fl_frontend/app-source-maps.mjs|fl_frontend/tsconfig-alias-hook.mjs| \
+      fl_frontend/barrel-imports-hook.mjs|fl_frontend/worker-exit-reporter.mjs)
+        frontend=true; db=true; docs=true ;;
+      # Every extension `test:db` collects, so no db-tier file changes outside the scope that runs it.
+      fl_frontend/*.db.test.cjs|fl_frontend/*.db.test.mjs|fl_frontend/*.db.test.js| \
+      fl_frontend/*.db.test.cts|fl_frontend/*.db.test.mts|fl_frontend/*.db.test.ts)
+        frontend=true; db=true; docs=true ;;
+      # Its own arm, apart from config.ts's above: joined to it, an edit here would buy the whole
+      # backend and database tier for a file no backend suite reads.
+      fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
-      # next.config.ts owns output:"standalone" and the file tracing the image copies;
-      # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both can
+      # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys, which can break
+      # only the image while the host build stays green. The manifests and the lockfile also pin
+      # what the db-tier files start their server with.
+      fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/pnpm-workspace.yaml)
+        frontend=true; images=true; db=true; docs=true ;;
+      # next.config.ts owns output:"standalone" and the file tracing the image copies, which can
       # break only the image while the host build stays green.
-      fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
+      fl_frontend/next.config.ts)
         frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker. A line
       # of its own, so CI and `check_scope.py` read this vocabulary rather than translating it.
@@ -115,10 +135,10 @@ else
       # ruff and pyright come out of the virtualenv this lockfile pins: both govern that scope
       # without living in it.
       fl_backend/pyproject.toml|fl_backend/uv.lock) scripts=true; backend=true; db=true; images=true; docs=true ;;
-      # Not in .dockerignore, so `COPY . .` carries it into the builder stage, where `uv sync
-      # --frozen` reads it to pick the interpreter — a pin below `requires-python` fails the build
-      # there, and no host-side check runs it.
-      fl_backend/.python-version) backend=true; db=true; images=true; docs=true ;;
+      # Every scope running the virtualenv this file pins, and the image's builder stage. The frontend
+      # and images jobs take a bare interpreter from it for the step pool alone, where a low pin
+      # costs the pool, never a verdict.
+      fl_backend/.python-version) scripts=true; docs=true; backend=true; ops=true; db=true; images=true ;;
       # The published API surface. It selects the frontend scope too, or a change confined to
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
@@ -131,7 +151,7 @@ else
       fl_backend/app/api/bewerbungen/services.py|fl_backend/app/api/saisons/schemas.py| \
       fl_backend/app/api/saisons/services.py|fl_backend/app/api/teams/crud.py| \
       fl_backend/app/core/collections.py|fl_backend/app/core/constraints.py| \
-      fl_backend/tests/shared/address_lines.json)
+      fl_backend/tests/shared/address_lines.json|fl_backend/tests/shared/email_addresses.json)
         backend=true; db=true; frontend=true; docs=true ;;
       # prettier's configuration and its ignore file decide what the format scope proves, so a change
       # to either is a change to that scope — and to nothing else, the build reading neither.
@@ -158,7 +178,14 @@ else
       fl_frontend/src/features/saisons/actions.ts| \
       fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx)
         frontend=true; backend=true; db=true; docs=true ;;
+      # `fl_backend/tests/core/test_request_deadline.py` holds the backend's request deadline under
+      # this module's fetch ceiling, so a raised or lowered ceiling would otherwise reach that
+      # comparison no earlier than the push to main.
+      fl_frontend/src/core/api.ts) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
+      # The db tier's image is named here, and `fl_frontend/src/core/mongoImage.test.ts` holds the
+      # frontend's db-tier files to it, so a bump here owes the frontend scope too.
+      fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats
       # them. Both carry `docs`, their comments being documentation (INC-6).

@@ -8,8 +8,9 @@ export const DOUBLE_PRESS_MS = 500;
 
 /**
  * The confirm-then-write control: the first press arms, the second writes — unless it lands within
- * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Eight
- * irreversible operations share it, so no two drift apart.
+ * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Every
+ * arming panel shares it (`fl_frontend/src/shared/components/ui/confirmPanel.test.ts`), so no two
+ * drift apart.
  */
 export function useTwoPressConfirm(guard?: () => boolean): {
   isConfirming: boolean;

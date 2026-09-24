@@ -2,11 +2,11 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen.ts";
@@ -88,6 +88,12 @@ function readout(label: string): string | null {
   return at === -1 ? null : (screen.getAllByRole("definition")[at]?.textContent ?? null);
 }
 
+/**
+ * Awaited, never read at once: the first press arms only once the preview it asked for has landed,
+ * which is after the press's own event and later still on a loaded machine.
+ */
+const armedStep = (): Promise<HTMLElement> => screen.findByRole("button", { name: ARMED });
+
 beforeEach(() => {
   calls.length = 0;
   raised.length = 0;
@@ -95,6 +101,8 @@ beforeEach(() => {
 });
 
 describe("the season's bulk invite send", () => {
+  const zeile = (team_name: string): string => screen.getByText(team_name).closest("li")?.textContent ?? "";
+
   it("reads the preview on the first press and arms on the same gesture, over the rule the press then performs", async () => {
     const user = userEvent.setup();
     answerWith(vorschauAntwort(VORSCHAU));
@@ -120,6 +128,32 @@ describe("the season's bulk invite send", () => {
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
   });
 
+  /* The read holds the press until its list lands, and the list arms it: a render showing the press
+     armed while still held drops the press a reader aims at it, and nothing is sent. */
+  it("never shows the press armed while the read still holds it", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    // Every render the panel commits rather than the one a query lands on: the held one lasts a frame.
+    const armedWhileHeld: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      const armed = [...document.querySelectorAll("button")].find((button) => button.textContent.includes(ARMED));
+      if (armed !== undefined) armedWhileHeld.push(armed.getAttribute("data-pending") === "true");
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    try {
+      await user.click(screen.getByRole("button", { name: RESTING }));
+      await armedStep();
+      await waitFor(() => assert.equal(screen.getByRole("button", { name: ARMED }).getAttribute("data-pending"), null));
+    } finally {
+      observer.disconnect();
+    }
+
+    assert.ok(armedWhileHeld.length > 0, "no render showed the armed press, so nothing here was observed");
+    assert.equal(armedWhileHeld.includes(true), false, "a render showed the press armed while the read still held it");
+  });
+
   /* The four are ordinary states of a season being set up, so each is named as itself: one sentence
      for all of them would send somebody hunting for a fault in the teams that have none. */
   it("names each of the four skips as its own state, beside the team it is about", async () => {
@@ -128,6 +162,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.ok(isInTheFlow("Keine Kontaktdaten hinterlegt"), "the team with no contact block is not told apart");
     assert.ok(isInTheFlow("Niemand hat die Kontaktdaten bisher selbst bestätigt"), "the team with no confirmed seat is not told apart");
@@ -158,6 +193,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.ok(isInTheFlow("Ersetzt den Link, den dieses Team schon hat"), "the row whose link this press kills says nothing");
     assert.equal(readout("Verlieren ihren Link"), "1");
@@ -175,6 +211,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
 
     assert.equal(isInTheFlow("Ersetzt den Link, den dieses Team schon hat"), false, "a row that replaces nothing says it does");
     assert.equal(readout("Verlieren ihren Link"), "0");
@@ -191,11 +228,12 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the preview never landed, so the drop below proves nothing");
 
     await user.click(screen.getByRole("switch"));
     assert.equal(isInTheFlow("Hat den Link schon bekommen"), false, "the list judged with the other value is still on screen");
-    assert.equal(screen.queryByRole("alert"), null, "the armed step outlived the list it was armed over");
+    assert.ok(screen.queryByRole("alert") === null, "the armed step outlived the list it was armed over");
 
     await pressTwice(user, {
       resting: RESTING,
@@ -220,8 +258,9 @@ describe("the season's bulk invite send", () => {
 
     await user.click(screen.getByRole("button", { name: RESTING }));
 
-    assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing");
-    assert.equal(screen.queryByRole("alert"), null, "an empty season armed a press with nothing behind it");
+    // Nothing arms here to be awaited, so the empty state is.
+    await waitFor(() => assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing"));
+    assert.ok(screen.queryByRole("alert") === null, "an empty season armed a press with nothing behind it");
     // Awaited, because the control is pending-marked while the read it was handed is still in
     // flight, and a closed control is only announced as closed once that mark lifts.
     await screen.findByRole("button", { name: RESTING, description: "Diese Saison hat noch kein Team aufgenommen." });
@@ -235,8 +274,14 @@ describe("the season's bulk invite send", () => {
     answerWith(vorschauAntwort(VORSCHAU));
     render(panel());
 
-    await user.click(screen.getByRole("button", { name: RESTING }));
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    // The clock held still, so waiting for the armed step cannot carry the second press past the window.
+    mock.timers.enable({ apis: ["Date"] });
+    try {
+      await user.click(screen.getByRole("button", { name: RESTING }));
+      await user.click(await armedStep());
+    } finally {
+      mock.timers.reset();
+    }
 
     assert.equal(sent("postEinladungVersandAction").length, 0, "a double click sent the whole season its links");
     assert.ok(screen.getByRole("alert"), "the armed step was dropped by the click it was supposed to ignore");
@@ -246,8 +291,8 @@ describe("the season's bulk invite send", () => {
     render(panel(true));
 
     assert.ok(isInTheFlow("Für eine abgeschlossene Saison werden keine Registrierungslinks mehr gesendet"));
-    assert.equal(screen.queryByRole("button", { name: RESTING }), null, "a finished season is offered a press the endpoint refuses");
-    assert.equal(screen.queryByRole("switch"), null, "a finished season is offered the re-send choice");
+    assert.ok(screen.queryByRole("button", { name: RESTING }) === null, "a finished season is offered a press the endpoint refuses");
+    assert.ok(screen.queryByRole("switch") === null, "a finished season is offered the re-send choice");
   });
 
   /* The partial row is the one a shortfall hides in: a count of what went out says nothing about
@@ -260,7 +305,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
-      whileArmed: () =>
+      whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
             success: true,
@@ -311,16 +356,19 @@ describe("the season's bulk invite send", () => {
                 team_name: "Bettinaschule",
                 uebersprungen: "erzeugung_fehlgeschlagen",
                 ersetzt_link: false,
+                hatte_link: true,
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
               },
             ],
           }),
-        ),
+        );
+      },
     });
 
-    assert.ok(isInTheFlow("An die Adresse gesendet"), "the team reached at its one address reports nothing");
+    // The result renders once the write the second press started answers, after that press's own event.
+    await waitFor(() => assert.ok(isInTheFlow("An die Adresse gesendet"), "the team reached at its one address reports nothing"));
     assert.ok(isInTheFlow("Gesendet: 2 von 3"), "the team reached in part reads as reached whole");
     assert.ok(
       isInTheFlow("Nicht erreicht: gelöscht@beispiel.de"),
@@ -338,5 +386,100 @@ describe("the season's bulk invite send", () => {
       "nothing says the failed team keeps the link it had, so somebody will assume it lost one",
     );
     assert.equal(raised[0]?.variant, "success");
+  });
+
+  /* The commit went out and no answer came back, so the row is true of a link revoked and of one
+     that still opens, and says nothing about a previous link to a team that held none. */
+  it("words a mint of unknown outcome apart from a failed one, naming a previous link only where there was one", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    const unklar = (team_id: string, team_name: string, ersetzt_link: boolean) => ({
+      team_id,
+      team_name,
+      uebersprungen: "erzeugung_ungewiss",
+      ersetzt_link,
+      zugestellt: [],
+      unerreichbar: [],
+      zurueckgehalten: [],
+    });
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 0 von 2 Teams.",
+            zeilen: [unklar(ID("a"), "Ernst-Reuter-Schule", true), unklar(ID("f"), "Wöhlerschule", false)],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("Unklar"), "the result rows did not render"));
+    assert.equal(
+      zeile("Ernst-Reuter-Schule"),
+      "Ernst-Reuter-Schule" +
+        "Unklar, ob ein neuer Registrierungslink angelegt wurde" +
+        "Der bisherige Link dieses Teams gilt vielleicht nicht mehr. " +
+        "Ein neuer Versand schickt dem Team einen Link, wenn sein bisheriger nicht mehr gilt oder es noch keinen bekommen hat.",
+    );
+    assert.equal(
+      zeile("Wöhlerschule"),
+      "Wöhlerschule" +
+        "Unklar, ob ein neuer Registrierungslink angelegt wurde" +
+        "Ein neuer Versand schickt dem Team einen Link, wenn sein bisheriger nicht mehr gilt oder es noch keinen bekommen hat.",
+    );
+  });
+
+  /* A rollback leaves the team as it was, and a team that held no link, or whose link the press
+     failed before reading, keeps nothing a sentence may name. */
+  it("says a failed team keeps its link only where the press found one", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    const fehlgeschlagen = (team_id: string, team_name: string, hatte_link: boolean | null) => ({
+      team_id,
+      team_name,
+      uebersprungen: "erzeugung_fehlgeschlagen",
+      ersetzt_link: false,
+      hatte_link,
+      zugestellt: [],
+      unerreichbar: [],
+      zurueckgehalten: [],
+    });
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 0 von 3 Teams.",
+            zeilen: [
+              fehlgeschlagen(ID("a"), "Ernst-Reuter-Schule", true),
+              fehlgeschlagen(ID("f"), "Wöhlerschule", false),
+              fehlgeschlagen(ID("g"), "Bettinaschule", null),
+            ],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("nicht angelegt"), "the result rows did not render"));
+    assert.equal(
+      zeile("Ernst-Reuter-Schule"),
+      "Ernst-Reuter-Schule" +
+        "Registrierungslink nicht angelegt" +
+        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal.",
+    );
+    for (const team_name of ["Wöhlerschule", "Bettinaschule"]) {
+      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es noch einmal.");
+    }
   });
 });

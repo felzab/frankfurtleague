@@ -55,11 +55,6 @@ did the reasonable thing in their absence.
 - **Where the session is rewriting the rules it works under, every instruction citing one says which
   version it means.** An agent reading `HEAD` is right to refuse a clause that exists only in the
   revision being assembled, and you are the only party holding both texts.
-- **Where the work needs a path that merely looks credential-shaped** — a dotfile glob, a compose
-  filename, anything under the virtualenv — the item says it is read with the `Read` tool. The
-  credential guard judges the command text, so a shell read of such a path is refused; the agent
-  that meets that refusal complies and reports it, correctly (section 10), at the cost of a round
-  trip you could have spent one clause avoiding.
 
 ```
 1  OWNERSHIP.   The exact files you may write, listed in full:
@@ -131,8 +126,9 @@ did the reasonable thing in their absence.
                 The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
                 a run over a tree the fleet is writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.
-                `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed and
-                whose draft pull request is open. That definition is addressed to me, not to you:
+                `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed, whose
+                draft pull request is open and whose every check has concluded. That definition is
+                addressed to me, not to you:
                 YOU are finished when your report lands.
 
 6  SUB-AGENTS.  ZERO, whatever this task looks like it needs. `/docs:audit` fans out to a fleet of
@@ -146,12 +142,8 @@ did the reasonable thing in their absence.
                 message, a hunk for someone else's file, a copy to measure against. Your report
                 is not a file at all (section 14).
                 Agents sharing one directory overwrite each other in it.
-                Keep scratch out of the repository: `.claude/hooks/guard-credential-shell.sh`
-                refuses a shell command naming a path `.gitignore` matches, outside the
-                exemptions it lists, so a scratch file under the repository is one no command of
-                yours can reach. The Read tool still opens it, which is what makes the gap easy
-                to miss: you write the file, read it back, and find out only when a script needs
-                it.
+                Keep scratch out of the repository: an untracked file there is part of the tree
+                every scoped gate run reads, so it widens or refuses somebody else's run.
 
 8  PLANT AND    Proving a check can fail means planting a violation and restoring it, and the
    RESTORE.     tree you are planting in is shared.
@@ -193,8 +185,8 @@ did the reasonable thing in their absence.
                   harness kills at ten seconds ran its own watchdog at fifteen, and a killed
                   hook's silence reads as permission. State both budgets, which must be the
                   smaller, and add the check holding them in order -- two files enforce nothing.
-                - One purpose per shell command. A compound line gives a text-matching guard more
-                  to object to, and its refusal then names something none of the commands touched.
+                - One purpose per shell command. A deny rule matching any one command of a compound
+                  line refuses the whole line, and every other command in it goes unrun.
                 - Once any agent has saved an edit to a path `scripts/gate/scope_map.sh` maps to
                   the images scope, the gate hard-refuses any scope without `--images`, because
                   the scope check reads the working tree rather than your diff. That file decides
@@ -307,16 +299,14 @@ Two forms, and the agent type decides which (`SKILL.md` §3).
 
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 
-Its tools are `Read`, `Grep`, `Glob` and `Write`: no shell, no `Edit`, no sub-agents, and no
-destination its `Write` may use — a hook refuses the repository, and the harness **instructs** every
-subagent not to write a report file, which is an instruction rather than an error, so such a write
-succeeds at exit 0 and nothing announces that the report went nowhere anyone reads.
+Its tools are `Read`, `Grep` and `Glob`: no shell, no `Write`, no `Edit`, no sub-agents, so it
+writes nothing anywhere and its report is its final message.
 **Replace sections 1, 2, 3, 10, 11 and 14, and drop sections 5, 7, 8, 9 and 12.** Five and nine are
 shell — an enumeration of git commands, and traps about running things; seven hands out a scratch
 directory this agent has nothing to put in; eight governs planting and twelve measuring, and it can
 do neither. Ten is replaced rather than dropped because its
 second half, a guard refusal being a rule arriving, is the one clause of it this agent will meet:
-its own `Write` hits that refusal. Section 14 goes because (a) to (c) ask for files written, files
+its own `Read` of a credential path hits a deny rule. Section 14 goes because (a) to (c) ask for files written, files
 restored and exit codes, none of which this agent can produce; `.claude/agents/cold-auditor.md`
 holds the replacement — the order **and the medium** — which the block below cites rather than
 copies (COR-2). Never restate that contract in a brief: the definition replaces the brief's section
@@ -329,8 +319,7 @@ briefed to read a diff it audits the tree as it stands, which cannot say which d
 introduced and which predate it.
 
 ```
-1  OWNERSHIP.   You write nothing: not in the repository, where a hook refuses it, and not a
-                report file, which the harness tells you not to write. Your report is your final
+1  OWNERSHIP.   You write nothing, having no tool that writes. Your report is your final
                 message, under section 14.
 
 2  READ RULE.   You have no shell, so you cannot read committed state yourself. It reaches you in

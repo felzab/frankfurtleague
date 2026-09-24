@@ -16,6 +16,7 @@ from app.api.schiedsrichter.admin_router import (
     einladen_schiedsrichter,
     patch_schiedsrichter,
     post_schiedsrichter,
+    reactivate_schiedsrichter,
 )
 from app.api.schiedsrichter.bestaetigung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.schiedsrichter.router import get_schiedsrichter
@@ -34,6 +35,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ALTER,
     SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
+    SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
@@ -47,6 +49,7 @@ from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -75,6 +78,8 @@ DEFAULT_PAYMENT = 20
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
 BANNED_EMAIL = "gesperrt@example.com"
+# Under RFC 6761's reserved `.invalid`, which no mail system delivers to.
+PLACEHOLDER_EMAIL = "adresse-fehlt@frankfurtleague.invalid"
 TELEFON = "+49 69 1234567"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -294,19 +299,6 @@ class TestTheCreateIsTheInvitation:
         assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(response.bestaetigung.token)
         assert row[BESTAETIGUNG_FELD]["frist"] == response.bestaetigung.frist == bestaetigung_frist_from(today=TODAY)
 
-    def test_a_create_without_an_address_mints_nothing(self, mongo_replica_set_url: str):
-        """The case that fails the day somebody restores the separate mint press: a row with no address is an ordinary state."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await create(database, client, email=None)
-
-            return response, await stored(database, response.created_id)
-
-        response, row = on_a_league(mongo_replica_set_url, body, referees=[])
-
-        assert response.bestaetigung is None
-        assert BESTAETIGUNG_FELD not in row
-
     def test_the_link_the_create_answered_opens_that_referees_entry(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await create(database, client)
@@ -333,6 +325,32 @@ class TestTheCreateIsTheInvitation:
 
         assert refused.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
         assert rows == 0
+
+    def test_a_league_that_has_run_no_season_still_invites(self, mongo_replica_set_url: str):
+        """A league before its first season counts no ban's seasons, so the create asks the hash alone rather than failing on the season."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].delete_many({})
+
+            return await create(database, client)
+
+        assert on_a_league(mongo_replica_set_url, body, referees=[]).bestaetigung is not None
+
+    def test_a_league_that_has_run_no_season_still_refuses_a_banned_address(self, mongo_replica_set_url: str):
+        """The control: a create skipping the ban list whenever there is no season would pass the case above."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, client, email=BANNED_EMAIL)
+            await database[Collection.SAISONS].delete_many({})
+            # The ban's own write cached the season it counted from, which would answer the create.
+            invalidate_saison_cache()
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await create(database, client, email=BANNED_EMAIL)
+
+            return refused.value
+
+        assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
     def test_the_link_it_answered_is_the_one_a_delivery_report_applies_to(self, mongo_replica_set_url: str):
         """The carrier this create composes is what `POST /zustellung/angenommen` files a send against.
@@ -416,25 +434,29 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         assert unchanged.bestaetigung is None
         assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(before.bestaetigung.token)
 
-    def test_a_retired_referee_is_refused_and_the_rename_is_rolled_back(self, mongo_replica_set_url: str):
-        """The save is the second mint, and a retired row takes no new booking: a link mailed here collects for a role nobody can give."""
+    def test_a_retired_referees_new_address_is_stored_and_mints_nothing(self, mongo_replica_set_url: str):
+        """A retired person is asked nothing, and the save is not refused for it: every save carries an address, so a refusal locks the row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await resend(database, client)
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": "2026-01-01"}})
+            saved = await correct(database, client, email=CORRECTED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
-                await correct(database, client, email=CORRECTED_EMAIL)
+            with pytest.raises(DocumentConflictException) as old_link:
+                await ansicht(database, first.bestaetigung.token)
 
-            return refused.value, await stored(database)
+            return saved, await stored(database), old_link.value
 
-        refused, row = on_a_league(mongo_replica_set_url, body)
+        saved, row, old_link = on_a_league(mongo_replica_set_url, body)
 
-        assert refused.error_code == SCHIEDSRICHTER_RETIRED
-        assert row["kontakt"]["email"] == EMAIL
+        assert saved.bestaetigung is None
+        assert row["kontakt"]["email"] == CORRECTED_EMAIL
+        # The old link went to the mailbox the save moved away from, so it dies with no successor.
         assert BESTAETIGUNG_FELD not in row
+        assert old_link.error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
 
     def test_a_retired_referee_whose_address_does_not_move_is_saved(self, mongo_replica_set_url: str):
-        """The control: the refusal above rides on the mint and never on the rename, which a retired referee is still owed."""
+        """The control under the case above: nothing there refuses a retired row outright, the rename being still owed to it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": "2026-01-01"}})
@@ -600,6 +622,23 @@ class TestTheReSend:
         assert refused.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
         assert BESTAETIGUNG_FELD not in row
 
+    def test_a_stored_address_no_payload_would_take_is_refused_as_none(self, mongo_replica_set_url: str):
+        """The placeholder a row without an address is given.
+
+        The ban-list hash cannot key it, so unjudged it answers 500 rather than a refusal the panel words.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refused:
+                await resend(database, client)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL)])
+
+        assert refused.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
+        assert BESTAETIGUNG_FELD not in row
+
     def test_an_address_on_the_ban_list_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
@@ -635,6 +674,84 @@ class TestTheReSend:
             return None
 
         on_a_league(mongo_replica_set_url, body)
+
+
+async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    return await reactivate_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+        config=CONFIG,
+        today=TODAY,
+    )
+
+
+RETIRED: Mapping[str, Any] = {"inactive_since": "2026-01-01"}
+
+
+class TestTheReactivation:
+    """The mint a retired referee's save withholds: bringing an unanswered referee back is what asks them."""
+
+    def test_an_unanswered_referee_is_minted_a_link_the_stored_hash_matches(self, mongo_replica_set_url: str):
+        """In ONE write: the revival and the mint are one press, so the log holds one row for it."""
+
+        naming = {"collection": str(Collection.SCHIEDSRICHTER), "document_id": SCHIEDSRICHTER_OID}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await database[Collection.AKTIONEN].count_documents(naming)
+            response = await reactivate(database, client)
+            filed = await database[Collection.AKTIONEN].count_documents(naming) - before
+
+            return response, await stored(database), filed
+
+        response, row, filed = on_a_league(mongo_replica_set_url, body, referees=[referee_document(**RETIRED)])
+
+        assert row["inactive_since"] is None
+        assert response.bestaetigung.email == EMAIL
+        assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(response.bestaetigung.token)
+        assert filed == 1
+
+    def test_a_row_holding_the_placeholder_comes_back_unasked(self, mongo_replica_set_url: str):
+        """Entering the real address is the save that mints; a link minted here would go to nobody."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await reactivate(database, client), await stored(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL, **RETIRED)])
+
+        assert row["inactive_since"] is None
+        assert response.bestaetigung is None
+        assert BESTAETIGUNG_FELD not in row
+
+    def test_a_referee_who_has_answered_comes_back_unasked(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await resend(database, client)
+            await confirm(database, client, first.bestaetigung.token)
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": dict(RETIRED)})
+
+            return first, await reactivate(database, client), await stored(database)
+
+        first, response, row = on_a_league(mongo_replica_set_url, body)
+
+        assert response.bestaetigung is None
+        assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(first.bestaetigung.token)
+
+    def test_a_banned_address_is_refused_and_the_row_stays_retired(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, client, email=BANNED_EMAIL)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await reactivate(database, client)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL, **RETIRED)])
+
+        assert refused.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
+        assert row["inactive_since"] == RETIRED["inactive_since"]
+        assert BESTAETIGUNG_FELD not in row
 
 
 class TestTheConfirmation:
@@ -786,3 +903,55 @@ class TestAWithheldNameReachesOneCollection:
 
         assert after == before
         assert after["schiedsrichter"] == BOOKING
+
+
+# Against `TODAY`, 18 to the day and 17 years and 364 days.
+AT_THE_MEDIA_AGE = "2008-04-01"
+A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
+
+
+class TestTheMediaAge:
+    """`REQ-SCHIEDSRICHTER-008` at the endpoint: the refusal is wired in, and judged before the write."""
+
+    def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+
+            return await ansicht(database, minted.bestaetigung.token)
+
+        assert on_a_league(mongo_replica_set_url, body).medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_yes_a_day_short_of_the_media_age_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body)
+
+        assert refused.error_code == SCHIEDSRICHTER_MEDIEN_ALTER
+        assert row.get("geburtsdatum") is None
+        assert row.get(EINWILLIGUNG_FELD) is None
+
+    def test_a_yes_at_the_media_age_to_the_day_is_stored(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a refusal of every yes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is True
+
+    def test_a_no_a_day_short_of_the_media_age_is_stored(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=False)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is False

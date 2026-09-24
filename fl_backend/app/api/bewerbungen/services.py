@@ -1,20 +1,22 @@
 import hashlib
+import json
 import secrets
 from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 from typing import Any, Final, cast, get_args
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerbungSaisonbezug, FLKontaktRolle, refuse_age_outside_the_bounds
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import mailbox_key
+from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
 )
@@ -34,6 +36,7 @@ BEWERBUNG_SEAT_ALREADY_ANSWERED = "REQ-BEWERBUNG-011"
 BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
 BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
 BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
+BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -160,7 +163,7 @@ def recorded_window(*, bewerbung: Any) -> Mapping[str, Any] | None:
 
 
 def window_is_running(*, bewerbung: Any, today: str) -> bool:
-    """Whether this season takes applications on `today`: `offen`, AND the day inside the span.
+    """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
 
     Both ends are compared rather than assuming `von <= bis`: span ordering is enforced on the
     season PAYLOAD alone, so a stored reversal is reachable.
@@ -172,14 +175,30 @@ def window_is_running(*, bewerbung: Any, today: str) -> bool:
     return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
 
 
-def find_window_refusal(*, bewerbung: Any, today: str) -> WriteRefusal | None:
-    """Why this season is taking no application today, or `None`.
+def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
+    """Whether this season takes an application on `today`.
 
-    ONE code for all three ways -- no window, the flag off, the day outside the span. Naming which
-    would report a season's administrative state to an anonymous visitor.
+    A finished season's window is over for good, whatever dates it still stores: the payload names
+    the season, and the dates alone would still admit an application into one that has ended.
     """
 
-    if window_is_running(bewerbung=bewerbung, today=today):
+    return not season_has_ended(saison_status=saison_status) and window_is_running(bewerbung=bewerbung, today=today)
+
+
+# `season_has_ended`'s negation for a read that narrows in the query. No stored season lacks a
+# status, the validator requiring one (`app/core/constraints.py :: COLLECTION_VALIDATORS`), which is why
+# the readers of this filter's rows subscript it.
+SAISON_NOT_ENDED_FILTER: Final[Mapping[str, Any]] = {"status": {"$ne": "past"}}
+
+
+def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> WriteRefusal | None:
+    """Why this season is taking no application today, or `None`.
+
+    ONE code for every way `saison_nimmt_bewerbungen_an` says no: naming which would report a
+    season's administrative state to an anonymous visitor.
+    """
+
+    if saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
         return None
 
     return WriteRefusal(
@@ -254,6 +273,100 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
         )
 
     return None
+
+
+# --- The SUBMISSION KEY (`docs/backend/spec.md :: I346`), which the registration's
+# submission takes from here as it takes `mint_token`.
+
+
+def payload_fingerabdruck(payload: BaseModel) -> str:
+    """The digest a replayed key's payload is compared by.
+
+    Over the VALIDATED payload: two spellings the model stores alike, or one body serialised in two
+    key orders, are one request. Keys sorted, so a mapping-typed field cannot reorder it.
+    """
+
+    canonical = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_schluessel_filter(*, schluessel: str) -> Mapping[str, Any]:
+    """The key lookup, carrying the unique index's partial term.
+
+    An equality alone does not imply `$type`, so without the term the planner scans the whole collection.
+    """
+
+    return {"idempotenz_schluessel": {"$eq": schluessel, "$type": "string"}}
+
+
+def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+    """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
+
+    Refused rather than answered as the stored one, which would tell the applicant a changed field
+    had arrived.
+    """
+
+    if gespeichert == fingerabdruck:
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_SCHLUESSEL_ABWEICHEND,
+        message="this submission key already carries an application sent with other details; the first one stands as it was sent",
+    )
+
+
+def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
+    """The state a replay hands fresh links in, as its update's filter; `None` where a seat holds no live entry.
+
+    No seat answered, reminded or on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    """
+
+    block = bewerbung_raw.get("bestaetigungen")
+    entries = {seat: _entry_of(block, seat) for seat in KONTAKT_SEATS}
+
+    terms: dict[str, Any] = {}
+    unerreicht: list[Mapping[str, Any]] = []
+    for seat, entry in entries.items():
+        if entry is None or not isinstance(entry.get("token_hash"), str):
+            return None
+
+        terms[f"bestaetigungen.{seat}.erinnert_am"] = None
+        terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
+
+    # The deadline's own day still takes a link, as `link_is_over` reads it.
+    return {"_id": bewerbung_raw["_id"], "status": "eingereicht", "bestaetigungsfrist": {"$gte": today}, **terms, "$and": unerreicht}
+
+
+# The two states in which no message reached the inbox: the provider refused the address, or never sent
+# to it. `beschwerde` is not one -- that message arrived, and its reader complained about it.
+ZUSTELLUNG_NICHT_ANGEKOMMEN: Final = ("unterdrueckt", "unzustellbar")
+
+
+def zustellung_unerreicht_term(*, pfad: str) -> Mapping[str, Any]:
+    """No message on record under `pfad`, or only one that never arrived: a replay then mails, as the first press would have.
+
+    A refused send left unmailed would answer a receipt promising a mail nobody got.
+    """
+
+    return {"$or": [{pfad: None}, {f"{pfad}.stand": {"$in": list(ZUSTELLUNG_NICHT_ANGEKOMMEN)}}]}
+
+
+def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: Any) -> Mapping[str, Any]:
+    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
+
+    Neither `erinnert_am` nor the deadline moves, a replay being neither a reminder nor a re-send.
+    """
+
+    written: dict[str, Any] = {}
+    for seat, token_hash in hashes.items():
+        entry = _entry_of(bestaetigungen, seat) or {}
+        written[f"bestaetigungen.{seat}.token_hash"] = token_hash
+        written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
+
+    return {"$set": written}
 
 
 def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
@@ -507,8 +620,8 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a bare `REQ-VAL-001`, which
-    lets the page mark its one field. Judged BEFORE any write, so a mistyped year spends nothing.
+    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a `REQ-VAL-001`, whose mark on
+    the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
     """
 
     try:
@@ -643,7 +756,9 @@ def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, 
         written[f"kontakte.{seat}"] = None
         written[f"bestaetigungen.{seat}.abgelehnt_am"] = today
 
-    return {"$set": written}
+    # The submission's digest was taken over this person's details too, and a hash of personal data is
+    # still personal data. A replay then meets the refusal of other details, which stays true.
+    return {"$set": written, "$unset": {"idempotenz_fingerabdruck": ""}}
 
 
 def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
@@ -660,6 +775,22 @@ def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, 
     return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist}}
 
 
+def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
+    """`seat_is_answered` negated per seat, as the re-send's own filter.
+
+    The re-send reads outside any transaction and replaces the WHOLE entry, so an answer or an
+    erasure committed after its read would otherwise lose its record under a live link.
+    """
+
+    unanswered: dict[str, Any] = {}
+    for seat in seats:
+        unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
+        unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+
+    return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
+
+
 def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
     """Why this address cannot be the seat's, or `None`.
 
@@ -671,11 +802,11 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
     # The seats this correction writes are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
     others = [slots.get(seat) for seat in KONTAKT_SEATS if seat not in seats]
-    # Case-INSENSITIVELY over the whole address, as `FLBewerbungKontaktePayload` compares it: a third
-    # spelling of "one mailbox" here would refuse where the form accepted, or the reverse.
-    held = {str(slot.get("email") or "").casefold() for slot in others if isinstance(slot, Mapping)}
+    # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
+    # mailbox" here would refuse where the form accepted, or the reverse.
+    held = {sign_in_identifier(str(slot.get("email") or "")) for slot in others if isinstance(slot, Mapping)}
 
-    if email.casefold() in held:
+    if sign_in_identifier(email) in held:
         return WriteRefusal(
             error_code=BEWERBUNG_KONTAKT_EMAIL_TAKEN,
             message="another contact person on this application is reached at this address; two different people share no mailbox",
@@ -874,6 +1005,20 @@ def one_month_after(*, day: str) -> str:
     return date(year, month, min(start.day, last_day.day)).isoformat()
 
 
+def latest_decision_due(*, today: str) -> str:
+    """The last decision day whose month is behind it today.
+
+    Found through `one_month_after`, never a month counted back from today: that month CLAMPS to a
+    short month's end and drops the due decisions of the days past it.
+    """
+
+    day = date.fromisoformat(today)
+    while one_month_after(day=day.isoformat()) > today:
+        day -= timedelta(days=1)
+
+    return day.isoformat()
+
+
 def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str) -> bool:
     """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
 
@@ -1011,6 +1156,50 @@ def compose_ankuendigung_update(*, today: str) -> Mapping[str, Any]:
     """The stamp the deletion notice earns, written only where none stands: an existing one is the day that notice was settled."""
 
     return {"$set": {"loeschung_angekuendigt_am": today}}
+
+
+# One read's ceiling, and one past it tells a full page from a truncated one
+# (`docs/backend/spec.md :: I295`, which the registration sweep keeps the same way).
+SWEEP_PAGE: Final = LIST_LIMIT_MAX
+
+
+# The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat leaves the read.
+def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
+    return {
+        f"bestaetigungen.{seat}.verschickt_am": {"$lte": days_after(day=today, days=-BEWERBUNG_ERINNERUNG_TAGE)},
+        f"bestaetigungen.{seat}.erinnert_am": None,
+        f"bestaetigungen.{seat}.abgelehnt_am": None,
+        f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
+    }
+
+
+def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+    """Every application with a seat owed its reminder, as `reminder_seats` judges it.
+
+    In the query: the clock stamps a share a pass, and a read keeping stamped rows hands the next
+    pass the same page.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "status": "eingereicht",
+        # `$not` rather than `$gte`: a row carrying no readable deadline has a link that is not over.
+        "bestaetigungsfrist": {"$not": {"$lt": today}},
+        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_SEATS],
+    }
+
+
+def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+    """Every application `deletion_is_due` takes, as a query: a held one would otherwise fill the page ahead of a due one."""
+
+    return {
+        "saison_id": saison_id,
+        "status": "eingereicht",
+        "bestaetigungsfrist": {"$lt": today},
+        "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_SEATS],
+    }
 
 
 def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:

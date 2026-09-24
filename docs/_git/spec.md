@@ -51,6 +51,11 @@ git pull --ff-only origin main
 git checkout -b short-kebab-name
 ```
 
+**`.githooks/pre-commit` refuses a commit on `main`**, the one a forgotten branch makes, and is
+convenience rather than the enforcement. A clone without §1.3's `core.hooksPath` line has no hook;
+on `main`, a clean merge, cherry-pick or revert runs none, and a rebase passes it even through a
+conflict. Each of those meets the ruleset's refusal at the push (I1).
+
 **A branch that lives for days merges `main` into itself continuously.** One touching shared
 documentation conflicts on every shared page, and the cost compounds until it is paid.
 
@@ -232,7 +237,7 @@ ruleset targeting the default branch, enforcement **Active**.
 | Restrict deletions                    | on                                                                                     | Rules → Rulesets             |
 | Block force pushes                    | on                                                                                     | Rules → Rulesets             |
 | Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
-| Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                                     | Rules → Rulesets             |
+| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                             | Rules → Rulesets             |
 | Require branches up to date to merge  | **off**                                                                                | Rules → Rulesets             |
 | Require linear history                | **off**                                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                                              | Rules → Rulesets             |
@@ -345,13 +350,13 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 **Recovering commits already made on local `main`:**
 
 ```bash
-git branch short-kebab-name        # mark the commits FIRST, or the rewind below strands them
-git reset --hard origin/main       # rewind local main to the remote -- discards the working tree
+git checkout -b short-kebab-name   # the commits and any uncommitted work move to the branch
+git branch -f main origin/main     # rewind local main to the remote -- the working tree is untouched
 git push -u origin short-kebab-name
 ```
 
-`reset --hard` belongs only to a `main` certainly holding nothing of value, and the `git branch` line
-is what makes that true.
+Nothing here discards anything: `branch -f` moves `main` only because another branch is checked out,
+so neither the commits nor the working tree are at risk.
 
 ## 4. Known-open
 

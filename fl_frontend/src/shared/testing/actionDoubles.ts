@@ -54,13 +54,21 @@ export function doubleActions({
   return { calls, answerWith: (next) => void (answering = next) };
 }
 
+/**
+ * Every slice's actions module, for a suite in which no case saves: a real write module loads the
+ * sign-in store and its database driver into the render, which is most of such a suite's time.
+ */
+export function doubleEveryAction(): ReturnType<typeof doubleActions> {
+  return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
+}
+
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */
 export interface RaisedToast {
   readonly variant: string;
   readonly title: string;
   readonly description: string | undefined;
-  /** Everything else the call passed, which is where an undo offer keeps its own `onPress`. */
-  readonly options: { description?: string; actionProps?: { onPress?: () => void } } | undefined;
+  /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
+  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: "unknown" } | undefined;
 }
 
 const TOAST_MODULE = "/src/shared/utils/appToast.ts";
@@ -90,16 +98,18 @@ export function doubleToasts(): { raised: RaisedToast[] } {
   const bus = `__flToastDouble${String((toastsRegistered += 1))}`;
   Reflect.set(globalThis, bus, raised);
 
-  // `close` and `clear` stay inert: they raise nothing, and recording them would move the index every
-  // case reading `raised` by position depends on.
+  // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.
+  // `failure` keeps the site's title: the real module swaps in the neutral one, and
+  // `fl_frontend/src/shared/utils/appToast.test.ts` pins that.
   const source = `const raise = (variant) => (title, options) => {
   globalThis.${bus}.push({ variant, title, description: options?.description, options });
   return String(globalThis.${bus}.length);
 };
+const fail = (title, failure) => raise("danger")(title, { description: failure?.unplacedError ?? failure?.error, outcome: failure?.outcome });
 const inert = () => undefined;
 export const UNDO_TIMEOUT_MS = 1;
 export const appToast = { ${toastMembers()
-    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : `raise("${name}")`}`)
+    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : name === "failure" ? "fail" : `raise("${name}")`}`)
     .join(", ")} };`;
 
   registerHooks({

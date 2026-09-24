@@ -196,18 +196,17 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
   });
 
-  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a seat whose person
-     holds one has to save here rather than meet a field message no repair answers. */
-  it("takes a seat whose address carries an umlaut, in either part", () => {
-    for (const email of ["käthe@beispiel.de", "kaethe@käthe-schule.example"]) {
-      const seat = kontaktpersonPayload({ email });
+  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
+     one seat saves here and the other is marked at its box rather than failing the save whole. */
+  it("takes a seat whose address carries an umlaut domain, and marks one with an umlaut before the at sign", () => {
+    const withAddress = (email: string) => kontaktePayload({ trainer: kontaktpersonPayload({ email }) });
 
-      assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: seat })), [], email);
-    }
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example")), []);
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de")), ["trainer.email"]);
   });
 
-  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so nothing
-     would mark the box the admin has to change. */
+  /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
+     sentence, which never tells the admin what to change. */
   it("refuses a seat whose address the API would refuse", () => {
     assert.deepEqual(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
@@ -299,7 +298,7 @@ const junctionPayload = (overrides: Record<string, unknown> = {}) => ({
 });
 
 /* Every field the API strips before its floor counts. An untrimmed mirror takes a value of spaces
-   alone, which the endpoint then refuses with a bare `REQ-VAL-001` naming no field at all. */
+   alone, which the endpoint then refuses with a `REQ-VAL-001` marking the box without the floor's German. */
 describe("the write payloads' floors, against the stripped floors at the API", () => {
   const SPACES = "   ";
 

@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_BY_DEFAULT, KEY_TIER_EXTENSION, KEY_TIERS, keyTierOf } from "@/core/keyTiers.ts";
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import type { KeyTier } from "@/core/keyTiers.ts";
@@ -14,9 +15,6 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const FRONTEND_DIR = path.resolve(SRC_DIR, "..");
 const FEATURES_DIR = path.resolve(SRC_DIR, "features");
 const CLIENT_MODULE = path.resolve(SRC_DIR, "core", "api.ts");
-const DOCUMENT_PATH = path.resolve(FRONTEND_DIR, "..", "fl_backend", "openapi.json");
-
-const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /** Stands in for an interpolated segment, spelled so no literal segment can collide with it. */
 const PATH_PARAM = "<param>";
@@ -34,7 +32,7 @@ function readDocument(): JsonObject {
   try {
     return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonObject;
   } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with:  ${REGENERATE}`, { cause });
+    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
   }
 }
 
@@ -53,8 +51,26 @@ const unplaceable = Object.keys(publishedPaths).filter((published) => !UNVERSION
 /** What one published query parameter admits: whether it may be omitted, its types, its closed value set. */
 type PublishedParam = { required: boolean; values: string[] | null; primitives: Set<string>; readable: boolean };
 
-/** One operation as published: what it answers on, the key tier it is guarded at, and the query parameters it will read. */
-type PublishedOperation = { published: string; tier: KeyTier | null; queryParams: Map<string, PublishedParam> };
+/**
+ * One operation as published: what it answers on, the key tier it is guarded at, the query parameters it
+ * will read, and whether it stores nothing whatever its method: always (`true`), or while the query flag
+ * named sits at `true`.
+ */
+type PublishedOperation = {
+  published: string;
+  tier: KeyTier | null;
+  queryParams: Map<string, PublishedParam>;
+  storesNothing: true | string | null;
+};
+
+/** Spelled as the backend publishes it, on each operation declaring `stores_nothing`. */
+const STORES_NOTHING_EXTENSION = "x-fl-stores-nothing";
+
+/** The operation's declaration, read strictly: anything but `true` or a flag's name is none. */
+function storesNothingOf(operation: JsonObject): true | string | null {
+  const declared = operation[STORES_NOTHING_EXTENSION];
+  return declared === true || typeof declared === "string" ? declared : null;
+}
 
 /**
  * Read through FastAPI's optional idiom: an omissible parameter publishes as
@@ -141,7 +157,12 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
     }
     const tier = keyTierOf((operation ?? {}) as JsonObject);
     if (tier === null) untiered.push(`${operationKey(method, segments)} (${publishedPath})`);
-    published.set(operationKey(method, segments), { published: publishedPath, tier: tier, queryParams: new Map(params) });
+    published.set(operationKey(method, segments), {
+      published: publishedPath,
+      tier: tier,
+      queryParams: new Map(params),
+      storesNothing: storesNothingOf((operation ?? {}) as JsonObject),
+    });
   }
 }
 
@@ -221,6 +242,10 @@ type ExtractedCall = {
   sent: { name: string; source: string }[];
   /** The mirrored type behind `sent`, where one was passed — an inline `?a=b` carries no type to compare. */
   typed: SentParams | null;
+  /** Whether the options declare the call a read whatever its method (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  readOnly: boolean;
+  /** The flags the endpoint literal sets inline, with the values it sets them to. */
+  inline: Map<string, string>;
 };
 
 const calls: ExtractedCall[] = [];
@@ -262,7 +287,7 @@ function paramProperties(node: ts.Expression): SentParams | string {
   return { label: label, names: names, properties: properties, node: node };
 }
 
-type ReadOptions = { method: string; declaredTier: KeyTier; params: SentParams | null };
+type ReadOptions = { method: string; declaredTier: KeyTier; params: SentParams | null; readOnly: boolean };
 
 function readOptions(argument: ts.Expression, where: string): ReadOptions | null {
   if (!ts.isObjectLiteralExpression(argument)) {
@@ -273,6 +298,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
   let method = "GET";
   let declaredTier: KeyTier = DECLARED_BY_DEFAULT;
   let params: SentParams | null = null;
+  let readOnly = false;
 
   for (const property of argument.properties) {
     if (ts.isSpreadAssignment(property)) {
@@ -285,7 +311,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
       unreadable.push(`${where}: an options key is computed, so what it sets cannot be read`);
       return null;
     }
-    if (key !== "method" && key !== "params" && key !== "authType") continue;
+    if (key !== "method" && key !== "params" && key !== "authType" && key !== "readOnly") continue;
 
     const value = ts.isPropertyAssignment(property) ? property.initializer : ts.isShorthandPropertyAssignment(property) ? property.name : null;
     if (value === null) {
@@ -299,6 +325,16 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
         return null;
       }
       method = value.text;
+      continue;
+    }
+
+    if (key === "readOnly") {
+      // The option is typed `true`, so any other spelling is a value this reader would guess at.
+      if (value.kind !== ts.SyntaxKind.TrueKeyword) {
+        unreadable.push(`${where}: \`readOnly\` is not the literal \`true\`, so whether the call reads cannot be read`);
+        return null;
+      }
+      readOnly = true;
       continue;
     }
 
@@ -322,7 +358,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
     params = resolved;
   }
 
-  return { method: method, declaredTier: declaredTier, params: params };
+  return { method: method, declaredTier: declaredTier, params: params, readOnly: readOnly };
 }
 
 for (const file of callerFiles) {
@@ -345,7 +381,7 @@ for (const file of callerFiles) {
         const optionsArgument = node.arguments[2];
         const options =
           optionsArgument === undefined
-            ? ({ method: "GET", declaredTier: DECLARED_BY_DEFAULT, params: null } satisfies ReadOptions)
+            ? ({ method: "GET", declaredTier: DECLARED_BY_DEFAULT, params: null, readOnly: false } satisfies ReadOptions)
             : readOptions(optionsArgument, where);
 
         if (options !== null) {
@@ -361,6 +397,8 @@ for (const file of callerFiles) {
             segments: pathText.split("/").filter((segment) => segment.length > 0),
             sent: [...inline, ...typed],
             typed: options.params,
+            readOnly: options.readOnly,
+            inline: new Map(new URLSearchParams(queryText)),
           });
         }
       }
@@ -385,7 +423,7 @@ describe("the published document places every path this comparison reads", () =>
     assert.equal(
       versionPrefixes.length,
       1,
-      `expected one /api/v<n> prefix in openapi.json, found [${versionPrefixes}] — refresh it:  ${REGENERATE}`,
+      `expected one /api/v<n> prefix in openapi.json, found [${versionPrefixes}] — refresh it with the command ${REGENERATE_CITATION} declares`,
     );
   });
 
@@ -398,7 +436,10 @@ describe("the published document places every path this comparison reads", () =>
   });
 
   it("publishes operations under the prefix", () => {
-    assert.ok(published.size > 0, `no operations under ${versionPrefix} in openapi.json — refresh it:  ${REGENERATE}`);
+    assert.ok(
+      published.size > 0,
+      `no operations under ${versionPrefix} in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
+    );
   });
 
   it("resolves every published query parameter's schema", () => {
@@ -519,7 +560,7 @@ describe("every request is sent under the key its operation is guarded at", () =
       untiered,
       [],
       `These operations publish no \`${KEY_TIER_EXTENSION}\` this comparison can spell, so nothing holds a call site's tier to them.\n` +
-        `Refresh the document with:  ${REGENERATE}\n  ${untiered.join("\n  ")}`,
+        `Refresh the document with the command ${REGENERATE_CITATION} declares:\n  ${untiered.join("\n  ")}`,
     );
   });
 
@@ -545,6 +586,39 @@ describe("every request is sent under the key its operation is guarded at", () =
         operation.tier,
         `${call.where} sends the ${call.declaredTier} key to ${operation.published}, which the backend guards at ${operation.tier}.\n` +
           `A key the route refuses answers 401; a stronger one than it asks for widens what a bug on this call can reach.`,
+      );
+    });
+  }
+});
+
+describe("every call to an operation storing nothing declares itself a read, and no other call does", () => {
+  /* The floor, for the reason the tier floor above has: a document publishing no declaration leaves
+     every case below comparing `false` with `false`. */
+  it("reads a declaration off the published document", () => {
+    const declaring = [...published.values()].filter((operation) => operation.storesNothing !== null);
+
+    assert.ok(
+      declaring.length > 0,
+      `no operation publishes \`${STORES_NOTHING_EXTENSION}\` — refresh the document with the command ${REGENERATE_CITATION} declares`,
+    );
+  });
+
+  for (const call of calls) {
+    const key = operationKey(call.method, call.segments);
+    const operation = published.get(key);
+    // An unpublished operation is reported once, above.
+    if (operation === undefined) continue;
+
+    const declared = operation.storesNothing;
+    const storesNothing = declared === true || (typeof declared === "string" && call.inline.get(declared) === "true");
+
+    it(`${key} at ${call.where}`, () => {
+      assert.equal(
+        call.readOnly,
+        storesNothing,
+        storesNothing
+          ? `${call.where} is a read ${operation.published} declares as storing nothing, and fails as a write of unknown outcome unless it says \`readOnly: true\``
+          : `${call.where} says \`readOnly: true\` to ${operation.published}, which may write: a failure on it would invite the retry that repeats the write`,
       );
     });
   }

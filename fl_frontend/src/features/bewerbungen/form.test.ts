@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it, mock } from "node:test";
 
@@ -13,6 +12,7 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { blankComments } from "@/core/blankComments";
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -29,24 +29,15 @@ const fetchMock = mock.fn<(url: string, init?: RequestInit) => Promise<Response>
 // so a request is observed at the edge the paths are limited at.
 globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init)) as typeof fetch;
 
-const appToast = { success: mock.fn(), warning: mock.fn(), danger: mock.fn(), info: mock.fn() };
-Reflect.set(globalThis, "__flForm", { appToast });
+const { raised } = doubleToasts();
 
-// The toasts replaced at the module boundary by the mocks above: the real module raises into HeroUI's queue rather than back to the case.
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts"))
-      return { format: "module", source: "export const { appToast } = globalThis.__flForm;", shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+/** Every toast the press raised at one severity, as the reader meets it. */
+const toastsOf = (variant: string) => raised.filter((toast) => toast.variant === variant).map((toast) => [toast.title, toast.description]);
 
 beforeEach(() => {
-  for (const fn of [fetchMock, ...Object.values(appToast)]) {
-    fn.mock.resetCalls();
-    fn.mock.restore();
-  }
+  fetchMock.mock.resetCalls();
+  fetchMock.mock.restore();
+  raised.length = 0;
   fetchMock.mock.mockImplementation(() => new Promise<never>(() => undefined));
 });
 
@@ -199,6 +190,9 @@ async function fillIn(user: User, container: HTMLElement, draft: BewerbungFormDr
   await typeInto(user, screen.getByRole("textbox", { name: "Davon im Verein aktiv (mind. Verbandsliga)" }), String(draft.kader.gute_spieler));
 }
 
+/** What every arm that may have landed tells the applicant, spelled here so a rewording fails a case. */
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+
 /** The requests the form made, by path and parsed body. */
 const requestsMade = () =>
   fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({ url, body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined }));
@@ -290,6 +284,71 @@ describe("the public application form", () => {
     assert.ok(screen.queryByRole("button", { name: "Schickt ab..." }), "the send in flight is not shown on its button");
   });
 
+  /* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and
+     the key makes the press it asks for a replay rather than a second application. */
+  it("titles an application of unknown outcome as unclear, and asks for the same press again", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" })),
+      ),
+    );
+    const { user, container } = renderApplicationPage();
+
+    await fillIn(user, container, COMPLETE_DRAFT);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]);
+  });
+
+  /* The request may have reached the route before the connection broke: one next step for every arm
+     that may have landed, never a bare retry beside the unknown outcome's replay. */
+  it("gives an unread answer the unknown outcome's one step", async () => {
+    fetchMock.mock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
+    const { user, container } = renderApplicationPage();
+
+    await fillIn(user, container, COMPLETE_DRAFT);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]);
+  });
+
+  /* The contact block's distinct-address rule refuses the block as a whole, a path no control spells:
+     the answer's own sentence speaks, never the generic one, whose retry resends the refused body. */
+  it("announces the sentence the answer brings for a refusal no box can take, under the form's own title", async () => {
+    const EIGENER_SATZ = "Der Satz, den die Antwort für diesen Fall mitbringt.";
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: false, fieldErrors: { kontakte: "abgelehnt" }, unplacedError: EIGENER_SATZ }))),
+    );
+    const { user, container } = renderApplicationPage();
+    assert.ok(container.querySelector('[name="kontakte"]') === null, "the case's path is one a control renders");
+
+    await fillIn(user, container, COMPLETE_DRAFT);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    // One toast in all: a second beside the failure's would announce the press twice.
+    assert.deepEqual(toastsOf("danger"), [["Bewerbung nicht abgeschickt", EIGENER_SATZ]]);
+    assert.equal(raised.length, 1, "the press raised a second toast beside its one failure");
+  });
+
+  /* A repeated press whose details changed is refused, yet the first application stands: titled
+     „nicht abgeschickt“, the toast would send the applicant to apply a second time. */
+  it("titles the refusal of a repeated press as arrived, over the answer's own sentence", async () => {
+    const SCHON_DA = "Deine Bewerbung ist schon angekommen.";
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: false, error: SCHON_DA, schonAngekommen: true }))),
+    );
+    const { user, container } = renderApplicationPage();
+
+    await fillIn(user, container, COMPLETE_DRAFT);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]);
+  });
+
   /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
      none of the always-200 envelope. Read as a transport failure it tells an applicant nothing about
      the one remedy it has, which is to wait. */
@@ -300,10 +359,7 @@ describe("the public application form", () => {
     await typeInto(user, kuerzel, "GG", { leaveBox: true });
     await settle();
 
-    assert.deepEqual(
-      appToast.warning.mock.calls.map(({ arguments: [title, options] }) => [title, options]),
-      [["Kürzel noch nicht geprüft", { description: `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}` }]],
-    );
+    assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]);
     // Read beside the render: a second spelling of the number behaves identically until the edge's own changes.
     assert.ok(!FORM.includes("= 429"), "the form spells the edge's status beside the one publicSubmit.ts exports");
   });
@@ -385,7 +441,7 @@ describe("the public application form", () => {
   });
 
   /* Inside the guard, a school picking a club the league already holds is never asked, and submits a
-     body the payload refuses under a 422 naming no field. */
+     body the payload refuses on a box that arm never rendered, so nothing marks it. */
   it("asks the Abi-Jahrgang of an applicant who picked a club the league already holds", () => {
     // The control: without it a picked-club arm that had started rendering the new-school block would
     // leave the assertion below true for the wrong reason.
@@ -522,6 +578,17 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
       [...FORM_MARKUP.matchAll(/<p class="muted-meta">/g)].length,
       LIGA_KENNTNISNAHME.absaetze.length,
       "a stamped paragraph is set in something other than the panel's own muted recipe",
+    );
+  });
+
+  /* The form is the submitting Ansprechperson's first contact, and Art. 21(4) DSGVO asks the objection
+     there apart from every other piece of information: a clause inside another paragraph is not that. */
+  it("renders the objection as a paragraph of its own", () => {
+    assert.ok(
+      FORM_MARKUP.includes(
+        '<p class="muted-meta">Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).</p>',
+      ),
+      "the form states no objection, or states it inside another paragraph",
     );
   });
 

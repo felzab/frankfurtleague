@@ -4,9 +4,9 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
@@ -47,7 +47,7 @@ export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSpielortAction", async () => {
+  return runAdminMutation("postSpielortAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -86,7 +86,7 @@ export async function patchSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
 ): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("patchSpielortAction", async () => {
+  return runAdminMutation("patchSpielortAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -128,7 +128,7 @@ export async function patchSpielortAction(
 }
 
 export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("deleteSpielortAction", async () => {
+  return runAdminMutation("deleteSpielortAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -173,7 +173,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
  * no fixtures with it.
  */
 export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("reactivateSpielortAction", async () => {
+  return runAdminMutation("reactivateSpielortAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

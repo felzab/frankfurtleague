@@ -21,7 +21,7 @@ from app.api.spieler.schemas import (
     FLSpielerWithMemberships,
 )
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
-from app.api.spieltage.schemas import FLSpieltag
+from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
     MAX_NUMBER_OF_GROUPS,
     FLGruppenNames,
@@ -484,6 +484,25 @@ class TestSpieltag:
         """Both ends of the range get the calendar check, not just the regex."""
         with pytest.raises(ValidationError):
             FLSpieltag.model_validate(spieltag(**{field: "2026-02-31"}))
+
+
+class TestTheMatchdaysSpan:
+    """`refuse_reversed_span` under the matchday payload.
+
+    Asserted whole because `fl_frontend/src/features/spieltage/schemas.ts` mirrors the sentence word for word.
+    """
+
+    def test_accepts_a_matchday_on_a_single_day(self):
+        """The editor saves a day picked once as `ende` equal to `beginn`, so refusing an equal span refuses what the form offers."""
+        parsed = FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-04", "ende": "2026-09-04"})
+
+        assert parsed.ende == parsed.beginn
+
+    def test_refuses_a_matchday_ending_before_it_begins(self):
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
+
+        assert "Das Ende darf nicht vor dem Beginn liegen." in str(failure.value)
 
 
 class TestSaison:

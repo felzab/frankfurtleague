@@ -4,6 +4,11 @@ A handoff answers what a transcript cannot: **what the previous session believed
 was verified.** It is the next session's document; a pause inside this session is served by the
 register's resume point, never by a handoff. `SKILL.md` §7 says when it is written and audited.
 
+**A handoff, a register and a starter describe a session, not the system**, so what went wrong in
+one is its subject, and COR-3's ban on edit narration does not reach it. Its other half does: a
+claim the tree does not bear out is corrected, and a lesson is written as what is true rather than
+as a difference between drafts.
+
 ## Required sections
 
 ```

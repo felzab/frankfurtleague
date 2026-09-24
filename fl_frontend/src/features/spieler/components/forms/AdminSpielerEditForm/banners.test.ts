@@ -11,7 +11,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
   buildSpielerBanners({
     isRetired: false,
     saisonId: "2026",
-    saisonStatus: "future",
+    nachnominierungLaeuft: false,
     isMember: true,
     rowInactiveSince: null,
     isRowTeamInSaison: true,
@@ -55,7 +55,7 @@ describe("buildSpielerBanners", () => {
     for (const [id, raised] of [
       ["spieler.retired", build({ isRetired: true })],
       ["spieler.not-in-kader-entry", build({ isMember: false })],
-      ["spieler.entry-nachnominiert", build({ isMember: false, saisonStatus: "active" })],
+      ["spieler.entry-nachnominiert", build({ isMember: false, nachnominierungLaeuft: true })],
       ["spieler.nachnominiert", build({ istNachnominiert: true })],
     ] as const) {
       const banner = raised.find((candidate) => candidate.id === id);
@@ -96,19 +96,19 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.severity, "info");
   });
 
-  it("announces the derived nachnominiert flag only where there is no row to enter into yet", () => {
+  it("announces the served nachnominiert verdict only where there is no row to enter into yet", () => {
     /* Both name the player, and both spell the word out: „nachnominiert“ is what the player list
        spells back as a badge, and no surface but this one says what it means. */
-    const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachnominiert");
+    const entering = build({ isMember: false, nachnominierungLaeuft: true }).find(({ id }) => id === "spieler.entry-nachnominiert");
     const standing = build({ istNachnominiert: true }).find(({ id }) => id === "spieler.nachnominiert");
 
     assert.match(entering?.title ?? "", /Diese Person wird nachnominiert/);
     assert.match(standing?.title ?? "", /Diese Person wurde nachnominiert/);
     assert.match(entering?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
     assert.match(standing?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
-    assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachnominiert"));
-    assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachnominiert"));
-    assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachnominiert"));
+    assert.ok(ids(build({ isMember: false, nachnominierungLaeuft: true })).includes("spieler.entry-nachnominiert"));
+    assert.ok(!ids(build({ isMember: false, nachnominierungLaeuft: false })).includes("spieler.entry-nachnominiert"));
+    assert.ok(!ids(build({ nachnominierungLaeuft: true })).includes("spieler.entry-nachnominiert"));
   });
 
   /* Dictated copy, so both lines are pinned literally rather than by a loosened pattern: a sweep
@@ -156,8 +156,8 @@ describe("buildSpielerBanners", () => {
     assert.equal(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity, "info");
   });
 
-  /* Both are read off a DRAFT field and neither is this save's doing: the flag is derived at entry
-     and never offered here, and the role is one another squad row already holds. */
+  /* Neither is this save's doing: the flag is the stored row's, derived by the backend at entry, and
+     the role is one another squad row already holds. */
   it("classifies the nachnominiert flag and a taken role as state", () => {
     assert.equal(build({ istNachnominiert: true })[0]?.raisedBy, "state");
     assert.equal(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy, "state");
@@ -168,7 +168,7 @@ describe("buildSpielerBanners", () => {
   it("classifies every banner a page load already carries as state, and the transfer as change", () => {
     const atLoad = [
       ...build({ isRetired: true }),
-      ...build({ isMember: false, saisonStatus: "active" }),
+      ...build({ isMember: false, nachnominierungLaeuft: true }),
       ...build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false }),
       ...build({ isSquadFull: true }),
     ];

@@ -72,6 +72,14 @@ def test_the_committed_document_is_the_one_the_service_publishes():
     assert committed == built, summarize_drift(committed, built)
 
 
+def test_a_plant_on_one_built_document_reaches_no_later_reader():
+    """The build is cached per process: a caller mutating the shared dict would make every later comparison agree with its plant."""
+    planted = build_document()
+    walk_to(planted, "paths")[ADDED_ENDPOINT] = {"get": {"summary": "Planted by this suite."}}
+
+    assert ADDED_ENDPOINT not in walk_to(build_document(), "paths")
+
+
 def test_the_drift_summary_names_the_field_whose_value_moved():
     """The narrowing that reaches no other check: it moves no key, so a set difference reports nothing and only the field's path locates it."""
     committed = read_document()

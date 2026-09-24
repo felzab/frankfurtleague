@@ -222,4 +222,29 @@ describe("the control that sends the link", () => {
       [["danger", "Bestätigungslink nicht gesendet"]],
     );
   });
+
+  /* Thrown in transport or answered so by the API, nobody can tell whether the link went out: one
+     toast of unknown outcome either way. */
+  const ANSWERED = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
+  const unclear: Record<string, { answer: () => Promise<unknown>; repair: string }> = {
+    // No answer came back, so the control's own repair names the connection.
+    thrown: {
+      answer: () => Promise.reject(new TypeError("Failed to fetch")),
+      repair: "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.",
+    },
+    answered: { answer: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }), repair: ANSWERED },
+  };
+  for (const [arm, { answer, repair }] of Object.entries(unclear)) {
+    it(`says a send nobody can tell landed is unclear, ${arm}`, async () => {
+      answerWith(answer);
+      render(panel({ bestaetigung: BLOCK }));
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+
+      assert.deepEqual(
+        toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
+        [["Bestätigungslink nicht gesendet", repair, "unknown"]],
+      );
+    });
+  }
 });

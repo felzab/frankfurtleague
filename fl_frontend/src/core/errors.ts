@@ -1,24 +1,67 @@
+import type { FLRefusedField } from "./schemas";
+
+/**
+ * What an error says about the request it answers. Required on every API error rather than defaulted:
+ * a failed write may have landed and a failed read changed nothing, and
+ * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` tells them apart by it.
+ */
+export type SentRequest = {
+  method: string;
+  /** A call changing nothing whatever its method says, declared where it is made (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  readOnly: boolean;
+};
+
+/**
+ * RFC 9110's safe methods: a request of one changes nothing on the server, however it ended. Its
+ * fourth, TRACE, is one `fetch` refuses to send.
+ */
+const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** Whether a request whose answer went wrong could have changed anything on the server. */
+export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
+  return !SAFE_METHODS.has(method) && !readOnly;
+}
+
+/**
+ * A failure its own code proves wrote nothing: thrown inside a transaction, before its commit, so the
+ * transaction rolled back. A write request answers it as failed rather than as of unknown outcome.
+ */
+export class RolledBackError extends Error {
+  override name = "RolledBackError";
+
+  constructor(cause: unknown) {
+    super("Rolled back before its commit.", { cause });
+  }
+}
+
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   traceId: string;
   statusCode: number;
   serverErrorCode?: string;
+  refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
     url,
     statusCode,
     serverErrorCode,
+    refusedFields = [],
     endpoint,
+    method,
+    readOnly,
     traceId,
     originalError,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     statusCode: number;
     serverErrorCode?: string;
+    refusedFields?: readonly FLRefusedField[];
     endpoint: string;
     traceId: string;
     originalError?: unknown;
@@ -32,8 +75,11 @@ export class APIBadStatusError extends Error {
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
+    this.refusedFields = refusedFields;
     this.url = url;
     this.endpoint = endpoint;
+    this.method = method;
+    this.readOnly = readOnly;
   }
 }
 
@@ -43,15 +89,19 @@ export class APIMalformedDataError extends Error {
   statusCode: number;
   url: string;
   endpoint: string;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
     url,
     statusCode,
     endpoint,
+    method,
+    readOnly,
     traceId,
     zodIssues,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     statusCode: number;
@@ -67,6 +117,8 @@ export class APIMalformedDataError extends Error {
     this.statusCode = statusCode;
     this.url = url;
     this.endpoint = endpoint;
+    this.method = method;
+    this.readOnly = readOnly;
   }
 }
 
@@ -75,26 +127,32 @@ export class APINetworkError extends Error {
   traceId: string;
   url: string;
   isTimeout: boolean;
+  method: string;
+  readOnly: boolean;
 
   constructor({
     message,
     url,
+    method,
+    readOnly,
     traceId,
     isTimeout,
     originalError,
-  }: {
+  }: SentRequest & {
     message: string;
     url: string;
     traceId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
+    const errorCause = originalError ? { originalError, traceId, isTimeout, url, method } : { traceId, isTimeout, url, method };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
     this.traceId = traceId;
     this.url = url;
+    this.method = method;
+    this.readOnly = readOnly;
     this.isTimeout = isTimeout;
   }
 }

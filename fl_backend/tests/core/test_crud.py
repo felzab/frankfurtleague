@@ -1,4 +1,6 @@
 import asyncio
+import inspect
+import re
 from collections.abc import Mapping
 from typing import Any, cast
 
@@ -10,7 +12,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.helpers_shared import _index_document
 
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort, patch_one_in_db, pull_one_from_db
+from app.core.crud import build_query, build_sort, literal_pattern, patch_one_in_db, pull_one_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
 
@@ -95,6 +97,22 @@ class TestBuildSort:
         assert _index_document(guarded) == {"beginn": -1, "_id": 1}
 
 
+# A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
+# pinned against a real mongod by `fl_backend/tests/api/test_kontakt_erasure_execution.py`'s NUL case.
+LITERAL = "a\x00.*+?^$()[]{}|\\/ -#b"
+
+
+class TestLiteralPattern:
+    def test_the_pattern_holds_no_raw_nul(self):
+        assert "\x00" not in literal_pattern(LITERAL)
+
+    def test_the_pattern_matches_the_value_and_nothing_wider(self):
+        pattern = re.compile(literal_pattern(LITERAL))
+
+        assert pattern.fullmatch(LITERAL)
+        assert not pattern.fullmatch(LITERAL.replace(".", "x"))
+
+
 FILTER: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID)}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing"}}
 STORED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing"}
@@ -150,24 +168,31 @@ def as_collection(stub: _OneDocumentCollection) -> AsyncCollection:
 
 
 class TestPatchOneInDb:
-    def test_the_default_answers_with_the_post_write_document(self):
+    def test_every_caller_names_the_image_it_wants(self):
+        """A default is a re-read paid by every caller that never asked for it, the ones discarding the result included."""
+
+        assert inspect.signature(patch_one_in_db).parameters["return_document"].default is inspect.Parameter.empty
+
+    def test_after_answers_with_the_post_write_document(self):
         """Call sites echo what this returns, so answering with the pre-image would report the state the write just replaced."""
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
-        returned = asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
+        returned = asyncio.run(
+            patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
+        )
 
         assert returned == STORED
 
     def test_the_log_is_given_the_image_the_update_itself_replaced(self):
+        """Asked for `AFTER`, so the log's pre-image is shown to come from the update whatever the caller wanted."""
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
+        asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER))
 
         assert stub.calls[0]["return_document"] is ReturnDocument.BEFORE
         assert stub.recorded[0]["before"] == REPLACED
 
-    def test_an_explicit_pre_image_is_answered_without_a_second_read(self):
-        """A default, not a rewrite: a caller wanting the document as it stood already holds it."""
+    def test_before_is_answered_without_a_second_read(self):
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
         returned = asyncio.run(
@@ -182,7 +207,7 @@ class TestPatchOneInDb:
         stub = _OneDocumentCollection(None)
 
         with pytest.raises(DocumentNotFoundException) as excinfo:
-            asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
+            asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE))
 
         assert excinfo.value.status_code == 404
         assert excinfo.value.error_code == DOCUMENT_NOT_FOUND

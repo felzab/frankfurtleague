@@ -145,17 +145,23 @@ How each surface keeps its stream to one format:
   rather than `$http_referer`: each is the raw value except on the sign-in library's verification
   path, and on any
   query naming the sign-in token or the address it was mailed to, where a literal stands in (L11).
-  The **error log is the one deliberate exception**: its format is not configurable, so it stays
-  plain text at its default level. A parser skips non-`{` lines. **Nothing compares the
+  The **error log is the one deliberate exception**: the open-source build this stack pins offers
+  no format for it but plain text. `error_log`'s `json` parameter and `error_log_tag` (both 1.29.8)
+  are commercial-subscription features, which `nginx:1.31-alpine` refuses as `invalid log level
+"json"` and `unknown directive "error_log_tag"` (driven 2026-09-24), and nginx.org's own example of
+  that JSON still carries the request line whole. So it stays plain text at the image's `notice`. A
+  parser skips non-`{` lines. **Nothing compares the
   `log_format`'s field names with this table**: a renamed field there is a hand-checked mirror, and
   so are the console line's regex and L2's key order, each spelled once per surface with the other
   cited at it. The console format's quoting class is the pair a checker holds instead
   (`scripts/checks/check_log_quoting_class.py`, in the gate's docs scope), being the only one of
   the three that is a plain character class on both sides rather than an assertion inside a test
   body.
-  **The access line is written to `/var/log/frankfurtleague/nginx/access.log`, a bind-mounted host
-  file** ([`docs/ops/spec.md`](../ops/spec.md) §1.2), so `docker compose logs nginx` shows the error
-  log alone and the host can bound the access log's age without touching the container.
+  **The access line is written to `/var/log/frankfurtleague/nginx/access.log` and the error log to
+  `error.log` beside it, bind-mounted host files** ([`docs/ops/spec.md`](../ops/spec.md) §1.2), so
+  the host bounds both logs' age without touching the container, and `docker compose logs nginx`
+  shows the master process's own lines alone, none naming a visitor
+  (`docs/ops/spec.md :: I352`).
 
 **Boot lines are outside the contract, knowingly** — what a process prints before its logging is
 configured cannot be governed by it. uvicorn's pre-import lines fall back to plain stderr, Next's
@@ -175,13 +181,13 @@ application line written before the logger exists, so it reaches the formatter d
 
 Retention is Docker's `json-file` driver, 3 × 10 MB per service
 (`docker-compose.yml :: x-logging`), and for a container's own stream that size is the whole bound —
-nothing rotates a file the runtime holds open. The access log is a host file instead, bounded by age
-([`docs/ops/spec.md`](../ops/spec.md) §1.1). There is no aggregation and no index.
+nothing rotates a file the runtime holds open. The edge's two logs are host files instead, bounded
+by age ([`docs/ops/spec.md`](../ops/spec.md) §1.1). There is no aggregation and no index.
 
 **The logs live and die with the container, so a deploy starts the application services from empty.**
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container
 discards it, including `docker compose down` and the `up -d --force-recreate frontend backend` that
-`scripts/ops/deploy.sh` runs on every deploy. nginx is not in that set, and its access log is on the
+`scripts/ops/deploy.sh` runs on every deploy. nginx is not in that set, and its two logs are on the
 host rather than in the container, so a recreate of the edge would not reach it either. **The deploy
 copies both application streams off before each of its recreates**
 (`scripts/ops/deploy.sh :: copy_streams`), so a deploy whose rollback recreates the pair a second
@@ -261,7 +267,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | L1  | One JSON document per line per service in the `json` format                                                                                         | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                           |
 | L2  | The JSON field set and its order match across surfaces, `trace_id` and `span_id` on every line                                                      | the same two suites, asserting names, order and shapes                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | L3  | A `traceparent` is honoured only when well-formed — its trace id taken — and a fresh trace minted otherwise                                         | `fl_backend/tests/core/test_logging.py :: TestResolveTraceId`; `fl_frontend/src/core/trace.test.ts`                                                                                                                                                                                                                                                                                                                                                                                         |
-| L4  | Every failure response is `{error_code, trace_id}`, the code the exception's own                                                                    | `fl_backend/tests/api/test_error_responses.py`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| L4  | Every failure response is `{error_code, trace_id}`, the code the exception's own; a `REQ-VAL-001` adds where each refusal sits, never its value     | `fl_backend/tests/api/test_error_responses.py`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | L5  | Every request gets exactly one backend access line, both ids and duration on it                                                                     | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | L6  | A thrown API error never escapes a server action                                                                                                    | `fl_frontend/src/shared/utils/actionError.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | L7  | A visitor's `traceparent` is replaced by the edge's own — trace `$request_id`, span its first sixteen hex — on every path reaching application code | `nginx/prod.conf :: proxy_set_header traceparent` at server level, which every location declaring no `proxy_set_header` of its own inherits; the locations that declare one are 1.1's                                                                                                                                                                                                                                                                                                       |
@@ -286,7 +292,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                                         | Search on digest plus time plus route, then follow the `FE-RSC-001` line's trace; the error page's report link pre-fills them (`fl_frontend/src/shared/components/ui/CrashReportLink.tsx :: reportHref`)      |
 | Non-JSON lines appear in a stream                        | nginx's error log and both services' boot lines are outside the contract                                                                  | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                                                                                                            |
 | A log line carries personal data                         | A handler logged a rejected value rather than the field that carried it                                                                   | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                                                |
-| A sign-in token appears in nginx's error stream          | Any `error`-level line repeats the whole request line, query string and `Referer` with it — L11 governs the access line alone (section 4) | Treat that token as spent: it is single-use and short-lived (`fl_frontend/src/core/auth.ts :: LINK_VALIDITY_SECONDS`). The stream dies with the container on the next deploy (1.2)                            |
+| A sign-in token appears in nginx's error log             | Any `error`-level line repeats the whole request line, query string and `Referer` with it — L11 governs the access line alone (section 4) | Treat that token as spent: it is single-use and short-lived (`fl_frontend/src/core/auth.ts :: LINK_VALIDITY_SECONDS`). The host's error log keeps it eight days at most (1.2)                                 |
 | A stored action holds a submitted value                  | L9 binds the log stream; the action log is a collection and keeps values on purpose                                                       | Working as intended — a restore replays the document a write replaced, and a person's erasure destroys the values those rows hold ([`docs/backend/spec.md`](../backend/spec.md) I42)                          |
 
 ## 4. Known-open
@@ -295,7 +301,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No aggregation and no index                                         | Accepted — reading production logs is `ssh` plus `docker compose logs`, or the deploy's copies (1.2)                                                                         |
 | A span joins nothing but its trace                                  | Accepted — no parent link and no timing travel with it, so the hops' lines join on `trace_id` alone and form no tree                                                         |
-| nginx's error log is plain text at its default level                | Accepted — the format is not configurable (1.2); the rate and connection refusals are the one class kept out of it, by level (`docs/ops/spec.md` §1.3)                       |
+| nginx's error log is plain text at its default level                | Accepted — open-source nginx offers no other (1.2); the rate and connection refusals are the one class kept out of it, by level (`docs/ops/spec.md` §1.3)                    |
 | Boot lines fall outside the one-document-per-line contract          | Accepted — nothing can govern what a process prints before its logging is set up                                                                                             |
 | Dev cannot demonstrate a cross-service join                         | Accepted — no component there sees both hops; `./scripts/ops/local.sh` exercises it                                                                                          |
 | The sign-in library's catch-all runs under no request scope         | Accepted — `fl_frontend/src/app/api/auth/[...all]/route.ts` re-exports the library's own handlers, so a line raised there carries `SYSTEM`; the two sign-in actions seed one |
@@ -303,4 +309,4 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | A host redacted out of a URI that carried no credential             | Accepted — a diagnostic loss on a line that hid nothing; bounding the match to spare it lets a real credential through ([`docs/ops/spec.md`](../ops/spec.md) §1.7)           |
 | A URI spelling `token=` or `email=` loses its whole logged query    | Accepted — losing that query is the point, and `fl_frontend/src/core/edgeRedaction.ts :: redactedParameterNames` is swept against every minter's own link (L11)              |
 | A percent-encoded parameter name defeats both request-line arms     | Accepted — `$request_uri` is never decoded, and a case per minter holds its parameter to the edge's map (`fl_frontend/src/core/edgeRedaction.ts`), so none is encoded (L11)  |
-| Cloudflare logs the request line at its own edge                    | Accepted — TLS terminates there, so the URL reaches Cloudflare before this edge redacts anything (L11); what it retains is settled in that dashboard                         |
+| Cloudflare logs the request line at its own edge                    | Accepted — TLS terminates there, so the URL reaches Cloudflare unredacted (L11); below the Enterprise plan no setting bounds what it retains                                 |

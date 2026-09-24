@@ -20,7 +20,6 @@ import {
 import { formButton } from "@/shared/components/ui/formButtons";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
@@ -47,6 +46,12 @@ type BewerbungAntwort = PublicEnvelope & { message?: string };
 type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
 
 const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
+
+/**
+ * A second press is safe from this page alone, which holds the key the first one carried
+ * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
+ */
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
 
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.
@@ -92,6 +97,8 @@ export function BewerbungForm({
   const [isPending, startTransition] = useTransition();
 
   const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
+  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
+  const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   const [isEingereicht, setIsEingereicht] = useState(false);
   /**
    * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
@@ -105,8 +112,11 @@ export function BewerbungForm({
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { bewerbung: FLPostBewerbungPayloadSchema },
+    // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
+    // made, and two titles for one failure read as two failures.
+    failureTitle: "Bewerbung nicht abgeschickt",
   });
 
   // Above the „eingegangen“ return, as every hook here is: the panel it renders holds no form, and a
@@ -236,13 +246,14 @@ export function BewerbungForm({
     const payload = bewerbungPayload(draft);
 
     startTransition(async () => {
-      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload);
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
         appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
-          description: gesendet.error,
+          // Every arm that may have landed gives the one step the outcome-unknown answer gives.
+          description: gesendet.wroteNothing ? gesendet.error : BEWERBUNG_UNKLAR,
         });
         return;
       }
@@ -250,12 +261,26 @@ export function BewerbungForm({
       const antwort = gesendet.body;
 
       if (!antwort.success) {
-        setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bewerbung: payload });
-
-        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
-        if (!hasFieldErrors(antwort.fieldErrors)) {
-          appToast.danger("Bewerbung nicht abgeschickt", { description: antwort.error ?? NICHT_ABGESCHICKT });
+        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+          return;
         }
+
+        // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
+        // nothing, or the refusal saying the first details stand, and either keeps its replay
+        // (`docs/frontend/spec.md :: I348`).
+        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { bewerbung: payload },
+          {
+            raise: (shown) =>
+              appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
+          },
+        );
         return;
       }
 

@@ -15,7 +15,7 @@ const MUTATIONS = `export const einladeSchiedsrichter = async (payload) => { glo
 export const postSchiedsrichter = async () => globalThis.__flEinladenCreate();
 export const patchSchiedsrichter = async () => globalThis.__flEinladenSave();
 export const deleteSchiedsrichter = async () => ({ acknowledged: 1 });
-export const reactivateSchiedsrichter = async () => ({ acknowledged: 1 });
+export const reactivateSchiedsrichter = async () => globalThis.__flEinladenReactivate();
 export const anonymiseSchiedsrichter = async () => ({ acknowledged: 1 });`;
 
 type MailArgs = { email: string; schiedsrichterId: string; name: string | null };
@@ -49,8 +49,11 @@ registerHooks({
   },
 });
 
-const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsrichterAction } = await import("./actions.ts");
+const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsrichterAction, reactivateSchiedsrichterAction } =
+  await import("./actions.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
+const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -61,6 +64,8 @@ const aRefusal = (serverErrorCode: string) =>
     statusCode: 409,
     serverErrorCode,
     endpoint: "/schiedsrichter",
+    method: "POST",
+    readOnly: false,
     traceId: "0",
   });
 
@@ -89,6 +94,11 @@ beforeEach(() => {
     updated_document: null,
     fanned_out_to_spiele: 0,
     bestaetigung: { token: "abc", frist: "2026-10-05", email: "korrigiert@example.de" },
+  });
+  recorders.__flEinladenReactivate = () => ({
+    acknowledged: 1,
+    updated_document: { name: "Anna Meier" },
+    bestaetigung: { token: "abc", frist: "2026-10-05", email: "anna@example.de" },
   });
   recorders.__flEinladenDelivered = true;
 });
@@ -139,7 +149,7 @@ describe("the re-send the editor's panel presses", () => {
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /keine E-Mail-Adresse hinterlegt/);
+    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse hinterlegt/);
     assert.deepEqual(calls, []);
     assert.deepEqual(mails, []);
   });
@@ -159,7 +169,7 @@ describe("the re-send the editor's panel presses", () => {
   for (const [code, fragment] of [
     ["REQ-SCHIEDSRICHTER-001", /stillgelegt/],
     ["REQ-SCHIEDSRICHTER-004", /schon bestätigt/],
-    ["REQ-SCHIEDSRICHTER-006", /keine E-Mail-Adresse hinterlegt/],
+    ["REQ-SCHIEDSRICHTER-006", /keine verwendbare E-Mail-Adresse hinterlegt/],
     ["REQ-SCHIEDSRICHTER-007", /Sperrliste/],
   ] as const) {
     it(`words ${code} at the panel, and mails nothing`, async () => {
@@ -197,9 +207,6 @@ describe("the re-send the editor's panel presses", () => {
 
 const ENTWURF = { name: "Anna Meier", default_payment: 20, schule: null, kontakt: { email: "anna@example.de", telefon: null } };
 
-/* `shared/components/ui/EntityForm.tsx` raises the form's own `successMessage` as the title and
-   drops a description equal to it, and `ActionSuccess.message` is required: so the create says the
-   title itself where there is nothing further to report. */
 describe("what the create tells the administrator", () => {
   it("reports the message the mint sent rather than the title the toast already carries", async () => {
     const res = await postSchiedsrichterAction(ENTWURF);
@@ -207,12 +214,68 @@ describe("what the create tells the administrator", () => {
     assert.equal(res.success && res.message, "ging an anna@example.de");
   });
 
-  it("says nothing beyond its own title where the create carried no address to mail", async () => {
-    recorders.__flEinladenCreate = () => ({ acknowledged: 1, created_id: SCHIEDSRICHTER_ID, bestaetigung: null });
+  /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
+     because a referee entered without an address is a person never told of it. */
+  it("refuses a create without an address on the address box, reaching no endpoint and mailing nothing", async () => {
+    recorders.__flEinladenCreate = () => {
+      throw new Error("the create reached the endpoint");
+    };
 
     const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: null, telefon: null } });
 
-    assert.equal(res.success && res.message, "Schiedsrichter angelegt");
+    assert.equal(res.success, false);
+    assert.equal(res.success ? undefined : res.fieldErrors?.["kontakt.email"], "Bitte gib eine E-Mail-Adresse ein.");
+    assert.deepEqual(mails, []);
+  });
+
+  /* A reserved domain passes the form's rule and only the API refuses it: its 422 names the box, and
+     the create answers there rather than in a toast naming no field. */
+  it("puts an address only the API refuses on the address box, mailing nothing", async () => {
+    recorders.__flEinladenCreate = () => {
+      throw refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter");
+    };
+
+    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@beispiel.test", telefon: null } });
+
+    assert.equal(res.success, false);
+    assert.deepEqual(res.success ? undefined : res.fieldErrors, { "kontakt.email": FELD_ABGELEHNT });
+    assert.deepEqual(mails, []);
+  });
+});
+
+/* The placeholder a row without an address is given, which the API refuses with a 422 whose box gets
+   only the generic sentence: refused here instead, the box says the placeholder is what has to change. */
+describe("a save still carrying the placeholder address", () => {
+  it("is refused on the address box in German, before the endpoint", async () => {
+    recorders.__flEinladenSave = () => {
+      throw new Error("the save reached the endpoint");
+    };
+
+    const res = await patchSchiedsrichterAction({
+      ...ENTWURF,
+      id: SCHIEDSRICHTER_ID,
+      kontakt: { email: "adresse-fehlt@frankfurtleague.invalid", telefon: null },
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(
+      res.success ? undefined : res.fieldErrors?.["kontakt.email"],
+      "Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein.",
+    );
+    assert.deepEqual(mails, []);
+  });
+
+  // Each payload declares its own `kontakt`, so a save redeclaring the address as optional passes
+  // every create case and lets an edit clear the only route by which the person learns of the entry.
+  it("is refused on the address box without an address as well, before the endpoint", async () => {
+    recorders.__flEinladenSave = () => {
+      throw new Error("the save reached the endpoint");
+    };
+
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, kontakt: { email: null, telefon: null } });
+
+    assert.equal(res.success, false);
+    assert.equal(res.success ? undefined : res.fieldErrors?.["kontakt.email"], "Bitte gib eine E-Mail-Adresse ein.");
     assert.deepEqual(mails, []);
   });
 });
@@ -244,6 +307,82 @@ describe("what the save hands the editor about the message it sent", () => {
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.versandSatz, undefined);
+    assert.deepEqual(mails, []);
+  });
+});
+
+/* A retired referee's save stores a new address and mails nothing, so coming back is what asks an
+   unanswered one: the link the reactivation minted is mailed here, or nobody ever sends it. */
+describe("the reactivation of an unanswered referee", () => {
+  it("mails the link the reactivation minted, to the address the mint read, and says so", async () => {
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success && res.message, "ging an anna@example.de");
+    assert.deepEqual(
+      mails.map(({ email, schiedsrichterId }) => ({ email, schiedsrichterId })),
+      [{ email: "anna@example.de", schiedsrichterId: SCHIEDSRICHTER_ID }],
+    );
+    assert.equal(res.success && res.versandFehlgeschlagen, false);
+  });
+
+  it("marks a link that did not leave, so the row can grade its toast", async () => {
+    recorders.__flEinladenDelivered = false;
+
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success && res.message, "nicht an anna@example.de");
+    assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  it("mails nothing where the row came back unasked", async () => {
+    recorders.__flEinladenReactivate = () => ({ acknowledged: 1, updated_document: { name: "Anna Meier" }, bestaetigung: null });
+
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success && res.message, "Schiedsrichter reaktiviert");
+    assert.deepEqual(mails, []);
+  });
+
+  it("words the ban the mint on return is refused on", async () => {
+    recorders.__flEinladenReactivate = () => {
+      throw aRefusal("REQ-SCHIEDSRICHTER-007");
+    };
+
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success, false);
+    assert.match(res.success ? "" : res.error, /Sperrliste/);
+    assert.deepEqual(mails, []);
+  });
+});
+
+/* The re-send takes the placeholder for no address before any round trip, and leaves a real address
+   to the API. */
+describe("the re-send of a row holding the placeholder", () => {
+  it("is refused as having no address, reaching no endpoint", async () => {
+    recorders.__flEinladenRow = withRow("adresse-fehlt@frankfurtleague.invalid");
+
+    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success, false);
+    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse/);
+    assert.deepEqual(calls, []);
+    assert.deepEqual(mails, []);
+  });
+
+  /* A row stored before the address rule holds a real address the payload's rule refuses: whether a
+     link may go there is the API's to answer, and its refusal reaches the panel in the same words. */
+  it("asks the API about a row whose address predates the address rule, and words its refusal", async () => {
+    recorders.__flEinladenRow = withRow("jürgen@schule.de");
+    recorders.__flEinladenMint = () => {
+      throw aRefusal("REQ-SCHIEDSRICHTER-006");
+    };
+
+    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(calls.length, 1, "the re-send judged the address itself rather than asking the API");
+    assert.equal(res.success, false);
+    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse/);
     assert.deepEqual(mails, []);
   });
 });

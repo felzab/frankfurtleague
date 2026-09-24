@@ -21,7 +21,9 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -44,6 +46,7 @@ import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
+import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
@@ -88,20 +91,16 @@ export function AdminSpielerEditForm({
   const [nummer, setNummer] = useState(storedMembership?.nummer ?? "");
   const [position, setPosition] = useState<FLSpielerPosition | null>(storedMembership?.position ?? null);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
-  // Read-only on this page, but held in state anyway: the patch replaces the row wholesale, so
-  // dropping it from the payload would clear it.
-  const [istNachnominiert, setIstNachnominiert] = useState(storedMembership?.ist_nachnominiert ?? false);
   const [rolle, setRolle] = useState<FLSpielerRolle | null>(storedMembership?.rolle ?? null);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
   });
 
-  // The ids ride in the request URI and `ist_nachnominiert` is round-tripped read-only, so none of
-  // them is a path an input renders or a refusal can name.
+  // The ids ride in the request URI, so neither is a path an input renders or a refusal can name.
   const buildPersonPayload = () => ({ id: spieler.id, ...personDraft });
   const buildSaisonPayload = () => ({
     spieler_id: spieler.id,
@@ -111,7 +110,6 @@ export function AdminSpielerEditForm({
     nummer: nummerPayload(nummer),
     position,
     stufe,
-    ist_nachnominiert: istNachnominiert,
     rolle,
   });
 
@@ -119,7 +117,7 @@ export function AdminSpielerEditForm({
     vorname: personDraft.vorname,
     nachname: personDraft.nachname ?? "",
     geburtsdatum: personDraft.geburtsdatum,
-    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, ist_nachnominiert: istNachnominiert, rolle },
+    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
     vorname: spieler.vorname,
@@ -134,7 +132,6 @@ export function AdminSpielerEditForm({
             nummer: storedMembership.nummer ?? "",
             position: storedMembership.position,
             stufe: storedMembership.stufe,
-            ist_nachnominiert: storedMembership.ist_nachnominiert,
             rolle: storedMembership.rolle,
           },
   };
@@ -177,11 +174,11 @@ export function AdminSpielerEditForm({
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
     saisonId: saison.saisonId,
-    saisonStatus: saison.saisonStatus,
+    nachnominierungLaeuft: saison.nachnominierungLaeuft,
     isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
     isRowTeamInSaison: rowReturn !== "clubLeft",
-    istNachnominiert,
+    istNachnominiert: storedMembership?.ist_nachnominiert ?? false,
     isTeamChanged: isChanged("team_id"),
     isSquadFull,
     blockedRolle,
@@ -193,7 +190,6 @@ export function AdminSpielerEditForm({
     setNummer(storedMembership?.nummer ?? "");
     setPosition(storedMembership?.position ?? null);
     setStufe(storedMembership?.stufe ?? null);
-    setIstNachnominiert(storedMembership?.ist_nachnominiert ?? false);
     setRolle(storedMembership?.rolle ?? null);
 
     setSubmitFieldErrors({}, {});
@@ -232,36 +228,51 @@ export function AdminSpielerEditForm({
       const transferTouched = isChanged("team_id");
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
-      const failedNotes: string[] = [];
+      const failures: ActionFailure[] = [];
 
       // Person half first: it cannot depend on the squad half.
       if (personDirty) {
-        const res = await patchSpielerAction(personPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSpielerAction(personPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Personendaten gespeichert.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error);
+          failures.push(res);
         }
       }
 
       if (saisonDirty) {
-        const res = await patchSaisonSpielerAction(saisonPayload);
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSaisonSpielerAction(saisonPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Kadereintrag gespeichert.");
           if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error);
+          failures.push(res);
         }
       }
 
-      if (failedNotes.length > 0) {
-        setSubmitFieldErrors(collectedErrors, { spieler: personPayload, saisonSpieler: saisonPayload });
-        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
-        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
-          description: [...savedParts, ...failedNotes].join(" "),
-        });
+      if (failures.length > 0) {
+        // One press, one failure: the half that saved leads each sentence, and one half of unknown
+        // outcome makes the whole press one, whatever the other half answered.
+        reportSubmitFailure(
+          {
+            success: false,
+            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+            fieldErrors: collectedErrors,
+            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+          },
+          { spieler: personPayload, saisonSpieler: saisonPayload },
+          {
+            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+            // said nowhere else.
+            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+          },
+        );
         return;
       }
 
@@ -283,7 +294,6 @@ export function AdminSpielerEditForm({
                 nummer: storedMembership.nummer,
                 position: storedMembership.position,
                 stufe: storedMembership.stufe,
-                ist_nachnominiert: storedMembership.ist_nachnominiert,
                 rolle: storedMembership.rolle,
               },
             }

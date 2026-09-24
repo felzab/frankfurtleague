@@ -26,6 +26,9 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    // Inside `.next/cache` so CI's frontend job restores it with Next's own cache: its tsc step is
+    // otherwise cold on every run. Entries are keyed on file hashes, so a restore re-checks what changed.
+    "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo",
     "plugins": [
       {
         "name": "next"

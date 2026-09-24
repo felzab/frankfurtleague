@@ -32,6 +32,8 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro } from "@/shared/utils/format";
 
+import { hatAdresse } from "../../schemas";
+
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
 
@@ -102,7 +104,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         </div>
         <span className={IDENTITY_LINE}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
         <span className={IDENTITY_PAIR}>
-          <span className={IDENTITY_LINE}>{schiedsrichter.kontakt.email || <span className="italic">Keine E-Mail</span>}</span>
+          {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
+          <span className={IDENTITY_LINE}>
+            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <span className="italic">Keine E-Mail</span>}
+          </span>
           <span className={`${IDENTITY_LINE} font-numeric tabular-nums`}>
             {schiedsrichter.kontakt.telefon || <span className="italic">Keine Telefonnummer</span>}
           </span>
@@ -121,10 +126,11 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const rowSubject = name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${name}`;
     const kontaktLabel = name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${name} kopieren`;
 
-    // The stored values and never a displayed stand-in: a clipboard carrying one reads as a detail
-    // somebody could paste into a message.
-    const kontaktdaten = [name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
-    const hasKontakt = Boolean(schiedsrichter.kontakt.email) || Boolean(schiedsrichter.kontakt.telefon);
+    // The stored values and never a displayed stand-in, less the placeholder a row without an address
+    // holds: a clipboard carrying either reads as a detail somebody could paste into a message.
+    const email = hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : null;
+    const kontaktdaten = [name, email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
+    const hasKontakt = Boolean(email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
       <RowActions>

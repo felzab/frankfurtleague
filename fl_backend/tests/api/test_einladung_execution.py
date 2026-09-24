@@ -658,6 +658,14 @@ class TestTheStateRead:
 
         assert on_a_league(mongo_replica_set_url, body) == (True, False, True)
 
+    def test_a_season_that_has_ended_reads_as_a_shut_window_whatever_its_dates(self, mongo_replica_set_url: str):
+        """The link's own page reads a `past` season as shut, so the panel telling the administrator it runs would contradict it."""
+
+        async def body(database: AsyncDatabase) -> bool:
+            return (await read_state(database, TWO_SEATS)).laeuft
+
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past") is False
+
     def test_a_mailed_link_reports_what_became_of_the_message(self, mongo_replica_set_url: str):
         """The other side of the null: an invitation nobody mailed and one whose message bounced must read differently."""
 

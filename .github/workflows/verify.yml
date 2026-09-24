@@ -111,8 +111,8 @@ jobs:
 
   # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
   # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
-  # and merge unchecked -- while nothing waits on this job, so its backend install sits off the
-  # critical path every scope job's `needs: changes` puts a step on.
+  # and merge unchecked -- while nothing waits on this job, so its full-history checkout sits off
+  # the critical path every scope job's `needs: changes` puts a step on.
   commits:
     # A push to main has no branch to measure, so the whole job is skipped rather than installing a
     # toolchain for a step that would not run.
@@ -125,38 +125,27 @@ jobs:
           persist-credentials: false
           # Full history: the check reads this branch's commits against the merge base.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
-          # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and
-          # every `uv sync` below refuses the moment the two differ.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
         # runner image happens to ship: one floor for every caller, so a check cannot pass here and
         # fail on a development machine over a language version.
 
-        # `--locked` at every `uv sync` in this workflow: a bare sync REWRITES uv.lock in the working
-        # tree, so a branch with a stale committed lockfile passes every later check against the
-        # rewritten file. `--locked` refuses it; `--frozen` would accept it.
-
-        # `--only-group dev` where no step imports the application: the checkers under scripts/ are
-        # standard library, so the project and its graph stay uninstalled here. `docs`, `backend`
-        # and `backend-db` keep `--dev`, those scopes importing `app`.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+        # An interpreter and no virtualenv: both checks import the standard library alone, and the
+        # toolcache holds the pin, so this is a lookup rather than the install setup-uv and a sync
+        # would be.
+        with:
+          python-version-file: fl_backend/.python-version
       - name: Check the branch's commit messages
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: fl_backend/.venv/bin/python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
+        run: python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
       - name: Hold a moved gate budget to its measurement
         # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused here. This job, because it already has the venv
-        # and the full history the base comparison reads.
+        # stamp, or the pull request is refused here. This job, because it already has the
+        # interpreter and the full history the base comparison reads.
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: fl_backend/.venv/bin/python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
+        run: python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
 
   scripts:
     needs: changes
@@ -173,14 +162,21 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # The pin's file, for the reason written at `commits`.
+          # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
+          # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and
+          # every `uv sync` below refuses the moment the two differ.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # The scripts scope lints the python under scripts/ with the repository's own ruff, which lives
         # in this venv. verify.sh resolves .venv/bin/python (Linux) itself.
 
-        # The dev group alone, as at `commits`: scripts/pyrightconfig.json names no venv because
-        # nothing there imports past the standard library, and scripts/tests imports the same set.
+        # `--locked` at every `uv sync` in this workflow: a bare sync REWRITES uv.lock in the working
+        # tree, so a branch with a stale committed lockfile passes every later check against the
+        # rewritten file. `--locked` refuses it; `--frozen` would accept it.
+
+        # `--only-group dev` where no step imports the application: the checkers under scripts/ are
+        # standard library, and scripts/tests imports the same set, which is why
+        # scripts/pyrightconfig.json names no venv. The project and its graph stay uninstalled.
         working-directory: fl_backend
         run: uv sync --locked --only-group dev
       - name: Install the shellcheck the gate pins
@@ -230,7 +226,7 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # The pin's file, for the reason written at `commits`.
+          # The pin's file, for the reason written at `scripts`.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
@@ -245,12 +241,12 @@ jobs:
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
-  # Prettier in check mode, for changes outside fl_frontend — docs, workflows, compose files —
-  # which the formatter still governs. When the frontend job runs it already includes the same
-  # check, so this one stands down.
+  # Prettier in check mode over the whole repository, wherever a changed path is one it governs:
+  # with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
+  # which runs beside the frontend job rather than on its path.
   format:
     needs: changes
-    if: needs.changes.outputs.format == 'true' && needs.changes.outputs.frontend != 'true'
+    if: needs.changes.outputs.format == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -275,18 +271,22 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # The pin's file, for the reason written at `commits`.
+          # The pin's file, for the reason written at `scripts`.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
+        # `--dev`, not the dev group alone: pyright and the suite import `app`, so the project and
+        # its dependency graph are installed.
         working-directory: fl_backend
         run: uv sync --locked --dev
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
-  # The `db`-marked backend tests, which start a real mongod. A separate job rather than
-  # a step in `backend`: jobs run concurrently, so the mongod pull costs no wall-clock time. The
-  # marker belongs to the suite, not to this pipeline.
-  backend-db:
+  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files. A separate
+  # job rather than a step in `backend`: jobs run concurrently, so the mongod pull costs no
+  # wall-clock time.
+
+  # The marker belongs to the suite, not to this pipeline.
+  db:
     needs: changes
     if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
@@ -298,15 +298,17 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # The pin's file, for the reason written at `commits`.
+          # The pin's file, for the reason written at `scripts`.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
+        # `--dev`, not the dev group alone: the db tier's tests import `app`, so the project and its
+        # dependency graph are installed.
         working-directory: fl_backend
         run: uv sync --locked --dev
       - name: Pull the mongod image the db tier starts
         # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
         # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
-        # told from a slow registry. The tag is read from the conftest.
+        # told from a slow registry.
 
         # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
         # that, so none is added here.
@@ -317,6 +319,9 @@ jobs:
         continue-on-error: true
         # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
         # first, which is a bare 141 with nothing printed, the guard below never having run.
+
+        # The conftest's one tag is every tier's: `fl_frontend/src/core/mongoImage.test.ts` holds
+        # the frontend's db-tier files to it.
         run: |
           image="$(awk -F'"' '/Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
           if [ -z "$image" ]; then
@@ -324,6 +329,9 @@ jobs:
             exit 1
           fi
           docker pull "$image"
+      # The db scope runs the frontend's db-tier files too (`pnpm run test:db`), so this job installs
+      # the frontend beside the backend's virtualenv.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 
@@ -338,8 +346,7 @@ jobs:
   # scope_map.sh's PATH mapping, the one `changes` already shrinks every other job by, and not
   # scripts/checks/check_scope.py's comment classifier.
 
-  # The `changes` job still emits `frontend`, because `format`'s condition reads it -- without that,
-  # `format` would run beside this job and prettier twice per push.
+  # The `changes` job still emits `frontend`, because the unit-test shard jobs below key on it.
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -375,12 +382,6 @@ jobs:
             ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
           fi
       - if: steps.map.outputs.frontend == 'true'
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # The pin's file, for the reason written at `commits`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
         # NOT unused, and this is the job where that is hardest to see: no step here runs python,
         # yet `scripts/gate/gate_pool.py` -- which starts this scope's checks together -- needs one at
         # the checkers' floor, above this image's own.
@@ -389,21 +390,24 @@ jobs:
         # probe zeroes `scripts/gate/verify.sh :: STEP_JOBS`, and the scope silently costs the sum of
         # its checks rather than the longest.
 
-        # The dev group alone, as at `images`, the other job wanting this venv for the pool alone.
-        if: steps.map.outputs.frontend == 'true'
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+        # An interpreter and no virtualenv, for the reason written at `commits`; here the lookup is
+        # on the run's critical path.
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
       - if: steps.map.outputs.frontend == 'true'
         uses: ./.github/actions/frontend-toolchain
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
-      # depends on hits exactly every run, and actions/cache does not write on an exact hit. The
-      # prefix restore is safe because the Next cache is content-addressed.
+      # depends on hits exactly every run, and actions/cache does not write on an exact hit.
       - if: steps.map.outputs.frontend == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
           key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
+          # A prefix restore is safe for both things the path holds: the Next cache is
+          # content-addressed, and tsc's build info (`tsBuildInfoFile`) re-checks a file whose text
+          # hash moved, and every file where the compiler options or the TypeScript version did.
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
@@ -427,6 +431,41 @@ jobs:
             exit 1
           fi
 
+  # The frontend unit tests, split by file across four shards: run in one job, they would be the
+  # run's longest step.
+
+  # Four, not three: three shards finish level with the frontend job, so the run would wait on the
+  # slower of two near-equal spans; four finish well before it.
+  frontend-units:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    # Spelled out because GitHub documents no default name for a matrix instance, and the budget
+    # check finds each instance's row in .github/gate-wall-clock.tsv by exactly this name.
+    name: frontend-units (${{ matrix.shard }})
+    strategy:
+      # A red shard cancels none of the others, whose results still say which files fail.
+      fail-fast: false
+      # `shard` alone, with no `include`: a second key or an added combination repeats an index
+      # under a larger count, and the files of the indices nobody runs are tested nowhere.
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/frontend-toolchain
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the frontend unit tests
+        # On this step alone: `verify.sh` refuses a shard beside any other scope, and `node --test`
+        # counts shards from 1, as the list does.
+
+        # The count is the matrix's own size rather than a second copy of it, so a shard added to
+        # the list is a shard every instance counts.
+        env:
+          VERIFY_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: ./scripts/gate/verify.sh --frontend-units
+
   # The compose files and nginx's prod.conf have no compiler and no test suite; this scope is the
   # only thing standing between a typo in either and a failed deploy.
   ops:
@@ -441,14 +480,15 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # The pin's file, for the reason written at `commits`.
+          # The pin's file, for the reason written at `scripts`.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # `any_python` falls back to the runner's python3, which is under the checkers' floor on
         # this image, and the ops scope degrades "could not run" to a skip — so without this venv
         # the job is green having never compared the compose files.
 
-        # The dev group alone, as at `commits`: the three python checks are standard library.
+        # The dev group alone, as at `scripts`: zizmor is the only thing here past the standard
+        # library, and it is a dev dependency.
         working-directory: fl_backend
         run: uv sync --locked --only-group dev
       - name: Run the ops scope
@@ -466,20 +506,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # The pin's file, for the reason written at `commits`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         # The two builds start together only through `scripts/gate/gate_pool.py`, which needs a python at
-        # the checkers' floor -- above this image's own. Without this venv the scope costs their sum
-        # rather than the longer of the two, against the timeout above.
+        # the checkers' floor -- above this image's own. Without it the scope costs their sum rather
+        # than the longer of the two, against the timeout above.
 
-        # The dev group alone, as at `commits`: the pool is standard library, and each Dockerfile
+        # An interpreter and no virtualenv, for the reason written at `commits`: each Dockerfile
         # installs its own tree inside the build.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+        with:
+          python-version-file: fl_backend/.python-version
       # buildx talks to the Actions cache service itself, so there is no actions/cache
       # step and no cache directory to carry. This action exists because the runner injects the
       # service credentials into JavaScript actions alone.
@@ -496,7 +531,7 @@ jobs:
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
   # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
-    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, ops, images]
+    needs: [changes, commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -520,7 +555,7 @@ jobs:
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
       - name: Read the wall-clock reference and the budget check
-        # Three files out of the tree, sparse rather than a full checkout: this job runs on every
+        # Four files out of the tree, sparse rather than a full checkout: this job runs on every
         # event and owes the required check its start time. Without `continue-on-error`, because
         # the budget step at the end of this job decides: a checkout it cannot read from is that
         # step refusing, never a verdict skipped. The report still answers a missing reference by
@@ -533,6 +568,7 @@ jobs:
             .github/gate-wall-clock.tsv
             scripts/checks/check_gate_budget.py
             scripts/lib/checker_kernel.py
+            fl_backend/.python-version
           sparse-checkout-cone-mode: false
 
       - name: Report the gate's wall clock
@@ -569,12 +605,21 @@ jobs:
           # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
           # discarding the whole run throws their timings away. It excludes the run doing the
           # reporting, which is still in flight.
-          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"
+          if ! runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"; then
+            no_comparison "The list of completed main runs could not be read, so no window was assembled and no floor was tested."
+            exit 0
+          fi
           count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
           if [ "$count" -lt "$window" ]; then
             no_comparison "$count completed main runs are on record and $window are needed for a window, so no median was computed and no floor was tested."
             exit 0
           fi
+          # Every request is made even after one fails, so the warning names each run whose jobs
+          # could not be read; any such run ends the report before awk, as medians over the rest
+          # would print as a whole window's.
+          jobs="${RUNNER_TEMP}/wall-clock-jobs.tsv"
+          : > "$jobs"
+          failed=""
           for id in $runs; do
             # First step's start to last step's end, rather than the job's own timestamps, which
             # carry the wait for a runner — pool queueing is noise about GitHub, not about the gate.
@@ -593,14 +638,19 @@ jobs:
                        - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
                 else ["dropped", .name, 0]
                 end
-              | @tsv'
-          done | awk -F'\t' -v w="$window" -v ref="$reference" -v state="$state" '
+              | @tsv' >> "$jobs" || failed="${failed:+$failed, }$id"
+          done
+          if [ -n "$failed" ]; then
+            no_comparison "The jobs of main run(s) $failed could not be read, so no window was assembled and no floor was tested."
+            exit 0
+          fi
+          awk -F'\t' -v w="$window" -v ref="$reference" -v state="$state" '
             BEGIN { whole = 1 }
             # The reference table first, one row per job: name, seconds, floor percent.
             FNR == NR {
               if ($0 ~ /^#/ || NF < 3) next
-              # A `-` in the seconds column is a job budgeted and never referenced -- one that runs
-              # on pull requests alone, so no main window holds it -- not a reference of zero.
+              # A `-` in the seconds column is a job budgeted with no reference cut from main runs,
+              # the table saying why for each such job -- not a reference of zero.
               if ($2 !~ /^[0-9]+$/) next
               base[$1] = $2 + 0
               limit[$1] = $3 + 0
@@ -693,7 +743,7 @@ jobs:
               verdict = loud ? "regressed" : (whole ? "clean" : "partial")
               print verdict > state
             }
-          ' "$reference" - >> "$GITHUB_STEP_SUMMARY"
+          ' "$reference" - < "$jobs" >> "$GITHUB_STEP_SUMMARY"
           # Outside the summary for `no_comparison`'s reason, and with its polarity: a clean report
           # is the only one of the three that annotates nothing, so silence on the checks list
           # means the comparison ran and found nothing rather than that it never ran.
@@ -712,12 +762,13 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
-        # python, and the toolcache holds it, so this is a lookup rather than a download.
+        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
 
         # Not a `uv sync`: the check imports the standard library alone, and an install would sit on
-        # the required check's critical path for nothing.
+        # the required check's critical path for nothing. The toolcache holds the pin, so this is a
+        # lookup.
         with:
-          python-version: "3.14"
+          python-version-file: fl_backend/.python-version
       - name: Hold every job to its wall-clock budget
         # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
         # required check, naming the job and both figures, and so does a job that ran with no row

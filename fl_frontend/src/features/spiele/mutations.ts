@@ -41,6 +41,7 @@ export const patchAdminSpielePaarungen = async (payload: FLPatchSpielePaarungenP
 export const previewAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayload): Promise<FLPatchSpielDataResponse> => {
   return apiClient<FLPatchSpielDataResponse>(`/spiele/${spiel_id}?dry_run=true`, FLPatchSpielDataResponseSchema, {
     method: "PATCH",
+    readOnly: true,
     authType: "admin",
     body: JSON.stringify(fields),
   });

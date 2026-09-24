@@ -307,28 +307,31 @@ one does not fail
 fast — it parks the whole fleet behind a dialog nobody is awake to answer, and the register is the
 only thing that will still be true in the morning.
 
-- **Bypass permissions mode does not suppress a hook's `ask`** — driven and confirmed: a
-  `PreToolUse` hook returning `permissionDecision: "ask"` prompted the owner with bypass mode
-  active. So bypass is not the preparation, whatever it is named for; removing the registration is
-  the only mechanism that reaches such a prompt, which is the next clause's cost.
-- **A deny lets a session adapt; only an unanswerable ask hangs it.** So what an unattended stretch
-  can need lifted is an ask and never a deny — and only an ask that is not itself holding a change
-  for the owner's sign-off, since removing that one spends the sign-off it exists to collect, which
-  is the next clause's answer as much as its cost. Hooks are never disabled wholesale: the denies
-  are what prevent real damage, and a session that has switched off its credential and branch guards
-  to sleep more soundly has bought the wrong thing.
-- **Removing a guard's registration is the owner's instruction to give, never the coordinator's to
-  take** — it is routing around a guard, whatever the reason looks like at midnight.
-- **The prompt surface is not enumerable from the hooks.** Prompts also come from the harness's own
+- **Bypass permissions mode does not suppress an explicit `ask` rule**, the standard's
+  `Edit(**/docs/_standard/**)` in `.claude/settings.json` among them — documented under Claude
+  Code's "actions no mode auto-approves", not driven here for the rule form. So bypass is not the
+  preparation, whatever it is named for.
+- **A deny lets a session adapt; only an unanswerable ask hangs it.** So an unattended stretch turns
+  the standard's ask into a deny: add `Edit(**/docs/_standard/**)` to `permissions.deny` in
+  `.claude/settings.local.json`, which is gitignored and which a running session reloads —
+  documented, not driven here, so confirm one refusal before leaving. Deny is evaluated before ask,
+  so an agent reaching the standard is refused and works on, and the change still waits for the
+  owner — the deny keeps the sign-off the ask exists to collect. Nothing is removed for the night:
+  the denies are what prevent real damage, and a session that has lifted its credential or git
+  denies to sleep more soundly has bought the wrong thing.
+- **Removing or loosening a permission rule, or a hook's registration, is the owner's instruction to
+  give, never the coordinator's to take** — it is routing around a guard, whatever the reason looks
+  like at midnight. The overnight deny adds a rule and loosens none.
+- **The prompt surface is not enumerable from the rules.** Prompts also come from the harness's own
   permission classifier reacting to whatever is not on its allow list, so a shell command, a script
-  invocation and a skill call can each raise one with no hook involved. Auditing the registrations
-  and declaring the surface closed is a false green, and one command running unprompted establishes
-  that command and nothing about its class.
-- **The change is undone by mechanism, never by memory.** Four of them, each catching what the
-  others miss: a byte-exact backup outside the tree; its restore command written into the resume
-  point above; staging by explicit path, so no `git add -A` can sweep the change into a commit; and
-  a path-by-path read of the pull request diff before the push. "I will put it back in the morning"
-  is not one of the four.
+  invocation and a skill call can each raise one with no rule involved. Auditing the rules and
+  declaring the surface closed is a false green, and one command running unprompted establishes that
+  command and nothing about its class.
+- **The change is undone by mechanism, never by memory**: a byte-exact backup outside the tree of a
+  `.claude/settings.local.json` that existed before, and the restore command — that backup put back,
+  or the file deleted where the deny created it — written into the resume point above. Left in
+  place the deny refuses the owner's own edit to the standard the next day. "I will put it back in
+  the morning" is not a mechanism.
 - **A pre-authorisation is executed against its intent.** Where applying it literally would defeat
   what it was given for — a bound moved to a number that binds nothing, a cut that empties the thing
   it was meant to tighten — it goes back unexecuted though the permission exists. Two instructions

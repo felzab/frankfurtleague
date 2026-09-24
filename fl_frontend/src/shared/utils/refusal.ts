@@ -1,6 +1,6 @@
 /**
  * What a refusal carries, so a weak one cannot ship shorter than its own way out. The two sentences
- * are the FORM register `adminMutation.ts :: VALIDATION_FAILED` declares, the action second.
+ * are the FORM register `validation.ts :: VALIDATION_FAILED` declares, the action second.
  */
 export type RefusalParts = {
   /** What did not happen, so the reader knows which state the record is left in. Never how it was detected. */

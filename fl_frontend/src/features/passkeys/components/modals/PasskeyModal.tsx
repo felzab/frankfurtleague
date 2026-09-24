@@ -7,6 +7,7 @@ import { Plus } from "@gravity-ui/icons";
 import { Button, Spinner } from "@heroui/react";
 
 import { authClient } from "@/core/authClient";
+import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
@@ -31,6 +32,21 @@ const BESTAETIGUNG_HINWEIS = "Zum Hinzufügen und Löschen fragen wir Dich zuers
 const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
 
 const BESTAETIGUNG_FEHLT = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
+
+/**
+ * The loser of two changes to this account's passkeys that ran at once (`docs/frontend/spec.md ::
+ * I341`): the other was an enrolment or a removal, and nothing here tells which.
+ */
+const GLEICHZEITIG = "Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht.";
+
+/** Where the re-read shows the cap, the other change can only have been an enrolment. */
+const GLEICHZEITIG_HINZUGEFUEGT = "Gleichzeitig wurde ein anderer Passkey hinzugefügt.";
+
+/**
+ * What the reader is told, and, where the list on screen may be missing a row, what they are told
+ * instead once the re-read shows the cap reached.
+ */
+type Held = { readonly description: string; readonly whenFull: string | null };
 
 /**
  * The same sentence `fl_frontend/src/features/passkeys/actions.ts :: LETZTER_PASSKEY` answers: this
@@ -73,8 +89,11 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     setLadefehler(false);
   };
 
-  const lade = async (): Promise<void> => {
-    uebernimm(await readPasskeysAction());
+  /** Whether the list read now stands at the cap. */
+  const lade = async (): Promise<boolean> => {
+    const result = await readPasskeysAction();
+    uebernimm(result);
+    return result.success && !result.kannHinzufuegen;
   };
 
   // Adjusted during render rather than in the effect below, as `SidemenuOptionsMenu :: SignOutItem`
@@ -117,27 +136,41 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   };
 
   /** Why the enrolment did not happen, as far as a reader can act on it, or `null` where it did. */
-  const enrolmentHeld = async (): Promise<string | null> => {
+  const enrolmentHeld = async (): Promise<Held | null> => {
     try {
-      if (!(await bestaetigt())) return BESTAETIGUNG_FEHLT;
+      if (!(await bestaetigt())) return { description: BESTAETIGUNG_FEHLT, whenFull: null };
 
       const { error } = await authClient.passkey.addPasskey();
 
-      return error === null ? null : VERSUCHE_ES_ERNEUT;
+      if (error === null) return null;
+
+      // Read off the body rather than the type: a server's refusal arrives on the branch that declares
+      // no `code`, and its body has one.
+      if (Reflect.get(error, "code") === ENROLMENT_CONFLICT) {
+        return { description: `${GLEICHZEITIG} ${VERSUCHE_ES_ERNEUT}`, whenFull: `${GLEICHZEITIG_HINZUGEFUEGT} ${ZU_VIELE}` };
+      }
+
+      // The guard's own refusal, which an enrolment another device finished first earns too, the
+      // cap among its causes.
+      if (error.status === 404) return { description: VERSUCHE_ES_ERNEUT, whenFull: ZU_VIELE };
+
+      return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     } catch {
-      return VERSUCHE_ES_ERNEUT;
+      return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     }
   };
 
   const hinzufuegen = async (): Promise<void> => {
     setIstBeschaeftigt(true);
-    const refusal = await enrolmentHeld();
+    const held = await enrolmentHeld();
 
-    if (refusal !== null) {
+    if (held !== null) {
+      // The list may be missing the other change's row, which may also have closed the add control.
+      const full = held.whenFull !== null && (await lade());
       setIstBeschaeftigt(false);
       // One raising per outcome, and the literals at the call: `core/toastTitles.test.ts` reads a
       // title from the call site, and a second site sharing one is told apart by its description.
-      appToast.danger("Passkey nicht hinzugefügt", { description: refusal });
+      appToast.danger("Passkey nicht hinzugefügt", { description: full && held.whenFull !== null ? held.whenFull : held.description });
       return;
     }
 
@@ -148,23 +181,27 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     setIstBeschaeftigt(false);
   };
 
-  const removalHeld = async (id: string): Promise<string | null> => {
-    if (!(await bestaetigt())) return BESTAETIGUNG_FEHLT;
+  /** Why the removal did not happen, and whether the server answered it, the list then being suspect. */
+  const removalHeld = async (id: string): Promise<{ description: string; reread: boolean } | null> => {
+    if (!(await bestaetigt())) return { description: BESTAETIGUNG_FEHLT, reread: false };
 
     const result = await removePasskeyAction(id);
 
-    return result.success ? null : result.error;
+    return result.success ? null : { description: result.error, reread: true };
   };
 
   const entfernen = async (id: string): Promise<void> => {
     // Held for a REMOVAL too, or the add control stays pressable over a list one of the rows below
     // is in the middle of changing.
     setIstBeschaeftigt(true);
-    const refusal = await removalHeld(id);
+    const held = await removalHeld(id);
 
-    if (refusal !== null) {
+    if (held !== null) {
+      // The server's refusal may answer a list another change moved -- a row already gone, or one
+      // added or removed at the same moment -- so the list is read again before the control reopens.
+      if (held.reread) await lade();
       setIstBeschaeftigt(false);
-      appToast.danger("Passkey nicht gelöscht", { description: refusal });
+      appToast.danger("Passkey nicht gelöscht", { description: held.description });
       return;
     }
 

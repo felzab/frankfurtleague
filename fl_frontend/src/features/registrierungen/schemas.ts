@@ -87,7 +87,8 @@ export type FLPostRegistrierungPayload = z.infer<typeof FLPostRegistrierungPaylo
  */
 export const FLPostRegistrierungResponseSchema = BaseAPIResponseSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,
-  bestaetigung_token: z.string(),
+  // Null on a replay whose row needs no fresh link, and the handler then mails nothing.
+  bestaetigung_token: z.string().nullable(),
   frist: CustomDateStringSchema,
   email: z.string(),
   // Off the invite the token opened, so the mail addresses a pupil by their team without trusting a
@@ -126,6 +127,9 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   // The floor the answer is judged by. The page bounds its date control and words its sentences from
   // this rather than from a constant of its own.
   mindestalter: z.number().int(),
+  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
+  // side's own would offer the switch where the endpoint refuses the answer.
+  medien_mindestalter: z.number().int(),
   geburtsdatum: CustomDateStringSchema.nullable(),
   umfang: FLEinwilligungUmfangSchema.nullable(),
   medien: z.boolean().nullable(),
@@ -148,7 +152,6 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   text_version: z
     .string()
     .trim()
-    .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),

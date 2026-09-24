@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -170,7 +171,7 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual([seen.replaced, left], [[], []], "a refused ceremony sent the reader on");
+    assert.deepEqual([seen.replaced, left, seen.refresh], [[], [], 0], "a refused ceremony sent the reader on");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkey nicht eingerichtet", "Versuche es noch einmal."]],
@@ -192,6 +193,46 @@ describe("a prompt the browser did not complete", () => {
       raised.map((toast) => toast.description),
       ["Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung."],
     );
+  });
+
+  /* The other enrolment stands, and the guard then offers the assertion: left unread, the card offers
+     an enrolment the server refuses on every retry (`docs/frontend/spec.md :: I341`). */
+  it("tells the loser of two enrolments at once that a passkey now exists, and re-reads its own page", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      Promise.resolve({ data: null, error: { code: "PASSKEY_ENROLMENT_CONFLICT", message: "x", status: 409, statusText: "CONFLICT" } });
+    renderCard("enrol");
+
+    await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        [
+          "danger",
+          "Passkey nicht eingerichtet",
+          "Für diesen Zugang wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
+            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Zugangs.`,
+        ],
+      ],
+    );
+    assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
+  });
+
+  /* An enrolment another tab finished first earns the guard's plain refusal rather than the conflict,
+     and leaves the card as stale. */
+  it("re-reads its own page when the enrolment is refused outright", async () => {
+    const user = userEvent.setup();
+    answer = () => Promise.resolve({ data: null, error: { message: "Not Found", status: 404, statusText: "NOT_FOUND" } });
+    renderCard("enrol");
+
+    await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
+
+    assert.deepEqual(
+      raised.map((toast) => toast.description),
+      ["Versuche es noch einmal."],
+    );
+    assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
   });
 
   /* Awaited outside a transition, a rejection reaches no error boundary: uncaught it leaves

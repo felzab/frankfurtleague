@@ -75,8 +75,6 @@ class _SaisonSpielerWritable(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    # True when the player joined a season already under way; the form derives it from the status.
-    ist_nachnominiert: bool
     # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
     # rather than a flag per role, because two booleans can both be true and no validator sees a
     # second field to refuse it.
@@ -119,8 +117,9 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # Re-declared with defaults where the junction requires them: a squad row written before either
-    # field existed still has to be describable, and a model that 422s describes it as impossible.
+    # Defaulted where the junction requires them (the stored row the marker, the writable block the
+    # role): a squad row written before either field existed still has to be describable, and a
+    # model that 422s describes it as impossible.
     ist_nachnominiert: bool = False
     rolle: FLSpielerRolle | None = None
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
@@ -196,6 +195,8 @@ class FLPatchSpielerPayload(BaseModel):
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
 class _SaisonSpielerPayload(_SaisonSpielerWritable):
+    # Forbidding extras is also what refuses `ist_nachnominiert`: the create derives the marker and
+    # nothing edits it (`docs/backend/spec.md :: I334`), so a caller's value is never stored.
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored number would answer 500 for
@@ -274,8 +275,17 @@ class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
 
     spieler_id: CustomObjectId
     saison_id: str
+    ist_nachnominiert: bool
     # The stored row's own calendar rule, for `FLSpielerAdminSingleResponse.inactive_since`'s reason.
     inactive_since: CustomOptionalDateString
+
+
+class FLSpielerNachnominierungResponse(BaseAPIResponse):
+    """Whether an entry into this season's squads today would be marked a Nachnominierung."""
+
+    saison_id: str
+    # Named as `FLEinladungAnsichtResponse` names the same verdict, where `laeuft` is the window's.
+    nachnominierung: bool
 
 
 class FLSpielerMembership(_SaisonSpielerWritable):

@@ -21,6 +21,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
@@ -60,7 +61,7 @@ const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { textLink } = await import("@/shared/components/ui/textLink.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
-const { fensterZustand, stampEinwilligungFassung } = await import("./utils.ts");
+const { fensterZustand } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
 const { BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
 
@@ -1428,6 +1429,54 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
       unmount();
     }
   });
+
+  /* The slice's own sentence for a refusal naming only paths this page lacks, which the generic one
+     would override with a retry that resends the refused body. */
+  it("announces the sentence the answer brings for such a refusal, under the page's own title", async () => {
+    const EIGENER_SATZ = "Der Satz, den die Antwort für diesen Fall mitbringt.";
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, fieldErrors: { text_version: "abgelehnt" }, unplacedError: EIGENER_SATZ })),
+      ),
+    );
+    const { user, unmount, container } = renderBestaetigung();
+    assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.deepEqual(
+      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Antwort nicht gespeichert", EIGENER_SATZ]],
+    );
+    unmount();
+  });
+
+  /* The route marks a write whose commit went unanswered, and its sentence is the administrator's
+     reload-and-check, which a page whose token is gone from the address cannot follow. */
+  it("titles an answer of unknown outcome as unclear, and tells the visitor to reopen the link", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" })),
+      ),
+    );
+    const { user, unmount } = renderBestaetigung();
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.deepEqual(
+      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    );
+    unmount();
+  });
 });
 
 describe("where a link answered in another window lands", () => {
@@ -1495,49 +1544,6 @@ describe("what one answered seat sets the confirmation route sending", () => {
     assert.match(upToSend, /return;/, "the empty branch falls through into the send");
     assert.notEqual(logLine, "", "the empty seat passes without a line saying the message went nowhere");
     assert.doesNotMatch(logLine, /ansprechperson_email|token|vorname/, "the line carries an address, a token or a person");
-  });
-
-  /* The label names which words the confirming person read, so a body's own value is a claim no
-     browser may make: a caller could otherwise file a record under a retired wording, or one
-     nobody ever wrote. */
-  it("stamps the registry's own label over whatever label the body carried", () => {
-    const foreignBody = {
-      token: "kein-echtes-token",
-      antwort: "erteilt",
-      geburtsdatum: "1984-05-09",
-      whatsapp: false,
-      text_version: "2019-01-erfunden",
-    };
-    // The handler's own two steps, in its order: the stamp rewrites the body, and the schema judges
-    // what the stamp produced.
-    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(
-      stampEinwilligungFassung(foreignBody, BESTAETIGUNG_KENNTNISNAHME.textVersion),
-    );
-
-    assert.equal(stamped.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
-    assert.match(
-      CONFIRM_ROUTE,
-      /stampEinwilligungFassung\(body, BESTAETIGUNG_KENNTNISNAHME\.textVersion\)/,
-      "the browser's own label reaches the endpoint",
-    );
-    assert.doesNotMatch(CONFIRM_ROUTE, /safeParse\(body\)/, "the body is judged before its label is replaced");
-  });
-
-  /* Judged first, a body carrying no label is refused on `text_version` — a path no control renders,
-     so the refusal reaches the reader as nothing at all. */
-  it("admits a body that names no label, the stamp having written one", () => {
-    const withoutVersion = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
-
-    assert.equal(
-      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(withoutVersion).success,
-      false,
-      "the label is optional, so the stamp's position decides nothing",
-    );
-    assert.equal(
-      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion, BESTAETIGUNG_KENNTNISNAHME.textVersion))
-        .success,
-      true,
-    );
   });
 
   /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than

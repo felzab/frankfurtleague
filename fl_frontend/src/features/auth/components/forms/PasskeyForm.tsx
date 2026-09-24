@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
 
 import { authClient } from "@/core/authClient";
-import { USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
+import { KONTAKT_EMAIL } from "@/core/brand";
+import { ENROLMENT_CONFLICT, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { appToast } from "@/shared/utils/appToast";
@@ -41,12 +42,27 @@ const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
 const OHNE_BESTAETIGUNG =
   "Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.";
 
+// Said as what now stands: a retry here is refused for good, and under a stolen mailbox this toast is
+// the administrator's one sign that a passkey they may not have made exists.
+
+/** The loser of two enrolments of this account that ran at once (`docs/frontend/spec.md :: I341`). */
+const GLEICHZEITIG =
+  "Für diesen Zugang wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
+  `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Zugangs.`;
+
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 const refusalCode = (error: unknown): string | undefined =>
   typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
 
+/** The same, for the answer's HTTP status. */
+const refusalStatus = (error: unknown): number | undefined =>
+  typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : undefined;
+
+/** What the reader is told, and whether the step this card was handed may have moved on. */
+type Held = { readonly description: string; readonly stale: boolean };
+
 /** Why the ceremony did not complete, as far as a reader can act on it. */
-async function ceremonyHeld(step: Step): Promise<string | null> {
+async function ceremonyHeld(step: Step): Promise<Held | null> {
   try {
     // The library's own client both ways: it holds the WebAuthn call beside the two endpoints that
     // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
@@ -54,11 +70,21 @@ async function ceremonyHeld(step: Step): Promise<string | null> {
 
     if (error === null) return null;
 
+    const code = refusalCode(error);
+
+    // The other enrolment may stand, and then the guard offers the assertion: a retry on this card
+    // meets the refusal of a second link-borne enrolment for good.
+    if (code === ENROLMENT_CONFLICT) return { description: GLEICHZEITIG, stale: true };
+
+    // The guard's own refusal, which an enrolment another tab or device finished first earns too:
+    // the step this card was handed is then stale in the same way.
+    if (step === "enrol" && refusalStatus(error) === 404) return { description: VERSUCHE_ES_ERNEUT, stale: true };
+
     // A cancelled prompt and a refused one are one answer; the unverified passkey is the exception,
     // because retrying the same one repeats the refusal.
-    return refusalCode(error) === USER_VERIFICATION_REFUSED ? OHNE_BESTAETIGUNG : VERSUCHE_ES_ERNEUT;
+    return { description: code === USER_VERIFICATION_REFUSED ? OHNE_BESTAETIGUNG : VERSUCHE_ES_ERNEUT, stale: false };
   } catch {
-    return VERSUCHE_ES_ERNEUT;
+    return { description: VERSUCHE_ES_ERNEUT, stale: false };
   }
 }
 
@@ -78,11 +104,13 @@ export function PasskeyForm({ step, address, next }: { step: Step; address: stri
   const run = async () => {
     setIsPending(true);
 
-    const refusal = await ceremonyHeld(step);
-    if (refusal !== null) {
+    const held = await ceremonyHeld(step);
+    if (held !== null) {
       setIsPending(false);
       // Literals at the call, where `core/toastTitles.test.ts` reads a title from.
-      appToast.danger(step === "enrol" ? "Passkey nicht eingerichtet" : "Nicht angemeldet", { description: refusal });
+      appToast.danger(step === "enrol" ? "Passkey nicht eingerichtet" : "Nicht angemeldet", { description: held.description });
+      // Re-read in place, as after an enrolment that worked, so the toast survives it.
+      if (held.stale) router.refresh();
       return;
     }
 

@@ -54,6 +54,21 @@ describe("what a reactivation tells the reader", () => {
     assert.deepEqual(raised[0]?.description, "Nummer, Rolle, Position und Stufe sind wiederhergestellt.");
   });
 
+  /* The return landed and the link it minted did not leave: graded as the save grades the same send,
+     since the person holds no working link and no other surface says so. */
+  it("warns where the row came back and its link did not leave", async () => {
+    await press(async () => ({
+      success: true,
+      message: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden.",
+      versandFehlgeschlagen: true,
+    }));
+
+    assert.deepEqual(
+      raised.map(({ variant, title, description }) => ({ variant, title, description })),
+      [{ variant: "warning", title: "Mit Folgen reaktiviert", description: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden." }],
+    );
+  });
+
   it("names the refusal under the negated title", async () => {
     await press(async () => ({ success: false, error: "Das Team ist in dieser Saison nicht dabei." }));
 

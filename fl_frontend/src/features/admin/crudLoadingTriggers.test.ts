@@ -6,10 +6,13 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
+
+doubleEveryAction();
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 const ADMIN = path.join(SRC, "app", "admin");

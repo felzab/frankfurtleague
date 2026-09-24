@@ -1,5 +1,5 @@
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from bson.errors import InvalidId
@@ -11,17 +11,28 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.exceptions import BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
+from app.core.security import SAFE_METHODS
 
 NO_DATA_TEXT = "//- No Data -//"
 
+# A write that may stand: its own code, because a page told "failed" sends the person to repeat a
+# write that is already there.
+UNKNOWN_OUTCOME = "DB-FAIL-002"
 
-def error_response(status_code: int, error_code: str, headers: Mapping[str, str] | None = None) -> JSONResponse:
-    """The one failure body shape every handler returns: the code, and the id to quote."""
-    return JSONResponse(
-        status_code=status_code,
-        content={"error_code": error_code, "trace_id": trace_id_var.get()},
-        headers=headers,
-    )
+
+def error_response(
+    status_code: int,
+    error_code: str,
+    headers: Mapping[str, str] | None = None,
+    *,
+    fields: list[dict[str, Any]] | None = None,
+) -> JSONResponse:
+    """The one failure body shape every handler returns: the code, the id to quote, and a refused payload's `fields`."""
+    content: dict[str, Any] = {"error_code": error_code, "trace_id": trace_id_var.get()}
+    if fields is not None:
+        content["fields"] = fields
+
+    return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
 async def base_api_exception_handler(request: Request, exc: BaseAPIException):
@@ -45,12 +56,34 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
     fl_logger.warning(
-        f"Payload validation failed: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
+        f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
         extra={"error_code": "REQ-VAL-001"},
     )
 
-    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001")
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001", fields=refused_fields_of(errors))
+
+
+def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """Where each refusal sits and pydantic's machine-readable `type` for it, so a form can mark the field.
+
+    Never `msg`, English no visitor reads, and never `input`: the wire carries no value the log
+    itself withholds (`docs/logging/spec.md :: L4`, `:: L9`).
+    """
+
+    return [_refused_field(error) for error in errors]
+
+
+def _refused_field(error: Any) -> dict[str, Any]:
+    # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
+    location, *path = error["loc"]
+    # FastAPI's undecodable body reports the character offset parsing stopped at, which a caller
+    # would read as a list index.
+    if error["type"] == "json_invalid":
+        path = []
+
+    return {"in": str(location), "path": path, "kind": error["type"]}
 
 
 def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
@@ -93,15 +126,46 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     return match.group(1) if match else None
 
 
+def stores_nothing(request: Request) -> None:
+    """Declared by an operation storing nothing whatever its method.
+
+    A deadline cutting it then answers a failed read rather than a write that may stand.
+    """
+    request.state.stores_nothing = True
+
+
+# Each dependency that calls `stores_nothing` itself once its boolean query flag is true, keyed to
+# that flag, so the condition is published (`app/main.py :: publish_stores_nothing`) rather than kept.
+STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
+
+
+def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
+    def register(dependency: Dependency) -> Dependency:
+        STORES_NOTHING_WHEN[dependency] = flag
+        return dependency
+
+    return register
+
+
+def _may_have_written(request: Request) -> bool:
+    return request.method not in SAFE_METHODS and not getattr(request.state, "stores_nothing", False)
+
+
 async def db_exception_handler(request: Request, exc: PyMongoError):
+    # Unknown where a write may stand: a commit the driver labels so, or any write request the
+    # deadline cut, a write outside a transaction carrying no label (`docs/backend/spec.md :: I321`).
+    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and _may_have_written(request))
+    error_code = UNKNOWN_OUTCOME if unknown else "DB-FAIL-001"
+    what = "Database deadline passed" if exc.timeout else "Database crash"
+
     # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
     # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
     fl_logger.error(
-        f"Database crash ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "DB-FAIL-001"},
+        f"{what} ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
+        extra={"error_code": error_code},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB-FAIL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, error_code)
 
 
 # Walked by NAME and never over every key: a refused value sits under `consideredValue` and can

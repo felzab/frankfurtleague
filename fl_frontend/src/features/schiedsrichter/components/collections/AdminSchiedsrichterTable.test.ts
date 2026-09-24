@@ -8,10 +8,13 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "../../schemas.ts";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
@@ -87,6 +90,35 @@ describe("the referee row's copy control", () => {
     assert.ok(
       accessibleNames(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
       "the named row lost the link to its editor, so the case above passes for the wrong reason",
+    );
+  });
+
+  /* A row stored before the address rule holds a real address no payload takes now: shown as none,
+     the administrator who has to replace it never sees it. */
+  it("shows and offers to copy an address that predates the address rule", () => {
+    const html = table([{ ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800006", kontakt: { telefon: null, email: "jürgen@schule.de" } }]);
+
+    assert.ok(textOf(html).includes("jürgen@schule.de"), "the address is shown as none");
+    assert.notDeepEqual(
+      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
+      [],
+      "the row offers nothing to copy for an address it holds",
+    );
+  });
+
+  /* The placeholder a row without an address holds reaches nobody: shown as the row's address and
+     copied onto the clipboard, it reads as a way to write to the person. */
+  it("shows the placeholder address as none, and offers nothing to copy for it", () => {
+    const html = table([
+      { ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800005", kontakt: { telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" } },
+    ]);
+
+    assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
+    assert.ok(textOf(html).includes("Keine E-Mail"), "the row holding the placeholder does not say it holds no address");
+    assert.deepEqual(
+      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
+      [],
+      "the row holding only the placeholder offers to copy it as a contact detail",
     );
   });
 

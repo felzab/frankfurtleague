@@ -4,9 +4,9 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
@@ -99,7 +99,7 @@ function mapErasureRefusal(error: unknown): string | null {
 }
 
 export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("patchSpielerAction", async () => {
+  return runAdminMutation("patchSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -129,7 +129,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
 ): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("deleteSpielerAction", async () => {
+  return runAdminMutation("deleteSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -159,7 +159,7 @@ export async function deleteSpielerAction(
 export async function reactivateSpielerAction(
   rawPayload: FLReactivateSpielerPayload,
 ): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("reactivateSpielerAction", async () => {
+  return runAdminMutation("reactivateSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -192,7 +192,7 @@ export async function reactivateSpielerAction(
  * deliberately keeps no image of them.
  */
 export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Promise<ActionResult<{ erasure?: FLSpielerErasureResponse }>> {
-  return runAdminMutation("eraseSpielerAction", async () => {
+  return runAdminMutation("eraseSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -230,7 +230,7 @@ export async function postSaisonSpielerAction(
   // Draft-shaped for the same reason as the create: an untouched team picker submits null.
   rawPayload: SaisonSpielerEnterDraft,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("postSaisonSpielerAction", async () => {
+  return runAdminMutation("postSaisonSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -271,7 +271,7 @@ export async function postSaisonSpielerAction(
 export async function patchSaisonSpielerAction(
   rawPayload: SaisonSpielerMembershipDraft,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("patchSaisonSpielerAction", async () => {
+  return runAdminMutation("patchSaisonSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -306,7 +306,7 @@ export async function patchSaisonSpielerAction(
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("deleteSaisonSpielerAction", async () => {
+  return runAdminMutation("deleteSaisonSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -335,7 +335,7 @@ export async function deleteSaisonSpielerAction(
 export async function reactivateSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("reactivateSaisonSpielerAction", async () => {
+  return runAdminMutation("reactivateSaisonSpielerAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

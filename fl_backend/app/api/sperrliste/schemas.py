@@ -1,10 +1,11 @@
 import re
 from typing import Annotated, Final
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, SAISON_ID_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
+from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # A DELIVERABLE shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
@@ -47,7 +48,7 @@ class FLPostSperrlistePayload(BaseModel):
 
     # The one place an address reaches this slice. It is hashed at the endpoint and dropped there,
     # so nothing below this line has a plain address to store, log or echo.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
     # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`), and single-line because the
     # admin card renders it beside the author and the day.
     grund: Annotated[

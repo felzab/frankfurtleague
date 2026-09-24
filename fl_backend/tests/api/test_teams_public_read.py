@@ -15,9 +15,8 @@ from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FL
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -59,7 +58,7 @@ ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_for_admin)["filters"]
 # What a caller may actually SEND, read off the app's own schema: a model's fields plus anything the
 # handler declares beside them. Constructing a filter object asks for nothing -- `extra="ignore"`
 # drops an undeclared key before any read sees it.
-_PUBLISHED_PATHS = create_app(build_test_config()).openapi()["paths"]
+_PUBLISHED_PATHS = build_document()["paths"]
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
 ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/admin"]["get"]["parameters"]}
 

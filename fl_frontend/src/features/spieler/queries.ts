@@ -4,9 +4,9 @@ import { cacheLife, cacheTag } from "next/cache";
 import { apiClient } from "@/core/api";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema } from "./schemas";
+import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema, FLSpielerNachnominierungResponseSchema } from "./schemas";
 
-import type { FLSpielerListResponse, FLSpielerMembershipsResponse } from "./schemas";
+import type { FLSpielerListResponse, FLSpielerMembershipsResponse, FLSpielerNachnominierungResponse } from "./schemas";
 import type { FLSpielerFilterParams } from "./types";
 
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
@@ -36,5 +36,15 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
   runWithIncomingTrace(() =>
     apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),
+  ),
+);
+
+/** Whether the squad create would mark an entry into this season a Nachnominierung today. */
+// Never `"use cache"`, for `getSpielerMemberships`' reason, and because the answer turns over at midnight.
+export const getSpielerNachnominierung = cache(async (saisonId: string): Promise<FLSpielerNachnominierungResponse> =>
+  runWithIncomingTrace(() =>
+    apiClient<FLSpielerNachnominierungResponse>(`/spieler/nachnominierung/${saisonId}`, FLSpielerNachnominierungResponseSchema, {
+      authType: "admin",
+    }),
   ),
 );

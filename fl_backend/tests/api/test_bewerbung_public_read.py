@@ -85,7 +85,7 @@ def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[s
         "end_date": f"{saison_id}-06-30",
         # `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is
         # why the window has a read of its own. Overridden only where a case asks what the status
-        # does, which for these reads is nothing -- they judge the window.
+        # does: `past` alone, which ends the window.
         "status": status,
         "rules": {
             "win_points": 3,
@@ -385,9 +385,32 @@ class TestTheAssignedColoursRead:
 
     @pytest.mark.parametrize("status", [pytest.param("active", id="the running season"), pytest.param("past", id="a finished season")])
     def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_url: str, status: str):
-        """The gate judges the WINDOW and never the status, so a season `docs/backend/spec.md :: I47` does not withhold is refused too."""
+        """Gated on whether the season takes applications, never on `docs/backend/spec.md :: I47`."""
 
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
+
+        assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
+
+
+class TestASeasonThatHasEndedTakesNoApplication:
+    """A `past` season whose stored window still runs: its dates say open, and the season is over for good."""
+
+    def test_the_open_window_read_passes_over_it(self, mongo_url: str):
+        """It sorts AHEAD of the running season, so a query without the status term answers it rather than `2026`."""
+
+        database = seeded_with(
+            mongo_url, [_saison("2027", bewerbung=dict(RUNNING_WINDOW), status="past"), _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))]
+        )
+
+        assert answered(mongo_url, f"{PREFIX}/fenster", database_name=database).json()["saison_id"] == OPEN_SAISON
+
+    def test_its_own_window_read_serves_the_window_as_not_running(self, mongo_url: str):
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
+
+        assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["laeuft"] is False
+
+    def test_its_colour_read_answers_as_an_unknown_id_does(self, mongo_url: str):
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
 
         assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
 

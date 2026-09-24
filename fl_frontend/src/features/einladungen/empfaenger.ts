@@ -1,3 +1,5 @@
+import { mailboxKey } from "@/core/emailAddress";
+
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLEinladungEmpfaenger } from "./schemas";
 
@@ -23,13 +25,10 @@ export function bestaetigteEmpfaenger(kontakte: FLSaisonTeamKontakte | null): re
     const adresse = person === null ? "" : person.email.trim();
     if (person === null || adresse === "" || person.einwilligung.bestaetigt_am === null) continue;
 
-    // Folding the whole address would merge two people whose mailboxes differ only in case, and
-    // cost one of them the message. The comparison is the endpoint's and
-    // `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats`'s.
-    const at = adresse.lastIndexOf("@");
-    const postfach = at === -1 ? adresse : `${adresse.slice(0, at)}@${adresse.slice(at + 1).toLowerCase()}`;
+    const postfach = mailboxKey(adresse);
 
-    // Keyed by mailbox and valued by the address as stored, so what is written to is what was typed.
+    // Keyed by mailbox and valued by the address as stored, so what is written to is the address the
+    // seat holds rather than a key built from it.
     if (!gefunden.has(postfach)) gefunden.set(postfach, { rolle: rolle, vorname: person.vorname, email: adresse });
   }
 

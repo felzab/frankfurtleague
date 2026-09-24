@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
@@ -104,9 +104,6 @@ describe("the origin facet on the change log", () => {
 const AREA_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
 const KIND_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
 
-const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "..", "fl_backend", "openapi.json");
-const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
-
 /** Every query parameter `GET /aktionen` publishes, read off the document rather than retyped here. */
 function publishedQueryNames(): string[] {
   const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as {
@@ -132,11 +129,14 @@ describe("the dimensions the read itself narrows on", () => {
     const sent = Object.keys(aktionenLogFacetTerms({}));
 
     // First: a path this reader cannot place answers an empty list, on which the comparison below passes.
-    assert.ok(published.length > 0, `no GET /aktionen query parameters in openapi.json — refresh it:  ${REGENERATE}`);
+    assert.ok(
+      published.length > 0,
+      `no GET /aktionen query parameters in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
+    );
     assert.deepEqual(
       sent.filter((name) => !published.includes(name)),
       [],
-      `the endpoint publishes ${published.join(", ")} — refresh the document if a term was just added:  ${REGENERATE}`,
+      `the endpoint publishes ${published.join(", ")} — refresh the document with the command ${REGENERATE_CITATION} declares if a term was just added`,
     );
   });
 

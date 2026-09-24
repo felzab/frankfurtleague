@@ -88,11 +88,13 @@ Each stage below narrows what the one before it left open.
 
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
-- **Applications** — a school applies while the season's own window is open (`REQ-BEWERBUNG-004`). Accepting
+- **Applications** — a school applies while the season's own window is open and the season has not ended
+  (`REQ-BEWERBUNG-004`, `docs/backend/spec.md :: I337`). Accepting
   one creates the club where it is new and writes its junction row, held to the same entry rules a direct
   entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
-  and open exactly when its flag is on and the day falls inside its span. It is judged apart from the
+  and open exactly when its flag is on, the day falls inside its span and the season has not ended
+  (`docs/backend/spec.md :: I336`). It is judged apart from the
   application window above and from the season's own dates, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`REQ-ENTER-001`), only in a
   group the season runs (`REQ-ENTER-002`), and only while that group has room (`REQ-ENTER-003`).

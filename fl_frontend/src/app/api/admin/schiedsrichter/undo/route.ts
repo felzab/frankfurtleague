@@ -10,9 +10,6 @@ import type { NextRequest } from "next/server";
 
 /** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
 const REPLAY_REFUSALS: Record<string, string> = {
-  "REQ-SCHIEDSRICHTER-001":
-    "Die Änderung steht weiterhin. Diese Person wurde stillgelegt, und die frühere E-Mail-Adresse bräuchte einen neuen " +
-    "Bestätigungslink, den ein stillgelegter Eintrag nicht bekommt.",
   "REQ-SCHIEDSRICHTER-007":
     "Die Änderung steht weiterhin. Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr " +
     "einen neuen Bestätigungslink schicken.",

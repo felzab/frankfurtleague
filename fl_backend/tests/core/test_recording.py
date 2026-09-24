@@ -148,7 +148,7 @@ class TestWhatEachWriteRecords:
     def test_a_single_document_patch_records_one_row_naming_the_document(self):
         target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
+        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER))
 
         assert len(log.inserted) == 1
         assert log.inserted[0]["operation"] == "patch_one"
@@ -159,7 +159,7 @@ class TestWhatEachWriteRecords:
         """The whole feature: a row holding the POST-image restores nothing, because it describes the state already stored."""
         target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
+        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER))
 
         assert log.inserted[0]["before"] == BEFORE_DOCUMENT
 
@@ -167,7 +167,7 @@ class TestWhatEachWriteRecords:
         """Both belong to the fan-out, and which of the two a row carries is how a reader tells a restorable write from a bulk one."""
         target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
+        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER))
 
         assert log.inserted[0]["db_filter"] is None
         assert log.inserted[0]["modified_count"] is None
@@ -177,7 +177,9 @@ class TestWhatEachWriteRecords:
         target, log = build(before=None, after=None)
 
         with pytest.raises(DocumentNotFoundException):
-            asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
+            asyncio.run(
+                patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
+            )
 
         assert log.inserted == []
 
@@ -250,7 +252,11 @@ class TestWhatEachWriteRecords:
         """A row written outside an aborting transaction survives it, and the log then holds a write the database rolled back."""
         target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, session=SESSION))
+        asyncio.run(
+            patch_one_in_db(
+                collection=as_collection(target), db_filter=FILTER, update=UPDATE, session=SESSION, return_document=ReturnDocument.AFTER
+            )
+        )
 
         assert log.sessions == [SESSION]
 

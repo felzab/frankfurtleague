@@ -1,6 +1,8 @@
+from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
@@ -14,9 +16,11 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktEmailResponse,
     FLBewerbungKontaktSitzPayload,
     FLBewerbungKontaktSitzResponse,
+    FLKontaktRolle,
 )
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,
+    build_erneut_filter,
     claimed_pair_seat,
     compose_erneut_update,
     compose_kontakt_email_update,
@@ -34,7 +38,7 @@ from app.api.bewerbungen.services import (
     parse_new_club,
     seat_named,
 )
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
@@ -197,6 +201,7 @@ async def annehmen_bewerbung(
             # nothing joins the accepted application to the club it produced.
             update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         return FLAnnehmenBewerbungResponse(
@@ -208,14 +213,13 @@ async def annehmen_bewerbung(
             trikot_farbe=annahme_data.trikot_farbe,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
-    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-    async with db.start_session() as session:
-        accepted = await session.with_transaction(accept_and_enter_the_school)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+        # so a retry after a write conflict judges the season as it stands then rather than as it stood.
+        async with db.start_session() as session:
+            accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
 
@@ -246,6 +250,7 @@ async def ablehnen_bewerbung(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id, "status": "eingereicht"},
             update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            return_document=ReturnDocument.AFTER,
         )
     except DocumentNotFoundException:
         # Three ways here: a decision landed between the read and the write, the row is gone, or the
@@ -274,15 +279,17 @@ async def erneut_einwilligung(
     Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
 
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
+    The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an
-    application already decided (`REQ-BEWERBUNG-001`) and on a seat already confirmed or declined, or one an
-    application stored before the confirmation flow holds (`REQ-BEWERBUNG-011`). A path naming no seat is a 404.
+    application already decided (`REQ-BEWERBUNG-001`) and on any seat the link would open that is already confirmed
+    or declined, or one an application stored before the confirmation flow holds — the mirrored seat included
+    (`REQ-BEWERBUNG-011`). A decision, an answer or an erasure landing while the request runs is refused the same way.
+    A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
-    bewerbung_raw = await pull_one_from_db(
-        collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"]
-    )
+    judged = ["status", "kontakte", "bestaetigungen"]
+    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
@@ -290,37 +297,51 @@ async def erneut_einwilligung(
     if rolle is None:
         raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
 
-    refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
-    refuse(
-        find_already_answered_refusal(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=rolle)
-    )
+    def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktRolle, ...]:
+        """Refuse, or answer every seat the fresh link will open: the pressed one and the mirror the confirmation also answers."""
 
+        kontakte, bestaetigungen = stored.get("kontakte"), stored.get("bestaetigungen")
+        refuse(find_triage_refusal(status=str(stored["status"])))
+        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+
+        # One entry left standing would keep the replaced address's link alive. The mirror is judged
+        # as the correction judges it: `paired_seat` adds a seat that merely STANDS.
+        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
+        if other is None:
+            return (rolle,)
+
+        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
+
+        return (rolle, other)
+
+    seats = seats_judged_on(bewerbung_raw)
     raw, token_hash = mint_token()
     bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
-    # Both seats one person holds, as the confirmation answers both: a re-send is the administrator
-    # replacing an address, and one entry left standing would keep its link alive.
-    other = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=rolle)
-    seats = (rolle,) if other is None else (rolle, other)
-
-    # The status is in the FILTER, as the decline's is: a decision landing between the read and this
-    # write leaves the row untouched, and the re-read below is what tells that from a row that is gone.
-    try:
-        await patch_one_in_db(
+    # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
+    # untouched rather than overwritten; a transaction, as the correction takes, adds nothing here.
+    async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
+        return await patch_one_in_db(
             collection=bewerbungen_collection,
-            db_filter={**db_filter, "status": "eingereicht"},
+            db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
             update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+            return_document=ReturnDocument.BEFORE,
         )
+
+    try:
+        matched = await mint_on(seats)
     except DocumentNotFoundException:
-        # `REQ-BEWERBUNG-001` rather than a 404, as the decline answers a race here
-        # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`): a link is re-sent or refused
-        # for the reason it is refused, and only an application no document names keeps the miss.
-        raced_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=["status"])
-        refuse(find_triage_refusal(status=str(raced_raw["status"])))
+        # Judged again rather than answered as a miss, as the decline answers its race
+        # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`), so a link is refused for the
+        # reason it is refused.
+        seats = seats_judged_on(await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged))
+        # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
+        # one more write, whose own miss is the only one answering 404.
+        matched = await mint_on(seats)
 
-        raise
-
-    return FLBewerbungEinwilligungErneutResponse(token=raw, rolle=rolle, bestaetigungsfrist=bestaetigungsfrist)
+    return FLBewerbungEinwilligungErneutResponse(
+        token=raw, rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist
+    )
 
 
 @router.post(
@@ -390,6 +411,7 @@ async def korrigiere_kontakt_email(
                 seats=seats, email=email_data.email, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
@@ -475,6 +497,7 @@ async def besetze_kontakt_sitz(
                 bestaetigungsfrist=bestaetigungsfrist,
             ),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
 
         return FLBewerbungKontaktSitzResponse(rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)

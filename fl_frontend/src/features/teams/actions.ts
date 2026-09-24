@@ -4,9 +4,9 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
 import {
@@ -128,7 +128,7 @@ export async function postTeamAction(
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postTeamAction", async () => {
+  return runAdminMutation("postTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -193,7 +193,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
     fanned_out_to_saison_teams?: number;
   }>
 > {
-  return runAdminMutation("patchTeamAction", async () => {
+  return runAdminMutation("patchTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -236,7 +236,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
 }
 
 export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
-  return runAdminMutation("deleteTeamAction", async () => {
+  return runAdminMutation("deleteTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -279,7 +279,7 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
 }
 
 export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
-  return runAdminMutation("reactivateTeamAction", async () => {
+  return runAdminMutation("reactivateTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -310,7 +310,7 @@ export async function postSaisonTeamAction(
   // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("postSaisonTeamAction", async () => {
+  return runAdminMutation("postSaisonTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -355,7 +355,7 @@ export async function postSaisonTeamAction(
 export async function patchSaisonTeamAction(
   rawPayload: SaisonTeamMembershipDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("patchSaisonTeamAction", async () => {
+  return runAdminMutation("patchSaisonTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -401,7 +401,7 @@ export async function patchSaisonTeamAction(
 export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
-  return runAdminMutation("replaceSaisonTeamAction", async () => {
+  return runAdminMutation("replaceSaisonTeamAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

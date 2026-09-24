@@ -133,6 +133,23 @@ describe("what the undo spine clears when a replay stops part-way", () => {
   });
 });
 
+describe("what the undo spine answers when its replay throws", () => {
+  /* A replay is a write, and one throwing after it wrote leaves the row restored: answered as a
+     failure, the admin undoes it a second time. */
+  it("answers a throw of the replay's own code as of unknown outcome", async () => {
+    const { answer, status } = await undo(async () => {
+      throw new RangeError("Invalid time value");
+    });
+
+    assert.equal(status, 200);
+    assert.deepEqual(answer, {
+      success: false,
+      error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
+      outcome: "unknown",
+    });
+  });
+});
+
 describe("who the undo spine answers before it does any work", () => {
   /* The spine's own authorization: the backend refuses too, but that is a different service, and
      `proxy.ts` matches `/admin/:path*`, never `/api/admin/*`. */

@@ -160,9 +160,6 @@ const saisonSpielerPayloadFields = {
   nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
-  // The create form derives this from the season's status rather than asking it, so it cannot be
-  // forgotten.
-  ist_nachnominiert: z.boolean(),
   // On the junction: a role is held within one team for one season, not by the person. One field and
   // not a flag per role, so holding both at once cannot be expressed.
   rolle: FLSpielerRolleSchema.nullable(),
@@ -231,3 +228,13 @@ export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSaisonSpielerResponse = z.infer<typeof FLSaisonSpielerResponseSchema>;
+
+/**
+ * Mirrors `FLSpielerNachnominierungResponse`: the verdict the squad create will store, served rather
+ * than recomputed here so the editor announces what the row will say.
+ */
+export const FLSpielerNachnominierungResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  nachnominierung: z.boolean(),
+});
+export type FLSpielerNachnominierungResponse = z.infer<typeof FLSpielerNachnominierungResponseSchema>;

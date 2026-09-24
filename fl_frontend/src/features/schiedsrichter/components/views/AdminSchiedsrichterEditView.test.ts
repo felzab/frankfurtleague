@@ -8,8 +8,11 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

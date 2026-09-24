@@ -142,6 +142,21 @@ describe("what the confirmation link's own message says", () => {
     assert.match(MAIL.text, /Geburtsdatum/, "the message never says what the page will ask for");
     assert.match(MAIL.text, /Kader/, "the message never says what the confirmation unlocks");
   });
+
+  /* The first contact that reaches the address itself, so Art. 21(4) DSGVO asks the objection here,
+     apart from every other piece of information. */
+  it("states the objection in a paragraph of its own, in both parts", () => {
+    assert.match(
+      MAIL.html,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      "the card carries no objection of its own",
+    );
+    assert.match(
+      MAIL.text,
+      /\n\nDer Verarbeitung Deiner Angaben für den Spielbetrieb [^\n]+ genügt\.\n\n/,
+      "the text part carries no objection of its own",
+    );
+  });
 });
 
 describe("what the sweep's reminder says that the first message did not", () => {

@@ -53,7 +53,7 @@ type HintProps =
    */
   | { mode: "reveal"; label: string; body: HintBody; trigger?: ReactNode }
   /**
-   * A refusal is not capped here: `adminMutation.ts :: VALIDATION_FAILED` sets its register, which
+   * A refusal is not capped here: `validation.ts :: VALIDATION_FAILED` sets its register, which
    * allows the second sentence that names the way out.
    */
   | {

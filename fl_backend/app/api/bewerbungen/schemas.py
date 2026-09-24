@@ -1,8 +1,8 @@
 import re
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
@@ -16,6 +16,7 @@ from app.api.teams.schemas import (
     _KontaktpersonWritablePayload,
 )
 from app.shared.alter import whole_years_between
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -27,7 +28,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_EMAIL_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -45,6 +45,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
@@ -482,9 +483,9 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
         seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
         people: list[FLBewerbungKontaktpersonPayload] = [getattr(self, seat) for seat in seats]
 
-        # Case-insensitively: a mailbox is addressed the same however the local part is capitalised,
-        # and two seats spelled differently would otherwise pass as two people.
-        emails = [person.email.casefold() for person in people]
+        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
+        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
+        emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
             raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
 
@@ -698,10 +699,10 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
 
 
 class FLBewerbungBestaetigungTokens(BaseModel):
-    """The three RAW tokens the create minted, one per seat.
+    """The three RAW tokens the create or its replay minted, one per seat.
 
     This response and the inboxes are the only places a raw token exists: the database holds
-    hashes, the insert logs no image, no read model declares one.
+    hashes, and no read model declares one.
     """
 
     trainer: str
@@ -719,7 +720,9 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     created_id: CustomObjectId
     saison_id: str
     eingereicht_am: CustomDateString
-    bestaetigungen: FLBewerbungBestaetigungTokens
+    # Null on a replay whose application needs no fresh links (`docs/backend/spec.md :: I347`),
+    # and the caller then mails nothing.
+    bestaetigungen: FLBewerbungBestaetigungTokens | None
     # Echoed so the mail the handler sends names the day the links stop working.
     bestaetigungsfrist: CustomDateString
 
@@ -843,6 +846,10 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
 
     token: str
     rolle: FLKontaktRolle
+    # Off the image the write replaced, never the caller's earlier read: a correction landing between
+    # the two moved the address this link has to go to.
+    email: str
+    rollen: list[FLKontaktRolle]
     bestaetigungsfrist: CustomDateString
 
 
@@ -876,7 +883,7 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
 
     # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
     # public form refused too and a correction cannot store what a submission could not.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
@@ -964,12 +971,18 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     redigierte_aktionen: int
 
 
+# `/angekuendigt` stamps the list in ONE transaction at two commands a row, each the round trip plus
+# about 1.1 ms (from whole passes timed locally, 2026-09-23): this keeps it inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` up to a 38 ms round trip.
+DELETIONS_LISTED_PER_PASS: Final = 125
+
+
 class FLBewerbungSweepAngekuendigtPayload(BaseModel):
     """Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped."""
 
     model_config = ConfigDict(extra="forbid")
 
-    bewerbung_ids: list[CustomObjectId]
+    bewerbung_ids: list[CustomObjectId] = Field(max_length=DELETIONS_LISTED_PER_PASS)
 
 
 class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
@@ -982,7 +995,7 @@ class FLBewerbungSweepLoeschenPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bewerbung_ids: list[CustomObjectId]
+    bewerbung_ids: list[CustomObjectId] = Field(max_length=DELETIONS_LISTED_PER_PASS)
 
 
 class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):

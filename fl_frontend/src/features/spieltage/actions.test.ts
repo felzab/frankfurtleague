@@ -229,9 +229,12 @@ describe("the one date a final's Spieltag is given", () => {
   /* A form may offer only what the write path takes. Both validators refuse a REVERSED span and
      neither refuses an equal one, which is what leaves the day picked once saveable. */
   it("offers a same-day span each validator standing behind it accepts", () => {
-    const guard = sliceBetween(BACKEND_CUSTOM_SCHEMAS, "def refuse_reversed_span", "raise ValueError");
+    // To the two blank lines the formatter closes a function with: cut at its first refusal, a second
+    // refusal written below it would go unread.
+    const guard = sliceBetween(BACKEND_CUSTOM_SCHEMAS, "def refuse_reversed_span", "\n\n\n");
 
     assert.ok(FLPatchSpieltagPayloadSchema.safeParse({ id: "0123456789abcdef01234567", beginn: "2026-09-04", ende: "2026-09-04" }).success);
+    assert.equal(guard.match(/\braise\b/g)?.length, 1, "refuse_reversed_span refuses more than the reversed span");
     assert.match(guard, /if end < start:/);
     assert.doesNotMatch(guard, /<=/);
   });

@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 # The delivery state is the application slice's declaration, stored at every home the register names
 # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -10,7 +10,6 @@ from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, FLSpie
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_EMAIL_MAX_LENGTH,
     KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -24,6 +23,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
@@ -89,7 +89,7 @@ class FLRegistrierung(BaseModel):
     status: FLRegistrierungStatus
     vorname: CustomNonEmptyString
     nachname: CustomNonEmptyString
-    # AS TYPED, where a person's own `email` is stored folded: the address is what the confirmation
+    # UNFOLDED, where a person's own `email` is stored folded: the address is what the confirmation
     # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
@@ -162,8 +162,7 @@ class FLPostRegistrierungPayload(BaseModel):
     nachname: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
     ]
-    # The ceiling is stated rather than left to email-validator, whose refusal names no field.
-    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    email: CustomEmail
     # Each NULLABLE with the caller stating the null rather than omitting it, as a squad payload's
     # three are: the answer is then the pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
@@ -173,14 +172,16 @@ class FLPostRegistrierungPayload(BaseModel):
 
 
 class FLPostRegistrierungResponse(BaseAPIResponse):
-    """The stored registration and the raw confirmation link, answered here and never again.
+    """The stored registration and a raw confirmation link, which no read ever answers.
 
     The database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather
     than recovered from any read.
     """
 
     registrierung_id: CustomObjectId
-    bestaetigung_token: CustomNonEmptyString
+    # Null on a replay whose row needs no fresh link (`docs/backend/spec.md :: I347`), and
+    # the caller then mails nothing.
+    bestaetigung_token: CustomNonEmptyString | None
     frist: CustomDateString
     # Both off the invite the token opened, so the confirmation mail addresses the pupil by their
     # team and season without taking either from a body anyone holding the link could type.
@@ -237,7 +238,7 @@ class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):
 
 
 class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
-    """What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."""
+    """What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."""
 
     zustand: FLRegistrierungBestaetigungZustand
     # The club's short name and its own `full_name`, a club here BEING a school: the ruled consent
@@ -252,6 +253,9 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
     mindestalter: int
+    # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
+    # switch only from it, and a copy of its own would offer it where the write refuses.
+    medien_mindestalter: int
     # All three null where the league holds no record for this person, and null where one address
     # stands behind several, whom this read cannot tell apart.
     geburtsdatum: CustomOptionalDateString
@@ -274,7 +278,7 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     # Required rather than defaulted: a page omitting it would store this model's answer in place of
     # the person's, and an off switch is an answer.
     medien: bool
-    # The label the ROUTE HANDLER stamped and never one the browser composed
+    # The label of the text the running build renders: the route handler refuses any other
     # (`docs/frontend/spec.md :: I148`).
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 

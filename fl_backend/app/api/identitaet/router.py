@@ -6,6 +6,7 @@ from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.core.config import API_VERSION
 from app.core.dependencies import SaisonsCollection, SaisonTeamsCollection, SchiedsrichterCollection, SpielerCollection
+from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
@@ -18,7 +19,12 @@ router = APIRouter(
 )
 
 
-@router.post("/subjekt", response_model=FLSubjektResponse, summary="Say which league records one mailbox holds")
+@router.post(
+    "/subjekt",
+    response_model=FLSubjektResponse,
+    summary="Say which league records one mailbox holds",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_subjekt(
     subjekt_data: Annotated[FLSubjektPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
@@ -32,27 +38,25 @@ async def get_subjekt(
     Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
     access line, which is `POST /kontakte/erasure/ansicht`'s reason too.
 
-    The address is folded to the sign-in identifier -- NFKC, lower-cased, trimmed -- on arrival and compared in that form, so
-    `Anna.Müller@Schule.de` in a contact seat answers for `anna.müller@schule.de`. `ß` is not folded to `ss`, so `poststrasse@` and
-    `poststraße@` are two mailboxes here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the
-    folded form already.
+    The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
+    and compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain
+    stored as `müller.de` for `xn--mller-kva.de`. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains
+    here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.
 
-    A contact seat and a referee record store the address as it was typed, so both are read in two steps: a case-insensitive database
-    match narrows, and the fold decides on each candidate's own stored value. The two rules differ, and the database's is the wider --
-    it holds U+0345 equal to an iota, where the fold leaves them two addresses -- so a row the match reaches is one the fold may still
-    refuse, and that refusal is what keeps this answer's rule the same rule sign-in applies.
+    A contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode,
+    or in Unicode where the row predates that rule -- so both are read in two steps: the database narrows to the rows holding the
+    identifier in either spelling of its domain, whatever the case of its letters, and the fold decides on each candidate's own stored value.
 
-    A stored address in a decomposed Unicode form is MISSED, the match comparing code points and normalising nothing, so a composed
-    identifier does not reach a decomposed spelling of the same address. Every address written through this API arrives composed, which
-    is why neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by
-    every writer that touches either, for an edge no write path here produces.
+    A row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII
+    local part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it
+    holds: a second copy on two collections has to be kept true by every writer that touches either.
 
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
     An address the league holds nothing for is answered with three empty lists rather than a 404.
     """
 
     return await find_subjekt(
-        # Folded here as well as by the caller: `EmailStr` has already lower-cased the domain, so a
+        # Folded here as well as by the caller: the payload has already lower-cased the domain, so a
         # value compared as it arrived is half-folded and misses a seat over the local part's case.
         sign_in_identifier(str(subjekt_data.email)),
         saison_teams_collection=saison_teams_collection,

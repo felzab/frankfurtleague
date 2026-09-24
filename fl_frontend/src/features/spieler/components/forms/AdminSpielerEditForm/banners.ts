@@ -22,7 +22,7 @@ export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBanne
 export function buildSpielerBanners({
   isRetired,
   saisonId,
-  saisonStatus,
+  nachnominierungLaeuft,
   isMember,
   rowInactiveSince,
   isRowTeamInSaison,
@@ -33,7 +33,7 @@ export function buildSpielerBanners({
 }: {
   isRetired: boolean;
   saisonId: string;
-  saisonStatus: SpielerSaisonMembership["saisonStatus"];
+  nachnominierungLaeuft: SpielerSaisonMembership["nachnominierungLaeuft"];
   isMember: boolean;
   /** The day the squad ROW was retired, or `null` — also `null` when there is no row at all. */
   rowInactiveSince: string | null;
@@ -70,9 +70,8 @@ export function buildSpielerBanners({
       inline: "kader-eintritt",
     });
 
-    // `ist_nachnominiert` is derived from the season's status rather than asked — see `FormKaderSection`.
-    // The body is the word's meaning, which its sibling below owes the reader for the same reason.
-    if (saisonStatus !== "future") {
+    // The create's own verdict, never the season's status (`fl_frontend/src/features/spieler/types.ts :: SpielerSaisonMembership`).
+    if (nachnominierungLaeuft === true) {
       banners.push({
         id: "spieler.entry-nachnominiert",
         severity: "info",
@@ -80,6 +79,7 @@ export function buildSpielerBanners({
         // its own, and nothing here waits on the editor's save.
         raisedBy: "state",
         title: "Diese Person wird nachnominiert",
+        // The word's meaning, which the stored-flag banner below owes its reader for the same reason.
         body: "Zu Beginn der Saison war sie nicht im Kader.",
         inline: "kader-nachnominiert",
       });
@@ -107,8 +107,8 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.nachnominiert",
       severity: "info",
-      // `istNachnominiert` is a draft field the edit path never offers — `FormKaderSection` derives it
-      // at entry — so this can only report the flag the row loaded with.
+      // No save moves it — the backend derives it at entry and no payload carries it — so this can only
+      // report the flag the row loaded with.
       raisedBy: "state",
       title: "Diese Person wurde nachnominiert",
       body: "Zu Beginn der Saison war sie nicht im Kader.",

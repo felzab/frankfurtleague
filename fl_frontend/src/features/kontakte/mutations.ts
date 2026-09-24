@@ -30,6 +30,7 @@ export async function eraseKontaktperson(payload: FLKontaktErasurePayload): Prom
 export async function readKontaktErasureAnsicht(payload: FLKontaktErasurePayload): Promise<FLKontaktErasureAnsichtResponse> {
   return apiClient<FLKontaktErasureAnsichtResponse>("/kontakte/erasure/ansicht", FLKontaktErasureAnsichtResponseSchema, {
     method: "POST",
+    readOnly: true,
     authType: "admin",
     body: JSON.stringify(payload),
   });

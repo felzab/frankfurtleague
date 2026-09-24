@@ -27,7 +27,9 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
+    build_wiederholung_filter,
     compose_einwilligung,
     compose_kontakte,
     find_already_entered_refusal,
@@ -35,8 +37,12 @@ from app.api.bewerbungen.services import (
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
+    payload_fingerabdruck,
+    saison_nimmt_bewerbungen_an,
+    season_has_ended,
     window_is_running,
 )
+from app.api.saisons.schemas import FLSaisonStatus
 from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.addresses import FLAddressPayload
@@ -199,7 +205,7 @@ class TestTheWindowDecidesWhetherAnApplicationMayArrive:
         """The floor: without it every case below would pass on a check that refuses everything."""
 
         assert window_is_running(bewerbung=OPEN_WINDOW, today=TODAY) is True
-        assert find_window_refusal(bewerbung=OPEN_WINDOW, today=TODAY) is None
+        assert find_window_refusal(saison_status="future", bewerbung=OPEN_WINDOW, today=TODAY) is None
 
     @pytest.mark.parametrize(
         "bewerbung", [pytest.param(OPEN_WINDOW["von"], id="the first day"), pytest.param(OPEN_WINDOW["bis"], id="the last")]
@@ -213,7 +219,17 @@ class TestTheWindowDecidesWhetherAnApplicationMayArrive:
     def test_a_season_not_inside_an_open_window_is_refused(self, bewerbung: Any):
         """ONE code for every way, so the refusal reports no season's administrative state to a visitor."""
 
-        refusal = find_window_refusal(bewerbung=bewerbung, today=TODAY)
+        refusal = find_window_refusal(saison_status="future", bewerbung=bewerbung, today=TODAY)
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+
+    def test_a_season_that_has_ended_is_refused_while_its_window_still_runs(self):
+        """The same code as a shut window: a finished season's window is over for good, whatever dates it stores."""
+
+        assert window_is_running(bewerbung=OPEN_WINDOW, today=TODAY) is True
+
+        refusal = find_window_refusal(saison_status="past", bewerbung=OPEN_WINDOW, today=TODAY)
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
@@ -224,7 +240,42 @@ class TestTheWindowDecidesWhetherAnApplicationMayArrive:
         A complete window rather than an unreadable one: `/fenster` 404s short of the three fields, and `laeuft` is a `bool`.
         """
 
-        assert window_is_running(bewerbung={**OPEN_WINDOW, "offen": False}, today=TODAY) is False
+        assert saison_nimmt_bewerbungen_an(saison_status="future", bewerbung={**OPEN_WINDOW, "offen": False}, today=TODAY) is False
+        assert saison_nimmt_bewerbungen_an(saison_status="past", bewerbung=OPEN_WINDOW, today=TODAY) is False
+
+    @pytest.mark.parametrize("status", get_args(FLSaisonStatus))
+    def test_the_open_window_query_passes_over_exactly_the_seasons_that_have_ended(self, status: str):
+        """The query's twin of `season_has_ended`, read as the one `$ne` term it is: the open-window read narrows with it."""
+
+        assert SAISON_NOT_ENDED_FILTER == {"status": {"$ne": "past"}}
+        assert (status != SAISON_NOT_ENDED_FILTER["status"]["$ne"]) is not season_has_ended(saison_status=status)
+
+
+class TestWhatTheSubmissionKeyJudges:
+    """The pure halves of `docs/backend/spec.md :: I346`; the replay itself is driven in the execution suite."""
+
+    def test_one_body_serialised_in_two_key_orders_is_one_request(self):
+        """A client's key order is no change to what was sent, so a replay reordered in transit is still a replay."""
+
+        body = submission()
+        reordered = dict(reversed(list(body.items())))
+
+        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(body)) == payload_fingerabdruck(
+            FLPostBewerbungPayload.model_validate(reordered)
+        )
+
+    def test_one_changed_field_is_another_request(self):
+        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(submission())) != payload_fingerabdruck(
+            FLPostBewerbungPayload.model_validate(submission(stufengroesse=91))
+        )
+
+    def test_an_application_whose_seat_was_emptied_takes_no_fresh_links(self):
+        """An erasure nulls the seat's entry, and a filter over it would hand a link to a person who asked to be forgotten."""
+
+        live = {"token_hash": "a" * 64}
+        stored = {"_id": PICKED_OID, "bestaetigungen": {"trainer": live, "ansprechperson": live, "stellvertretung": None}}
+
+        assert build_wiederholung_filter(bewerbung_raw=stored, today=TODAY) is None
 
 
 # The four combinations of (`team_id` set or null) by (`schule` set or null): exactly one of them
@@ -499,6 +550,23 @@ class TestTheThreeSeatsAreThreePeople:
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
+
+    def test_an_email_repeated_with_a_full_width_letter_in_its_domain_is_still_one_address(self):
+        """The domain's conversion makes it ASCII, so a second person here is one sign-in reaching two seats."""
+
+        # Built from its code point: the full-width „e“ renders as the ASCII one the conversion makes it.
+        other = person(vorname="Andere", email=f"quillhilde@{chr(0xFF45)}xample.com", telefon="+49 170 9999999")
+
+        with pytest.raises(ValidationError):
+            FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
+
+    def test_a_domain_spelled_with_ss_where_another_seat_holds_sharp_s_is_another_address(self):
+        """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains, where `casefold` made them one."""
+
+        trainer = person(email="quillhilde@straße.de")
+        other = person(vorname="Andere", email="quillhilde@strasse.de", telefon="+49 170 9999999")
+
+        assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
 
     @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
@@ -1387,16 +1455,18 @@ class _DistinctCollection:
 
 
 class _WindowCollection:
-    """A seasons collection answering one season's `bewerbung` block, whatever id is asked for.
+    """A seasons collection answering one season's `bewerbung` block and status, whatever id is asked for.
 
-    The colour read is gated on the window, so a junction fake alone no longer reaches the junction.
+    The colour read is gated on whether the season takes applications, so a junction fake alone
+    reaches nothing.
     """
 
-    def __init__(self, bewerbung: Any) -> None:
+    def __init__(self, bewerbung: Any, status: str) -> None:
         self._bewerbung = bewerbung
+        self._status = status
 
     async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> Any:
-        return {"_id": filter["_id"], "bewerbung": self._bewerbung}
+        return {"_id": filter["_id"], "bewerbung": self._bewerbung, "status": self._status}
 
 
 # The day the window below is judged against, sitting inside its span.
@@ -1404,12 +1474,12 @@ COLOUR_READ_TODAY = "2026-04-01"
 COLOUR_READ_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
 
-def _colours_for(junction: _DistinctCollection, *, bewerbung: Any) -> Any:
+def _colours_for(junction: _DistinctCollection, *, bewerbung: Any, status: str = "future") -> Any:
     """The colour read against two fakes, so every case below states only the window it varies."""
 
     return get_trikotfarben(
         saison_id="2026",
-        saisons_collection=cast(Any, _WindowCollection(bewerbung)),
+        saisons_collection=cast(Any, _WindowCollection(bewerbung, status)),
         saison_teams_collection=cast(Any, junction),
         today=COLOUR_READ_TODAY,
     )
@@ -1481,5 +1551,13 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         with pytest.raises(DocumentNotFoundException):
             asyncio.run(_colours_for(collection, bewerbung=bewerbung))
+
+        assert collection.key == "the read never ran"
+
+    def test_a_season_that_has_ended_never_reaches_the_junction_while_its_window_still_runs(self):
+        collection = _DistinctCollection(["rot"])
+
+        with pytest.raises(DocumentNotFoundException):
+            asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW), status="past"))
 
         assert collection.key == "the read never ran"

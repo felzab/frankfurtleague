@@ -51,7 +51,7 @@ export function FormLoeschenSection({
       const res = await eraseSpielerAction({ id: spielerId });
 
       if (!res.success) {
-        appToast.danger("Spieler nicht gelöscht", { description: res.error });
+        appToast.failure("Spieler nicht gelöscht", res);
         return;
       }
 

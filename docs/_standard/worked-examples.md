@@ -67,8 +67,8 @@ Each block reads reasonably alone.
 commit (OUT-4):
 
 ```markdown
-`patch_one_in_db` logs the pre-image the update itself yielded and answers a re-read document: a
-wrong pre-image makes a restore revert a write it never touched
+`patch_one_in_db` logs the update's own pre-image and answers the image its caller names: a wrong
+pre-image makes a restore revert a write it never touched
 ```
 
 The comment holds the constraint on the line someone would change — the
@@ -80,10 +80,14 @@ signature, and the driver behaviour that forces the choice:
     # update's own is taken with the write (`docs/backend/spec.md :: I39`).
 ```
 
-The docstring holds the reason for the default, which sits at no other rung:
+The docstring holds why the argument has no default, which sits at no other rung:
 
 ```python
-    """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced."""
+    """`return_document` has no default, so every caller weighs the two images.
+
+    `AFTER` re-reads the document, a round trip wasted where the result is discarded; `BEFORE` answers
+    the state the write just replaced.
+    """
 ```
 
 And the test keeps its two assertions and loses its docstring:

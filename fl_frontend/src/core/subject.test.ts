@@ -1,78 +1,43 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
-import { registerHooks } from "node:module";
 import { after, describe, it } from "node:test";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  memoryAdapterDouble,
+  ORIGIN,
+  registerAuthDoubles,
+  seedLink,
+} from "./authDoubles.ts";
 
 const STORE = "__flSubjectStore";
 const REQUEST_HEADERS = "__flSubjectRequestHeaders";
 
-/** A single-segment subpath such as `next/headers`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
-const ADMIN_EMAIL = "vorstand@example.org";
 /** Allowlisted by nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
-/* Decomposed as well as mixed in case, because the sign-in library lower-cases what it stores and
-   normalises nothing: a case-only address is folded before the guard ever sees it, and a case-only
-   case here would pass with the fold deleted. */
-const DECOMPOSED_EMAIL = "Anna.Müller@Schule.DE";
-const FOLDED_DECOMPOSED = "anna.müller@schule.de";
+/* A half-width ideographic full stop as well as capitals: the sign-in library lower-cases what it
+   stores, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
+const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
+const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";
 const API_VERSION = 0;
 
-const CONFIG_DOUBLE = `export const frontend_config = {
-  ALLOWED_ADMIN_EMAILS: ["${ADMIN_EMAIL}"],
-  AUTH_URL: "http://localhost:3000",
-  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
-  API_URL: "${API_ORIGIN}",
-  API_VERSION: ${API_VERSION},
+const CONFIG_DOUBLE = configDouble({
+  API_URL: API_ORIGIN,
+  API_VERSION: API_VERSION,
   INTERNAL_API_KEY_BASE: "fabricated-base-not-a-credential",
   INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
   INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
-  LOG_LEVEL: "ERROR",
-  LOG_FORMAT: "json",
-};`;
-
-/* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-   a `MongoClient` at import, so loading it would reach for a server no test run holds. */
-const DB_DOUBLE = `export const client = { db: () => ({}) };`;
-
-/* The sign-in path mails an allowlisted address on the way to a session, and a gateway no test run
-   holds would answer that send. */
-const MAIL_DOUBLE = `export const sendMail = async () => ({ id: null });`;
+});
 
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
 
-/* The Mongo adapter reaches a real server through aggregation pipelines, so the store under the
-   real `auth.ts` is the library's own in-memory one. */
-const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
-
-const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
-    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
-    // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
-    // path resolves. Both the library and the application import these bare.
-    if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
+registerAuthDoubles({
+  core: { config: CONFIG_DOUBLE },
+  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
@@ -89,15 +54,6 @@ const store: Store = { user: [], session: [], account: [], verification: [], pas
 
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
-
-// The library reads this name natively where no `secret` option is passed; the option comes from the
-// config double above, and this keeps a real environment out of the run either way.
-const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
-process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
-after(() => {
-  if (ORIGINAL_AUTH_SECRET === undefined) delete process.env.AUTH_SECRET;
-  else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
-});
 
 /** One record set the league holds, as the endpoint answers it. */
 type Subjekt = {
@@ -117,7 +73,7 @@ const PUPIL = { spieler_id: "b".repeat(24) };
 const RECORDS = new Map<string, Subjekt>([
   [ADMIN_EMAIL, { ...empty(), sitze: [SEAT] }],
   [PERSON_EMAIL, { ...empty(), spieler: [PUPIL] }],
-  [FOLDED_DECOMPOSED, { ...empty(), spieler: [PUPIL] }],
+  [FOLDED_EMAIL, { ...empty(), spieler: [PUPIL] }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -128,11 +84,19 @@ const sent: Sent[] = [];
 /** What the next call is answered with instead of the records, spent on that one call. */
 let nextAnswer: Response | null = null;
 
+/** Whether the next call is cut off as the client's own timeout cuts it, spent on that one call. */
+let nextTimesOut = false;
+
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   const body = String(init?.body ?? "");
   sent.push({ url: url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body: body });
+
+  if (nextTimesOut) {
+    nextTimesOut = false;
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
 
   if (nextAnswer !== null) {
     const answer = nextAnswer;
@@ -154,35 +118,19 @@ after(() => {
 const { auth, getSignInDestination } = await import("./auth.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+const { APINetworkError } = await import("./errors.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" };
-
-/* Seeded at the shape the plugin stores — SHA-256, base64url, no padding — because the allowlist
-   mails no other address anything and a person's link is Programme 2's to issue. */
-function seedLink(email: string): string {
-  const token = `fabricated-link-${randomUUID()}`;
-
-  store.verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return token;
-}
 
 /** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const verified = await auth.api.magicLinkVerify({ query: { token: seedLink(email) }, headers: new Headers(ORIGIN), returnHeaders: true });
-  const cookie = verified.headers
-    .getSetCookie()
-    .map((line) => line.split(";")[0])
-    .join("; ");
+  const verified = await auth.api.magicLinkVerify({
+    query: { token: seedLink(store.verification, email) },
+    headers: new Headers(ORIGIN),
+    returnHeaders: true,
+  });
+  const cookie = cookieHeader(verified);
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
@@ -294,27 +242,27 @@ describe("who the seam answers for", () => {
   /* One spelling per person, or a seat holder is answered no Funktion and shown the forbidden
      panel while an erasure is audited against an address the join never reaches. */
   it("folds a session's own spelling into the one the join, the answer and the scope share", async () => {
-    const { cookie } = await signIn(DECOMPOSED_EMAIL);
+    const { cookie } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
 
     // Asserted before the folding is: a session the library already stored folded would carry every
     // case below with the fold deleted.
     const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
     assert.ok(held, "the sign-in minted no session, so the comparison below passes on a null address");
-    assert.notEqual(held.user.email, FOLDED_DECOMPOSED, `the session already holds ${String(held.user.email)}`);
+    assert.notEqual(held.user.email, FOLDED_EMAIL, `the session already holds ${String(held.user.email)}`);
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer?.email, FOLDED_DECOMPOSED);
-    assert.equal(actor, FOLDED_DECOMPOSED);
-    assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_DECOMPOSED);
+    assert.equal(answer?.email, FOLDED_EMAIL);
+    assert.equal(actor, FOLDED_EMAIL);
+    assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_EMAIL);
     assert.deepEqual(answer?.subjekt.spieler, [PUPIL], "the lookup was asked about a mailbox the league holds nothing for");
   });
 });
 
 describe("the request the seam makes", () => {
   it("carries the identifier in the body and on no part of the url", async () => {
-    const { cookie } = await signIn(DECOMPOSED_EMAIL);
+    const { cookie } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
 
     await getSubjectSession();
@@ -353,6 +301,19 @@ describe("the request the seam makes", () => {
     });
 
     await assert.rejects(() => getSubjectSession());
+  });
+
+  // A lookup that stores nothing, posted only to keep the address out of the URL: its timeout is a read
+  // that failed, and the API answers its own deadline on it the same way (`stores_nothing`).
+  it("is declared a read, so a timeout on it never reads as a write of unknown outcome", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextTimesOut = true;
+
+    await assert.rejects(
+      () => getSubjectSession(),
+      (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
+    );
   });
 
   it("throws where the answer is a body the mirror refuses", async () => {

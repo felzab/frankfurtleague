@@ -1,4 +1,6 @@
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Final
 
@@ -57,3 +59,17 @@ def invalidate_saison_cache() -> None:
 
     _generation += 1
     _cache.clear()
+
+
+@contextmanager
+def dropping_the_saison_cache() -> Iterator[None]:
+    """Dropped however the write ends, and never after a clean commit alone.
+
+    A write that raised may still have landed, a commit whose answer was lost among them, and a drop
+    costs the next reader one query.
+    """
+
+    try:
+        yield
+    finally:
+        invalidate_saison_cache()

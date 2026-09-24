@@ -276,7 +276,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
 
     rerender(panel({ ...DRAWN, bestand: { spiele: 15, erfasst: 2, angesetzt: 4 } }));
-    assert.deepEqual(screen.queryAllByRole("button", { description: /./ }), [], "the running press is covered by a refusal");
+    assert.equal(screen.queryAllByRole("button", { description: /./ }).length, 0, "the running press is covered by a refusal");
     // Something entered makes the draw the operation on offer; the write running is still the undraw.
     const held = screen.getByRole("button", { name: "Nimmt zurück..." });
     assert.equal(held.getAttribute("data-pending"), "true");

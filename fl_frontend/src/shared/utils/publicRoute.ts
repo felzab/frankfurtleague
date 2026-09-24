@@ -51,7 +51,9 @@ export async function handlePublicRequest<T extends { success: boolean }>(
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      return toActionErrorResult(error);
+      // The request this route answers, for a throw carrying none of its own: code after a POST's
+      // write can throw with the row already stored.
+      return toActionErrorResult(error, { method: request.method, readOnly: false });
     }
   });
 

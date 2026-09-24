@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { asSignInIdentifier, mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
@@ -336,7 +337,8 @@ export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
   created_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   eingereicht_am: CustomDateStringSchema,
-  bestaetigungen: FLBewerbungBestaetigungTokensSchema,
+  // Null on a replay whose application needs no fresh links, and the handler then mails nothing.
+  bestaetigungen: FLBewerbungBestaetigungTokensSchema.nullable(),
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSchema>;
@@ -390,8 +392,17 @@ const KONTAKT_PAARE = [
   ["stellvertretung", "trainer"],
 ] as const;
 
-/** A person retyping their own address is the same person, whatever the case and the surrounding space. */
-export const gleicheAdresse = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase() && a.trim() !== "";
+/**
+ * One address on the sign-in fold, as the API compares two seats: an umlaut domain is its punycode,
+ * and „strasse“ beside „straße“ is two domains to sign-in and to IDNA 2008.
+ */
+export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
+
+/**
+ * Whether a correction leaves the delivery target where it was, as every send compares two mailboxes.
+ * Never `gleicheAdresse`, whose fold reads a local part's corrected case as no change.
+ */
+export const gleichesPostfach = (a: string, b: string): boolean => mailboxKey(a.trim()) === mailboxKey(b.trim()) && a.trim() !== "";
 
 // Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 // start with `49` -- so the order carries nothing.
@@ -399,8 +410,8 @@ const TELEFON_LAENDERVORWAHLEN = ["0049", "49"] as const;
 
 /**
  * One spelling per number, mirroring `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon`.
- * Compared raw, the form accepts a pair the backend refuses as a 422 that names no field — so the
- * applicant is told to retry what cannot succeed.
+ * Compared raw, the form accepts a pair the backend refuses as a 422 naming the contact block rather
+ * than a box — so the applicant is told to retry what cannot succeed.
  */
 function normalisiereTelefon(value: string): string {
   const ziffern = value.replace(/[^0-9]/g, "");
@@ -740,7 +751,6 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       text_version: z
         .string()
         .trim()
-        .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
         .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
           error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
         }),
@@ -811,6 +821,8 @@ export type FLEinwilligungErneutPayload = z.infer<typeof FLEinwilligungErneutPay
 export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema.extend({
   token: z.string(),
   rolle: FLKontaktRolleSchema,
+  email: z.string(),
+  rollen: z.array(FLKontaktRolleSchema),
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;

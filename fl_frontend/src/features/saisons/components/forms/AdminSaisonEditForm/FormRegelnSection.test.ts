@@ -11,10 +11,14 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { withoutPythonComments } from "@/shared/testing/refusalRegister.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
+
+doubleEveryAction();
 
 const { FormRegelnSection } = await import("./FormRegelnSection.tsx");
 const { AdminSaisonEditForm } = await import("./AdminSaisonEditForm.tsx");
@@ -120,11 +124,16 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", ".."
    `fl_frontend/src/shared/testing/refusalRegister.ts` reads `fl_backend/app/core/domain.py` the same way. */
 const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
 
-/** The string literals one module-level constant of `services.py` is assigned, in source order. */
+/**
+ * The string literals one module-level constant of `services.py` is assigned, in source order.
+ *
+ * A wrapped value runs to the paren the formatter closes alone on a line, comments out; its first line
+ * alone holds no literal.
+ */
 function assignedLiterals(name: string): string[] {
-  const value = new RegExp(`^${name}(?::[^=\\n]*)? = (.*)$`, "m").exec(SERVICES)?.[1] ?? "";
+  const value = new RegExp(`^${name}(?::[^=\\n]*)? = (\\(\\n[\\s\\S]*?\\n\\)|.*)$`, "m").exec(SERVICES)?.[1] ?? "";
 
-  return [...value.matchAll(/"([^"]*)"/g)].map((literal) => literal[1] ?? "");
+  return [...withoutPythonComments(value).matchAll(/"([^"]*)"/g)].map((literal) => literal[1] ?? "");
 }
 
 /** `REQ-RULES-011`'s frozen set and the one field of it a redraw moves, read off the write path that composes them. */

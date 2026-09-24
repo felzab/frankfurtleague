@@ -161,9 +161,7 @@ export function FormSpielplanSection({
         const res = await generateSpielplanAction({ id: saisonId, replace: replacesDraw, shape: replacesDraw ? shape : undefined });
 
         if (!res.success) {
-          appToast.danger(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", {
-            description: res.error,
-          });
+          appToast.failure(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", res);
           return;
         }
 
@@ -172,7 +170,7 @@ export function FormSpielplanSection({
         const res = await undrawSpielplanAction({ id: saisonId });
 
         if (!res.success) {
-          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error });
+          appToast.failure("Spielplan nicht zurückgenommen", res);
           return;
         }
 

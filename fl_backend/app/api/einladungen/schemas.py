@@ -88,11 +88,13 @@ class FLEinladungEmpfaenger(BaseModel):
     email: CustomNonEmptyString
 
 
-# Four ordinary states and a failure: `erzeugung_fehlgeschlagen` alone says the league failed that
-# team, and a surface words it apart from the rest (`docs/backend/spec.md :: I282`).
+# Four ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
+# that team and `erzeugung_ungewiss` that it cannot tell, and a surface words both apart from the
+# rest (`docs/backend/spec.md :: I282`).
 FLEinladungVersandGrund = Literal[
     "austritt_eingetragen",
     "erzeugung_fehlgeschlagen",
+    "erzeugung_ungewiss",
     "kein_kontaktblock",
     "keine_bestaetigte_kontaktperson",
     "bereits_gesendet",
@@ -124,6 +126,10 @@ class FLEinladungVersandZeile(_EinladungVersandZeile):
     # link being recoverable from no read.
     einladung_id: CustomObjectId | None
     token: str | None
+    # Whether the team held a live link when the press read it, which a failed row's page needs to
+    # say that link still opens. Null where the press failed before reading it: false would say none
+    # existed.
+    hatte_link: bool | None
 
 
 class FLEinladungVersandPayload(BaseModel):

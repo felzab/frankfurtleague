@@ -114,7 +114,7 @@ describe("the two-press confirm", () => {
   });
 
   /* Drop the arming branch's `return` and the FIRST press writes — the whole confirmation gone from
-     eight irreversible operations at once, with the alert never rendered. */
+     every arming panel at once, with the alert never rendered. */
   it("arms on the first press and writes nothing", () => {
     const gate = gated();
 

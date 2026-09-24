@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil, PersonPlus } from "@gravity-ui/icons";
 
 import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
-import { FLBewerbungKontaktEmailPayloadSchema, FLBewerbungKontaktSitzPayloadSchema, gleicheAdresse } from "@/features/bewerbungen/schemas";
+import {
+  FLBewerbungKontaktEmailPayloadSchema,
+  FLBewerbungKontaktSitzPayloadSchema,
+  gleicheAdresse,
+  gleichesPostfach,
+} from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -23,15 +28,18 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
+import { Absatz } from "./BestaetigungHinweise";
+
+import type { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { ReactNode } from "react";
+import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -74,8 +82,8 @@ const KEINE_EMAIL = "Keine E-Mail";
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
 /**
- * A rejection carries no status and no body, so the write may have committed. A second re-send is safe
- * either way, which is why this one invites it.
+ * A rejected action carries no status and no body, so it says nothing of whether the write
+ * committed. A second re-send is safe either way, which is why this one invites it.
  */
 const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
 
@@ -136,13 +144,10 @@ export function BewerbungBestaetigungStrip({
     // beneath it is stale on exactly the press that says so. A rejected write may have committed too.
     router.refresh();
 
-    if (res === null) {
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ERNEUT_OHNE_ANTWORT });
-      return;
-    }
-
-    if (!res.success) {
-      appToast.danger("Link nicht erneut gesendet", { description: res.error });
+    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
+    // unknown outcome among them, carries its own sentence.
+    if (res === null || !res.success) {
+      appToast.failure("Link nicht erneut gesendet", res ?? { error: ERNEUT_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
@@ -388,7 +393,7 @@ function AdresseKorrigieren({
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
@@ -404,7 +409,7 @@ function AdresseKorrigieren({
 
   // A press that corrects nothing is a re-send wearing another name, and the re-send has its own
   // control. The refusal on it says what opens it.
-  const unveraendert = email.trim() === "" || gleicheAdresse(email, gespeicherteAdresse ?? "");
+  const unveraendert = email.trim() === "" || gleichesPostfach(email, gespeicherteAdresse ?? "");
 
   const schreibe = async () => {
     // The submission's own rule, judged here so the administrator is told at the field rather than
@@ -419,24 +424,27 @@ function AdresseKorrigieren({
     const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
     setSendet(false);
 
-    if (res === null) {
-      // Left open: the draft is what a second press sends, and the refreshed row says whether one is owed.
+    // One raise for every arm below, so the title has one site.
+    const nichtKorrigiert: RaiseFailure = (shown) => appToast.failure("Adresse nicht korrigiert", shown);
+
+    // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
+    // sends, and the refreshed row says whether one is owed.
+    if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: KORREKTUR_OHNE_ANTWORT });
+      // Thrown, no answer came back, so this control's repair names the connection.
+      nichtKorrigiert(res ?? { success: false, error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
     if (!res.success) {
-      if (res.fieldErrors !== undefined) {
-        setSubmitFieldErrors(res.fieldErrors, { korrektur: payload });
-        return;
+      // A refusal carrying a map leaves the box open, and the hook says whether the box took it.
+      if (!hasFieldErrors(res.fieldErrors)) {
+        // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
+        // time the administrator reads it.
+        router.refresh();
+        onFertig();
       }
-
-      // Every mapped refusal ends in „Lade die Seite neu", so the refresh has already run by the
-      // time the administrator reads it.
-      router.refresh();
-      onFertig();
-      appToast.danger("Adresse nicht korrigiert", { description: res.error });
+      reportSubmitFailure(res, { korrektur: payload }, { raise: nichtKorrigiert });
       return;
     }
 
@@ -523,30 +531,17 @@ function AdresseKorrigieren({
 /** A blank person, because nobody stands in this seat: `AdresseKorrigieren`'s box prefills where it is repairing one character. */
 const LEERE_PERSON = { vorname: "", nachname: "", email: "", telefon: "" };
 
-/** The privacy notice, linked on its own name wherever the retained wording happens to use it. */
-const DATENSCHUTZ_WORT = "Datenschutzerklärung";
-
-/**
- * Spelled here as well as in the application form's own section: the wording is stamped and its
- * paragraphs are shown wherever a record citing them is written, which is now two surfaces.
- */
-function mitDatenschutzLink(absatz: string): ReactNode {
-  const [vor = "", ...rest] = absatz.split(DATENSCHUTZ_WORT);
-  if (rest.length === 0) return absatz;
-
-  return (
-    <>
-      {vor}
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {DATENSCHUTZ_WORT}
-      </Link>
-      {rest.join(DATENSCHUTZ_WORT)}
-    </>
-  );
-}
+// The confirmation page's opening section in its order, less each paragraph with a slot this strip
+// cannot fill as the page does: a slot left standing is a word the person never sees.
+const SEITENANFANG = [
+  "gespeichert",
+  "rechtsgrundlage",
+  "nichtOeffentlich",
+  "fristAbgelehnt",
+  "fristUnvollstaendig",
+  "widerruf",
+  "art21",
+] as const satisfies readonly (keyof typeof BESTAETIGUNG_ABSAETZE)[];
 
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
@@ -568,7 +563,7 @@ function SitzNeuBesetzen({
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
@@ -598,24 +593,27 @@ function SitzNeuBesetzen({
     const res = await besetzeKontaktSitzAction(payload).catch(() => null);
     setSendet(false);
 
-    if (res === null) {
-      // Left open: the draft is what a second press sends, and the refreshed row says whether one is owed.
+    // One raise for every arm below, so the title has one site.
+    const nichtBesetzt: RaiseFailure = (shown) => appToast.failure("Rolle nicht neu besetzt", shown);
+
+    // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
+    // sends, and the refreshed row says whether one is owed.
+    if (res === null || (!res.success && res.outcome === "unknown")) {
       router.refresh();
-      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BESETZUNG_OHNE_ANTWORT });
+      // Thrown, no answer came back, so this control's repair names the connection.
+      nichtBesetzt(res ?? { success: false, error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
       return;
     }
 
     if (!res.success) {
-      if (res.fieldErrors !== undefined) {
-        setSubmitFieldErrors(res.fieldErrors, { neubesetzung: payload });
-        return;
+      // A refusal carrying a map leaves the box open, and the hook says whether the box took it.
+      if (!hasFieldErrors(res.fieldErrors)) {
+        // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
+        // time the administrator reads it.
+        router.refresh();
+        onFertig();
       }
-
-      // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
-      // time the administrator reads it.
-      router.refresh();
-      onFertig();
-      appToast.danger("Rolle nicht neu besetzt", { description: res.error });
+      reportSubmitFailure(res, { neubesetzung: payload }, { raise: nichtBesetzt });
       return;
     }
 
@@ -654,15 +652,18 @@ function SitzNeuBesetzen({
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
 
-      {/* The wording the stored record will cite, shown to the administrator writing it: the person
-          it names is not here to read it, and a record citing a text nobody saw is one nobody can weigh. */}
+      {/* The confirmation page's words, never the application form's: those address the submitter,
+          and the person this writes will only ever read the page. */}
       <div className="border-border flex flex-col gap-y-2 rounded-lg border p-3">
         <p className="fluid-xs text-foreground font-bold">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
-        {LIGA_KENNTNISNAHME.absaetze.map((absatz) => (
+        {SEITENANFANG.map((schluessel) => (
           <p
-            key={absatz}
+            key={schluessel}
             className="muted-meta">
-            {mitDatenschutzLink(absatz)}
+            <Absatz
+              schluessel={schluessel}
+              werte={{ kontakt: KONTAKT_EMAIL }}
+            />
           </p>
         ))}
       </div>

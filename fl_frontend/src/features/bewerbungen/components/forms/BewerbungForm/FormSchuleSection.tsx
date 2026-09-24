@@ -160,8 +160,8 @@ export function FormSchuleSection({
 
       <div className={panel.body()}>
         {/* OUTSIDE the new-school branch below: a school picking a club it already holds answers this
-            too, and a box behind that branch submits a body the payload refuses under a 422 marking
-            no field. */}
+            too, and behind that branch the box would be unrendered for such a school, so the refusal
+            naming it would mark nothing. */}
         <div className={FIELD_PAIR}>
           <div className="flex w-full flex-col">
             {/* `name="team_id"`, because that is the path the payload and every server refusal spell the

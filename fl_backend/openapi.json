@@ -20,6 +20,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "none"
@@ -37,6 +47,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CheckIsReadyResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -62,6 +82,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -227,7 +257,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -273,7 +313,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -339,13 +389,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
           }
         },
-        "x-fl-tier": "admin"
+        "x-fl-tier": "admin",
+        "x-fl-stores-nothing": "dry_run"
       }
     },
     "/api/v0/teams": {
@@ -544,7 +605,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -587,7 +658,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -663,7 +744,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -717,7 +808,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -761,7 +862,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -882,7 +993,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -928,7 +1049,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -982,7 +1113,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1092,7 +1233,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1138,7 +1289,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1192,7 +1353,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1236,7 +1407,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1335,7 +1516,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1378,7 +1569,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1399,6 +1600,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSaisonsSingleResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1449,7 +1660,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1503,7 +1724,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1587,7 +1818,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1630,7 +1871,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1676,7 +1927,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1730,7 +1991,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1774,7 +2045,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1877,7 +2158,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1887,7 +2178,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee, and mint their confirmation link where the entry carries an email address.\n\n`inactive_since` is set to null here and is on no payload. **Entering an address IS the\ninvitation**: there is no second press deciding whether this person is asked, because a referee\nnobody asked is a name nobody consented to publish. The raw token is answered once, for the\ncaller to mail, and the row stores only its hash; an entry with no address answers\n`bestaetigung: null` and mails nothing.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
+        "description": "Create a referee and mint their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The raw token is answered once, for the caller to mail, and the row stores only its hash.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -1920,7 +2211,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1966,7 +2267,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -1976,7 +2287,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\nWhere a fresh link would be minted, two refusals apply that a plain rename never meets: a RETIRED\nreferee is refused `REQ-SCHIEDSRICHTER-001`, no consent being collected for a role nobody can\ngive them, and a banned new address `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\n**A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for\na role nobody gives them. Their old link is retired all the same, and the reactivation mints the\nfresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2020,7 +2331,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2064,7 +2385,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2172,7 +2503,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2182,11 +2523,30 @@
       },
       "post": {
         "summary": "Submit a Bewerbung",
-        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.",
+        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).",
         "operationId": "post_bewerbung_api_v0_bewerbungen_post",
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid4"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -2215,7 +2575,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2261,7 +2631,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2389,7 +2769,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2399,11 +2789,30 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`).",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid4"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -2432,7 +2841,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2593,7 +3012,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2646,7 +3075,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2692,7 +3131,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2732,7 +3181,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2758,6 +3217,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLTeamsMembershipsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -2977,7 +3446,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3023,7 +3502,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3079,7 +3568,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3144,7 +3643,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3209,7 +3718,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3274,7 +3793,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3329,7 +3858,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3382,7 +3921,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3392,7 +3941,7 @@
       },
       "get": {
         "summary": "This team's live registration link for a season, and whether it opens anything",
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure.\n\n`laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds\nthat id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
         "operationId": "get_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_get",
         "security": [
           {
@@ -3435,7 +3984,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3556,7 +4115,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3602,7 +4171,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3626,6 +4205,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3633,6 +4222,62 @@
             "HTTPBearer": []
           }
         ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spieler/nachnominierung/{saison_id}": {
+      "get": {
+        "summary": "Whether a squad entry into a season today is a Nachnominierung",
+        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first\nday of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which\nholds none yet, answers `false`. 404 where no season has this id.",
+        "operationId": "get_spieler_nachnominierung_api_v0_spieler_nachnominierung__saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerNachnominierungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                }
+              }
+            }
+          }
+        },
         "x-fl-tier": "admin"
       }
     },
@@ -3673,7 +4318,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3719,7 +4374,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3731,7 +4396,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`).",
+        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true\nfrom the first day of the season's matchday 1, and false while that matchday is undated.",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -3775,7 +4440,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3840,7 +4515,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3893,7 +4578,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -3948,7 +4643,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4047,7 +4752,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4093,7 +4808,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4149,7 +4874,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4204,7 +4939,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4248,7 +4993,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4304,7 +5059,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4360,7 +5125,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4406,7 +5181,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4418,7 +5203,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is minted a fresh link**, answered once for the caller\nto mail: a retired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -4442,7 +5227,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                  "$ref": "#/components/schemas/FLSchiedsrichterReactivateResponse"
                 }
               }
             }
@@ -4452,7 +5237,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4498,7 +5293,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4544,7 +5349,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4666,7 +5481,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4712,7 +5537,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4768,7 +5603,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4824,7 +5669,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4836,7 +5691,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
       "post": {
         "summary": "Re-send one seat's confirmation link",
-        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an\napplication already decided (`REQ-BEWERBUNG-001`) and on a seat already confirmed or declined, or one an\napplication stored before the confirmation flow holds (`REQ-BEWERBUNG-011`). A path naming no seat is a 404.",
+        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an\napplication already decided (`REQ-BEWERBUNG-001`) and on any seat the link would open that is already confirmed\nor declined, or one an application stored before the confirmation flow holds — the mirrored seat included\n(`REQ-BEWERBUNG-011`). A decision, an answer or an erasure landing while the request runs is refused the same way.\nA path naming no seat is a 404.",
         "operationId": "erneut_einwilligung_api_v0_bewerbungen__bewerbung_id__einwilligung__seat__erneut_post",
         "security": [
           {
@@ -4879,7 +5734,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -4944,7 +5809,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5009,7 +5884,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5049,7 +5934,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5060,7 +5955,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "admin"
+        "x-fl-tier": "admin",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/kontakte/erasure": {
@@ -5094,7 +5990,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5120,6 +6026,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSperrlisteListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5162,7 +6078,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5213,7 +6139,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5225,7 +6161,7 @@
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
-        "description": "Return the season whose application window is open today; 404 when none is.\n\nThe window alone, never the season: `docs/backend/spec.md :: I47` withholds a `future` one from\nthis tier (`READ-BEWERBUNG-001`).",
+        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window alone, never the season: `docs/backend/spec.md :: I47` withholds a\n`future` one from this tier (`READ-BEWERBUNG-001`).",
         "operationId": "get_offenes_fenster_api_v0_bewerbungen_fenster_get",
         "responses": {
           "200": {
@@ -5234,6 +6170,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5292,7 +6238,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5313,6 +6269,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungSchulenResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5363,7 +6329,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5375,7 +6351,7 @@
     "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
       "get": {
         "summary": "The kit colours a Saison has already assigned",
-        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\n404 unless that season's application window is running today, which is the one state the form\nreads this in. The SET alone, naming no club (`READ-BEWERBUNG-001`).",
+        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\n404 unless that season takes applications today, which is the one state the form reads this in.\nThe SET alone, naming no club (`READ-BEWERBUNG-001`).",
         "operationId": "get_trikotfarben_api_v0_bewerbungen_trikotfarben__saison_id__get",
         "security": [
           {
@@ -5409,7 +6385,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5449,7 +6435,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5460,7 +6456,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/bewerbungen/einwilligung": {
@@ -5494,7 +6491,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5539,7 +6546,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5550,13 +6567,14 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, and the wording's version. Beside them the three answers the league already holds for this\nperson -- the birthdate, the publication scope and the media switch -- so a returning pupil confirms what\nstands rather than entering it again. That person is matched on the registration's folded address AND its\nfolded name: a mailbox a family shares stands behind more than one pupil, so an address alone would show one\nof them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: a mailbox a family shares stands behind more than one\npupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -5584,7 +6602,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5595,13 +6623,14 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), and an age\nbelow the floor (`-007`) -- the last judged before anything is written, so a mistyped year spends nothing and\nthe pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age\nbelow the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged\nbefore anything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -5629,7 +6658,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5646,7 +6685,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, the age floor, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -5674,7 +6713,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5685,13 +6734,14 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "base"
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
       }
     },
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -5719,7 +6769,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5748,6 +6808,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5761,7 +6831,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing\nleft to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -5795,7 +6865,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5851,7 +6931,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5907,7 +6997,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5947,7 +7047,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -5992,7 +7102,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6009,7 +7129,7 @@
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's registration retention clocks",
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe season's own end comes first: once the season is `past`, every registration still awaiting a decision is erased whatever the\npupil answered, because no admission can be taken for a season that is over. The confirmed ones among them are listed in\n`benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is told neither before nor\nafter, its address never having been confirmed. Then an unconfirmed registration strictly past its deadline is erased with no\nnotice at all, the confirmation mail having named that day. Then one reminder per registration at its reminder age: a fresh link\nis minted and `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and\nthe link already in that inbox stays valid beside the fresh one. A registration whose last message the mail provider refused is\nnot chased at all. Last, a declined registration is erased a month after the decision. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds\nnothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
         "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
         "security": [
           {
@@ -6043,7 +7163,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6083,7 +7213,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6128,7 +7268,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6173,7 +7323,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6190,7 +7350,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- NFKC, lower-cased, trimmed -- on arrival and compared in that form, so\n`Anna.Müller@Schule.de` in a contact seat answers for `anna.müller@schule.de`. `ß` is not folded to `ss`, so `poststrasse@` and\n`poststraße@` are two mailboxes here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the\nfolded form already.\n\nA contact seat and a referee record store the address as it was typed, so both are read in two steps: a case-insensitive database\nmatch narrows, and the fold decides on each candidate's own stored value. The two rules differ, and the database's is the wider --\nit holds U+0345 equal to an iota, where the fold leaves them two addresses -- so a row the match reaches is one the fold may still\nrefuse, and that refusal is what keeps this answer's rule the same rule sign-in applies.\n\nA stored address in a decomposed Unicode form is MISSED, the match comparing code points and normalising nothing, so a composed\nidentifier does not reach a decomposed spelling of the same address. Every address written through this API arrives composed, which\nis why neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either, for an edge no write path here produces.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nstored as `müller.de` for `xn--mller-kva.de`. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains\nhere as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode,\nor in Unicode where the row predates that rule -- so both are read in two steps: the database narrows to the rows holding the\nidentifier in either spelling of its domain, whatever the case of its letters, and the fold decides on each candidate's own stored value.\n\nA row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII\nlocal part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it\nholds: a second copy on two collections has to be kept true by every writer that touches either.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -6218,7 +7378,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
                 }
               }
             }
@@ -6229,7 +7399,8 @@
             "HTTPBearer": []
           }
         ],
-        "x-fl-tier": "system"
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
       }
     },
     "/": {
@@ -6243,6 +7414,16 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "Failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                }
               }
             }
           }
@@ -7227,7 +8408,7 @@
           "stellvertretung"
         ],
         "title": "FLBewerbungBestaetigungTokens",
-        "description": "The three RAW tokens the create minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, the insert logs no image, no read model declares one."
+        "description": "The three RAW tokens the create or its replay minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, and no read model declares one."
       },
       "FLBewerbungBestaetigungen": {
         "properties": {
@@ -7572,6 +8753,22 @@
             ],
             "title": "Rolle"
           },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
           "bestaetigungsfrist": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -7582,6 +8779,8 @@
         "required": [
           "token",
           "rolle",
+          "email",
+          "rollen",
           "bestaetigungsfrist"
         ],
         "title": "FLBewerbungEinwilligungErneutResponse",
@@ -8218,6 +9417,7 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 125,
             "title": "Bewerbung Ids"
           }
         },
@@ -8337,6 +9537,7 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 125,
             "title": "Bewerbung Ids"
           }
         },
@@ -9827,6 +11028,7 @@
                 "enum": [
                   "austritt_eingetragen",
                   "erzeugung_fehlgeschlagen",
+                  "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
                   "bereits_gesendet"
@@ -9879,6 +11081,7 @@
                 "enum": [
                   "austritt_eingetragen",
                   "erzeugung_fehlgeschlagen",
+                  "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
                   "bereits_gesendet"
@@ -9915,6 +11118,17 @@
               }
             ],
             "title": "Token"
+          },
+          "hatte_link": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hatte Link"
           }
         },
         "type": "object",
@@ -9925,7 +11139,8 @@
           "uebersprungen",
           "ersetzt_link",
           "einladung_id",
-          "token"
+          "token",
+          "hatte_link"
         ],
         "title": "FLEinladungVersandZeile",
         "description": "One team as the press left it."
@@ -10033,6 +11248,24 @@
         ],
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
+      },
+      "FLFailureBody": {
+        "properties": {
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "trace_id"
+        ],
+        "title": "FLFailureBody",
+        "type": "object"
       },
       "FLGenerateSpielplanPayload": {
         "properties": {
@@ -10267,7 +11500,7 @@
           "email": {
             "type": "string",
             "maxLength": 254,
-            "format": "email",
+            "pattern": "@",
             "title": "Email"
           }
         },
@@ -10414,16 +11647,9 @@
             "title": "Telefon"
           },
           "email": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 254,
-                "format": "email"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
             "title": "Email"
           }
         },
@@ -10680,10 +11906,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -10707,7 +11929,6 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle"
         ],
         "title": "FLPatchSaisonSpielerPayload",
@@ -11692,7 +12913,14 @@
             "title": "Eingereicht Am"
           },
           "bestaetigungen": {
-            "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "bestaetigungsfrist": {
             "type": "string",
@@ -11818,8 +13046,15 @@
             "title": "Registrierung Id"
           },
           "bestaetigung_token": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bestaetigung Token"
           },
           "frist": {
@@ -11852,7 +13087,7 @@
           "email"
         ],
         "title": "FLPostRegistrierungResponse",
-        "description": "The stored registration and the raw confirmation link, answered here and never again.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
+        "description": "The stored registration and a raw confirmation link, which no read ever answers.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read."
       },
       "FLPostSaisonPayload": {
         "properties": {
@@ -11985,10 +13220,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -12018,7 +13249,6 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle",
           "saison_id"
         ],
@@ -12115,14 +13345,7 @@
             "default": 1
           },
           "bestaetigung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchiedsrichterMint"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
           },
           "created_id": {
             "type": "string",
@@ -12131,6 +13354,7 @@
         },
         "type": "object",
         "required": [
+          "bestaetigung",
           "created_id"
         ],
         "title": "FLPostSchiedsrichterResponse"
@@ -12330,6 +13554,72 @@
           "created_id"
         ],
         "title": "FLPostTeamResponse"
+      },
+      "FLRefusedField": {
+        "properties": {
+          "in": {
+            "enum": [
+              "body",
+              "query",
+              "path",
+              "header",
+              "cookie"
+            ],
+            "title": "In",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "in",
+          "path",
+          "kind"
+        ],
+        "title": "FLRefusedField",
+        "type": "object"
+      },
+      "FLRefusedPayloadBody": {
+        "properties": {
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FLRefusedField"
+            },
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "error_code",
+          "trace_id",
+          "fields"
+        ],
+        "title": "FLRefusedPayloadBody",
+        "type": "object"
       },
       "FLRegistrierung": {
         "properties": {
@@ -12609,6 +13899,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "geburtsdatum": {
             "anyOf": [
               {
@@ -12657,12 +13951,13 @@
           "vorname",
           "text_version",
           "mindestalter",
+          "medien_mindestalter",
           "geburtsdatum",
           "umfang",
           "medien"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
-        "description": "What one confirmation link opens, and no eleventh field (`docs/backend/spec.md :: I286`)."
+        "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
       },
       "FLRegistrierungBestaetigungPayload": {
         "properties": {
@@ -13411,10 +14706,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert"
-          },
           "rolle": {
             "anyOf": [
               {
@@ -13438,6 +14729,10 @@
             "type": "string",
             "title": "Saison Id"
           },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -13457,10 +14752,10 @@
           "nummer",
           "position",
           "stufe",
-          "ist_nachnominiert",
           "rolle",
           "spieler_id",
           "saison_id",
+          "ist_nachnominiert",
           "inactive_since"
         ],
         "title": "FLSaisonSpielerResponse",
@@ -13984,6 +15279,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "frist": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -13996,6 +15295,7 @@
           "vorname",
           "text_version",
           "mindestalter",
+          "medien_mindestalter",
           "frist"
         ],
         "title": "FLSchiedsrichterBestaetigungAnsichtResponse",
@@ -14144,7 +15444,7 @@
           "email"
         ],
         "title": "FLSchiedsrichterMint",
-        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — the three mints answering it are all on `app/api/schiedsrichter/admin_router.py`."
+        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`."
       },
       "FLSchiedsrichterMintResponse": {
         "properties": {
@@ -14167,6 +15467,38 @@
         ],
         "title": "FLSchiedsrichterMintResponse",
         "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead."
+      },
+      "FLSchiedsrichterReactivateResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "bestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSchiedsrichterReactivateResponse",
+        "description": "The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
@@ -14209,7 +15541,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+        "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
       },
       "FLSperrlisteEintrag": {
         "properties": {
@@ -15818,11 +17150,6 @@
             ],
             "title": "Stufe"
           },
-          "ist_nachnominiert": {
-            "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
-          },
           "rolle": {
             "anyOf": [
               {
@@ -15837,6 +17164,11 @@
               }
             ],
             "title": "Rolle"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert",
+            "default": false
           },
           "saison_id": {
             "type": "string",
@@ -15892,6 +17224,34 @@
         ],
         "title": "FLSpielerMembershipsResponse",
         "description": "Every player, retired ones included, each with their squad rows. Sorted by name."
+      },
+      "FLSpielerNachnominierungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "nachnominierung": {
+            "type": "boolean",
+            "title": "Nachnominierung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "nachnominierung"
+        ],
+        "title": "FLSpielerNachnominierungResponse",
+        "description": "Whether an entry into this season's squads today would be marked a Nachnominierung."
       },
       "FLSpielerPublic": {
         "properties": {
@@ -17426,19 +18786,6 @@
         "title": "FLZustellungResponse",
         "description": "Whether the write reached the record; false where the report is about a message the record does not hold.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
       },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
       "SystemInfoResponse": {
         "properties": {
           "acknowledged": {
@@ -17460,46 +18807,6 @@
           "api_version"
         ],
         "title": "SystemInfoResponse"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       }
     },
     "securitySchemes": {

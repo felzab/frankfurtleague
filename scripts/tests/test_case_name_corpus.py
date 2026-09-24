@@ -1,8 +1,10 @@
 """SCRIPTS · the case-name reader's floor, measured against this repository rather than a fixture.
 
-`test_check_docs.py` proves the ambiguity arm reports and stays quiet, over a corpus of one module
-per tier. What that cannot show is the reader going quiet because it stopped recognising a
-declaration in the real tree, which leaves every citation resolving to a count of one.
+`scripts/tests/test_check_docs_citations.py :: test_a_cited_case_name_two_suites_of_one_module_declare_is_reported`
+and `:: test_a_cited_case_name_two_classes_of_one_python_module_declare_is_reported` prove the
+ambiguity arm reports and stays quiet, over a corpus of one module per tier. What they cannot show
+is the reader going quiet because it stopped recognising a declaration in the real tree, which
+leaves every citation resolving to a count of one.
 """
 
 from __future__ import annotations

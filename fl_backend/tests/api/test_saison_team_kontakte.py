@@ -632,7 +632,7 @@ class TestTheCompositionDecidesFromItsArguments:
         assert compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=stored) == as_stored(NEW_KONTAKTE)
 
     def test_the_address_is_matched_case_insensitively(self):
-        """On the erasure's terms: a mailbox is one address however its local part is capitalised."""
+        """On the sign-in fold, which the erasure shares: a mailbox is one address however its local part is capitalised."""
 
         recased = {**PARTLY_CONFIRMED, "trainer": person("Ida", email="IDA@Example.com")}
         composed = compose_kontakte_herkunft(kontakte=recased, stored=PARTLY_CONFIRMED)
@@ -640,6 +640,16 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed is not None
         assert composed["trainer"]["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
+
+    def test_a_domain_spelled_with_ss_where_it_held_sharp_s_is_another_mailbox(self):
+        """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains: a stamp carried across confirms an unproven inbox."""
+
+        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", email="ida@straße.de", erfasst_von="person", bestaetigt_am=CONFIRMED_ON)}
+        moved = {**held, "trainer": person("Ida", email="ida@strasse.de")}
+        composed = compose_kontakte_herkunft(kontakte=moved, stored=held)
+
+        assert composed is not None
+        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
@@ -696,6 +706,8 @@ class TestTheDateRidesWithThePerson:
             pytest.param({}, {"vorname": "IDA"}, id="the case, which a payload does carry"),
             pytest.param({"nachname": " Musterfrau "}, {}, id="padding, which only a stored row carries"),
             pytest.param({"nachname": "Muster  frau"}, {"nachname": "Muster frau"}, id="a doubled inner space"),
+            # Built from code points: the decomposed umlaut renders exactly as the composed one.
+            pytest.param({"nachname": f"Mu{chr(0x308)}ller"}, {"nachname": f"M{chr(0xFC)}ller"}, id="an umlaut stored decomposed"),
         ],
     )
     def test_a_name_respelled_and_not_changed_keeps_the_date(self, held: dict[str, str], sent: dict[str, str]):
@@ -707,6 +719,16 @@ class TestTheDateRidesWithThePerson:
 
         assert composed is not None
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
+
+    def test_a_sharp_s_surname_and_its_ss_spelling_are_two_people(self):
+        """„Weiß“ and „Weiss“ are two families, which `casefold` would make one person holding the other's date."""
+
+        stored = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], "nachname": "Weiß"}}
+        respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], "nachname": "Weiss"}}
+        composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
+
+        assert composed is not None
+        assert composed["trainer"]["geburtsdatum"] is None
 
     def test_a_stored_blank_is_carried_forward_as_the_null_every_read_answers(self):
         """Written back as it stands, the blank would be a value no reader can see and no token can tell from null."""

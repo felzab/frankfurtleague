@@ -3,8 +3,9 @@ import { SITE_URL } from "@/core/brand";
 import type { MetadataRoute } from "next";
 
 // A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
-// route. Bump it by hand when the page content changes.
-const CONTENT_LAST_MODIFIED = new Date("2026-09-06");
+// route. Any change to a public page's content moves it, since a stale date tells a crawler
+// there is nothing new to fetch.
+const CONTENT_LAST_MODIFIED = new Date("2026-09-24");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

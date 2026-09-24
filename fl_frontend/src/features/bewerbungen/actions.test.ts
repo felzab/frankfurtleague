@@ -173,8 +173,9 @@ describe("the triage's refusals against the backend's register", () => {
     }
   });
 
-  /* Pinned through the SERVICES, not the operation strings: `REQ-ENTER-005` writes its operations
-     as a parenthesised literal, which `refusalRegister.ts`'s single-literal parse reads as none. */
+  /* Pinned through the SERVICES the acceptance calls, not only through the operation strings: those
+     are typed by hand on each rule, while which entry rules can refuse an acceptance follows from
+     the calls. */
   it("maps the entry rules the acceptance reuses", () => {
     assert.ok(
       ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
@@ -513,8 +514,8 @@ describe("the sentence both entry surfaces render for one code", () => {
 });
 
 describe("the decline's bound", () => {
-  /* Mirrored, never recalled: past the backend's ceiling the API answers a bare `REQ-VAL-001` with no
-     field detail, so nothing would mark the box. */
+  /* Mirrored, never recalled: past the backend's ceiling the API's `REQ-VAL-001` marks the box with a
+     generic sentence rather than the bound's German. */
   it("caps the reason at the number the backend states", () => {
     const backend = /^BEWERBUNG_GRUND_MAX_LENGTH: Final = (\d+)$/m.exec(BOUNDS)?.[1] ?? "";
     const frontend = /^export const BEWERBUNG_GRUND_MAX_LENGTH = (\d+);$/m.exec(CONSTANTS)?.[1] ?? "";
@@ -774,6 +775,18 @@ describe("the re-sent confirmation link", () => {
       /^frist === null\) throw new Error\(/,
       "a missing deadline is worded for an administrator rather than thrown",
     );
+  });
+
+  /* A correction landing between the page's read and this write moves the mailbox, and only the
+     write's own image knows it: the read would mail the address the correction replaced. */
+  it("mails the address and the seats the write itself answered", () => {
+    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+
+    assert.notEqual(notified, -1, "the re-send sends no message at all");
+    assert.match(ERNEUT_ACTION.slice(notified), /email: erneutOperation\.email/, "the re-send mails the address its own read held");
+    assert.match(ERNEUT_ACTION.slice(notified), /sitze: erneutOperation\.rollen/, "the re-send names seats its own read paired");
+    assert.ok(!ERNEUT_ACTION.includes("gepaarteSitze("), "the re-send recomputes the pair off the page it was drawn from");
+    assert.match(SCHEMAS, /FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema\.extend\(\{[^}]*email: z\.string\(\)/);
   });
 
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned

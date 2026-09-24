@@ -38,9 +38,10 @@ describe("the mark on the selected tab", () => {
     const ring = paletteToken(TAB_INDICATOR, "ring");
     const track = paletteToken(TAB_TRACK, "bg");
 
+    // Opening its line, so a pair commented out, which measures nothing, reads as absent.
     assert.match(
       SCHEME_CHECK,
-      new RegExp(String.raw`Pair\([^)]*Layer\("${ring}"\), Layer\("${track}"\), 3\.0\)`),
+      new RegExp(String.raw`^[ \t]*Pair\([^)]*Layer\("${ring}"\), Layer\("${track}"\), 3\.0\)`, "m"),
       `scheme.py records no 3:1 pair for \`${ring}\` on \`${track}\`, so the ring is unmeasured`,
     );
   });

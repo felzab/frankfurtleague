@@ -4,7 +4,7 @@ from typing import Any, get_args
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -125,7 +125,13 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
 
         async def write_one_of_every_operation(session: AsyncClientSession) -> None:
             await post_one_to_db(collection=teams, document=team_document(), session=session)
-            await patch_one_in_db(collection=teams, db_filter={"_id": TEAM_OID}, update={"$set": {"name": RENAMED}}, session=session)
+            await patch_one_in_db(
+                collection=teams,
+                db_filter={"_id": TEAM_OID},
+                update={"$set": {"name": RENAMED}},
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
             # A dotted key, which is what every reference fan-out matches on and what the row then stores.
             await patch_many_in_db(collection=teams, db_filter={"address.stadt": STADT}, update={"$set": {"description": "x"}}, session=session)
             # Ids left to the driver, and distinct shorthands so `uniq_shorthand` admits the pair.

@@ -32,8 +32,9 @@ const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-
 const counters = globalThis as unknown as Record<string, number>;
 
 /** A request carrying `origin` as its header, or no header at all, whose body counts its own reads. */
-function request(origin: string | null, read: { body: number }) {
+function request(origin: string | null, read: { body: number }, method = "POST") {
   return {
+    method: method,
     headers: new Headers(origin === null ? {} : { "sec-fetch-site": origin }),
     json: async () => {
       read.body += 1;
@@ -88,5 +89,30 @@ describe("what stands in for a session on the public spine", () => {
       /Verbindung|Access Denied/,
       "a cross-site caller is sent to check their connection, or answered in English",
     );
+  });
+});
+
+describe("a throw of the route's own code", () => {
+  const thrownBy = async (method: string) =>
+    (
+      (await handlePublicRequest(request("same-origin", { body: 0 }, method), {
+        routeName: "publicRouteTest",
+        run: async () => {
+          throw new RangeError("Invalid time value");
+        },
+      })) as unknown as { body: { success: boolean; error?: string; outcome?: string } }
+    ).body;
+
+  /* The application route formats a date and composes its mails after the write, so a throw there
+     leaves the row standing: answered as a failure, the applicant sends it again. */
+  it("answers a POST as of unknown outcome, the write perhaps standing", async () => {
+    assert.equal((await thrownBy("POST")).outcome, "unknown");
+  });
+
+  it("answers a GET, which wrote nothing, as the failure it is", async () => {
+    const body = await thrownBy("GET");
+
+    assert.equal(body.outcome, undefined);
+    assert.equal(body.error, "Lade die Seite neu und versuche es erneut.");
   });
 });

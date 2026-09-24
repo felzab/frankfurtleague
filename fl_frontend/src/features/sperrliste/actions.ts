@@ -7,9 +7,9 @@ import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
@@ -51,7 +51,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
 }
 
 export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSperreAction", async () => {
+  return runAdminMutation("postSperreAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -96,7 +96,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteSperreAction", async () => {
+  return runAdminMutation("deleteSperreAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

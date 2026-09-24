@@ -48,7 +48,7 @@ class Mirror(NamedTuple):
     python: str
 
 
-# Declared rather than matched by name: four of these pairs are spelled one way on the frontend and
+# Declared rather than matched by name: several of these pairs are spelled one way on the frontend and
 # another in `bounds.py`, so a sweep keyed on the identifier passes over exactly the pairs whose
 # drift nothing else shows.
 MIRRORED_BOUNDS: Final = (
@@ -81,11 +81,15 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
-    # These two mirror the published notice's sentences and never a payload schema: each confirmation
-    # view still states the floor off the answer it was served, and neither
+    # These three mirror the published notice's sentences and never a payload schema: each confirmation
+    # view states its floors off the answer it was served, and neither
     # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
+    Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
+    # The notice states the ban's length in a word, which its render test holds to this constant; no
+    # payload carries a length at all.
+    Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -93,14 +97,15 @@ MIRRORED_BOUNDS: Final = (
 UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "LIST_LIMIT_DEFAULT": "the page size a read applies for a caller that asks for none",
     "LIST_LIMIT_MAX": "the ceiling on what a caller may ask for; every frontend read sends the size it needs or none",
-    "AKTION_RETENTION_SECONDS": "the log index's own `expireAfterSeconds`; no surface counts a row's age",
+    "AKTION_RETENTION_SECONDS": (
+        "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"
+    ),
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
 
-INTEGER_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*) = (?P<value>\d+);$", re.MULTILINE)
-
 COMMENT_OPENERS: Final = ("/**", "*/", "*", "//")
+ANY_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*)\b")
 
 
 def _source(module: str) -> str:
@@ -123,7 +128,8 @@ def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[st
         stripped = line.strip()
         is_comment = stripped.startswith(COMMENT_OPENERS)
         if is_comment:
-            # A blank line or a statement ends a block, so a claim never carries down to the next one.
+            # Only a comment after code opens a new block: a claim governs every declaration below it
+            # up to the next comment, blank lines and statements between them included.
             block = f"{block} {stripped}" if was_comment else stripped
         was_comment = is_comment
         found = declaration.match(line)
@@ -133,9 +139,13 @@ def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[st
 
 
 def _claimed_mirrors(source: str) -> set[str]:
-    """Every integer this module's own prose claims it mirrors, attributed to the comment block above the line."""
+    """Every constant this module's prose claims mirrors a bound, attributed to the comment block above it.
 
-    return _attributed(source, INTEGER_EXPORT, MIRROR_CLAIM)
+    Any constant, not only a bare integer: a claim over a computed value otherwise escapes the register the
+    number comparison enforces.
+    """
+
+    return _attributed(source, ANY_EXPORT, MIRROR_CLAIM)
 
 
 def _declared_bounds() -> dict[str, int]:
@@ -162,7 +172,7 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
 
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
-    """Past the backend's ceiling the API answers a bare `REQ-VAL-001` carrying no field detail, so a looser mirror marks no box."""
+    """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
     found = re.search(rf"^export const {mirror.typescript} = (\d+);$", _source(mirror.module), re.MULTILINE)
 
@@ -1198,7 +1208,7 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
     "app/shared/schemas/custom.py :: DOMAIN_REGEX": "byte-for-byte `z.regexes.domain`, which the frontend reads off zod rather than retyping",
     "app/core/config.py :: HOSTNAME": "the shape `TrustedHostMiddleware` reads an allowlist entry in, which no request carries",
     "app/core/config.py :: ORIGIN": "the shape `CORSMiddleware` reads an allowlist entry in; the browser composes what it grades",
-    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, where the frontend mirrors `EmailStr` instead",
+    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, the frontend mirroring the address rule instead",
 }
 
 

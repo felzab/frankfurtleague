@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
@@ -34,6 +35,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, TeamsCollection, get_german_date_str, get_germany_now
+from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 
@@ -58,7 +60,12 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     return str(team_raw.get("name") or "")
 
 
-@router.post("/ansicht", response_model=FLBewerbungEinwilligungAnsichtResponse, summary="What one confirmation link opens")
+@router.post(
+    "/ansicht",
+    response_model=FLBewerbungEinwilligungAnsichtResponse,
+    summary="What one confirmation link opens",
+    dependencies=[Depends(stores_nothing)],
+)
 async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
@@ -180,6 +187,7 @@ async def post_einwilligung(
                     seats=seats, geburtsdatum=geburtsdatum, today=today, text_version=antwort_data.text_version, whatsapp=antwort_data.whatsapp
                 ),
                 session=session,
+                return_document=ReturnDocument.AFTER,
             )
 
             bestaetigt_email, bestaetigt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
@@ -203,6 +211,7 @@ async def post_einwilligung(
             db_filter={"_id": bewerbung_raw["_id"]},
             update=compose_decline_update(seats=seats, today=today),
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the

@@ -16,6 +16,8 @@ const refusedWith = (statusCode: number, serverErrorCode: string): APIBadStatusE
     statusCode,
     serverErrorCode,
     endpoint: "/sperrliste",
+    method: "POST",
+    readOnly: false,
     traceId: "00000000000000000000000000000000",
   });
 

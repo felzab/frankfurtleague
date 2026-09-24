@@ -54,6 +54,7 @@ export async function getSubjectSession(): Promise<SubjectSession | null> {
   // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
   const subjekt = await apiClient("/identitaet/subjekt", FLSubjektResponseSchema, {
     method: "POST",
+    readOnly: true,
     authType: "system",
     body: JSON.stringify(payload),
   });

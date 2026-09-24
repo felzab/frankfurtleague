@@ -1,14 +1,82 @@
-import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createElement } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import ts from "typescript";
 
 import type { ComponentType, ReactNode } from "react";
+import type * as TypeScript from "typescript";
+
+const requireHere = createRequire(import.meta.url);
+
+const CACHE_DIR = path.resolve(import.meta.dirname, "..", "..", "..", "node_modules", ".cache", "render-test");
+
+/*
+ Everything a compiled component depends on beyond its own path and text: this file, which holds the
+ compiler options, and the installed compiler. Read as bytes, so no entry outlives a change to either.
+*/
+const CACHE_SALT = [
+  createHash("sha256")
+    .update(readFileSync(import.meta.filename))
+    .digest("hex"),
+  createHash("sha256")
+    .update(readFileSync(requireHere.resolve("typescript")))
+    .digest("hex"),
+];
+
+let compiler: typeof TypeScript | undefined;
+
+function transpile(filename: string, source: string): string {
+  // Required on the first miss rather than imported: a process whose every component is cached never
+  // pays for loading the compiler.
+  const ts = (compiler ??= requireHere("typescript") as typeof TypeScript);
+
+  return ts.transpileModule(source, {
+    fileName: filename,
+    compilerOptions: {
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.ReactJSX,
+      // Without it a stack trace names the `.tsx` at lines of the transpiled output, which that file does not hold.
+      inlineSourceMap: true,
+      inlineSources: true,
+    },
+  }).outputText;
+}
+
+function compiled(filename: string): string {
+  const source = readFileSync(filename, "utf8");
+  const key = createHash("sha256")
+    .update(JSON.stringify([...CACHE_SALT, filename, source]))
+    .digest("hex");
+  const entry = path.join(CACHE_DIR, `${key}.js`);
+
+  try {
+    return readFileSync(entry, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  const output = transpile(filename, source);
+  // Written aside and renamed in: every test file's process reads this directory at once, and none may
+  // read half an entry.
+  const temp = `${entry}.${String(process.pid)}.tmp`;
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(temp, output);
+    renameSync(temp, entry);
+  } catch {
+    // The output is returned either way, and a rename refused over an entry another process holds
+    // open leaves the same bytes in place.
+    rmSync(temp, { force: true });
+  }
+
+  return output;
+}
 
 /**
  * Narrow on purpose. `tsconfig-alias-hook.mjs` throws a plain `Error` naming every path an
@@ -61,20 +129,7 @@ registerHooks({
     // Node strips types and compiles no JSX, which leaves `.tsx` the one kind it cannot load unaided.
     if (!url.endsWith(".tsx")) return nextLoad(url, context);
 
-    const filename = fileURLToPath(url);
-    const compiled = ts.transpileModule(readFileSync(filename, "utf8"), {
-      fileName: filename,
-      compilerOptions: {
-        target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.ESNext,
-        jsx: ts.JsxEmit.ReactJSX,
-        // Without it a stack trace names lines of the transpiled output, which no file on disk holds.
-        inlineSourceMap: true,
-        inlineSources: true,
-      },
-    });
-
-    return { format: "module", shortCircuit: true, source: compiled.outputText };
+    return { format: "module", shortCircuit: true, source: compiled(fileURLToPath(url)) };
   },
 });
 

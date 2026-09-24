@@ -29,6 +29,8 @@ export async function pressTwice(
   mock.timers.enable({ apis: ["Date"] });
   try {
     await user.click(screen.getByRole("button", { name: resting }));
+    // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
+    await screen.findByRole("button", { name: armed });
     await whileArmed?.();
     mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: armed }));

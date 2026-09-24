@@ -8,7 +8,10 @@ import { parseDate } from "@internationalized/date";
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
+import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
@@ -30,7 +33,7 @@ import {
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
-  stampEinwilligungFassung,
+  nenntLaufendeFassung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
@@ -385,6 +388,8 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
     endpoint: "/bewerbungen",
+    method: "POST",
+    readOnly: false,
     traceId: "0123456789abcdef",
   });
 
@@ -398,6 +403,14 @@ describe("what a submission's refusal is shown as", () => {
   it("recognises the submission's own codes at all", () => {
     for (const code of ["REQ-BEWERBUNG-004", "REQ-BEWERBUNG-005", "REQ-BEWERBUNG-006", "REQ-BEWERBUNG-007", "REQ-BEWERBUNG-008"]) {
       assert.notEqual(refusal(code), null, `${code} reaches the applicant unmapped`);
+    }
+  });
+
+  // The mark the form titles by: the application arrived, so „nicht abgeschickt“ would be false.
+  it("marks the repeated press's refusal as arrived, and no other refusal", () => {
+    assert.equal(refusal("REQ-BEWERBUNG-015")?.schonAngekommen, true);
+    for (const code of ["REQ-BEWERBUNG-004", "REQ-BEWERBUNG-005", "REQ-BEWERBUNG-006", "REQ-BEWERBUNG-007", "REQ-BEWERBUNG-008"]) {
+      assert.equal(refusal(code)?.schonAngekommen, undefined, code);
     }
   });
 
@@ -502,11 +515,11 @@ describe("the submission's refusals against the backend's register", () => {
     }
   });
 
-  /* `REQ-VAL-001` names no field, so neither may the answer. Every body rule the form can break is
-     mirrored; what is left is a drifted client, and a reload is the remedy for that rather than the
-     resubmission a bare „Versuche es erneut“ asks for. */
-  it("answers a body refusal without sending the applicant to a box", () => {
-    const mappedRefusal = mapBewerbungSubmitRefusal(badStatus(422, "REQ-VAL-001"));
+  /* Naming no field, the 422 refused the body's shape, so the answer names no box. Every body rule the
+     form can break is mirrored: this is a drifted client, whose remedy is a reload, not „Versuche es
+     erneut“. */
+  it("answers a body refusal naming no field without sending the applicant to a box", () => {
+    const mappedRefusal = mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"));
 
     assert.notEqual(mappedRefusal, null, "a 422 falls through to the shared handler");
     assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
@@ -517,6 +530,18 @@ describe("the submission's refusals against the backend's register", () => {
     }
 
     assert.match(mappedRefusal?.error ?? "", /Seite neu/, "the answer offers no way out of a stale client");
+  });
+
+  // The reload rides beside the map: a path such as the contact block's own is one no control renders.
+  it("puts a body refusal naming a field on that field's box, with the reload for a box the form lacks", () => {
+    const mappedRefusal = mapBewerbungSubmitRefusal(
+      refusedPayload([bodyField(["kontakte", "ansprechperson", "email"], "value_error")], "/bewerbungen"),
+    );
+
+    assert.deepEqual(mappedRefusal, {
+      fieldErrors: { "kontakte.ansprechperson.email": FELD_ABGELEHNT },
+      unplacedError: mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"))?.error,
+    });
   });
 });
 
@@ -609,47 +634,38 @@ describe("the confirmation's refusals against the backend's register", () => {
     }
   });
 
-  /* A drifted client, since every body rule the panel can break is mirrored. The remedy is the
-     reload, and the answer names no box: nothing here knows which one broke. */
-  it("answers a body refusal without pointing at the one field", () => {
-    const mappedRefusal = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"), VERTRETUNG_MIN_ALTER);
+  /* Naming no field, a drifted client, since every body rule the panel can break is mirrored: the
+     answer names no box, nothing here knowing which one broke, and reopens the mail's link, the page
+     having stripped its token. */
+  it("answers a body refusal naming no field with the mail's link, pointing at no field", () => {
+    const mappedRefusal = mapEinwilligungRefusal(refusedPayload([], "/bewerbungen"), VERTRETUNG_MIN_ALTER);
 
-    assert.notEqual(mappedRefusal, null, "a 422 falls through to the shared handler");
-    assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
-    assert.doesNotMatch(mappedRefusal?.error ?? "", /Geburtsdatum/);
+    assert.deepEqual(mappedRefusal, { error: ANTWORT_NEU_OEFFNEN });
+  });
+
+  it("puts a body refusal naming a field on that field's box, with the mail's link for a box the panel lacks", () => {
+    const mappedRefusal = mapEinwilligungRefusal(
+      refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], "/bewerbungen"),
+      VERTRETUNG_MIN_ALTER,
+    );
+
+    assert.deepEqual(mappedRefusal, { fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
   });
 });
 
-describe("which stamped wording an answer is stored under", () => {
-  const FOREIGN = {
-    token: "kein-echtes-token",
-    mappedRefusal: "erteilt" as const,
-    geburtsdatum: "1984-05-09",
-    whatsapp: false,
-    text_version: "2019-01-erfunden",
-  };
+describe("which wording an answer may be stored under", () => {
+  const GESENDET = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
 
-  /* The label names which words were on screen, and only this server knows that. Taken from the
-     body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
-  it("replaces whatever label the request carried with the registry's own", () => {
+  /* The label names which words were on screen, and only this server knows which it renders now: a
+     body's own label is a claim, admitted only where it is that one. */
+  it("admits the label this server renders and no other", () => {
     assert.equal(
-      stampEinwilligungFassung(FOREIGN, BESTAETIGUNG_KENNTNISNAHME.textVersion).text_version,
-      BESTAETIGUNG_KENNTNISNAHME.textVersion,
+      nenntLaufendeFassung({ ...GESENDET, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion }, BESTAETIGUNG_KENNTNISNAHME.textVersion),
+      true,
     );
-    assert.notEqual(
-      FOREIGN.text_version,
-      BESTAETIGUNG_KENNTNISNAHME.textVersion,
-      "the fixture already carries the label, so this compares nothing",
-    );
-  });
-
-  /* Only that one field: the answer, the date and the scope are the person's own, and a stamp that
-     rewrote any of them would record something nobody pressed. */
-  it("moves nothing else the person answered", () => {
-    const { text_version: _fassung, ...gesendet } = FOREIGN;
-    const { text_version: _gestempelt, ...bewahrt } = stampEinwilligungFassung(FOREIGN, BESTAETIGUNG_KENNTNISNAHME.textVersion);
-
-    assert.deepEqual(bewahrt, gesendet);
+    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: "2019-01-erfunden" }, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
+    assert.equal(nenntLaufendeFassung(GESENDET, BESTAETIGUNG_KENNTNISNAHME.textVersion), false, "a body naming no label is admitted");
+    assert.equal(nenntLaufendeFassung(null, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
   });
 });
 
@@ -664,7 +680,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
      is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
   it("reads a token the backend will not parse as a link nothing matches", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(422, "REQ-VAL-001")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen")), "ungueltig");
   });
 
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link

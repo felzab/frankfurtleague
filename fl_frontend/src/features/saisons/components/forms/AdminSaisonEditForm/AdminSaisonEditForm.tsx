@@ -24,7 +24,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -105,7 +105,7 @@ export function AdminSaisonEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { saison: FLPatchSaisonPayloadSchema },
   });
 
@@ -253,14 +253,11 @@ export function AdminSaisonEditForm({
       };
 
       const payload = buildPayload();
-      const res = await patchSaisonAction(payload);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await patchSaisonAction(payload).catch(unansweredAction);
 
       if (!res.success) {
-        setSubmitFieldErrors(res.fieldErrors ?? {}, { saison: payload });
-        // ALWAYS toasted, field errors or not: a failure belonging to no field would be silent.
-        appToast.danger("Änderung nicht gespeichert", {
-          description: res.error,
-        });
+        reportSubmitFailure(res, { saison: payload });
         return;
       }
 

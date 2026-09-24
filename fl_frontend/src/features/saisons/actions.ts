@@ -4,9 +4,9 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants";
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
@@ -254,7 +254,7 @@ export async function postSaisonAction(
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSaisonAction", async () => {
+  return runAdminMutation("postSaisonAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -300,7 +300,7 @@ export async function postSaisonAction(
 export async function patchSaisonAction(
   rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft },
 ): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
-  return runAdminMutation("patchSaisonAction", async () => {
+  return runAdminMutation("patchSaisonAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -346,7 +346,7 @@ export async function patchSaisonAction(
  * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
-  return runAdminMutation("activateSaisonAction", async () => {
+  return runAdminMutation("activateSaisonAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -419,7 +419,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  * club that used to play there.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
-  return runAdminMutation("swapGruppenAction", async () => {
+  return runAdminMutation("swapGruppenAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -514,7 +514,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 export async function generateSpielplanAction(
   rawPayload: FLGenerateSpielplanPayload,
 ): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
-  return runAdminMutation("generateSpielplanAction", async () => {
+  return runAdminMutation("generateSpielplanAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -569,7 +569,7 @@ export async function generateSpielplanAction(
 export async function undrawSpielplanAction(
   rawPayload: FLUndrawSpielplanPayload,
 ): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
-  return runAdminMutation("undrawSpielplanAction", async () => {
+  return runAdminMutation("undrawSpielplanAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

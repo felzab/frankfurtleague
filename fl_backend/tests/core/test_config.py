@@ -1,11 +1,14 @@
 import asyncio
 import logging
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
+from fastapi.dependencies.models import Dependant
 from pydantic import SecretStr, ValidationError
+from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
 
 from app.core.config import (
@@ -13,10 +16,14 @@ from app.core.config import (
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
     EnvironmentValidationError,
+    get_app_config,
     get_config,
 )
+from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
+from app.main import KEY_TIERS, api_routes, create_app
 from tests.config import ConfigReadingNoDotenvFile
+from tests.worker import worker_database
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
 # for the one reason these cases are about wherever they run.
@@ -81,11 +88,14 @@ def an_environment(monkeypatch: pytest.MonkeyPatch, working_directory: Path, **o
         monkeypatch.setenv(name, value)
 
 
-def boot() -> None:
+def boot(config: BackendConfig | None = None) -> None:
     """`lifespan` entered as the application enters it: the client is built inside it, so nothing else reaches these refusals."""
 
     async def enter() -> None:
-        async with lifespan(FastAPI()):
+        # The settings `app/main.py :: create_app` hands the application, the environment's where none are passed.
+        app = FastAPI()
+        app.state.config = config or get_config()
+        async with lifespan(app):
             raise AssertionError("the boot is expected to fail before the application starts")
 
     asyncio.run(enter())
@@ -357,7 +367,7 @@ class TestANameTheClassDoesNotDeclare:
 
 class TestTheStartupPing:
     def test_a_server_that_cannot_be_reached_names_the_variable_and_not_the_host(self, monkeypatch, tmp_path, caplog):
-        """Driven through the environment: `lifespan` builds its client from `get_config`, the boot's only injection point."""
+        """Driven through the environment, which `get_config` reads for the settings the boot builds its client from."""
         an_environment(monkeypatch, tmp_path, MONGODB_URI=UNROUTABLE_URI, DB_SERVER_SELECTION_TIMEOUT="200")
 
         with caplog.at_level(logging.CRITICAL):
@@ -367,6 +377,17 @@ class TestTheStartupPing:
         assert str(raised.value) == UNREACHABLE.sentence
         assert "192.0.2.1" not in caplog.text
         assert "MONGODB_URI" in caplog.text
+
+    def test_the_boot_opens_the_settings_the_application_was_built_with(self, monkeypatch, tmp_path, caplog):
+        """Never the environment's: an application built with other settings would serve one database and boot against another."""
+        an_environment(monkeypatch, tmp_path, MONGODB_URI="mongodb://")
+
+        with caplog.at_level(logging.CRITICAL):
+            with pytest.raises(DatabaseUnreachableError) as raised:
+                boot(build(mongodb_uri=SecretStr(UNROUTABLE_URI), db_server_selection_timeout=200))
+
+        # The environment's truncated value would have answered `NO_SERVER`.
+        assert str(raised.value) == UNREACHABLE.sentence
 
     def test_a_uri_the_scheme_check_passes_and_the_driver_cannot_open_names_the_variable(self, monkeypatch, tmp_path, caplog):
         """A truncated value: the driver refuses it while the client is CONSTRUCTED, so a handler around the ping alone never sees it."""
@@ -381,6 +402,61 @@ class TestTheStartupPing:
         # The `extra=` reaching the record is what puts `error_code` in the envelope
         # (`docs/logging/spec.md` §1.2), which is the field an operator greps a boot failure by.
         assert caplog.records[-1].error_code == NO_SERVER.error_code
+
+
+def booted(config: BackendConfig) -> None:
+    """`lifespan` entered and left cleanly, so the constraints it applies on the way in have landed."""
+
+    async def enter() -> None:
+        app = FastAPI()
+        app.state.config = config
+        async with lifespan(app):
+            pass
+
+    asyncio.run(enter())
+
+
+@pytest.mark.db
+class TestTheBootAppliesTheConstraintsWhereTheApplicationServes:
+    def test_the_constraints_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_url: str):
+        """The environment names a second database on the same server, so a boot reading it applies there instead."""
+        built_name, environment_name = worker_database("fl_boot_built"), worker_database("fl_boot_environment")
+        an_environment(monkeypatch, tmp_path, MONGODB_URI=mongo_url, DB_BASE_NAME=environment_name)
+
+        client: MongoClient = MongoClient(mongo_url)
+        try:
+            for name in (built_name, environment_name):
+                client.drop_database(name)
+
+            booted(build(mongodb_uri=SecretStr(mongo_url), db_base_name=built_name))
+
+            validated = {info["name"] for info in client[built_name].list_collections() if info.get("options", {}).get("validator")}
+            assert (set(COLLECTION_VALIDATORS) - validated, client[environment_name].list_collection_names()) == (set(), [])
+        finally:
+            for name in (built_name, environment_name):
+                client.drop_database(name)
+            client.close()
+
+
+def _reached(dependant: Dependant) -> Iterator[Callable[..., Any]]:
+    """Every callable a request resolves through `dependant`, sub-dependencies included."""
+    for dependency in dependant.dependencies:
+        if dependency.call is not None:
+            yield dependency.call
+        yield from _reached(dependency)
+
+
+class TestEveryRequestReadsTheSettingsTheApplicationWasBuiltWith:
+    def test_no_route_reaches_the_environment(self):
+        """`get_config` is the environment's; a route reaching it answers with those settings whatever the app was built with."""
+        reached = {
+            f"{sorted(route.methods or ())} {route.path_format}": set(_reached(route.dependant)) for route in api_routes(create_app(build()))
+        }
+        guarded = {name for name, calls in reached.items() if calls & KEY_TIERS.keys()}
+
+        assert sorted(name for name, calls in reached.items() if get_config in calls) == []
+        # The control: each guard reads the key two levels down, so a walk stopping short fails here.
+        assert guarded and sorted(name for name in guarded if get_app_config not in reached[name]) == []
 
 
 class TestWhichRefusalACauseEarns:

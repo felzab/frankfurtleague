@@ -84,7 +84,7 @@ export function FormEinladungSection({
     const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId });
 
     if (!res.success) {
-      appToast.danger("Registrierungslink nicht angelegt", { description: res.error });
+      appToast.failure("Registrierungslink nicht angelegt", res);
       return;
     }
 
@@ -99,7 +99,7 @@ export function FormEinladungSection({
     const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId });
 
     if (!res.success) {
-      appToast.danger("Link nicht zurückgezogen", { description: res.error });
+      appToast.failure("Link nicht zurückgezogen", res);
       return;
     }
 
@@ -125,7 +125,7 @@ export function FormEinladungSection({
       const res = await mailEinladungAction({ team_id: teamId, saison_id: saisonId, einladung_id: offen.einladungId, token: offen.token });
 
       if (!res.success) {
-        appToast.danger("Registrierungslink nicht gesendet", { description: res.error });
+        appToast.failure("Registrierungslink nicht gesendet", res);
         return;
       }
 

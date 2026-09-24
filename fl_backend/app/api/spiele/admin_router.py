@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query
-from pymongo import AsyncMongoClient
+from fastapi import APIRouter, Body, Depends, Query, Request
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -73,6 +73,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import stores_nothing, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -403,6 +404,7 @@ async def _write_spiel_data(
                 db_filter={"_id": spiel_id},
                 update={"$set": document},
                 session=session,
+                return_document=ReturnDocument.BEFORE,
             )
 
             # Before the resolution: a slot this release opens can be refilled by that same resolution,
@@ -454,6 +456,17 @@ async def _write_spiel_data(
         return await session.with_transaction(write_and_resolve_the_bracket)
 
 
+@stores_nothing_when("dry_run")
+async def previewing(
+    request: Request,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
+) -> bool:
+    # Declared before any database call, so a deadline cutting the preview answers a failed read.
+    if dry_run:
+        stores_nothing(request)
+    return dry_run
+
+
 @router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
@@ -466,7 +479,7 @@ async def patch_spiel_data(
     spieltage_collection: SpieltageCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
+    dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Update one Spiel and resolve the season's bracket.

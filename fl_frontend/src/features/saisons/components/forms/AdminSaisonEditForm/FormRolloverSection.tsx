@@ -77,7 +77,7 @@ export function FormRolloverSection({
       const res = await activateSaisonAction({ id: saisonId });
 
       if (!res.success) {
-        appToast.danger("Saison nicht umgestellt", { description: res.error });
+        appToast.failure("Saison nicht umgestellt", res);
         return;
       }
 

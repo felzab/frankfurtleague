@@ -50,6 +50,9 @@ const EINTRAEGE = [
 
 let listed = { passkeys: EINTRAEGE, kannHinzufuegen: true };
 
+/** What the plugin's client hands back for the loser of two changes at once. */
+const CONFLICT = { code: "PASSKEY_ENROLMENT_CONFLICT", message: "x", status: 409, statusText: "CONFLICT" };
+
 const { calls, answerWith } = doubleActions({
   modules: [/\/features\/passkeys\/actions\.ts$/],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
@@ -108,8 +111,8 @@ describe("what the dialog puts in front of the administrator", () => {
     answerWith(() => new Promise(() => undefined));
     open();
 
-    assert.equal(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen."), null);
-    assert.equal(screen.queryByText("Windows Hello"), null, "the list resolved, so this case proves nothing");
+    assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null);
+    assert.ok(screen.queryByText("Windows Hello") === null, "the list resolved, so this case proves nothing");
   });
 });
 
@@ -138,6 +141,97 @@ describe("the step-up both writes take", () => {
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title]),
       [["danger", "Passkey nicht hinzugefügt"]],
+    );
+  });
+
+  /* The other change's row belongs on the list, and at the cap it closes the add control: left unread,
+     the dialog offers a press the server then refuses (`docs/frontend/spec.md :: I341`). */
+  it("words the loser of two changes at once as a retry and re-reads the list", async () => {
+    const user = userEvent.setup();
+    answer = () => (reached.length === 1 ? Promise.resolve({ data: {}, error: null }) : Promise.resolve({ data: null, error: CONFLICT }));
+    open();
+    await screen.findByText("Windows Hello");
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Passkey nicht hinzugefügt", "Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht. Versuche es noch einmal."]],
+    );
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["readPasskeysAction", "readPasskeysAction"],
+    );
+  });
+
+  /* A retry would meet the cap the other enrolment reached, so the toast says what the re-read list
+     already shows. */
+  it("names the cap when the re-read after a conflict finds it reached", async () => {
+    const user = userEvent.setup();
+    answer = () => (reached.length === 1 ? Promise.resolve({ data: {}, error: null }) : Promise.resolve({ data: null, error: CONFLICT }));
+    open();
+    await screen.findByText("Windows Hello");
+    listed = { passkeys: EINTRAEGE, kannHinzufuegen: false };
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    assert.deepEqual(
+      raised.map((toast) => toast.description),
+      ["Gleichzeitig wurde ein anderer Passkey hinzugefügt. Mehr Passkeys gehen nicht. Lösche zuerst einen."],
+    );
+  });
+
+  /* An enrolment another device finished first earns the guard's plain refusal, and leaves the list
+     as stale as the conflict does. */
+  it("re-reads the list when the enrolment is refused outright, and names the cap it finds", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      reached.length === 1
+        ? Promise.resolve({ data: {}, error: null })
+        : Promise.resolve({ data: null, error: { message: "Not Found", status: 404, statusText: "NOT_FOUND" } });
+    open();
+    await screen.findByText("Windows Hello");
+    listed = { passkeys: EINTRAEGE, kannHinzufuegen: false };
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    assert.deepEqual(
+      raised.map((toast) => toast.description),
+      ["Mehr Passkeys gehen nicht. Lösche zuerst einen."],
+    );
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["readPasskeysAction", "readPasskeysAction"],
+    );
+  });
+
+  /* A refused removal may answer a list another change moved, so the list is read again rather than
+     left offering a row that is gone (`docs/frontend/spec.md :: I312`). */
+  it("re-reads the list after the server refuses a removal", async (t) => {
+    const user = userEvent.setup();
+    answerWith(() =>
+      calls.at(-1)?.action === "removePasskeyAction"
+        ? Promise.resolve({
+            success: false,
+            error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu.",
+          })
+        : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
+    );
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["readPasskeysAction", "removePasskeyAction", "readPasskeysAction"],
+    );
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."]],
     );
   });
 

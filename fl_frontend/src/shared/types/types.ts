@@ -52,10 +52,21 @@ export type ActionFailure = {
   /** Keyed by the field's dotted payload path. `error` stays the transport-level fallback: a 500 belongs to no field. */
   fieldErrors?: FieldErrors;
   /**
+   * What the press says where no rendered control takes `fieldErrors`, in place of `error`, which then
+   * points at marks nobody can see (`docs/frontend/spec.md :: I344`).
+   */
+  unplacedError?: string;
+  /**
    * The backend's code for a failure a field can own; the form places the message, holding the payload it submitted. A
-   * failure body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
+   * 409's body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
    */
   errorCode?: string;
+  /**
+   * Present where nobody can tell whether the write landed, the server or the frontend alike
+   * (`docs/frontend/spec.md :: I326`). `appToast.failure` reads it: a title saying the change was not
+   * saved is then the one false sentence on the toast.
+   */
+  outcome?: "unknown";
 };
 
 export type ActionSuccess<TPayload extends object = object> = TPayload & {

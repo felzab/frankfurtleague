@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import ts from "typescript";
+
+import { elementsIn, parseModule } from "@/shared/testing/jsxReader.ts";
 import { refusalWrappers, renderMarkup } from "@/shared/testing/renderTest";
+
+import type { JsxRead } from "@/shared/testing/jsxReader.ts";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
@@ -11,8 +16,20 @@ import { refusalWrappers, renderMarkup } from "@/shared/testing/renderTest";
 */
 const { RowActionDelete, RowActionRestore } = await import("./RowActions.tsx");
 
+const TEXT = readFileSync(path.resolve(import.meta.dirname, "RowActions.tsx"), "utf8");
 /** Whitespace-collapsed, the props block below being wrapped by the formatter rather than by hand. */
-const SOURCE = readFileSync(path.resolve(import.meta.dirname, "RowActions.tsx"), "utf8").replace(/\s+/g, " ");
+const SOURCE = TEXT.replace(/\s+/g, " ");
+
+const ICON_CONTROLS = new Set(["Button", "Link", "Dropdown.Trigger"]);
+const SHARED_DRESSINGS = new Set(["ACTION_BUTTON_CLASS", "ACTION_LINK_CLASS", "DANGER_CLASS"]);
+
+/** The constant a control's `className` names whole, or `undefined` where it is spelled any other way. */
+const dressing = (control: JsxRead): string | undefined => {
+  const value = control.attributes.get("className");
+  return value !== undefined && ts.isJsxExpression(value) && value.expression !== undefined && ts.isIdentifier(value.expression)
+    ? value.expression.text
+    : undefined;
+};
 
 const REASON = "Die Saison ist gesperrt";
 
@@ -103,16 +120,12 @@ describe("a row action the endpoint already refuses", () => {
   it("dresses every icon control from a shared constant rather than a copy", () => {
     // Found by their own elements: counting the constant's uses is a population filtered on the very
     // property this asserts, so a control spelling the classes out drops out instead of failing.
-    const controls = [...SOURCE.matchAll(/<(?:Button|Link|Dropdown\.Trigger)\b[^>]*>/g)].map((hit) => hit[0]);
+    const controls = elementsIn(parseModule("RowActions.tsx", TEXT)).filter((element) => ICON_CONTROLS.has(element.tag));
 
     // `Dropdown.Item` is outside this: a menu's rows are full-width and dressed at their own line.
     assert.equal(controls.length, 5, `expected the five icon controls, found ${String(controls.length)}`);
     for (const control of controls) {
-      assert.match(
-        control,
-        /className=\{(?:ACTION_BUTTON_CLASS|ACTION_LINK_CLASS|DANGER_CLASS)\}/,
-        `an icon control is dressed by hand: ${control}`,
-      );
+      assert.ok(SHARED_DRESSINGS.has(dressing(control) ?? ""), `the ${control.tag} on line ${String(control.line)} is dressed by hand`);
     }
   });
 

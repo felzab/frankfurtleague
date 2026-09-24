@@ -1,3 +1,5 @@
+import { hatAdresse } from "./schemas";
+
 import type { Facet } from "@/shared/utils/facets";
 import type { FLSchiedsrichter } from "./schemas";
 
@@ -28,9 +30,9 @@ export const SCHIEDSRICHTER_FACETS: readonly Facet<FLSchiedsrichter>[] = [
     options: ANGABEN_OPTIONS,
     read: (schiedsrichter): SchiedsrichterAngabe[] => {
       const held: SchiedsrichterAngabe[] = [];
-      // `kontakt` is required to be present and never to be filled in, so a referee with neither a
-      // phone number nor an email address is a normal document and a real gap.
-      const hasKontakt = schiedsrichter.kontakt.email !== null || schiedsrichter.kontakt.telefon !== null;
+      // `kontakt` is required to be present and never to be filled in: a referee with neither a phone
+      // number nor an address is a normal document and a real gap.
+      const hasKontakt = hatAdresse(schiedsrichter.kontakt.email) || schiedsrichter.kontakt.telefon !== null;
       held.push(hasKontakt ? "kontakt" : "ohne_kontakt");
       if (schiedsrichter.schule !== null) held.push("schule");
       return held;

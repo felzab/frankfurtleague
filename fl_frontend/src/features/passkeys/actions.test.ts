@@ -1,31 +1,16 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
 
 const STORE = "__flPasskeyStore";
 const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
 const SENT = "__flPasskeySentMail";
 const REFRESHED = "__flPasskeyRefreshed";
+const PASS_THROUGH = "__flPasskeyPassThrough";
 
-const ADMIN_EMAIL = "vorstand@example.org";
 /** Allowlisted by nothing, so every guard below has an arm that is refused for the address alone. */
 const PERSON_EMAIL = "spielerin@example.org";
-
-const CONFIG_DOUBLE = `export const frontend_config = {
-  ALLOWED_ADMIN_EMAILS: ["${ADMIN_EMAIL}"],
-  AUTH_URL: "http://localhost:3000",
-  AUTH_SECRET: "fabricated-test-secret-not-a-credential",
-  LOG_LEVEL: "ERROR",
-  LOG_FORMAT: "json",
-};`;
-
-/* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-   a `MongoClient` at import, so loading it would reach for a server no test run holds. */
-const DB_DOUBLE = `export const client = { db: () => ({ name: "auth" }) };`;
 
 const MAIL_DOUBLE = `export const sendMail = async (message) => {
   globalThis.${SENT}.push(message);
@@ -40,32 +25,21 @@ const CACHE_DOUBLE = `export const refresh = () => { globalThis.${REFRESHED}.pus
 
 const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 
-const adapterDouble = (memoryAdapterUrl: string) => `import { memoryAdapter } from ${JSON.stringify(memoryAdapterUrl)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
+/* Where the flag is set, `transaction` hands the adapter itself back, which is what the Mongo adapter
+   does when it is given no client: the shape the removal must refuse rather than trust. */
+const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
+export const mongodbAdapter = () => (options) => {
+  const adapter = memoryAdapter(globalThis.${STORE})(options);
+  const served = { ...adapter, transaction: (callback) => (globalThis.${PASS_THROUGH} ? callback(served) : adapter.transaction(callback)) };
+  return served;
+};`;
 
-const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
-const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** A single-segment subpath such as `next/headers`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
-    if (specifier === "next/cache") return { url: asDataUrl(CACHE_DOUBLE), shortCircuit: true };
-    if (specifier === "@better-auth/mongo-adapter") return { url: asDataUrl(adapterDouble(MEMORY_ADAPTER_URL)), shortCircuit: true };
-    if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+registerAuthDoubles({
+  core: { mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+  specifiers: {
+    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/cache": asDataUrl(CACHE_DOUBLE),
+    "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
   },
 });
 
@@ -88,8 +62,6 @@ globals[STORE] = store;
 globals[SENT] = sent;
 globals[REFRESHED] = refreshed;
 
-process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
-
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
 const { auth, getAdminSession, PASSKEY_LIMIT } = await import("@/core/auth");
@@ -97,43 +69,23 @@ const { readPasskeysAction, removePasskeyAction } = await import("./actions.ts")
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation");
 
 const HOUR_MS = 60 * 60 * 1000;
-const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" };
 
 beforeEach(() => {
+  globals[PASS_THROUGH] = false;
   store.passkey.length = 0;
   store.session.length = 0;
   sent.length = 0;
   refreshed.length = 0;
 });
 
-/* Seeded at the shape the plugin stores — SHA-256, base64url, no padding — because only an
-   allowlisted address is mailed anything and this file never renders the message. */
-function seedLink(email: string): string {
-  const token = `fabricated-link-${randomUUID()}`;
-
-  store.verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return token;
-}
-
 /** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
   const verified = await auth.api.magicLinkVerify({
-    query: { token: seedLink(email) },
+    query: { token: seedLink(store.verification, email) },
     headers: new Headers(ORIGIN),
     returnHeaders: true,
   });
-  const cookie = verified.headers
-    .getSetCookie()
-    .map((line) => line.split(";")[0])
-    .join("; ");
+  const cookie = cookieHeader(verified);
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
@@ -335,6 +287,20 @@ describe("what a removal costs, and what it refuses", () => {
     assert.ok(await getAdminSession(), "the removal ended the session that made it");
   });
 
+  /* Without a real transaction the claim conflicts with nothing, and two removals at once would leave
+     no row (`docs/frontend/spec.md :: I312`). */
+  it("refuses a removal that reaches no real transaction, deleting nothing", async () => {
+    const { cookie, row } = await steppedUpAdmin();
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
+    arriveAs(cookie);
+    globals[PASS_THROUGH] = true;
+
+    const answer = await removePasskeyAction(String(held.id));
+
+    assert.deepEqual({ success: answer.success, rows: store.passkey.length, notices: sent.length }, { success: false, rows: 2, notices: 0 });
+  });
+
   /* A server action's argument is whatever a caller posted, and this one reaches a store query. */
   it("refuses an identifier that is not a row's at all", async () => {
     const { cookie, row } = await steppedUpAdmin();
@@ -346,9 +312,11 @@ describe("what a removal costs, and what it refuses", () => {
     assert.equal((await removePasskeyAction("kein-solcher-eintrag")).success, false);
     assert.equal(store.passkey.length, 2);
   });
-  /* Ordering, read off the one arm where it shows: the delete fails here, so a revocation standing
-     after it would never have run. Running first costs a failed deletion the other devices. */
-  it("has already ended the other sessions when the deletion itself fails", async () => {
+
+  /* The removal is judged before anyone is signed out: signed out first, every other device would
+     lose its window over a passkey that still stands. That the sign-out rolls back with a refused
+     transaction is `fl_frontend/src/features/passkeys/actions.db.test.ts`'s to show. */
+  it("leaves the other sessions standing where the removal is refused", async () => {
     const first = await steppedUpAdmin();
     const second = await steppedUpAdmin();
     seedPasskey(first.row.userId, "eins");
@@ -361,6 +329,6 @@ describe("what a removal costs, and what it refuses", () => {
     assert.equal(store.passkey.length, 2, "a failed deletion took a row with it");
 
     arriveAs(second.cookie);
-    assert.equal(await getAdminSession(), null, "the other device kept its window through a failed deletion");
+    assert.ok(await getAdminSession(), "a refused removal signed the other device out");
   });
 });

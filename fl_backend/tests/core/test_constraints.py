@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -443,10 +443,18 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # `at` is the instant the log page orders, ranges and displays; a second spelling of it on the
     # wire would be a second clock for a reader to reconcile.
     (Collection.AKTIONEN, ()): frozenset({"at_date"}),
-    # The retention sweep's own bookkeeping, read by the sweep endpoints and by nothing a person
-    # opens: the triage renders an application's state from `bestaetigungen`, and a second date
-    # beside it would be one an administrator can act on nowhere.
-    (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
+    (Collection.BEWERBUNGEN, ()): frozenset(
+        {
+            # The retention sweep's own bookkeeping, read by the sweep endpoints and by nothing a person
+            # opens: the triage renders an application's state from `bestaetigungen`, and a second date
+            # beside it would be one an administrator can act on nowhere.
+            "loeschung_angekuendigt_am",
+            # Read by the submission's own replay lookup alone, and the digest is taken over the
+            # applicant's details: nothing a person opens needs either.
+            "idempotenz_schluessel",
+            "idempotenz_fingerabdruck",
+        }
+    ),
     # The raw token's hashes are the whole credential and no model declares either, so the link
     # cannot be recovered from any read.
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer")): frozenset({"token_hash", "token_hash_zuvor"}),
@@ -469,6 +477,8 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The pupil's link, and the reminder's second one beside it: both live, both the whole
     # credential, and no read recovers either.
     (Collection.REGISTRIERUNGEN, ("bestaetigung",)): frozenset({"token_hash", "token_hash_zuvor"}),
+    # The application's pair, for the application's reason.
+    (Collection.REGISTRIERUNGEN, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
 }
 
 
@@ -544,8 +554,6 @@ BSON_TYPES: Mapping[Any, str] = {
     # field that needs one is annotated for it and takes its own row, rather than widening this one.
     int: "int",
     str: "string",
-    # A marker class rather than an alias of `str`, so no other row here answers it.
-    EmailStr: "string",
     type(None): "null",
 }
 

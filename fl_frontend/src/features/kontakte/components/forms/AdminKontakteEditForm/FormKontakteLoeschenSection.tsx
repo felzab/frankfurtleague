@@ -57,7 +57,7 @@ export function FormKontakteLoeschenSection({
       const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand });
 
       if (!res.success) {
-        appToast.danger("Kontakte nicht gelöscht", { description: res.error });
+        appToast.failure("Kontakte nicht gelöscht", res);
         return;
       }
 

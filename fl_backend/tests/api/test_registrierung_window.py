@@ -4,7 +4,6 @@ import pytest
 
 from app.api.bewerbungen.services import window_is_running
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.registrierungen.services import nachnominierung_laeuft
 
 VON, BIS = "2026-03-01", "2026-04-30"
 
@@ -91,24 +90,3 @@ class TestTheTwoWindowPredicatesMeanOneThing:
     )
     def test_both_predicates_answer_alike(self, block: Any, today: str):
         assert registrierungsfenster_laeuft(registrierung=block, today=today) == window_is_running(bewerbung=block, today=today)
-
-
-class TestTheNachnominierungPeriodOpensOnMatchdayOnesFirstDay:
-    """The period's own boundary, read off `spieltage` at `position` 1 rather than off a fixture's date."""
-
-    def test_the_day_before_the_span_is_not_yet_a_nachnominierung(self):
-        assert nachnominierung_laeuft(beginn="2026-04-02", today="2026-04-01") is False
-
-    def test_the_first_day_of_the_span_is_one(self):
-        """The day itself, not the day after: a player joining on matchday 1 joins a season already under way."""
-
-        assert nachnominierung_laeuft(beginn="2026-04-01", today="2026-04-01") is True
-
-    def test_a_later_day_is_one(self):
-        assert nachnominierung_laeuft(beginn="2026-04-01", today="2026-04-30") is True
-
-    @pytest.mark.parametrize("beginn", [None, 20260401], ids=["an undated matchday", "a date stored as a number"])
-    def test_a_season_whose_matchday_one_carries_no_date_has_not_begun(self, beginn: Any):
-        """A drawn season holds no dates until somebody sets them, and an undated one takes ordinary registrations."""
-
-        assert nachnominierung_laeuft(beginn=beginn, today="2026-04-30") is False

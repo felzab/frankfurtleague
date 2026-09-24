@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Button, Form } from "@heroui/react";
 
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
@@ -60,9 +60,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  // The hook's own toast is what keeps the submit from failing in silence: the one below is suppressed
-  // whenever `fieldErrors` is non-empty and no field renders the rejected path.
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { entity: schema },
   });
 
@@ -80,17 +78,12 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 
   const writeAfterBlock = (payload: TPayload) => {
     startTransition(async () => {
-      const res = await onSubmit(payload);
+      // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
+      const res = await onSubmit(payload).catch(unansweredAction);
 
       if (!res.success) {
-        setSubmitFieldErrors(res.fieldErrors ?? {}, { entity: payload });
-
-        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
-        if (!hasFieldErrors(res.fieldErrors)) {
-          appToast.danger("Änderung nicht gespeichert", {
-            description: res.error,
-          });
-        }
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(res, { entity: payload });
         return;
       }
 

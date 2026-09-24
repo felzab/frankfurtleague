@@ -19,9 +19,9 @@ ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
 # alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
 ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 
-# RFC 5321's whole-address ceiling, the one `EmailStr` already applies through email-validator.
-# Named so the frontend mirror refuses at the same length: past it the API answers a bare
-# REQ-VAL-001 with no field detail, so no error reaches the box.
+# RFC 5321's whole-address ceiling, the one email-validator already applies.
+# Named so the frontend mirror refuses at the same length: past it the API's REQ-VAL-001 marks the
+# box with a generic sentence rather than the length's own German.
 KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 
 # The identifier of the consent WORDING a contact person was shown, not the wording itself: the
@@ -113,6 +113,10 @@ AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
 
+# How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
+# does not count, so the fifth one after it is the last the ban covers.
+SPERRE_DAUER_SAISONS: Final = 5
+
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
@@ -136,3 +140,8 @@ REGISTRIERUNG_ERINNERUNG_TAGE: Final = 3
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
 # silently raise another.
 REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
+
+# ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
+# judgement over every record carrying `medien`, and nobody below it is recognisable in a published
+# photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
+MEDIEN_MIN_AGE_YEARS: Final = 18

@@ -8,8 +8,6 @@ requires-python = ">=3.14"
 # nothing checks against the real one, and puts a row on the dependabot dashboard for code no
 # module in `app/` reaches. Each line below is either an import or a comment saying why it is not.
 dependencies = [
-    # `EmailStr` in app/shared/schemas/kontakt.py resolves through this. Pydantic ships it as the
-    # `email` extra rather than a requirement, so nothing else in the tree brings it.
     "email-validator>=2.3.0",
     "fastapi>=0.138.0",
     "pydantic>=2.13.4",
@@ -67,7 +65,7 @@ dev = [
 [tool.uv]
 # The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
 # setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
-# line, and `scripts/gate/selfcheck.sh` step 18 refuses the pair when it does not.
+# line, and `scripts/gate/selfcheck.sh :: UV_PIN` refuses the pair when it does not.
 required-version = "==0.12.9"
 
 [tool.ruff]

@@ -767,8 +767,9 @@ class TestAFailedDrawLeavesNothingBehind:
         # `record_write` runs in-session, so the log is part of what the abort takes back rather than
         # a standing record of writes that never happened.
         assert aborted.log == 0, "the action log kept a row for a write that was rolled back"
-        # The drop runs after the commit, so a draw that never committed leaves the cache nothing to unlearn.
-        assert aborted.cached is not None
+        # Dropped however the draw ended: from here a refusal and a commit whose answer was lost look
+        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
+        assert aborted.cached is None
 
 
 class TestTheActionLogRecordsOneRowPerCollection:
@@ -813,8 +814,8 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
         assert counts == (first.spieltage, first.spiele)
 
 
-class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
-    """One process, one cache, keyed by season id -- so dropping it early unlearns a season nothing has changed yet."""
+class TestTheSeasonCacheIsDroppedHoweverTheDrawEnds:
+    """A draw that raised may still have landed, so no outcome leaves the cached season standing."""
 
     def test_a_committed_draw_drops_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -825,8 +826,8 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
 
         assert on_a_seeded_saison(mongo_replica_set_url, body) is None
 
-    def test_a_refused_draw_leaves_it_standing(self, mongo_replica_set_url: str):
-        """The control: a drop before the refusal would pass the case above while costing every reader a re-read for nothing."""
+    def test_a_refused_draw_drops_it_too(self, mongo_replica_set_url: str):
+        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
@@ -836,7 +837,7 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
 
             return read_cached_saison(SAISON_ID)
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is not None
+        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is None
 
 
 # The replace's own day, so a watermark the first draw left behind reads as one rather than passing

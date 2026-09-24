@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -15,6 +16,8 @@ import {
   SPIELER_ANONYM_LABEL,
   spielerAnzeigename,
 } from "./constants.ts";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

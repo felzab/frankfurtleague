@@ -11,7 +11,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
-from app.api.bewerbungen.services import build_bewerbungen_sort
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import (
@@ -61,6 +61,8 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
+# A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
+IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
 # fails here instead of quietly changing what the report is understood to mean.
@@ -512,6 +514,16 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["einladungen"],
         valid_document("einladungen", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
+    # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
+    # pair carrying no key at all would pass while the partial filter matched nothing.
+    "uniq_bewerbung_idempotenz_schluessel": (
+        valid_document("bewerbungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    ),
+    "uniq_registrierung_idempotenz_schluessel": (
+        valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
+        valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    ),
 }
 
 # At import, and set equality rather than the `KeyError` the walk below would raise: that names a
@@ -804,6 +816,23 @@ def test_each_unique_index_is_built_with_the_reach_it_declares(mongo_url: str, i
         return built.get(index.name, "not built")
 
     assert on_the_shipped_schema(mongo_url, body) == index.partial_filter
+
+
+@pytest.mark.parametrize("collection", ["bewerbungen", "registrierungen"])
+def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str, collection: str):
+    """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
+
+    async def body(database: AsyncDatabase) -> list[str]:
+        await database[collection].insert_one(
+            valid_document(collection, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64)
+        )
+        explained = await database[collection].find(build_schluessel_filter(schluessel=IDEMPOTENZ_SCHLUESSEL)).explain()
+
+        return winning_stages(explained)
+
+    stages = on_the_shipped_schema(mongo_url, body)
+
+    assert "IXSCAN" in stages and "COLLSCAN" not in stages, stages
 
 
 def test_the_cross_document_rules_report_a_clean_database_as_clean(mongo_url: str):

@@ -4,9 +4,9 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { toFieldErrors } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
@@ -93,7 +93,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 }
 
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
-  return runAdminMutation("patchAdminSpielDataAction", async () => {
+  return runAdminMutation("patchAdminSpielDataAction", { readOnly: false }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
@@ -159,7 +159,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * cached match list on every keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
-  return runAdminMutation("previewAdminSpielDataAction", async () => {
+  return runAdminMutation("previewAdminSpielDataAction", { readOnly: true }, async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }

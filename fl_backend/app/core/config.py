@@ -2,6 +2,7 @@ import re
 from functools import lru_cache
 from typing import Annotated, Final, Literal, Self
 
+from fastapi import Request
 from pydantic import AfterValidator, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -201,3 +202,12 @@ def get_config() -> BackendConfig:
         # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
         # names a field -- so the type alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
+
+
+def get_app_config(request: Request) -> BackendConfig:
+    """The settings the application was built with, read per request rather than from `get_config`.
+
+    Held on the application (`app/main.py :: create_app`), so one built with other settings answers
+    with them and no dependency is replaced to make it do so.
+    """
+    return request.app.state.config

@@ -7,12 +7,13 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient, MongoClient
+from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
 from app.api.bewerbungen.schemas import (
+    DELETIONS_LISTED_PER_PASS,
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungSweepAngekuendigtPayload,
     FLBewerbungSweepLoeschenPayload,
@@ -22,11 +23,19 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    SWEEP_PAGE,
     compose_bestaetigungen,
     compose_confirmation_update,
     hash_token,
 )
-from app.api.bewerbungen.sweep_router import angekuendigt_bewerbungen, get_sweep_saisons, loeschen_bewerbungen, sweep_saison
+from app.api.bewerbungen.sweep_router import (
+    BLOCKS_CLEARED_PER_PASS,
+    REMINDERS_PER_PASS,
+    angekuendigt_bewerbungen,
+    get_sweep_saisons,
+    loeschen_bewerbungen,
+    sweep_saison,
+)
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -220,10 +229,16 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "active", sta
             # One recorded write per row, so every one has a log image holding its people.
             for document in the_corpus():
                 await patch_one_in_db(
-                    collection=database[Collection.BEWERBUNGEN], db_filter={"_id": document["_id"]}, update={"$set": {"kader.gute_spieler": 4}}
+                    collection=database[Collection.BEWERBUNGEN],
+                    db_filter={"_id": document["_id"]},
+                    update={"$set": {"kader.gute_spieler": 4}},
+                    return_document=ReturnDocument.BEFORE,
                 )
             await patch_one_in_db(
-                collection=database[Collection.SAISON_TEAMS], db_filter={"_id": JUNCTION_OID}, update={"$set": {"gruppe": "B"}}
+                collection=database[Collection.SAISON_TEAMS],
+                db_filter={"_id": JUNCTION_OID},
+                update={"$set": {"gruppe": "B"}},
+                return_document=ReturnDocument.BEFORE,
             )
 
             return await body(database, client)
@@ -342,6 +357,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
         update=compose_confirmation_update(
             seats=KONTAKT_SEATS, geburtsdatum=CONFIRMED_GEBURTSDATUM, today=MAILED_ON_THE_MARK, text_version="v3", whatsapp=False
         ),
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -590,6 +606,7 @@ class TestTheFourteenDayClock:
                 collection=database[Collection.BEWERBUNGEN],
                 db_filter={"_id": DELETE_OID},
                 update={"$set": {"bestaetigungsfrist": TOMORROW}},
+                return_document=ReturnDocument.BEFORE,
             )
             response = await erase(database, client, [DELETE_OID])
 
@@ -989,5 +1006,267 @@ class TestThePassRecordsTheDayItRan:
                     await sweep(database, client, saison_id=saison_id)
 
             return await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
+
+        assert on_a_league(mongo_replica_set_url, body) == 1
+
+
+def numbered(position: int) -> ObjectId:
+    """One id per seeded row, clear of the fixed ids above."""
+
+    return ObjectId(f"6890a1b2c3d4e5f6078{position:05d}")
+
+
+def per_pass(taken: list[int], share: int, total: int) -> None:
+    """Every pass takes its whole share until the last one, which takes the rest."""
+
+    whole, rest = divmod(total, share)
+    assert taken == [share] * whole + ([rest] if rest else [])
+
+
+async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: int, total: int) -> list[int]:
+    """What each pass took, up to the first that took nothing: a clock that stops making progress fails here rather than spinning."""
+
+    passes = -(-total // share)
+    taken: list[int] = []
+    for _ in range(passes + 1):
+        if not (took := await one_pass()):
+            return taken
+        taken.append(took)
+
+    raise AssertionError(f"{total} rows at {share} a pass take {passes} passes, and pass {passes + 1} still took rows: {taken}")
+
+
+class TestEachCappedClockMakesProgressAcrossPasses:
+    """More due rows than one share: a clock that took its share from the same page every pass would stall for ever."""
+
+    def test_the_reminder_takes_its_share_earliest_deadline_first_and_the_passes_reach_every_row(self, mongo_replica_set_url: str):
+        overflow = REMINDERS_PER_PASS + 5
+        # The later deadlines seeded FIRST, so natural order would take the wrong share.
+        frist_of = {position: "2026-04-12" if position < overflow - REMINDERS_PER_PASS else "2026-04-05" for position in range(overflow)}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), bestaetigungsfrist=frist) for position, frist in frist_of.items()]
+            )
+
+            first = await sweep(database, client)
+
+            async def one_pass() -> int:
+                return len({entry.bewerbung_id for entry in (await sweep(database, client)).erinnerungen})
+
+            already = len({entry.bewerbung_id for entry in first.erinnerungen})
+            taken = [already, *await passes_until_empty(one_pass, share=REMINDERS_PER_PASS, total=overflow - already)]
+
+            stamped = await database[Collection.BEWERBUNGEN].count_documents({"bestaetigungen.trainer.erinnert_am": TODAY})
+
+            return {entry.bestaetigungsfrist for entry in first.erinnerungen}, taken, stamped
+
+        first_deadlines, taken, stamped = on_a_league(mongo_replica_set_url, body)
+
+        assert first_deadlines == {"2026-04-05"}
+        per_pass(taken, REMINDERS_PER_PASS, overflow)
+        assert stamped == overflow
+
+    def test_the_contact_blocks_are_cleared_a_share_a_pass_until_none_is_left(self, mongo_replica_set_url: str):
+        overflow = BLOCKS_CLEARED_PER_PASS + 5
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].delete_many({})
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [{**junction_row(), "_id": numbered(position), "team_id": numbered(position)} for position in range(overflow)]
+            )
+
+            async def one_pass() -> int:
+                return (await sweep(database, client)).kontaktbloecke_geleert
+
+            taken = await passes_until_empty(one_pass, share=BLOCKS_CLEARED_PER_PASS, total=overflow)
+
+            return taken, await database[Collection.SAISON_TEAMS].count_documents({"kontakte": {"$ne": None}})
+
+        taken, standing = on_a_league(mongo_replica_set_url, body, next_status="past")
+
+        per_pass(taken, BLOCKS_CLEARED_PER_PASS, overflow)
+        assert standing == 0
+
+    def test_the_deletion_list_takes_its_share_and_the_passes_reach_every_candidate(self, mongo_replica_set_url: str):
+        """Driven as the caller drives it: every listed candidate announced and erased before the next pass."""
+
+        overflow = DELETIONS_LISTED_PER_PASS + 5
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), bestaetigungsfrist=YESTERDAY) for position in range(overflow)]
+            )
+
+            async def one_pass() -> int:
+                ids = [entry.bewerbung_id for entry in (await sweep(database, client)).loeschungen]
+                if ids:
+                    await announce(database, client, ids)
+                    await erase(database, client, ids)
+
+                return len(ids)
+
+            taken = await passes_until_empty(one_pass, share=DELETIONS_LISTED_PER_PASS, total=overflow)
+
+            return taken, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+
+        taken, standing = on_a_league(mongo_replica_set_url, body)
+
+        per_pass(taken, DELETIONS_LISTED_PER_PASS, overflow)
+        assert standing == 0
+
+
+class _Counting(monitoring.CommandListener):
+    """Every command sent while it is on, each one a round trip."""
+
+    def __init__(self) -> None:
+        self.commands = 0
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        self.commands += 1
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        pass
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        pass
+
+
+# Under the driver's first batch, so a page read is one command however many rows it holds.
+FEW = 10
+
+# The update and its log row: the per-row cost each share is sized at.
+ROUND_TRIPS_A_ROW = 2
+
+
+async def commands_sent(url: str, call: Body) -> int:
+    listener = _Counting()
+    counting = AsyncMongoClient(url, event_listeners=[listener])
+    try:
+        await call(counting[DATABASE_NAME], counting)
+    finally:
+        await counting.close()
+
+    return listener.commands
+
+
+class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
+    """Counted on the wire, two runs apart by `FEW` rows: `AFTER` at the call site, or a second write a row, turns a case red."""
+
+    def test_a_reminded_application(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(due: int) -> int:
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(due)])
+                # Stamped already, so the run's own stamp costs both runs the same guard read.
+                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
+
+                return await commands_sent(mongo_replica_set_url, sweep)
+
+            return await counted(FEW), await counted(2 * FEW)
+
+        few, twice = on_a_league(mongo_replica_set_url, body)
+
+        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+    def test_a_cleared_contact_block(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(due: int) -> int:
+                # No application at all, so the accepted clock erases nothing in either run.
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.SAISON_TEAMS].delete_many({})
+                await database[Collection.SAISON_TEAMS].insert_many(
+                    [{**junction_row(), "_id": numbered(position), "team_id": numbered(position)} for position in range(due)]
+                )
+                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
+
+                return await commands_sent(mongo_replica_set_url, sweep)
+
+            return await counted(FEW), await counted(2 * FEW)
+
+        few, twice = on_a_league(mongo_replica_set_url, body, next_status="past")
+
+        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+    def test_a_stamped_announcement(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(due: int) -> int:
+                ids = [numbered(position) for position in range(due)]
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
+
+                return await commands_sent(mongo_replica_set_url, lambda database, client: announce(database, client, ids))
+
+            return await counted(FEW), await counted(2 * FEW)
+
+        few, twice = on_a_league(mongo_replica_set_url, body)
+
+        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+
+class TestAPageAndOneMoreIsDrained:
+    """A page and a short one after it.
+
+    At a page plus ONE the first read would take every row, so a clock that stopped after its first
+    erasure would leave nothing behind and pass.
+    """
+
+    def test_every_declined_application_due_goes_in_one_pass(self, mongo_replica_set_url: str):
+        overflow = SWEEP_PAGE + 5
+        declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": None}}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **declined) for position in range(overflow)])
+            response = await sweep(database, client)
+
+            return response.abgelehnte_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+
+        assert on_a_league(mongo_replica_set_url, body) == (overflow, 0)
+
+    def test_every_undecided_application_goes_in_one_pass_once_the_season_is_past(self, mongo_replica_set_url: str):
+        overflow = SWEEP_PAGE + 5
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(overflow)])
+            response = await sweep(database, client)
+
+            return response.ohne_entscheidung_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+
+        assert on_a_league(mongo_replica_set_url, body, status="past") == (overflow, 0)
+
+    def test_every_accepted_application_goes_in_one_pass_once_the_next_season_is_past(self, mongo_replica_set_url: str):
+        overflow = SWEEP_PAGE + 5
+        accepted = {
+            "status": "angenommen",
+            "team_id": CLUB_OID,
+            "schule": None,
+            "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **accepted) for position in range(overflow)])
+            response = await sweep(database, client)
+
+            return response.angenommene_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+
+        assert on_a_league(mongo_replica_set_url, body, next_status="past") == (overflow, 0)
+
+    def test_a_page_of_decisions_inside_their_month_does_not_hide_one_that_is_due(self, mongo_replica_set_url: str):
+        """The fresh decisions are seeded first, so a read not narrowed to the due ones fills its page with them and refuses the pass."""
+
+        fresh = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-03-31", "von": "admin", "grund": None}}
+        due = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": None}}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            seeded = [application(numbered(position), **fresh) for position in range(SWEEP_PAGE + 1)]
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many([*seeded, application(numbered(SWEEP_PAGE + 1), **due)])
+
+            return (await sweep(database, client)).abgelehnte_geloescht
 
         assert on_a_league(mongo_replica_set_url, body) == 1

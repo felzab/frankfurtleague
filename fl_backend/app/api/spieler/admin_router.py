@@ -3,10 +3,11 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
@@ -16,6 +17,7 @@ from app.api.spieler.schemas import (
     FLSpielerAdminSingleResponse,
     FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
+    FLSpielerNachnominierungResponse,
     FLSpielerRolle,
     FLSpielerWithMemberships,
 )
@@ -28,6 +30,7 @@ from app.api.spieler.services import (
     find_squad_refusal,
     find_squad_rolle_refusal,
 )
+from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -48,6 +51,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpielerCollection,
+    SpieltageCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -183,6 +187,35 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
     return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
 
 
+@router.get(
+    "/nachnominierung/{saison_id}",
+    response_model=FLSpielerNachnominierungResponse,
+    summary="Whether a squad entry into a season today is a Nachnominierung",
+)
+async def get_spieler_nachnominierung(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    spieltage_collection: SpieltageCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLSpielerNachnominierungResponse:
+    """
+    Whether a player entered into this season's squads today would be marked a Nachnominierung.
+
+    `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
+    day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
+    holds none yet, answers `false`. 404 where no season has this id.
+    """
+
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    return FLSpielerNachnominierungResponse(
+        saison_id=saison_id,
+        nachnominierung=await nachnominierung_laeuft_in(
+            spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=None
+        ),
+    )
+
+
 @router.patch(by_id("spieler_id"), response_model=FLSpielerAdminSingleResponse, summary="Update a Spieler's name")
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
@@ -195,6 +228,7 @@ async def patch_spieler(
         collection=spieler_collection,
         db_filter={"_id": spieler_id},
         update={"$set": spieler_data.model_dump(mode="json")},
+        return_document=ReturnDocument.AFTER,
     )
 
     return _as_single(updated_raw)
@@ -299,14 +333,17 @@ async def post_saison_spieler(
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    spieltage_collection: SpieltageCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSaisonSpielerResponse:
     """
     Put a player in a team's squad for a season.
 
     One row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409
     even where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once
-    (`REQ-SQUAD-004`).
+    (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true
+    from the first day of the season's matchday 1, and false while that matchday is undated.
     """
 
     async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
@@ -347,21 +384,23 @@ async def post_saison_spieler(
             "spieler_id": spieler_id,
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
+            "ist_nachnominiert": await nachnominierung_laeuft_in(
+                spieltage_collection=spieltage_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
+            ),
             "inactive_since": None,
         }
         await post_one_to_db(collection=saison_spieler_collection, document=document, session=session)
 
         return document
 
-    # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
-    # makes two writers into one squad contend. `with_transaction` is safe to retry, the callback
-    # re-reading everything it judges.
-    async with db.start_session() as session:
-        entered = await session.with_transaction(add_the_player)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
+        # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
+        # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
+        async with db.start_session() as session:
+            entered = await session.with_transaction(add_the_player)
 
     return _as_junction(entered)
 
@@ -427,14 +466,14 @@ async def patch_saison_spieler(
                 }
             },
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
-    async with db.start_session() as session:
-        moved = await session.with_transaction(move_the_player)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            moved = await session.with_transaction(move_the_player)
 
     return _as_junction(moved)
 
@@ -532,11 +571,10 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-    async with db.start_session() as session:
-        revived = await session.with_transaction(bring_the_player_back)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with db.start_session() as session:
+            revived = await session.with_transaction(bring_the_player_back)
 
     return _as_junction(revived)

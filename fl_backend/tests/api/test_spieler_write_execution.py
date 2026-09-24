@@ -8,6 +8,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
+    get_spieler_nachnominierung,
     patch_saison_spieler,
     patch_spieler,
     post_saison_spieler,
@@ -15,7 +16,7 @@ from app.api.spieler.admin_router import (
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -160,12 +161,14 @@ async def enter(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId
     return await post_saison_spieler(
         spieler_id=spieler_id,
         saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=SAISON_ID, team_id=team_id, nummer=None, position=None, stufe=None, ist_nachnominiert=False, rolle=rolle
+            saison_id=SAISON_ID, team_id=team_id, nummer=None, position=None, stufe=None, rolle=rolle
         ),
         saison_spieler_collection=database.saison_spieler,
         saison_teams_collection=database.saison_teams,
         saisons_collection=database.saisons,
+        spieltage_collection=database.spieltage,
         db=database.client,
+        today=TODAY,
     )
 
 
@@ -173,9 +176,7 @@ async def move(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId,
     return await patch_saison_spieler(
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
-        saison_spieler_data=FLPatchSaisonSpielerPayload(
-            team_id=team_id, nummer=nummer, position=None, stufe=None, ist_nachnominiert=False, rolle=rolle
-        ),
+        saison_spieler_data=FLPatchSaisonSpielerPayload(team_id=team_id, nummer=nummer, position=None, stufe=None, rolle=rolle),
         saison_spieler_collection=database.saison_spieler,
         saison_teams_collection=database.saison_teams,
         saisons_collection=database.saisons,
@@ -541,7 +542,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
 
 
 class TestASquadRowPredatingTheTwoFieldsStillEchoes:
-    """`patch_saison_spieler` `$set`s both flags, so the paths naming neither are the only ones a legacy document reaches.
+    """Only the create writes the marker, so every other path echoes a legacy document's marker as stored.
 
     A subscript there answers 500 on a request that changed nothing, and `python -m app.core.constraints --check` is what finds the row.
     """
@@ -591,3 +592,64 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
             )
 
         assert on_a_database(mongo_replica_set_url, body).ist_nachnominiert is True
+
+    def test_an_edit_leaves_the_marker_as_the_create_stored_it(self, mongo_replica_set_url: str):
+        """The edit carries no marker, so what the create derived is never replaced by what an editor's page believed."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database.saison_spieler.insert_one(
+                {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID), "ist_nachnominiert": True}
+            )
+            echoed = await move(database, spieler_id_for(90), HOME_TEAM_OID, nummer="9")
+            stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
+
+            return echoed.ist_nachnominiert, stored["ist_nachnominiert"] if stored else None
+
+        assert on_a_database(mongo_replica_set_url, body) == (True, True)
+
+
+def spieltag_row(*, beginn: str | None, saison_phase: str = "gruppenphase", position: int = 1) -> dict[str, Any]:
+    return {"_id": ObjectId(), "saison_id": SAISON_ID, "saison_phase": saison_phase, "position": position, "beginn": beginn, "ende": beginn}
+
+
+class TestTheCreateDerivesTheLateEntryMarker:
+    """`docs/backend/spec.md :: I334`: the create stores the verdict the squad editor's read serves, whatever the season's status says.
+
+    Every season here is `active`, so a create judging by the status would mark every entry late.
+    """
+
+    def _entered_and_announced(self, url: str, spieltage: list[dict[str, Any]]) -> tuple[bool, bool, bool]:
+        async def body(database: AsyncDatabase) -> tuple[bool, bool, bool]:
+            if spieltage:
+                await database.spieltage.insert_many(spieltage)
+            announced = await get_spieler_nachnominierung(
+                saison_id=SAISON_ID, saisons_collection=database.saisons, spieltage_collection=database.spieltage, today=TODAY
+            )
+            echoed = await enter(database, spieler_id_for(90), HOME_TEAM_OID)
+            stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
+
+            return announced.nachnominierung, echoed.ist_nachnominiert, bool(stored and stored["ist_nachnominiert"])
+
+        return on_a_database(url, body)
+
+    def test_a_matchday_one_dated_after_today_makes_no_entry_late(self, mongo_replica_set_url: str):
+        assert self._entered_and_announced(mongo_replica_set_url, [spieltag_row(beginn="2026-04-02")]) == (False, False, False)
+
+    def test_an_entry_on_matchday_ones_first_day_is_late(self, mongo_replica_set_url: str):
+        assert self._entered_and_announced(mongo_replica_set_url, [spieltag_row(beginn=TODAY)]) == (True, True, True)
+
+    def test_a_later_phases_first_matchday_opens_nothing(self, mongo_replica_set_url: str):
+        """`position` restarts in every phase, so a filter on the position alone would read this knockout round as the season's start."""
+
+        spieltage = [spieltag_row(beginn="2026-04-20"), spieltag_row(beginn="2026-03-15", saison_phase="viertelfinale")]
+
+        assert self._entered_and_announced(mongo_replica_set_url, spieltage) == (False, False, False)
+
+    def test_the_read_refuses_a_season_nobody_created(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            return await get_spieler_nachnominierung(
+                saison_id="2031", saisons_collection=database.saisons, spieltage_collection=database.spieltage, today=TODAY
+            )
+
+        with pytest.raises(DocumentNotFoundException):
+            on_a_database(mongo_replica_set_url, body)

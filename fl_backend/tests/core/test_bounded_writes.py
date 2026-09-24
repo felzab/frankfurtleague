@@ -8,8 +8,8 @@ proves is that no site can reach one of those rules past its helper, and that no
 helper without the transaction's session: the parameter is required, so an omission is a `TypeError`
 at the call rather than a race under a rule that reads as held.
 
-`tests/api/test_capacity_isolation.py` and `tests/api/test_reference_isolation.py` drive the
-conflicts themselves against a replica set.
+`tests/api/test_capacity_isolation.py`, `tests/api/test_reference_isolation.py` and
+`tests/api/test_sperrliste_isolation.py` drive the conflicts themselves against a replica set.
 """
 
 import ast
@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
 from app.api.spieler.admin_router import _refuse_a_full_squad
@@ -94,6 +95,8 @@ CALLERS: dict[str, frozenset[str]] = {
     # One callback for both routes that book a fixture, the replay going through the editor's own.
     "anchor_a_booked_venue": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
+    # The rollover sweeps what a ban's bound falls below, and writes the season the ban is counted from.
+    "_pull_the_season_a_ban_counts_from": frozenset({"app/api/sperrliste/admin_router.py :: judge_and_ban"}),
 }
 
 CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
@@ -104,6 +107,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (pull_a_club_to_enter, "teams_collection"),
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
+    (_pull_the_season_a_ban_counts_from, "saisons_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)

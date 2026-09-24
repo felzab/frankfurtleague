@@ -47,6 +47,11 @@ const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adress
 /** Named per message, as every application close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
+// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
+// the first contact, apart from every other piece of information.
+const art21Satz = (adresse: string): string =>
+  `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
+
 export type SchiedsrichterEmail = { subject: string; html: string; text: string };
 
 /** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
@@ -93,6 +98,8 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
       paragraph(
         `Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
       ),
+      // The address as a marked link: one a reader has to select and paste is not a route.
+      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
       paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
       /* The link runs past the card's width, so this one paragraph breaks inside a word. Marked as a
          link as well: an address a reader has to select and paste is not a route. */
@@ -115,6 +122,8 @@ function renderText(vorname: string, url: string, frist: string, origin: string)
     "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
     `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
     "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
+    "",
+    art21Satz(KONTAKT_EMAIL),
     "",
     url,
     "",

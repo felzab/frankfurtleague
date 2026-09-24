@@ -87,7 +87,7 @@ class FLSchiedsrichterMint(BaseModel):
     """A freshly minted link, answered ONCE and stored nowhere.
 
     The raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier
-    whole — the three mints answering it are all on `app/api/schiedsrichter/admin_router.py`.
+    whole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`.
     """
 
     token: str
@@ -132,8 +132,8 @@ class FLSchiedsrichterListResponse(BaseAPIResponse):
 
 
 class FLPostSchiedsrichterResponse(BaseAPIResponse):
-    # Null exactly where the create was given no address, which mails nothing and can mail nothing.
-    bestaetigung: FLSchiedsrichterMint | None = None
+    # Never null: the payload requires an address, and entering one is the invitation.
+    bestaetigung: FLSchiedsrichterMint
 
     created_id: CustomObjectId
 
@@ -144,6 +144,14 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
     # the mailbox nobody reads. A confirmed referee's address change mints nothing.
+    bestaetigung: FLSchiedsrichterMint | None = None
+
+
+class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
+    """The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."""
+
+    updated_document: FLSchiedsrichter
+    # Null unless the row came back unanswered and holding an address a link can go to.
     bestaetigung: FLSchiedsrichterMint | None = None
 
 
@@ -174,6 +182,9 @@ class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     # rather than the one the page would show today.
     text_version: CustomOptionalString
     mindestalter: int
+    # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
+    # copy of its own would offer it where the write refuses.
+    medien_mindestalter: int
     frist: CustomDateString
 
 
@@ -186,7 +197,7 @@ class FLSchiedsrichterBestaetigungPayload(BaseModel):
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
-    # The label the ROUTE HANDLER stamped and never one the browser composed
+    # The label of the text the running build renders: the route handler refuses any other
     # (`docs/frontend/spec.md :: I148`).
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
@@ -205,9 +216,9 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete, reactivate and anonymisieren.
+    """Shared by delete and anonymisieren.
 
-    The first two answer with the referee as they now stand; the erasure answers with the ghost,
+    The retirement answers with the referee as they now stand; the erasure answers with the ghost,
     the row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`).
     """
 

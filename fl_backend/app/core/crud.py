@@ -11,6 +11,7 @@ matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find
 directly -- and a write shaped like one of those would escape the log.
 """
 
+import re
 from collections.abc import Mapping, Sequence, Set
 from typing import Any
 
@@ -79,9 +80,13 @@ async def patch_one_in_db(
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
     session: AsyncClientSession | None = None,
-    return_document: bool = ReturnDocument.AFTER,
+    return_document: bool,
 ) -> Mapping[str, Any]:
-    """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced."""
+    """`return_document` has no default, so every caller weighs the two images.
+
+    `AFTER` re-reads the document, a round trip wasted where the result is discarded; `BEFORE` answers
+    the state the write just replaced.
+    """
 
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
     # update's own is taken with the write (`docs/backend/spec.md :: I39`).
@@ -264,8 +269,8 @@ async def aggregate_many_from_db(
     return await cursor.to_list(length=limit)
 
 
-# Section 2, the query behind a list read. One builder for every resource, because a term each
-# resource translated for itself is a term one of them translates differently.
+# Section 2, the query behind a read. One builder for every resource, because a term each resource
+# translated for itself is a term one of them translates differently.
 
 
 def build_query(
@@ -304,6 +309,16 @@ def build_sort(*, sort_by: str, order: str, chain: Sequence[tuple[str, int]] = (
     return [(sort_by, direction), *((field, tie_direction) for field, tie_direction in chain if field != sort_by)]
 
 
+def literal_pattern(value: str) -> str:
+    """`value` as a `$regex` fragment matching exactly it.
+
+    `re.escape` leaves a NUL raw, and the server refuses a pattern holding one: a 500 where the lookup
+    owes an empty match.
+    """
+
+    return re.escape(value).replace("\x00", r"\x00")
+
+
 # Section 3, what a write does beyond the driver call: a refusal becomes the 409 it means, and a
 # retirement is a date on `inactive_since` rather than a state of its own (`docs/backend/spec.md :: I12`).
 
@@ -332,7 +347,13 @@ async def set_inactive_since(
     log row land outside the transaction.
     """
 
-    return await patch_one_in_db(collection=collection, db_filter=db_filter, update={"$set": {"inactive_since": when}}, session=session)
+    return await patch_one_in_db(
+        collection=collection,
+        db_filter=db_filter,
+        update={"$set": {"inactive_since": when}},
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
 
 
 async def insert_live(

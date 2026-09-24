@@ -144,7 +144,7 @@ export function FormGruppenSwapSection({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
 
       if (!res.success) {
-        appToast.danger("Gruppen nicht getauscht", { description: res.error });
+        appToast.failure("Gruppen nicht getauscht", res);
         return;
       }
 

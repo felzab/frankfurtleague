@@ -232,11 +232,9 @@ class TestTheResponseModel:
 
         assert player.memberships[0].ist_nachnominiert is True
 
-    def test_a_payload_refuses_the_markers_old_spelling(self):
-        """Both keys, because the old one alone is refused for the new one's absence too.
-
-        Sent that way the case would pass against a payload with no leniency to prove anything about.
-        """
+    @pytest.mark.parametrize("spelling", ["ist_nachnominiert", "is_nachgetragen"])
+    def test_a_payload_refuses_the_marker_under_either_spelling(self, spelling: str):
+        """The create derives it and nothing edits it, so a sent marker is refused rather than silently stored or dropped."""
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonSpielerPayload.model_validate(
@@ -247,13 +245,12 @@ class TestTheResponseModel:
                     "nummer": "7",
                     "position": "Mittelfeld",
                     "stufe": "Q1",
-                    "ist_nachnominiert": True,
-                    "is_nachgetragen": True,
+                    spelling: True,
                     "rolle": None,
                 }
             )
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "is_nachgetragen")]
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", spelling)]
 
     def test_a_membership_defaults_match_the_flattened_read(self):
         """`FLSpielerMembership` and `FLSpieler` read the same collection: a default on one and not the other is the disagreement this pins."""
@@ -261,10 +258,17 @@ class TestTheResponseModel:
             assert FLSpielerMembership.model_fields[field].default == FLSpieler.model_fields[field].default
 
     @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
-    @pytest.mark.parametrize("field", ["ist_nachnominiert", "rolle"])
-    def test_a_payload_keeps_both_squad_facts_required(self, payload_model, field):
-        """The defaults belong to the read models: the patch `$set`s its dump, so one here strips an armband a form forgot to send."""
-        assert payload_model.model_fields[field].is_required()
+    def test_a_payload_keeps_the_role_required(self, payload_model):
+        """The default belongs to the read models: the patch `$set`s its dump, so one here strips an armband a form forgot to send."""
+        assert payload_model.model_fields["rolle"].is_required()
+
+    @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
+    def test_no_payload_declares_the_marker(self, payload_model):
+        """Declared, even defaulted, the create would store a caller's claim about when the entry arrived.
+
+        `docs/backend/spec.md :: I334` makes the marker the create's own derivation.
+        """
+        assert "ist_nachnominiert" not in payload_model.model_fields
 
 
 class TestWhichTierMayReadTheConsentRecord:

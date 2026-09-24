@@ -78,6 +78,8 @@ const aRefusal = (serverErrorCode: string) =>
     statusCode: 409,
     serverErrorCode,
     endpoint: "/schiedsrichter",
+    method: "POST",
+    readOnly: false,
     traceId: "0",
   });
 
@@ -180,10 +182,7 @@ describe("the referee save's undo", () => {
     for (const code of declared) assert.ok(TABLE.includes(`"${code}"`), `${code} reaches the admin as an unhandled conflict`);
   });
 
-  for (const [code, fragment] of [
-    ["REQ-SCHIEDSRICHTER-001", /stillgelegt/],
-    ["REQ-SCHIEDSRICHTER-007", /Sperrliste/],
-  ] as const) {
+  for (const [code, fragment] of [["REQ-SCHIEDSRICHTER-007", /Sperrliste/]] as const) {
     it(`words ${code} for the undo, saying the change stands`, async () => {
       recorders.__flUndoRefAnswer = () => {
         throw aRefusal(code);

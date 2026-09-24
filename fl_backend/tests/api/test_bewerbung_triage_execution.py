@@ -11,7 +11,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung, besetze_kontakt_sitz, korrigiere_kontakt_email
+from app.api.bewerbungen.admin_router import (
+    ablehnen_bewerbung,
+    annehmen_bewerbung,
+    besetze_kontakt_sitz,
+    erneut_einwilligung,
+    korrigiere_kontakt_email,
+)
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.router import get_bewerbungen
 from app.api.bewerbungen.schemas import (
@@ -325,8 +331,6 @@ async def through_the_app(
     async def _database() -> AsyncDatabase:
         return app_db_client[DATABASE_NAME]
 
-    # Popped rather than cleared afterwards: `create_app` installs its own `get_config` override, and
-    # clearing would drop that one too and send the next request at the real environment.
     APP.dependency_overrides[get_db_client] = _client
     APP.dependency_overrides[get_database] = _database
     APP.dependency_overrides[get_germany_now] = lambda: NOW
@@ -341,8 +345,7 @@ async def through_the_app(
         async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
             return await http.post(path, json=dict(payload), headers=headers)
     finally:
-        for dependency in (get_db_client, get_database, get_germany_now):
-            APP.dependency_overrides.pop(dependency, None)
+        APP.dependency_overrides.clear()
         await app_db_client.close()
 
 
@@ -1164,7 +1167,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 
 # A school whose own URL carries the three characters `validate_external_url` strips. Storable as
 # submitted: `bewerbungen` types `website_url` as a bare string (`docs/backend/spec.md :: I16`).
-DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
+DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
 DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
 DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WK"
 
@@ -1360,6 +1363,25 @@ class TestCorrectingOneContactAddress:
         # The raw token exists in the answer and in the mail; the document keeps its hash alone.
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
+    def test_a_correction_the_sign_in_fold_calls_unmoved_is_written(self, mongo_replica_set_url: str):
+        """The local part's case alone, which the editor opens its press for, the delivery target moving.
+
+        The endpoint has to write it too, or the tiers disagree.
+        """
+
+        stored = "Sekretariat@zorbanax.example.de"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": CORRECTION_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.email": stored}}
+            )
+            await correct(database, client, "ansprechperson")
+
+            return (await stored_bewerbung(database, CORRECTION_BEWERBUNG))["kontakte"]["ansprechperson"]["email"]
+
+        assert on_a_league(mongo_replica_set_url, body) == CORRECTED_EMAIL
+
     def test_the_refusal_recorded_against_the_old_address_goes_with_the_entry(self, mongo_replica_set_url: str):
         """Left standing it would hold the application back from the deadline for ever, on a mailbox this seat has stopped naming."""
 
@@ -1499,6 +1521,186 @@ class TestCorrectingOneContactAddress:
                 await correct(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after == before
+
+
+ERNEUT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000c")
+
+
+async def seed_an_open_ansprechperson_seat(database: AsyncDatabase, *, mirrored: bool = False) -> Mapping[str, Any]:
+    """One open application whose Ansprechperson has not answered, inside its deadline, as the re-send's read finds it."""
+
+    kontakte = confirmed_kontakte(open_seat="ansprechperson")
+    if mirrored:
+        # The Trainer IS the Ansprechperson, open too, so one fresh link answers both seats.
+        kontakte["trainer"] = {**kontakte["ansprechperson"]}
+        kontakte["trainer_ist_zugleich"] = "ansprechperson"
+
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            ERNEUT_BEWERBUNG,
+            team_id=EXISTING_OID,
+            kontakte=kontakte,
+            bestaetigungen=BESTAETIGUNGEN,
+            bestaetigungsfrist="2026-04-20",
+        )
+    )
+
+    return await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+
+async def resend(database: AsyncDatabase, seat: str, *, as_read: Mapping[str, Any] | None = None, bewerbungen: Any = None) -> Any:
+    collection = database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen
+
+    return await erneut_einwilligung(
+        bewerbung_id=ERNEUT_BEWERBUNG,
+        seat=seat,
+        bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
+        today=TODAY,
+    )
+
+
+class MissesTheFirstWrite:
+    """The `bewerbungen` collection with its first `find_one_and_update` matching nothing and writing nothing, every other call delegated.
+
+    A row that moved away from the filter and back before the re-read looks exactly like this.
+    """
+
+    def __init__(self, collection: AsyncCollection) -> None:
+        self._collection = collection
+        self._missed = False
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        if not self._missed:
+            self._missed = True
+            return None
+
+        return await self._collection.find_one_and_update(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+
+async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await answer_for(database, client, "ansprechperson", antwort="erteilt", geburtsdatum="1980-05-04")
+
+
+async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await answer_for(database, client, "ansprechperson")
+
+
+async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await erase_kontaktperson(
+        erasure_data=FLKontaktErasurePayload.model_validate({"email": KONTAKTE["ansprechperson"]["email"]}),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
+    )
+
+
+class TestAResendRacingAnAnswer:
+    """The re-send reads outside any transaction, so what lands between its read and its write is judged by the write's filter."""
+
+    @pytest.mark.parametrize(
+        "landing",
+        [
+            pytest.param(object_to_the_link, id="a Widerspruch"),
+            pytest.param(answer_the_link, id="a confirmation"),
+            pytest.param(erase_the_person, id="an erasure"),
+        ],
+    )
+    def test_what_landed_after_the_read_stands_and_the_resend_is_refused(self, mongo_replica_set_url: str, landing: Body):
+        """One row per term of the filter: the decline's date, the stamp, and the entry an erasure nulls.
+
+        The Widerspruch row is load-bearing: without its term the objection is overwritten by a live
+        link mailed to the objector.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            as_read = await seed_an_open_ansprechperson_seat(database)
+            await landing(database, client)
+            landed = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await resend(database, "ansprechperson", as_read=as_read)
+
+            return refused.value.error_code, as_read, landed, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        code, as_read, landed, after = on_a_league(mongo_replica_set_url, body)
+
+        assert landed != as_read, "nothing landed, so the refusal below is not about the race"
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert after == landed
+
+    def test_a_correction_landing_after_the_read_is_where_the_fresh_link_goes(self, mongo_replica_set_url: str):
+        """The re-send's link replaces the correction's, so it has to reach the corrected mailbox rather than the one replaced."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            as_read = await seed_an_open_ansprechperson_seat(database)
+            await korrigiere_kontakt_email(
+                bewerbung_id=ERNEUT_BEWERBUNG,
+                seat="ansprechperson",
+                email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                db=client,
+                today=TODAY,
+            )
+            response = await resend(database, "ansprechperson", as_read=as_read)
+
+            return as_read, response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        as_read, response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL, "the seed already holds the corrected address"
+        assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+
+    def test_a_miss_the_re_read_finds_no_reason_for_is_written_again(self, mongo_replica_set_url: str):
+        """A decline and then a reseat between the write and its re-read leave the seat open: a 404 there would call a standing row gone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            response = await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN]))
+
+            return response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+
+    def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
+        """The caller records the delivery and words the mail's role text from `rollen`, so one seat named would cover half the link."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database, mirrored=True)
+            response = await resend(database, "ansprechperson")
+
+            return response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert response.rollen == ["ansprechperson", "trainer"]
+        assert {seat: stored["bestaetigungen"][seat]["token_hash"] for seat in ("ansprechperson", "trainer")} == dict.fromkeys(
+            ("ansprechperson", "trainer"), hash_token(response.token)
+        )
+
+    def test_a_claimed_mirror_that_has_confirmed_refuses_the_resend(self, mongo_replica_set_url: str):
+        """The fresh entry is written for the mirror too, so its own answer would be spent on a link nobody asked it for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_pair_whose_seats_diverge(database, ERNEUT_BEWERBUNG, open_seat="ansprechperson")
+            before = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await resend(database, "ansprechperson")
+
+            return refused.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 

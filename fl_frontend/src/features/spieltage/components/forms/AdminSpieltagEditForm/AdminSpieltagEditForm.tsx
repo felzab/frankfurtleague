@@ -20,6 +20,7 @@ import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -63,7 +64,7 @@ export function AdminSpieltagEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     // The span rule is the edited season's, so the schema is built per instance rather than imported.
     schemas: { spieltag: buildPatchSpieltagPayloadSchema(saisonSpan) },
   });
@@ -129,10 +130,10 @@ export function AdminSpieltagEditForm({
         spieltag.beginn === null || spieltag.ende === null ? null : { id: spieltag.id, beginn: spieltag.beginn, ende: spieltag.ende };
 
       const payload = buildPayload();
-      const res = await patchSpieltagAction(payload);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await patchSpieltagAction(payload).catch(unansweredAction);
       if (!res.success) {
-        setSubmitFieldErrors(res.fieldErrors ?? {}, { spieltag: payload });
-        appToast.danger("Änderung nicht gespeichert", { description: res.error });
+        reportSubmitFailure(res, { spieltag: payload });
         return;
       }
 

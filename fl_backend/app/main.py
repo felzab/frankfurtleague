@@ -1,7 +1,12 @@
+from collections.abc import Iterator
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
+from pydantic.json_schema import models_json_schema
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
@@ -36,10 +41,11 @@ from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
-from app.core.exception_handlers import register_exception_handlers
+from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 # Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
 # `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
@@ -94,8 +100,18 @@ KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 UNGUARDED_TIER = "none"
 
+STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
 
-def publish_key_tiers(app: FastAPI) -> None:
+
+# Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
+# a refused payload's adds `fields`; FastAPI's default 422, `HTTPValidationError`, is a body this API
+# never sends (`docs/backend/spec.md :: I345`).
+FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
+FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
+COMPONENT_REF = "#/components/schemas/{model}"
+
+
+def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     for entry in app.routes:
         # `include_router` appends a wrapper holding the original router rather than copying its
         # routes across, so a pass reading `app.routes` for `APIRoute` instances alone sees a
@@ -103,32 +119,80 @@ def publish_key_tiers(app: FastAPI) -> None:
         original_router = getattr(entry, "original_router", None)
 
         for route in original_router.routes if original_router is not None else [entry]:
-            if not isinstance(route, APIRoute):
-                continue
+            if isinstance(route, APIRoute):
+                yield route
 
-            # The route object rather than the include context: `add_api_route` copies the router's
-            # own dependencies into every route it builds, so both arrive here as one set.
-            calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
-            tiers = sorted(KEY_TIERS[guard] for guard in calls & KEY_TIERS.keys())
 
-            # Joined rather than picked: no single key satisfies two guards, so a value equal to no
-            # declared tier fails the comparison rather than naming one of the two as the answer.
-            route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
+def publish_key_tiers(app: FastAPI) -> None:
+    for route in api_routes(app):
+        # The route object rather than the include context: `add_api_route` copies the router's
+        # own dependencies into every route it builds, so both arrive here as one set.
+        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
+        tiers = sorted(KEY_TIERS[guard] for guard in calls & KEY_TIERS.keys())
+
+        # Joined rather than picked: no single key satisfies two guards, so a value equal to no
+        # declared tier fails the comparison rather than naming one of the two as the answer.
+        route.openapi_extra = {**(route.openapi_extra or {}), KEY_TIER_EXTENSION: "+".join(tiers) or UNGUARDED_TIER}
+
+
+def publish_stores_nothing(app: FastAPI) -> None:
+    for route in api_routes(app):
+        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
+        # `true`, or the query flag under which it holds: the frontend marks each call it makes to
+        # such an operation a read, and is compared against this (`docs/backend/spec.md :: I327`).
+        declared = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
+        if declared is not None:
+            route.openapi_extra = {**(route.openapi_extra or {}), STORES_NOTHING_EXTENSION: declared}
+
+
+def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
+    return {"description": description, "content": {"application/json": {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
+
+
+def publish_failure_bodies(app: FastAPI) -> None:
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        # `generate` caches the document it builds on the app, so the edit below is made once and
+        # every later call reads it.
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        document = generate()
+        schemas = document.setdefault("components", {}).setdefault("schemas", {})
+        for name in FASTAPI_VALIDATION_BODIES:
+            schemas.pop(name, None)
+        schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
+        # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
+        document["components"]["schemas"] = dict(sorted(schemas.items()))
+
+        for operations in document["paths"].values():
+            for operation in operations.values():
+                # FastAPI's own placement, on every operation taking input, is what is kept: a
+                # `default` declared to FastAPI instead suppresses it everywhere.
+                if "422" in operation["responses"]:
+                    operation["responses"]["422"] = body_response(FLRefusedPayloadBody, "Validation Error")
+                operation["responses"]["default"] = body_response(FLFailureBody, "Failure")
+
+        return document
+
+    app.openapi = openapi
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
-    A FUNCTION, so the composition root is a choice rather than an import side effect. Passing
-    `config` also substitutes it for the request-scoped `Depends(get_config)`.
+    A FUNCTION, so the composition root is a choice rather than an import side effect. `config` is
+    what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
+    is passed.
     """
-    injected = config is not None
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.
     setup_custom_logger(config)
 
     app = FastAPI(lifespan=lifespan)
+    app.state.config = config
 
     register_exception_handlers(app)
 
@@ -158,12 +222,9 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         return "Hello World"
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
-    # caches what it builds, so an extension set afterwards never reaches a reader.
+    # caches what it builds, so an extension or an edit made afterwards never reaches a reader.
     publish_key_tiers(app)
-
-    # Only when a caller supplied settings: installing this unconditionally would leave a test
-    # unable to tell its own override from it.
-    if injected:
-        app.dependency_overrides[get_config] = lambda: config
+    publish_stores_nothing(app)
+    publish_failure_bodies(app)
 
     return app

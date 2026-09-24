@@ -84,7 +84,7 @@ export function FormTeamErsatzSection({
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
 
       if (!res.success) {
-        appToast.danger("Team nicht ersetzt", { description: res.error });
+        appToast.failure("Team nicht ersetzt", res);
         return;
       }
 

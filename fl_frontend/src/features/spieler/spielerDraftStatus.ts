@@ -21,7 +21,6 @@ export type FLSpielerDraftFields = {
     nummer: string;
     position: FLSpielerPosition | null;
     stufe: FLSpielerStufe | null;
-    ist_nachnominiert: boolean;
     rolle: FLSpielerRolle | null;
   } | null;
 };

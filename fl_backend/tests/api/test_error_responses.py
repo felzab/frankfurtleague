@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
@@ -21,7 +21,9 @@ from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
+from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
+from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
 # handler caplog attaches at setup.
@@ -59,6 +61,24 @@ VALIDATION_APP.add_middleware(TraceContextMiddleware)
 @VALIDATION_APP.post("/name")
 async def refuse_a_name(payload: NamePayload) -> dict[str, bool]:
     """Never reached: the pattern refuses the only body the tests post."""
+
+    return {"ok": True}
+
+
+class NestedKontakt(BaseModel):
+    email: str = Field(max_length=5)
+
+
+class NestedPayload(BaseModel):
+    """The two shapes a form path takes past a top-level key: a sub-object and a list entry."""
+
+    kontakt: NestedKontakt
+    namen: list[NamePayload]
+
+
+@VALIDATION_APP.post("/nested")
+async def refuse_a_nested_field(payload: NestedPayload, limit: int = 0) -> dict[str, bool]:
+    """Never reached: every case posts a body or a query the route refuses."""
 
     return {"ok": True}
 
@@ -116,11 +136,12 @@ class TestFailureBodies:
 
         assert response.status_code == 422
         assert jsonlib.loads(bytes(response.body))["error_code"] == "REQ-VAL-001"
+        assert jsonlib.loads(bytes(response.body))["fields"] == []
 
     def test_the_body_carries_nothing_but_the_code_and_the_id(self):
         body = client().get("/api/v0/spiele").json()
 
-        # Messages, validation details and stack traces belong to the log, never the wire.
+        # Messages, refused values and stack traces belong to the log, never the wire.
         assert set(body) == {"error_code", "trace_id"}
 
     def test_no_header_carries_the_message_either(self):
@@ -140,6 +161,119 @@ class TestFailureBodies:
         # Named too, so the case cannot pass on a set that matched while a value leaked: this is
         # the message the 401 above actually carries.
         assert "does not exist or is not valid" not in " ".join(response.headers.values())
+
+
+def refused(body: object | None = None, *, content: bytes | None = None, query: str = "") -> dict[str, Any]:
+    """The 422 a payload earns at `/nested`, asserted to BE one, so no case reads fields off a success."""
+
+    validation_client = TestClient(VALIDATION_APP, raise_server_exceptions=False)
+    if content is None:
+        response = validation_client.post(f"/nested{query}", json=body)
+    else:
+        response = validation_client.post("/nested", content=content, headers={"content-type": "application/json"})
+
+    assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+    return response.json()
+
+
+VALID_NESTED = {"kontakt": {"email": "a@b"}, "namen": [{"vorname": "Anna"}]}
+
+
+class TestTheRefusedFieldsReachTheCaller:
+    """`docs/logging/spec.md :: L4`: a 422 names where each refusal sits, so a form marks that field."""
+
+    def test_a_nested_field_is_named_by_its_path_inside_the_body(self):
+        body = refused({"kontakt": {"email": "far-too-long"}, "namen": []})
+
+        assert body["fields"] == [{"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long"}]
+
+    def test_a_list_entry_is_named_by_its_index(self):
+        body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
+
+        # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries.
+        assert body["fields"] == [{"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch"}]
+
+    def test_every_refusal_is_named_rather_than_the_first(self):
+        body = refused({"kontakt": {}, "namen": [{"vorname": REJECTED_NAME}]})
+
+        assert [(field["path"], field["kind"]) for field in body["fields"]] == [
+            (["kontakt", "email"], "missing"),
+            (["namen", 0, "vorname"], "string_pattern_mismatch"),
+        ]
+
+    def test_a_refused_query_parameter_is_named_where_it_arrived(self):
+        body = refused(VALID_NESTED, query="?limit=many")
+
+        assert body["fields"] == [{"in": "query", "path": ["limit"], "kind": "int_parsing"}]
+
+    def test_an_undecodable_body_names_no_path(self):
+        """FastAPI reports the character offset parsing stopped at, which a form would read as a list index."""
+
+        body = refused(content=b'{"kontakt": ')
+
+        assert body["fields"] == [{"in": "body", "path": [], "kind": "json_invalid"}]
+
+    def test_the_value_and_pydantics_english_stay_off_the_wire(self):
+        body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
+
+        # The exact key sets, so a value or a message under any name moves this.
+        assert set(body) == {"error_code", "trace_id", "fields"}
+        assert [set(field) for field in body["fields"]] == [{"in", "path", "kind"}]
+        assert REJECTED_NAME not in str(body)
+        assert "String should match pattern" not in str(body)
+
+
+def published_operations() -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (f"{method.upper()} {path}", operation) for path, methods in build_document()["paths"].items() for method, operation in methods.items()
+    ]
+
+
+def published_schema(response: dict[str, Any]) -> str:
+    return response["content"]["application/json"]["schema"]["$ref"].removeprefix("#/components/schemas/")
+
+
+class TestThePublishedFailureBodies:
+    """`docs/backend/spec.md :: I345`: the document describes the bodies the handlers send."""
+
+    def test_every_operation_publishes_the_envelope_for_its_failures(self):
+        operations = published_operations()
+
+        assert [name for name, operation in operations if "default" not in operation["responses"]] == []
+        assert {published_schema(operation["responses"]["default"]) for _, operation in operations} == {"FLFailureBody"}
+
+    def test_the_refused_payload_is_published_on_every_operation_taking_input_and_nowhere_else(self):
+        """Read off the operation's own `parameters` and `requestBody`, a listing the 422 declaration never feeds."""
+
+        operations = published_operations()
+        takes_input = {name for name, operation in operations if operation.get("parameters") or "requestBody" in operation}
+
+        assert {name for name, operation in operations if "422" in operation["responses"]} == takes_input
+        assert {published_schema(operation["responses"]["422"]) for name, operation in operations if name in takes_input} == {
+            "FLRefusedPayloadBody"
+        }
+        # Both sides at once, so the equality above cannot hold over two empty sets.
+        assert takes_input and len(takes_input) < len(operations)
+
+    def test_the_schemas_are_published_in_the_order_fastapi_writes_its_own(self):
+        """Sorted, so a rewrite of `fl_backend/openapi.json` never moves a schema it did not change."""
+
+        schemas = list(build_document()["components"]["schemas"])
+
+        assert schemas == sorted(schemas)
+
+    def test_fastapis_own_validation_body_is_published_nowhere(self):
+        assert {"HTTPValidationError", "ValidationError"}.isdisjoint(build_document()["components"]["schemas"])
+
+    def test_a_refused_payload_is_the_published_shape_and_nothing_more(self):
+        body = refused({"kontakt": {"email": "far-too-long"}, "namen": [{"vorname": REJECTED_NAME}]})
+
+        assert FLRefusedPayloadBody.model_validate(body).model_dump(by_alias=True) == body
+
+    def test_any_other_failure_is_the_published_shape_and_nothing_more(self):
+        body = client().get("/api/v0/spiele").json()
+
+        assert FLFailureBody.model_validate(body).model_dump() == body
 
 
 class TestErrorCodeLogging:
@@ -310,7 +444,7 @@ def database_crash_document(caplog, exc: PyMongoError) -> str:
         try:
             raise exc
         except PyMongoError as live:
-            asyncio.run(db_exception_handler(None, live))  # type: ignore[arg-type]
+            asyncio.run(db_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), live))
 
     return logged_document(caplog)
 
@@ -318,7 +452,7 @@ def database_crash_document(caplog, exc: PyMongoError) -> str:
 class TestValidationLoggingWithholdsTheValue:
     """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
 
-    Asserted on the LOG, never the wire: the body carries only the code and the id, so a wire test
+    Asserted on the LOG, never the wire: the body carries no message and no value, so a wire test
     passes whatever the handler writes.
     """
 
@@ -419,7 +553,7 @@ class TestValidationLoggingWithholdsTheValue:
     def test_the_refusal_still_hands_back_an_id_to_quote(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
 
-        # The one join between a 422 nobody can read and the line that says which field failed.
+        # The one join between a 422 and the line saying why its field failed.
         assert re.fullmatch(r"[a-f0-9]{32}", response.json()["trace_id"])
 
 

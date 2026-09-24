@@ -72,8 +72,8 @@ describe("the rollover panel's blocked states", () => {
   it("raises neither callout while the rollover stands open", () => {
     const { unmount } = render(panel(OPEN));
 
-    assert.equal(screen.queryByText("Diese Saison hat Spieltage ohne Datum"), null);
-    assert.equal(screen.queryByText("Diese Saison hat noch keinen Spielplan"), null);
+    assert.ok(screen.queryByText("Diese Saison hat Spieltage ohne Datum") === null);
+    assert.ok(screen.queryByText("Diese Saison hat noch keinen Spielplan") === null);
     assert.equal(screen.getByRole("button", { name: `Auf Saison ${SAISON_ID} umstellen` }).getAttribute("aria-disabled"), null);
     unmount();
   });

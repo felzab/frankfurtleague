@@ -12,13 +12,14 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPa
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
+    REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     compose_bestaetigung,
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -48,14 +49,16 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
 
-# As the pupil typed it. `spieler.email` holds the fold of it, which is what the person join asks on.
+# Unfolded, as the payload stores it. `spieler.email` holds the fold of it, which is what the person join asks on.
 TYPED_EMAIL = "Quillhilde@Example.com"
 FOLDED_EMAIL = "quillhilde@example.com"
 
 # Against `TODAY`, `2010-04-01` is 16 to the day and `2010-04-02` is 15 years and 364 days.
 AT_THE_FLOOR = "2010-04-01"
 A_DAY_SHORT = "2010-04-02"
-A_RETURNING_PUPILS_BIRTHDATE = "2008-07-14"
+# Eighteen by the held consent's `datum`, as its media yes requires
+# (`app/api/registrierungen/services.py :: find_medien_refusal`): a record no write could store proves nothing.
+A_RETURNING_PUPILS_BIRTHDATE = "2007-07-14"
 A_TWINS_BIRTHDATE = "2007-02-02"
 
 THIS_SEASONS_LABEL = "2026-09-spielerseite"
@@ -181,7 +184,8 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "token": token,
         "geburtsdatum": AT_THE_FLOOR,
         "umfang": "kader_oeffentlich",
-        "medien": True,
+        # Off, because the default date is sixteen: a media consent is refused below eighteen.
+        "medien": False,
         "text_version": THIS_SEASONS_LABEL,
         **overrides,
     }
@@ -244,13 +248,28 @@ class TestWhatALinkOpens:
         assert response.text_version == AN_OLDER_LABEL
 
     def test_the_join_asks_on_the_folded_address(self, mongo_replica_set_url: str):
-        """The registration stores the address as typed; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
+        """The registration stores the address unfolded; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
 
         capitalised = spieler_document(SPIELER_OID, email="QUILLHILDE@EXAMPLE.COM")
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
 
         assert response.geburtsdatum is None
+
+    def test_the_join_reaches_a_pupil_whose_domain_was_stored_in_unicode(self, mongo_replica_set_url: str):
+        """A registration stores the punycode, and a pupil stored before the address rule the decoded domain.
+
+        An equality on one spelling shows this pupil nothing.
+        """
+
+        typed = registrierung_document(email="quillhilde@xn--exmple-cua.com")
+        stored_before = spieler_document(SPIELER_OID, email="quillhilde@exämple.com")
+
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[typed], spieler=[stored_before]
+        )
+
+        assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
 
     def test_a_differently_named_pupil_at_the_same_mailbox_is_shown_nothing(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
@@ -290,6 +309,27 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=household)
 
         assert response.geburtsdatum == A_TWINS_BIRTHDATE
+
+    def test_a_household_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
+        """Nine rows at one mailbox, the pupil's two namesakes seeded last: a read capped at eight reaches one of them and shows it as sole."""
+
+        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796003{n}"), vorname=f"Geschwister{n}") for n in range(7)]
+        namesakes = [spieler_document(ObjectId("6890a1b2c3d4e5f607960038")), spieler_document(ObjectId("6890a1b2c3d4e5f607960039"))]
+
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, *namesakes])
+
+        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
+
+    def test_a_household_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
+        """The bound's own rule: nine rows holding ONE namesake, whom the narrowing alone would show as sole."""
+
+        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796004{n}"), vorname=f"Geschwister{n}") for n in range(8)]
+
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, spieler_document(SPIELER_OID)]
+        )
+
+        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
@@ -348,7 +388,7 @@ class TestWhatAConfirmationWrites:
             "datum": TODAY,
             "bestaetigt_am": TODAY,
             "text_version": THIS_SEASONS_LABEL,
-            "medien": True,
+            "medien": False,
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["bestaetigung"]["token_hash"] == TOKEN_HASH
@@ -356,7 +396,7 @@ class TestWhatAConfirmationWrites:
             "bestaetigt",
             AT_THE_FLOOR,
             "kader_oeffentlich",
-            True,
+            False,
         )
         # One write, one row, one image: the confirmation is a patch and files its pre-image like any other.
         assert [row["operation"] for row in rows] == ["patch_one"]
@@ -419,8 +459,10 @@ class TestWhatAConfirmationWrites:
 
 class TestTheLinkIsSpentByTheStamp:
     def test_a_second_press_is_refused_and_the_first_answer_stands(self, mongo_replica_set_url: str):
+        """The first answer carries `medien`, so a refused press that overwrote either half of the pair turns this red."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW)
+            await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
             with pytest.raises(DocumentConflictException) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
@@ -521,3 +563,28 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert code == REGISTRIERUNG_TOKEN_UNKNOWN
         assert document == registrierung_document()
+
+
+# Against `TODAY`, 18 to the day and 17 years and 364 days.
+AT_THE_MEDIA_AGE = "2008-04-01"
+A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
+
+
+class TestTheMediaAge:
+    """`REQ-REGISTRIERUNG-010` at the endpoint: the refusal is wired in, and judged before the write."""
+
+    def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
+        assert on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as conflict:
+                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+
+            return conflict.value.error_code, await stored(database), await log_rows(database)
+
+        code, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_MEDIEN_ALTER
+        assert document == registrierung_document()
+        assert rows == []

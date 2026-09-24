@@ -15,9 +15,9 @@ from app.api.einladungen.services import (
     compose_widerruf_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
-    registrierungsfenster_laeuft,
 )
-from app.api.saisons.cache import invalidate_saison_cache
+from app.api.registrierungen.services import saison_nimmt_registrierungen_an
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
@@ -221,6 +221,7 @@ async def patch_team(
             db_filter={"_id": team_id},
             update={"$set": team_data.model_dump(mode="json")},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         # Read through the session, so a season closed by a concurrent write cannot leave the
@@ -383,15 +384,14 @@ async def post_saison_team(
 
         return document
 
-    # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
-    # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
-    # everything it judges.
-    async with db.start_session() as session:
-        entered = await session.with_transaction(enter_the_club)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
+        # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
+        # everything it judges.
+        async with db.start_session() as session:
+            entered = await session.with_transaction(enter_the_club)
 
     return FLSaisonTeamResponse(
         saison_id=saison_team_data.saison_id,
@@ -465,18 +465,18 @@ async def patch_saison_team(
             db_filter={"team_id": team_id, "saison_id": saison_id},
             update={"$set": saison_team_data.model_dump(mode="json")},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         return existing_raw, updated_raw
 
-    # One transaction, because a group change makes two writes: this row and the season the group's
-    # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
-    async with db.start_session() as session:
-        existing_raw, updated_raw = await session.with_transaction(move_the_club)
-
-    # After the commit, and whatever field the refusal helper's own write moved: every season write
-    # drops the cache (`docs/backend/spec.md :: I131`).
-    invalidate_saison_cache()
+    # Whatever field the refusal helper's own write moved: every season write drops the cache
+    # (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        # One transaction, because a group change makes two writes: this row and the season the group's
+        # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
+        async with db.start_session() as session:
+            existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
     # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
@@ -543,6 +543,7 @@ async def patch_saison_team_kontakte(
             # whatever this caller last read.
             update={"$set": {"kontakte": kontakte}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         return FLPatchSaisonTeamKontakteResponse(
@@ -658,6 +659,7 @@ async def replace_saison_team(
             # colour and the contacts describe the OUTGOING school (`docs/backend/spec.md :: I50`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None}},
             session=session,
+            return_document=ReturnDocument.AFTER,
         )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
@@ -825,11 +827,11 @@ async def get_einladung(
     of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
     rather than a delivery failure.
 
-    `laeuft` is the season's registration window judged against today, and it is the whole of the link's expiry. 404 where no season holds
-    that id; a team with no invitation answers `einladung: null` rather than a 404.
+    `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
+    the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
     """
 
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung"])
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung", "status"])
 
     # A list read where the answer is one row: a team legitimately holds no live invitation, and
     # `pull_one_from_db` would make that absence a 404.
@@ -844,5 +846,5 @@ async def get_einladung(
         saison_id=saison_id,
         team_id=team_id,
         einladung=FLEinladung.model_validate(live[0]) if live else None,
-        laeuft=registrierungsfenster_laeuft(registrierung=saison_raw.get("registrierung"), today=today),
+        laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
     )

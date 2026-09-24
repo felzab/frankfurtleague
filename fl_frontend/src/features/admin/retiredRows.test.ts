@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { IDENTITY_NAME, identityName } from "@/shared/components/ui/adminTable.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
@@ -14,6 +15,8 @@ import type { AdminSpielerRow } from "@/features/spieler/types.ts";
 import type { FLSpielort } from "@/features/spielorte/schemas.ts";
 import type { AdminTeamRow } from "@/features/teams/types.ts";
 import type { ReactNode } from "react";
+
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */

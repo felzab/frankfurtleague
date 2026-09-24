@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { DECLARED_RULES } from "@/shared/testing/refusalRegister.ts";
+import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit.ts";
 
 import { alterAusserhalb } from "./constants.ts";
 import {
@@ -37,8 +41,13 @@ const refusal = (code: string, status = 409) =>
     statusCode: status,
     serverErrorCode: code,
     endpoint: "/registrierungen",
+    method: "POST",
+    readOnly: false,
     traceId: "kein-echter-trace",
   });
+
+/** A `REQ-VAL-001` naming one body path, as `fl_frontend/src/core/api.ts` reads it off the 422. */
+const refusedAt = (...path: string[]) => refusedPayload([bodyField(path)], "/registrierungen");
 
 const DRAFT: RegistrierungFormDraft = {
   vorname: "Mira",
@@ -80,15 +89,24 @@ describe("what one refused submission shows", () => {
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-BEWERBUNG-004")), null, "a code of another flow's is mapped here");
   });
 
-  it("sends a dead invite to the page's own panel rather than to a field", () => {
-    assert.deepEqual(mapRegistrierungSubmitRefusal(refusal("REQ-EINLADUNG-003")), { zustand: "ungueltig" });
+  it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
+    assert.deepEqual(mapRegistrierungSubmitRefusal(refusedAt("email")), {
+      fieldErrors: { email: FELD_ABGELEHNT },
+      unplacedError: REGISTRIERUNG_NEU_OEFFNEN,
+    });
   });
 
-  it("puts the stufe refusal under the control that offered it", () => {
-    const answered = mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-003"));
+  /* The page strips its token from the address bar, so a reload lands a live link on the panel
+     calling it void; every refusal only a moved season or a drifted page sends reopens the link. */
+  it("sends every stale-page refusal back to the team's link rather than a reload", () => {
+    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003"]) {
+      assert.deepEqual(mapRegistrierungSubmitRefusal(refusal(code)), { error: REGISTRIERUNG_NEU_OEFFNEN }, code);
+    }
+    assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-VAL-001", 422))?.error, REGISTRIERUNG_NEU_OEFFNEN);
+  });
 
-    assert.ok(answered?.fieldErrors?.stufe !== undefined, "the narrowed-Stufe refusal reaches no control");
-    assert.equal(answered.error, undefined, "the refusal is said twice, at the field and as a banner");
+  it("sends a dead invite to the page's own panel rather than to a field", () => {
+    assert.deepEqual(mapRegistrierungSubmitRefusal(refusal("REQ-EINLADUNG-003")), { zustand: "ungueltig" });
   });
 
   it("tells a banned address nothing about a list", () => {
@@ -101,13 +119,31 @@ describe("what one refused submission shows", () => {
     }
   });
 
-  it("answers the window and the junction as a banner, neither naming a field", () => {
-    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-008"]) {
+  it("answers the window, the junction, the narrowed Stufe and the full squad as a banner, none naming a field", () => {
+    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003", "REQ-REGISTRIERUNG-008"]) {
       const answered = mapRegistrierungSubmitRefusal(refusal(code));
 
       assert.notEqual(answered, null, `${code} is not mapped at all`);
       assert.ok((answered?.error ?? "") !== "", `${code} reaches the reader as nothing`);
       assert.equal(answered?.fieldErrors, undefined, `${code} marks a control no reader can fix`);
+    }
+  });
+
+  /* The first press stands under a repeated key, and no team can edit a pupil's registration, so the
+     repair is the league's address. */
+  it("sends a pupil whose repeated press changed its details to the league", () => {
+    const answered = mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"));
+
+    const error = answered?.error ?? "";
+    assert.ok(error.includes(`schreib uns an ${KONTAKT_EMAIL}`), error);
+    assert.equal(answered?.fieldErrors, undefined);
+  });
+
+  // The mark the panel titles by: the registration arrived, so „nicht abgeschickt“ would be false.
+  it("marks the repeated press's refusal as arrived, and no other refusal", () => {
+    assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"))?.schonAngekommen, true);
+    for (const code of ["REQ-EINLADUNG-003", "REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-008", "REQ-REGISTRIERUNG-009"]) {
+      assert.equal(mapRegistrierungSubmitRefusal(refusal(code))?.schonAngekommen, undefined, code);
     }
   });
 
@@ -117,6 +153,7 @@ describe("what one refused submission shows", () => {
     const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen")).map((rule) => rule.code);
     const mapped = [
       "REQ-EINLADUNG-003",
+      "REQ-REGISTRIERUNG-011",
       "REQ-REGISTRIERUNG-001",
       "REQ-REGISTRIERUNG-002",
       "REQ-REGISTRIERUNG-003",
@@ -188,6 +225,21 @@ describe("what one refused confirmation shows", () => {
     assert.equal(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(null).lesen), null);
   });
 
+  /* Only a page older than the media rule sends a yes below the media age: the answer is a drifted
+     client's, never a panel or a field calling a right date wrong. */
+  it("answers a media yes below the media age with the mail's link a stale page needs", async () => {
+    const mapped = await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-010"), floorOf(16).lesen);
+
+    assert.deepEqual(mapped, { error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
+  });
+
+  it("puts a body refusal naming a field on that field's box, with the mail's link beside it, reading no floor", async () => {
+    const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), () => Promise.reject(new Error("the floor was read")));
+
+    assert.deepEqual(mapped, { fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
+  });
+
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
     assert.equal((await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.zustand, undefined);
   });
@@ -196,7 +248,13 @@ describe("what one refused confirmation shows", () => {
      confirmation raises and this mapper does not know falls through to the 409 fallback. */
   it("maps every code the confirmation declares, and no code it does not", async () => {
     const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen/bestaetigung")).map((rule) => rule.code);
-    const mapped = ["REQ-REGISTRIERUNG-004", "REQ-REGISTRIERUNG-005", "REQ-REGISTRIERUNG-006", "REQ-REGISTRIERUNG-007"];
+    const mapped = [
+      "REQ-REGISTRIERUNG-004",
+      "REQ-REGISTRIERUNG-005",
+      "REQ-REGISTRIERUNG-006",
+      "REQ-REGISTRIERUNG-007",
+      "REQ-REGISTRIERUNG-010",
+    ];
 
     for (const code of mapped) {
       assert.notEqual(await mapBestaetigungRefusal(refusal(code), floorOf(16).lesen), null, `${code} is listed here and maps to nothing`);

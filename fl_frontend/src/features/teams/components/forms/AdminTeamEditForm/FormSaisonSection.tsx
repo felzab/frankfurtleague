@@ -96,7 +96,7 @@ function GruppenTauschControl({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
 
       if (!res.success) {
-        appToast.danger("Gruppen nicht getauscht", { description: res.error });
+        appToast.failure("Gruppen nicht getauscht", res);
         return;
       }
 
@@ -280,7 +280,7 @@ export function FormSaisonSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
       // also said in a toast that names no field.
       if (gruppeError === null) {
-        appToast.danger("Team nicht aufgenommen", { description: res.error });
+        appToast.failure("Team nicht aufgenommen", res);
       }
     });
   };

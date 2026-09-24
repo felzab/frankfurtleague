@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
@@ -441,6 +441,7 @@ async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) 
         collection=database[Collection.SPIELE],
         db_filter={"_id": spiel_id},
         update={"$set": {"uhrzeit": A_RESCHEDULED_TIME}},
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -485,6 +486,18 @@ async def call_anonymisation(
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         germany_now=NOW,
+    )
+
+
+async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> Any:
+    return await reactivate_schiedsrichter(
+        schiedsrichter_id=schiedsrichter_id,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+        config=CONFIG,
+        today=TODAY,
     )
 
 
@@ -755,10 +768,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     today=A_LATER_PRESS,
                 )
             else:
-                await reactivate_schiedsrichter(
-                    schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID,
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                )
+                await call_reactivation(database, client, GHOST_SCHIEDSRICHTER_ID)
 
         return (await stored_referees(database))[GHOST_SCHIEDSRICHTER_ID], await stored_fixtures(database)
 
@@ -780,9 +790,7 @@ def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url
         await database[Collection.SCHIEDSRICHTER].update_one(
             {"_id": OTHER_SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": AN_EARLIER_RETIREMENT}}
         )
-        response = await reactivate_schiedsrichter(
-            schiedsrichter_id=OTHER_SCHIEDSRICHTER_OID, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER]
-        )
+        response = await call_reactivation(database, client, OTHER_SCHIEDSRICHTER_OID)
 
         return response.updated_document.inactive_since
 
@@ -1057,6 +1065,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_emptied_too(mongo_replica_set
                     }
                 }
             },
+            return_document=ReturnDocument.BEFORE,
         )
         await call_anonymisation(database, client)
 

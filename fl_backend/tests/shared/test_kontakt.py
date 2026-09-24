@@ -1,8 +1,14 @@
-import pytest
-from pydantic import ValidationError
+from collections.abc import Callable
+from typing import Any
 
+import pytest
+from pydantic import BaseModel, ValidationError
+
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
+
+Body = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 # Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
@@ -46,15 +52,15 @@ def test_rejects_an_address_one_character_over_the_length_ceiling(kontakt):
 
 
 def test_publishes_the_ceiling_the_zod_mirror_copies():
-    """`EmailStr` alone refuses 255 without stating a bound, and a mirror copies a number only from a PUBLISHED one."""
+    """`email-validator` alone refuses 255 without stating a bound, and a mirror copies a number only from a PUBLISHED one."""
     email = FLKontaktPayload.model_json_schema()["properties"]["email"]
 
-    assert [option["maxLength"] for option in email["anyOf"] if "maxLength" in option] == [KONTAKT_EMAIL_MAX_LENGTH]
+    assert email["maxLength"] == KONTAKT_EMAIL_MAX_LENGTH
 
 
 @pytest.mark.parametrize("local_part_length", [64, 65])
 def test_accepts_a_local_part_at_and_over_rfc_5321s_64_octets(kontakt, local_part_length):
-    """email-validator applies that cap only under `strict`, which `EmailStr` does not pass.
+    """email-validator applies that cap only under `strict`, which `league_address` does not pass.
 
     Pinned because the zod mirror matches deliberately: bounding it there alone would refuse an
     address the API stores.
@@ -84,17 +90,47 @@ def test_accepts_the_phone_formats_in_use(kontakt, telefon):
     assert FLKontaktPayload.model_validate(kontakt(telefon=telefon)).telefon == telefon
 
 
-def test_treats_both_fields_as_optional(kontakt):
-    parsed = FLKontaktPayload.model_validate(kontakt(telefon=None, email=None))
-    assert parsed.telefon is None
-    assert parsed.email is None
+def test_the_telephone_is_optional(kontakt):
+    assert FLKontaktPayload.model_validate(kontakt(telefon=None)).telefon is None
 
 
-def test_coerces_empty_strings_to_none(kontakt):
-    """An untouched contact box must not fail validation: empty means not provided, never malformed."""
-    parsed = FLKontaktPayload.model_validate(kontakt(telefon="", email=""))
-    assert parsed.telefon is None
-    assert parsed.email is None
+def test_coerces_an_empty_telephone_to_none(kontakt):
+    """An untouched telephone box must not fail validation: empty means not provided, never malformed."""
+    assert FLKontaktPayload.model_validate(kontakt(telefon="")).telefon is None
+
+
+def the_referee_body(kontakt: dict[str, Any]) -> dict[str, Any]:
+    return {"name": "Anna Pfeife", "schule": None, "default_payment": 20, "kontakt": kontakt}
+
+
+# The contact block alone, and each referee payload whole: a payload redeclaring `kontakt` would
+# pass a case over the block's own type.
+BODIES = [
+    pytest.param(FLKontaktPayload, lambda block: block, id="the contact block"),
+    pytest.param(FLPostSchiedsrichterPayload, the_referee_body, id="the referee create"),
+    pytest.param(FLPatchSchiedsrichterPayload, the_referee_body, id="the referee save"),
+]
+
+
+class TestTheAddressIsRequired:
+    """A referee's address is how they learn an administrator entered them, so no payload stores a referee without one."""
+
+    @pytest.mark.parametrize(("payload", "body"), BODIES)
+    @pytest.mark.parametrize("email", [None, ""], ids=["null", "an emptied box"])
+    def test_a_payload_without_an_address_is_refused(self, kontakt, payload: type[BaseModel], body: Body, email):
+        with pytest.raises(ValidationError):
+            payload.model_validate(body(kontakt(email=email)))
+
+    @pytest.mark.parametrize(("payload", "body"), BODIES)
+    def test_the_placeholder_under_the_reserved_domain_is_refused(self, kontakt, payload: type[BaseModel], body: Body):
+        """What makes the admin enter the real address: a row carrying the placeholder saves only once it is replaced."""
+        with pytest.raises(ValidationError):
+            payload.model_validate(body(kontakt(email="adresse-fehlt@frankfurtleague.invalid")))
+
+    @pytest.mark.parametrize(("payload", "body"), BODIES)
+    def test_the_same_body_with_an_address_is_accepted(self, kontakt, payload: type[BaseModel], body: Body):
+        """The control: a body refused for something besides the address would pass both cases above."""
+        payload.model_validate(body(kontakt()))
 
 
 class TestTheReadShapeJudgesNeitherMember:

@@ -74,8 +74,8 @@ function Gefuellt({ text, werte }: { text: string; werte: Slots }) {
   );
 }
 
-/** A stamped paragraph, whichever key it stands under. */
-function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
+/** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
+export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
   return (
     <Gefuellt
       text={BESTAETIGUNG_ABSAETZE[schluessel]}
@@ -191,6 +191,12 @@ export function BestaetigungHinweise({
         <p className={ABSATZ}>
           <Absatz
             schluessel="widerruf"
+            werte={werte}
+          />
+        </p>
+        <p className={ABSATZ}>
+          <Absatz
+            schluessel="art21"
             werte={werte}
           />
         </p>
