@@ -103,7 +103,7 @@ def check_error_codes() -> list[Finding]:
     if not declared:
         # The one finding, and no comparison after it: the one below subtracts the declared rules,
         # and would demand a row for every domain rule the backend spells.
-        detail = f"`{DOMAIN_MODULE}` yielded no rule declaration, so every domain rule was read as a row owed"
+        detail = f"`{DOMAIN_MODULE}` yielded no rule declaration, so the register was held to nothing"
         return [Finding("fail", ERROR_CODES_CHECK, rel, detail)]
     found: list[Finding] = []
     for code in sorted(rows & declared):

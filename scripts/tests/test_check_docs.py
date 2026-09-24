@@ -1898,11 +1898,13 @@ def test_a_rule_register_read_as_nothing_is_named_once_and_compared_to_nothing()
     _reset()
     _replace(DOMAIN_REGISTER, "RULES: tuple[Rule, ...] = (", "RULES = (")
     try:
-        _, reported = _run()
+        _, output = _output()
     finally:
         _reset()
+    reported = _reported(output)
     spoke = {key: count for key, count in reported.items() if key[1] == "error-codes"}
     assert spoke == {("fail", "error-codes", ERROR_CODES): 1}, "an unreadable rule register was not named alone: " + _shape(reported)
+    assert "yielded no rule declaration, so the register was held to nothing" in output, "the finding misstates what it cost: " + output
     _assert_corpus_restored()
 
 
