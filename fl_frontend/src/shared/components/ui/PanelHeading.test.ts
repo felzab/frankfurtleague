@@ -82,7 +82,7 @@ const mentions = (body: string, names: Set<string>) => body.split(/[^A-Za-z0-9_$
 
 describe("a panel's hint sits beside its heading", () => {
   // A hint inside a heading is read out as part of the title. `hint-nest` in
-  // `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses a `<Hint…>` tag written there; no selector
+  // `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses a `<Hint…>` or `<InfoHint>` tag written there; no selector
   // follows a name to the declaration rendering one.
   it("leaves no hint inside a heading through a name that renders one", () => {
     const nested = FILES.filter((file) => {

@@ -15,6 +15,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 import { HintPanel } from "@/shared/components/ui/InfoHint.tsx"; // expect: hint-internals
 import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
@@ -129,6 +130,9 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <h4>
         Titel <HintPopover /* expect: hint-nest */ />
       </h4>
+      <h1 className="inline">
+        Titel <InfoHint label="Hinweis" /* expect: hint-nest */>Text</InfoHint>
+      </h1>
       <span>fluid-xs tabular-nums</span>{/* expect: numeric-pair */}
       {String(facets)}
     </div>

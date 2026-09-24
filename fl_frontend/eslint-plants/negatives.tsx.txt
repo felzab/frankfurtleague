@@ -49,6 +49,11 @@ export function allowedCalls(): void {
 export function AdminCrudView({ facets }: { facets: unknown }) {
   return (
     <div {...bounds}>
+      {/* The top bar's shape: a hint beside the heading, both inline in one block. */}
+      <div>
+        <h1 className="inline">Titel</h1>
+        <InfoHint label="Hinweis">Text</InfoHint>
+      </div>
       {/* A spread stays free on every component but the date controls. */}
       <InfoHint {...bounds} />
       <span className={labelBadge(TONE)} />
