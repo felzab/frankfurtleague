@@ -86,14 +86,6 @@ def as_collection(stub: CountingCollection) -> AsyncCollection:
     return cast(AsyncCollection, stub)
 
 
-@pytest.fixture(autouse=True)
-def empty_cache():
-    """Module state must not leak between tests."""
-    invalidate_saison_cache()
-    yield
-    invalidate_saison_cache()
-
-
 class TestTheCacheContract:
     def test_a_stored_document_reads_back_equal(self):
         store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())

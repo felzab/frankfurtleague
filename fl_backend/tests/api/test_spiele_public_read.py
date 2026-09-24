@@ -8,7 +8,6 @@ from httpx2 import ASGITransport, AsyncClient, Response
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient, MongoClient
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpieleActionRequiredResponse,
@@ -195,13 +194,6 @@ def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
             await app.state.db_client.close()
 
     return asyncio.run(_answered())
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an entry another test -- or another module -- left would answer here."""
-
-    invalidate_saison_cache()
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps

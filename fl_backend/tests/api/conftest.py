@@ -8,6 +8,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.database import Database
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.core.config import BackendConfig
 from tests.config import build_test_config
 
@@ -47,6 +48,20 @@ SAISON_SHORTHANDS = {
 
 # A dict rather than a model: Pydantic could not express a row the validator rejects.
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+
+
+# Every suite in this folder rather than those known to read a season: an endpoint reaches the cache
+# several calls down, where the suite driving it cannot see that it does.
+@pytest.fixture(autouse=True)
+def uncached_saisons() -> Iterator[None]:
+    """Dropped around every test: the season cache is process-global and keyed by season id alone.
+
+    So an entry another test left, against any database, would answer a read here.
+    """
+
+    invalidate_saison_cache()
+    yield
+    invalidate_saison_cache()
 
 
 def config_for(database_name: str) -> BackendConfig:

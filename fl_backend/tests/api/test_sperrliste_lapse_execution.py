@@ -57,13 +57,6 @@ SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
-
-
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
     """The span and the rules are what the shipped validator requires of any season; `status` is what this suite varies."""
 

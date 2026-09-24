@@ -27,7 +27,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import annehmen_bewerbung
 from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
@@ -55,13 +54,6 @@ DATABASE_NAME = worker_database("fl_reference_isolation_test")
 CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
 
 
 SAISON = "2026"

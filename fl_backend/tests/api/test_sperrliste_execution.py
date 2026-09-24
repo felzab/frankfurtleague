@@ -10,7 +10,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
@@ -71,13 +70,6 @@ SAISON_DOCUMENT: dict[str, Any] = {
 }
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
 
 
 def on_a_clean_list(url: str, body: Body) -> Any:

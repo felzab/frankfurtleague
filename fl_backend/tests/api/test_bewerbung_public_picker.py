@@ -13,8 +13,6 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.api.saisons.cache import invalidate_saison_cache
-
 from .test_bewerbung_public_read import CLUBS, OPEN_SAISON, PREFIX, answered, seed_the_public_corpus
 
 # What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
@@ -23,13 +21,6 @@ WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "
 
 # The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
 MISSING_BEARER_TOKEN = "REQ-AUTH-001"
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an entry another test -- or another database -- left would answer here."""
-
-    invalidate_saison_cache()
 
 
 # Module-scoped for the read module's `seeded_url`'s reason.

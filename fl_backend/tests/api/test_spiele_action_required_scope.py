@@ -8,7 +8,6 @@ from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiele_action_required
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -51,13 +50,6 @@ FAULT_SPIELTAG = ObjectId("6890a1b2c3d4e5f6079700a3")
 
 HOME = ObjectId("6890a1b2c3d4e5f607970011")
 AWAY = ObjectId("6890a1b2c3d4e5f607970012")
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
 
 
 def _side(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:

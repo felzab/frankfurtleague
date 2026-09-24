@@ -9,7 +9,6 @@ from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.dependencies import get_germany_now
@@ -130,13 +129,6 @@ def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str |
         "address": dict(ADDRESS),
         "inactive_since": inactive_since,
     }
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an entry another test -- or another database -- left would answer here."""
-
-    invalidate_saison_cache()
 
 
 def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:

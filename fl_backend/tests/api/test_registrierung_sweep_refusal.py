@@ -4,7 +4,7 @@ import ast
 import asyncio
 import inspect
 import textwrap
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -29,7 +29,6 @@ from app.api.registrierungen.services import (
     link_is_unreachable,
     undecided_erasure_is_due,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_current_saison
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
@@ -542,17 +541,8 @@ class _Db:
         return None
 
 
-@pytest.fixture
-def a_dropped_cache() -> Iterator[None]:
-    """One process holds one cache, so a case leaving an entry behind would decide the next one."""
-
-    invalidate_saison_cache()
-    yield
-    invalidate_saison_cache()
-
-
 class TestTheStampDropsTheCachedSeason:
-    def test_a_cached_season_read_after_the_pass_carries_the_day(self, a_dropped_cache: None):
+    def test_a_cached_season_read_after_the_pass_carries_the_day(self):
         """A season write that leaves the cache standing serves the old document for a whole TTL.
 
         Driven over doubles: the drop leaves no trace on the wire.
