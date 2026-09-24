@@ -232,11 +232,16 @@ def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tm
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("pass", "0"), ("fail", "1"), ("refuse", "2")]
 
 
-def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tmp_path: Path) -> None:
+def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_order_units_finish_in(tmp_path: Path) -> None:
     """The caller replays in written order, so the manifest keeps it whichever unit finished first."""
-    result = _pool(tmp_path, [("db", *_exits(0)), ("ops", *_exits(0))])
+    lingers = (sys.executable, "-c", "import time; time.sleep(1)")
+    result = _pool(tmp_path, [("db", *lingers), ("ops", *_exits(0))])
     assert result.returncode == 0, result.stderr
-    assert [row[0] for row in _rows(tmp_path)] == ["db", "ops"]
+    rows = _rows(tmp_path)
+    assert [(row[0], row[1]) for row in rows] == [("db", "0"), ("ops", "0")]
+    # The premise, read off the manifest's own end times: two units finishing in the written order
+    # would pass a manifest kept in finishing order too.
+    assert int(rows[1][3]) < int(rows[0][3]), f"ops did not finish before db, so the order was never tested: {rows}"
 
 
 def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_path: Path) -> None:
