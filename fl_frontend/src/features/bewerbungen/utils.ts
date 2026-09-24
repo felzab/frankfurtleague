@@ -8,7 +8,7 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SEAT_MIN_ALTER } from "./constants";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
@@ -100,15 +100,6 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
   return createdTeam
     ? `Das Team wurde angelegt und in Gruppe ${gruppe} der Saison ${saisonId} aufgenommen.`
     : `Das Team wurde in Gruppe ${gruppe} der Saison ${saisonId} aufgenommen.`;
-}
-
-/**
- * The floor the PERSON clears, mirroring `fl_backend/app/api/bewerbungen/services.py ::
- * mindestalter_for`: the highest any seat they hold asks for. Never the one seat a surface happens
- * to be rendering, or a Trainer sitting in one of the other two is offered sixteen.
- */
-export function mindestalterFuer(seats: readonly KontaktRolle[]): number {
-  return Math.max(...seats.map((seat) => SEAT_MIN_ALTER[seat]));
 }
 
 /**
