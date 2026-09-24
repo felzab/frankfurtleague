@@ -15,7 +15,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)                   | Where each role's data is read, and how a request is answered  |
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                                                | The authority, the clock, and what the logs can establish      |
 | [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                  | The host files that bound them, and where a deploy's copies go |
-| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                                    | The one deploy that has steps of its own, and its rollback     |
+| [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                                  | What reverses the tunnel, and the half no commit reaches       |
 | [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                                    | The one call that answers it, and what each answer means       |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
@@ -825,54 +825,14 @@ reopens to the user its configuration names, which is the image's `nginx`. `crea
 is what the rotation leaves, and the first line written after the reopen changes that ownership;
 reading the file needs the host's root either way.
 
-## 8. Putting the tunnel in front of the origin
+## 8. Taking the tunnel back out
 
-**The deploy that first runs `cloudflared` is the only one with steps of its own**, and every one of
-them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later deploy has none.
-
-1. **Issue the tunnel's token in the dashboard and put the value on the server** at
-   `./secrets/tunnel_token`, beside the compose file, owned by uid and gid 65532 with mode `400`: the
-   pinned connector image runs as that user, and Compose hands a file secret over as a bind mount
-   keeping the host's owner and mode, so a file readable by root alone leaves the connector
-   restarting in a loop. `.gitignore` covers
-   `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
-   the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
-2. **Read the two env files against the documented shapes before anything comes down.**
-   `fl_backend/.env` against [`../backend/spec.md`](../backend/spec.md) §1.5 and `fl_frontend/.env`
-   against [`../frontend/spec.md`](../frontend/spec.md) §1.7 — the key lengths and the origin lists
-   especially, since both are pinned exactly and preflight reads the backend's names and values but
-   only the frontend's names (`docs/ops/spec.md :: I181`, `:: I183`). A value the frontend's startup
-   gate refuses surfaces after step 3 has removed the containers that were serving, inside the dark
-   window step 5 is about.
-3. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
-   host was created before any subnet was declared and before Compose began recording a
-   configuration hash on the networks it creates; a network carrying no such record is reused by
-   `up` as it stands, whatever the file now declares (Compose reconciles only a network whose
-   recorded hash diverged), so the connector's static address would be refused at container-create
-   time — after nginx had already given up its published ports. `down` removes the network with the
-   containers, and the next `up` creates it carrying the declared subnet. The old network is left
-   behind only where something outside this compose file still holds it.
-4. **Deploy, add the two public hostnames in the dashboard, then read
-   `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
-   route, because DNS still names an origin that now publishes nothing. Each hostname's origin
-   settings are [`spec.md`](spec.md) §1.8's; an ingress pointed at the plain port meets the
-   redirect block and loops on its 301 rather than failing. **Adding a hostname writes its DNS
-   record, and the dashboard refuses one whose name already holds an `A`, `AAAA` or `CNAME`**, so
-   the records naming the origin's address are deleted first — and written down before that,
-   nothing else recording them once they are gone. `MX` and `TXT` records are no part of this.
-5. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
-   probe both run after the health check and both fail into that dark window, while
-   `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`
-   naming `/api/v0/system/is_live` there is the window being observed rather than a reason to
-   intervene.
-
-**This one deploy's rollback is `git revert` of the change and a redeploy, not `deploy.sh`'s own.**
-That path restores IMAGES, and what would be wrong here is the topology: only the reverted commit
-puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
-applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
-for it to restore in any case (§1). **The edge is the other half, and no commit reaches it**: the
-two hostnames come off the tunnel and the address records step 4 deleted are created again, and
-whatever closed the host's inbound 80 and 443 since is opened.
+**The rollback is `git revert` of the change that put the tunnel in and a redeploy, not
+`deploy.sh`'s own.** That path restores IMAGES, and what would be wrong here is the topology: only
+the reverted commit puts the `ports:` block back and stops the connector, and re-running the
+deploy after it is what applies them. **The edge is the other half, and no commit reaches it**: the
+two hostnames come off the tunnel, the address records naming the origin are created again, and
+whatever closed the host's inbound 80 and 443 is opened.
 
 ## 9. Checking that the retention sweep has run
 
