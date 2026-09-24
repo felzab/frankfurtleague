@@ -45,6 +45,7 @@ const BANS = [
   ["heading", /Render `PanelHeading`/],
   ["hint-nest", /read out as part of the title/],
   ["next-private", /Mount Next's contexts/],
+  ["next-private-load", /Load Next's contexts through/],
   ["segmented-import", /Compose a date or time field/],
   ["heroui-form", /Render a form through/],
   ["hint-internals", /Render a hint through Hint or InfoHint/],

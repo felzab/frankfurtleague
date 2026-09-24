@@ -87,6 +87,7 @@ export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root
 export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-load
 export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
 export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
+export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 // A subpath loads its component alone, and a hole leaves the specifier to run time.
 export const BUTTON_LOADED = import("@heroui/react/button");
 export const HOLED_LOADED = import(`@heroui/react${extra}`);

@@ -296,6 +296,10 @@ const DYNAMIC_LOADS = [
     selector: loadOf(String.raw`^@heroui\/react\/form$`),
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
+  {
+    selector: loadOf(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\/`)),
+    message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
+  },
 ];
 
 /**
