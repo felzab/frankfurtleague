@@ -10,9 +10,9 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-  // An admin request makes five store operations at most: two session reads of two each, and one
-  // refresh. At 3 s each, the store's share stays inside one backend call's
-  // `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` (`docs/frontend/spec.md :: I362`).
+  // Per operation, and an admin action runs up to seven: three session reads of two commands
+  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s
+  // (`docs/frontend/spec.md :: I362`).
   timeoutMS: 3000,
   // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
   // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
