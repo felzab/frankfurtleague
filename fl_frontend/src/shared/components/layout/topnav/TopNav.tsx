@@ -30,7 +30,7 @@ export function TopNav() {
           </Link>
 
           <Link
-            // eslint-disable-next-line no-restricted-syntax -- the public chrome's way into the admin area; no season is in scope outside it
+            // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
             href="/admin"
             className="fluid-sm text-foreground hover:bg-hover rounded-full px-4 py-1.5 font-semibold transition-colors">
             Verwalten
@@ -63,7 +63,7 @@ export function TopNav() {
             <Dropdown.Item
               id="admin"
               textValue="Verwalten"
-              // eslint-disable-next-line no-restricted-syntax -- the public chrome's way into the admin area; no season is in scope outside it
+              // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
               href="/admin"
               className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Verwalten</Label>

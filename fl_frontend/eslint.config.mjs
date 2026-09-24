@@ -44,11 +44,12 @@ function filesUnder(relative) {
  *   - the route files `@next/next/no-html-link-for-pages` reads off disk with `existsSync` and
  *     `readdirSync`, turning their names into the URLs an `<a href>` may not point at, so adding a
  *     page leaves an anchor that now names it cached clean;
- *   - the installed rule implementations, which `stringify` drops because they are functions, so a
- *     plugin bump changes what the rules say and not what the key covers.
+ *   - the rule implementations, which `stringify` drops because they are functions, so a plugin bump
+ *     or an edit to `LOCAL_RULES` changes what the rules say and not what the key covers.
  *
  * Hashing all three into `settings` puts them inside eslint's own key. `pnpm-lock.yaml` stands in for
- * the third: every version this tree resolves is in it, and nothing else names them all.
+ * the installed rules: every version this tree resolves is in it, and nothing else names them all.
+ * This file stands in for its own rules.
  *
  * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
  * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
@@ -58,7 +59,7 @@ function filesUnder(relative) {
  * cache lives, so its run of this step re-decides every file (`docs/ops/spec.md` section 1.6), and a
  * miss here is a false green on a development machine that the pull request's own gate run then fails.
  */
-const HASHED_CONTENTS = ["pnpm-lock.yaml", ...filesUnder("src").filter((file) => file.endsWith(".css"))];
+const HASHED_CONTENTS = ["pnpm-lock.yaml", "eslint.config.mjs", ...filesUnder("src").filter((file) => file.endsWith(".css"))];
 
 /**
  * Names only, because names are all the route rule reads: it maps a file's path to a URL and never
@@ -316,6 +317,33 @@ const DYNAMIC_LOADS = [
  */
 const NAVIGATION = String.raw`CallExpression:matches([callee.property.name=/^(?:push|replace)$/]:matches([callee.object.name=/(?:^r|R)outer$/], [callee.object.property.name=/(?:^r|R)outer$/]), [callee.name=/^(?:redirect|permanentRedirect)$/], [callee.property.name=/^(?:redirect|permanentRedirect)$/])`;
 
+// The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
+// handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
+// renders under a season.
+const UNSEASONED_ADMIN_LINKS = [
+  String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
+  String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
+];
+
+/**
+ * The rules this config defines, registered as a plugin in the config itself. The admin-link ban is
+ * one because its sites are excused one by one, and a disable comment names a rule: one naming
+ * `no-restricted-syntax` would excuse every syntax ban on its line.
+ */
+const LOCAL_RULES = {
+  "admin-link": {
+    meta: {
+      type: "problem",
+      messages: {
+        unseasoned: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
+      },
+      schema: [],
+    },
+    create: (context) =>
+      Object.fromEntries(UNSEASONED_ADMIN_LINKS.map((selector) => [selector, (node) => context.report({ node, messageId: "unseasoned" })])),
+  },
+};
+
 /**
  * An admin view under any declaration its name can carry, a wrapper such as `memo` included.
  * `AdminCrudView` is the shared view the slices' admin views hand the facets they built.
@@ -442,17 +470,6 @@ const SOURCE_BANS = [
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {
-    // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-    // handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
-    // renders under a season.
-    selector: String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
-    message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
-  },
-  {
-    selector: String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
-    message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
-  },
-  {
     selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier)`,
     message: "Import a date control under its own name: the bound and spread bans read the tag.",
     tests: true,
@@ -557,6 +574,7 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: { rules: LOCAL_RULES } }, rules: { "local/admin-link": "error" } },
 
   // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
   // because it IS the guard.

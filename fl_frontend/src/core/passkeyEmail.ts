@@ -57,7 +57,7 @@ const GELOESCHT: Ereignis = {
 };
 
 function aktionen(origin: string): readonly Aktion[] {
-  // eslint-disable-next-line no-restricted-syntax -- a link inside a message, followed from an inbox days later; no season is in scope at composing time
+  // eslint-disable-next-line local/admin-link -- a link inside a message, followed from an inbox days later; no season is in scope at composing time
   return [{ href: `${origin}/admin`, label: ZIEL_LABEL, ton: "primary" }];
 }
 
