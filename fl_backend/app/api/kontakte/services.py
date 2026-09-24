@@ -32,7 +32,7 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
 
 
-def _rows_naming(identifier: str) -> Mapping[str, Any]:
+def _rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
     """The stage both pipelines below open with; `rows_naming` then keeps the rows the fold confirms.
 
     One selection and not two: a reveal listing rows the clearing does not reach confirms an erasure
@@ -50,7 +50,7 @@ def build_matching_rows_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        {"$match": _rows_naming(identifier)},
+        {"$match": _rows_possibly_naming(identifier)},
         # The bookkeeping block's PRESENCE rides along: the clearing nulls its seat only where the
         # block exists, since a dotted `$set` into an absent one creates a block short of its keys.
         {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}, "bestaetigungen": 1}},
@@ -69,7 +69,7 @@ def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        {"$match": _rows_naming(identifier)},
+        {"$match": _rows_possibly_naming(identifier)},
         {"$project": {"saison_id": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in SEAT_FIELDS}}},
         # Ordered here rather than by the reader: a reader counting seats needs one season's together,
         # and natural order is the order the rows were written in.
