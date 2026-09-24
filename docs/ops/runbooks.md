@@ -971,7 +971,7 @@ carries none either, so read what the term matches before dropping anything. It 
 MongoDB Playground paste as well, and it is **not** a referee's erasure, though it repoints as one
 does: every fixture naming one of those rows is repointed at the ghost
 (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled, the
-update `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds. Three things
+update `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds. Four things
 decide whether the one pasted is right:
 
 - **The ghost exists first.** Only an erasure writes it, inside its own transaction, so a league
@@ -984,6 +984,12 @@ decide whether the one pasted is right:
 - **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
   holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
   reads „anonym“.
+- **The log's images of them go too, as an erasure's do.** Every `aktionen` row holding a dropped
+  referee's image, their own rows' and the `spiele` rows' naming them, takes
+  `fl_backend/app/core/recording.py :: build_redaction_update` under one stamp, found by
+  `fl_backend/app/core/recording.py :: build_redaction_filter` and
+  `fl_backend/app/api/schiedsrichter/services.py :: build_booked_image_filter`; otherwise the log
+  keeps their contact fields for its twelve months.
 
 A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
 until a referee is assigned
