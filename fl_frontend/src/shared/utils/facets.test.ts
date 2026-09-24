@@ -547,7 +547,7 @@ describe("the counts a server-narrowed facet is told", () => {
   });
 });
 
-// Stands in for I13 over the admin views; `docs/frontend/spec.md` §4 records the shapes no check reaches.
+// The admin views by path, which the lint's facets ban finds by name alone.
 // Separators normalised before it is tested, so the pattern does not have to know the platform's.
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
@@ -555,49 +555,21 @@ const asPosix = (file: string): string => file.split(path.sep).join("/");
 /** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
 const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
 
-/**
- * The exported component's own parameter list. A window taken to the file's first `)` instead stops
- * inside whatever precedes the component — a props type, a JSDoc, a helper's signature — with the
- * props outside it.
- */
-function parameterList(source: string, viewName: string): string {
-  // Blanked rather than dropped, so a `)` inside a comment cannot close the list early.
-  const blanked = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
-  const opener = `export function ${viewName}(`;
-  const opened = blanked.indexOf(opener);
-  if (opened === -1) throw new Error(`${viewName} exports no function of its own name, so this case reads nothing there`);
-
-  let depth = 1;
-  for (let offset = opened + opener.length; offset < blanked.length; offset++) {
-    if (blanked[offset] === "(") depth++;
-    if (blanked[offset] === ")") depth--;
-    if (depth === 0) return blanked.slice(opened + opener.length, offset);
-  }
-  throw new Error(`${viewName}'s parameter list is never closed`);
-}
-
 describe("who may hold a facet", () => {
-  /* The same defect arriving as a prop instead of an import: a view that TAKES its facets is handed
-     them by whoever renders it, and the admin pages are Server Components. Built inside the view
-     from plain data, nothing but data crosses. */
-  it("builds every admin view's facets inside the view rather than taking them", () => {
+  // `view-facets` in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` finds an admin view by its name, so a
+  // view file whose component is named otherwise could take its facets unread.
+  it("names every admin view's component after its file, which is how the lint finds it", () => {
     const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
     assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
 
-    const unreadable: string[] = [];
-    const taken: string[] = [];
+    const misnamed = views
+      .filter((file) => {
+        // Comments blanked, so a component named only in prose is no declaration.
+        const code = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
+        return !new RegExp(String.raw`\b(?:function|const) ${path.basename(file, ".tsx")}\b`).test(code);
+      })
+      .map((file) => asPosix(path.relative(FEATURES_DIR, file)));
 
-    for (const file of views) {
-      const params = parameterList(readFileSync(file, "utf8"), path.basename(file, ".tsx"));
-      const named = asPosix(path.relative(FEATURES_DIR, file));
-
-      // A parameter taken whole keeps its props in a type this reads nothing of, so the shape is
-      // reported rather than passed over.
-      if (!params.trimStart().startsWith("{")) unreadable.push(named);
-      else if (/\bfacets\s*[,:}]/.test(params)) taken.push(named);
-    }
-
-    assert.deepEqual(unreadable, [], `these views take a parameter object this case cannot read:\n  ${unreadable.join("\n  ")}`);
-    assert.deepEqual(taken, [], `these views take their facets as a prop instead of building them:\n  ${taken.join("\n  ")}`);
+    assert.deepEqual(misnamed, [], `these view files declare no component of their own name:\n  ${misnamed.join("\n  ")}`);
   });
 });

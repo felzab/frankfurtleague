@@ -18,6 +18,7 @@ declare const auth: { api: { getSession: (options: object) => unknown } };
 declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
 declare const redirect: (to: string) => never;
 declare const heading: () => string;
+declare const memo: <T>(component: T) => T;
 declare const panel: { heading: () => string };
 declare const headers: Headers;
 declare const request: Request;
@@ -65,6 +66,18 @@ export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
 export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
 export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
 export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
+// An admin view under each declaration its name can carry.
+export const AdminArrowView = ({ facets }: { facets: unknown }) => String(facets); // expect: view-facets
+export const AdminExpressionView = function ({ facets }: { facets: unknown }) { // expect: view-facets
+  return String(facets);
+};
+export const AdminMemoView = memo(({ facets }: { facets: unknown }) => String(facets)); // expect: view-facets
+export const AdminNamedView = memo(function AdminNamedView({ facets }: { facets: unknown }) { // expect: view-facets
+  return String(facets);
+});
+export function AdminWholeView(props: { facets: unknown }) { // expect: view-props
+  return String(props.facets);
+}
 export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root-load
 export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-load
 export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load

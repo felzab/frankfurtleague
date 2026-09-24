@@ -304,6 +304,13 @@ const DYNAMIC_LOADS = [
  */
 const NAVIGATION = String.raw`CallExpression:matches([callee.property.name=/^(?:push|replace)$/]:matches([callee.object.name=/(?:^r|R)outer$/], [callee.object.property.name=/(?:^r|R)outer$/]), [callee.name=/^(?:redirect|permanentRedirect)$/], [callee.property.name=/^(?:redirect|permanentRedirect)$/])`;
 
+/**
+ * An admin view under any declaration its name can carry, a wrapper such as `memo` included.
+ * `AdminCrudView` is the shared view the slices' admin views hand the facets they built.
+ */
+const VIEW_NAME = String.raw`/^Admin(?!CrudView$)\w+View$/`;
+const ADMIN_VIEW = `:matches(FunctionDeclaration[id.name=${VIEW_NAME}], FunctionExpression[id.name=${VIEW_NAME}], VariableDeclarator[id.name=${VIEW_NAME}] > :matches(ArrowFunctionExpression, FunctionExpression).init, VariableDeclarator[id.name=${VIEW_NAME}] > CallExpression.init > :matches(ArrowFunctionExpression, FunctionExpression).arguments)`;
+
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
@@ -426,10 +433,12 @@ const SOURCE_BANS = [
     message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
   },
   {
-    // `AdminCrudView` is the shared view the slices' admin views hand the facets they built.
-    selector:
-      'FunctionDeclaration[id.name=/^Admin\\w+View$/]:not([id.name="AdminCrudView"]) > ObjectPattern.params > Property[key.name="facets"]',
+    selector: `${ADMIN_VIEW} > ObjectPattern.params > Property[key.name="facets"]`,
     message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
+  },
+  {
+    selector: `${ADMIN_VIEW} > :not(ObjectPattern).params`,
+    message: "An admin view destructures its props: a `facets` taken inside a whole props object passes the facets ban unread.",
   },
   {
     selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',

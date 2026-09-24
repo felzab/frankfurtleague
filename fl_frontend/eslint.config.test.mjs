@@ -38,6 +38,7 @@ const BANS = [
   ["relative-nav", /relative one resolves/],
   ["history-back", /bare history back/],
   ["view-facets", /builds its facets itself/],
+  ["view-props", /An admin view destructures its props/],
   ["date-bound", /A bound goes on the Calendar/],
   ["date-spread", /Prop spreading is forbidden/],
   ["heading", /Render `PanelHeading`/],
