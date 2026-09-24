@@ -424,7 +424,6 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
                         return await advance_bracket_winners(
                             spiele_collection=database[Collection.SPIELE],
                             teams_collection=database[Collection.TEAMS],
-                            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                             saison_id=saison_id,
                             rules=rules,
                             session=transaction,

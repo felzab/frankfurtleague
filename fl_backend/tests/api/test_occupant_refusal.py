@@ -1570,8 +1570,6 @@ class TestTheResolutionNeverFieldsAClubTwice:
                 advance_bracket_winners(
                     spiele_collection=cast(AsyncCollection, _SeasonCollection(a_decided_gruppe_seating_its_winner_twice)),
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
-                    # Never read: the refusal lands before the resolution judges a booking.
-                    schiedsrichter_collection=cast(AsyncCollection, object()),
                     saison_id=SAISON_ID,
                     rules=RULES,
                     session=cast(AsyncClientSession, object()),

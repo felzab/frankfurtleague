@@ -419,7 +419,6 @@ async def _write_spiel_data(
             advanced_to, bracket_faults, booked_again_by_the_resolution = await advance_bracket_winners(
                 spiele_collection=spiele_collection,
                 teams_collection=teams_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
                 saison_id=saison_id,
                 rules=saison_rules,
                 session=session,

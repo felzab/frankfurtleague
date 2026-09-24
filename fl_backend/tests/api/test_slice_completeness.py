@@ -129,7 +129,6 @@ def run_advance(collection: _SeasonCollection) -> tuple[list[FLSpielAdvancement]
         advance_bracket_winners(
             spiele_collection=cast(AsyncCollection, collection),
             teams_collection=cast(AsyncCollection, collection),
-            schiedsrichter_collection=cast(AsyncCollection, collection),
             saison_id=SAISON_ID,
             rules=RULES,
             session=cast(AsyncClientSession, object()),
