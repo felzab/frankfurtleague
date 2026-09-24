@@ -179,8 +179,6 @@ LOG_ROWS_PER_REACHED_ROW = 3
 
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
-    """Seeded in the FORMER state."""
-
     return documents.saison_team_document(
         saison_id, team_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=FORMER_BLOCKS[row_id]
     )
