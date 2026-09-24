@@ -129,15 +129,21 @@ library's API, and before writing a line that depends on one, grep that library'
 ahead of the prose docs and long before recall. An API claim made without checking an available one
 is unverified: say so in the same answer.
 
-| Package         | Index                                                            | Full text                                                                  |
-| --------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **HeroUI**      | [react/llms.txt](https://heroui.com/react/llms.txt)              | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
-| **Next.js**     | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
-| **Pydantic**    | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt) | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
-| **Zod**         | [llms.txt](https://zod.dev/llms.txt)                             | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
-| **React**       | [llms.txt](https://react.dev/llms.txt)                           | — (index only)                                                             |
-| **Resend**      | [docs/llms.txt](https://resend.com/docs/llms.txt)                | — (index only)                                                             |
-| **Better Auth** | [docs/llms.txt](https://better-auth.com/docs/llms.txt)           | — (index only)                                                             |
+| Package                 | Index                                                                               | Full text                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **HeroUI**              | [react/llms.txt](https://heroui.com/react/llms.txt)                                 | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
+| **Next.js**             | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                                   | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
+| **Pydantic**            | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt)                    | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
+| **Zod**                 | [llms.txt](https://zod.dev/llms.txt)                                                | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
+| **React**               | [llms.txt](https://react.dev/llms.txt)                                              | — (index only)                                                             |
+| **Resend**              | [docs/llms.txt](https://resend.com/docs/llms.txt)                                   | — (index only)                                                             |
+| **Better Auth**         | [docs/llms.txt](https://better-auth.com/docs/llms.txt)                              | — (index only)                                                             |
+| **MongoDB Node driver** | [node/current/llms.txt](https://www.mongodb.com/docs/drivers/node/current/llms.txt) | — (index only)                                                             |
+| **Docker**              | [llms.txt](https://docs.docker.com/llms.txt)                                        | [llms-full.txt](https://docs.docker.com/llms-full.txt)                     |
+| **GitHub**              | [llms.txt](https://docs.github.com/llms.txt)                                        | — (index only)                                                             |
+| **Prettier**            | [llms.txt](https://prettier.io/llms.txt)                                            | [llms-full.txt](https://prettier.io/llms-full.txt)                         |
+| **Ruff**                | [ruff/llms.txt](https://docs.astral.sh/ruff/llms.txt)                               | — (index only)                                                             |
+| **uv**                  | [uv/llms.txt](https://docs.astral.sh/uv/llms.txt)                                   | — (index only)                                                             |
 
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
