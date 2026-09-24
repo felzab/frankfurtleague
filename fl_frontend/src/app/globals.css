@@ -850,9 +850,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     @apply pointer-events-auto opacity-100;
   }
 
-  /* The remaining time, drawn rather than guessed at: `animation-duration` is set
-     inline from the toast's own `timeout`. `useToastRegion` pauses that timer on
-     hover, so the selectors below have to pause the bar with it. */
+  /* `animation-duration` is set inline from the toast's own `timeout`. HeroUI pauses
+     that timer while the stack is hovered or focused, which the selectors below
+     follow, and while the page is hidden, which `AppToaster` follows. */
   .toast__timer {
     animation: toast-timer linear forwards;
     /* Named on `transform` rather than left as `auto` because this element animates for its whole

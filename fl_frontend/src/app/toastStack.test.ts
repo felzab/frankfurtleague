@@ -294,3 +294,37 @@ describe("the toast against HeroUI's stacking states", () => {
     });
   });
 });
+
+/* HeroUI suspends every toast timer while the page is hidden, where the bar's animation keeps the document's clock: a
+   bar left running reads drained on return over a toast that still stands for its whole remaining time. */
+describe("the toast's timer bar on a hidden page", () => {
+  it("stops while the page is hidden and runs again on return", async () => {
+    let hidden = false;
+    // jsdom's page never hides, so its getter is shadowed for this case and handed back after it.
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+
+    try {
+      await withToast((toast) => {
+        const timer = toast.querySelector<HTMLElement>(".toast__timer") ?? assert.fail("a self-closing toast renders no timer bar");
+        const turn = (to: boolean): void => {
+          void act(() => {
+            hidden = to;
+            document.dispatchEvent(new Event("visibilitychange"));
+          });
+        };
+
+        assert.equal(
+          timer.style.animationPlayState,
+          "",
+          "the bar's play state is written inline on a visible page, over the stylesheet's hover pause",
+        );
+        turn(true);
+        assert.equal(timer.style.animationPlayState, "paused", "the bar drains on while the page is hidden");
+        turn(false);
+        assert.equal(timer.style.animationPlayState, "", "the bar stays stopped once the page is back");
+      });
+    } finally {
+      Reflect.deleteProperty(document, "hidden");
+    }
+  });
+});

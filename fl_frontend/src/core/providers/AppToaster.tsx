@@ -1,5 +1,7 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
+
 import { tv } from "tailwind-variants";
 
 import { Spinner } from "@heroui/react/spinner";
@@ -40,7 +42,20 @@ const toastCard = tv({
   defaultVariants: { variant: "default" },
 });
 
+function subscribeToVisibility(onChange: () => void): () => void {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
+
 export function AppToaster() {
+  // HeroUI suspends every toast timer while the page is hidden, and the bar's animation runs on the
+  // document's clock regardless: without the pause a tab come back to shows the bar drained.
+  const pageHidden = useSyncExternalStore(
+    subscribeToVisibility,
+    () => document.hidden,
+    () => false,
+  );
+
   return (
     <Toast.Provider
       // Under HeroUI's default: with no icon tile the text starts at the padding edge, so the same
@@ -112,7 +127,8 @@ export function AppToaster() {
                 className={styles.clip()}>
                 <span
                   className={styles.timer()}
-                  style={{ animationDuration: `${timeout}ms` }}
+                  // Paused inline only while hidden, so the stylesheet's hover and focus pause still decides otherwise.
+                  style={{ animationDuration: `${timeout}ms`, animationPlayState: pageHidden ? "paused" : undefined }}
                 />
               </span>
             )}
