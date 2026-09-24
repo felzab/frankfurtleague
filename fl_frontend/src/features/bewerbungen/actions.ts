@@ -5,6 +5,7 @@ import { refresh, updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
@@ -27,7 +28,7 @@ import {
   FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
-import { bewerbungTeamName, describeAufnahme } from "./utils";
+import { BEWERBUNG_VERALTET, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -674,6 +675,10 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
+
+    // Judged before the parse, as `/api/bewerbung` judges the form's: a page opened before a deploy
+    // moved the label would seat a person under words the running build does not serve.
+    if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
 
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 

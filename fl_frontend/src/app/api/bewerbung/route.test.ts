@@ -104,9 +104,20 @@ recorders.__flBewAnswer = (endpoint: string) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] };
 
-function aRequest(headers: Record<string, string> = {}) {
-  return { headers: new Headers(headers), json: async () => BODY } as unknown as Parameters<typeof POST>[0];
+function aRequest(headers: Record<string, string> = {}, body: unknown = BODY) {
+  return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
 }
+
+type Sitz = "ansprechperson" | "stellvertretung" | "trainer";
+
+/** `BODY` with one seat's consent label replaced, every other field as the schema takes it. */
+const labelledOn = (seat: Sitz, textVersion: string) => ({
+  ...BODY,
+  kontakte: {
+    ...BODY.kontakte,
+    [seat]: { ...BODY.kontakte[seat], einwilligung: { ...BODY.kontakte[seat].einwilligung, text_version: textVersion } },
+  },
+});
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
   (await POST(request)) as unknown as Record<string, unknown>;
@@ -213,11 +224,37 @@ describe("the application handler's own parse", () => {
   /* The parse shares the running API's rules, so a path it names and the page renders no box for comes
      from a page older than the deploy: the page's reload, never the generic retry. */
   it("refuses a body it cannot parse in the slice's own sentence, writing nothing", async () => {
-    const answer = await bodyOf({ headers: new Headers(), json: async () => ({}) } as unknown as Parameters<typeof POST>[0]);
+    // Every label the running one, so the parse and not the label check is what refuses it.
+    const answer = await bodyOf(aRequest({}, { ...BODY, kader: null }));
     const body = answer.body as { success: boolean; unplacedError?: string };
 
     assert.equal(body.success, false);
     assert.equal(body.unplacedError, BEWERBUNG_VERALTET);
+    assert.deepEqual(writes(), []);
+  });
+});
+
+describe("the application handler's consent label", () => {
+  const SEATS: readonly Sitz[] = ["ansprechperson", "stellvertretung", "trainer"];
+
+  /* The form stamps one label per seat, so a check reading one seat passes a stale label on another:
+     each seat is driven alone, and the stored record would cite words the running build does not serve. */
+  it("refuses a label no wording carries on any one seat, writing and mailing nothing", async () => {
+    for (const seat of SEATS) {
+      const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn(seat, "2026-08-erfunden")));
+
+      assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET }, seat);
+    }
+    assert.deepEqual(writes(), []);
+    assert.deepEqual(mails, []);
+  });
+
+  /* A page opened before a deploy moved the label names words the running build still resolves, and
+     the rule is the running label, never a known one. */
+  it("refuses an older label the running build still resolves, writing nothing", async () => {
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn("trainer", "2026-09-bestaetigung-4")));
+
+    assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET });
     assert.deepEqual(writes(), []);
   });
 });
