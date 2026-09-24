@@ -1,9 +1,7 @@
-"""SCRIPTS · the backend test estate check, both directions of every rule and every route it walks.
+"""SCRIPTS · the backend test estate check, both directions of every rule.
 
 Each rule is driven twice — a corpus that must be refused and one that must not — because a rule
-that cannot fire and a rule that always fires are both green here. The reach routes get the same
-treatment one at a time: every case below is built so that exactly one route can answer it, or a
-route switched off is still caught by a sibling and the mutation goes unnoticed.
+that cannot fire and a rule that always fires are both green here.
 
 The rules run against a corpus this file writes, so they pin the mechanism rather than whatever
 `fl_backend/tests/` happens to hold. `main` is driven separately, as a process, the exit contract
@@ -35,331 +33,24 @@ finally:
     sys.modules.pop("check_test_estate", None)
     sys.modules.pop("checker_kernel", None)
 
-CONTAINER_CONFTEST = """\
-import pytest
-from pymongo import MongoClient
-
-
-@pytest.fixture(scope="session")
-def mongo_url():
-    from testcontainers.community.mongodb import MongoDbContainer
-
-    with MongoDbContainer("mongo:8") as container:
-        yield str(container.get_connection_url())
-
-
-@pytest.fixture(scope="session")
-def mongo_database(mongo_url):
-    yield MongoClient(mongo_url)["fl_test"]
-"""
-
-# No container fixture: one a case never takes would be a second, unrelated finding, and a case
-# isolating one reach route needs the conftest chain to answer nothing.
+# No fixture at all: one a case never takes would be a second, unrelated finding.
 PLAIN_CONFTEST = "import pytest\n"
-
-# Reached three ways below — imported relatively, imported as a module, and called in place — so
-# each case varies only the spelling that reaches it.
-HELPER_MODULE = "from pymongo import MongoClient\n\n\ndef seed(uri):\n    return MongoClient(uri)\n"
 
 LOUD_CONFIG = '[tool.pytest.ini_options]\nempty_parameter_set_mark = "fail_at_collect"\n'
 SILENT_CONFIG = '[tool.pytest.ini_options]\naddopts = "--strict-markers"\n'
 
 
-def corpus(body: str, shared: str, extra: dict[str, str] | None = None) -> object:
-    """An estate holding that conftest, one test module with that body, and any extra modules."""
+def corpus(body: str, shared: str) -> object:
+    """An estate holding that conftest and one test module with that body."""
     root = new_root("estate-")
     write(root, "conftest.py", shared)
     write(root, "api/test_case.py", body)
-    for relative, text in (extra or {}).items():
-        write(root, relative, text)
     return estate.Estate(root)
-
-
-def markers(body: str, shared: str = CONTAINER_CONFTEST, extra: dict[str, str] | None = None) -> list[str]:
-    """What the database rule says about that module."""
-    return [finding.detail for finding in estate.check_db_markers(corpus(body, shared, extra))]
 
 
 def fixtures(body: str) -> list[str]:
     """What the dead-fixture rule says about that module."""
     return [finding.detail for finding in estate.check_dead_fixtures(corpus(body, PLAIN_CONFTEST))]
-
-
-def test_a_marked_database_test_is_not_a_finding():
-    """The rule reads the marker wherever it sits, or every db-tier module is a finding."""
-    assert markers("import pytest\n\n\n@pytest.mark.db\ndef test_reads(mongo_database):\n    assert mongo_database\n") == []
-
-
-def test_an_unmarked_test_taking_a_container_fixture_is_refused():
-    """The whole subject: without the marker it runs in the tier that starts no container."""
-    found = markers("def test_reads(mongo_database):\n    assert mongo_database\n")
-
-    assert len(found) == 1
-    assert "carries no `@pytest.mark.db`" in found[0]
-
-
-def test_a_fixture_that_only_imports_a_container_is_a_reach():
-    """`mongo_url` builds no client, so the testcontainers import is the only thing left to see."""
-    assert len(markers("def test_reads(mongo_url):\n    assert mongo_url\n")) == 1
-
-
-def test_the_reach_is_transitive_through_a_helper_the_test_calls():
-    """No container fixture in this corpus, so nothing but the call into `seed` can answer it."""
-    body = HELPER_MODULE + "\n\ndef test_reads(uri):\n    assert seed(uri)\n"
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_the_reach_follows_a_relative_import_of_a_sibling():
-    """`from .helpers import seed` names the sibling by a level rather than by a dotted path."""
-    body = "from .helpers import seed\n\n\ndef test_reads(uri):\n    assert seed(uri)\n"
-
-    assert len(markers(body, PLAIN_CONFTEST, {"api/helpers.py": HELPER_MODULE})) == 1
-
-
-def test_the_reach_follows_a_helper_reached_through_an_imported_module():
-    """`import tests.api.helpers` binds the module, so the helper never appears as a bare name."""
-    body = "import tests.api.helpers\n\n\ndef test_reads(uri):\n    assert tests.api.helpers.seed(uri)\n"
-
-    assert len(markers(body, PLAIN_CONFTEST, {"api/helpers.py": HELPER_MODULE})) == 1
-
-
-def test_a_helper_reached_through_an_imported_module_keeps_the_exemption():
-    """The route may not turn the exemption off on its way: same helper, source-written URI."""
-    body = (
-        'import tests.api.helpers\n\nUNANSWERED_URI = "mongodb://localhost:1"\n\n\n'
-        "def test_refused():\n    assert tests.api.helpers.seed(UNANSWERED_URI)\n"
-    )
-
-    assert markers(body, PLAIN_CONFTEST, {"api/helpers.py": HELPER_MODULE}) == []
-
-
-def test_a_module_level_helper_is_not_shadowed_by_an_earlier_method():
-    """The direction that lets a test hit a real server.
-
-    The method reaches nothing, so a resolver keyed on the bare name alone judges `test_reads` by it
-    rather than by the client-building helper it actually calls.
-    """
-    body = (
-        "import pytest\nfrom pymongo import MongoClient\n\n\n"
-        "class TestThePayload:\n"
-        "    def helper(self, value):\n        return value.strip()\n\n"
-        "    @pytest.mark.db\n"
-        '    def test_strips(self):\n        assert self.helper(" x ")\n\n\n'
-        "def helper(url):\n    return MongoClient(url)\n\n\n"
-        "def test_reads(mongo_url):\n    assert helper(mongo_url)\n"
-    )
-    found = markers(body, PLAIN_CONFTEST)
-
-    assert len(found) == 1
-    assert "test_reads" in found[0]
-
-
-def test_a_method_does_not_lend_its_reach_to_a_plain_helper_of_the_same_name():
-    """The mirror corpus: a clean test refused because a method of that name reaches a database.
-
-    The repair a reader reaches for is renaming one of the two definitions to dodge the checker.
-    """
-    body = (
-        "import pytest\nfrom pymongo import MongoClient\n\n\n"
-        "@pytest.mark.db\nclass TestTheStore:\n"
-        "    def helper(self, url):\n        return MongoClient(url)\n\n"
-        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n\n\n"
-        "def helper(value):\n    return value.strip()\n\n\n"
-        'def test_plain():\n    assert helper(" x ")\n'
-    )
-
-    assert markers(body, PLAIN_CONFTEST) == []
-
-
-def test_the_nearest_class_body_answers_a_method_name_two_of_them_define():
-    """Empty `resolve_method`'s scope walk and this fails: the fallback answers the first `helper` in the module, which is the outer one."""
-    body = (
-        "from pymongo import MongoClient\n\n\n"
-        "class TestTheStore:\n"
-        "    def helper(self, url):\n        return MongoClient(url)\n\n"
-        "    class TestInside:\n"
-        "        def helper(self, value):\n            return value.strip()\n\n"
-        '        def test_reads(self):\n            assert self.helper(" x ")\n'
-    )
-
-    assert markers(body, PLAIN_CONFTEST) == []
-
-
-def test_a_classmethod_lends_its_reach_through_cls():
-    """Drop `cls` from `SELF_NAMES` and this fails: the call resolves at module scope.
-
-    The plain `opened` answers there, and a test building a real client goes unmarked.
-    """
-    body = (
-        "from pymongo import MongoClient\n\n\n"
-        "class TestTheStore:\n"
-        "    @classmethod\n"
-        "    def helper(cls, url):\n        return cls.opened(url)\n\n"
-        "    @classmethod\n"
-        "    def opened(cls, url):\n        return MongoClient(url)\n\n"
-        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n\n\n"
-        "def opened(value):\n    return value.strip()\n"
-    )
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_method_a_base_class_in_the_module_defines_still_lends_its_reach():
-    """`self.helper` stands in no enclosing class body here, and placing it exactly means an MRO.
-
-    Narrowing the search to the enclosing chain is the repair that looks principled and hides a test
-    which builds a real client.
-    """
-    body = (
-        "from pymongo import MongoClient\n\n\n"
-        "class Store:\n"
-        "    def helper(self, url):\n        return MongoClient(url)\n\n\n"
-        "class TestReading(Store):\n"
-        "    def test_reads(self, mongo_url):\n        assert self.helper(mongo_url)\n"
-    )
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_class_scoped_fixture_taken_as_a_parameter_still_lends_its_reach():
-    """A parameter is a bare mention, and pytest resolves this one against the class rather than the module."""
-    body = (
-        "import pytest\nfrom pymongo import MongoClient\n\n\n"
-        "class TestReading:\n"
-        "    @pytest.fixture\n"
-        "    def seeded(self, mongo_url):\n        return MongoClient(mongo_url)\n\n"
-        "    def test_reads(self, seeded):\n        assert seeded\n"
-    )
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_method_reached_through_an_instance_still_lends_its_reach():
-    """`stub.open()` names an object this reader cannot place, so the qualifier decides nothing.
-
-    Reading it as unresolved rather than searching every class body is the false negative: these
-    suites drive a database through exactly such a stub.
-    """
-    body = (
-        "from pymongo import MongoClient\n\n\n"
-        "class Store:\n"
-        "    def open(self, url):\n        return MongoClient(url)\n\n\n"
-        "def test_reads(mongo_url):\n    stub = Store()\n    assert stub.open(mongo_url)\n"
-    )
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_fixture_named_by_string_reaches_the_rule():
-    """`usefixtures` takes the name as text, so a parameter sweep alone never sees this one."""
-    body = 'import pytest\n\n\n@pytest.mark.usefixtures("mongo_database")\ndef test_reads():\n    assert True\n'
-
-    assert len(markers(body)) == 1
-
-
-def test_a_module_level_pytestmark_asking_by_string_reaches_the_rule():
-    """An assignment at module scope sits under no function, so the walk over one never meets it."""
-    body = 'import pytest\n\npytestmark = pytest.mark.usefixtures("mongo_database")\n\n\ndef test_reads():\n    assert True\n'
-
-    assert len(markers(body)) == 1
-
-
-def test_a_class_level_pytestmark_asking_by_string_reaches_the_rule():
-    body = (
-        "import pytest\n\n\nclass TestReads:\n"
-        '    pytestmark = pytest.mark.usefixtures("mongo_database")\n\n'
-        "    def test_reads(self):\n        assert True\n"
-    )
-
-    assert len(markers(body)) == 1
-
-
-def test_a_class_decorator_asking_by_string_reaches_the_rule():
-    body = 'import pytest\n\n\n@pytest.mark.usefixtures("mongo_database")\nclass TestReads:\n    def test_reads(self):\n        assert True\n'
-
-    assert len(markers(body)) == 1
-
-
-def test_a_module_level_mark_list_carrying_the_marker_releases_the_string_route():
-    """The list spelling is how a module carries both, and the marker still has to win."""
-    body = 'import pytest\n\npytestmark = [pytest.mark.db, pytest.mark.usefixtures("mongo_database")]\n\n\ndef test_reads():\n    assert True\n'
-
-    assert markers(body) == []
-
-
-def test_a_client_aimed_at_a_source_written_uri_needs_no_marker():
-    """The idiom that tells a guard refusing from a route that does not exist."""
-    body = (
-        'from pymongo import MongoClient\n\nUNANSWERED_URI = "mongodb://localhost:1"\n\n\n'
-        "def test_refused():\n    assert MongoClient(host=UNANSWERED_URI)\n"
-    )
-
-    assert markers(body) == []
-
-
-def test_the_same_uri_written_at_the_call_needs_no_marker_either():
-    """Whether the URI passes through a name decides nothing, or the two spellings disagree."""
-    body = 'from pymongo import MongoClient\n\n\ndef test_refused():\n    assert MongoClient("mongodb://localhost:1")\n'
-
-    assert markers(body) == []
-
-
-def test_a_constant_that_is_not_a_uri_is_no_exemption():
-    """`MongoClient("localhost")` reaches the same mongod as the URI naming it."""
-    body = 'from pymongo import MongoClient\n\n\ndef test_reads():\n    assert MongoClient("localhost")\n'
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_uri_naming_the_port_this_repository_serves_is_no_exemption():
-    """`docker-compose.local.yml` publishes it, so this passes locally and stalls in CI."""
-    body = 'from pymongo import MongoClient\n\n\ndef test_reads():\n    assert MongoClient("mongodb://localhost:27017/frankfurtleague_test")\n'
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_a_uri_carrying_no_port_at_all_is_no_exemption():
-    """mongod's default puts it on the served port, which the written URI does not say."""
-    body = 'from pymongo import MongoClient\n\n\ndef test_reads():\n    assert MongoClient("mongodb://localhost")\n'
-
-    assert len(markers(body, PLAIN_CONFTEST)) == 1
-
-
-def test_the_exemption_follows_the_constant_into_a_helper():
-    """These suites pass that constant to a shared helper rather than building the client in place."""
-    body = (
-        'from pymongo import MongoClient\n\nUNANSWERED_URI = "mongodb://localhost:1"\n\n\n'
-        "def answered(uri):\n    return MongoClient(host=uri)\n\n\n"
-        "def test_refused():\n    assert answered(UNANSWERED_URI)\n"
-    )
-
-    assert markers(body) == []
-
-
-def test_one_helper_answers_differently_for_its_two_call_sites():
-    """The reaching call site is written first on purpose.
-
-    The reach cache is keyed by the binding, and without that the exempt call site behind this one
-    inherits the answer cached here and is refused.
-    """
-    body = (
-        'from pymongo import MongoClient\n\nUNANSWERED_URI = "mongodb://localhost:1"\n\n\n'
-        "def answered(uri):\n    return MongoClient(host=uri)\n\n\n"
-        "def test_reads(mongo_url):\n    assert answered(mongo_url)\n\n\n"
-        "def test_refused():\n    assert answered(UNANSWERED_URI)\n"
-    )
-    found = markers(body)
-
-    assert len(found) == 1
-    assert "test_reads" in found[0]
-
-
-def test_the_exemption_stops_where_the_uri_stops_being_a_literal():
-    """The direction that matters: released on the shape alone, the rule would never fire again."""
-    body = "from pymongo import MongoClient\n\n\ndef test_reads(mongo_url):\n    assert MongoClient(host=mongo_url)\n"
-
-    assert len(markers(body)) == 1
 
 
 def test_a_fixture_no_test_consumes_is_refused():
@@ -396,9 +87,8 @@ def repository(config: str) -> Path:
     root = new_root("estate-repo-")
     copy_scripts(root / "scripts")
     write(root, "fl_backend/pyproject.toml", config)
-    write(root, "fl_backend/tests/conftest.py", CONTAINER_CONFTEST)
-    marked = "import pytest\n\n\n@pytest.mark.db\ndef test_reads(mongo_database):\n    assert mongo_database\n"
-    write(root, "fl_backend/tests/api/test_case.py", marked)
+    write(root, "fl_backend/tests/conftest.py", PLAIN_CONFTEST)
+    write(root, "fl_backend/tests/api/test_case.py", "def test_nothing():\n    assert True\n")
     return root
 
 

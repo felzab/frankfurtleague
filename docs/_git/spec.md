@@ -323,7 +323,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
 | I4  | Every commit on a branch carries a body                       | `scripts/checks/check_commits.py`                     |
 | I5  | No commit is signed as AI-generated                           | `scripts/checks/check_commits.py :: BANNED`           |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/checks/check_scope.py`                       |
+| I6  | The gate's scope is checked against the diff before it runs   | `scripts/gate/verify.sh :: ask_the_mapping`           |
 | I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
 | I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
 | I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |

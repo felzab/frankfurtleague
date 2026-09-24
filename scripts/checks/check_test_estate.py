@@ -1,12 +1,9 @@
 """SCRIPTS · the backend suite answers loudly when a guarantee stops holding.
 
-Three ways a suite goes quiet without going red, and nothing else here catches any of them: a test
-reaching a database in the tier that starts no container, a discovered parametrize list that found
-nothing, and a fixture no test consumes. Each is a green run over a guarantee that has stopped
-being checked, which is worse than a red one.
-
-The first two rules are the ones a session can break by hand; the third is what a deletion leaves
-behind.
+Two ways a suite goes quiet without going red, and nothing else here catches either: a discovered
+parametrize list that found nothing, and a fixture no test consumes. Each is a green run over a
+guarantee that has stopped being checked, which is worse than a red one. A test reaching a database
+in the tier that starts no container is refused as it runs, by `fl_backend/tests/tier.py`.
 """
 
 from __future__ import annotations
@@ -35,25 +32,9 @@ PYPROJECT: Final = BACKEND / "pyproject.toml"
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
-# The driver, constructed anywhere: every route into a real server goes through one of these two.
-DRIVERS: Final = frozenset({"MongoClient", "AsyncMongoClient"})
-
-# A container starter is an import, never a call: `conftest.py` imports testcontainers inside the
-# function so the default tier never pays for the package.
-CONTAINER_PACKAGE: Final = "testcontainers"
-
 # What a fixture is asked for by name rather than by parameter. Both take the name as a string, so
 # a fixture reached only this way looks unconsumed to a parameter sweep.
 BY_NAME: Final = frozenset({"usefixtures", "getfixturevalue"})
-
-# What a call reaches its own class through. `cls` beside `self`, or a classmethod helper's reach is
-# read as an ordinary attribute call and resolved somewhere else.
-SELF_NAMES: Final = frozenset({"self", "cls"})
-
-# `docker-compose.local.yml` publishes this port on loopback for a database client on the host, so a
-# machine running `./scripts/ops/local.sh` answers a URI naming it — and mongod's own default puts a
-# URI carrying no port there too.
-SERVED_PORT: Final = "27017"
 
 # The values that turn an empty parametrize into a failure. `skip` is pytest's default and the one
 # this rule exists to refuse; `xfail` reports a pass, which is the same silence.
@@ -66,127 +47,23 @@ UNPARSABLE: Final = (OSError, UnicodeDecodeError, SyntaxError, ValueError)
 
 
 class Module:
-    """One parsed test module: what it defines, what it imports, and how it is marked."""
+    """One parsed test module, and the fixtures it defines at any class depth."""
 
-    def __init__(self, path: Path, dotted: str, tree: ast.Module) -> None:
+    def __init__(self, path: Path, tree: ast.Module) -> None:
         self.path = path
-        self.dotted = dotted
         self.tree = tree
-        self.functions: dict[str, FunctionNode] = {}
-        # Class scope, kept out of the flat namespace: Python resolves a bare name at module scope,
-        # so a method is reached through `self` and never by an import, a conftest or a plain call.
-        self.methods: dict[tuple[str, str], FunctionNode] = {}
-        # Keyed by line, because which definition a name reaches depends on where the ASKING
-        # function stands, and the walk below holds its node rather than its scope.
-        self.scope_at: dict[int, str] = {}
         self.fixtures: dict[str, FunctionNode] = {}
         self.autouse: set[str] = set()
-        self.tests: list[tuple[str, FunctionNode, bool, frozenset[str]]] = []
-        self.literal_uris: set[str] = set()
-        # Two questions an import answers, and one dict cannot hold both: where a SYMBOL this module
-        # took comes from, and which module a bound name IS. `from . import x` binds the second only.
-        self.imports: dict[str, str] = {}
-        self.bound_modules: dict[str, str] = {}
-        self._read()
-
-    def _read(self) -> None:
-        for node in self.tree.body:
-            if isinstance(node, ast.ImportFrom):
-                self._read_import_from(node)
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    # No `as`, and `import a.b.c` binds `a` alone — so the head is the bound name and
-                    # the rest of the path is spelled at every use site.
-                    self.bound_modules[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
-            elif isinstance(node, ast.Assign):
-                self._read_binding(node.targets, node.value)
-            elif isinstance(node, ast.AnnAssign) and node.value is not None:
-                self._read_binding([node.target], node.value)
-
-        marked = self._module_marked()
-        named = _pytestmark_fixtures(self.tree.body)
-        for node in self.tree.body:
-            self._collect(node, prefix="", marked=marked, named=named)
-
-    def _read_import_from(self, node: ast.ImportFrom) -> None:
-        """Where this module's `from ... import ...` line resolves to, relative spellings included.
-
-        `node.level` is the one thing separating `from .sibling import seed` from an absolute
-        import of a top-level `sibling`, and this suite writes both.
-        """
-        if node.level == 0:
-            base = node.module or ""
-        else:
-            # The module's own name is the first step up, so `level` steps land on its package.
-            parts = self.dotted.split(".")[: -node.level]
-            base = ".".join((*parts, node.module) if node.module else parts)
-        if not base:
-            return
-        for alias in node.names:
-            self.imports[alias.asname or alias.name] = base
-            self.bound_modules[alias.asname or alias.name] = f"{base}.{alias.name}"
-
-    def _read_binding(self, targets: list[ast.expr], value: ast.expr) -> None:
-        for target in targets:
-            if isinstance(target, ast.Name) and isinstance(value, ast.Constant) and isinstance(value.value, str):
-                if _released_uri(value.value):
-                    self.literal_uris.add(target.id)
-
-    def _module_marked(self) -> bool:
-        for node in self.tree.body:
-            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets):
-                if _names_the_db_mark(node.value):
-                    return True
-        return False
-
-    def _collect(self, node: ast.stmt, *, prefix: str, marked: bool, named: frozenset[str]) -> None:
-        """Every function this module defines, at any class depth, and every test among them."""
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self.scope_at[node.lineno] = prefix
-            if prefix:
-                self.methods.setdefault((prefix, node.name), node)
-            else:
-                self.functions.setdefault(node.name, node)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
             fixture = _fixture_decorator(node)
-            if fixture is not None:
-                registered = _fixture_name(fixture, node.name)
-                self.fixtures.setdefault(registered, node)
-                if _is_autouse(fixture):
-                    self.autouse.add(registered)
-            if node.name.startswith("test_"):
-                own = marked or any(_names_the_db_mark(d) for d in node.decorator_list)
-                self.tests.append((f"{prefix}{node.name}", node, own, named))
-            return
-        if isinstance(node, ast.ClassDef):
-            inherited = marked or any(_names_the_db_mark(d) for d in node.decorator_list)
-            # Both passes over the body, because a `pytestmark` written below a method still marks it.
-            inherited = inherited or any(_class_pytestmark(stmt) for stmt in node.body)
-            asked = named | _pytestmark_fixtures(node.body) | _decorator_fixtures(node.decorator_list)
-            for stmt in node.body:
-                self._collect(stmt, prefix=f"{prefix}{node.name}::", marked=inherited, named=asked)
-
-
-def _class_pytestmark(stmt: ast.stmt) -> bool:
-    if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in stmt.targets):
-        return _names_the_db_mark(stmt.value)
-    return False
-
-
-def _decorator_fixtures(decorators: list[ast.expr]) -> frozenset[str]:
-    return frozenset(_named_fixtures([child for node in decorators for child in ast.walk(node) if isinstance(child, ast.Call)]))
-
-
-def _pytestmark_fixtures(body: list[ast.stmt]) -> frozenset[str]:
-    """Fixtures a `pytestmark` at module or class scope asks for by name.
-
-    A test function's own `usefixtures` is walked with its body; an assignment at either scope above
-    it sits under no function node.
-    """
-    found: set[str] = set()
-    for stmt in body:
-        if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in stmt.targets):
-            found |= _named_fixtures([child for child in ast.walk(stmt.value) if isinstance(child, ast.Call)])
-    return frozenset(found)
+            if fixture is None:
+                continue
+            registered = _fixture_name(fixture, node.name)
+            self.fixtures.setdefault(registered, node)
+            if _is_autouse(fixture):
+                self.autouse.add(registered)
 
 
 def _fixture_name(decorator: ast.expr, defined: str) -> str:
@@ -196,15 +73,6 @@ def _fixture_name(decorator: ast.expr, defined: str) -> str:
             if kw.arg == "name" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
                 return kw.value.value
     return defined
-
-
-def _names_the_db_mark(node: ast.expr) -> bool:
-    """Whether this decorator or `pytestmark` value carries `pytest.mark.db`."""
-    for child in ast.walk(node):
-        if isinstance(child, ast.Attribute) and child.attr == "db":
-            if isinstance(child.value, ast.Attribute) and child.value.attr == "mark":
-                return True
-    return False
 
 
 def _fixture_decorator(node: FunctionNode) -> ast.expr | None:
@@ -233,113 +101,12 @@ def _parameters(node: FunctionNode) -> list[str]:
     return [arg.arg for arg in named if arg.arg != "self"]
 
 
-def _referenced(node: ast.AST) -> set[str]:
-    """Every bare name and attribute under this node — what its body could be calling."""
-    found: set[str] = set()
-    for child in ast.walk(node):
-        if isinstance(child, ast.Name):
-            found.add(child.id)
-        elif isinstance(child, ast.Attribute):
-            found.add(child.attr)
-    return found
-
-
-def _named_fixtures(calls: list[ast.Call]) -> set[str]:
-    """Fixtures these calls ask for by string rather than by parameter."""
-    found: set[str] = set()
-    for call in calls:
-        if _called_name(call) in BY_NAME:
-            found.update(arg.value for arg in call.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str))
-    return found
-
-
-def _called_name(node: ast.Call) -> str:
-    target = node.func
-    if isinstance(target, ast.Attribute):
-        return target.attr
-    return target.id if isinstance(target, ast.Name) else ""
-
-
-def _on_the_instance(node: ast.Call) -> bool:
-    """Whether a call goes through `self` or `cls` directly — `self.store.seed()` names an object instead."""
-    target = node.func
-    return isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id in SELF_NAMES
-
-
-def _released_uri(value: str) -> bool:
-    """Whether a URI written into the source aims where nothing this repository runs answers.
-
-    Source-written is not on its own enough: `mongodb://localhost:27017` is a live mongod wherever
-    `./scripts/ops/local.sh` is up, so the test passes there and stalls in CI.
-    """
-    # `mongodb+srv://` falls out here with every other scheme: its ports come from a DNS lookup, so
-    # no source-written spelling of one can be read as unanswerable.
-    if not value.startswith("mongodb://"):
-        return False
-    authority = value[len("mongodb://") :].split("/")[0].split("?")[0]
-    # Credentials sit before the LAST `@`, a password being free to hold one of its own.
-    hosts = authority.rsplit("@", 1)[-1]
-    if not hosts:
-        return False
-    for host in hosts.split(","):
-        _, separator, port = host.rpartition(":")
-        # A host naming no port is refused rather than read as unanswerable: mongod's own default
-        # puts it on the served one.
-        if not separator or not port.isdigit() or port == SERVED_PORT:
-            return False
-    return True
-
-
-def _builds_a_real_client(calls: list[ast.Call], module: Module, literal: frozenset[str]) -> bool:
-    """A driver construction this suite has to start a server for."""
-    for child in calls:
-        if _called_name(child) not in DRIVERS:
-            continue
-        host = next((kw.value for kw in child.keywords if kw.arg == "host"), None)
-        if host is None and child.args:
-            host = child.args[0]
-        if host is None:
-            return True
-        if _is_literal_uri(host, module, literal):
-            continue
-        return True
-    return False
-
-
-def _is_literal_uri(node: ast.expr, module: Module, literal: frozenset[str]) -> bool:
-    if isinstance(node, ast.Constant):
-        return isinstance(node.value, str) and _released_uri(node.value)
-    return isinstance(node, ast.Name) and (node.id in module.literal_uris or node.id in literal)
-
-
-def _bindings(call: ast.Call, callee: FunctionNode, module: Module, literal: frozenset[str]) -> frozenset[str]:
-    """Which of the callee's parameters this call site hands a source-written URI.
-
-    Without it the exemption stops at the caller, and these suites pass that constant into a
-    helper rather than building the client in place.
-    """
-    names = _parameters(callee)
-    bound = {name for name, arg in zip(names, call.args, strict=False) if _is_literal_uri(arg, module, literal)}
-    bound.update(kw.arg for kw in call.keywords if kw.arg in names and _is_literal_uri(kw.value, module, literal))
-    return frozenset(bound)
-
-
-def _imports_a_container(node: ast.AST) -> bool:
-    for child in ast.walk(node):
-        if isinstance(child, ast.ImportFrom) and child.module and child.module.split(".")[0] == CONTAINER_PACKAGE:
-            return True
-        if isinstance(child, ast.Import) and any(alias.name.split(".")[0] == CONTAINER_PACKAGE for alias in child.names):
-            return True
-    return False
-
-
 class Estate:
-    """Every module under `tests/`, and the reach questions answered across them."""
+    """Every module under `tests/`."""
 
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.modules: dict[str, Module] = {}
-        self.by_path: dict[Path, Module] = {}
+        self.modules: list[Module] = []
         # A module that will not parse is an input this cannot judge rather than a rule it broke, so
         # it is collected for `main` to refuse on and never allowed to end the run as a crash.
         self.unreadable: list[tuple[Path, str]] = []
@@ -351,165 +118,12 @@ class Estate:
             except UNPARSABLE as error:
                 self.unreadable.append((path, f"{type(error).__name__}: {error}"))
                 continue
-            dotted = ".".join(("tests", *path.relative_to(root).with_suffix("").parts))
-            module = Module(path, dotted, tree)
-            self.modules[dotted] = module
-            self.by_path[path] = module
-        # A confirmed reach is the same answer wherever it is asked from, so it is kept; a False is
-        # not, the recursion guard below cutting a walk short with an answer true of that path only.
-        self._reaches: set[tuple[str, int, frozenset[str]]] = set()
-        self._calls: dict[tuple[str, int], list[ast.Call]] = {}
-        self._names: dict[tuple[str, int], set[str]] = {}
-
-    def _body(self, node: FunctionNode, module: Module) -> tuple[list[ast.Call], set[str]]:
-        """This function's calls and the names it mentions, walked once for the whole run."""
-        key = (module.dotted, node.lineno)
-        calls = self._calls.get(key)
-        if calls is None:
-            calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
-            self._calls[key] = calls
-            # The string routes belong here too: a fixture named in `usefixtures` or fetched
-            # through `getfixturevalue` is reached without ever appearing as a parameter.
-            self._names[key] = _referenced(node) | set(_parameters(node)) | _named_fixtures(calls)
-        return calls, self._names[key]
-
-    def conftest_chain(self, module: Module) -> list[Module]:
-        """The conftests a module's fixtures resolve through, nearest first."""
-        chain: list[Module] = []
-        directory = module.path.parent
-        while True:
-            conftest = self.by_path.get(directory / "conftest.py")
-            if conftest is not None and conftest is not module:
-                chain.append(conftest)
-            if directory == self.root:
-                break
-            directory = directory.parent
-        return chain
-
-    def resolve(self, name: str, module: Module) -> tuple[FunctionNode, Module] | None:
-        """Where a name a function mentions is defined at module scope — its own, an import, or a conftest."""
-        own = module.functions.get(name)
-        if own is not None:
-            return own, module
-        source = self.modules.get(module.imports.get(name, ""))
-        if source is not None and name in source.functions:
-            return source.functions[name], source
-        for conftest in self.conftest_chain(module):
-            target = conftest.functions.get(name)
-            if target is not None:
-                return target, conftest
-        return None
-
-    def resolve_attribute(self, node: ast.expr, module: Module) -> tuple[FunctionNode, Module] | None:
-        """Where `helpers.seed` is defined, for a `helpers` this module imported as a module.
-
-        Exact rather than a search of every import: a name two modules share would otherwise be
-        attributed to the wrong one.
-        """
-        parts: list[str] = []
-        while isinstance(node, ast.Attribute):
-            parts.append(node.attr)
-            node = node.value
-        if not isinstance(node, ast.Name) or not parts:
-            return None
-        parts.append(node.id)
-        parts.reverse()
-        head = module.bound_modules.get(parts[0])
-        if head is None:
-            return None
-        dotted = ".".join((head, *parts[1:-1]))
-        source = self.modules.get(dotted)
-        if source is None or parts[-1] not in source.functions:
-            return None
-        return source.functions[parts[-1]], source
-
-    def resolve_method(self, name: str, module: Module, scope: str) -> tuple[FunctionNode, Module] | None:
-        """Where `self.seed` is defined: the innermost class body holding one, then outward."""
-        # Two reaches this never places, both false passes: a base class in ANOTHER module, whose
-        # methods no walk of this one holds, and a method bound to a name, which resolves at module
-        # scope and finds none.
-        parts = [part for part in scope.split("::") if part]
-        while parts:
-            found = module.methods.get(("".join(f"{part}::" for part in parts), name))
-            if found is not None:
-                return found, module
-            parts.pop()
-        # Every class body last, over-approximating on purpose: placing an inherited method exactly
-        # means walking an MRO this never builds, and a reach lost here is a test that runs against
-        # a real server.
-        return next(((node, module) for (_, defined), node in module.methods.items() if defined == name), None)
-
-    def _called_definition(self, call: ast.Call, name: str, module: Module, scope: str) -> tuple[FunctionNode, Module] | None:
-        """Where a call resolves, under the scope rules its spelling at the call site implies."""
-        if _on_the_instance(call):
-            return self.resolve_method(name, module, scope)
-        # The bare name first even for a qualified call: a name that resolves is the same function
-        # whichever spelling reached it, and only `helpers.seed` needs the qualifier read exactly.
-        found = self.resolve(name, module) or self.resolve_attribute(call.func, module)
-        if found is not None or not isinstance(call.func, ast.Attribute):
-            return found
-        # A qualifier this reader cannot place — `stub.find_one()`, `super().__init__()` — is
-        # searched for over every class body rather than left unresolved: narrowing it here is the
-        # false negative, a test reaching a real server unmarked.
-        return self.resolve_method(name, module, scope)
-
-    def reaches_through_a_name(self, name: str, module: Module, scope: str) -> bool:
-        """Whether a fixture asked for by string, from a scope above any function, needs a server."""
-        found = self.resolve(name, module) or self.resolve_method(name, module, scope)
-        return found is not None and self.reaches_a_database(found[0], found[1], set())
-
-    def reaches_a_database(
-        self,
-        node: FunctionNode,
-        module: Module,
-        seen: set[tuple[str, int, frozenset[str]]],
-        literal: frozenset[str] = frozenset(),
-    ) -> bool:
-        """Whether this function needs a server, through its own body, a helper, or a fixture."""
-        key = (module.dotted, node.lineno, literal)
-        if key in self._reaches:
-            return True
-        if key in seen:
-            return False
-        seen.add(key)
-
-        calls, names = self._body(node, module)
-        if _builds_a_real_client(calls, module, literal) or _imports_a_container(node):
-            self._reaches.add(key)
-            return True
-
-        scope = module.scope_at.get(node.lineno, "")
-        # Calls first, so a helper handed a source-written URI is judged under that binding rather
-        # than under its own signature.
-        called: set[str] = set()
-        for child in calls:
-            name = _called_name(child)
-            called.add(name)
-            found = self._called_definition(child, name, module, scope)
-            if found is None or found[0] is node:
-                continue
-            if self.reaches_a_database(found[0], found[1], seen, _bindings(child, found[0], module, literal)):
-                self._reaches.add(key)
-                return True
-
-        # A fixture is taken as a parameter and a helper can be passed rather than called, so the
-        # remaining names are resolved with nothing bound.
-        for candidate in names - called - literal:
-            # Both scopes rather than the first that answers: a bare mention says nothing about
-            # whether it is a fixture parameter, which pytest resolves against the class first, or a
-            # function passed by value, which is module scope's.
-            for found in (self.resolve(candidate, module), self.resolve_method(candidate, module, scope)):
-                if found is None or found[0] is node:
-                    continue
-                if self.reaches_a_database(found[0], found[1], seen):
-                    self._reaches.add(key)
-                    return True
-        return False
+            self.modules.append(Module(path, tree))
 
     def consumed_names(self) -> set[str]:
         """Every fixture name something asks for — as a parameter, or by string."""
         asked: set[str] = set()
-        for module in self.modules.values():
+        for module in self.modules:
             for node in ast.walk(module.tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     asked.update(_parameters(node))
@@ -521,29 +135,11 @@ class Estate:
         return asked
 
 
-def check_db_markers(estate: Estate) -> list[Finding]:
-    """A test reaching a server without the marker runs in the tier that starts none."""
-    findings: list[Finding] = []
-    for module in estate.modules.values():
-        for qualname, node, marked, named in module.tests:
-            if marked:
-                continue
-            scope = module.scope_at.get(node.lineno, "")
-            reaches = estate.reaches_a_database(node, module, set()) or any(
-                estate.reaches_through_a_name(fixture, module, scope) for fixture in named
-            )
-            if not reaches:
-                continue
-            detail = f"{_shown(module.path)}:{node.lineno} {qualname} reaches a database and carries no `@pytest.mark.db`"
-            findings.append(Finding("fail", detail))
-    return findings
-
-
 def check_dead_fixtures(estate: Estate) -> list[Finding]:
     """A fixture nothing consumes is a guarantee that was deleted from one end only."""
     asked = estate.consumed_names()
     findings: list[Finding] = []
-    for module in estate.modules.values():
+    for module in estate.modules:
         for name, node in module.fixtures.items():
             if name in asked or name in module.autouse:
                 continue
@@ -588,12 +184,11 @@ def main() -> int:
             print(f"      {_shown(path)} could not be parsed, so nothing under it was judged: {reason}", file=sys.stderr)
         return EXIT_REFUSED
 
-    findings = [*check_empty_parametrize(), *check_db_markers(estate), *check_dead_fixtures(estate)]
+    findings = [*check_empty_parametrize(), *check_dead_fixtures(estate)]
     code = report_findings(findings)
 
-    tests = sum(len(module.tests) for module in estate.modules.values())
-    fixtures = sum(len(module.fixtures) for module in estate.modules.values())
-    print(f"      {len(estate.modules)} module(s) under {_shown(TESTS)}: {tests} test(s), {fixtures} fixture(s)")
+    fixtures = sum(len(module.fixtures) for module in estate.modules)
+    print(f"      {len(estate.modules)} module(s) under {_shown(TESTS)}: {fixtures} fixture(s)")
     return code
 
 

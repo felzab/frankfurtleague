@@ -706,8 +706,8 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`: the scope check runs on every `scripts/gate/verify.sh` invocation, and
-# skipping it for a missing backend virtualenv buys a prerequisite for nothing.
+# Wider than `venv_python`: the step pool and the ops scope's checkers run on any interpreter at the
+# floor, and skipping them for a missing backend virtualenv buys a prerequisite for nothing.
 any_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
   local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"

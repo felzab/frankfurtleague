@@ -25,18 +25,11 @@ done
 
 RUNNABLE=(ops/local.sh gate/verify.sh ops/publish.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
 
-# The root keeps the name `.gitignore` documents, and each run owns a subdirectory inside it:
-# concurrent runs share a path, and one run's setup would delete another's tree from under it.
-SCOPE_FIXTURES="${REPO_ROOT}/.tmp-scope-fixtures"
-RUN_ID="$$"
-
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
 # replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
 cleanup() {
-  rm -rf "$SELFCHECK_TMP" "${SCOPE_FIXTURES:?}/${RUN_ID}"
-  # Only when this was the last run holding one — a concurrent run's subdirectory keeps it alive.
-  rmdir "$SCOPE_FIXTURES" 2>/dev/null || true
+  rm -rf "$SELFCHECK_TMP"
 }
 trap cleanup EXIT
 
@@ -577,7 +570,8 @@ par_run unit_flags
 
 step "9. Every scope verify.sh declares has a CI job, and every CI job names a scope"
 # A scope added to verify.sh with no job behind it never runs in CI, with every gate green: step 8
-# reads verify.sh against itself, and `check_scope.py :: SCOPES` guards the other direction alone.
+# reads verify.sh against itself, and `scripts/tests/test_scope_decisions.py ::
+# test_the_two_lists_of_scope_names_agree` guards the mapping's direction alone.
 # Two listings, two routes, per PRE-4.
 
 # What verify.sh declares is its `add_scope` lines; what CI runs is every flag handed to
@@ -666,106 +660,12 @@ case "$al_rc" in
   *) note_fail "actionlint reported findings:"; excerpt 40 < "$AL_OUT" ;;
 esac
 
-step "12. The gate's comment-only classifier"
-# A wrong answer is silent: classify a real code change as comments and the image build never runs
-# before the push. The fixtures pin each direction for every language the classifier parses.
-
-# They sit under the repo root and are passed as relative paths: MSYS rewrites an absolute POSIX
-# path such as mktemp's into a Windows one the interpreter cannot open (`scripts/README.md`).
-CLASSIFIER="$(any_python || true)"
-CLASSIFIER_AT_FLOOR=0
-# `any_python` answers whether an interpreter exists; whether it can host the checkers is the
-# separate question, and asking it before the classifier runs keeps a SyntaxError from being
-# reported as the classifier's own verdict.
-if [[ -n "$CLASSIFIER" ]] && python_at_floor "$CLASSIFIER"; then CLASSIFIER_AT_FLOOR=1; fi
-FIXTURES=".tmp-scope-fixtures/${RUN_ID}"
-if [[ -z "$CLASSIFIER" ]]; then
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "no python here, and this is CI, where the venv is installed for this check to run"
-  else
-    note_skip "no python found, so the classifier was not exercised"
-  fi
-elif (( ! CLASSIFIER_AT_FLOOR )); then
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "this python is below the checkers' floor, and this is CI, where the venv is installed to clear it"
-  else
-    note_skip "this python is below the checkers' floor, so the classifier was not exercised"
-  fi
-else
-  rm -rf "${FIXTURES:?}"; mkdir -p "$FIXTURES"
-
-  printf 'const marker = "a//b";\n// first\n'          > "$FIXTURES/comment.old.ts"
-  printf 'const marker = "a//b";\n// second\n'         > "$FIXTURES/comment.new.ts"
-  printf 'const marker = "a//b";\n'                    > "$FIXTURES/code.old.ts"
-  printf 'const marker = "a//c";\n'                    > "$FIXTURES/code.new.ts"
-  # JSX, because the script kind follows the extension and this misparses as plain TypeScript: the
-  # branch of `scripts/checks/ts_normalize.mjs :: normalize` that nothing else exercises.
-  printf 'const el = <div className="a">x</div>;\n// first\n'  > "$FIXTURES/comment.old.tsx"
-  printf 'const el = <div className="a">x</div>;\n// second\n' > "$FIXTURES/comment.new.tsx"
-  printf 'const el = <div className="a">x</div>;\n'            > "$FIXTURES/code.old.tsx"
-  printf 'const el = <div className="b">x</div>;\n'            > "$FIXTURES/code.new.tsx"
-  printf 'x = 1  # one\ndef f():\n    "doc"\n    return x\n'   > "$FIXTURES/comment.old.py"
-  printf 'x = 1  # two\ndef f():\n    "other doc"\n    return x\n' > "$FIXTURES/comment.new.py"
-  printf 'x = 1\n'                                     > "$FIXTURES/code.old.py"
-  printf 'x = 2\n'                                     > "$FIXTURES/code.new.py"
-  printf '# first\nname = "a"\n'                       > "$FIXTURES/comment.old.toml"
-  printf '# second\nname = "a"\n'                      > "$FIXTURES/comment.new.toml"
-  printf 'name = "a"\n'                                > "$FIXTURES/code.old.toml"
-  printf 'name = "b"\n'                                > "$FIXTURES/code.new.toml"
-  printf 'FROM node:26\n# first\n'                     > "$FIXTURES/dockerfile.old.Dockerfile"
-  printf 'FROM node:26\n# second\n'                    > "$FIXTURES/dockerfile.new.Dockerfile"
-
-  expect_verdict() { # $1 fixture name · $2 extension · $3 the verdict the classifier must give
-    par_add "${1}.${2}" "${1}:${2}:${3}"
-  }
-  unit_compare() { # $1 index · $2 name:ext:want · $3 label
-    local spec="$2" name ext want got
-    name="${spec%%:*}"; spec="${spec#*:}"
-    ext="${spec%%:*}"; want="${spec#*:}"
-    got="$("$CLASSIFIER" scripts/checks/check_scope.py --compare \
-      "${FIXTURES}/${name}.old.${ext}" "${FIXTURES}/${name}.new.${ext}" 2>&1 || true)"
-    if [[ "$got" == "$want" ]]; then
-      printf 'info\t%s — %s\n' "$3" "$want"
-    else
-      printf 'fail\t%s: the classifier said %s, expected %s\n' "$3" "'${got//$'\n'/ }'" "'$want'"
-    fi
-  }
-
-  # The TypeScript half is the only one needing a toolchain, and this scope stays runnable on a
-  # clone that has never run pnpm install.
-
-  # A probe that cannot answer is either a missing typescript or a broken normalizer, so locally
-  # the safe degradation is asserted instead. CI installs the frontend, so there silence fails.
-  if node scripts/checks/ts_normalize.mjs "$FIXTURES/comment.old.ts" "$FIXTURES/comment.old.ts" >/dev/null 2>&1; then
-    expect_verdict comment ts  comment-only
-    expect_verdict comment tsx comment-only
-  elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "ts_normalize.mjs could not answer, and this is CI, where the scripts job installs the frontend so that it can: either typescript is missing from that install or the normalizer itself is broken, and the two look identical from here."
-  else
-    info "typescript does not resolve here — asserting the safe degradation, not the real answer"
-    expect_verdict comment ts  code
-    expect_verdict comment tsx code
-  fi
-  expect_verdict code       ts         code
-  expect_verdict code       tsx        code
-  expect_verdict comment    py         comment-only
-  expect_verdict code       py         code
-  expect_verdict comment    toml       comment-only
-  expect_verdict code       toml       code
-  # Not a gap: a Dockerfile sits outside `scripts/checks/check_scope.py :: PARSEABLE`, so its `#`
-  # lines are never read at all.
-  expect_verdict dockerfile Dockerfile code
-  par_run unit_compare
-
-  rm -rf "${FIXTURES:?}"
-fi
-
-step "13. The hooks say what they exist to say"
+step "12. The hooks say what they exist to say"
 # Every hook here is silent on its failure path by design, so one that stopped answering looks
 # exactly like one with nothing to say, and only a driven case tells the two apart.
 if ! command -v node >/dev/null 2>&1; then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "node is absent, and this is CI, which installs it so these probes can run"
+    note_fail "node is absent, and this is CI, whose runner image ships it so these probes can run"
   else
     note_skip "the hook probes did not run, and neither did the registration read, which parses the settings through node — node is absent, and the standard's hook answers through it"
   fi
@@ -893,7 +793,7 @@ for (const [event, entry] of registered) {
   else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
 fi
 
-step "14. The pre-push hook prints the CI scopes and blocks nothing"
+step "13. The pre-push hook prints the CI scopes and blocks nothing"
 # The two properties `.githooks/pre-push`'s header states: exit 0 always, and a report line.
 PRE_PUSH="${REPO_ROOT}/.githooks/pre-push"
 prepush_out="${SELFCHECK_TMP}/pre-push.out"
@@ -979,7 +879,7 @@ else
   done
 fi
 
-step "15. Every deliberate non-run reaches the gate"
+step "14. Every deliberate non-run reaches the gate"
 # Any message shape, not a quoted one alone, so `skip bareword` is caught too.
 
 # The sweep's own status is kept and the exclusions are one pattern: `grep … || true` reports a file
@@ -1012,7 +912,7 @@ else
   info "every deliberate non-run here is written to the ledger verify.sh replays (${sweep_lines} line(s) swept)"
 fi
 
-step "16. The container-log redaction"
+step "15. The container-log redaction"
 # Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
 # the host redacted out of the log a failing deploy is read from. Each case below is a real
 # error-message shape, the bound being a regex nobody re-derives.
@@ -1088,7 +988,7 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
-step "17. The uv version is one number in two files"
+step "16. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
 UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"

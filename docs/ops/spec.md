@@ -440,7 +440,7 @@ prints nothing compose itself said: the filter in §1.7 reaches a container's lo
 error quotes the line it could not read.
 
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
-maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other
+maps paths reads it, and so does `scripts/gate/verify.sh` through its `--branch` mode; every other
 statement of which paths select which scope — the packaging list included — cites that file rather
 than repeating it.
 
@@ -450,9 +450,7 @@ is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point 
 handed a file: below it a checker dies compiling and python exits 1, which this scale reads as a
 finding about the change, so no checker's own body is written for an interpreter that cannot compile
 it. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
-repository, so `.github/workflows/pr-body.yml` is the only place it is addressable. The one
-javascript helper is `scripts/checks/ts_normalize.mjs`, whose comment at
-`scripts/checks/ts_normalize.mjs :: printer` argues the exception.
+repository, so `.github/workflows/pr-body.yml` is the only place it is addressable.
 
 **`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4); what a module
 covers is its own header, and a check `scripts/checks/docs_gate/kernel.py :: CHECKS` registers
@@ -463,14 +461,9 @@ without a planted violation beside it fails
 step — reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or
 `.githooks/`. Its passes catch the defects Windows hides: CRLF endings, and an executable bit that
 `chmod +x` in Git Bash never reaches, either of which works locally and fails on the server (I10).
-It also holds the two decisions that are silent when wrong — `check_scope.py`'s comment-only
-classifier, and `_lib.sh`'s log redaction (§1.7), whose failure is either a credential on the
-operator's terminal or the host redacted out of the log a failing deploy is read from.
-
-**That classifier's TypeScript half needs node and the frontend's `typescript`, and the scope
-requires neither**: where either is missing, the classifier is required to answer "code", and
-the self-check asserts that degradation. CI's `scripts` job installs the frontend dependencies for
-exactly this reason — otherwise the parser half would be exercised on no machine but the author's.
+It also holds a decision that is silent when wrong — `_lib.sh`'s log redaction (§1.7), whose
+failure is either a credential on the operator's terminal or the host redacted out of the log a
+failing deploy is read from.
 
 **shellcheck and actionlint are pinned, and nothing but a person bumps them** — the versions are
 written in the self-check itself, where no dependency ecosystem can read them, the deliberate
@@ -540,8 +533,8 @@ after those rows under a heading naming it
 (`scripts/gate/verify.sh :: LATER_VERDICT_HEADING`). The closing table then tells a passing scope
 from one that never ran, a session fixing the failure knows what it need not pay for again, and a
 second failure's own words are on screen rather than behind another full run:
-`scripts/checks/check_scope.py` names every scope a partial re-run leaves out, so none passes for the
-whole run.
+the scope step names every scope a partial re-run leaves out, and refuses one leaving out an image
+build the branch's diff asks for, so none passes for the whole run.
 Byte-identity with the serial run holds wherever both forms ran the same work — every green run, and
 a failing one whose failure is in the last unit either form would reach, a failure earlier than that
 stopping the serial run where the parallel one carried on — and `--serial` is what that comparison is
@@ -656,19 +649,13 @@ which the decode drops. That rule alone exempts a path, through
 invisible characters are the file's subject; an entry naming a file that carries none fails, so
 the list cannot outlive its reason.
 
-**The estate check refuses three silences the backend suite would otherwise pass**
-(`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls
-or a fixture it takes — needs a server and carries no `@pytest.mark.db`, so it runs in the default
-tier that starts no container; a fixture whose name no parameter and no `usefixtures` string
-anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter happens to
-share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at its
-default, where a parametrised sweep whose discovery found nothing passes as one skip. **The database
-rule exempts a client built from a source-written URI naming a port nothing here serves**
-(`scripts/checks/check_test_estate.py :: SERVED_PORT`) — the idiom that tells a guard's refusal from
-a route that does not exist — and that exemption follows the constant into a helper it is passed to,
-so it releases the call site rather than the helper. A URI on the served port is refused however it
-is written, `./scripts/ops/local.sh` answering it on the author's machine and nothing answering it
-in CI.
+**The estate check refuses two silences the backend suite would otherwise pass**
+(`scripts/checks/check_test_estate.py`): a fixture whose name no parameter and no `usefixtures`
+string anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter
+happens to share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at
+its default, where a parametrised sweep whose discovery found nothing passes as one skip. A test
+reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
+([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 
 **One db tier at a time on a machine, and the second gate run is refused rather than queued**
 (`scripts/gate/verify.sh :: claim_db_run`). Two at once make each other's failures unreadable, §3
@@ -741,14 +728,14 @@ frontend scope resolves the lockfile against `package.json` and the backend scop
 `uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
 expensive.
 
-**Before any of them runs, `check_scope.py` compares the scopes named against what the branch
-actually changed.** It refuses a run whose diff reaches the image build with a change that is more
-than comments, and merely reports every other surface the run leaves unproven. **What counts as
-"more than comments" is decided by a parser, and anything unproven counts as code**; two shapes a
-parser calls a comment are excluded by name because a tool downstream reads them
-(`scripts/checks/check_scope.py :: TOOLCHAIN_DIRECTIVE`, `:: DOCSTRINGS_ARE_PUBLISHED`), and those
-two exclusions are pattern matches on comment text where the rest of the decision deliberately is
-not. The check is skipped in CI, which maps its own scopes from the paths.
+**`--changed` runs exactly the scopes `scripts/gate/scope_map.sh` maps the branch to in its
+`--branch` mode** — the commits, the index, the working tree and the untracked files against the
+merge base with `origin/main` — so a local run and the pull request's jobs agree by construction.
+**A run naming its scopes is compared against that same mapping before any of them runs**: it is
+refused where the diff asks for the image build and the run leaves it out, and every other scope it
+leaves out is reported (`scripts/gate/verify.sh :: ask_the_mapping`). Any edit to a path an arm maps
+asks for that arm's scopes, a comment included. The step is skipped in CI, which maps its own scopes
+from the paths.
 
 **The scripts scope lints and type-checks its own python**, through configs that sit at the top of
 `scripts/` rather than at the repository root or inside one of its five directories: a root config

@@ -74,8 +74,7 @@ owner's.
 
 ### The gate
 
-Before pushing, run `python scripts/checks/check_scope.py --ran ""`, then `./scripts/gate/verify.sh`
-at every scope it names; never choose the scope by hand.
+Before pushing, run `./scripts/gate/verify.sh --changed`; never choose the scope by hand.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never
@@ -212,7 +211,7 @@ only in a session started after it.
 
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
-- **ci** — Let the comment classifier shrink a CI job; suppress the images refusal
+- **ci** — Let anything but `scripts/gate/scope_map.sh`'s path mapping shrink a CI job; suppress the images refusal
 - **format** — Let the gate write a formatted file; merge a partly-staged file's halves
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`

@@ -204,10 +204,8 @@ jobs:
           fi
           sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
           shellcheck --version
-      # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
-      # version. Without it the comment classifier's TypeScript half — the delicate one, and why it
-      # parses rather than matching a regex — is exercised nowhere.
-      - uses: ./.github/actions/frontend-toolchain
+      # The self-check's hook probes need a `node` and no package, so they take the runner image's own
+      # rather than the pinned install the frontend jobs make.
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
@@ -234,10 +232,6 @@ jobs:
         # which imports the application.
         working-directory: fl_backend
         run: uv sync --locked --dev
-      # The scope check classifies a changed .ts file through `scripts/checks/check_scope.py`, whose
-      # TypeScript half needs `scripts/checks/ts_normalize.mjs`. Without the installed tree the answer
-      # degrades to "code", and the run is asked for scopes it does not owe.
-      - uses: ./.github/actions/frontend-toolchain
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
@@ -341,10 +335,6 @@ jobs:
 
   # A job that maps its scope off and ends green has the semantics `skipped` already has in the
   # aggregate below, decided by the same mapping -- which stays one copy, in one script.
-
-  # §7's "let the comment classifier shrink a CI job" does not bind this: the mapping is
-  # scope_map.sh's PATH mapping, the one `changes` already shrinks every other job by, and not
-  # scripts/checks/check_scope.py's comment classifier.
 
   # The `changes` job still emits `frontend`, because the unit-test shard jobs below key on it.
   frontend:

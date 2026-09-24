@@ -8,6 +8,7 @@
 #
 #   ./scripts/gate/scope_map.sh origin/main   scopes for the diff against the merge base with that ref
 #   ./scripts/gate/scope_map.sh --all         every scope true — a push to main proves everything
+#   ./scripts/gate/scope_map.sh --branch      scopes for everything the branch differs from origin/main by, uncommitted work included
 #   ./scripts/gate/scope_map.sh --stdin       scopes for a file list on stdin, one path per line
 #   ./scripts/gate/scope_map.sh --help
 
@@ -19,18 +20,19 @@ MODE=""; FIRST_ARG=""
 
 # `refuse`, not `die`, here and below: a mapping this could not produce is an input nobody can act
 # on as a finding, and `scripts/lib/checker_kernel.py`'s contract spells that 2 rather than 1.
-one_mode() { [[ -z "$MODE" ]] || refuse "Give one base ref, --all or --stdin — not more than one ('${FIRST_ARG}' and then '${1}')."; FIRST_ARG="$1"; }
+one_mode() { [[ -z "$MODE" ]] || refuse "Give one base ref, --all, --branch or --stdin — not more than one ('${FIRST_ARG}' and then '${1}')."; FIRST_ARG="$1"; }
 
 for arg in "$@"; do
   case "$arg" in
     --all)     one_mode "$arg"; MODE="all" ;;
     --stdin)   one_mode "$arg"; MODE="stdin" ;;
+    --branch)  one_mode "$arg"; MODE="branch" ;;
     --help|-h) usage ;;
     --*)       refuse "Unknown option: ${arg}. Try --help." ;;
     *)         one_mode "$arg"; MODE="base"; BASE_REF="$arg" ;;
   esac
 done
-[[ -n "$MODE" ]] || refuse "Name a base ref (origin/main), or pass --all or --stdin. See --help."
+[[ -n "$MODE" ]] || refuse "Name a base ref (origin/main), or pass --all, --branch or --stdin. See --help."
 
 scripts=false; docs=false; backend=false; format=false; frontend=false; ops=false; db=false; images=false
 all() { scripts=true; docs=true; backend=true; format=true; frontend=true; ops=true; db=true; images=true; }
@@ -40,6 +42,25 @@ if [[ "$MODE" == "all" ]]; then
 else
   if [[ "$MODE" == "stdin" ]]; then
     files="$(cat)"
+  elif [[ "$MODE" == "branch" ]]; then
+    # The listing `scripts/gate/verify.sh` runs its changed-scopes mode from. The gate runs before
+    # the commit, so the index, the working tree and the untracked files count beside the commits.
+
+    # `origin/main` first for `scripts/lib/checker_kernel.py :: base_ref`'s reason.
+    ref=""
+    for candidate in origin/main main; do
+      if git rev-parse --verify --quiet "$candidate" >/dev/null; then ref="$candidate"; break; fi
+    done
+    [[ -n "$ref" ]] || refuse "Neither origin/main nor main resolves here. A single-branch clone fetches no base; add it with:
+  git remote set-branches --add origin main && git fetch origin main"
+    base="$(git merge-base "$ref" HEAD)" || refuse "No merge base between '${ref}' and HEAD."
+    # The quoting and rename flags for the base-ref arm's reasons, below. `--cached` because
+    # `git commit` takes the index, which `git diff <base>` never reads.
+    files="$(
+      git -c core.quotepath=false diff --no-renames --name-only "$base"
+      git -c core.quotepath=false diff --no-renames --name-only --cached "$base"
+      git -c core.quotepath=false ls-files --others --exclude-standard
+    )"
   else
     base="$(git merge-base "$BASE_REF" HEAD)" || refuse "No merge base between '${BASE_REF}' and HEAD."
     # `core.quotepath=false` because git otherwise quotes and octal-escapes a non-ASCII path, and the
@@ -129,7 +150,7 @@ else
       fl_frontend/next.config.ts)
         frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker. A line
-      # of its own, so CI and `check_scope.py` read this vocabulary rather than translating it.
+      # of its own, so CI and `verify.sh` read this vocabulary rather than translating it.
 
       # `scripts` rides along because `scripts/ruff.toml` EXTENDS this pyproject and the gate's own
       # ruff and pyright come out of the virtualenv this lockfile pins: both govern that scope

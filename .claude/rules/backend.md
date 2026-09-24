@@ -25,9 +25,8 @@ paths:
 
 `.claude/CLAUDE.md` §6's, on §6's terms: each fails silently.
 
-- Mark a db-touching test `@pytest.mark.db` yourself where it reaches the database through a fixture
-  a plugin supplies or a name assembled at run time: unmarked, it fails in the default tier for an
-  unrelated-looking reason, and nothing refuses the omission.
+- Mark every db-touching test `@pytest.mark.db`; one whose only database command runs in teardown
+  fails nothing when unmarked.
 - Pass a Pydantic field default by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.
   Positional leaves Pyright believing the field is required while ruff and pytest stay green.
 - Change a model and its hand-written copy in `fl_backend/app/core/constraints.py` in the same

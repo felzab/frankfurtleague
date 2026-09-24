@@ -9,6 +9,7 @@
 #   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
 #   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
+#   ./scripts/gate/verify.sh --changed         exactly the scopes scope_map.sh maps the branch's diff to
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
@@ -17,6 +18,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND_UNITS=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
+RUN_CHANGED=0
 SERIAL=0
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
@@ -30,6 +32,7 @@ for arg in "$@"; do
     --ops)      RUN_OPS=1 ;;
     --db)       RUN_DB=1 ;;
     --images)   RUN_IMAGES=1 ;;
+    --changed)  RUN_CHANGED=1 ;;
     --quick)    RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1 ;;
     --verbose)  VERBOSE=1 ;;
     --serial)   SERIAL=1 ;;
@@ -40,11 +43,45 @@ for arg in "$@"; do
   esac
 done
 
+# The scopes `scripts/gate/scope_map.sh` maps the branch's diff to, one per line, `IFS` splitting on
+# newlines: CI's own mapping, so a local run and the pull request's jobs agree by construction.
+SCOPES_ASKED=""
+ask_the_mapping() {
+  SCOPES_ASKED="$(bash scripts/gate/scope_map.sh --branch | awk -F= '$2 == "true" { print $1 }')" \
+    || refuse "scripts/gate/scope_map.sh --branch could not map the branch's diff, so no scope was chosen
+from it. Its own reason is above."
+}
+
+# Here only for this mode, whose flags decide every prerequisite below; a named run asks at the scope
+# step, after the prerequisites, whose refusals would otherwise wait behind this one.
+if (( RUN_CHANGED )) && ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then
+  ask_the_mapping
+  if [[ -z "$SCOPES_ASKED" ]]; then
+    info "the branch changes nothing scripts/gate/scope_map.sh maps to a scope, so there is nothing to run"
+    exit 0
+  fi
+  for asked in $SCOPES_ASKED; do
+    case "$asked" in
+      scripts)  RUN_SCRIPTS=1 ;;
+      docs)     RUN_DOCS=1 ;;
+      backend)  RUN_BACKEND=1 ;;
+      format)   RUN_FORMAT=1 ;;
+      frontend) RUN_FRONTEND=1 ;;
+      ops)      RUN_OPS=1 ;;
+      db)       RUN_DB=1 ;;
+      images)   RUN_IMAGES=1 ;;
+      # Refused rather than skipped: a scope the mapping grows and this list does not would
+      # otherwise leave its surface unproven in silence.
+      *)        refuse "scripts/gate/scope_map.sh emits the scope '${asked}', which verify.sh has no flag for." ;;
+    esac
+  done
+fi
+
 if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# The implication `docs/ops/spec.md` §1.6 states, so `check_scope.py` never calls either scope
+# The implication `docs/ops/spec.md` §1.6 states, so the scope step never calls either scope
 # unproven. Never in a worker, which would run each twice.
 if (( RUN_FRONTEND )) && ! worker; then
   # Not on a runner, whose workflow runs each as a job of its own beside this one and no scope check.
@@ -661,39 +698,26 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
   # `CI`, which a developer's shell may export.
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
+  elif (( RUN_CHANGED )); then
+    step "scope · the run is the branch's diff, mapped by scripts/gate/scope_map.sh"
+    ok "the scopes named cover the change"
   else
     step "scope · does this run cover what the branch changed?"
-    SCOPE_PY="$(any_python || true)"
-    SCOPE_RC=0
-    if [[ -z "$SCOPE_PY" ]]; then
-      skip "no python found — this run was not checked against the diff"
-    # Ahead of the run rather than graded after it: below the floor the checker dies compiling, and
-    # the 1 a SyntaxError exits would reach the refusal arm below as a scope this run does not cover.
-    elif ! python_at_floor "$SCOPE_PY"; then
-      skip "this is ${PYTHON_FOUND:-an interpreter no version could be read from}, below the checkers' floor of ${PYTHON_FLOOR} — this run was not checked against the diff"
+    ask_the_mapping
+    UNRUN=""
+    for asked in $SCOPES_ASKED; do
+      if [[ " ${SCOPES_RAN} " != *" ${asked} "* ]]; then UNRUN+=" --${asked}"; fi
+    done
+    # The image build alone refuses a narrowed run, `.claude/CLAUDE.md` §7 **ci** keeping that
+    # refusal; every other scope left out is reported and left to the pull request's jobs.
+    if [[ " ${UNRUN} " == *" --images "* ]]; then
+      refuse "This run is not wide enough to merge on: the branch's diff asks for --images, which it
+leaves out. Re-run with:  ./scripts/gate/verify.sh --changed"
+    elif [[ -n "$UNRUN" ]]; then
+      ok "no file this branch changed refuses this run, and the diff also asks for${UNRUN}, which it
+leaves unproven"
     else
-      # Captured so the verdict below can count `scripts/checks/check_scope.py :: check`'s report lines,
-      # and printed, those being the useful half of a green answer.
-      SCOPE_OUT="$("$SCOPE_PY" scripts/checks/check_scope.py --ran "$SCOPES_RAN")" || SCOPE_RC=$?
-      if [[ -n "$SCOPE_OUT" ]]; then printf '%s\n' "$SCOPE_OUT"; fi
-      case "$SCOPE_RC" in
-        # 0 is "nothing refuses this run", not "the run covers the change": an unproven surface
-        # passes through as a `report` line (`scripts/lib/checker_kernel.py :: report_findings`).
-        0) SCOPE_UNPROVEN="$(printf '%s\n' "$SCOPE_OUT" | grep -c '^ *report  ' || true)"
-           if (( SCOPE_UNPROVEN > 0 )); then
-             ok "no file this branch changed refuses this run, and the ${SCOPE_UNPROVEN} report line(s) above
-name a surface the run leaves unproven"
-           else
-             ok "the scopes named cover the change"
-           fi ;;
-        1) refuse "This run is not wide enough to merge on. The finding above names the file and the flag." ;;
-        2) refuse "The scope check could not judge its input, so this run was not checked against the
-diff. Its own reason is above." ;;
-        130) on_interrupt ;;
-        # Never a refusal: a checker that broke says nothing about the scope, and a refusal naming
-        # nothing is worse than a skip.
-        *) skip "the scope check itself failed (exit ${SCOPE_RC}), so this run was not checked against the diff" ;;
-      esac
+      ok "the scopes named cover the change"
     fi
   fi
 fi
@@ -786,9 +810,9 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # A later scope's own text, which rows count but never quote. A branch whose diff asks for every
-  # scope cannot re-run one alone (`scripts/checks/check_scope.py`), so text left unread here costs a
-  # second full run.
+  # A later scope's own text, which rows count but never quote. A branch whose diff asks for the
+  # image build cannot re-run one scope alone (the scope step refuses it), so text left unread
+  # here costs a second full run.
 
   # Findings and a refusal both reach it, and the exit contract keeps those two apart
   # (`docs/ops/spec.md` §1.7), so the heading names neither.
@@ -987,8 +1011,7 @@ characters only one package quotes. Edit the two literals together." \
   fi
 
   # `openapi.json` publishes every endpoint and model docstring as a `description`, so a reword
-  # edits it -- and `check_scope.py` reads that edit as comment-only, asking for this scope and
-  # not `--backend`, where the pytest case covering it lives.
+  # edits it, and this scope is the one that reads the document without the backend suite.
 
   # Needs no database and no environment: `build_test_config` supplies the settings. The backend
   # virtualenv it does need is already this scope's prerequisite, above.

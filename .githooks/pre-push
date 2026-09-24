@@ -2,7 +2,7 @@
 #
 # GITHOOKS · print the CI scopes a push will run, and block nothing.
 #
-# `scripts/checks/check_scope.py` compares a named scope against the diff before a local run; this prints
+# `scripts/gate/verify.sh` compares a named scope against the diff before a local run; this prints
 # what `.github/workflows/verify.yml` would compute for the push, so a wasted CI round trip is seen
 # before it is paid for. Advisory only, and that is a hard property: git aborts a push on a
 # non-zero status, so no path here may answer one — its own failure included.

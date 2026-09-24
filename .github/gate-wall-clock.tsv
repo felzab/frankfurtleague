@@ -270,7 +270,7 @@
 #
 # `scripts` gained eleven cases and lost eleven. `scripts/tests/test_pre_commit.py` commits through
 # `.githooks/pre-commit` in fresh repositories, two on `main` and one on a branch, 1.26-1.34 s for the
-# three; `selfcheck.sh` step 13's registration read, with its script missing and present,
+# three; `selfcheck.sh` step 12's registration read, with its script missing and present,
 # 0.43-0.45 s; `scripts/tests/test_gate_forms.py`'s pool-fallback notice, one gate run no pool
 # serves and one the scope pool serves, beside the list of pooling scopes, 2.20-2.28 s with the
 # module's fixture built afresh on every call; `scripts/tests/test_scope_decisions.py`'s db-tier arm
@@ -279,8 +279,21 @@
 # millisecond each. Measured locally on 2026-09-23 over five rounds in rotated order, each case
 # called directly, on a sixteen-core Windows machine carrying a fleet of agent sessions, so every
 # figure is an upper bound. The eleven cut --
-# step 13's watchdog comparison, the two shard-matrix readers above and `job_names`' two samples --
+# step 12's watchdog comparison, the two shard-matrix readers above and `job_names`' two samples --
 # started no gate run. Neither the reference nor the budget moves and neither takes a new stamp.
+#
+# `backend` gained a guard: `fl_backend/tests/tier.py` watches every default-tier test through the
+# driver's command listener and two hook wrappers. The whole default tier took 22.6-40.2 s without
+# it and 23.2-32.9 s with it, three interleaved rounds each at six workers, measured locally on
+# 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both spreads are upper
+# bounds and they overlap: the guard's cost is inside that machine's noise and inside the floor the
+# `backend` row carries. Neither the reference nor the budget moves and neither takes a new stamp.
+#
+# `scripts` lost the comment classifier, its cases and its self-check step, and gained four cases
+# driving `verify.sh` over a fixture branch -- two named runs against the mapping, two
+# `--changed` runs. `scripts/tests/test_scope_decisions.py` and the classifier's own module took
+# 28.6-30.0 s together and the one module left takes 24.9-26.2 s, three interleaved rounds each on
+# the same machine and date, so the scope's cost falls. Lowering one is free, and no row moves.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
