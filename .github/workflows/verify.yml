@@ -159,26 +159,11 @@ jobs:
           # The sha check's test walks recent commits for one whose short form carries a digit and
           # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
           fetch-depth: 20
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The venv carries the repository's own ruff for the python under scripts/. The dev group
+      # alone: the checkers and their suite need nothing past the standard library.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
-          # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and
-          # every `uv sync` below refuses the moment the two differ.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # The scripts scope lints the python under scripts/ with the repository's own ruff, which lives
-        # in this venv. verify.sh resolves .venv/bin/python (Linux) itself.
-
-        # `--locked` at every `uv sync` in this workflow: a bare sync REWRITES uv.lock in the working
-        # tree, so a branch with a stale committed lockfile passes every later check against the
-        # rewritten file. `--locked` refuses it; `--frozen` would accept it.
-
-        # `--only-group dev` where no step imports the application: the checkers under scripts/ are
-        # standard library, and scripts/tests imports the same set, which is why
-        # scripts/pyrightconfig.json names no venv. The project and its graph stay uninstalled.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+          application: false
       - name: Install the shellcheck the gate pins
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
@@ -221,17 +206,10 @@ jobs:
           # Full history: the documentation gate diffs the branch against the merge base for its
           # branch-scoped checks, which a shallow clone cannot do.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
-        # `--dev`, not the dev group alone: this scope runs fl_backend/tests/openapi_document.py,
-        # which imports the application.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
+          application: true
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
@@ -262,16 +240,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The application too: pyright and the suite import `app`.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `--dev`, not the dev group alone: pyright and the suite import `app`, so the project and
-        # its dependency graph are installed.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
+          application: true
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
@@ -289,16 +261,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The application too: the db tier's tests import `app`.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `--dev`, not the dev group alone: the db tier's tests import `app`, so the project and its
-        # dependency graph are installed.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
+          application: true
       - name: Pull the mongod image the db tier starts
         # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
         # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
@@ -467,20 +433,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `any_python` falls back to the runner's python3, which is under the checkers' floor on
-        # this image, and the ops scope degrades "could not run" to a skip — so without this venv
-        # the job is green having never compared the compose files.
+      # `any_python` falls back to the runner's python3, which is under the checkers' floor on
+      # this image, and the ops scope degrades "could not run" to a skip — so without this venv
+      # the job is green having never compared the compose files.
 
-        # The dev group alone, as at `scripts`: zizmor is the only thing here past the standard
-        # library, and it is a dev dependency.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+      # The dev group alone: zizmor is the only thing here past the standard library, and it is a
+      # dev dependency.
+      - uses: ./.github/actions/backend-toolchain
+        with:
+          application: false
       - name: Run the ops scope
         run: ./scripts/gate/verify.sh --ops
 

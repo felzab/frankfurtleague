@@ -665,7 +665,8 @@ and why a job mapped off reads as `skipped`, is at that job in `.github/workflow
 
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
-`version-file`; each flag's argument is at the `scripts` job in `.github/workflows/verify.yml`.
+`version-file`; each flag's argument is in `.github/actions/backend-toolchain/action.yml`, which
+every such job calls.
 **Every other CI job that runs python takes the interpreter `fl_backend/.python-version` pins through
 `actions/setup-python`**, the file the virtualenv's interpreter is read from too, so one pin decides
 every job's version; the reason is at that workflow's `commits` job.

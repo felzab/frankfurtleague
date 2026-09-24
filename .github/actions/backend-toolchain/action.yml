@@ -1,0 +1,46 @@
+name: Backend toolchain
+description: >-
+  uv at the version fl_backend's manifest pins, and fl_backend's locked virtualenv, in one step.
+  Several jobs of the verify workflow want exactly this block, and a copy per job is a copy that can
+  drift.
+
+# The caller checks out first, for the reason `.github/actions/frontend-toolchain/action.yml` gives.
+
+inputs:
+  application:
+    description: >-
+      `true` where a step imports the application, which installs the project and its graph with
+      the dev group; `false` installs the dev group alone.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      with:
+        enable-cache: true
+        # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
+        # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and the
+        # sync below refuses the moment the two differ.
+        version-file: fl_backend/pyproject.toml
+    # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
+    # committed lockfile passes every later check against the rewritten file. `--locked` refuses
+    # it; `--frozen` would accept it.
+
+    # `--only-group dev` where no step imports the application, leaving its dependency graph
+    # uninstalled. Any other value is refused: read as `false`, a misspelt `true` would fail the job
+    # at its first import rather than here.
+    - name: Create the backend virtualenv
+      shell: bash
+      working-directory: fl_backend
+      env:
+        APPLICATION: ${{ inputs.application }}
+      run: |
+        case "$APPLICATION" in
+          true) uv sync --locked --dev ;;
+          false) uv sync --locked --only-group dev ;;
+          *)
+            echo "::error title=Backend toolchain::application is '${APPLICATION}', and only true or false is read."
+            exit 1
+            ;;
+        esac
