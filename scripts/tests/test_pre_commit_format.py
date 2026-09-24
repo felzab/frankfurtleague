@@ -69,12 +69,16 @@ def _lines(*middle: str, last: str = "export const last = 3;", eol: str = "\n") 
 
 
 def _repository() -> Path:
-    """A repository off main whose only hook is the tree's `pre-commit`, with the stand-in prettier installed."""
+    """A repository off main with the stand-in prettier installed, committing through the tree's hook.
+
+    The hook and its helper sit in a directory of their own, as when `core.hooksPath` names another
+    checkout.
+    """
+    hooks = new_root("fl-pre-commit-hooks-")
+    shutil.copy2(HOOK, hooks / "pre-commit")
+    shutil.copy2(HELPER, hooks / "format-staged.mjs")
     root = new_root("fl-pre-commit-format-")
-    (root / ".githooks").mkdir()
-    shutil.copy2(HOOK, root / ".githooks" / "pre-commit")
-    shutil.copy2(HELPER, root / ".githooks" / "format-staged.mjs")
-    configure(root, hooks=str(root / ".githooks"))
+    configure(root, hooks=str(hooks))
     # Off main, where the hook's own refusal would answer every case below before any formatting.
     git(root, "symbolic-ref", "HEAD", "refs/heads/work")
     write(root, ".gitignore", "node_modules/\n")
@@ -347,3 +351,14 @@ def test_a_file_prettier_ignores_is_committed_as_staged() -> None:
     assert done.returncode == 0, done.stdout + done.stderr
     assert RAW in _committed(root, "ignored.ts")
     assert _on_disk(root, "ignored.ts") == _lines(RAW).encode()
+
+
+def test_the_helper_is_found_beside_the_hook_and_not_in_the_committing_tree() -> None:
+    """The session's shape: `core.hooksPath` names another checkout, and the committing tree holds no helper, or an older one."""
+    root = _repository()
+    assert not (root / ".githooks").exists()
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert FORMATTED in _committed(root, "a.ts")

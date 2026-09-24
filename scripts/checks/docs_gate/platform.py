@@ -76,7 +76,7 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
     "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
     "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
-    ".githooks/pre-commit :: work": "`cygpath -w` for mktemp's MSYS alias, which `git hash-object` cannot open from a worktree",
+    ".githooks/pre-commit :: windows_path": "`cygpath -w`: neither `git hash-object` nor node can open an MSYS path",
 }
 
 # Keyed like `PLATFORM_ALLOW`; the value is why the stream may translate.

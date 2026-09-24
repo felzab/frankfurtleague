@@ -38,6 +38,20 @@ name_files() {
   if [ $# -gt 10 ]; then echo "      ... and $(($# - 10)) more"; fi
 }
 
+# Native programs cannot open an MSYS path: `git hash-object` reads mktemp's /tmp alias from a
+# worktree unconverted, and node the hook's own path — the resolution
+# `scripts/gate/selfcheck.sh :: mount_source` also applies.
+windows_path() {
+  cygpath -w "$1" 2>/dev/null || printf '%s' "$1"
+}
+
+# Beside this hook rather than in the committing tree: `core.hooksPath` can name another checkout,
+# whose helper is this hook's own version and the committing tree's may be any other, or none.
+if ! helper="$(windows_path "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/format-staged.mjs")"; then
+  echo "  pre-commit hook: could not find the directory it runs from — the commit is refused." >&2
+  exit 1
+fi
+
 if ! repo_root="$(git rev-parse --show-toplevel)"; then
   echo "  pre-commit hook: could not find the repository root — the commit is refused." >&2
   exit 1
@@ -57,9 +71,7 @@ if ! work="$(mktemp -d)"; then
   echo "  pre-commit hook: could not make a scratch directory — the commit is refused." >&2
   exit 1
 fi
-# `git hash-object` cannot open mktemp's MSYS alias (/tmp/…) from a worktree, where no conversion
-# layer rewrites the argument — the resolution `scripts/gate/selfcheck.sh :: mount_source` also applies.
-work="$(cygpath -w "$work" 2>/dev/null || printf '%s' "$work")"
+work="$(windows_path "$work")"
 trap 'rm -rf "$work"' EXIT
 
 # `diff.relative` would relativise these to the invoking directory; every line below joins them onto
@@ -131,7 +143,7 @@ fi
 
 # One node for the whole stage: a process per file pays prettier's and both plugins' load each time.
 status=0
-( cd fl_frontend && node ../.githooks/format-staged.mjs "$work" ) || status=$?
+( cd fl_frontend && node "$helper" "$work" ) || status=$?
 if [ "$status" -ne 0 ]; then
   echo "  pre-commit hook: formatting exited $status, so the commit is refused and nothing was staged —" >&2
   echo "  its reason is above." >&2
