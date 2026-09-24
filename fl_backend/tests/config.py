@@ -17,9 +17,9 @@ TEST_BASE_URL = "http://testserver"
 # other than the failure it asserts.
 UNANSWERED_URI = "mongodb://localhost:1"
 
-# Positive, because pymongo reads zero as no deadline; a millisecond, spent before a route's first
-# driver call. Inside a request the app's deadline replaces `serverSelectionTimeoutMS`, so only this
-# keeps a request to `UNANSWERED_URI` short.
+# Positive, as pymongo reads zero as no deadline; a millisecond, spent before a route's first driver
+# call. Nested around a request it caps the app's deadline, which overrides `serverSelectionTimeoutMS`
+# and otherwise holds a request to `UNANSWERED_URI` for `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 UNANSWERED_DEADLINE_S = 0.001
 
 # Distinct on purpose: `verify_api_key` compares with `compare_digest`, so equal values would let a
