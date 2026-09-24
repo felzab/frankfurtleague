@@ -595,17 +595,11 @@ because a case is cut only where a surviving one still fails for the same regres
   text `useReportClientCrash(` in its file, so that sweep follows the call into the hook in the same
   change.
 
-**Two test doubles are copied, and this pass takes them as the frontend's cleanup rather than a
-page's:**
+**A test double is copied, and this pass takes it as the frontend's cleanup rather than a page's:**
 
 - **`aRequest`**, spelled in each route test under `fl_frontend/src/app/api/` that declares one, in
   three variants — throwing on an absent body, not throwing, and taking headers alone. One helper,
   with the throwing and the non-throwing variants kept apart until each caller is read.
-- **`Barrier`**, identical in `fl_frontend/src/core/auth.db.test.ts` and
-  `fl_frontend/src/features/passkeys/actions.db.test.ts`. **It cannot move to
-  `fl_frontend/src/shared/testing/`**: `fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY` keeps every
-  file under `core/`, a test included, from importing `shared`, so the one copy sits where both may
-  import it, and the db tier proves the move.
 
 **What the redesign reopens from what that sweep kept, and what it does not:**
 
