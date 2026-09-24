@@ -173,6 +173,40 @@ carry a changed rule default under it, which [`docs/frontend/spec.md`](../fronte
 it lands. The move also re-answers the cache key and threading decision
 [`docs/ops/spec.md`](../ops/spec.md) §1.6 records.
 
+### `6aqh-cw5k` · Moving to pnpm 12 silences the frontend's security alerts until GitHub's graph reads the lockfile's second document
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**pnpm 12 writes `fl_frontend/pnpm-lock.yaml` as two YAML documents, and GitHub's dependency graph
+reads only the first.** With `packageManager` in `fl_frontend/package.json` naming a pnpm 12 release,
+pnpm records that pin in a leading document (`packageManagerDependencies`) and writes the ordinary
+lockfile after it. The graph Dependabot's alerts are raised from parses the leading document alone,
+so it holds pnpm's own packages and none of the frontend's: no alert opens for `fl_frontend`, alerts
+already open close as fixed, and no security update is proposed. That is the route
+`.github/dependabot.yml` names for security updates and
+[`docs/_git/spec.md`](../_git/spec.md#16-repository-settings) switches on; the gate's
+`pnpm audit:prod` only warns. The fault is GitHub's, dependabot-core issue 15904
+(https://github.com/dependabot/dependabot-core/issues/15904), open when read on 2026-09-24.
+Dependabot's version-update grapher already reads the last document, which changes nothing here: the
+alerts come from the graph, a separate parser.
+
+**pnpm stays on its 11 line until that issue is fixed**, as I ruled on 2026-09-24 — the pin in
+`fl_frontend/package.json` and `fl_frontend/Dockerfile`'s `PNPM_VERSION`.
+
+**Done when** the move to pnpm 12 has landed and `gh api repos/felzab/frankfurtleague/dependency-graph/sbom`
+counts the frontend's packages whole after it, the count matching one taken before the move rather
+than the pin's handful.
+
+**The move commits the leading document pnpm writes, or every fresh checkout rewrites the lockfile.**
+The first pnpm call finding the pin's record missing writes it, `pnpm --version` included, and the
+gate's scopes starting at once race to rename the file. The document is additive: nothing in the
+ordinary lockfile is re-resolved.
+
+**`pmOnFail: ignore` in `fl_frontend/pnpm-workspace.yaml` keeps the lockfile one document, and is
+refused**: pnpm then stops switching to the pinned release, so a local run is pinned by nothing.
+
 ### `6m3r-xpcu` · Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite
 
 | Status | Depends on |
