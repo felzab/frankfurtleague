@@ -7,7 +7,7 @@ from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
-from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
     FLEinwilligung,
@@ -159,6 +159,13 @@ class TestSchiedsrichter:
             {"kontakt": kontakt(), "name": name, "schule": None, "default_payment": 20},
             "name",
         )
+
+    @pytest.mark.parametrize("model", [FLPostSchiedsrichterPayload, FLPatchSchiedsrichterPayload])
+    def test_the_payload_holds_the_name_to_every_persons_ceiling(self, kontakt, assert_rejects, model):
+        body = {"kontakt": kontakt(), "schule": None, "default_payment": 20}
+
+        assert_rejects(model, {**body, "name": "A" * (KONTAKT_NAME_MAX_LENGTH + 1)}, "name")
+        assert len(model.model_validate({**body, "name": "A" * KONTAKT_NAME_MAX_LENGTH}).name) == KONTAKT_NAME_MAX_LENGTH
 
     def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
         """A read model refusing a stored name would answer 500 for the whole list because of one row."""

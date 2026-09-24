@@ -5,7 +5,7 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { FLEinwilligungSchema } from "@/features/spieler/schemas";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH } from "@/features/teams/constants";
+import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -20,8 +20,12 @@ import { alterAusserhalb } from "./constants";
 
 import type { FLKontakt } from "@/shared/schemas";
 
+// A whole name held to the ceiling one part of any other person's name takes: one number, and one
+// sentence, on every form.
+const schiedsrichterName = PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG });
+
 export const FLPostSchiedsrichterPayloadSchema = z.object({
-  name: PersonNameSchema,
+  name: schiedsrichterName,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktPayloadSchema,
   schule: z.string().nullable(),
@@ -30,7 +34,7 @@ export type FLPostSchiedsrichterPayload = z.infer<typeof FLPostSchiedsrichterPay
 
 export const FLPatchSchiedsrichterPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  name: PersonNameSchema,
+  name: schiedsrichterName,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktPayloadSchema,
   schule: z.string().nullable(),

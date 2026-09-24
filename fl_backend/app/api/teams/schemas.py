@@ -239,9 +239,8 @@ class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`), and
-    # stripped there for the same reason. The ceiling is the application's, so both tiers refuse
-    # alike; the pattern bounds the alphabet and not the length.
+    # Tightened on the WRITE side alone (`docs/backend/spec.md :: I36`), in the type the public
+    # application and a referee's name take too, so the editor and the form refuse a name alike.
     vorname: CustomKontaktName
     nachname: CustomKontaktName
     email: CustomEmail
