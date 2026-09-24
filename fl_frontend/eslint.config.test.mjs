@@ -46,6 +46,7 @@ const BANS = [
   ["hint-nest", /read out as part of the title/],
   ["next-private", /Mount Next's contexts/],
   ["next-private-load", /Load Next's contexts through/],
+  ["next-private-string", /Name Next's private contexts in/],
   ["segmented-import", /Compose a date or time field/],
   ["segmented-load", /Load a segmented date control through/],
   ["calendar-load", /Import the Calendar statically/],

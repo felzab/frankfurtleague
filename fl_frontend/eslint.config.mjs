@@ -284,11 +284,25 @@ const TRANSITION_REWRAP = {
 };
 
 /**
- * A module named to `import()`, which `no-restricted-imports` never reads. `require()` needs no arm:
- * `@typescript-eslint/no-require-imports` refuses every call.
+ * Where a module is named to load it at run time, which `no-restricted-imports` never reads: an
+ * `import()`, and a function `createRequire` makes, called where it is made. One held in a name
+ * loads unseen, as `@typescript-eslint/no-require-imports` refuses a bare `require()` alone.
  */
+const LOAD_SITES = ["ImportExpression > .source", 'CallExpression[callee.callee.name="createRequire"] > .arguments:first-child'];
+
+/** A module a load site names in a literal or a template without holes; one assembled at run time passes. */
 const loadOf = (pattern) =>
-  `:matches(ImportExpression > Literal.source[value=/${pattern}/], ImportExpression > TemplateLiteral.source[expressions.length=0] > TemplateElement[value.cooked=/${pattern}/])`;
+  `:matches(${LOAD_SITES.flatMap((site) => [
+    `${site}[type="Literal"][value=/${pattern}/]`,
+    `${site}[type="TemplateLiteral"][expressions.length=0] > TemplateElement[value.cooked=/${pattern}/]`,
+  ]).join(", ")})`;
+
+/** Where an import or a load names its module, which the import and load bans read. */
+const MODULE_SOURCES = [
+  ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration) > .source",
+  ...LOAD_SITES,
+  ...LOAD_SITES.map((site) => `${site} > TemplateElement`),
+].join(", ");
 
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
@@ -392,6 +406,13 @@ const SOURCE_BANS = [
   PASSKEY_DELETION,
   { ...QUERY_IN_EQUALITY, tests: true, production: false },
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
+  {
+    // A module double's source text, or a specifier held in a name for a later load. A path assembled
+    // at run time passes.
+    selector: `${inLiteral(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\x2F`))}:not(${MODULE_SOURCES})`,
+    message: "Name Next's private contexts in fl_frontend/src/shared/testing/nextContexts.ts alone, in a string as much as in an import.",
+    tests: true,
+  },
   {
     selector: inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
     message: "A hover is one of globals.css's hover tokens, never an opacity (docs/frontend/spec.md :: I162).",

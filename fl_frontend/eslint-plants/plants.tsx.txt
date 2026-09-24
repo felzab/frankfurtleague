@@ -90,6 +90,7 @@ export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: her
 export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
 export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
+export const PRIVATE_PATH = "next/dist/shared/lib/app-router-context.shared-runtime"; // expect: next-private-string
 export { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
 export { CalendarRoot as DaysRoot, Calendar } from "@heroui/react/calendar"; // expect: date-alias expect: date-alias
 export * as CalendarParts from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
