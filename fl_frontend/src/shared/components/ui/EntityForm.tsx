@@ -79,7 +79,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 
   const writeAfterBlock = (payload: TPayload) => {
     startSaving(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await onSubmit(payload).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,

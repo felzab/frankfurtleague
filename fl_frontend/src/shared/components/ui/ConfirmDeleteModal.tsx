@@ -81,7 +81,7 @@ export function ConfirmDeleteModal({
     }
 
     startRetiring(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await onConfirm().catch(unansweredAction);
 
       if (!res.success) {
