@@ -248,22 +248,31 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
 
+# No `--cache-to` here: buildx answers one status for the whole solve, so a cache export failing after
+# the image loaded would read as a failed build. `export_image_cache` exports in a run of its own.
 build_image() {
   local name="$1" dockerfile="$2" context="$3"
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
     # `scope` keeps the images' caches apart, buildx overwriting rather than merging a key. It stays
     # the bare image name: a run id would miss earlier runs' layers. `version` stays unpinned,
     # buildx picking the live cache service.
-    docker buildx build --load \
-      --cache-from "type=gha,scope=${name}" \
-      --cache-to "type=gha,scope=${name},mode=max" \
+    docker buildx build --load --cache-from "type=gha,scope=${name}" \
       -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
   else
     docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
   fi
 }
+# The same solve again, answered from the builder's own cache the build just filled, with `cacheonly`
+# exporting nothing but the layers (https://docs.docker.com/build/exporters/).
+export_image_cache() {
+  local name="$1" dockerfile="$2" context="$3"
+  docker buildx build --output type=cacheonly --cache-from "type=gha,scope=${name}" \
+    --cache-to "type=gha,scope=${name},mode=max" -f "$dockerfile" "$context"
+}
 do_build_frontend() { build_image frontend fl_frontend/Dockerfile fl_frontend; }
 do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
+do_cache_frontend() { export_image_cache frontend fl_frontend/Dockerfile fl_frontend; }
+do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backend; }
 
 # Two promises a build keeps silently or not at all: a USER line lost in a refactor still builds,
 # and so does a context the dockerignore stopped covering.
@@ -1421,6 +1430,30 @@ The capture above names the image and the path inside it."
   else
     refuse "an image would not run (exit ${IMAGE_CONTEXT_RC}), so its build context was never read
 and nothing here judges either dockerignore. The capture above names the image."
+  fi
+
+  # Last, so every verdict above stands whatever the cache service answers. Refused rather than
+  # failed: a lost export says nothing about the tree, and never ignored, since the next run then
+  # builds cold with nothing saying why.
+  if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
+    start_steps --images cache_frontend cache_backend
+    for u_image in frontend backend; do
+      step "images · the ${u_image} layer cache reaches GitHub Actions"
+      unit_join "cache_${u_image}"
+      CACHE_RC=0
+      if [[ "$u_image" == "frontend" ]]; then
+        quietly unit_replay cache_frontend || CACHE_RC=$?
+      else
+        quietly unit_replay cache_backend || CACHE_RC=$?
+      fi
+      case "$CACHE_RC" in
+        0)   ok "the ${u_image} layers are cached for the next run" ;;
+        130) on_interrupt ;;
+        *)   refuse "the ${u_image} image built and passed every probe above, and exporting its layer cache
+to GitHub Actions then failed (exit ${CACHE_RC}), buildx's own words above. That is the cache
+service's answer and none about the change: re-run the job." ;;
+      esac
+    done
   fi
 fi
 

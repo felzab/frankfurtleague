@@ -30,7 +30,14 @@ STUB: Final = """#!/usr/bin/env bash
 set -u
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
-  build|buildx|image|tag) exit 0 ;;
+  build|image|tag) exit 0 ;;
+  # The build loads the image and the cache export is a run of its own; each fails on its own case.
+  buildx)
+    case "$* ${FL_IMAGE_CASE:-clean}" in
+      *--load*cache_build_failed) printf '%s\\n' "ERROR: failed to build: failed to solve"; exit 1 ;;
+      *type=cacheonly*cache_export_failed) printf '%s\\n' "ERROR: error writing layer blob: not_found"; exit 1 ;;
+    esac
+    exit 0 ;;
 esac
 if [[ "${1:-}" != "run" ]]; then exit 0; fi
 cmd=""
@@ -74,9 +81,14 @@ class Case:
     # The sentence this ending must NOT carry: a refusal wearing a finding's words is the defect
     # these cases exist to hold shut.
     never: str | None = None
+    # Run as CI runs it, through the Actions cache.
+    cached: bool = False
 
 
 CASES: Final[tuple[Case, ...]] = (
+    Case("cache_clean", 0, "Green", cached=True),
+    Case("cache_build_failed", 1, "The frontend image failed to build", "layer cache", cached=True),
+    Case("cache_export_failed", 2, "exporting its layer cache", "failed to build.", cached=True),
     Case("clean", 0, "Green"),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
     Case("instrumentation_unreadable", 2, "Refused after", "instrumentation.js is MISSING"),
@@ -97,6 +109,9 @@ def _run(case: Case) -> tuple[int, str]:
     for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE"):
         environment.pop(inherited, None)
     environment[CASE_VAR] = case.name
+    if case.cached:
+        # A stand-in: the gate asks only that the variable is set before it builds.
+        environment.update({"VERIFY_IMAGES_CACHE": "gha", "ACTIONS_RUNTIME_TOKEN": "stand-in"})
     with tempfile.TemporaryDirectory() as scratch:
         stub = write_shell(Path(scratch) / "docker", STUB)
         # The execute bit is what puts this ahead of a real daemon on PATH.
