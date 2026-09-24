@@ -23,6 +23,7 @@ from app.api.teams.admin_router import delete_einladung, get_einladung, post_ein
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -48,18 +49,6 @@ WITHDRAWN = ObjectId("6890a1b2c3d4e5f607260006")
 NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
-
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 50,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
 
 REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
@@ -113,16 +102,15 @@ SEEDED_KONTAKTE: Mapping[ObjectId, Any] = {
 def junction_row(team_id: ObjectId, *, saison_id: str = SAISON_ID) -> dict[str, Any]:
     name = TEAM_NAMES[team_id]
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": dict(AUSTRITT) if team_id == WITHDRAWN else None,
-        "kontakte": SEEDED_KONTAKTE[team_id],
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    return saison_team_document(
+        saison_id,
+        team_id,
+        name,
+        name[:2].upper(),
+        _id=ObjectId(),
+        austritt=dict(AUSTRITT) if team_id == WITHDRAWN else None,
+        kontakte=SEEDED_KONTAKTE[team_id],
+    )
 
 
 def einladung_row(team_id: ObjectId, *, versand: Any, widerrufen_am: str | None = None, _id: ObjectId | None = None) -> dict[str, Any]:
@@ -151,14 +139,12 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await database[Collection.SAISONS].insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": saison_status,
-                    "rules": dict(RULES),
-                    "registrierung": dict(REGISTRIERUNG),
-                }
+                saison_document(
+                    SAISON_ID,
+                    saison_status,
+                    rules=rules_document(number_of_groups=2, max_kadergroesse=50),
+                    registrierung=dict(REGISTRIERUNG),
+                )
             )
             if teams:
                 await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in teams])

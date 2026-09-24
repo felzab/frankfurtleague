@@ -15,6 +15,7 @@ from app.core.dependencies import get_germany_now
 from app.main import create_app
 from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+from tests.documents import rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
@@ -63,6 +64,8 @@ FLAG_OFF_SAISON = "2027"
 NOT_YET_OPEN_SAISON = "2028"
 ALREADY_CLOSED_SAISON = "2029"
 
+# Spelled here rather than taken from `tests/documents.py :: ADDRESS`: the picker's suite searches its
+# body for this street and postcode (`tests/api/test_bewerbung_public_picker.py`).
 ADDRESS: Mapping[str, Any] = {
     "strasse": "Hanauer Landstraße",
     "hausnummer": "12a",
@@ -77,28 +80,11 @@ OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
 OTHER_SEASON_FARBE = "magenta"
 
 
+# `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is why the
+# window has a read of its own. Overridden only where a case asks what the status does: `past`
+# alone, which ends the window.
 def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        # `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is
-        # why the window has a read of its own. Overridden only where a case asks what the status
-        # does: `past` alone, which ends the window.
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["Q1", "Q2"],
-        },
-        "bewerbung": bewerbung,
-    }
+    return saison_document(saison_id, status, rules=rules_document(erlaubte_stufen=["Q1", "Q2"]), bewerbung=bewerbung)
 
 
 def _junction(
@@ -106,29 +92,21 @@ def _junction(
 ) -> dict[str, Any]:
     """One `saison_teams` row -- the colour an administrator ASSIGNED, which is what the colour read answers off."""
 
-    return {
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": austritt,
-        "trikot_farbe": trikot_farbe,
-        "name": name,
-        "shorthand": shorthand,
-    }
+    return saison_team_document(saison_id, team_id, name, shorthand, austritt=austritt, trikot_farbe=trikot_farbe)
 
 
 def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "Eine Schule mit langer Tradition.",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
-    }
+    return team_document(
+        team_id,
+        name,
+        shorthand,
+        description="Eine Schule mit langer Tradition.",
+        # Searched for in the picker's body too, so passed rather than defaulted.
+        website_url=f"https://{name.lower()}.example.de",
+        schulform="gymnasium_g9",
+        address=dict(ADDRESS),
+        inactive_since=inactive_since,
+    )
 
 
 def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:

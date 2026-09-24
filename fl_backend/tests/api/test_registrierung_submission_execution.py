@@ -32,6 +32,7 @@ from app.core.exceptions import DocumentConflictException
 from app.main import create_app
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from tests import documents
 from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -79,40 +80,18 @@ BANNED_EMAIL = "wraxlington@beispielschule.de"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 2,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+RULES: Mapping[str, Any] = documents.rules_document(
+    number_of_groups=2,
+    teams_per_group=2,
+    max_kadergroesse=2,
     # Narrowed to two of the six, so a refusal is told from an accident.
-    "erlaubte_stufen": ["Q1", "Q2"],
-}
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
+    erlaubte_stufen=["Q1", "Q2"],
+)
 
 
 def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": name[:2].upper(),
-        "description": "",
-        "full_name": f"{name}-Gesamtschule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gesamtschule",
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
+    return documents.team_document(team_id, name, name[:2].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
 def einladung_document(
@@ -149,26 +128,13 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": dict(RULES),
-        "bewerbung": None,
-        "registrierung": None if registrierung is None else dict(registrierung),
-    }
+    return documents.saison_document(
+        saison_id, status, rules=dict(RULES), bewerbung=None, registrierung=None if registrierung is None else dict(registrierung)
+    )
 
 
 def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str, Any]:
-    return {
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
 
 
 def on_a_league(
@@ -219,17 +185,9 @@ def on_a_league(
             if squad:
                 await database[Collection.SAISON_SPIELER].insert_many(
                     [
-                        {
-                            "_id": ObjectId(),
-                            "spieler_id": ObjectId(),
-                            "saison_id": SAISON_ID,
-                            "team_id": TEAM_OID,
-                            "ist_nachnominiert": False,
-                            "stufe": "Q1",
-                            "position": "Abwehr",
-                            "nummer": str(seat),
-                            "inactive_since": None,
-                        }
+                        documents.saison_spieler_document(
+                            ObjectId(), SAISON_ID, TEAM_OID, _id=ObjectId(), stufe="Q1", position="Abwehr", nummer=str(seat)
+                        )
                         for seat in range(squad)
                     ]
                 )

@@ -61,6 +61,7 @@ from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
@@ -111,25 +112,7 @@ RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BI"
 NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZX"
 
 # Two groups of two, so one seeded pair fills `A` and `REQ-ENTER-003` is reachable without twenty rows.
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
+RULES: Mapping[str, Any] = rules_document(number_of_groups=2, teams_per_group=2)
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -156,17 +139,7 @@ KONTAKTE: Mapping[str, Any] = {
 
 
 def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
-    }
+    return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
 def schule_block(team_name: str, shorthand: str) -> dict[str, Any]:
@@ -209,7 +182,7 @@ def bewerbung_document(
 def junction_document(team_id: ObjectId, name: str, shorthand: str, gruppe: str) -> dict[str, Any]:
     """A club already standing in the season, which is how a group comes to be full."""
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": shorthand}
+    return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -223,9 +196,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_one(
-                {"_id": SAISON_ID, "start_date": "2026-01-01", "end_date": "2026-06-30", "status": saison_status, "rules": dict(RULES)}
-            )
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many(
                 [
                     club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),

@@ -21,6 +21,7 @@ from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.config import BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -105,22 +106,7 @@ ROW_NAME_A = "Helmholtz"
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
-ADDRESS: dict[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": "v1", "datum": "2026-01-05"}
-
-EINWILLIGUNG: dict[str, Any] = {
-    "umfang": "kader_oeffentlich",
-    "erteilt_von": "erziehungsberechtigt",
-    "datum": "2026-01-15",
-    "bestaetigt_am": "2026-01-20",
-}
 
 
 def _person(email: str) -> dict[str, Any]:
@@ -132,70 +118,42 @@ def _person(email: str) -> dict[str, Any]:
 def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str) -> dict[str, Any]:
     """A `saison_teams` row seating whoever the caller names, the slots it does not name left empty."""
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "kontakte": {
+    return saison_team_document(
+        saison_id,
+        team_id,
+        name,
+        name[:2].upper(),
+        _id=row_id,
+        kontakte={
             **{slot: None for slot in KONTAKT_SLOTS},
             **{slot: _person(email) for slot, email in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
             # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
             "trainer_ist_zugleich": None,
         },
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    )
 
 
 def _saison(saison_id: str, status: str) -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"20{saison_id[:2]}-08-01",
-        "end_date": f"20{saison_id[2:]}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["Q1", "Q2"],
-        },
-    }
+    return saison_document(
+        saison_id,
+        status,
+        start_date=f"20{saison_id[:2]}-08-01",
+        end_date=f"20{saison_id[2:]}-06-30",
+        rules=rules_document(erlaubte_stufen=["Q1", "Q2"]),
+    )
 
 
 def _club(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     # `shorthand` per club rather than one for all: `app/core/constraints.py :: uniq_shorthand`
     # indexes it, so a seed sharing one refuses its second club and fails every case here.
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": None,
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return team_document(team_id, name, shorthand, website_url=None)
 
 
 def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
     """`email` stored in the folded form, which is what S6's admission writes and what the join compares."""
 
-    return {
-        "_id": pupil_id,
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "einwilligung": dict(EINWILLIGUNG),
-        "inactive_since": None,
-        "email": email,
-    }
+    return spieler_document(pupil_id, "Anna", "Müller", email=email)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:

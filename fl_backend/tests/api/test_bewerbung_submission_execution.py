@@ -39,6 +39,7 @@ from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -68,26 +69,6 @@ NEW_SCHOOL_SHORTHAND = "ZX"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
     """One contact person as the PUBLIC form submits them: a consent of two fields, no stored scope or date, and no birthdate."""
@@ -111,17 +92,7 @@ KONTAKTE: Mapping[str, Any] = {
 
 
 def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
-    }
+    return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
 def schule_block(**overrides: Any) -> dict[str, Any]:
@@ -159,14 +130,12 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            saison: dict[str, Any] = {
-                "_id": SAISON_ID,
-                "start_date": "2026-01-01",
-                "end_date": "2026-06-30",
-                "status": saison_status,
-                "rules": dict(RULES),
-                "bewerbung": None if bewerbung is None else dict(bewerbung),
-            }
+            saison = saison_document(
+                SAISON_ID,
+                saison_status,
+                rules=rules_document(number_of_groups=2, teams_per_group=2),
+                bewerbung=None if bewerbung is None else dict(bewerbung),
+            )
             await database[Collection.SAISONS].insert_one(saison)
             await database[Collection.TEAMS].insert_many(
                 [
@@ -175,16 +144,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
                     club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
                 ]
             )
-            await database[Collection.SAISON_TEAMS].insert_one(
-                {
-                    "saison_id": SAISON_ID,
-                    "team_id": ENTERED_OID,
-                    "gruppe": "A",
-                    "austritt": None,
-                    "name": ENTERED_NAME,
-                    "shorthand": ENTERED_SHORTHAND,
-                }
-            )
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND))
 
             return await body(database)
 
@@ -826,14 +786,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
     try:
         database = a_clean_database_sync(client, url, database_name)
         database[Collection.SAISONS].insert_one(
-            {
-                "_id": SAISON_ID,
-                "start_date": "2026-01-01",
-                "end_date": "2026-06-30",
-                "status": "future",
-                "rules": dict(RULES),
-                "bewerbung": dict(OPEN_WINDOW),
-            }
+            saison_document(SAISON_ID, "future", rules=rules_document(number_of_groups=2, teams_per_group=2), bewerbung=dict(OPEN_WINDOW))
         )
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
