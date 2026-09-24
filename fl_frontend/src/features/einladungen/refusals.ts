@@ -4,7 +4,7 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * **The mint, the revoke, the preview and the season-wide send share this mapper**: the rules are
+ * **The mint, the revoke and the season-wide send share this mapper**: the rules are
  * the season's and the junction's, and which press met one is nothing an administrator acts on
  * differently.
  */

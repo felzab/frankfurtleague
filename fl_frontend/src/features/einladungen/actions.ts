@@ -224,16 +224,9 @@ export async function previewEinladungVersandAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let vorschau;
-    try {
-      // `?? false` for the endpoint's own default: the payload mirrors a request that may omit the
-      // key, and this read has to name a value either way to describe the press it precedes.
-      vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
-    } catch (error) {
-      const refusal = mapEinladungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
+    // `?? false` for the endpoint's own default: the payload mirrors a request that may omit the
+    // key, and this read has to name a value either way to describe the press it precedes.
+    const vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
 
     return { success: true, zeilen: vorschau.zeilen };
   });
