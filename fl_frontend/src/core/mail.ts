@@ -217,8 +217,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     throw new MailWithheldError();
   }
 
-  // At the send as well as at entry, so no caller has to have converted: the provider takes a domain
-  // in its ASCII form alone (`docs/backend/spec.md :: I332`).
+  // At the send as well as at entry, so no caller has to have converted: every recipient leaves with
+  // its domain in the punycode form a payload stores (`docs/backend/spec.md :: I332`).
   const recipient = withAsciiDomain(to);
 
   // Above the timer below, which a throw from here would leave running for the whole budget.
