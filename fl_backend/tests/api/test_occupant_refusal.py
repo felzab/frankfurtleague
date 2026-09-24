@@ -1013,7 +1013,7 @@ class TestEligibility:
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
         assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == ELIGIBILITY_NO_MEMBERSHIP
 
-    def test_the_two_refusals_are_distinct(self, season):
+    def test_the_two_refusals_are_distinct(self):
         """Different advice, so different codes."""
         assert ELIGIBILITY_DISQUALIFIED != ELIGIBILITY_NO_MEMBERSHIP
 
