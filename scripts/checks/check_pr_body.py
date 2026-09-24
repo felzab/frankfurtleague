@@ -32,7 +32,7 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
     "What the branch achieves as a whole, at a level the individual commits do not",
     "Anything where a person chose between real options, with the reasoning",
-    "The `./scripts/gate/verify.sh` invocation — its scopes and its exit code",
+    "The bare `./scripts/gate/verify.sh` run and its exit code",
 )
 
 # Named alternation, not a general "bolded phrase" rule: that reads a paragraph opening

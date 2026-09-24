@@ -88,7 +88,7 @@ says most of it.>
 **Reviewer's first look.** <Optional: the one thing in the branch that deserves attention before
 the rest.>
 
-**Verified.** <The `./scripts/gate/verify.sh` invocation — its scopes and its exit code — and the parts
+**Verified.** <The bare `./scripts/gate/verify.sh` run and its exit code — and the parts
 worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
 verified, and why. This is the one heading never dropped.>
 
