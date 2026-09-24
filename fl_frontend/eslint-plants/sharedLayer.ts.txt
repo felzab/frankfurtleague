@@ -5,5 +5,6 @@ import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-imp
 import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
+import { captureStdout } from "./testing/stdoutCapture"; // expect: test-only
 
-export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel];
+export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout];

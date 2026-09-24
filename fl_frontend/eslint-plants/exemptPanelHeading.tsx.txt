@@ -1,0 +1,9 @@
+// Linted as src/shared/components/ui/PanelHeading.tsx.
+// The component spells the panel heading, and every other ban still reaches it.
+declare const heading: () => string;
+
+export function PanelHeading() {
+  return <h2 className={heading()}>Titel</h2>;
+}
+
+export const GAP = "flex gap-5"; // expect: gap

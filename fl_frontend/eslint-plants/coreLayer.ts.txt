@@ -6,6 +6,7 @@ import { sources } from "./actionSources"; // expect: test-only
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Button } from "@heroui/react"; // expect: vendor-root
+import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private expect: layer-core
 
-export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext];
+export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];

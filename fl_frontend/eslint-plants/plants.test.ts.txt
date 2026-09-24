@@ -2,6 +2,8 @@
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 
 declare const router: { back: () => void };
 
@@ -12,6 +14,8 @@ export const FIXTURE = "hover:opacity-80 gap-5";
 export const CONTEXT = AppRouterContext;
 export const FORM = HeroForm;
 export const ICON = Bars;
+export const FIELD = DateField;
+export const POPOVER = HintPopover;
 
 declare const assert: { equal: (a: unknown, b: unknown) => void };
 declare const screen: { queryByText: (text: string) => unknown };

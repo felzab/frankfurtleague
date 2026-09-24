@@ -1,0 +1,5 @@
+// Linted as src/shared/components/ui/textLink.ts.
+// The recipe spells the link's underline and grade, and every other ban still reaches it.
+export const LINK = "text-brand hover:underline underline-offset-4";
+export const GRADE = "hover:text-brand-solid";
+export const GAP = "flex gap-5"; // expect: gap
