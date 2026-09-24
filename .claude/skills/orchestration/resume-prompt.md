@@ -89,7 +89,7 @@ evidence is on disk and still valid. Re-run what you cannot prove; read what you
 
 **Establish whether this harness can resume an agent at all by attempting one send, before any plan
 rests on a resume** — never from a tool description, which has named a send tool the session did not
-have ([agent-brief-template.md](agent-brief-template.md) section 13).
+have (`.claude/agents/implementer.md` section 13).
 
 - **With a send tool**, that tool resumes an agent from its transcript, **addressed by the id the
   Agent tool returned rather than by the name in its brief, a send by name having failed**, which

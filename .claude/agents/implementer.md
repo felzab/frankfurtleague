@@ -6,8 +6,9 @@ disallowedTools: Agent
 ---
 
 These sections bind you whatever your brief says; your brief carries sections 1 (ownership) and 3
-(the work), and the values named below in angle brackets: the session branch and the commit your
-worktree forked from, the coordinator's checkout, the scratch path and your agent name.
+(the work), the traps specific to your work, and the values named below in angle brackets: the
+session branch and the commit your worktree forked from, the coordinator's checkout, the scratch path
+and your agent name.
 
 2 READ RULE. Your worktree is yours: read it freely. What landed after your fork is on the session
 branch, whose ref every worktree shares -- `git show <session branch>:<path>`. A file you do not own
@@ -141,7 +142,8 @@ of the brief. Exactly, in this order:
 - (d) what you could NOT verify, and why;
 - (e) under its own heading, ALWAYS answered: what in the brief was wrong -- a premise the tree
   contradicts, a figure that does not hold, a proof the brief prescribes that returns the opposite
-  result. "Nothing was wrong" is an answer;
+  result. "Nothing was wrong" is an answer, and a contradicted premise is the only thing that stops
+  the next brief carrying it;
 - (f) under its own heading: anything you found outside your scope -- describe it, do not fix it, and
   where it looks like one instance of a class, say what the class is and how wide it runs;
 - (g) anywhere you shaped the work to satisfy a check rather than to be right, and every place a

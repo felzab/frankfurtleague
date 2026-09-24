@@ -133,15 +133,13 @@ Run it for every agent, the fifteenth as much as the first.
    agents finish, each justified alone. **Name which of §4's three reasons buys this agent before
    you write its brief**; none, and the work is yours. A question needing a fresh agent is yours to
    dispatch.
-4. **Brief from [agent-brief-template.md](agent-brief-template.md)**, every section, with the file
-   list in full and the scratch path written out. **One prep agent resolves a whole wave's premises
-   against `HEAD` before its briefs are written** — half of them otherwise carry one the tree
-   contradicts ([the brief](agent-brief-template.md)), each paid for twice, in the agent's
-   rediscovery and in the fix round that follows.
+4. **Brief from [agent-brief-template.md](agent-brief-template.md): one to an `implementer` carries
+   sections 1 and 3 and the values its definition names**, every path written out in full. **One
+   prep agent resolves a whole wave's premises against `HEAD` before its briefs are written** —
+   half of them otherwise carry one the tree contradicts (`.claude/agents/implementer.md` section
+   4), each paid for twice, in the agent's rediscovery and in the fix round that follows.
 5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer` and an auditor
-   needing a shell — to plant, run a suite or read an exit code — as `driving-reauditor`**; each
-   definition under `.claude/agents/` carries its standing sections, so the brief carries the rest
-   ([the brief](agent-brief-template.md)).
+   needing a shell — to plant, run a suite or read an exit code — as `driving-reauditor`**.
 6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
 7. **Record the dispatch in the register before it runs. An agent that writes the repository or
@@ -186,10 +184,11 @@ Run it for every agent, the fifteenth as much as the first.
   been asked about (CLAUDE.md §3) — and say which each got. Reports rank findings by their author's
   scope, so the one that matters is rarely first. **Route at the class, never at the instance reported** — protecting the one file reported
   lost other agents' commit messages in the same directory a wave later.
-- **[The brief](agent-brief-template.md) sections 8, 9 and 13 — plant-and-restore, the traps and the
-  siblings test — bind you as they bind an agent**, and 13 binds what you bank from a report: ask
-  which command established a claim about the tooling, and read its success as evidence about that
-  command and no wider class.
+- **`.claude/agents/implementer.md` sections 8, 9 and 13 — plant-and-restore, the traps and the
+  siblings test — bind you as they bind an agent**, save that you plant only in a worktree of your
+  own and run `./scripts/ops/local.sh` in your checkout (§5); 13 binds what you bank from a report
+  too: ask which command established a claim about the tooling, and read its success as evidence
+  about that command and no wider class.
 
 ### The schedule is read back
 
@@ -203,7 +202,7 @@ arithmetic of its parts is a serialisation nobody has named**; and where one blo
 read-backs running, the question stops being how to shorten it and becomes what could have started
 earlier. **Re-take any figure a decision rests on with the fleet listed and stopped, and refuse a
 bare number** — every figure a fleet takes is an upper bound, and its spread measures contention
-rather than the change ([the brief](agent-brief-template.md) section 12).
+rather than the change (`.claude/agents/implementer.md` section 12).
 
 ### Tree and machine are shared
 
@@ -211,10 +210,10 @@ rather than the change ([the brief](agent-brief-template.md) section 12).
   reaches nobody, but a timing loop still contends for the CPU, so a figure is taken in an
   exclusive window ([register-template.md](register-template.md)).
 - **A guard, a hook registration or a manifest changes what every other agent may do once it lands**
-  ([the brief](agent-brief-template.md) section 10) — hooks run from your checkout
-  (`CLAUDE_PROJECT_DIR`), and a lockfile obliges every later worktree to reinstall — so it lands in
-  an exclusive window even at one line, and **two agents reporting one out-of-scope failure is one
-  such change rather than two findings.**
+  (`.claude/agents/implementer.md` section 10) — hooks run from your checkout, and a lockfile
+  obliges every later worktree to reinstall — so it lands in an exclusive window even at one line,
+  and **two agents reporting one out-of-scope failure is one such change rather than two
+  findings.**
 
 ## 6. The cycle
 
