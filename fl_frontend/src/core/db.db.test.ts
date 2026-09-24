@@ -5,7 +5,13 @@ import { after, describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
-import { MongoNotConnectedError, MongoOperationTimeoutError, MongoServerSelectionError, MongoTransactionError } from "mongodb";
+import {
+  MongoNetworkTimeoutError,
+  MongoNotConnectedError,
+  MongoOperationTimeoutError,
+  MongoServerSelectionError,
+  MongoTransactionError,
+} from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
 
@@ -33,6 +39,8 @@ opened.mongod = mongod;
 class Relay {
   private hung = false;
   private refusing = false;
+  /** Connections still to pass while `hangAfterFirst` runs, every later one opened and never answered. */
+  private passing: number | null = null;
   /** The command whose first request hangs the relay, as its name opens a BSON key. */
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
@@ -42,6 +50,11 @@ class Relay {
     if (this.refusing) {
       inbound.destroy();
       return;
+    }
+    let answered = true;
+    if (this.passing !== null) {
+      answered = this.passing > 0;
+      this.passing -= 1;
     }
     const outbound = dial(mongod.getMappedPort(27017), mongod.getHost());
     for (const socket of [inbound, outbound]) {
@@ -56,7 +69,7 @@ class Relay {
       }
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
-      if (!this.hung) outbound.write(chunk);
+      if (!this.hung && answered) outbound.write(chunk);
     });
     outbound.on("data", (chunk) => inbound.write(chunk));
     inbound.on("close", () => outbound.destroy());
@@ -88,6 +101,19 @@ class Relay {
       return await body();
     } finally {
       this.resume();
+    }
+  }
+
+  /**
+   * Runs `body` passing the first connection the client opens and hanging every later one: a store
+   * that answers the monitor it meets first and never a handshake after it.
+   */
+  async hangAfterFirst<T>(body: () => Promise<T>): Promise<T> {
+    this.passing = 1;
+    try {
+      return await body();
+    } finally {
+      this.passing = null;
     }
   }
 
@@ -152,6 +178,8 @@ const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?
 opened.clients.push(coldClient);
 const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?recovery`)) as { client: MongoClient };
 opened.clients.push(recoveringClient);
+const { client: handshakeClient } = (await import(`${import.meta.resolve("./db.ts")}?handshake`)) as { client: MongoClient };
+opened.clients.push(handshakeClient);
 const { client: closingClient } = (await import(`${import.meta.resolve("./db.ts")}?closing`)) as { client: MongoClient };
 opened.clients.push(closingClient);
 
@@ -195,9 +223,20 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
 
-    // Reopened before the next case hangs the relay: a reconnect whose handshake a hang drops waits out
-    // the driver's thirty-second `connectTimeoutMS`, which no bound here shortens.
+    // The reconnect after a hung first connect (`docs/frontend/spec.md :: I364`), awaited before the
+    // next case hangs the relay under it.
     await settledWithin(OPERATION_BOUND + coldClient.options.minHeartbeatFrequencyMS, "the cold client's reconnect", () => reopened);
+  });
+
+  /* The reconnect's own call: an explicit `connect()` checks a connection out, which `timeoutMS` does
+     not reach, so only the handshake's bound ends it. */
+  it("ends an explicit connect whose handshake the store never answers within its `connectTimeoutMS`", async () => {
+    try {
+      const outcome = await relay.hangAfterFirst(() => settledWithin(OPERATION_BOUND, "the hung handshake", () => handshakeClient.connect()));
+      assert.ok(outcome instanceof MongoNetworkTimeoutError, `the hung handshake settled with ${String(outcome)}`);
+    } finally {
+      await handshakeClient.close();
+    }
   });
 });
 

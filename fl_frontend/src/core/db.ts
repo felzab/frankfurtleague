@@ -20,6 +20,10 @@ const options = {
   // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
   // which only the backend's boot waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
+  // The handshake of the reconnect's explicit `connect()`, which `timeoutMS` does not reach and the
+  // driver would wait 30 s for. Its monitor times its checks out on this too, so a store whose
+  // handshake takes longer reads as down.
+  connectTimeoutMS: 3000,
 };
 
 /**
