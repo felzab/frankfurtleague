@@ -252,9 +252,10 @@ describe("a call the caller declares read-only", () => {
 describe("the client's own timeout", () => {
   const TIMEOUT_MS = 1000;
 
-  /* `fetch` resolves on the headers, so a timer cleared there leaves the body's read unbounded and a
-     stalled backend hangs the render. Bounded here, so that regression fails rather than hangs. */
-  it("aborts a body that stalls once the headers have arrived, as a timed-out request", { timeout: 5000 }, async () => {
+  /* `fetch` resolves on the headers, so a timer cleared there leaves a stalled body hanging the render.
+     Asserted at the tick: on a mocked clock nothing else ends that body, so the regression fails
+     rather than hangs. */
+  it("aborts a body that stalls once the headers have arrived, as a timed-out request", async () => {
     mock.timers.enable({ apis: ["setTimeout"] });
     try {
       nextStalls = true;
@@ -264,6 +265,8 @@ describe("the client's own timeout", () => {
       );
       await new Promise((resolve) => setImmediate(resolve));
       mock.timers.tick(TIMEOUT_MS);
+      const signal = sends.at(-1)?.init.signal ?? assert.fail("the call sent no signal");
+      assert.equal(signal.aborted, true, "the timeout elapsed and nothing aborted the stalled body");
 
       const thrown = await pending;
       assert.ok(thrown instanceof APINetworkError, "the stalled body was not thrown as a network error");
