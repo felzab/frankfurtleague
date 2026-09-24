@@ -128,6 +128,32 @@ describe("the season's bulk invite send", () => {
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
   });
 
+  /* The read holds the press until its list lands, and the list arms it: a render showing the press
+     armed while still held drops the press a reader aims at it, and nothing is sent. */
+  it("never shows the press armed while the read still holds it", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    // Every render the panel commits rather than the one a query lands on: the held one lasts a frame.
+    const armedWhileHeld: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      const armed = [...document.querySelectorAll("button")].find((button) => button.textContent.includes(ARMED));
+      if (armed !== undefined) armedWhileHeld.push(armed.getAttribute("data-pending") === "true");
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    try {
+      await user.click(screen.getByRole("button", { name: RESTING }));
+      await armedStep();
+      await waitFor(() => assert.equal(screen.getByRole("button", { name: ARMED }).getAttribute("data-pending"), null));
+    } finally {
+      observer.disconnect();
+    }
+
+    assert.ok(armedWhileHeld.length > 0, "no render showed the armed press, so nothing here was observed");
+    assert.equal(armedWhileHeld.includes(true), false, "a render showed the press armed while the read still held it");
+  });
+
   /* The four are ordinary states of a season being set up, so each is named as itself: one sentence
      for all of them would send somebody hunting for a fault in the teams that have none. */
   it("names each of the four skips as its own state, beside the team it is about", async () => {

@@ -161,10 +161,15 @@ export function FormEinladungVersandSection({
         return;
       }
 
-      setVorschau(res.zeilen);
-      // Armed in the gesture that asked for the list, so the reader meets the list and the armed
-      // control together rather than pressing a third time to reach the same state.
-      if (res.zeilen.some((zeile) => zeile.empfaenger.length > 0)) press(senden);
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so unwrapped the armed label commits a render before the hold lifts, and a press in that
+      // render is dropped.
+      startVorschau(() => {
+        setVorschau(res.zeilen);
+        // Armed in the gesture that asked for the list, so the reader meets the list and the armed
+        // control together rather than pressing a third time to reach the same state.
+        if (res.zeilen.some((zeile) => zeile.empfaenger.length > 0)) press(senden);
+      });
     });
   };
 

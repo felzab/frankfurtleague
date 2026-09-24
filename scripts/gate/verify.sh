@@ -743,6 +743,14 @@ if (( PARALLEL )); then
   # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
   export FL_GATE_BUDGET FL_GATE_DEMAND
 
+  # `pnpm install` and every pnpm call the `packageManager` pin switches open a store, writing and
+  # deleting a probe file in fl_frontend that the format scope's walk can list and then not read.
+  # Handed its store, pnpm writes none.
+  if (( RUN_FORMAT )); then
+    export pnpm_config_store_dir
+    pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
+  fi
+
   pool_open
   for u_scope in "${SCOPE_ORDER[@]}"; do pool_add_scope "$u_scope"; done
   pool_wait 0 "${#SCOPE_ORDER[@]} scopes running concurrently"

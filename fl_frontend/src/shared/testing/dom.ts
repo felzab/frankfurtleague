@@ -51,11 +51,6 @@ globalThis.matchMedia ??= window.matchMedia;
 // state update landing outside `act`.
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
-// Awaited only now, the globals above being what `react-dom/client` reads as it loads. The gate runs every scope at
-// once, and a `waitFor` that settles in milliseconds alone took 1.27 s there against the default 1 s ceiling.
-const { configure } = await import("@testing-library/react");
-configure({ asyncUtilTimeout: 5000 });
-
 let thrownInCase: unknown[] | null = null;
 
 // A browser only logs what a handler or a frame callback threw. Here it fails the case it happened in, or the file
