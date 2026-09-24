@@ -19,8 +19,8 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from starlette.requests import Request
 
@@ -32,7 +32,8 @@ from app.core.exception_handlers import duplicate_key_exception_handler
 from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
 from app.main import api_routes, create_app
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, build_test_config
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -396,21 +397,15 @@ SAISONS = f"/api/v{API_VERSION}/saisons"
 
 
 def _posted_twice(uri: str, payload: Mapping[str, Any]) -> tuple[Response, Response]:
-    """Both creates on one client and one loop, with no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
+    """Both creates on one client and one loop (`tests/app_client.py :: app_client`)."""
 
     async def _both() -> tuple[Response, Response]:
-        app = create_app(build_test_config().model_copy(update={"db_base_name": DUPLICATE_SEASON_DATABASE}))
-        app.state.db_client = AsyncMongoClient(host=uri)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                headers = {**ADMIN_AUTH, ACTOR_HEADER: "admin@example.com"}
-                first = await http.post(SAISONS, json=dict(payload), headers=headers)
-                second = await http.post(SAISONS, json=dict(payload), headers=headers)
-                return first, second
-        finally:
-            await app.state.db_client.close()
+        config = build_test_config().model_copy(update={"db_base_name": DUPLICATE_SEASON_DATABASE})
+        async with app_client(uri, config=config) as http:
+            headers = {**ADMIN_AUTH, ACTOR_HEADER: "admin@example.com"}
+            first = await http.post(SAISONS, json=dict(payload), headers=headers)
+            second = await http.post(SAISONS, json=dict(payload), headers=headers)
+            return first, second
 
     return asyncio.run(_both())
 
