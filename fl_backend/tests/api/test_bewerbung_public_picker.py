@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from .test_bewerbung_public_read import CLUBS, OPEN_SAISON, PREFIX, answered, seed_the_public_corpus
+from .test_bewerbung_public_read import ADDRESS, CLUBS, OPEN_SAISON, PREFIX, answered, seed_the_public_corpus
 
 # What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
 # decoded bodies by key.
@@ -52,7 +52,7 @@ class TestTheClubList:
 
         rendered = answered(seeded_url, f"{PREFIX}/schulen").text
 
-        for withheld in ("Hanauer", "60314", "zetteltal.example.de", "gymnasium_g9", "lange Tradition"):
+        for withheld in (ADDRESS["strasse"], ADDRESS["plz"], "zetteltal.example.de", "gymnasium_g9", "lange Tradition"):
             assert withheld not in rendered
 
     def test_a_retired_club_is_not_offered(self, seeded_url: str):
