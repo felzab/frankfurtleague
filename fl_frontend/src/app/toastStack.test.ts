@@ -231,7 +231,7 @@ describe("the toast against HeroUI's stacking states", () => {
   /* The site's reduced-motion policy is "remove movement, keep fades" (`globals.css`), and HeroUI's `motion-reduce`
      arms, a media query and a `data-reduce-motion` ancestor, each stop every toast transition. Whether the fade then
      renders is a browser's to show. */
-  it("fades in and out under reduced motion, on HeroUI's own timing, and moves not at all", async () => {
+  it("transitions its opacity alone under reduced motion, on HeroUI's own timing", async () => {
     const REDUCED = "(prefers-reduced-motion: reduce)";
     const transitions = await declarationsOf(/^(?:transition-property|--tw-duration|--tw-ease)$/);
     const timing = await declarationsOf(/^--toast-(?:opacity-duration|ease)$/);
