@@ -95,7 +95,7 @@ VALUES.         Your agent name: <name>. Session branch: <session branch>; your 
 
 ## The auditor variant
 
-Two forms, and the agent type decides which (`SKILL.md` §3).
+Three forms, and the agent type decides which (`SKILL.md` §3).
 
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 
@@ -169,6 +169,13 @@ evidence.
 re-audit subjects included. A brief to it carries the values that definition names and the subject:
 the intent and the diff — never the implementer's report — and the blast radius the bundle shares
 (below).
+
+### The reading form — a `researcher` that needs a shell and writes no repository file
+
+`.claude/agents/researcher.md` carries its standing sections and its report. A brief to it carries
+the values that definition names and the question, or for an audit the intent and the refs to read
+with `git show` — never the implementer's report. Nothing in it may ask for an install, a suite or a
+plant: the definition refuses each, and such a question goes to a driving re-auditor.
 
 ## Batching re-auditors
 
