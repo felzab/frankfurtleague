@@ -1043,8 +1043,8 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
 # Two colleagues on ONE school mailbox, a season apart -- the case the confirmation exists for. The
 # panel it is opened from names one of them, and the write empties both seats.
 SHARED_INBOX = "sekretariat.quastenflosser@example.com"
-SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816001")
-SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816002")
+SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816004")
+SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816005")
 
 
 def sharing_the_inbox(nachname: str, telefon: str) -> dict[str, Any]:
