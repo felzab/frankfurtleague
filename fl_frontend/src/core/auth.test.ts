@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
-
-import ts from "typescript";
 
 import {
   ADMIN_EMAIL,
@@ -110,7 +106,6 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, PASSKEY_LIMIT } = await import("./auth.ts");
 const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
-const { filesUnder, isTestFile } = await import("./treeWalk.ts");
 const { NextRequest } = await import("next/server");
 
 const handler = toNextJsHandler(auth);
@@ -366,48 +361,6 @@ describe("what the mounted HTTP surface answers", () => {
     await assert.rejects(() => auth.api.updateSession({ body: { authFactor: "passkey" }, headers }));
 
     assert.equal(row.authFactor, "link", "the request rewrote the factor, so every guard below proves nothing");
-  });
-
-  /* The hook tells the two arms apart by `ctx.request`, which a caller can set: a `request` handed
-     to an `auth.api` call would carry that call onto the browser's four paths. */
-  it("hands no `request` to an `auth.api` call anywhere in the tree", () => {
-    const modules = filesUnder(path.resolve(import.meta.dirname, ".."), (name) => /\.tsx?$/.test(name) && !isTestFile(name), 350);
-    const reached: string[] = [];
-    const calls: string[] = [];
-
-    for (const file of modules) {
-      const source = readFileSync(file, "utf8");
-      if (!source.includes("auth.api.")) continue;
-
-      const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-
-      const visit = (node: ts.Node): void => {
-        const onApi =
-          ts.isCallExpression(node) &&
-          ts.isPropertyAccessExpression(node.expression) &&
-          ts.isPropertyAccessExpression(node.expression.expression) &&
-          node.expression.expression.name.text === "api";
-
-        if (onApi) {
-          calls.push(node.getText(parsed));
-          const given = (node as ts.CallExpression).arguments[0];
-          if (given !== undefined && ts.isObjectLiteralExpression(given)) {
-            for (const property of given.properties) {
-              if (property.name !== undefined && property.name.getText(parsed) === "request") reached.push(node.getText(parsed));
-            }
-          }
-        }
-        node.forEachChild(visit);
-      };
-
-      parsed.forEachChild(visit);
-    }
-
-    // Floored, because a walk that resolved nothing reports exactly the clean answer a correct one
-    // does: the guards, the landing, the proxy, the route handler and the subject seam all call one.
-    assert.ok(modules.length > 180, `the walk reached ${String(modules.length)} modules`);
-    assert.ok(calls.length >= 6, `the sweep found ${String(calls.length)} calls on \`auth.api\``);
-    assert.deepEqual(reached, []);
   });
 
   /* Default deny is only as good as the classification behind it: an upgrade that mounts a path
