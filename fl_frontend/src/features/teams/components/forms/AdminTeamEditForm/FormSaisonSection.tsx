@@ -99,7 +99,16 @@ function GruppenTauschControl({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(unansweredAction);
 
       if (!res.success) {
-        appToast.failure("Gruppen nicht getauscht", res);
+        // Wrapped again, as below: the press runs this inside its transition.
+        startTransition(() => {
+          // The swap is its own inverse, so the same partner pressed again after a swap of unknown outcome
+          // would swap back one that landed.
+          if (res.outcome === "unknown") {
+            setPartner(null);
+            router.refresh();
+          }
+          appToast.failure("Gruppen nicht getauscht", res);
+        });
         return;
       }
 

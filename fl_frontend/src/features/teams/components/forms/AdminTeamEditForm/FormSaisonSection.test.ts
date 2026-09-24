@@ -2,24 +2,27 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` reads a context no `next/navigation` export carries, so the panel renders under the one Next keeps it on. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
-import { render } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
-doubleEveryAction();
+import type { Navigations } from "@/shared/testing/nextContexts.ts";
+
+const { answerWith } = doubleEveryAction();
+const { raised } = doubleToasts();
 
 const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 /** No descriptor for any path, which is the state the panel stands in until a save judges one. */
 const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
@@ -34,11 +37,9 @@ const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
 });
 
 /** The club's own season row: entered or not, its group picked or not, its swap locked or open. */
-const panel = (over: { isMember: boolean; gruppe: "A" | null; locked: boolean }) =>
+const panel = (over: { isMember: boolean; gruppe: "A" | null; locked: boolean }, router?: ReturnType<typeof recordingRouter>["router"]) =>
   render(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
+    underNext(
       h(DraftStatusProvider, {
         status: STATUS,
         children: h(FormSaisonSection, {
@@ -61,6 +62,7 @@ const panel = (over: { isMember: boolean; gruppe: "A" | null; locked: boolean })
           teamId: "t1",
         }),
       }),
+      { router },
     ),
   );
 
@@ -81,5 +83,56 @@ describe("the club's season panel, closed until a pick", () => {
     const grund = "Wähle zuerst ein Team.";
     closedControl("Gruppen tauschen", grund);
     assert.equal(isInTheFlow(grund), false, "the missing partner stands in the flow, which the pick takes it out of");
+  });
+});
+
+describe("the club's group swap after its answer", () => {
+  beforeEach(() => {
+    raised.length = 0;
+  });
+
+  /** The locked panel with TSV Beta picked as the partner and the swap pressed through. */
+  async function swapped(answer: () => Promise<unknown>): Promise<{ seen: Navigations; user: ReturnType<typeof userEvent.setup> }> {
+    const user = userEvent.setup();
+    const { router, seen } = recordingRouter();
+    answerWith(answer);
+    panel({ isMember: true, gruppe: "A", locked: true }, router);
+
+    await user.click(screen.getByRole("button", { name: /Tauschen mit/ }));
+    await user.click(screen.getByRole("option", { name: /^TSV Beta/ }));
+    await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    return { seen, user };
+  }
+
+  /* The swap is its own inverse, so a swap that may have landed, pressed again over the same partner,
+     swaps back what it just swapped. */
+  it("drops the partner and reads the page again after a swap of unknown outcome", async () => {
+    const { seen, user } = await swapped(() => Promise.resolve(unansweredAction()));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.title, toast.options?.outcome]),
+      [["Gruppen nicht getauscht", "unknown"]],
+    );
+    assert.equal(seen.refresh, 1, "the page was not read again");
+    // Pressed as the admin would press it again: the control and, once closed, the hint laid over it.
+    for (const control of screen.getAllByRole("button", { name: "Gruppen tauschen" })) await user.click(control);
+    // `ok` over `===`: a failing `equal` serialises the element, and with it the document, into its message.
+    assert.ok(screen.queryByRole("button", { name: "Ja, Gruppen tauschen" }) === null, "a second press armed the same swap again");
+    // The hint the press opened, shut, so the control is read where it stands.
+    await user.keyboard("{Escape}");
+    // Closed on a missing pick, so no second press can swap the same pair back.
+    await waitFor(() => closedControl("Gruppen tauschen", "Wähle zuerst ein Team."));
+  });
+
+  /* A refusal changed nothing, so the partner it refused is kept for the reader to correct. */
+  it("keeps the partner after a refused swap", async () => {
+    const { seen } = await swapped(() =>
+      Promise.resolve({ success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." }),
+    );
+
+    assert.equal(seen.refresh, 0);
+    assert.ok(screen.getByText("SG Alpha steht danach in Gruppe B, TSV Beta in Gruppe A"));
   });
 });
