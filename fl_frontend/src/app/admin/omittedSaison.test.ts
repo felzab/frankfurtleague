@@ -388,6 +388,11 @@ function holding(page: string, { resolved: answers, picks: picked }: Visit, expe
 }
 
 const PAGES = filesUnder(APP_DIR, (name) => name === "page.tsx", 20);
+
+/** The pages that make no read in any league, and why none is theirs to make. */
+const READS_NOTHING: Record<string, string> = {
+  "[...unmatched]/page.tsx": "the admin 404, answered before any read for an address no other route takes",
+};
 /* A `[saison_id]` segment names the page's subject, which `resolveSaisonIdParam` answers with no
    fallback, so the header's season is not the one it reads. */
 const SEASON_ADDRESSED = PAGES.filter((page) => path.relative(APP_DIR, page).split(path.sep).includes("[saison_id]"));
@@ -469,10 +474,13 @@ describe("the season every admin page reads", () => {
       assert.deepEqual(redirects, []);
     });
 
-    /* Floors: pages that threw before any read would pass the cases above having shown nothing, and a
-       page resolving a season it then neither sends nor picks by would pass them unjudged. */
+    /* Floors: a page throwing before its first read passes the cases above having shown nothing, as
+       `visit` records what it read and swallows the throw; and a page resolving a season it then neither
+       sends nor picks by would pass them unjudged. */
     it(`reached the backend from the pages it swept where ${name}`, () => {
-      const reading = [...visits.values()].filter((entry) => entry.reads.length > 0);
+      const silent = [...visits]
+        .filter(([page, entry]) => entry.reads.length === 0 && READS_NOTHING[label(page)] === undefined)
+        .map(([page]) => label(page));
       const seasonReading = [...visits.values()].filter((entry) => entry.reads.some(({ endpoint }) => routeOf(endpoint)?.takesSaison === true));
       const unjudged = [...visits]
         .filter(
@@ -483,11 +491,22 @@ describe("the season every admin page reads", () => {
         )
         .map(([page]) => label(page));
 
-      assert.ok(reading.length >= PAGES.length / 2, `only ${String(reading.length)} of ${String(PAGES.length)} pages made a read`);
+      assert.deepEqual(silent, [], "these pages made no read, so the cases above judged nothing of them");
       assert.ok(seasonReading.length > 0, "no page made a read taking a season, so the case above proves nothing");
       assert.deepEqual(unjudged, [], "these pages resolved a season that neither a read nor a picked row shows");
     });
   }
+
+  /* An excuse outliving its page, or a page that reads after all, would leave a page unjudged by name. */
+  it("excuses from the read floor only pages that exist and read nothing in any league", () => {
+    const labels = new Set(PAGES.map(label));
+    const reading = LEAGUES.flatMap(({ visits }) => [...visits].filter(([, entry]) => entry.reads.length > 0).map(([page]) => label(page)));
+
+    assert.deepEqual(
+      Object.keys(READS_NOTHING).filter((page) => !labels.has(page) || reading.includes(page)),
+      [],
+    );
+  });
 
   it("shows no season in the header where the league holds none", () => {
     assert.equal(EMPTY_LEAGUE.header, null);
