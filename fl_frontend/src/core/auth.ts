@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
@@ -662,11 +663,13 @@ export function isAdminSession(served: ServedSession): boolean {
   return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
 }
 
+// React's `cache`, one read per render pass however many guards ask, and never `"use cache"`, which
+// would hand one request's session to another. The proxy runs outside the render and reads its own.
 /**
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
  * **Check the return value** (`docs/frontend/spec.md` I8).
  */
-export async function getAdminSession(): Promise<ServedSession | null> {
+export const getAdminSession = cache(async (): Promise<ServedSession | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
   if (!served || !isAdminSession(served)) return null;
 
@@ -675,7 +678,7 @@ export async function getAdminSession(): Promise<ServedSession | null> {
   setRequestActor(asSignInIdentifier(served.user.email));
 
   return served;
-}
+});
 
 /** Where `/signin/weiter` sends the session it was handed. */
 export type SignInDestination = "/admin" | "/signin/passkey" | "/" | "/signin";
