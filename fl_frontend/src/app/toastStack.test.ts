@@ -2,26 +2,21 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import tailwind from "@tailwindcss/postcss";
 import { render } from "@testing-library/react";
-import postcss from "postcss";
 
-import type { AtRule, Container, Document, Root, Rule } from "postcss";
+import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
+
+import type { AtRule, Container, Document, Rule } from "postcss";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AppToaster } = await import("@/core/providers/AppToaster.tsx");
 const { appToast } = await import("@/shared/utils/appToast.ts");
 
-const compiled = (async (): Promise<Root> => {
-  const from = path.join(import.meta.dirname, "globals.css");
-  return (await postcss([tailwind()]).process(await readFile(from, "utf8"), { from })).root;
-})();
+const compiled = compiledGlobals();
 
 /**
  * The sheet's cascade layers, earliest first, each ranked where the sheet first names it, as a browser ranks it:
@@ -35,25 +30,6 @@ const layerOrder = (async (): Promise<string[]> => {
 
   return order;
 })();
-
-/**
- * A rule's selectors with every ancestor folded in: Tailwind emits a variant as a nested `&[data-…]`. Split by
- * postcss's `selectors`, which keeps a comma inside `:is(…)` or escaped in a class name, as `var(…,1)` is here.
- */
-function selectorsOf(rule: Rule): string[] {
-  const chain: Rule[] = [];
-  for (let node: Container | Document | undefined = rule.parent; node != null; node = node.parent) {
-    if (node.type === "rule") chain.unshift(node as Rule);
-  }
-
-  return [...chain, rule].reduce<string[]>(
-    (outer, level) =>
-      level.selectors.flatMap((part) =>
-        outer.length === 0 ? [part] : outer.map((base) => (part.includes("&") ? part.replaceAll("&", base) : `${base} ${part}`)),
-      ),
-    [],
-  );
-}
 
 interface Declaration {
   /** Every selector the declaration applies under, a pseudo-element's left out as another box than the one asked about. */

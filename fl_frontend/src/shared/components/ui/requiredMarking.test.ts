@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import tailwind from "@tailwindcss/postcss";
-import postcss from "postcss";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { FieldError } from "@heroui/react/field-error";
@@ -15,6 +11,7 @@ import { Label } from "@heroui/react/label";
 import { TextField } from "@heroui/react/textfield";
 
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { compiledGlobals } from "@/shared/testing/stylesheet.ts";
 
 import type { FLAddress } from "@/shared/schemas.ts";
 import type { ComponentProps, ReactNode } from "react";
@@ -124,16 +121,13 @@ describe("what an opt-in required prop actually reaches", () => {
 });
 
 describe("the stylesheet rules that decide whether the asterisk is drawn and what colour it takes", () => {
-  const compiled = (async () => {
-    const from = path.join(import.meta.dirname, "..", "..", "..", "app", "globals.css");
-    return postcss([tailwind()]).process(await readFile(from, "utf8"), { from });
-  })();
+  const compiled = compiledGlobals();
 
   /** Both rules must key off this exact relationship, or the opt-out stops reaching what HeroUI draws. */
   const SHARED_SHAPE = /\[data-required="true"\][^,{]*>\s*\.label/;
 
   it("still finds HeroUI drawing the asterisk from a direct-child label", async () => {
-    const { root } = await compiled;
+    const root = await compiled;
     const drawing: string[] = [];
 
     root.walkRules((rule) => {
@@ -147,7 +141,7 @@ describe("the stylesheet rules that decide whether the asterisk is drawn and wha
   });
 
   it("still finds the opt-out able to reach it, and outranking its layer", async () => {
-    const { root } = await compiled;
+    const root = await compiled;
     const optOut: { selector: string; unlayered: boolean }[] = [];
 
     root.walkRules((rule) => {
@@ -162,7 +156,7 @@ describe("the stylesheet rules that decide whether the asterisk is drawn and wha
   });
 
   it("still finds the opt-in drawing the mark muted, from outside the layer that draws it danger", async () => {
-    const { root } = await compiled;
+    const root = await compiled;
     const override: { selector: string; unlayered: boolean; muted: boolean }[] = [];
 
     root.walkRules((rule) => {

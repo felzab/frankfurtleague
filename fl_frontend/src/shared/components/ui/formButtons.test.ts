@@ -3,8 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import tailwind from "@tailwindcss/postcss";
-import postcss from "postcss";
+import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
 
 import { confirmButton, ctaButton, formButton } from "./formButtons";
 
@@ -12,10 +11,7 @@ import type { AtRule, Container, Document, Root, Rule } from "postcss";
 
 const SRC = path.join(import.meta.dirname, "..", "..", "..");
 
-const compiled = (async (): Promise<Root> => {
-  const from = path.join(SRC, "app", "globals.css");
-  return (await postcss([tailwind()]).process(await readFile(from, "utf8"), { from })).root;
-})();
+const compiled = compiledGlobals();
 
 const classesOf = (emitted: string): ReadonlySet<string> => new Set(emitted.split(/\s+/).filter(Boolean));
 
@@ -61,26 +57,6 @@ function layerOf(rule: Rule): string | null {
 const BARE_CLASS = /^\.((?:\\.|[^\\.:[\s>+~])+)$/;
 
 const unescape = (selector: string): string => selector.replace(/\\(.)/g, "$1");
-
-/**
- * A rule's selectors with every ancestor folded in. Tailwind emits nested CSS verbatim, so HeroUI's press rule
- * reads `&:active, &[data-pressed="true"]` and says nothing about `.button` until its parent resolves into it.
- */
-function selectorsOf(rule: Rule): string[] {
-  const chain: Rule[] = [];
-  for (let node: Container | Document | undefined = rule.parent; node != null; node = node.parent) {
-    if (node.type === "rule") chain.unshift(node as Rule);
-  }
-
-  return [...chain, rule].reduce<string[]>(
-    (outer, level) =>
-      level.selector.split(",").flatMap((raw) => {
-        const part = raw.trim();
-        return outer.length === 0 ? [part] : outer.map((base) => (part.includes("&") ? part.replaceAll("&", base) : `${base} ${part}`));
-      }),
-    [],
-  );
-}
 
 function declaredUnconditionally(root: Root, classes: ReadonlySet<string>, prop: string): { value: string; layer: string | null }[] {
   const found: { value: string; layer: string | null }[] = [];
