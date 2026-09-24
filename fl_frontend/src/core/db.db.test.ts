@@ -3,7 +3,7 @@ import { createServer, connect as dial } from "node:net";
 import { after, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
-import { MongoOperationTimeoutError } from "mongodb";
+import { MongoOperationTimeoutError, MongoServerSelectionError } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
 
@@ -96,9 +96,13 @@ registerAuthDoubles({
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
 const { auth } = await import("./auth.ts");
+// The same module evaluated a second time, so a second client built by the same code: an automatic
+// connect that fails closes its client's topology for good, and every later operation on it fails.
+const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
 
 after(async () => {
   relay.resume();
+  await coldClient.close();
   await client.close();
   await relay.close();
   await mongod.stop();
@@ -117,6 +121,17 @@ async function timed(run: () => Promise<unknown>): Promise<{ elapsed: number; ou
   const outcome = await run().catch((error: unknown) => error);
   return { elapsed: performance.now() - started, outcome };
 }
+
+describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md :: I362`)", () => {
+  /* Only a client that has never connected takes the driver's automatic connect, which `timeoutMS`
+     does not reach. */
+  it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", CASE_TIMEOUT, async () => {
+    const { elapsed, outcome } = await relay.hang(() => timed(() => coldClient.db("store_bound").collection("probe").findOne({})));
+
+    assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
+    assert.ok(elapsed < coldClient.options.serverSelectionTimeoutMS + LATENESS_MS, `the cold read took ${Math.round(elapsed)} ms`);
+  });
+});
 
 describe("the sign-in store's client bounds every operation it sends (`docs/frontend/spec.md :: I362`)", () => {
   /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. The

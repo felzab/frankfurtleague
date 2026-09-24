@@ -14,6 +14,10 @@ const options = {
   // refresh. At 3 s each, the store's share stays inside one backend call's
   // `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` (`docs/frontend/spec.md :: I362`).
   timeoutMS: 3000,
+  // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
+  // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
+  // which only the backend's boot waits on, where no visitor does.
+  serverSelectionTimeoutMS: 3000,
 };
 
 let client: MongoClient;
