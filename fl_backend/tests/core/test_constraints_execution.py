@@ -524,6 +524,8 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
         valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
     ),
+    # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
+    "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
 
 # At import, and set equality rather than the `KeyError` the walk below would raise: that names a
@@ -588,6 +590,18 @@ def test_the_same_position_in_another_phase_is_fine(mongo_url: str):
         return await database.spieltage.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
+
+
+def test_every_season_but_the_active_one_is_outside_the_rule(mongo_url: str):
+    """The league keeps every season it ever played, so `past` rows pile up beside the running one and a `future` one waits."""
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.saisons.insert_one(valid_documents()["saisons"])
+        for saison_id, status in (("2024", "past"), ("2025", "past"), ("2027", "future"), ("2028", "future")):
+            await database.saisons.insert_one(valid_document("saisons", _id=saison_id, status=status))
+        return await database.saisons.count_documents({})
+
+    assert on_the_shipped_schema(mongo_url, body) == 5
 
 
 def test_every_validator_is_attached_strictly(mongo_url: str):

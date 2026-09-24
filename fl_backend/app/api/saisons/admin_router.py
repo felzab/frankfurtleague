@@ -275,7 +275,9 @@ class MovableFigures(NamedTuple):
     played_knockout: int
 
 
-@router.patch("/{saison_id}", response_model=FLPatchSaisonResponse, summary="Update a Saison's dates and rules")
+@router.patch(
+    "/{saison_id}", response_model=FLPatchSaisonResponse, summary="Update a Saison's dates and rules", responses={409: DUPLICATE_KEY_RESPONSE}
+)
 async def patch_saison(
     saison_id: str,
     saison_data: Annotated[FLPatchSaisonPayload, Body()],
@@ -454,7 +456,12 @@ async def patch_saison(
     return patched
 
 
-@router.post("/{saison_id}/activate", response_model=FLActivateSaisonResponse, summary="Make this the active Saison")
+@router.post(
+    "/{saison_id}/activate",
+    response_model=FLActivateSaisonResponse,
+    summary="Make this the active Saison",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+)
 async def activate_saison(
     saison_id: str,
     saisons_collection: SaisonsCollection,
@@ -525,7 +532,8 @@ async def activate_saison(
             )
         )
 
-        # `update_many`: a database holding two active seasons is repaired, not half-preserved.
+        # BEFORE the promotion: `uniq_saison_active` is checked at each write rather than at the
+        # commit, so promoting first meets the incumbent and aborts the rollover.
         demoted = await patch_many_in_db(
             collection=saisons_collection,
             db_filter={"status": "active", "_id": {"$ne": saison_id}},
@@ -737,7 +745,13 @@ async def swap_gruppen(
         return await session.with_transaction(exchange_the_two_gruppen)
 
 
-@router.post("/{saison_id}/spielplan", response_model=FLGenerateSpielplanResponse, status_code=201, summary="Draw this Saison's Spielplan")
+@router.post(
+    "/{saison_id}/spielplan",
+    response_model=FLGenerateSpielplanResponse,
+    status_code=201,
+    summary="Draw this Saison's Spielplan",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+)
 async def generate_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
@@ -933,7 +947,12 @@ async def generate_spielplan(
     return drawn_response
 
 
-@router.delete("/{saison_id}/spielplan", response_model=FLUndrawSpielplanResponse, summary="Undraw this Saison's Spielplan")
+@router.delete(
+    "/{saison_id}/spielplan",
+    response_model=FLUndrawSpielplanResponse,
+    summary="Undraw this Saison's Spielplan",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+)
 async def undraw_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,

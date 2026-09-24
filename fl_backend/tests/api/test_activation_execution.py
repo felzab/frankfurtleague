@@ -22,11 +22,8 @@ DATABASE_NAME = worker_database("fl_activation_test")
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
 
-# Two incumbents, because two seasons holding `active` is an UNENFORCED state
-# (`fl_backend/app/core/domain.py :: UNENFORCED`) and the rollover is what repairs it.
 ARCHIVED = "2023"
-FIRST_INCUMBENT = "2024"
-SECOND_INCUMBENT = "2025"
+INCUMBENT = "2024"
 TARGET = "2026"
 
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
@@ -34,8 +31,7 @@ TEAM_ID = ObjectId("6890a1b2c3d4e5f607230001")
 # At most one fixture per season, so deriving its id from the season's names the same document in every failure.
 SPIEL_IDS = {
     ARCHIVED: ObjectId("6890a1b2c3d4e5f607230011"),
-    FIRST_INCUMBENT: ObjectId("6890a1b2c3d4e5f607230012"),
-    SECOND_INCUMBENT: ObjectId("6890a1b2c3d4e5f607230013"),
+    INCUMBENT: ObjectId("6890a1b2c3d4e5f607230012"),
     TARGET: ObjectId("6890a1b2c3d4e5f607230014"),
 }
 
@@ -115,8 +111,8 @@ async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
 
 
 class TestTheRolloverLeavesExactlyOneActiveSeason:
-    def test_every_incumbent_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
-        """Two seasons seeded active, a state no validator refuses: the `update_many` repairs it rather than demoting one of them."""
+    def test_the_incumbent_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
+        """A `past` season beside them, which the demotion's filter must leave where it is."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_activate(database, client, TARGET)
@@ -128,8 +124,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
             body,
             saisons=[
                 saison_document(ARCHIVED, "past"),
-                saison_document(FIRST_INCUMBENT, "active"),
-                saison_document(SECOND_INCUMBENT, "active"),
+                saison_document(INCUMBENT, "active"),
                 saison_document(TARGET, "future"),
             ],
             spiele=[fixture(TARGET, ergebnis=None)],
@@ -137,9 +132,9 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
 
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
         assert active == [TARGET], "the rollover left the league with something other than one active season"
-        assert statuses == {ARCHIVED: "past", FIRST_INCUMBENT: "past", SECOND_INCUMBENT: "past", TARGET: "active"}
+        assert statuses == {ARCHIVED: "past", INCUMBENT: "past", TARGET: "active"}
         # A season already `past` is not counted, so this is the number of seasons the rollover moved.
-        assert response.deactivated == 2
+        assert response.deactivated == 1
         assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
     def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
@@ -174,13 +169,13 @@ class TestARefusedRolloverWritesNothing:
         code, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
-            spiele=[fixture(FIRST_INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
+            spiele=[fixture(INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
         )
 
         assert code == ACTIVATE_SAISON_UNFINISHED
-        assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}
+        assert statuses == {INCUMBENT: "active", TARGET: "future"}
 
     def test_an_unknown_season_demotes_nobody(self, mongo_replica_set_url: str):
         """The read before the transaction: without it the league would be left with no active season at all."""
@@ -194,10 +189,10 @@ class TestARefusedRolloverWritesNothing:
         statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
         )
 
-        assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}
+        assert statuses == {INCUMBENT: "active", TARGET: "future"}
 
 
 class TestAMidFlightFailureTakesTheDemotionBack:
@@ -220,7 +215,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
         code, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             spiele=[fixture(TARGET, ergebnis=None)],
             mutates_schema=True,
         )
@@ -228,7 +223,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
         # Asserted on the code, so this cannot pass because something failed before the demotion.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the promotion, got code {code}"
         # The validator admits `past`, so the incumbent reading `active` can only mean the demotion was taken back.
-        assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}, "the league was left with no active season"
+        assert statuses == {INCUMBENT: "active", TARGET: "future"}, "the league was left with no active season"
 
 
 class TestTheRolloverRefusesAFinishedTarget:
@@ -264,12 +259,12 @@ class TestTheRolloverRefusesAFinishedTarget:
         code, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(ARCHIVED, "past"), saison_document(FIRST_INCUMBENT, "active")],
-            spiele=[fixture(FIRST_INCUMBENT, ergebnis="2:1")],
+            saisons=[saison_document(ARCHIVED, "past"), saison_document(INCUMBENT, "active")],
+            spiele=[fixture(INCUMBENT, ergebnis="2:1")],
         )
 
         assert code == ACTIVATE_TARGET_PAST
-        assert statuses == {ARCHIVED: "past", FIRST_INCUMBENT: "active"}
+        assert statuses == {ARCHIVED: "past", INCUMBENT: "active"}
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:
@@ -291,8 +286,8 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         code, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
                 spieltag_document(TARGET, 2, beginn=None),
@@ -300,7 +295,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         )
 
         assert code == ACTIVATE_SPIELTAGE_UNDATED
-        assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}, "the incumbent was demoted by a refused rollover"
+        assert statuses == {INCUMBENT: "active", TARGET: "future"}, "the incumbent was demoted by a refused rollover"
 
     def test_an_undated_matchday_of_another_season_leaves_this_rollover_open(self, mongo_replica_set_url: str):
         """The count's season filter: a query reading the whole collection refuses every league holding one undated row anywhere."""
@@ -313,15 +308,15 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         response, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
-                spieltag_document(FIRST_INCUMBENT, 2, beginn=None),
+                spieltag_document(INCUMBENT, 2, beginn=None),
             ],
         )
 
-        assert statuses == {FIRST_INCUMBENT: "past", TARGET: "active"}
+        assert statuses == {INCUMBENT: "past", TARGET: "active"}
         assert response.deactivated == 1
 
     def test_dating_that_matchday_lets_the_same_request_through(self, mongo_replica_set_url: str):
@@ -339,13 +334,13 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         response, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(FIRST_INCUMBENT, ergebnis="2:1")],
+            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
                 spieltag_document(TARGET, 2, beginn=None),
             ],
         )
 
-        assert statuses == {FIRST_INCUMBENT: "past", TARGET: "active"}
+        assert statuses == {INCUMBENT: "past", TARGET: "active"}
         assert response.deactivated == 1

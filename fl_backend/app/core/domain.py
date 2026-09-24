@@ -2029,23 +2029,6 @@ RULES: tuple[Rule, ...] = (
 
 UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
-        subject="two seasons holding `status: active`, promoted by two first activations running at once",
-        reason=(
-            "No validator sees two documents, and the index that would refuse the pair -- a partial unique one "
-            "on `status: active` -- would make the activation's write order load-bearing: demote the incumbent "
-            "first or the index refuses the promotion. What stands instead is that `activate_saison` is the only "
-            "path that can write `active` -- `post_saison` writes the create's `future` and nothing else touches "
-            "the field -- and that it demotes and promotes in one transaction. That is weaker than at-most-one, "
-            "and parts from it before the league's first activation: where NOTHING holds `active` "
-            "the demotion matches nothing and writes nothing, so two concurrent rollovers have disjoint write "
-            "sets and both commit, leaving two seasons `active`. NOTHING REPORTS THE PAIR EITHER: `/admin/saisons` "
-            "badges every season with its own status, so two of them reading `Laufend` sit in one list where a "
-            "person can see them, and no read names the pair as a state."
-        ),
-        near=("REQ-ACTIVATE-001",),
-        proven_by="tests/core/test_unenforced.py::TestTwoSeasonsActiveAtOnce",
-    ),
-    Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
             "A refusal would land on the season's rules patch, and the seasons it would land on are the ones whose "

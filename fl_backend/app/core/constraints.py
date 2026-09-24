@@ -990,6 +990,10 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one registration per submission key",
         partial_filter={"idempotenz_schluessel": {"$type": "string"}},
     ),
+    # Partial, because the league keeps every season it ever played: unfiltered, the second `past`
+    # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
+    # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
+    UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
 )
 
 

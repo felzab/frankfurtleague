@@ -13,7 +13,7 @@ import functools
 import importlib
 import json
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -363,12 +363,17 @@ def test_the_bulk_insert_is_traced_and_left_out():
 
 
 def test_an_insert_naming_its_own_id_reaches_the_id_index():
-    """`saisons` carries no index `UNIQUE_INDEXES` lists, so only the chosen `_id` puts the season's create on the list."""
+    """The season's create is the one insert choosing its `_id`.
 
-    route, writes = _write_operations()[f"POST /api/v{API_VERSION}/saisons"]
+    `saisons` carries a listed index as well, so the write is moved onto a collection carrying none.
+    """
 
-    assert UNIQUE_COLLECTIONS.isdisjoint(write for found in writes for write in found.collections)
-    assert _reaches_a_unique_index(writes)
+    _, writes = _write_operations()[f"POST /api/v{API_VERSION}/saisons"]
+    [chosen] = [write for write in writes if write.chooses_id]
+    uncovered = next(member for member in Collection if member not in UNIQUE_COLLECTIONS)
+
+    assert _reaches_a_unique_index((replace(chosen, collections=(uncovered,)),))
+    assert not _reaches_a_unique_index((replace(chosen, collections=(uncovered,), chooses_id=False),))
 
 
 def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index():

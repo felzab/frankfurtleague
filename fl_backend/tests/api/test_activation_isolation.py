@@ -292,41 +292,30 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
         assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
 
-class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
-    """The target holds `active` when the rollover judges and `past` when it writes, a rival having been promoted.
+class TestTwoFirstActivationsRacing:
+    """Nothing holds `active`, so neither demotion matches a row and the two write sets are disjoint: only `uniq_saison_active` parts them."""
 
-    Two seasons hold `active` here, which `app/core/domain.py :: UNENFORCED` says nothing prevents.
-    """
-
-    def test_a_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
+    def test_the_later_promotion_is_judged_against_the_earlier(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def promote_the_rival() -> None:
-                # Permitted: both incumbents are played out, so this rollover has nothing of its own
-                # to refuse -- and it demotes the pair, the target included.
+                # Permitted: nothing is running, so the rival's rollover has no incumbent to refuse on.
                 await call_activate(database, client, RIVAL)
 
-            outcome, season_reads = await rollover_under(database, client, promote_the_rival)
+            outcome, _ = await rollover_under(database, client, promote_the_rival)
 
-            return outcome, season_reads, await statuses_now(database), await unplayed_now(database, RIVAL)
+            return outcome, await statuses_now(database)
 
-        outcome, season_reads, statuses, unplayed = on_a_league(
+        outcome, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            # Both incumbents matter: a rival's rollover demotes the target out from under this one,
-            # and with only one seeded the demotion matches nothing -- the promotion then changes no
-            # field, takes no write conflict and is never re-judged.
-            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "active"), seeded_saison(RIVAL, "future")],
-            entered=(OUTGOING, TARGET, RIVAL),
-            drawn=(OUTGOING, TARGET, RIVAL),
-            finished=(OUTGOING, TARGET),
+            saisons=[seeded_saison(TARGET, "future"), seeded_saison(RIVAL, "future")],
+            entered=(TARGET, RIVAL),
+            drawn=(TARGET, RIVAL),
         )
 
-        # The rival keeps what the interference gave it: a season promoted and then swept straight
-        # back to `past` unplayed is the second thing this refusal saves.
-        assert (outcome, statuses) == (ACTIVATE_TARGET_PAST, {OUTGOING: "past", TARGET: "past", RIVAL: "active"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
-
-        assert unplayed > 0, "the rival was seeded played out, and demoting it would then have broken no rule"
+        # The index answers the promotion with a write conflict, and the retry finds the rival
+        # running with its whole Spielplan still to play. Unindexed, both commit.
+        assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:

@@ -170,7 +170,7 @@ def junction_row() -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "active", status: str = "active") -> Any:
+def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active") -> Any:
     """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
 
     async def _run() -> Any:
@@ -714,7 +714,9 @@ class TestTheSeasonsOwnEndClock:
                 await erasure_rows(database),
             )
 
-        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(mongo_replica_set_url, body, status="past")
+        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(
+            mongo_replica_set_url, body, status="past", next_status="active"
+        )
 
         assert (response.ohne_entscheidung_geloescht, confirmed, past_its_deadline) == (2, None, None)
         # The accepted one is the successor season's business, and that season still runs.
@@ -742,7 +744,7 @@ class TestTheSeasonsOwnEndClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await sweep(database, client)
 
-        response = on_a_league(mongo_replica_set_url, body, status="past")
+        response = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.erinnerungen, response.loeschungen) == ([], [])
         assert response.ohne_entscheidung_geloescht == 2
@@ -756,7 +758,7 @@ class TestTheSeasonsOwnEndClock:
 
             return response, await stored(database, DELETE_OID)
 
-        response, document = on_a_league(mongo_replica_set_url, body, status="past")
+        response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.ohne_entscheidung_geloescht, document) == (2, None)
 
@@ -767,7 +769,7 @@ class TestTheSeasonsOwnEndClock:
             return first.ohne_entscheidung_geloescht, (await sweep(database, client)).ohne_entscheidung_geloescht
 
         # The first count as well as the second: a clock taking nothing at all answers zero twice.
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (2, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (2, 0)
 
 
 class TestTheSeasonAndOneClock:
@@ -777,7 +779,7 @@ class TestTheSeasonAndOneClock:
 
             return response, await stored(database, ACCEPTED_OID), await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
 
-        response, document, row = on_a_league(mongo_replica_set_url, body, next_status="active")
+        response, document, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
@@ -1184,7 +1186,7 @@ class TestAPageAndOneMoreIsDrained:
 
             return response.ohne_entscheidung_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (overflow, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (overflow, 0)
 
     def test_every_accepted_application_goes_in_one_pass_once_the_next_season_is_past(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5

@@ -11,7 +11,7 @@ from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
 from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
@@ -66,7 +66,6 @@ from app.core.exceptions import WriteRefusal
 from tests.core.app_source import (
     APP_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
-    WRITE_HELPERS,
     app_calls,
     callee,
     calls_in,
@@ -74,15 +73,11 @@ from tests.core.app_source import (
     module_of,
     parsed,
     removals,
-    transactional_callbacks,
 )
 from tests.documents import rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
-# The callback `activate_saison` runs as one transaction, which is where both `status` writes
-# stand. Named because two rules below read it and neither should re-derive it.
-ACTIVATION_CALLBACK = "judge_and_roll_the_league_over"
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -242,49 +237,11 @@ REMOVAL_MODULES = ("app/core/crud.py",)
 # The day a row retired, and so the field a retention sweep would select on.
 RETIREMENT_FIELD = "inactive_since"
 
-# The arguments those helpers take their document from. A filter and a projection name a field too,
-# and neither writes it.
-WRITE_DOCUMENTS = frozenset({"document", "update"})
-
-# The driver calls that change a document, and the modules `app/core/crud.py`'s own header holds them
-# to -- where a write reaches the driver anywhere else, it can carry its document past the sweeps.
-DRIVER_WRITES = frozenset(
-    {"bulk_write", "find_one_and_replace", "find_one_and_update", "insert_many", "insert_one", "replace_one", "update_many", "update_one"}
-)
-WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py")
-
 
 def _driver_calls(methods: frozenset[str]) -> list[str]:
     """Where the application calls one of `methods`, each as its module and the function holding the call."""
 
     return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
-
-
-def _literal_writes_of(field: str, *, on: str) -> set[tuple[str, str]]:
-    """Every write naming `field` in a literal document on `on`, the function making it and the value set.
-
-    Scoped to ONE collection's handle: a field name is not unique across the database, and an
-    application carries a `status` too.
-    """
-
-    writes: set[tuple[str, str]] = set()
-    for _, scope, call in app_calls():
-        if not any(k.arg == "collection" and isinstance(k.value, ast.Name) and k.value.id == on for k in call.keywords):
-            continue
-
-        for keyword in call.keywords:
-            if keyword.arg not in WRITE_DOCUMENTS:
-                continue
-
-            for node in ast.walk(keyword.value):
-                if not isinstance(node, ast.Dict):
-                    continue
-
-                for key, value in zip(node.keys, node.values, strict=True):
-                    if isinstance(key, ast.Constant) and key.value == field:
-                        writes.add((scope, str(value.value) if isinstance(value, ast.Constant) else "<composed>"))
-
-    return writes
 
 
 def _callers_of(module: Path, called: str) -> set[str]:
@@ -324,61 +281,6 @@ def _packages_reading(name: str) -> set[str]:
         if _module_reads(parsed(path), name)
         for folder in path.relative_to(APP_ROOT).parts[:-1]
     }
-
-
-class TestTwoSeasonsActiveAtOnce:
-    """That no store-level constraint holds two seasons apart, and that one transaction is the whole of what the app does."""
-
-    def test_no_unique_index_reaches_the_status_field(self):
-        # The floor: `saisons` carries no unique index at all, so what proves the sweep read
-        # something is a key it DOES find. Without it an emptied `UNIQUE_INDEXES` leaves the claim
-        # below passing over nothing.
-        assert "saison_id" in {key for index in UNIQUE_INDEXES for key in index.keys}
-
-        covering = [index.name for index in UNIQUE_INDEXES if "status" in index.keys]
-
-        assert not covering, f"{covering} would make this a database guarantee, and the entry claims it is not"
-
-    def test_the_validator_types_the_field_and_says_nothing_about_the_collection(self):
-        """A `$jsonSchema` sees one document, so the closest it comes is the enum -- which permits every season being active."""
-
-        status = COLLECTION_VALIDATORS[Collection.SAISONS]["$jsonSchema"]["properties"]["status"]
-
-        assert set(status) == {"bsonType", "enum"}
-
-    def test_only_the_activation_writes_a_status_a_second_season_could_hold(self):
-        """Every literal write under `app/` naming the field, as the function making it and the value it sets."""
-
-        # The sweep reads the document a write helper is GIVEN, so it is complete only while every
-        # write goes through one: a driver call takes its document positionally.
-        assert [call for call in _driver_calls(DRIVER_WRITES) if not call.startswith(WRITE_MODULES)] == []
-
-        # `post_saison` writes the constant `future` at create, which no second season contradicts;
-        # `active` and the demotion to `past` are one function's, which is what lets one transaction
-        # hold the pair. That function is the callback the activation runs, not the endpoint.
-        assert _literal_writes_of("status", on="saisons_collection") == {
-            ("post_saison", "future"),
-            (ACTIVATION_CALLBACK, "past"),
-            (ACTIVATION_CALLBACK, "active"),
-        }
-
-    def test_no_season_payload_carries_the_field(self):
-        """The route the sweep above cannot see: the patch writes its payload wholesale, so a `status` field would ride along unnamed."""
-
-        assert not {"status"} & set(FLPostSaisonPayload.model_fields)
-        assert not {"status"} & set(FLPatchSaisonPayload.model_fields)
-
-    def test_the_demotion_and_the_promotion_share_one_transaction(self):
-        """Both writes inside the callback the activation runs as one transaction, each carrying its session.
-
-        Split them across two callbacks and this fails: a demotion that committed without the
-        promotion would leave the league with no active season at all.
-        """
-
-        activation = [entry for entry in transactional_callbacks(WRITE_HELPERS) if entry.where.endswith(ACTIVATION_CALLBACK)]
-
-        assert len(activation) == 1, f"{ACTIVATION_CALLBACK} is run by {len(activation)} transactions"
-        assert set(activation[0].writes) == {("patch_many_in_db", True), ("patch_one_in_db", True)}
 
 
 class TestAMatchdayOffItsImpliedCount:
