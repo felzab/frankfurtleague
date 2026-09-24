@@ -805,7 +805,7 @@ apart from those it measures at `:: report_window`.
 **Every job has a wall-clock budget, and the aggregate job refuses the run that breaks one.** The
 same table carries two more columns: `budget`, the most a single run of the job may span from its
 first step to its last, and `measured`, the completed runs the row was taken over, as
-`<runs>@<date>`. After the scope verdict and on every event, `scripts/checks/check_gate_budget.py` under
+`<runs>@<date>`. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
@@ -813,8 +813,9 @@ a length nothing measured being no pass. A single run swings far wider than a me
 which is why a budget is not the reference; the rule each budget is set by is the table's header's.
 **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
-re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
-a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
+re-run or a regression, and a re-run of all jobs is the repeat measurement at the cost of a click
+rather than a commit; re-running the failed jobs alone keeps each carried-over job's first timing.
+Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
 being the layer cache's before it is the tree's — the table's header records the spread that row's
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
@@ -1092,7 +1093,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Application container logs are empty right after a deploy                                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale for up to a day                                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
 | League table or fixtures stale after a season edit                                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
-| The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run first, then take the cost out rather than raise the figure; a right raise stamps the row with its measuring runs (§1.6)                                                                                       |
+| The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run all jobs, not the failed ones alone, then take the cost out rather than raise it; a right raise stamps its measuring runs (§1.6)                                                                              |
 | The `commits` job is red naming a row that rose on an unchanged stamp                             | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
 
 ## 4. Known-open
