@@ -48,6 +48,8 @@ export function allowedCalls(): void {
 export function AdminCrudView({ facets }: { facets: unknown }) {
   return (
     <div {...bounds}>
+      {/* A spread stays free on every component but the date controls. */}
+      <InfoHint {...bounds} />
       <span className={labelBadge(TONE)} />
       <Calendar minValue={bounds}>
         {String(facets)}

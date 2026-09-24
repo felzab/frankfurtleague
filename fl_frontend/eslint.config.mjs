@@ -89,11 +89,12 @@ const crossFileDigest = digest.digest("hex");
 
 const LAYER_BOUNDARY = {
   core: {
-    group: ["@/features/**", "@/shared/**", "**/features/**", "**/shared/**"],
+    // Any directory, so the `@/` alias is read with every relative path.
+    group: ["**/features/**", "**/shared/**"],
     message: "core is infrastructure: it must not depend on shared or features.",
   },
   shared: {
-    group: ["@/features/**", "**/features/**"],
+    group: ["**/features/**"],
     message: "shared must not import features. Inject via props/children (see Sidemenu.tsx:20).",
   },
 };

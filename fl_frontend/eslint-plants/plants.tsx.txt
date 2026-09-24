@@ -16,6 +16,7 @@ import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
+import { HintPanel } from "@/shared/components/ui/InfoHint.tsx"; // expect: hint-internals
 import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
 
 declare const auth: { api: { getSession: (options: object) => unknown } };
@@ -53,6 +54,7 @@ export const RENAMED = [Picker, CalendarRoot, TimeFields];
 export const FORM = HeroForm;
 export const BUTTON = Button;
 export const POPOVER = HintPopover;
+export const PANEL = HintPanel;
 export const CAPTURE = captureStdout;
 export const DELETION = "deletePasskey"; // expect: passkey-deletion
 // eslint-disable-next-line no-restricted-syntax -- an excuse whose line spells nothing, expect: unused-disable
