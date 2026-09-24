@@ -168,8 +168,8 @@ def _located(tokens: Iterable[Token]) -> Iterator[Token]:
             yield from _located(token.children)
 
 
-# markdown-it-py reads a span as text, where CommonMark reads code, when a `[` before it opens a label
-# scan meeting an unclosed run of another length, and no run of the span's length follows
+# markdown-it-py reads a span as text, where CommonMark reads code, after a `[` whose label scan meets
+# a run with no closer of its own length, and no run of the span's length follows
 # (`scripts/tests/test_check_docs_arms.py :: test_a_span_an_unclosed_label_scan_passes_is_text`).
 @cache
 def _line_spans(line: str) -> tuple[CodeSpan, ...]:
