@@ -456,6 +456,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Rolle besetzt, Link nicht gesendet": { variant: "warning", identifies: "one site" },
   "Rolle neu besetzt": { variant: "success", identifies: "one site" },
   "Rolle nicht neu besetzt": { variant: "danger", identifies: "one site" },
+  "Rücknahme unklar": { variant: "danger", identifies: "its description" },
   "Saison angelegt": { variant: "success", identifies: "one site" },
   "Saison nicht umgestellt": { variant: "danger", identifies: "one site" },
   "Saison umgestellt": { variant: "success", identifies: "one site" },

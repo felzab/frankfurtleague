@@ -32,6 +32,9 @@ const EDITORS: Record<string, string> = {
 // Imported here rather than at the top: a static import resolves before the hook above is registered.
 const { offerUndo } = await import("./undoDispatch.ts");
 
+/** The ruling's words for an undo nobody can tell landed. */
+const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+
 type Pressed = {
   replacedWith: string[];
   /** How many toasts the press had raised by each departure, the offer's own not counted. */
@@ -78,20 +81,16 @@ describe("what the shared undo dispatch says when it never landed", () => {
     raised.length = 0;
   });
 
-  /* A rejected dispatch reached no judgement, so the payload cannot be what failed and a reader sent
-     to inspect it hunts a fault in fields that are fine. */
-  it("blames the transport and nothing the admin was editing", async () => {
+  /* A dispatch whose answer never came may have restored the change on its way, so „nicht
+     zurückgenommen“ would send the admin to undo by hand what may already be undone. */
+  it("says nobody can tell whether a dispatch that never answered took the change back", async () => {
     const pressed = await pressAgainst(new TypeError("Failed to fetch"));
-    const gescheitert = pressed.toasts.at(-1);
 
-    assert.equal(gescheitert?.variant, "danger", "a dispatch that never arrived is reported as something other than a failure");
-    assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
-    assert.equal(
-      gescheitert?.options?.description,
-      "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-      "the transport failure no longer says the one true sentence",
+    assert.deepEqual(
+      pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Rücknahme unklar", RUECKNAHME_UNKLAR]],
     );
-    assert.deepEqual(pressed.replacedWith, [], "a dispatch that never arrived leaves the page");
+    assert.deepEqual(pressed.replacedWith, [], "a dispatch that never answered leaves the page");
   });
 });
 
@@ -143,15 +142,25 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.equal(refused.refreshed, 1);
   });
 
-  /* A restore whose commit answer was lost may stand: titled „nicht zurückgenommen“ it would send the
-     admin to undo by hand a change that may already be undone. */
-  it("hands a replay of unknown outcome on to the failure toast with its marker", async () => {
+  /* A restore whose commit answer was lost may stand, and the route's sentence for it speaks of a save
+     rather than of the change being taken back. */
+  it("says nobody can tell whether a replay of unknown outcome took the change back", async () => {
     const error = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
     const pressed = await pressAgainst(Response.json({ success: false, error, outcome: "unknown" }));
 
     assert.deepEqual(
-      pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description, toast.options?.outcome]),
-      [["Änderung nicht zurückgenommen", error, "unknown"]],
+      pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Rücknahme unklar", RUECKNAHME_UNKLAR]],
+    );
+    assert.equal(pressed.refreshed, 1, "a restore that may have landed left the screen as it was");
+  });
+
+  it("keeps a refused replay under the negated title, with the route's sentence", async () => {
+    const pressed = await pressAgainst(Response.json({ success: false, error: "Der Spielort wurde inzwischen gelöscht." }));
+
+    assert.deepEqual(
+      pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+      [["Änderung nicht zurückgenommen", "Der Spielort wurde inzwischen gelöscht."]],
     );
   });
 });

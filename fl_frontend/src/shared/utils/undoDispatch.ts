@@ -18,6 +18,13 @@ const TURNED_AWAY = {
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
 
+/**
+ * An undo nobody can tell landed: a dispatch whose answer never came, any status but the route's own
+ * included, may have restored the change on its way, and „nicht zurückgenommen“ would send the admin
+ * to undo by hand what may already be undone.
+ */
+export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+
 /** Whether a body parsed at all opens as every outcome of the route's does. */
 const isRouteEnvelope = (body: unknown): boolean =>
   typeof body === "object" && body !== null && "success" in body && typeof body.success === "boolean";
@@ -137,10 +144,8 @@ export function offerUndo<TPayload>({
             }
 
             if (!result.success) {
-              appToast.failure("Änderung nicht zurückgenommen", {
-                error: result.error ?? "Die Änderung steht weiterhin.",
-                outcome: result.outcome,
-              });
+              if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
+              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error ?? "Die Änderung steht weiterhin." });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.
@@ -164,11 +169,7 @@ export function offerUndo<TPayload>({
               return;
             }
 
-            appToast.danger("Änderung nicht zurückgenommen", {
-              // The connection alone: the request reached no judgement, so naming what was saved
-              // would send the admin to inspect values nothing here read.
-              description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-            });
+            appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
           },
         );
       },

@@ -19,7 +19,7 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { offerUndo } from "@/shared/utils/undoDispatch";
+import { offerUndo, RUECKNAHME_UNKLAR } from "@/shared/utils/undoDispatch";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
@@ -395,11 +395,11 @@ export function AdminEditSpielDataForm({
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,
           router,
-          // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
+          // The raw error follows the sentence, uniquely here: the dispatch failed in the browser,
           // so no server log holds the diagnosis. One that reached the server stays generic.
           reportRejection: (dispatchError) =>
-            appToast.danger("Änderung nicht zurückgenommen", {
-              description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
+            appToast.danger("Rücknahme unklar", {
+              description: `${RUECKNAHME_UNKLAR} ${dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError)}`,
               timeout: DIAGNOSIS_TIMEOUT_MS,
             }),
         });
