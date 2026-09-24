@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachRefusalCloses } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
@@ -52,7 +53,6 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -167,46 +167,18 @@ describe("the referee save's undo", () => {
     assert.deepEqual(mails, []);
   });
 
-  /* Three sites per refusal: a code the route's table leaves unmapped falls through to the shared 409
-     sentence about an equivalent entry, which says nothing of what became of the change. */
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
-    for (const code of publishedRefusals(REPLAY_OPERATION)) {
-      recorders.__flUndoRefAnswer = () => {
-        throw aRefusal(code);
-      };
-
-      const answer = await bodyOf(aRequest(BODY));
-
-      assert.equal(answer.success, false, `${code} resolved as a restore`);
-      assert.match(answer.error ?? "", /\S\. Die Änderung steht weiterhin\.$/, `${code} reaches the admin as an unhandled conflict`);
-      assert.equal(answer.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
-    }
-  });
-
-  for (const [code, fragment] of [["REQ-SCHIEDSRICHTER-007", /Sperrliste/]] as const) {
-    it(`words ${code} for the undo, saying the change stands`, async () => {
-      recorders.__flUndoRefAnswer = () => {
-        throw aRefusal(code);
-      };
-
-      const answer = await bodyOf(aRequest(BODY));
-
-      assert.equal(answer.success, false);
-      assert.match(answer.error ?? "", /\S\. Die Änderung steht weiterhin\.$/, `${code} leaves the admin guessing what the row now holds`);
-      assert.match(answer.error ?? "", fragment);
+    const answers = await assertEachRefusalCloses({
+      codes: publishedRefusals(REPLAY_OPERATION),
+      refuse: (code) => {
+        recorders.__flUndoRefAnswer = () => {
+          throw aRefusal(code);
+        };
+      },
+      press: () => bodyOf(aRequest(BODY)),
     });
-  }
 
-  /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
-     row here is: two spellings of one sentence, held together. */
-  it("words the duplicate key as the shared reader does, saying the change stands", async () => {
-    recorders.__flUndoRefAnswer = () => {
-      throw aRefusal(DUPLICATE_KEY);
-    };
-
-    const answer = await bodyOf(aRequest(BODY));
-
-    assert.equal(answer.error, `${String(toActionErrorResult(aRefusal(DUPLICATE_KEY)).error)} Die Änderung steht weiterhin.`);
+    assert.match(answers.get("REQ-SCHIEDSRICHTER-007") ?? "", /Sperrliste/, "the blocked address is worded as something else");
   });
 
   it("says the change stands where the replay committed nothing", async () => {

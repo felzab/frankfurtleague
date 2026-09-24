@@ -1,17 +1,22 @@
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
-import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
-/** Worded for the undo: the save's own sentence sends an admin to a form this toast has not got. */
-const REPLAY_REFUSALS: Record<string, string> = {
+/**
+ * Its own close, the one undo row without the change standing: it already says the undo did not run,
+ * and why. Worded for the undo, whose toast has not got the save's form.
+ */
+const STALE_BLOCK_REFUSAL: Record<string, string> = {
   "REQ-KONTAKT-001":
     "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, meistens durch das Löschen einer Kontaktperson. " +
     "Die Rücknahme wurde nicht ausgeführt, damit die gelöschten Angaben nicht wieder eingetragen werden.",
-  // The shared reader's sentence, then the outcome as on every undo route. Spelled in this row rather
-  // than appended to each: the row above already says the undo did not run.
-  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt. Die Änderung steht weiterhin.",
+};
+
+const REPLAY_REFUSALS: Record<string, string> = {
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
 
 export async function POST(request: NextRequest) {
@@ -26,10 +31,8 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSaisonTeamKontakte(payload);
       } catch (error) {
-        const refusal = replayRefusal(error, REPLAY_REFUSALS);
-        if (refusal === undefined) throw error;
-
-        return { refusal };
+        const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
+        return stale === undefined ? refusedReplay(error, REPLAY_REFUSALS) : { refusal: stale };
       }
 
       return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };

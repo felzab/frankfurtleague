@@ -4,6 +4,7 @@ import { getAdminSession, getSignInDestination } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
+import { AENDERUNG_STEHT_WEITERHIN } from "./actionError";
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
@@ -15,8 +16,7 @@ import type { ZodType } from "zod";
  * lands in the dispatch's rejection arm, which blames the transport and sends the admin to check a
  * connection that is fine.
  */
-const FREMDE_HERKUNFT =
-  "Die Änderung steht weiterhin. Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück.";
+const FREMDE_HERKUNFT = `${AENDERUNG_STEHT_WEITERHIN} Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück.`;
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
@@ -56,6 +56,17 @@ export function replayRefusal(error: unknown, refusals: Readonly<Record<string, 
   const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
   // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
   return code == null || !Object.hasOwn(refusals, code) ? undefined : refusals[code];
+}
+
+/**
+ * The table's reason, then what became of the change, which a cause alone leaves the admin guessing;
+ * `closing` is the half that went back where a replay of two writes had restored the first.
+ */
+export function refusedReplay(error: unknown, refusals: Readonly<Record<string, string>>, closing = AENDERUNG_STEHT_WEITERHIN): UndoReport {
+  const reason = replayRefusal(error, refusals);
+  if (reason === undefined) throw error;
+
+  return { refusal: `${reason} ${closing}` };
 }
 
 /**

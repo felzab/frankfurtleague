@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachRefusalCloses } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
@@ -58,7 +59,6 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 
 /** One refused answer as the client raises it; only the status and the code are read past this file. */
 const aRefusal = (statusCode: number, serverErrorCode: string) =>
@@ -117,39 +117,22 @@ beforeEach(() => {
 });
 
 describe("the undo route's replay refusals against the endpoint it replays", () => {
-  /* Three sites per refusal: a code the route's table leaves unmapped reaches the admin as the 409
-     fallback in `fl_frontend/src/shared/utils/actionError.ts`, which says nothing of the change. */
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
-    for (const code of publishedRefusals(REPLAY_OPERATION)) {
-      recorders.__flUndoAnswer = () => {
-        throw aRefusal(409, code);
-      };
+    const answers = await assertEachRefusalCloses({
+      codes: publishedRefusals(REPLAY_OPERATION),
+      refuse: (code) => {
+        recorders.__flUndoAnswer = () => {
+          throw aRefusal(409, code);
+        };
+      },
+      press: () => post(aReplayOf(SPIEL_ID)),
+    });
 
-      const answered = await post(aReplayOf(SPIEL_ID));
-
-      assert.equal(answered.success, false, `${code} resolved as a restore`);
-      assert.match(
-        answered.error ?? "",
-        /\S\. Die Änderung steht weiterhin\.$/,
-        `${code} leaves the admin guessing what the fixtures now hold`,
-      );
-      assert.equal(answered.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
+    for (const [code, error] of answers) {
       // One replay carries several fixtures, so an answer pointing at one of them is wrong on the rest;
       // case-insensitive for the capital a sentence opens with.
-      assert.doesNotMatch(answered.error ?? "", /\b(?:dieses|diesem|das)\s+Spiels?\b/i, `${code} points at a single fixture`);
+      assert.doesNotMatch(error, /\b(?:dieses|diesem|das)\s+Spiels?\b/i, `${code} points at a single fixture`);
     }
-  });
-
-  /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
-     row here is: two spellings of one sentence, held together. */
-  it("words the duplicate key as the shared reader does, saying the change stands", async () => {
-    recorders.__flUndoAnswer = () => {
-      throw aRefusal(409, DUPLICATE_KEY);
-    };
-
-    const answered = await post(aReplayOf(SPIEL_ID));
-
-    assert.equal(answered.error, `${String(toActionErrorResult(aRefusal(409, DUPLICATE_KEY)).error)} Die Änderung steht weiterhin.`);
   });
 });
 

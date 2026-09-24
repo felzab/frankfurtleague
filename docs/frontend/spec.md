@@ -795,9 +795,12 @@ left out, on the premise that its callers log a refusal and show it to no one.
 **`DB-COMMON-002`, the unique index's refusal, is the one code the shared 409 fallback words**, as an
 administrator's conflict with an entry that exists; a public route answers it in the visitor's words
 instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Every undo route answers
-it in its own `REPLAY_REFUSALS` row, the shared sentence first and what became of the change after it:
-„Die Änderung steht weiterhin.“, or, where a replay of two writes had already restored the first,
-which half went back (`fl_frontend/src/app/api/admin/teams/undo/route.ts :: CLUB_HALF_RESTORED`).
+it in its own `REPLAY_REFUSALS` row with the shared sentence
+(`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
+`fl_frontend/src/shared/utils/undoRoute.ts :: refusedReplay` closes, as it closes every row, on what
+became of the change: „Die Änderung steht weiterhin.“, or, where a replay of two writes had already
+restored the first, which half went back
+(`fl_frontend/src/app/api/admin/teams/undo/route.ts :: CLUB_HALF_RESTORED`).
 A slice's mapper answers it itself on the box holding the refused value, and as a banner in three
 places where no box does:
 

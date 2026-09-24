@@ -3,7 +3,8 @@ import { revalidateTag } from "next/cache";
 import { patchAdminSpielePaarungen } from "@/features/spiele/mutations";
 import { FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
 import { describeMovedSpiele } from "@/features/spiele/utils";
-import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -42,15 +43,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",
   "REQ-WIRING-002": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich.",
   "REQ-WIRING-003": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, die es in dieser Saison nicht gibt.",
-  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
-  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
-
-/**
- * The second half of every refusal above, and the whole of it: the replay is one transaction, so a
- * refusal on any fixture leaves every one of them where the save put it.
- */
-const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -61,15 +55,14 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchAdminSpielePaarungen({ paarungen });
       } catch (error) {
-        const refusal = replayRefusal(error, REPLAY_REFUSALS);
-        if (refusal === undefined) throw error;
-
-        return { refusal: `${refusal} ${CHANGE_STANDS}` };
+        // The change standing whole: the replay is one transaction, so a refusal on any fixture leaves
+        // every one of them where the save put it.
+        return refusedReplay(error, REPLAY_REFUSALS);
       }
 
       if (!operation.acknowledged) {
-        // Never `CHANGE_STANDS` here: an unacknowledged write may still have landed, so the admin is
-        // sent to look rather than told the save is intact.
+        // Never the change standing here: an unacknowledged write may still have landed, so the admin
+        // is sent to look rather than told the save is intact.
         return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
       }
 

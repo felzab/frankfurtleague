@@ -15,6 +15,18 @@ import type { FieldErrors } from "./validation";
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
 /**
+ * The 409 fallback's sentence, which every undo route answers the unique index's refusal with too:
+ * the conflict is the same one whichever write met it.
+ */
+export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
+
+/**
+ * What became of a change an undo did not take back, closing every sentence that says so. Here rather
+ * than beside the undo route, which loads the sign-in store: the browser's dispatch says it too.
+ */
+export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
+
+/**
  * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
@@ -154,7 +166,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     }
     if (error.statusCode === 409) {
       // The ordinary outcome of a create hitting a unique index (DB-COMMON-002), possibly a retired row keeping its slot.
-      return { success: false, error: "Der Eintrag steht im Konflikt mit einem, den es schon gibt." };
+      return { success: false, error: KONFLIKT_MIT_BESTEHENDEM };
     }
     if (error.statusCode === 404) {
       return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };

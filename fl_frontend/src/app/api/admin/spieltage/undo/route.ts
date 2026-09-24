@@ -2,7 +2,8 @@ import { revalidateTag } from "next/cache";
 
 import { patchSpieltag } from "@/features/spieltage/mutations";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
-import { handleUndoRequest, replayRefusal } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -12,12 +13,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums.",
   "REQ-DATE-008":
     "Der ursprüngliche Beginn dieses Spieltags passt nicht mehr in die Reihenfolge der Spieltage seiner Phase, die schon einen Zeitraum haben.",
-  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
-  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
-
-/** The second half of every refusal above: a cause alone leaves the admin unsure what the matchday now holds. */
-const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -28,10 +25,7 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSpieltag(payload);
       } catch (error) {
-        const refusal = replayRefusal(error, REPLAY_REFUSALS);
-        if (refusal === undefined) throw error;
-
-        return { refusal: `${refusal} ${CHANGE_STANDS}` };
+        return refusedReplay(error, REPLAY_REFUSALS);
       }
 
       return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
