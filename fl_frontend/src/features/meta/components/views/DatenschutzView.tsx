@@ -27,7 +27,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "23. September 2026";
+const STAND = "24. September 2026";
 
 /** Every recipient outside the league, as one card each: a recipient's facts, read as a table, are a row nothing can wrap at 375px. */
 const EMPFAENGER = [

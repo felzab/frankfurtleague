@@ -65,7 +65,7 @@ describe("the privacy notice's account of the association", () => {
   /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
      change to this page and a stale one tells them there was none. */
   it("dates the notice to the day this wording landed", () => {
-    rendert("Stand: 23. September 2026");
+    rendert("Stand: 24. September 2026");
   });
 });
 
