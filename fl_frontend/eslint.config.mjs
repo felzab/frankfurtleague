@@ -436,6 +436,7 @@ const SOURCE_BANS = [
   {
     // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
     // only a constant the class list itself holds is refused.
+
     // Two arms rather than one `site > :matches(…)`: a combinator inside that `:matches` asks the site to
     // be the member's own parent, so its member arm can match nothing.
     selector: `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
