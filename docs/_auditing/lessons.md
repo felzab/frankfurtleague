@@ -106,11 +106,10 @@ Where you did not check, say so plainly. The beliefs this repository has already
 
 ## 5. Treat a green gate as evidence and never as proof
 
-**Rule:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds. Run the
-full form unless the wave changed documentation only, keep a mechanical mega-commit — a formatter
-config change, a token repointing — in a commit with nothing else in it, and make every suite fail
-loudly rather than skip quietly. Otherwise a defect class the gate cannot see ships in an image it
-reported green.
+**Rule:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds. Keep a
+mechanical mega-commit — a formatter config change, a token repointing — in a commit with nothing
+else in it, and make every suite fail loudly rather than skip quietly. Otherwise a defect class the
+gate cannot see ships in an image it reported green.
 
 **Instances**
 
@@ -206,8 +205,8 @@ not the variable.**
 
 - **My review rounds are where the truth arrives.** They surface reversals of a wave's largest
   decisions, and controls that silently never run — things the gate cannot see.
-- **Coupled cross-repository changes ship in one pull request.** The publish script builds both
-  images before pushing either, so no window exists in which a new frontend meets an old backend.
+- **Coupled frontend and backend changes ship in one pull request**: no window exists in which a new
+  frontend meets an old backend (`docs/ops/spec.md :: I7`).
 - **When a fix is reversed, verify its artifacts are actually gone.** A removed dependency can
   survive in the lockfile until `node_modules` and the lockfile are rebuilt clean. Put the reversal
   trigger on the row.

@@ -34,10 +34,6 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/ruff.toml`                         | —             | ruff's configuration for every python file below this folder                                                                                                                                      |
 | `scripts/pyrightconfig.json`                | —             | pyright's configuration for every python file below this folder                                                                                                                                   |
 
-**The naming scheme a new file goes into, the scope table, the reasoning behind each scope, and the
-conventions every script shares are in [`../docs/ops/spec.md`](../docs/ops/spec.md)**, which also
-says why the tool configurations sit here rather than at the repository root.
-
 ## Which of these reach real users
 
 `deploy.sh` does, and so does `./scripts/ops/local.sh --refresh-db`, which reads the
@@ -67,5 +63,7 @@ published document is composed from the application's own docstrings
 
 ## Read next
 
-- [`../docs/ops/spec.md`](../docs/ops/spec.md) — the gate's scopes, the environments, the output standard
+- [`../docs/ops/spec.md`](../docs/ops/spec.md) — the naming scheme a new file goes into, the gate's
+  scopes and the reasoning behind each, the environments, the conventions every script shares, and
+  why the tool configurations sit here
 - [`../docs/ops/runbooks.md`](../docs/ops/runbooks.md) — the recurring procedures these scripts serve

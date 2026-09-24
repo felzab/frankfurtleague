@@ -44,7 +44,7 @@ model holds; read this for the shape those tables are stating.
   (`sperrliste`) and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
-documents. A club's league table is on neither, being computed from the matches.
+documents.
 
 ### What is held true together
 
@@ -83,8 +83,6 @@ brought up to date.
 ---
 
 ## The life of a season
-
-Each stage below narrows what the one before it left open.
 
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.

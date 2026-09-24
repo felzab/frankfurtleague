@@ -61,8 +61,8 @@ conflict. Each of those meets the ruleset's refusal at the push (I1).
 documentation conflicts on every shared page, and the cost compounds until it is paid.
 
 **A merge resolution needs a no-loss assertion, not care.** Enumerate every line each side added
-since the fork and prove none is absent from the result. Taking one side whole is how a heading, a
-clause and an edited line each disappeared while the result read correctly.
+since the fork and prove none is absent from the result. Taking one side whole drops a heading, a
+clause or an edited line while the result still reads correctly.
 
 **`--ff-only` on the way back down is the point.** Every change reaches `main` through GitHub, so
 local `main` is only ever strictly behind and a fast-forward is always possible; where it is not,
@@ -104,9 +104,9 @@ carries no trailer ([`../_roadmap/protocol.md`](../_roadmap/protocol.md) §3).
 
 The one other trailer is a closing paragraph that is sign-offs and nothing else, which is what
 Dependabot's generator always writes and the only trailer form the checker releases on an exact
-author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`, and
-[`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
-AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
+author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`; the list below names what
+else that identity releases). Work is never signed as AI-generated, which overrides any tool
+default appending a `Co-Authored-By` line.
 
 **The trailer's two halves are checked in different places.** Its shape is checked wherever a
 message is, the `commit-msg` hook included. Whether the diff _asks_ for one is checked only where
@@ -137,14 +137,12 @@ Beyond that list:
   prose to git, so the paragraph is no trailer block at all and every arm reading that block — the
   three comparing the message to the diff included — sees an absent trailer rather than a broken
   one. It is a shape, so the `commit-msg` hook runs it.
-- A `Closes:` line whose value is not a token — a serial id, a heading slug, a mis-cased trailer
-  name — is refused where it stands (`scripts/checks/check_commits.py :: CLOSES_RE`).
-- A body recording no verification is reported, not refused — and not reported at all for a commit
-  Dependabot wrote, whose generator records none and has no way to.
+- A body recording no verification is reported, not refused.
 - Merge and revert subjects are skipped — they are git's.
-- **The bot exemption drops three rules and no more**: the sign-off, the wrapped body, and the
-  missing-verification report. Everything else answers for Dependabot as for anyone — I4 included,
-  so a bot commit with no body is still refused.
+- **The bot exemption drops three rules and no more**, the three Dependabot's generator gives it no
+  way to satisfy: the sign-off, the wrapped body, and the missing-verification report. Everything
+  else answers for Dependabot as for anyone — I4 included, so a bot commit with no body is still
+  refused.
 
 ### 1.4 Pull requests
 
@@ -214,8 +212,6 @@ check that refuses an undersized scope and the CI job mapping are all in
 > repository name, and is empty at the repository root: `github/codeql-action/init` reads
 > `init/action.yml`, while the bare `action.yml` at that repository's root describes a different
 > action and returns 200 all the same. Release _pages_ render dynamically and summarise unreliably.
-> The first CI run failed instantly on `astral-sh/setup-uv@v9`, a version that has never existed,
-> taken from a bad reading of a release page.
 
 ### 1.6 Repository settings
 

@@ -9,7 +9,7 @@ three surfaces, the browser-crash path, and the development formats.
 | [1.2 The stream contract](#12-the-stream-contract) | What a log line is on each surface              |
 | [1.3 Client-side crashes](#13-client-side-crashes) | The one browser-to-log path                     |
 | [1.4 Development logging](#14-development-logging) | The one console line both surfaces write        |
-| [2. Invariants](#2-invariants)                     | The rules the tests pin                         |
+| [2. Invariants](#2-invariants)                     | The rules that must hold                        |
 | [3. Violation → remedy](#3-violation--remedy)      | A symptom, its cause, and what to do            |
 | [4. Known-open](#4-known-open)                     | The accepted gaps                               |
 
@@ -118,9 +118,8 @@ as an enum (`fl_frontend/src/core/config.ts :: LOG_FORMAT`). Both normalise case
 
 Per-surface extras sit between `message` and `error`: the backend adds `module`/`line` directly
 after `message` and the access-line fields (`method`, `path`, `status`, `duration_ms`); nginx adds
-`duration_s`, `upstream_duration_s`, `bytes`, `client`, `realip_fallback`, `x_forwarded_for`,
-`host`, `referer`, `user_agent`; the frontend adds whatever a call site passes (`digest`, `route`,
-`fetch_trace_id`, `cache_fill`).
+the rest of the `fl_json` `log_format`; the frontend adds whatever a call site passes (`digest`,
+`route`, `fetch_trace_id`, `cache_fill`).
 
 **`client` is the visitor and `x_forwarded_for` is that header as it arrived** — and
 `realip_fallback` is `1` on a line where the rewrite behind `client` did not take, so `client` is
@@ -130,10 +129,8 @@ the edge settled on, and neither is the other.
 
 How each surface keeps its stream to one format:
 
-- **Backend:** uvicorn's own access log is off and its loggers propagate to the application handler
-  (`fl_backend/Dockerfile :: CMD`, `fl_backend/app/core/uvicorn_logging.json`);
-  `TraceContextMiddleware` writes the per-request line instead, which is what puts both ids and
-  `duration_ms` on it.
+- **Backend:** uvicorn logs no access line of its own and writes through the application handler
+  (`fl_backend/Dockerfile :: CMD`); `TraceContextMiddleware` writes the per-request line (L5).
 - **Frontend:** the logger writes to stdout directly, and under the JSON format a console shim
   installed at startup wraps everything else reaching `console.*` — Next's own `⨯ Error` dumps
   included, and nothing under the console format, where the logger writes through `console.*` itself — into the same
@@ -163,11 +160,11 @@ How each surface keeps its stream to one format:
   shows the master process's own lines alone, none naming a visitor
   (`docs/ops/spec.md :: I352`).
 
-**Boot lines are outside the contract, knowingly** — what a process prints before its logging is
-configured cannot be governed by it. uvicorn's pre-import lines fall back to plain stderr, Next's
-startup banner prints before `register()` installs the shim, and the backend's environment refusal
-fails while building the settings the logger is configured from, so it leaves the process as a
-traceback on stderr rather than a document (`fl_backend/app/core/config.py :: get_config`). **Every
+**Boot lines are outside the contract** (§4): uvicorn's pre-import lines fall back to plain
+stderr, Next's startup banner prints before `register()` installs the shim, and the backend's
+environment refusal fails while building the settings the logger is configured from, so it leaves
+the process as a traceback on stderr rather than a document
+(`fl_backend/app/core/config.py :: get_config`). **Every
 failure line owes a code, and the two halves of that are held differently** (L13). An application
 line takes its code at the call site, and nothing but review refuses an omission there — the
 register's check reads the codes a tree spells, not the failure lines that spell none — so a call
@@ -179,10 +176,10 @@ own is [`error-codes.md`](error-codes.md#4-forwarded-codes) §4. The frontend's 
 application line written before the logger exists, so it reaches the formatter directly
 (`fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`).
 
-Retention is Docker's `json-file` driver, 3 × 10 MB per service
+Retention is Docker's `json-file` driver, capped by size per service
 (`docker-compose.yml :: x-logging`), and for a container's own stream that size is the whole bound —
 nothing rotates a file the runtime holds open. The edge's two logs are host files instead, bounded
-by age ([`docs/ops/spec.md`](../ops/spec.md) §1.1). There is no aggregation and no index.
+by age ([`docs/ops/spec.md`](../ops/spec.md) §1.1).
 
 **The logs live and die with the container, so a deploy starts the application services from empty.**
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container

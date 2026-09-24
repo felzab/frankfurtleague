@@ -72,11 +72,6 @@ carries a long URL, which wrapping would break (`:: UNWRAPPABLE`). A hyphenless 
 no sentence punctuation, so `Verified: green` is read as a trailer and refused while a closing
 `Verified: the gate returned exit 0.` is prose.
 
-A commit Dependabot wrote — matched on an exact author identity
-(`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
-refusal and from the wrapped-body rule, which its own generator gives it no way to satisfy, and
-from no other refusal here.
-
 ---
 
 ## Pull requests

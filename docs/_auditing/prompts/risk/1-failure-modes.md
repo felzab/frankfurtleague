@@ -2,8 +2,7 @@
 
 Audit pass `risk 1` on failure modes. Lens: WHAT WOULD ACTUALLY HURT — enumerate the outcomes this
 system must not produce, trace each to the paths that could produce it, and establish whether any
-pass in this programme is going to look there. This is the programme's consequence axis; every other
-pass is named after a part of the stack.
+pass in this programme is going to look there.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass.
 

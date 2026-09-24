@@ -29,8 +29,8 @@ defaulted; request-scoped reads (cookies, headers, searchParams, `Date.now()`, r
 poison a shared entry; dynamically constructed tag strings unreachable by invalidation.
 
 A3. **Shells and streaming.** Per route segment: `loading.tsx` / `error.tsx` / `not-found` coverage
-as a table, Suspense placement between each dynamic hole and the static shell, and — this check
-is only real if measured — **measure the built shells**: prerendered HTML sizes per route group,
+as a table, Suspense placement between each dynamic hole and the static shell, and **measure the
+built shells**: prerendered HTML sizes per route group,
 `$RX` count in served HTML, `resumable` errors in the log. A hook above a boundary
 (`useSearchParams` without Suspense) silently collapses a whole route group's shells; a
 build-time clock read in the static shell 500s every request while the build markers look

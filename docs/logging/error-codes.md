@@ -54,9 +54,8 @@ The exception types carrying them are declared in `fl_backend/app/core/exception
 `fl_backend/app/core/domain.py :: RULES`, which is where what it refuses is stated in full; the protocol codes
 in `app/core/` describe who you are, whether the body parses, and whether an id is an ObjectId.**
 `fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
-that correspondence in both directions and excuses the protocol codes by name, and
-`:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set — without which the
-exclusion list could grow to cover a real domain rule and stay green.
+that correspondence in both directions, excusing the protocol codes by name, and
+`:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set.
 
 Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
 would have succeeded against a different state of the database
@@ -87,13 +86,11 @@ each set behave that way:
 
 **`REQ-RULES-011` composes a repair per field that moved**, the three fields it names not sharing one. The
 freeze is absolute on the patch, and **whether it is a dead end depends on the season**: both repairs run
-only while the season is planned and nothing is recorded against a fixture. **The German an admin sees
-carries neither the window nor the repair**, and deliberately: the 409 arm holds only the code, so a
-sentence worded there could offer the reader a condition to evaluate and nothing more.
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx :: SHAPE_NOTE`
-states whichever of the three cases holds for the season in hand, and the toast sends the reader there.
-Which route leads back for which field is
-[`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
+only while the season is planned and nothing is recorded against a fixture. The German an admin sees
+carries neither the window nor the repair and sends the reader to
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx :: SHAPE_NOTE`,
+which states whichever of the three cases holds for the season in hand. Which route leads back for
+which field is [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
 
 **`Worded by` cites the module answering a code with German rather than quoting the sentence.** The
 meaning is already in the column beside it and in `fl_backend/app/core/domain.py :: RULES`, and several
@@ -286,12 +283,9 @@ restarting rather than stopped and `docker compose logs backend` carries the cod
 a code seen here is followed by reading those lines rather than by a trace.
 
 **The refusal an operator hits first is the environment gate's, and only the frontend's reaches this
-table.** The backend gate fails while the settings the logger is configured from are still being
-built, so it leaves the process as a Python traceback on stderr rather than a log line at all
-([`spec.md`](spec.md#12-the-stream-contract) §1.2), and what identifies it is the variable names
-`fl_backend/app/core/config.py :: get_config` prints. The frontend gate reaches its formatter
-directly, so its refusal carries the envelope's fields and a code in whichever format `LOG_FORMAT`
-selected, like any other failure line.
+table**, the backend's leaving the process as a Python traceback on stderr before its logger is
+configured ([`spec.md`](spec.md#12-the-stream-contract) §1.2): what identifies it is the variable
+names `fl_backend/app/core/config.py :: get_config` prints.
 
 | Code           | Meaning                                                                                      |
 | -------------- | -------------------------------------------------------------------------------------------- |

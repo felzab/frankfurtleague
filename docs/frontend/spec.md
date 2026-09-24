@@ -411,8 +411,7 @@ What the table cannot carry:
 
 - **The public application form's create is absent by rule**: every row but the `auth` pair is an
   admin mutation, which a write that authorizes nobody can never be, and it invalidates nothing —
-  no cached read holds an application (§1.2). What puts the `auth` pair in the table instead is the
-  exception stated above it, which is about a session rather than about application data.
+  no cached read holds an application (§1.2).
 - **The venue, referee and team patch actions invalidate `spiele` because the backend fans a rename
   out into the match documents embedding it.** The team patch stays on base tags alone: a rename
   reaches every season that is not `past` ([`docs/backend/spec.md`](../backend/spec.md) I13), and
@@ -651,13 +650,12 @@ module cache is keyed on the URL a hook has already answered for, so a module do
 answers a later import in the same process with the double. The same cache bounds
 `fl_frontend/src/shared/testing/renderTest.ts` from the other side: once its compile hook is
 deregistered, a `.tsx` the process has not already loaded raises `ERR_UNKNOWN_FILE_EXTENSION`, so
-scoping it would put that hook in every importer. Both halves were driven against the installed Node
-rather than read out of its documentation.
+scoping it would put that hook in every importer.
 
 **Tests sit next to the code they test**, unlike the backend's separate `fl_backend/tests/` tree —
 each side takes its own ecosystem's default, and colocation ships nothing, bundlers excluding
-`.test.` files by pattern ([`docs/backend/spec.md`](../backend/spec.md) §1.6). Most test files
-cover pure functions, and there is no end-to-end suite.
+`.test.` files by pattern ([`docs/backend/spec.md`](../backend/spec.md) §1.6). There is no
+end-to-end suite.
 
 **A claim about what a component renders is asserted against the markup it renders**, through
 `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`. The component under test is reached
@@ -908,12 +906,11 @@ reaching this fixture would move nothing the key can see.
 reset the draft** — `resetDraftToStored`, run by the discard AND by the save. The reset is what
 makes a _reused_ tree honest: a save followed by an undo lands on the key the tree was first
 mounted with, so React reuses that tree, and whatever is left in its atoms is what the admin sees —
-the values they typed, on a fixture that does not hold them. Measured, because each fix reads as
-sufficient on its own.
+the values they typed, on a fixture that does not hold them.
 
 #### The navigation guard has an accepted gap
 
-Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list.
+Next 16 exposes **no navigation blocker**.
 What the page can intercept, it does:
 
 | Leaving by                      | Guarded | How                                                                                                                    |
@@ -964,8 +961,8 @@ whether the venue and the referee are SET, never what either costs — a cast on
 launders a cleared Mietpreis into a type declaring a number, and the first surface to format one
 renders it.
 
-**A field whose inputs are conditional is retracted by that same condition.** A shoot-out describes
-a knockout that finished level and nothing else, so
+**A field whose inputs are conditional is retracted by that same condition** (I62). A shoot-out
+describes a knockout that finished level and nothing else, so
 `fl_frontend/src/features/spiele/draftStatus.ts :: admitsShootOut` drops the record — rather than
 each handler that can leave the shape, which is retracting by memory, and the miss is silent both
 ways. The atom keeps its counts, so re-levelling the score brings them back. **The one route the
@@ -1074,10 +1071,8 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   sentence would restate the control rather than route to one.
 - **The FORM shape is built rather than written**:
   `fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` composes the two sentences from a
-  reason and a repair, and every `actions.ts` with a write path reaches it. The panel a repair
-  names is framed inside the helper, never at the call site; where a separable verb has to close
-  the clause the caller hands over a `{ before, after }` pair. `:: UNKNOWN_REFUSAL` stands under a
-  failure nothing can name a cause for.
+  reason and a repair, and every `actions.ts` with a write path reaches it. `:: UNKNOWN_REFUSAL`
+  stands under a failure nothing can name a cause for.
 - **No dash is punctuation** (my rule, 2026-08-13): not the em dash `—`, not the en dash `–`, not a
   hyphen standing between spaces. A dash that carried a real break is **rewritten**, never merely
   deleted, and a dash doing a word's job is spelled out — a pairing reads `gegen`.
@@ -1089,10 +1084,7 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   and licenses no parenthetical and no substitute for a colon or a comma. A range not named here is
   a question to ask, never an analogy to extend.
 - **A quotation inside a rendered string takes the German pair `„ … “`** — never a straight `"`,
-  and never the English `“ … ”`. The scope above already leaves a comment and a test's own message
-  out, and a comment quoting a rendered string tracks it;
-  `scripts/checks/docs_gate/copy_rules.py` reads dashes, register and terms and not quotation marks,
-  so this one is held by review alone.
+  and never the English `“ … ”`.
 - **An interpolated noun must read correctly for every value it can take** (my rule, 2026-08-13):
   its article, its plural, and any pronoun agreeing with it. **Recast rather than adding a gender
   map beside the label map** — a tag lead, a readout, or a sentence per count — because two
@@ -1291,9 +1283,8 @@ The consequences worth knowing before editing metadata:
   own resolver and drives every such page's miss). **A generated answer parses its ids rather than
   resolving them and returns that object on a miss, the body throwing the `notFound()`**: a throw
   from the metadata leaves the tab the layout's title.
-- **An admin editor's miss inherits, as its hit does**: no admin route but the catch-all sets
-  metadata, and a miss of its own would repeat the editor's uncached read for a page no crawler
-  reaches.
+- **An admin editor's miss inherits, as its hit does**: a miss of its own would repeat the editor's
+  uncached read for a page no crawler reaches.
 - **`/bewerbung/[saison_id]` asks not to be indexed where its season's application window is
   unrecorded or could not be read**, that page carrying one sentence rather than content.
 
@@ -1475,9 +1466,8 @@ from the panel behind it by about 1.2:1, which nobody sees, and takes the border
 that is the whole of what says "field". **A field's hover therefore moves its border and never its
 fill**, to `--border-control-hover`, the border being what identifies it whether or not a pointer is
 over it. The hover never overrides the focus or the refusal border and reaches no frozen or disabled
-field, and focus does not rest on the hover's step: a focused field's border, brand or on a refused
-field danger, is thickened by an inset ring of its own colour
-(`fl_frontend/src/app/globals.css :: FIELD-SHAPED CONTROLS`).
+field, and focus does not rest on the hover's step: it thickens the border the field wears (§1.19,
+`fl_frontend/src/app/globals.css :: FIELD-SHAPED CONTROLS`).
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
@@ -1635,8 +1625,9 @@ holds whether a conditional block renders or not
   inline. Neither a column nor a cell exists at one width and not another, which
   `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` pins.
 - **A collection whose row is a line is a table; one whose row is a RECORD is a card list at every
-  width.** `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` derives the tables from the
-  tree and holds each floor under the narrowest content column a viewport gives; the card lists are
+  width** (I237). `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` derives the tables
+  from the tree and holds each floor under the narrowest content column a viewport gives; the card
+  lists are
   `fl_frontend/src/features/teams/components/collections/AdminKontakteList.tsx`,
   `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx` and
   `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx`, whose

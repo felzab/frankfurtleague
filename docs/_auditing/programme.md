@@ -197,9 +197,9 @@ finds before proceeding.
 
 ### 4.5 Write the wave report and harvest lessons
 
-Both land in the same commit. The wave report goes in `wave-reports.md`, in the shape
-[`lessons.md`](lessons.md) §9 gives; the harvest merges any durable, **verified** trap into the
-matching section of [`lessons.md`](lessons.md). Then trim the ledger rows.
+The wave report goes in `wave-reports.md`, in the shape [`lessons.md`](lessons.md) §9 gives; the
+harvest merges any durable, **verified** trap into the matching section of
+[`lessons.md`](lessons.md). Then trim the ledger rows.
 
 ### 4.6 Run the consistency sweep
 

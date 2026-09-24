@@ -69,7 +69,7 @@ invariant row has exactly three cells.
 ## An overview
 
 The first `##` heading is `How it is organised` and the last is `Read next`, both compared as
-literal text; between them the sections are the writer's. Mechanism belongs to the spec sheet.
+literal text; between them the sections are the writer's.
 
 ```
 # <Surface> — overview
@@ -146,7 +146,7 @@ Invariants:
 
 - **A glossary entry**, because OUT-6 spells the heading and all four fields in its own line: a
   skeleton would be that line retyped, which is a second home (COR-2).
-- **A roadmap entry**, because [`_roadmap/protocol.md`](../_roadmap/protocol.md) states its shape and
+- **A roadmap entry**, because [`_roadmap/items.md`](../_roadmap/items.md#what-every-entry-carries) states its shape and
   gate check `roadmap-shape` refuses a departure.
 - **A rule**, because PRE-4 gives the whole shape as one line, and that line is on the page every
   rule already sits on.

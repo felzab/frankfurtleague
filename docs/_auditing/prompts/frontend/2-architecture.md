@@ -19,7 +19,7 @@ THE CHECKS:
 1. **Feature-slice conformance.** The conventions are ratified: slice module layout (queries /
    mutations / actions / schemas / types / constants plus the sanctioned optional
    `utils.ts` / `resolvers.ts`), component category folders with one allowed nesting level, and named
-   exports — each of those is settled — plus the aggregator exception and the Spiel write path's home
+   exports, plus the aggregator exception and the Spiel write path's home
    in `spiele`. Which slices deviate — and which put data fetching, business logic or schema
    definitions inside component files instead of the designated module?
 

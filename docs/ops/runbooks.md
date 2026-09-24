@@ -36,12 +36,11 @@ the machine is outside the repository. What it does tell you:
 - `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./nginx/shared/`, `./secrets/tunnel_token` and
   `./certs/` must all exist beside the compose file — preflight checks each before anything is pulled.
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
-  (`scripts/ops/deploy.sh :: check_compose_config`), a file it cannot read failing the recreate, the
-  health read and the rollback in turn, none of which stopped a container. **It refuses at exit 2
-  with nothing pulled or recreated**, and names the compose file and both environment files without
-  printing what compose said, a parse error quoting the line it could not read
-  ([`spec.md`](spec.md) §1.5). To see that message, run the same check on the server, where its
-  answer is not being captured: `docker compose -f docker-compose.yml config --quiet`.
+  (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
+  recreated**, and names the compose file and both environment files without printing what compose
+  said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
+  message, run the same check on the server, where its answer is not being captured:
+  `docker compose -f docker-compose.yml config --quiet`.
 - **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the
@@ -53,9 +52,9 @@ the machine is outside the repository. What it does tell you:
   drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
-  carries the schema's key sets rather than the schema, so **a name the frontend does not
-  declare, and a name it requires that the file gives no value, each refuse the deploy at exit 2
+  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
+  frontend does not declare, and a name it requires that the file gives no value, each refuse the
+  deploy at exit 2
   with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
   spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
@@ -209,8 +208,7 @@ The alternative order — `--apply` and the rename from the checkout, THEN the d
 window for reads and erasures and opens a worse one: every recorded write of the still-serving old
 image is refused until the new image is up, because it writes the old name.
 
-**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says**, and
-what it costs is worth knowing before the deploy rather than during it.
+**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says.**
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
 editor, a club's season panel and the whole application queue answer 500 on every stored row until
@@ -388,11 +386,7 @@ what it drops is the oldest — which is exactly where applications submitted be
 filter bar's read-order control paints the loaded end and lists the other on every view, cut short or
 not (`fl_frontend/src/shared/components/ui/FilterLeiste.tsx :: LeserichtungSelect`); the notice above
 it names that end in a sentence and links the act, reading `Lade die ältesten zuerst` on a default
-view. Both write one URL through one builder
-(`fl_frontend/src/shared/utils/leserichtung.ts :: leserichtungHref`, with `:: parseLeserichtung`
-reading the `order` parameter back and treating anything unexpected as the default), so either route
-lands on the identical page. The page sends `order` and the terms the bar selects
-(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueTerms`).
+view. Either route lands on the identical page.
 
 **The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
 Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
@@ -620,14 +614,12 @@ and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`)
 repeated letters pass it and are worthless: what makes the value a key is that it came from this
 command and not from a keyboard.
 
-**`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list.** Every row of
-`sperrliste` holds an HMAC taken under that value and no address survives to re-hash
-([`../backend/spec.md`](../backend/spec.md#15-environment)), so replacing it disarms every ban in
-silence: the list renders exactly as before while no stored hash can be matched again, and a second
-ban of an address already on it is admitted rather than refused. Treat it as the one backend secret
-with no recovery: back it up where the
-database's own access details are backed up, and where it is genuinely gone, clear the list and
-enter the bans again from whatever record names the addresses.
+**`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list**: replacing it
+disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
+sign being a second ban of an address already on the list admitted rather than refused. Treat it as
+the one backend secret with no recovery: back it up where the database's own access details are
+backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
+record names the addresses.
 
 ## 6. When personal data has been exposed
 
@@ -693,8 +685,7 @@ server in the same deployment that ships the published texts stating them
 ([`../datenschutz.md`](../datenschutz.md) §6): eight days for the edge's two logs, thirty for the
 copied application logs. **They are two mechanisms because they are two kinds of file.** The edge's
 logs are open and growing, so their bound is a rotation the edge has to be told about; a deploy's
-copy is written once and never appended, so its bound is a deletion, and a rotation of it renames a
-file nothing will ever add a line to.
+copy is written once and never appended, so its bound is a deletion.
 
 **The edge's two logs, at `/etc/frankfurtleague/access-log.conf`.** **A host carrying an earlier
 stanza that names `access.log` alone takes the one below whole**: nginx writes `error.log` from the
@@ -776,9 +767,9 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`
-is what runs it — systemd ships that timer enabled, through its own `timers.target.wants`, a quarter
-of an hour after boot and daily after that — so the thirty days need no scheduler of their own. **The
+**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`,
+which systemd ships enabled and runs daily, is what runs it, so the thirty days need no scheduler of
+their own. **The
 line ages the directory rather than a name**, so every copy a deploy writes into it is reached
 whatever it is called — the `-failed` pair a rollback leaves included, and any suffix a later change
 adds. The command below is what confirms it is running on this host.
@@ -990,10 +981,8 @@ database edits: `aktionen` carries no POST and no DELETE route, and no code remo
 take, and each of those calls is refused until that person is retired (`REQ-PURGE-001`). Which route
 the player half takes is not settled here.
 
-**What the reset reaches that the retention index cannot is the unstamped rows.** The TTL expires a
-row on `at_date`, and only `fl_backend/app/core/recording.py :: record_write` ever wrote one, so a row
-standing before that writer shipped is expired by nothing (I119), and a count of the rows carrying
-no `at_date` says how many are left.
+**What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
+nothing expires (I119), and a count of them says how many are left.
 
 **Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
 write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),

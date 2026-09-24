@@ -16,9 +16,7 @@
 | [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                                |
 | [4. Known-open](#4-known-open)                                | The accepted gaps                                                            |
 
-The recurring procedures — the constraints checker, an admin revocation, a flooded queue — are in
-[`runbooks.md`](runbooks.md). This page covers the contracts and constraints those procedures depend
-on, and the scripts that carry them.
+The recurring procedures are in [`runbooks.md`](runbooks.md).
 
 ---
 
@@ -55,22 +53,16 @@ host files rather than a container stream (§1.2), holding every line that names
 (I352) — to eight, through an hourly `logrotate`
 ([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
 service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
-deliberate. `nginx` declares `depends_on` both application services with
-`condition: service_healthy`, and `cloudflared` declares one on `nginx` with no condition to give,
-`nginx` carrying no health check to wait on.
+deliberate.
 
 **The frontend container is also what runs the retention sweep.**
 `fl_frontend/src/instrumentation.ts :: register` arms
 `fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
-`BEWERBUNG_SWEEP` on, and it then runs one pass a minute
-after start and then hourly. Each pass lists the seasons at `GET /bewerbungen/sweep`, calls
-`POST /bewerbungen/sweep/{saison_id}` per season and, for the applications whose deletion notice was
-delivered, the `angekuendigt` and `loeschen` calls beside it in
-`fl_frontend/src/features/bewerbungen/mutations.ts`, so every retention clock — the reminder, the
-deletion of an unconfirmed application, the two erasure clocks and the contact block's — runs in the
-process that serves the site and stops when it stops. Production declares no replicas, so one process
-arms one timer (I149), and a tick finding the previous pass still running skips with one line rather
-than overlapping it. The four clocks that write inside the pass select on dates and are idempotent,
+`BEWERBUNG_SWEEP` on, and it then runs one pass a minute after start and then hourly, so every
+retention clock runs in the process that serves the site and stops when it stops. Production
+declares no replicas, so one process arms one timer (I149), and a tick finding the previous pass
+still running skips with one line rather than overlapping it. The clocks that write inside the pass
+select on dates and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
 ([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
@@ -140,7 +132,7 @@ page-owned undo handlers, `/api/auth` for the sign-in library's catch-all. **A h
 dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
 URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
-`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`, which three handlers use. A
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`. A
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
@@ -218,10 +210,9 @@ narrow key, sized for HTTP/2 where nginx counts each concurrent request as a con
 makes one directive count differently on the two stacks**: `nginx/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
-**Three public writes cap their bodies against the server block's `20M`** — the application form's
-at `64k`, the confirmation link's and the sign-in link's completion at `8k`. The `64k` cap alone is
-measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST
-reaches the handler.
+**A body cap below the server block's `20M` is set at the location it bounds.** The application
+form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
+while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
@@ -519,19 +510,14 @@ measured against, **on everything but the run's own timing**, which `scripts/lib
 writes into each step's suffix, into the closing table's duration cell and into the ending's elapsed,
 and which no two runs of the same work share. The pair is held to that by
 `scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
-and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
-once each way, green and then failing at the last unit, mask those three sites and compare the rest
-per stream. **The other exception is a machine below the checkers' floor**
-(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form asks whether the interpreter it found clears
-the floor and, finding none that does, falls back to the serial path and, where a pool would have
-run, prints a line naming the floor where the scopes are announced, while `--serial` sets both pool
-switches off ahead of that question and can never print it
-(`scripts/gate/verify.sh :: POOL_FALLBACK`). The byte-for-byte pair cannot see that machine — its
-fixture puts an interpreter at the floor on `PATH` as `python3` — so the two forms differ there by
-exactly that one line, which
+and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, green and then failing at the
+last unit. **The other exception is a machine below the checkers' floor**
+(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form falls back to the serial path there and,
+where a pool would have run, prints a line naming the floor where the scopes are announced, while
+`--serial` can never print it (`scripts/gate/verify.sh :: POOL_FALLBACK`). The byte-for-byte pair
+cannot see that machine, so the two forms differ there by exactly that one line, which
 `scripts/tests/test_gate_forms.py :: test_a_run_a_pool_serves_names_the_pool_fallback` and
-`:: test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback` hold instead, putting one below the
-floor ahead of it.
+`:: test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback` hold instead.
 **No scope depends on another's result**, so a concurrent run's floor is its longest scope and a
 sequenced one's is their sum.
 
@@ -652,8 +638,7 @@ do; on Windows that directory is the signed-in user's own, which is as wide as t
 and on Linux it is the host's, where an abandoned claim can be another account's and a temporary
 directory carrying the sticky bit lets only that user or root `rm -rf` it. A claim a killed run left
 behind names its pid, so the next run reports it and takes it over rather than waiting for a process
-that is gone; the takeover alone is serialised, by `scripts/gate/verify.sh :: DB_RUN_LOCK` taken
-before the claim is moved, because a rename orders nothing against a run that has not started one. **A db-tier figure counts only where a pair of
+that is gone. **A db-tier figure counts only where a pair of
 runs lands within a fifth of a second of each other on an idle machine** — a wider pair is a reading
 of the machine rather than of the tier, and neither half of it belongs in
 `.github/gate-wall-clock.tsv`.
@@ -702,7 +687,7 @@ for; the virtualenv's and the frontend install's refusals are driven by
 and `:: test_a_run_with_no_frontend_install_refuses_and_reaches_no_scope`. Each tool is its own step, tool output is captured and
 shown only when its step fails, and `--verbose` streams everything instead (§1.7). **The
 documentation gate is the one exception, because a passing run's output is worth reading**: its
-printed population is what says the sweep read the tree rather than an empty collection (§1.5). The
+printed population is what says the sweep read the tree rather than an empty collection. The
 self-check's skips and warnings would otherwise read as passes, so they reach the reader by another
 route — `scripts/gate/selfcheck.sh :: _ledger`, replayed at the end of the run.
 
@@ -820,10 +805,8 @@ first step to its last, and `measured`, the completed runs the row was taken ove
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
 a length nothing measured being no pass. A single run swings far wider than a median,
-which is why a budget is not the reference: each is the population's highest single-run span plus a
-quarter of
-it or ten seconds,
-whichever is more, rounded up to the next five, a rule the table's header records. **One exceedance
+which is why a budget is not the reference; the rule each budget is set by is the table's header's.
+**One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
 a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
@@ -897,10 +880,9 @@ before pytest, so the download is attributed in the log rather than hidden insid
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.
 
-`--quick` is the scopes that need no Docker — scripts, docs, backend, format and frontend — and is
-**not sufficient** before a merge touching a packaging path: `scripts/gate/scope_map.sh` holds the list,
-and CI builds both images on any pull request touching one. An audit remediation wave runs the full
-form regardless of what it touched, unless it changed documentation only.
+`--quick` is every scope that needs no Docker, and is **not sufficient** before a merge touching a
+packaging path: `scripts/gate/scope_map.sh` holds the list, and CI builds both images on any pull
+request touching one.
 
 ### 1.7 Script conventions
 

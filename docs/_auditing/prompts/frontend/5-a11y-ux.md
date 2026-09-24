@@ -22,8 +22,8 @@ it.
 SECTION A — ACCESSIBILITY
 
 A0. **WCAG 2.2 Level AA conformance table**, anchored per the shared protocol's rule on external
-standards. **WCAG 2.2 is the current W3C Recommendation** (<https://www.w3.org/TR/WCAG22/>, also
-published as ISO/IEC 40500:2025); WCAG 3.0 remains a draft and is not the target.
+standards. **WCAG 2.2 is the current W3C Recommendation** (<https://www.w3.org/TR/WCAG22/>); WCAG
+3.0 remains a draft and is not the target.
 
 One row per Level A and Level AA success criterion — every one, no omissions: criterion | how
 this app satisfies it, with the component or file | evidence, including how it was checked |

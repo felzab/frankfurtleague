@@ -144,7 +144,7 @@ suite at eight workers, every figure carrying its spread and its run count, and 
 beats the best before it — the split then stands as taken — or it does not, and the split is
 rejected against that reading.
 
-### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
+### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares anyio
 
 | Status   | Depends on |
 | -------- | ---------- |
@@ -155,25 +155,20 @@ and the import is what emits it rather than any test.** That module binds its po
 module level from the alias, and the installed anyio serves the name through a deprecation hook that
 warns and redirects to `anyio.from_thread.BlockingPortal`. `from __future__ import annotations` at the
 top of the starlette module does not defer the access — it defers annotations, and this is a plain
-assignment — which is the reading most likely to talk somebody out of checking. Verified 2026-09-07 by
-importing the module in this backend's virtualenv with warnings recorded: one warning, raised from
-that assignment. Both packages move without us.
+assignment — which is the reading most likely to talk somebody out of checking. Verified 2026-09-07:
+one warning, raised from that assignment. Both packages move without us.
 
-**What the removal of that alias costs is four collection errors.**
-`fl_backend/tests/api/test_actor_binding.py`, `fl_backend/tests/api/test_admin_guard.py`,
-`fl_backend/tests/api/test_bewerbungen_read.py` and `fl_backend/tests/api/test_error_responses.py`
-each import `TestClient` from `fastapi.testclient`, which is the same starlette module. The failure
-would land where a module is collected rather than in an assertion anybody can read as a product
-defect — the default backend tier turning red at once, naming a package this repository never asked
-for.
+**What the removal of that alias costs is a collection error in every module under
+`fl_backend/tests/` that imports `TestClient` from `fastapi.testclient`**, the same starlette
+module. The failure would land where a module is collected rather than in an assertion anybody can
+read as a product defect — the default backend tier turning red at once, naming a package this
+repository never asked for.
 
-**Neither package is named where a version bump would be noticed.** `fl_backend/pyproject.toml`
-declares starlette by a floor rather than a pin, and anyio not at all: it arrives as a transitive
-dependency in `fl_backend/uv.lock`. `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend`
-monthly, minor and patch grouped and a major on its own, and only one of the two halves is a
-dependency it can name. The starlette release that stops touching the alias would be proposed by
-name; the anyio release that removes it is proposed by nothing, and reaches the tree inside another
-bump's lockfile resolution.
+**Only starlette is declared, and by a floor rather than a pin.** `fl_backend/pyproject.toml` names
+no anyio, which arrives as a transitive dependency in `fl_backend/uv.lock`, so the `uv` ecosystem in
+`.github/dependabot.yml` can propose only starlette by name. The starlette release that stops
+touching the alias would be proposed by name; the anyio release that removes it is proposed by
+nothing, and reaches the tree inside another bump's lockfile resolution.
 
 **The line at fault is starlette's, which is why this stands rather than being planned.** Nothing here
 can move the access, and filtering the warning would put a suppression in front of the one signal
@@ -221,13 +216,11 @@ half of a v9-to-v10 migration, is already in use. **Forcing the install past the
 is not the move**: a linter defect fails in the direction of passing, and an unsupported combination
 makes that one direction likelier.
 
-**The consequence to act on until the move lands is the sharper one for anyone reading.**
-`eslint.org/docs/latest` serves v10, and `.claude/CLAUDE.md` §4 holds a reference authoritative only
-while it is official **and** current with the installed version in it as a documented release — which
-the current documentation is not for 9.39.5. So the repository's own reflex, reading the project's
-own docs, answers about a major version this repository does not run, with nothing in the reading to
-mark the gap. **An eslint API claim here has to come from a version-pinned page or from the installed
-package under `fl_frontend/node_modules`, and has to say which.**
+**`eslint.org/docs/latest` serves v10**, so for 9.39.5 it fails `.claude/CLAUDE.md` §4's test of a
+reference — official **and** current, with the installed version in it as a documented release —
+and nothing in the reading marks the gap. **An eslint API claim here has to come from a
+version-pinned page or from the installed package under `fl_frontend/node_modules`, and has to say
+which.**
 
 **Trigger to revisit:** an `eslint-plugin-jsx-a11y` release whose peer range admits eslint 10, under
 an `eslint-config-next` whose bundled `eslint-plugin-import` and `eslint-plugin-react` admit it too.

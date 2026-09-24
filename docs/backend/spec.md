@@ -54,12 +54,12 @@ each side of a fixture carries an `austritt_type` joined from `saison_teams` rat
 
 #### Base-tier writes — guard `verify_access_base`
 
-Every write an unauthenticated visitor may make to this service, and the four POSTs that only read.
-Five routers carry them, because a router declares one tier (I7), and each binds
-`fl_backend/app/core/security.py :: bind_public_actor` rather than `fl_backend/app/core/security.py :: bind_actor`: no browser sends the
-`X-FL-Actor` an admin-tier write is refused without (I41). Every write here still goes through
-`fl_backend/app/core/crud.py`, so the action log stays complete by construction — and an insert carries
-no `before`, so the row records that an application arrived rather than anything in it.
+Every write an unauthenticated visitor may make to this service, and the POSTs that only read. They
+sit on routers of their own, because a router declares one tier (I7), and each binds
+`fl_backend/app/core/security.py :: bind_public_actor` rather than `:: bind_actor`: no browser sends
+the `X-FL-Actor` an admin-tier write is refused without (I41). Every write here still goes through
+`fl_backend/app/core/crud.py`, so the action log stays complete by construction — and an insert
+carries no `before`, so the row records that a submission arrived rather than anything in it.
 
 | Method | Path                                    | Effect                                                                                                                                                                                              |
 | ------ | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -348,17 +348,13 @@ the form answers each with the public slice's own sentence, or the generic one w
 - a whole-record rule carries the path of the model that holds it — empty for the body itself
 - an undecodable body carries an empty path, where FastAPI's own report holds a character offset
 
-**A `DuplicateKeyError` maps to a 409 through a dedicated handler**: a natural-key
-collision on a create is an ordinary outcome rather than a server fault. Starlette resolves handlers by
-walking `type(exc).__mro__`, so registration order does not matter — the most specific registered class
-wins.
+**A `DuplicateKeyError` maps to a 409 through a dedicated handler**: a natural-key collision on a
+create is an ordinary outcome rather than a server fault.
 
 **A request the database cannot finish inside its deadline answers `DB-FAIL-001`** (I320). **A
-request that may have written answers `DB-FAIL-002` instead** (I321) — a commit the driver labels
-of unknown outcome, or a request of an unsafe method the deadline cut, unless the operation declares
-it stores nothing, as every read through POST does and the match editor's preview does under
-`dry_run` (`fl_backend/app/core/exception_handlers.py :: stores_nothing`, I327): the write
-may stand, and a page told it failed sends the person to repeat it.
+request that may have written answers `DB-FAIL-002` instead** (I321), one declaring it stores
+nothing excepted (I327): the write may stand, and a page told it failed sends the person to repeat
+it.
 
 **The match write path raises its own 409** (`REQ-WIRING-001`) for bracket wiring the season cannot
 hold — §1.3 step 1b.
@@ -421,13 +417,9 @@ deliberate: this API is reached server-side from the frontend's own origin, neve
 an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
 request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
 
-**The internal keys' character class is what `secrets.compare_digest` can read.**
-`fl_backend/app/core/security.py :: verify_api_key` compares a bearer token against a key with it,
-and it raises rather than answering false for a `str` holding anything outside ASCII — so a key the
-length bound alone admits boots and then answers every internal request 500. The class is printable
-ASCII with no space, pinned identically on the frontend (`docs/ops/spec.md :: I11`), which is also
-what holds the two length checks to one answer: this side counts code points and zod counts UTF-16
-units, and only ASCII makes those the same number.
+**The internal keys' character class is what `secrets.compare_digest` can read**, and what holds the
+two sides' length checks to one answer (`docs/ops/spec.md :: I11`): a key the length bound alone
+admits boots and then answers every internal request 500.
 
 **`SPERRLISTE_SCHLUESSEL` is the one variable here that can never be replaced.** Every row of
 `sperrliste` holds an HMAC taken under it and no address survives to re-hash
@@ -489,9 +481,8 @@ values** — an empty `stadtteil`, a null `ergebnis` for an unplayed match, an i
 machine as much as with the suite, and a stamped number nobody re-takes reads as current long after
 it has stopped being so. **What these tiers cost inside the gate is stamped where it is re-taken
 against a fixed reference**: [`docs/ops/spec.md`](../ops/spec.md) §1.6 and
-`.github/gate-wall-clock.tsv`, whose `backend` and `db` rows are updated by hand. **The
-gate's `db` section costs more than the tier does alone**, the other sections running beside it, so
-neither figure ever stands in for the other.
+`.github/gate-wall-clock.tsv`. **The gate's `db` section costs more than the tier does alone**, the
+other sections running beside it, so neither figure ever stands in for the other.
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -545,18 +536,9 @@ rather than once per worker holding a slice of it, and the per-worker naming bel
 a run correct under `--dist load`, which splits a file, as well.
 
 **The two servers are the xdist controller's rather than each worker's**
-(`fl_backend/tests/conftest.py :: pytest_configure_node`), because testcontainers' reaper reclaims a
-container when the process that started it disconnects and the controller outlives every worker; a
-serial run is the only one that starts a pair of its own. The controller skips the start only where
-the run's `-m` is spelled exactly as `fl_backend/pyproject.toml :: addopts` spells it, so another
-spelling of the same selection pays a start it does not need — but **a run selecting no db test
-passes either way**, a failed start travelling to the fixtures rather than ending collection.
-
-**That hook carries `optionalhook`, and the DEFAULT tier is what depends on it.** xdist declares the
-hookspec, so an environment behind `uv.lock` has none to match the implementation against, and
-pluggy answers an unknown hook with `PluginValidationError`: an INTERNALERROR at exit 3 on every
-invocation, a bare `pytest` included, under a message naming an xdist hook rather than the stale
-environment that is the cause.
+(`fl_backend/tests/conftest.py :: pytest_configure_node`), and **a run selecting no db test passes
+whether or not they start**, a failed start travelling to the fixtures rather than ending
+collection.
 
 **Every database the tier names is that worker's own** — `fl_backend/tests/worker.py :: worker_database`
 issues the name, and `:: guard_every_database` holds the driver's own constructor to it, so a suite
@@ -564,10 +546,6 @@ hand-rolling `client[name]` cannot sidestep the rule by seeding for itself. Two 
 by more than one suite, which is what forced the scoping: two workers holding one name against one
 server each empty the other's seeds mid-test, and the test that fails for it is somewhere else
 entirely.
-
-**One test guards a rule nothing else can**: `fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator`
-compares each Pydantic model's stored field names against the `$jsonSchema` its collection carries,
-which is what makes a hand-written third copy of the schema affordable (I17).
 
 There are **no `__init__.py` files** — `pyproject.toml` sets `--import-mode=importlib`, which needs none
 and cannot suffer same-basename collisions.
@@ -938,7 +916,7 @@ rather than by the handler remembering to conceal one.
 | A planned season is missing from every public page                                                          | Working as intended — it is `future`, and the base tier is served neither the season nor anything scoped to it (I47)                                                                        | Nothing. The admin surfaces read the `/list/admin` twins, and activating the season publishes it (I18)                                                                                                                                                                               |
 | Venue rent becomes 0 after an unrelated edit                                                                | A Pydantic default was added to `mietpreis`                                                                                                                                                 | Remove it (I6)                                                                                                                                                                                                                                                                       |
 | A team vanishes from `/teams`                                                                               | No `saison_teams` row for that season                                                                                                                                                       | Create the junction row (I11)                                                                                                                                                                                                                                                        |
-| `/dashboard/saisontabelle` fails to load                                                                    | A key missing for a group the season offers                                                                                                                                                 | I10 — should be impossible now                                                                                                                                                                                                                                                       |
+| `/dashboard/saisontabelle` fails to load                                                                    | A key missing for a group the season offers                                                                                                                                                 | I10 has regressed: every group the season offers keeps its key                                                                                                                                                                                                                       |
 | A create comes back 409                                                                                     | A unique index still holds the key                                                                                                                                                          | The retired row keeps its slot on purpose (I20). Reactivate it, or choose another key                                                                                                                                                                                                |
 | A retire comes back 409 with `REQ-RETIRE-001`                                                               | The club is entered in a running or planned season                                                                                                                                          | Wait for the season to end, or leave the club active — a season is left only by an `austritt`                                                                                                                                                                                        |
 | A season patch comes back 409 with `REQ-RULES-012`                                                          | The patch moved `rules.tiebreak_order` on a season holding a knockout fixture that has taken place — the window `REQ-SWAP-002` reads (I38)                                                  | Leave the tie-break as stored and the rest of the patch goes through, judged on the move alone (I44). The order itself does not reopen                                                                                                                                               |
@@ -993,7 +971,7 @@ rather than by the handler remembering to conceal one.
 | Cross-document rules are reported, never applied                         | Accepted — `report_relations` counts what two rules no validator expresses are broken by (I30, I28); re-run `python -m app.core.constraints --check` after a hand edit                                                                                                             |
 | Two rules refusals cannot be reached                                     | Accepted — `REQ-RULES-004` and `REQ-RULES-006` are unreachable, `REQ-RULES-011` answering first (I44). They stay declared against the freeze being lifted; no test asserts the unreachability                                                                                      |
 | OpenAPI carries no service-level prose                                   | Open — every endpoint has a `summary` and a docstring; the app declares no `title` or `description`. The Swagger UI is routed nowhere ([`docs/ops/spec.md`](../ops/spec.md) I134)                                                                                                  |
-| A single read exists whether or not something calls it                   | Accepted — `GET /{id}` exists on every entity resource, `kontakte` alone addressing no row: an id is answerable at its resource whatever handed it over                                                                                                                            |
+| A single read exists whether or not something calls it                   | Accepted — a callerless `GET /{id}` stays, an id being answerable at its resource whatever handed it over (§1.1)                                                                                                                                                                   |
 | Nothing purges a retired row                                             | Accepted — a retired row is never purged on its age; the decision stands at `fl_backend/app/core/domain.py :: UNENFORCED`, the one removal a pupil's erasure (I12)                                                                                                                 |
 | A write and its log row can commit apart                                 | Open — a write and its log row commit apart where no transaction is open; a failed insert answers 500 for a committed write (I52)                                                                                                                                                  |
 | A German list is ordered at the cost of one index                        | Accepted — `build_team_pipeline`'s `$lookup` on a string `saison_id` plans `COLLSCAN` rather than `IXSCAN uniq_saison_id_team_id` under `GERMAN_COLLATION` (I54). Bounded: one junction row per club per season                                                                    |

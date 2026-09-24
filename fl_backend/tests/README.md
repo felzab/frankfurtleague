@@ -25,9 +25,7 @@ them.
 ## Two tiers, and one of them needs Docker
 
 `cd fl_backend && uv run pytest` runs the fast tier, which needs no daemon.
-`uv run pytest -m db` runs the tier that starts a real `mongod`. Which tests
-belong to which tier, why the split exists, and every convention the suite is written to are in the
-backend spec sheet.
+`uv run pytest -m db` runs the tier that starts a real `mongod`.
 
 The tree mirrors `app/`'s folders, so a module's tests are in the folder you would look in, `api/`
 being flat.
