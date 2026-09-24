@@ -721,11 +721,11 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **The referees standing today, for the Datenschutzexperte.** Their rows were entered by an
   administrator before the confirmation link existed and carry no consent record, and their names are
   published on every fixture they officiate on the basis the notice gives for every referee; the rows
-  are dropped whole, once, and their past fixtures go to the ghost with the name emptied
+  are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
+  redacts the action log's images of them as an erasure does
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
-  The log images of those rows stand until the action log's reset or its retention takes them, and no
-  route reaches them by the person. Nothing informs these people under Art. 14: a placeholder row is
+  Nothing informs these people under Art. 14: a placeholder row is
   never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
   real address is mailed its link only when an administrator's write mints one
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Art. 14 (5)(b) lifts the duty where

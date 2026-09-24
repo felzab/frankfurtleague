@@ -554,8 +554,8 @@ Tell them which of the two you did, and that the second is reversible and the fi
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
-as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and the log
-images naming them stand until that section's reset or the retention index takes them. Where the
+as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and redacts
+the log's images of them as an erasure does. Where the
 person has registered again since, erase the new row under „Daten löschen“ in that referee's own
 editor.
 
