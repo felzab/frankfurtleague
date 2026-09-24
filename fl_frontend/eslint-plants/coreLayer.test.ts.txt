@@ -9,3 +9,6 @@ import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
 import { captureStdout } from "./stdoutCapture";
 
 export const USED = [Button, AppRouterContext, DatePicker, HeroForm, HintPopover, TEAM_FACETS, captureStdout];
+// A test loads a slice to sweep it, and a test-only module to use it.
+export const LOADED_SLICE = await import("@/features/teams/facets");
+export const LOADED_CAPTURE = await import("./stdoutCapture.ts");

@@ -32,6 +32,9 @@ export const REQUIRED_TEMPLATE = createRequire(import.meta.url)(`@heroui/react/f
 export const DOUBLE = `export * from "next/dist/shared/lib/app-router-context.shared-runtime.js";`; // expect: next-private-string
 export const SPECIFIER = "next/dist/shared/lib/hooks-client-context.shared-runtime.js"; // expect: next-private-string
 export const HELD = requireHere(SPECIFIER);
+export const { HintPanel: LoadedPanel } = await import("@/shared/components/ui/InfoHint.tsx"); // expect: hint-internals-load
+export const LOADED_POPOVER = (await import(`@/shared/components/ui/InfoHint`)).HintPopover; // expect: hint-internals-load
+export const { InfoHint: LoadedHint } = await import("@/shared/components/ui/InfoHint.tsx");
 
 declare const assert: { equal: (a: unknown, b: unknown) => void };
 declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };

@@ -10,3 +10,6 @@ import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-int
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private expect: layer-core
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
+export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
+export const LOADED_SHARED = import(`../shared/components/ui/formFieldStyles`); // expect: layer-core-load
+export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only-load

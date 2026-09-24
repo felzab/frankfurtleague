@@ -8,3 +8,7 @@ import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
 import { captureStdout } from "./testing/stdoutCapture"; // expect: test-only
 
 export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout];
+export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-shared-load
+export const LOADED_RELATIVE = import("../features/teams/facets"); // expect: layer-shared-load
+// shared may load itself and core.
+export const LOADED_OWN = import("./components/ui/formFieldStyles");

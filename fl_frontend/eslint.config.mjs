@@ -288,21 +288,56 @@ const TRANSITION_REWRAP = {
  * `import()`, and a function `createRequire` makes, called where it is made. One held in a name
  * loads unseen, as `@typescript-eslint/no-require-imports` refuses a bare `require()` alone.
  */
-const LOAD_SITES = ["ImportExpression > .source", 'CallExpression[callee.callee.name="createRequire"] > .arguments:first-child'];
+const LOAD_SITES = [
+  ["ImportExpression", ".source"],
+  ['CallExpression[callee.callee.name="createRequire"]', ".arguments:first-child"],
+];
 
-/** A module a load site names in a literal or a template without holes; one assembled at run time passes. */
+/** A module named in a literal or a template without holes; one assembled at run time passes. */
+const namingOf = (pattern) => [
+  `[type="Literal"][value=/${pattern}/]`,
+  `[type="TemplateLiteral"][expressions.length=0] > TemplateElement[value.cooked=/${pattern}/]`,
+];
+
+/** The specifier of a load of a module matching `pattern`. */
 const loadOf = (pattern) =>
-  `:matches(${LOAD_SITES.flatMap((site) => [
-    `${site}[type="Literal"][value=/${pattern}/]`,
-    `${site}[type="TemplateLiteral"][expressions.length=0] > TemplateElement[value.cooked=/${pattern}/]`,
-  ]).join(", ")})`;
+  `:matches(${LOAD_SITES.flatMap(([loader, slot]) => namingOf(pattern).map((naming) => `${loader} > ${slot}${naming}`)).join(", ")})`;
+
+/**
+ * A load of a module matching `pattern` at the attribute path `at`, for a ban reading what the loaded
+ * module is taken apart into. Attribute tests rather than `:has`: the installed esquery's `:has`
+ * matches nothing through a second `>` step.
+ */
+function loadAt(at, pattern) {
+  const namings = (specifier) => [
+    `[${specifier}.value=/${pattern}/]`,
+    `[${specifier}.expressions.length=0][${specifier}.quasis.0.value.cooked=/${pattern}/]`,
+  ];
+  return [
+    ...namings(`${at}.source`).map((naming) => `[${at}.type="ImportExpression"]${naming}`),
+    ...namings(`${at}.arguments.0`).map((naming) => `[${at}.callee.callee.name="createRequire"]${naming}`),
+  ];
+}
 
 /** Where an import or a load names its module, which the import and load bans read. */
 const MODULE_SOURCES = [
   ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration) > .source",
-  ...LOAD_SITES,
-  ...LOAD_SITES.map((site) => `${site} > TemplateElement`),
+  ...LOAD_SITES.flatMap(([loader, slot]) => [`${loader} > ${slot}`, `${loader} > ${slot} > TemplateElement`]),
 ].join(", ");
+
+/**
+ * A `no-restricted-imports` glob as the pattern a load's specifier is read against, for the shapes
+ * the import bans write: `**` then a path, or a path then `**`. Any other shape throws rather than
+ * leave a load ban reading less than its import ban.
+ */
+function specifierOf(glob) {
+  const shape = /^(\*\*\/)?([\w@.-]+(?:\/[\w@.-]+)*?)(\/\*\*)?$/.exec(glob);
+  if (shape === null) throw new Error(`${glob} is a glob shape no load ban reads`);
+  const [, underAny, fixed, anyBelow] = shape;
+  const text = fixed.replaceAll(".", String.raw`\.`).replaceAll("/", String.raw`\x2F`);
+  return `${underAny === undefined ? "^" : String.raw`(?:^|\x2F)`}${text}${anyBelow === undefined ? "$" : String.raw`\x2F`}`;
+}
+const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
 
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
@@ -389,6 +424,9 @@ const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
 const DATE_MODULES = String.raw`/^@heroui\x2Freact(?:\x2F(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
 
+const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
+const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
+
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
  * spell it, `tests` puts test files in the population, and `production: false` takes production out.
@@ -411,6 +449,24 @@ const SOURCE_BANS = [
     // at run time passes.
     selector: `${inLiteral(NEXT_PRIVATE_CONTEXTS.regex.replaceAll("/", String.raw`\x2F`))}:not(${MODULE_SOURCES})`,
     message: "Name Next's private contexts in fl_frontend/src/shared/testing/nextContexts.ts alone, in a string as much as in an import.",
+    tests: true,
+  },
+  {
+    selector: loadOf(specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))),
+    message: "A test-only module loaded at run time stays test-only: a *.test.ts(x) file may load it, production code may not.",
+  },
+  {
+    // Taken apart where it is loaded, by destructuring or by a member; a `.then` callback's parameter
+    // passes unread.
+    selector: ["init", "init.argument"]
+      .flatMap((at) => loadAt(at, HINT_MODULE).map((load) => `VariableDeclarator${load} > ObjectPattern.id > Property[key.name=${HINT_NAMES}]`))
+      .concat(
+        ["object", "object.argument"].flatMap((at) =>
+          loadAt(at, HINT_MODULE).map((load) => `MemberExpression${load}[property.name=${HINT_NAMES}]`),
+        ),
+      )
+      .join(", "),
+    message: "Load the popover or the panel through Hint.tsx alone, by `import()` as much as by `import`.",
     tests: true,
   },
   {
@@ -538,28 +594,46 @@ const SOURCE_BANS = [
 ];
 
 /**
- * Bans reaching only part of the tree, each with the glob that is its population. Each scope lies
- * inside every scope listed before it, which is what lets its block restate theirs.
+ * Bans reaching only part of the production tree, each with the glob that is its population, in
+ * chains: each scope lies inside every scope listed before it in its chain, which is what lets its
+ * block restate theirs, and no two chains' scopes meet.
  */
 const SCOPED_BANS = [
-  {
-    files: ["src/app/**/*.{ts,tsx}"],
-    // The directive is the module's own prologue alone: one inside a function makes no client module.
-    selector:
-      'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
-    message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
-  },
-  {
-    files: ["src/app/**/route.ts"],
-    selector: inLiteral("REQ-EINLADUNG"),
-    message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
-  },
+  [
+    {
+      files: ["src/app/**/*.{ts,tsx}"],
+      // The directive is the module's own prologue alone: one inside a function makes no client module.
+      selector:
+        'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
+      message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
+    },
+    {
+      files: ["src/app/**/route.ts"],
+      selector: inLiteral("REQ-EINLADUNG"),
+      message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
+    },
+  ],
+  // The layer boundaries' own reach, production alone: a test loads a slice to sweep it.
+  [
+    {
+      files: ["src/core/**/*.{ts,tsx}"],
+      selector: loadOf(specifiersOf(LAYER_BOUNDARY.core.group)),
+      message: "An `import()` in core is an import: core must not depend on shared or features.",
+    },
+  ],
+  [
+    {
+      files: ["src/shared/**/*.{ts,tsx}"],
+      selector: loadOf(specifiersOf(LAYER_BOUNDARY.shared.group)),
+      message: "An `import()` in shared is an import: features stay out of shared.",
+    },
+  ],
 ];
 
 /**
  * eslint takes `no-restricted-syntax`'s options from the LAST block matching a file, so each block
- * below restates every ban reaching its files, and an exempt file's block comes last. No exempt file
- * sits inside a scope.
+ * below restates every ban reaching its files, and an exempt file's block comes last, restating the
+ * scoped bans whose scope holds it.
  */
 const syntaxBans = (bans) => ({
   "no-restricted-syntax": ["error", ...bans.map(({ selector, message }) => ({ selector, message }))],
@@ -572,14 +646,19 @@ const isTestPath = (file) => /\.test\.tsx?$/.test(file);
 const SOURCE_BAN_BLOCKS = [
   { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: syntaxBans(PRODUCTION_BANS) },
   { files: TEST_FILES, rules: syntaxBans(TEST_BANS) },
-  ...SCOPED_BANS.map((scoped, index) => ({
-    files: scoped.files,
-    ignores: TEST_FILES,
-    rules: syntaxBans([...PRODUCTION_BANS, ...SCOPED_BANS.slice(0, index + 1)]),
-  })),
+  ...SCOPED_BANS.flatMap((chain) =>
+    chain.map((scoped, index) => ({
+      files: scoped.files,
+      ignores: TEST_FILES,
+      rules: syntaxBans([...PRODUCTION_BANS, ...chain.slice(0, index + 1)]),
+    })),
+  ),
   ...EXEMPT_FILES.map((file) => ({
     files: [file],
-    rules: syntaxBans((isTestPath(file) ? TEST_BANS : PRODUCTION_BANS).filter((ban) => !(ban.exempt ?? []).includes(file))),
+    rules: syntaxBans([
+      ...(isTestPath(file) ? TEST_BANS : PRODUCTION_BANS).filter((ban) => !(ban.exempt ?? []).includes(file)),
+      ...(isTestPath(file) ? [] : SCOPED_BANS.flat().filter((scoped) => scoped.files.some((glob) => path.posix.matchesGlob(file, glob)))),
+    ]),
   })),
 ];
 
