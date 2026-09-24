@@ -19,9 +19,8 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { unansweredAction, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
@@ -161,12 +160,8 @@ export function FormEinladungVersandSection({
     startLoadingVorschau(async () => {
       // The value the PRESS will carry, so the list names the teams that press will write to: read
       // with the other value it would show a skip the press is about to ignore.
-      const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(() => ({
-        success: false as const,
-        // A rejected read wrote nothing, so it answers as the failure it is (`docs/frontend/spec.md` §1.3);
-        // uncaught here it takes the page down with it.
-        error: UNKNOWN_REFUSAL,
-      }));
+      // Uncaught here, a rejected read takes the page down with it.
+      const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredRead);
 
       if (!res.success) {
         appToast.failure("Vorschau nicht geladen", res);

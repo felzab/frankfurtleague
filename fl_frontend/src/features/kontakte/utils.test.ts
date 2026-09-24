@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+
 import {
   applySeatPresence,
   applySharedSeat,
@@ -302,12 +304,12 @@ describe("settledErasureAnsicht", () => {
 
   /* Outside a transition a rejection reaches no error boundary, so this arm is the only thing between a
      lost connection and a placeholder that never leaves. */
-  it("refuses with the connection named where the read never answered", () => {
+  it("refuses with the sentence every rejected admin read gets where the read never answered", () => {
     const readBack = settledErasureAnsicht(EMAIL, { status: "rejected", reason: new Error("Failed to fetch") });
 
     assert.equal(readBack.status, "refused", "a read that never answered leaves the panel waiting on it");
     assert.equal(readBack.email, EMAIL, "the refusal is carried under no address, so it stands under whichever seat is armed next");
-    assert.equal(readBack.status === "refused" ? readBack.reason : "", "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.");
+    assert.equal(readBack.status === "refused" ? readBack.reason : "", UNKNOWN_REFUSAL);
   });
 
   it("holds the seats where the read answered them", () => {

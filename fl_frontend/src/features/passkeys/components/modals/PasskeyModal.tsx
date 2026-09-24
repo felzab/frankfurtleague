@@ -12,9 +12,8 @@ import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { unansweredAction, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { readPasskeysAction, removePasskeyAction } from "../../actions";
 import { PasskeyEintragRow } from "./PasskeyEintragRow";
@@ -67,12 +66,10 @@ const NICHT_GELADEN = "Deine Passkeys ließen sich nicht laden.";
 const KEINE_PASSKEYS = "Für diesen Zugang ist kein Passkey eingetragen.";
 
 /**
- * The list read, whose rejection wrote nothing and so answers as the failed read it is
- * (`docs/frontend/spec.md` §1.3): uncaught, the opening's spinner stands for good and a removal's
- * re-read takes the page down.
+ * The list read, caught at every call: uncaught, the opening's spinner stands for good and a
+ * removal's re-read takes the page down.
  */
-const liesPasskeys = (): ReturnType<typeof readPasskeysAction> =>
-  readPasskeysAction().catch(() => ({ success: false, error: UNKNOWN_REFUSAL }));
+const liesPasskeys = (): ReturnType<typeof readPasskeysAction> => readPasskeysAction().catch(unansweredRead);
 
 /**
  * The dialog the sidemenu's options drop-up opens, never a page under `/admin`: managing one's own

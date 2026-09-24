@@ -1,6 +1,7 @@
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
+import { unansweredRead } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -67,17 +68,13 @@ export function describeKontaktErasureUmfang(erasure: FLKontaktErasureResponse):
   return `${kontakte} ${protokoll}`;
 }
 
-/**
- * What the erasure panel holds once its read has SETTLED, either way. A rejection reached no
- * judgement, so its sentence names the connection and nothing that was asked about.
- */
+/** What the erasure panel holds once its read has SETTLED, either way. */
 export function settledErasureAnsicht(
   email: string,
   settled: PromiseSettledResult<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>>,
 ): ErasureAnsicht {
-  if (settled.status === "rejected") return { email, status: "refused", reason: `Prüfe die Verbindung. ${NOCH_EINMAL}` };
-
-  const res = settled.value;
+  // A rejection reached no judgement, so it answers as every rejected admin read does.
+  const res = settled.status === "rejected" ? unansweredRead() : settled.value;
   if (res.success && res.ansicht !== undefined) return { email, status: "read", sitze: res.ansicht };
 
   // A field map with no field to lay it on: the address came off the stored record, so

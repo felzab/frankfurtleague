@@ -97,6 +97,14 @@ export function unansweredAction(): ActionFailure {
 }
 
 /**
+ * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
+ * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.
+ */
+export function unansweredRead(): ActionFailure {
+  return { success: false, error: UNKNOWN_REFUSAL };
+}
+
+/**
  * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */

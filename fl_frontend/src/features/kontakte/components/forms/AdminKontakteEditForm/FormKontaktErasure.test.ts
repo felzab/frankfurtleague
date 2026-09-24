@@ -30,7 +30,7 @@ const { FormKontaktErasure } = await import("./FormKontaktErasure.tsx");
 /** The read no connection answered, as the panel words it. */
 const OHNE_VERBINDUNG =
   "Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. " +
-  "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.";
+  "Lade die Seite neu und versuche es erneut.";
 
 /** The read the backend never answered in time, as the panel words it. */
 const OHNE_ANTWORT =
