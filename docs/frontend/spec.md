@@ -693,12 +693,12 @@ already takes is handed a `mock.fn()` from `node:test`.
 directive, a wiring between two of them. Held against a component's own output, a regex over the
 source passes on markup that says the opposite and on a component nothing renders at all.
 
-**The `test` script stands `fl_frontend/src/core/config.ts`'s gate down and supplies the database
-URI a module reads past it** (`fl_frontend/package.json`), so a component whose graph reaches that
-gate renders — a form through its slice's actions module, and every field panel that form composes.
-That environment is the script's own, so every runner of the suite inherits it by invoking
-`pnpm test` rather than spelling it — the gate's `scripts/gate/verify.sh :: do_unit_tests` and CI
-alike.
+**The `test:base` script both tiers run stands `fl_frontend/src/core/config.ts`'s gate down and
+supplies the database URI a module reads past it** (`fl_frontend/package.json`), so a component whose
+graph reaches that gate renders — a form through its slice's actions module, and every field panel
+that form composes. That environment is the base script's own, so every runner of the suite inherits
+it by invoking `pnpm test` or `pnpm run test:db` rather than spelling it — the gate's
+`scripts/gate/verify.sh :: do_unit_tests` and CI alike.
 
 **A property only a database enforces is tested against one, in a `*.db.test.*` file `pnpm test`
 never collects.** The `test` script's patterns are Node's own default set with that suffix cut from
@@ -712,7 +712,7 @@ script ends in its patterns, a flag appended after it is not applied: the gate s
 through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
 
 **A file whose worker exits without reporting is diagnosed by
-`fl_frontend/worker-exit-reporter.mjs`, wired into the `test` script beside the spec reporter.**
+`fl_frontend/worker-exit-reporter.mjs`, wired into the `test:base` script beside the spec reporter.**
 `node --test` reports such a file as one failing test named for the path, so a module that threw
 while loading, a worker killed under memory pressure and a case that never reported arrive as one
 line carrying the same text; the worker's own output reaches the log unattributed, and far above
