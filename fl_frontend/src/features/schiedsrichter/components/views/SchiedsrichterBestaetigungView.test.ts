@@ -100,7 +100,7 @@ const words = (html: string): string =>
 const markup = (start: SchiedsrichterBestaetigungStart): string => renderTree(h(SchiedsrichterBestaetigungView, { start }));
 
 /** A `fetch` that records the body and answers what the case chose, standing in for the route handler. */
-function doubleFetch(answer: unknown): { sent: unknown[] } {
+function answerEveryFetch(answer: unknown): { sent: unknown[] } {
   const sent: unknown[] = [];
 
   globalThis.fetch = (async (_input: unknown, init?: { body?: string }) => {
@@ -288,7 +288,7 @@ describe("what the press sends", () => {
   /* The publication question is the one thing this page cannot answer for the person, so an
      unanswered one is refused here rather than stored as a scope nobody picked. */
   it("refuses a press that picked no publication answer, and sends nothing", async () => {
-    const { sent } = doubleFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+    const { sent } = answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
 
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
     const user = userEvent.setup();
@@ -301,7 +301,7 @@ describe("what the press sends", () => {
   });
 
   it("sends the picked scope and a false media flag rather than omitting either", async () => {
-    const { sent } = doubleFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+    const { sent } = answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
 
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
     const user = userEvent.setup();
@@ -324,7 +324,7 @@ describe("what a refused press does to the page", () => {
     ["bestaetigt", "Schon erledigt"],
   ] as const) {
     it(`swaps the form for the ${zustand} panel`, async () => {
-      doubleFetch({ success: false, zustand: zustand });
+      answerEveryFetch({ success: false, zustand: zustand });
 
       render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
       const user = userEvent.setup();
@@ -348,7 +348,7 @@ describe("what a refused press does to the page", () => {
     ["the generic sentence where the answer brings none", {}, UNHANDLED_FIELD_REFUSAL],
   ] as const) {
     it(`announces a refusal no box can take with ${angesagt}`, async () => {
-      doubleFetch({ success: false, fieldErrors: { text_version: "abgelehnt" }, ...mitgebracht });
+      answerEveryFetch({ success: false, fieldErrors: { text_version: "abgelehnt" }, ...mitgebracht });
 
       const { container } = render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
       assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
@@ -371,7 +371,7 @@ describe("what a refused press does to the page", () => {
   /* A commit whose answer was lost: the route's sentence sends an administrator to reload and check,
      which this page cannot follow, its token being gone from the address. */
   it("titles an answer of unknown outcome as unclear, and tells the referee to reopen the link", async () => {
-    doubleFetch({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
+    answerEveryFetch({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
 
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
     const user = userEvent.setup();
@@ -414,7 +414,7 @@ describe("the media switch, offered from the media age alone", () => {
   });
 
   it("withdraws the switch and its yes when the date moves below the media age", async () => {
-    const { sent } = doubleFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+    const { sent } = answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
     const user = userEvent.setup();
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
 
