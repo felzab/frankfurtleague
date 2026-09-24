@@ -1,17 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
-/* Source text for the ROW KEYS alone, which are a module-private table a test-only export would be
-   a seam on; every claim about what the route DOES is driven below. */
-const ROUTE = readFileSync(path.resolve(import.meta.dirname, "route.ts"), "utf8");
-const TABLE = sliceBetween(ROUTE, "const REPLAY_REFUSALS", "export async function POST");
-
-/** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's register spells it. */
+/** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -173,13 +166,19 @@ describe("the referee save's undo", () => {
     assert.deepEqual(mails, []);
   });
 
-  /* Three sites per refusal: a code this table leaves unmapped falls through to the shared 409
-     sentence, which tells the administrator an equivalent entry already exists. */
-  it("keys a row on every refusal the replayed endpoint declares", () => {
-    const declared = declaredCodes(REPLAY_OPERATION);
+  /* Three sites per refusal: a code the route's table leaves unmapped falls through to the shared 409
+     sentence about an equivalent entry, which is the duplicate key's own. */
+  it("words every refusal the replayed endpoint publishes", async () => {
+    for (const code of publishedRefusals(REPLAY_OPERATION)) {
+      if (code === DUPLICATE_KEY) continue;
+      recorders.__flUndoRefAnswer = () => {
+        throw aRefusal(code);
+      };
 
-    assert.ok(declared.length > 0, "the register stopped naming the replayed operation, so this case compares nothing");
-    for (const code of declared) assert.ok(TABLE.includes(`"${code}"`), `${code} reaches the admin as an unhandled conflict`);
+      const answer = await bodyOf(aRequest(BODY));
+
+      assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
   for (const [code, fragment] of [["REQ-SCHIEDSRICHTER-007", /Sperrliste/]] as const) {

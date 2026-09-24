@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { withoutPythonComments } from "./refusalRegister.ts";
+import { withoutPythonComments } from "./sourceText.ts";
 
 describe("the comment cut every reader of the backend's Python shares", () => {
   it("cuts a comment beside a literal and on a line of its own", () => {

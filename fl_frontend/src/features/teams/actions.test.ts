@@ -3,71 +3,109 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
+
+import {
+  mapAlreadyEnteredRefusal,
+  mapEntryRefusal,
+  mapReplacementRefusal,
+  mapRetireRefusal,
+  mapShorthandRefusal,
+  SHORTHAND_TAKEN_ON_CREATE,
+  SHORTHAND_TAKEN_ON_EDIT,
+} from "./refusals.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
-/* `REQ-ENTER-005` is answered TWICE in this file, once per mapper, so a search over the whole source
-   is satisfied by whichever function happens to carry the arm. Every assertion below reads the one
-   slice it is about. */
-const ENTRY_MAP = sliceBetween(ACTIONS, "function mapEntryRefusal", "function mapReplacementRefusal");
-const REPLACEMENT_MAP = sliceBetween(ACTIONS, "function mapReplacementRefusal", "export async function postTeamAction");
 /* The last declaration in the module, so its slice runs to the end of the file. */
 const REPLACE_ACTION = sliceBetween(ACTIONS, "export async function replaceSaisonTeamAction", null);
-
-/**
- * The German one branch returns, and not the reasoning above it: several comments here name the very
- * words their message must avoid, so an assertion over a branch's source would read those instead.
- */
-function messageIn(slice: string, code: string): string {
-  const branch = slice.split(`error.serverErrorCode === "${code}"`)[1] ?? "";
-
-  return /return "([^"]*)";/.exec(branch)?.[1] ?? "";
-}
+const ENTRY_ACTION = sliceBetween(ACTIONS, "export async function postSaisonTeamAction", "export async function patchSaisonTeamAction");
+const RETIRE_ACTION = sliceBetween(ACTIONS, "export async function deleteTeamAction", "export async function reactivateTeamAction");
 
 /* Each operation is named once. Written twice, a route rename could be answered on one of the two
-   and leave the other reading a string the register no longer holds. */
+   and leave the other reading a string the document does not publish. */
+const CREATE_OPERATION = "POST /teams";
+const EDIT_OPERATION = "PATCH /teams/{team_id}";
+const RETIRE_OPERATION = "DELETE /teams/{team_id}";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
 
 const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
 
-describe("the team actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts each mapper out of the file before reading it", () => {
-    assert.ok(ENTRY_MAP.includes('error.serverErrorCode === "REQ-ENTER-002"'), "the entry mapper's branches are outside its slice");
-    assert.ok(!ENTRY_MAP.includes("REQ-REPLACE"), "the entry mapper's slice runs on into the replacement's branches");
+/** The German the replacement shows for one code, or "" where its mapper leaves the code. */
+const replacementMessage = (code: string, statusCode = 409): string =>
+  mapReplacementRefusal(refusedOn(REPLACEMENT_OPERATION, code, statusCode)) ?? "";
 
-    assert.ok(REPLACEMENT_MAP.includes('error.serverErrorCode === "REQ-REPLACE-001"'), "the replacement's branches are outside its slice");
-    assert.ok(!REPLACEMENT_MAP.includes("REQ-ENTER-002"), "the replacement's slice reaches the entry mapper's branches");
+/** The entry's own answer, as the action asks: the rules first, then the unique index on the junction's key. */
+const entryAnswer = (error: unknown) => mapEntryRefusal(error) ?? mapAlreadyEnteredRefusal(error);
 
+describe("the team actions against the codes their endpoints publish", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
+  it("cuts each action out of the file before reading it", () => {
     assert.ok(REPLACE_ACTION.includes("replaceSaisonTeam(validated.data)"), "the replacement action is outside its slice");
     assert.ok(!REPLACE_ACTION.includes("patchSaisonTeam("), "the replacement action's slice reaches the junction patch");
+    assert.ok(ENTRY_ACTION.includes("postSaisonTeam(validated.data)"), "the entry action is outside its slice");
+    assert.ok(!ENTRY_ACTION.includes("patchSaisonTeam("), "the entry action's slice reaches the junction patch");
+    assert.ok(RETIRE_ACTION.includes("deleteTeam(validated.data)"), "the retire action is outside its slice");
+    assert.ok(!RETIRE_ACTION.includes("reactivateTeam("), "the retire action's slice reaches the reactivation");
   });
 
-  /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, so a substring match
-     would hand the entry's codes to the replacement and the replacement's to the entry. */
-  it("reads each junction operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(ENTRY_OPERATION), ENTRY_CODES);
-    assert.deepEqual(declaredCodes(REPLACEMENT_OPERATION), REPLACEMENT_CODES);
+  /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's
+     mapper answers its own set: the two share `REQ-ENTER-005` and nothing else. */
+  it("reads each junction operation's own codes", () => {
+    assert.deepEqual(
+      publishedRefusals(ENTRY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ENTRY_CODES,
+    );
+    assert.deepEqual(
+      publishedRefusals(REPLACEMENT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      REPLACEMENT_CODES,
+    );
   });
 
   /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 with the
      message about an entry that already exists — confidently wrong for three of these four. */
-  it("maps every refusal the replacement endpoint declares", () => {
-    const declared = declaredCodes(REPLACEMENT_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, REPLACEMENT_CODES);
-    for (const code of declared)
-      assert.ok(REPLACEMENT_MAP.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic conflict`);
+  it("maps every refusal the replacement endpoint publishes", () => {
+    for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
+      assert.notEqual(adminAnswer(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin as a generic conflict`);
+    }
   });
 
-  /* Asserted before the German below it: an extraction that stopped matching would return "" for
-     every code, and each `doesNotMatch` over it would then pass vacuously. */
-  it("carries German for every branch it maps", () => {
-    for (const code of REPLACEMENT_CODES) assert.notEqual(messageIn(REPLACEMENT_MAP, code), "", `${code} has no message`);
+  it("maps every refusal the entry endpoint publishes", () => {
+    for (const code of publishedRefusals(ENTRY_OPERATION)) {
+      assert.notEqual(adminAnswer(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin as a generic conflict`);
+    }
+    assert.ok(ENTRY_ACTION.includes("mapEntryRefusal(error)"), "the entry answers its rules somewhere else");
+    assert.ok(ENTRY_ACTION.includes("mapAlreadyEnteredRefusal(error)"), "the entry leaves its unique index to the generic conflict message");
+  });
+
+  it("maps every refusal the retirement publishes", () => {
+    for (const code of publishedRefusals(RETIRE_OPERATION)) {
+      assert.notEqual(adminAnswer(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as a generic conflict`);
+    }
+    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement answers its refusal somewhere else");
+  });
+
+  /* A club's only unique key is its shorthand, so the create and the edit each land a 409 on that box,
+     worded for the page it arrives on. */
+  it("lands every refusal the create and the edit publish on the shorthand box", () => {
+    for (const [operation, published, taken] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), SHORTHAND_TAKEN_ON_CREATE],
+      [EDIT_OPERATION, publishedRefusals(EDIT_OPERATION), SHORTHAND_TAKEN_ON_EDIT],
+    ] as const) {
+      assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate shorthand its mapper places`);
+      for (const code of published) {
+        assert.deepEqual(
+          mapShorthandRefusal(refusedOn(operation, code), taken),
+          { fieldErrors: { shorthand: taken } },
+          `${code} on ${operation}`,
+        );
+      }
+    }
+    assert.ok(ACTIONS.includes("mapShorthandRefusal(error, SHORTHAND_TAKEN_ON_CREATE)"), "the create words its shorthand as the edit does");
+    assert.ok(ACTIONS.includes("mapShorthandRefusal(error, SHORTHAND_TAKEN_ON_EDIT)"), "the edit words its shorthand as the create does");
   });
 
   /* Three resources, because one write moves all three: the junction row, the fixtures' sides, and
@@ -88,7 +126,7 @@ describe("the German each replacement refusal renders", () => {
   /* `REQ-REPLACE-001` refuses a `past` season, which no reload changes — so the message may not spend
      its remedy on one, and has to name the seasons that are still open. */
   it("names a finished season and the seasons still open, never a reload", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-001");
+    const message = replacementMessage("REQ-REPLACE-001");
 
     assert.match(message, /abgeschlossen/);
     assert.match(message, /laufenden oder geplanten Saison/);
@@ -99,7 +137,7 @@ describe("the German each replacement refusal renders", () => {
      no-show, and FALSE for a fixture called off or annulled — naming either of those sends the admin
      to a fixture that is still free to move. */
   it("names the five shapes that leave a record, and no shape that leaves none", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-002");
+    const message = replacementMessage("REQ-REPLACE-002");
 
     assert.match(message, /Ergebnis/);
     assert.match(message, /Tore/);
@@ -113,7 +151,7 @@ describe("the German each replacement refusal renders", () => {
   /* The record is what the refusal protects, so the remedy cannot be to delete it. An Austritt
      records the same departure and leaves every fixture standing. */
   it("offers the austritt as the repair, never the removal of a result", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-002");
+    const message = replacementMessage("REQ-REPLACE-002");
 
     assert.match(message, /Austritt/);
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
@@ -122,7 +160,7 @@ describe("the German each replacement refusal renders", () => {
   /* Both shapes at once: the row being replaced is itself a row the incoming club holds, so a club
      named on both ends lands on this code too. */
   it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-003");
+    const message = replacementMessage("REQ-REPLACE-003");
 
     assert.match(message, /schon einen Platz/);
     assert.match(message, /dasselbe Team/);
@@ -132,19 +170,19 @@ describe("the German each replacement refusal renders", () => {
   /* Both mappers answer `REQ-ENTER-005`, about different clubs: the entry is refused for the club
      whose page is open, the replacement for a club the admin picked out of a list. */
   it("sends the reactivation to the club the admin picked, not to the page's own club", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-ENTER-005");
+    const message = replacementMessage("REQ-ENTER-005");
 
     assert.match(message, /nachrückende Team/);
     assert.match(message, /Reaktiviere es/);
-    assert.notEqual(message, messageIn(ENTRY_MAP, "REQ-ENTER-005"));
+    assert.notEqual(message, mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))?.error);
   });
 
   /* The replacement repairs a junction row whose `team_id` resolves to no club, so it reads the
      INCOMING club alone. A message asking for the outgoing one is unactionable when there is none. */
   it("asks nothing of the outgoing club, which the endpoint never resolves", () => {
-    for (const code of REPLACEMENT_CODES) assert.doesNotMatch(messageIn(REPLACEMENT_MAP, code), /ausscheidende Team ist/);
+    for (const code of REPLACEMENT_CODES) assert.doesNotMatch(replacementMessage(code), /ausscheidende Team ist/);
 
-    const notFound = /return "([^"]*)";/.exec(REPLACEMENT_MAP.split("statusCode === 404")[1] ?? "")?.[1] ?? "";
+    const notFound = replacementMessage("DB-COMMON-001", 404);
 
     assert.match(notFound, /Saison, Saison-Zugehörigkeit oder das nachrückende Team/);
     assert.doesNotMatch(notFound, /ausscheidende/);
@@ -167,11 +205,18 @@ describe("the junction edit's refusals when the undo replays it", () => {
   /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
   const PATCH_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
 
-  /* `PATCH /teams/{team_id}` is a prefix of it, so a substring read would hand the junction's codes to
-     the club row. The club patch declares none, which is why the route catches nothing around it. */
-  it("reads the junction patch as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(PATCH_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
-    assert.deepEqual(declaredCodes("PATCH /teams/{team_id}"), [], "the club patch now declares a rule the replay does not answer");
+  /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule, which is why the
+     route catches nothing around it: its duplicate shorthand is the shared reader's sentence. */
+  it("reads the junction patch's own rules, and none on the club patch", () => {
+    assert.deepEqual(
+      publishedRefusals(PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"],
+    );
+    assert.deepEqual(
+      publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the club patch now publishes a rule the replay does not answer",
+    );
   });
 
   /* Two outcomes and not one: the club half goes back before the junction is replayed, so a refusal
@@ -185,14 +230,17 @@ describe("the junction edit's refusals when the undo replays it", () => {
     assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
   });
 
-  for (const code of declaredCodes(PATCH_OPERATION)) {
+  for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
-      const row = replayRow(code);
-
-      assert.ok(
-        ENTRY_MAP.includes(`error.serverErrorCode === "${code}"`),
+      assert.notEqual(
+        adminAnswer(PATCH_OPERATION, code, mapEntryRefusal),
+        null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
+      // The shared reader's own sentence, which the replay reaches as the save does.
+      if (code === DUPLICATE_KEY) return;
+
+      const row = replayRow(code);
       assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
       // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
       assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);

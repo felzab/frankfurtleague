@@ -20,11 +20,13 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
+import { mapStaleBlockRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
@@ -211,13 +213,12 @@ const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch
 const EXIT_HOOK = readFileSync(path.resolve(SRC, "shared", "hooks", "useEditorExit.ts"), "utf8");
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
-/* Spelled out rather than read off the register, which is the very thing the case below compares it
-   to: a code taken from `declaredCodes` would agree with itself whatever the backend declares. */
+/* Spelled out rather than read off the published document, which is the very thing the case below
+   compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
 
 /* Each declaration is cut at the one named after it: a boundary that stopped matching then fails the
    case pinning the cut rather than every case reading the slice. */
-const REFUSAL_MAP = sliceBetween(ACTIONS, "function mapStaleBlockRefusal", "export async function eraseKontaktpersonAction");
 const PATCH_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonTeamKontakteAction", null);
 const PATCH_MUTATION = sliceBetween(MUTATIONS, "export async function patchSaisonTeamKontakte", null);
 const PAYLOAD_SCHEMA = sliceBetween(
@@ -248,13 +249,11 @@ function statementsOf(slice: string): string[] {
     .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
 }
 
-describe("the contacts write against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
+describe("the contacts write against the codes its endpoint publishes", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
   it("cuts each declaration out of its file before reading it", () => {
     assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
     assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
-    assert.ok(REFUSAL_MAP.includes("APIBadStatusError"), "the refusal map's slice does not reach the error it narrows");
-    assert.ok(!REFUSAL_MAP.includes("runAdminMutation"), "the refusal map's slice reaches forward over the write");
     assert.ok(PATCH_MUTATION.includes("/kontakte`"), "the mutation's slice does not reach the endpoint it addresses");
     assert.ok(!PATCH_MUTATION.includes("/kontakte/erasure"), "the mutation's slice reaches back over the erasure");
     assert.ok(PAYLOAD_SCHEMA.includes("team_id"), "the payload mirror's slice does not reach its fields");
@@ -269,18 +268,20 @@ describe("the contacts write against the backend's refusal register", () => {
   /* The two are worded apart: the save's sentence sends the admin to a form the undo toast has not
      got. A code either path leaves unmapped falls through to the shared 409 fallback, which reports
      a duplicate entry. */
-  it("words the one refusal its endpoint declares, at the save and at the undo", () => {
-    assert.deepEqual(declaredCodes(KONTAKTE_OPERATION), [STALE_BLOCK]);
-    assert.match(REFUSAL_MAP, new RegExp(`serverErrorCode !== "${STALE_BLOCK}"`), "the write maps something other than the stale block");
-    assert.match(REFUSAL_MAP, /buildRefusal\(\{/, "the refusal is worded outside the shared refusal shape");
+  it("words the one refusal its endpoint publishes, at the save and at the undo", () => {
+    const published = publishedRefusals(KONTAKTE_OPERATION);
+
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [STALE_BLOCK],
+    );
+    for (const code of published) {
+      assert.notEqual(adminAnswer(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
+    // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
+    assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
     assert.ok(PATCH_ACTION.includes("mapStaleBlockRefusal(error)"), "the write no longer maps the refusal it raises");
     assert.ok(UNDO_ROUTE.includes(`"${STALE_BLOCK}":`), "the undo route leaves its replay's refusal to the 409 fallback");
-  });
-
-  /* The floor under the case above: an empty list has to mean "this endpoint declares none" rather
-     than "the register was read as nothing at all". */
-  it("reads a declared refusal where one exists", () => {
-    assert.deepEqual(declaredCodes("POST /teams/{team_id}/saisons"), ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"]);
   });
 
   /* The house shape, in order: the session first, because `runAdminMutation` seeds the scope the

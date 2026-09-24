@@ -1,0 +1,123 @@
+import { readFileSync } from "node:fs";
+
+import { APIBadStatusError } from "@/core/errors.ts";
+import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+
+type JsonObject = Record<string, unknown>;
+
+const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * The unique index's refusal, and the one code whose German is the shared reader's 409 fallback: an
+ * admin slice's mapper answers it only where a box holds the value the index refused.
+ */
+export const DUPLICATE_KEY = "DB-COMMON-002";
+
+/** A code no rule declares, which reaches the shared reader's 409 fallback and nothing else. */
+const UNCLAIMED = "REQ-UNCLAIMED-000";
+
+function readDocument(): JsonObject {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8"));
+  } catch (cause) {
+    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
+  }
+  if (!isObject(parsed) || !isObject(parsed.paths)) throw new Error(`${DOCUMENT_PATH} publishes no paths`);
+
+  return parsed;
+}
+
+const DOCUMENT = readDocument();
+
+/**
+ * Every `error_code` enum a schema carries, its `allOf` members and `$ref` targets followed: the
+ * backend narrows the failure body by composing it, and an enum it moved into a component is still
+ * the operation's own.
+ */
+function codeEnums(schema: unknown, seen: ReadonlySet<string> = new Set()): unknown[] {
+  if (!isObject(schema)) return [];
+
+  const ref = schema.$ref;
+  if (typeof ref === "string") {
+    const name = ref.replace(/^#\/components\/schemas\//, "");
+    const components = isObject(DOCUMENT.components) && isObject(DOCUMENT.components.schemas) ? DOCUMENT.components.schemas : {};
+    if (seen.has(name) || !(name in components)) throw new Error(`the document cannot resolve ${ref}`);
+
+    return codeEnums(components[name], new Set([...seen, name]));
+  }
+
+  const own = isObject(schema.properties) && isObject(schema.properties.error_code) ? schema.properties.error_code.enum : undefined;
+  const members = Array.isArray(schema.allOf) ? schema.allOf.flatMap((member) => codeEnums(member, seen)) : [];
+
+  return own === undefined ? members : [own, ...members];
+}
+
+/**
+ * Every code `fl_backend/openapi.json` publishes on one operation's 409, the operation spelled
+ * `<METHOD> <path>` below the version prefix. Throws where it publishes none: an empty answer would
+ * run a caller's loop zero times, green.
+ */
+export function publishedRefusals(operation: string): string[] {
+  const [method = "", route = ""] = operation.split(" ", 2);
+  const paths = DOCUMENT.paths as JsonObject;
+  // Derived rather than spelled: the document is generated under the test configuration, whose
+  // `API_VERSION` names the prefix.
+  const served = Object.keys(paths).filter((published) => /^\/api\/v\d+/.exec(published)?.[0] + route === published);
+  if (served.length !== 1) {
+    throw new Error(
+      `the document serves ${String(served.length)} paths for ${operation}; refresh it with the command ${REGENERATE_CITATION} declares`,
+    );
+  }
+
+  const item = paths[served[0] ?? ""];
+  const responses = isObject(item) && isObject(item[method.toLowerCase()]) ? (item[method.toLowerCase()] as JsonObject).responses : undefined;
+  if (!isObject(responses)) throw new Error(`the document publishes no ${method} on ${route}`);
+
+  const conflict = responses["409"];
+  if (!isObject(conflict)) throw new Error(`the document publishes no 409 on ${operation}`);
+
+  const body = isObject(conflict.content) ? conflict.content["application/json"] : undefined;
+  const enums = codeEnums(isObject(body) ? body.schema : undefined);
+  // One enum and no more: two would leave which of them the backend answers from to the reader.
+  const [codes] = enums;
+  if (enums.length !== 1 || !Array.isArray(codes) || codes.length === 0 || !codes.every((code) => typeof code === "string")) {
+    throw new Error(`the 409 on ${operation} does not publish its codes as one enum of strings`);
+  }
+
+  return [...(codes as string[])].sort();
+}
+
+/**
+ * The refusal the API client raises when `operation` answers `serverErrorCode`, so a mapper is asked
+ * rather than read.
+ */
+export function refusedOn(operation: string, serverErrorCode: string, statusCode = 409): APIBadStatusError {
+  const [method = "", endpoint = ""] = operation.split(" ", 2);
+
+  return new APIBadStatusError({
+    message: "refused",
+    url: `http://backend/api/v0${endpoint}`,
+    statusCode,
+    serverErrorCode,
+    endpoint,
+    method,
+    readOnly: false,
+    traceId: "0",
+  });
+}
+
+/**
+ * What an admin write shows for one refusal, asked as the action and `runAdminMutation` ask: the
+ * slice's mapper, then `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`. `null`
+ * where the code reaches that reader's fallback, which words `DUPLICATE_KEY` alone.
+ */
+export function adminAnswer(operation: string, code: string, mapper: (error: unknown) => unknown): unknown {
+  const refusal = refusedOn(operation, code);
+  const own = mapper(refusal);
+  if (own !== null) return own;
+
+  const shared = toActionErrorResult(refusal).error;
+  return code === DUPLICATE_KEY || shared !== toActionErrorResult(refusedOn(operation, UNCLAIMED)).error ? shared : null;
+}

@@ -4,12 +4,13 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 // Source text because the table is module-private, and a test-only export of it would be a seam.
 const ROUTE = readFileSync(path.resolve(import.meta.dirname, "route.ts"), "utf8");
 
-/** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's register spells it. */
+/** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
 
 /* The table alone: the handler below it reads a row by code and words an outcome of its own, and a
@@ -130,23 +131,26 @@ beforeEach(() => {
 });
 
 describe("the undo route's replay refusals against the endpoint it replays", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
   it("cuts the replay table out of the route before reading it", () => {
     assert.notEqual(TABLE, "", "the table's opening or the declaration closing it stopped matching");
     assert.ok(!TABLE.includes("export async function POST"), "the cut runs on into the handler, whose lines this reader would take for rows");
   });
 
-  /* Both sides, because the comparison below holds of two empty lists: a register that stopped naming
-     this operation and a reader that stopped finding rows would each pass it in silence. */
-  it("reads rows out of the route and rules out of the register", () => {
+  /* The comparison below would hold of a reader that stopped finding rows, were the endpoint's set
+     ever empty; `publishedRefusals` refuses an empty one itself. */
+  it("reads rows out of the route", () => {
     assert.ok(rowCodes.length > 0, "no row was read out of the replay table");
-    assert.ok(declaredCodes(REPLAY_OPERATION).length > 0, `no rule is declared against ${REPLAY_OPERATION}`);
   });
 
   /* The whole set rather than a floor: a code this table misses reaches the admin as the 409 fallback
-     in `fl_frontend/src/shared/utils/actionError.ts`, which tells them an equivalent entry exists. */
-  it("words exactly the refusals the replayed endpoint declares", () => {
-    assert.deepEqual([...rowCodes].sort(), declaredCodes(REPLAY_OPERATION));
+     in `fl_frontend/src/shared/utils/actionError.ts`, the sentence about an equivalent entry, which is
+     the duplicate key's own. */
+  it("words exactly the refusals the replayed endpoint publishes", () => {
+    assert.deepEqual(
+      [...rowCodes].sort(),
+      publishedRefusals(REPLAY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+    );
   });
 });
 

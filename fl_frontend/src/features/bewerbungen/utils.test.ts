@@ -7,7 +7,7 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
-import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
+import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -386,7 +386,7 @@ describe("which paths one judgement covers in the public form", () => {
   });
 });
 
-/** The public write, spelled as `fl_backend/app/core/domain.py` spells the operation it declares. */
+/** The public write, spelled as the backend's own routes spell it. */
 const SUBMIT_OPERATION = "POST /bewerbungen";
 const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
 
@@ -454,25 +454,21 @@ describe("what a submission's refusal is shown as", () => {
   });
 });
 
-describe("the submission's refusals against the backend's register", () => {
-  /* Before every comparison below: a loop over an operation the register no longer names runs zero
-     times and proves nothing. An empty list here is the harness failing, not the source. */
-  it("finds rules declared against the submission at all", () => {
-    assert.ok(declaredCodes(SUBMIT_OPERATION).length > 0, `no rule is declared against ${SUBMIT_OPERATION}`);
-  });
-
-  /* The one class a unit test here CAN hold: a declared code this maps nowhere reaches the applicant
+describe("the submission's refusals against the codes its endpoint publishes", () => {
+  /* The one class a unit test here CAN hold: a published code this maps nowhere reaches the applicant
      as the generic sentence, which names no field and no way out. */
-  it("maps every code the submission declares", () => {
-    const mapped = declaredCodes(SUBMIT_OPERATION).filter((code) => mapBewerbungSubmitRefusal(refusalFor(code)) !== null);
-
-    assert.deepEqual(mapped, declaredCodes(SUBMIT_OPERATION));
+  it("maps every code the submission publishes", () => {
+    for (const code of publishedRefusals(SUBMIT_OPERATION)) {
+      assert.notEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), null, `${code} reaches the applicant unmapped`);
+    }
   });
 
-  /* Five codes, five answers. Sharing one sentence between two of them is the failure this catches:
+  /* One code, one answer. Sharing one sentence between two of them is the failure this catches:
      each names a different thing to change, and a reader given the wrong one changes the wrong box. */
   it("gives each code its own answer", () => {
-    const answers = declaredCodes(SUBMIT_OPERATION).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refusalFor(code))));
+    const answers = publishedRefusals(SUBMIT_OPERATION).map((code) =>
+      JSON.stringify(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code))),
+    );
 
     assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same sentence");
   });
@@ -586,26 +582,32 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
   });
 });
 
-describe("the confirmation's refusals against the backend's register", () => {
-  /* As above: a loop over an operation the register does not name runs zero times and proves
-     nothing. */
-  it("finds rules declared against the confirmation at all", () => {
-    assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
+describe("the confirmation's refusals against the codes its endpoint publishes", () => {
+  /* A published code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
+     toast, which names neither the field to fix nor the panel that would explain the dead link. */
+  it("maps every code the confirmation publishes", () => {
+    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
+      assert.notEqual(
+        mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER),
+        null,
+        `${code} reaches the contact person unmapped`,
+      );
+    }
   });
 
-  /* A declared code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
-     toast, which names neither the field to fix nor the panel that would explain the dead link. */
-  it("maps every code the confirmation declares", () => {
-    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER) !== null);
-
-    assert.deepEqual(mapped, declaredCodes(CONFIRM_OPERATION));
+  /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
+     refusal is a token nothing could place. */
+  it("calls the link void on every refusal its read publishes", () => {
+    for (const code of publishedRefusals("POST /bewerbungen/einwilligung/ansicht")) {
+      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn("POST /bewerbungen/einwilligung/ansicht", code)), "ungueltig", code);
+    }
   });
 
   /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
      is a reader sent to the wrong one of the two, with no way to tell. */
   it("gives each code its own answer", () => {
-    const answers = declaredCodes(CONFIRM_OPERATION).map((code) =>
-      JSON.stringify(mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER)),
+    const answers = publishedRefusals(CONFIRM_OPERATION).map((code) =>
+      JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER)),
     );
 
     assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");

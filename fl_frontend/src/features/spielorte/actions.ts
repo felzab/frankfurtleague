@@ -3,45 +3,17 @@
 import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
+import { mapNameRefusal, mapRetireRefusal } from "./refusals";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
-
-/**
- * `null` where the 409 is something else. It lands on the NAME box: `uniq_spielort_name` is this
- * collection's only unique index, so the code can be about no other value the create or the edit sent.
- */
-function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
-  if (error.serverErrorCode === "DB-COMMON-002") {
-    return { fieldErrors: { name: "Diesen Namen gibt es schon." } };
-  }
-  return null;
-}
-
-/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
-function mapRetireRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  if (error.serverErrorCode === "REQ-RETIRE-003") {
-    return buildRefusal({
-      reason: "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben",
-      repair: "Verlege diese Spiele auf einen anderen Spielort oder sage sie ab",
-    });
-  }
-  return null;
-}
 
 export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.

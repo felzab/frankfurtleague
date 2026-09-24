@@ -13,7 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { withoutPythonComments } from "@/shared/testing/refusalRegister.ts";
+import { withoutPythonComments } from "@/shared/testing/sourceText.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
@@ -120,8 +120,7 @@ describe("the rules panel's freezes", () => {
 // Seven levels, this file sitting at the editor's own folder.
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
 
-/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it.
-   `fl_frontend/src/shared/testing/refusalRegister.ts` reads `fl_backend/app/core/domain.py` the same way. */
+/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it. */
 const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
 
 /**

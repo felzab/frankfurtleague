@@ -3,12 +3,12 @@
 import { refresh } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
+import { mapStaleBlockRefusal } from "./refusals";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
@@ -19,19 +19,6 @@ import type {
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
 } from "./schemas";
-
-/**
- * The stale-block refusal, or `null` when the 409 is something else. It lands on no field: the whole
- * screen is behind the row, so no box the admin could correct is at fault.
- */
-function mapStaleBlockRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
-
-  return buildRefusal({
-    reason: "Die Kontakte dieser Saison wurden inzwischen geändert, meistens durch das Löschen einer Kontaktperson",
-    repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
-  });
-}
 
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved

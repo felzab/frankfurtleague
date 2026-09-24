@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { DECLARED_RULES } from "@/shared/testing/refusalRegister.ts";
+import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit.ts";
@@ -147,10 +147,10 @@ describe("what one refused submission shows", () => {
     }
   });
 
-  /* Both directions against the backend's own register: a code the write path raises and this mapper
+  /* Both directions against the published document: a code the write path raises and this mapper
      does not know falls through to the 409 fallback, which tells a pupil an equivalent entry exists. */
-  it("maps every code the write path declares, and no code it does not", () => {
-    const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen")).map((rule) => rule.code);
+  it("maps every code the write path publishes, and no rule it does not", () => {
+    const published = publishedRefusals("POST /registrierungen");
     const mapped = [
       "REQ-EINLADUNG-003",
       "REQ-REGISTRIERUNG-011",
@@ -161,10 +161,13 @@ describe("what one refused submission shows", () => {
       "REQ-REGISTRIERUNG-009",
     ];
 
-    for (const code of mapped) {
-      assert.notEqual(mapRegistrierungSubmitRefusal(refusal(code)), null, `${code} is listed here and maps to nothing`);
+    for (const code of new Set([...published, ...mapped])) {
+      assert.notEqual(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", code)), null, `${code} maps to nothing`);
     }
-    assert.deepEqual([...declared].sort(), [...mapped].sort());
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [...mapped].sort(),
+    );
   });
 });
 
@@ -244,10 +247,10 @@ describe("what one refused confirmation shows", () => {
     assert.equal((await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.zustand, undefined);
   });
 
-  /* Both directions against the backend's own register, as the submission's twin has: a code the
+  /* Both directions against the published document, as the submission's twin has: a code the
      confirmation raises and this mapper does not know falls through to the 409 fallback. */
-  it("maps every code the confirmation declares, and no code it does not", async () => {
-    const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen/bestaetigung")).map((rule) => rule.code);
+  it("maps every code the confirmation publishes, and no rule it does not", async () => {
+    const published = publishedRefusals("POST /registrierungen/bestaetigung");
     const mapped = [
       "REQ-REGISTRIERUNG-004",
       "REQ-REGISTRIERUNG-005",
@@ -256,10 +259,14 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-010",
     ];
 
-    for (const code of mapped) {
-      assert.notEqual(await mapBestaetigungRefusal(refusal(code), floorOf(16).lesen), null, `${code} is listed here and maps to nothing`);
+    for (const code of new Set([...published, ...mapped])) {
+      const answered = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
+      assert.notEqual(answered, null, `${code} maps to nothing`);
     }
-    assert.deepEqual([...declared].sort(), [...mapped].sort());
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [...mapped].sort(),
+    );
   });
 });
 
@@ -275,6 +282,17 @@ describe("which verdict of the invite's read closes the form", () => {
 });
 
 describe("what a refused READ says about a link", () => {
+  /* Both reads, the invite's and the confirmation link's, answer every refusal alike, so each code
+     either publishes is a link nothing could place. */
+  it("calls the link void on every refusal either read publishes", () => {
+    for (const code of publishedRefusals("POST /registrierungen/einladung/ansicht")) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/einladung/ansicht", code)), "ungueltig", code);
+    }
+    for (const code of publishedRefusals("POST /registrierungen/bestaetigung/ansicht")) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/bestaetigung/ansicht", code)), "ungueltig", code);
+    }
+  });
+
   it("calls a token no tier will parse void rather than offering a reload", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-VAL-001", 422)), "ungueltig");
   });

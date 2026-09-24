@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
-import { sliceBetween, withoutPythonComments } from "@/shared/testing/refusalRegister.ts";
+import { sliceBetween, withoutPythonComments } from "@/shared/testing/sourceText.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { FLSaisonPhaseSchema } from "./schemas.ts";
@@ -155,7 +155,7 @@ function mirroredKey(projected: string): string {
 }
 
 describe("the replace window against the backend's own projection", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
   it("cuts the projection out of the module before reading it", () => {
     assert.ok(PROJECTION_SOURCE.includes('"saison_phase"'), "the tuple's first entry is outside its slice");
     assert.ok(!PROJECTION_SOURCE.includes("DRAWN_HOLDING_ITS_SIDES"), "the tuple's slice runs on past its closing paren");

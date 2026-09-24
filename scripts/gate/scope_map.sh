@@ -135,14 +135,13 @@ else
       # The published API surface. It selects the frontend scope too, or a change confined to
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
-      # Each is read as source text by the frontend suites as they load, domain.py through
-      # `fl_frontend/src/shared/testing/refusalRegister.ts`, so a change confined to fl_backend/
-      # would otherwise reach the assertions over it no earlier than the push to main.
-      fl_backend/app/core/domain.py|fl_backend/app/core/recording.py| \
-      fl_backend/app/core/exception_handlers.py|fl_backend/app/shared/schemas/bounds.py| \
+      # Each is read as source text by the frontend suites as they load, so a change confined to
+      # fl_backend/ would otherwise reach the assertions over it no earlier than the push to main.
+      fl_backend/app/core/recording.py| \
+      fl_backend/app/shared/schemas/bounds.py| \
       fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \
       fl_backend/app/api/bewerbungen/services.py|fl_backend/app/api/saisons/schemas.py| \
-      fl_backend/app/api/saisons/services.py|fl_backend/app/api/teams/crud.py| \
+      fl_backend/app/api/saisons/services.py| \
       fl_backend/app/core/collections.py|fl_backend/app/core/constraints.py| \
       fl_backend/tests/shared/address_lines.json|fl_backend/tests/shared/email_addresses.json)
         backend=true; db=true; frontend=true; docs=true ;;

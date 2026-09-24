@@ -5,31 +5,27 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
+import { mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
+import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+/** Read for the codes each mapper's own switch names, which no call can enumerate. */
+const REFUSALS = readFileSync(path.resolve(import.meta.dirname, "refusals.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts"), "utf8");
 /** The bound the decline's reason is mirrored from, read where it is written. */
 const BOUNDS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "bounds.py"), "utf8");
-/** The endpoint itself, which is what says which of the season's services an acceptance reaches. */
-const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
-/** The season's entry write, which the acceptance reaches the group rule through rather than calling it. */
-const TEAMS_CRUD = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "teams", "crud.py"), "utf8");
-/** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
-const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
-
-/** The club editor's own mapper, which answers `REQ-ENTER-005` about the same stored state this one does. */
-const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "actions.ts"), "utf8");
 
 /** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
 const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
@@ -40,32 +36,35 @@ const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/e
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
-/** The season's entry services, which `annehmen_bewerbung` reaches rather than restating. */
-const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
-
-/** The group rule is reached through this helper rather than called (`docs/backend/spec.md :: I53`). */
-const ENTRY_CHOKE_POINT = "refuse_a_full_gruppe";
-
-/** The entry rules those services implement, and so the ones an acceptance can answer. */
+/** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 
-const MAPPER = sliceBetween(ACTIONS, "function mapTriageRefusal", "async function resolveBewerbungTeamName");
+const MAPPER = sliceBetween(REFUSALS, "export function mapTriageRefusal", "export function mapEinwilligungErneutRefusal");
 const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
-const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "function mapEinwilligungErneutRefusal");
+const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "const BEWERBUNG_WEG");
 /** Everything both decisions run AFTER their write has committed. */
 const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export async function annehmenBewerbungAction");
 
-const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const BEWERBUNG_WEG");
+const ERNEUT_MAPPER = sliceBetween(REFUSALS, "export function mapEinwilligungErneutRefusal", "const ANGABEN_STEHEN_FEST");
 /** Every sentence the re-send answers with instead of a link, read as its declaration writes it. */
 const resendSentence = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
 /** What the re-send runs after its own write, which is where the minted token is spent. */
 const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
-const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
+const ERNEUT_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function einwilligungErneutSendenAction",
+  "export async function kontaktEmailKorrigierenAction",
+);
 
-const KORREKTUR_MAPPER = sliceBetween(ACTIONS, "function mapKontaktEmailRefusal", "export async function kontaktEmailKorrigierenAction");
-const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", "function mapKontaktSitzRefusal");
+const KORREKTUR_MAPPER = sliceBetween(REFUSALS, "export function mapKontaktEmailRefusal", "export function mapKontaktSitzRefusal");
+const KORREKTUR_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function kontaktEmailKorrigierenAction",
+  "export async function besetzeKontaktSitzAction",
+);
 
-const SITZ_MAPPER = sliceBetween(ACTIONS, "function mapKontaktSitzRefusal", "export async function besetzeKontaktSitzAction");
+/* The last declaration in its module, so its slice runs to the end of the file. */
+const SITZ_MAPPER = sliceBetween(REFUSALS, "export function mapKontaktSitzRefusal", null);
 /* The reseat is the last declaration in the module, so its slice runs to the end of the file. */
 const SITZ_ACTION = sliceBetween(ACTIONS, "export async function besetzeKontaktSitzAction", null);
 
@@ -110,10 +109,10 @@ const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map(
 const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 describe("the slices these assertions read", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and both actions out of the file before reading them", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
+  it("cuts the mapper and both actions out of their files before reading them", () => {
     assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
-    assert.ok(!MAPPER.includes("annehmenBewerbung(validated.data)"), "the mapper's slice reaches the acceptance");
+    assert.ok(!MAPPER.includes("REQ-BEWERBUNG-011"), "the mapper's slice reaches the re-send's");
 
     assert.ok(ANNEHMEN_ACTION.includes("annehmenBewerbung(validated.data)"), "the acceptance's call is outside its slice");
     assert.ok(!ANNEHMEN_ACTION.includes("ablehnenBewerbung("), "the acceptance's slice reaches the decline");
@@ -129,7 +128,7 @@ describe("the slices these assertions read", () => {
 
   it("cuts the re-send's mapper, its send and its action apart", () => {
     assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
-    assert.ok(!ERNEUT_MAPPER.includes("sendBewerbungMail("), "the re-send mapper's slice reaches the send");
+    assert.ok(!ERNEUT_MAPPER.includes("REQ-BEWERBUNG-014"), "the re-send mapper's slice reaches the correction's");
     assert.ok(resendSentence("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
 
     assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
@@ -142,99 +141,102 @@ describe("the slices these assertions read", () => {
   });
 });
 
-describe("the triage's refusals against the backend's register", () => {
-  /* Before every comparison below: a test looping over an empty declared list maps nothing and
-     stays green. An empty list here is the harness failing, not the source. */
-  it("finds rules declared against both endpoints and against the entry they reuse", () => {
-    assert.ok(declaredCodes(ANNEHMEN_OPERATION).length > 0, `no rule is declared against ${ANNEHMEN_OPERATION}`);
-    assert.ok(declaredCodes(ABLEHNEN_OPERATION).length > 0, `no rule is declared against ${ABLEHNEN_OPERATION}`);
-    assert.ok(declaredCodes(ENTRY_OPERATION).length > 0, `no rule is declared against ${ENTRY_OPERATION}`);
-  });
+describe("the triage's refusals against the codes its endpoints publish", () => {
+  it("maps every code the acceptance publishes", () => {
+    const published = publishedRefusals(ANNEHMEN_OPERATION);
 
-  it("maps every code the acceptance declares", () => {
-    const declared = declaredCodes(ANNEHMEN_OPERATION);
-
-    // A floor rather than the exact set: the register grows an operation onto a rule whenever an
-    // endpoint starts reusing it, and what harms an admin is a declared code nobody maps.
+    // A floor rather than the exact set: the backend grows an operation onto a rule whenever an
+    // endpoint starts reusing it, and what harms an admin is a published code nobody maps.
     for (const code of ["REQ-BEWERBUNG-001", "REQ-BEWERBUNG-002"]) {
-      assert.ok(declared.includes(code), `${code} is no longer declared against the acceptance`);
+      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
     }
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the acceptance and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps every code the decline declares", () => {
-    const declared = declaredCodes(ABLEHNEN_OPERATION);
-
-    assert.deepEqual(declared, ["REQ-BEWERBUNG-001"]);
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the decline and reaches the admin unmapped`);
+    for (const code of published) {
+      assert.notEqual(
+        adminAnswer(ANNEHMEN_OPERATION, code, mapTriageRefusal),
+        null,
+        `${code} is published on the acceptance and reaches the admin unmapped`,
+      );
     }
   });
 
-  /* Pinned through the SERVICES the acceptance calls, not only through the operation strings: those
-     are typed by hand on each rule, while which entry rules can refuse an acceptance follows from
-     the calls. */
-  it("maps the entry rules the acceptance reuses", () => {
-    assert.ok(
-      ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
-      `the acceptance no longer reaches ${ENTRY_CHOKE_POINT}, so the group rules cannot refuse it`,
+  it("maps every code the decline publishes", () => {
+    const published = publishedRefusals(ABLEHNEN_OPERATION);
+
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-BEWERBUNG-001"],
     );
-    assert.ok(TEAMS_CRUD.includes("find_entry_refusal("), `${ENTRY_CHOKE_POINT} no longer judges the group's own rule`);
-    assert.ok(ADMIN_ROUTER.includes("find_club_entry_refusal("), "the acceptance no longer judges the club's own entry");
+    for (const code of published) {
+      assert.notEqual(
+        adminAnswer(ABLEHNEN_OPERATION, code, mapTriageRefusal),
+        null,
+        `${code} is published on the decline and reaches the admin unmapped`,
+      );
+    }
+  });
+
+  /* Asked of the acceptance itself rather than of the entry endpoint: `annehmen_bewerbung` reaches the
+     season's entry services, so each of their rules is one an acceptance can be refused on. */
+  it("maps the entry rules the acceptance reuses", () => {
+    const published = publishedRefusals(ANNEHMEN_OPERATION);
 
     for (const code of REUSED_ENTRY_CODES) {
-      const rule = DECLARED_RULES.find((declared) => declared.code === code);
-
-      assert.ok(rule, `${code} is declared by no rule at all`);
-      assert.ok(
-        REUSED_SERVICES.some((service) => rule.source.includes(service)),
-        `${code} is implemented by neither service the acceptance calls`,
+      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
+      assert.notEqual(
+        mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, code)),
+        null,
+        `${code} can refuse an acceptance and the mapper does not answer it`,
       );
-      assert.ok(mappedCodes.includes(code), `${code} can refuse an acceptance and the mapper does not answer it`);
     }
   });
 
+  /* A new school's club is created with the Kürzel the school typed, so the acceptance's unique index
+     is that Kürzel, and the generic conflict would name no way out of it. */
   it("answers the Kürzel collision with the repair rather than the generic conflict", () => {
-    assert.ok(EXCEPTION_HANDLERS.includes('HTTP_409_CONFLICT, "DB-COMMON-002"'), "a duplicate key no longer arrives as a 409");
-    assert.match(MAPPER, /case "DB-COMMON-002":/, "the Kürzel collision falls through to the generic conflict message");
-    assert.match(MAPPER, /Kürzel des anderen Teams/, "the collision names no way out of itself");
+    assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
+    assert.match(
+      mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY))?.error ?? "",
+      /Kürzel des anderen Teams/,
+      "the collision names no way out of itself",
+    );
   });
 
-  /* The register above pins that the code is answered; this pins WHAT it answers. Which of the
-     school's fields fails never reaches the wire, so the message names the candidates, and no edit
-     path turns the application into a shape acceptance takes. */
+  /* The loop above pins that it is answered, this what it says. Which of the school's fields
+     fails never reaches the wire, so the message names the candidates, and no edit path turns the
+     application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
-    assert.match(MAPPER, /case "REQ-BEWERBUNG-003":/, "a school no club can be created from falls through to the generic conflict");
-    assert.match(MAPPER, /Team, vollständiger Name, Kürzel, Adresse oder Website/, "the refusal names no field an administrator could look at");
-    assert.match(MAPPER, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
+    const refusal = mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
+
+    assert.match(
+      refusal,
+      /Team, vollständiger Name, Kürzel, Adresse oder Website/,
+      "the refusal names no field an administrator could look at",
+    );
+    assert.match(refusal, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
   });
 
-  /* Found through the SERVICE rather than by its number, which is the backend's to assign. A code
-     the mapper misses falls through to the 409 fallback (`.claude/rules/cross-surface.md`). */
+  /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
+     mapper misses falls through to the 409 fallback (`.claude/rules/cross-surface.md`). */
   it("answers the acceptance's refusal over an unconfirmed seat", () => {
-    const rule = DECLARED_RULES.find((declared) => declared.source.includes("find_unconfirmed_kontakte_refusal"));
-
-    assert.ok(rule, "no rule is implemented by find_unconfirmed_kontakte_refusal");
-    assert.ok(rule.operations.includes(ANNEHMEN_OPERATION), `${rule.code} is not declared against the acceptance`);
-    assert.ok(mappedCodes.includes(rule.code), `${rule.code} refuses an acceptance over an unconfirmed seat and the mapper does not answer it`);
+    assert.ok(
+      publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-BEWERBUNG-013"),
+      "the unconfirmed seat's rule is no longer published on the acceptance",
+    );
+    assert.match(mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
   });
 
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of mappedCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped here and declared by no rule`,
-      );
-    }
+  it("maps no rule neither decision publishes", () => {
+    const published = new Set([...publishedRefusals(ANNEHMEN_OPERATION), ...publishedRefusals(ABLEHNEN_OPERATION)]);
+
+    assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
+    for (const code of mappedCodes) assert.ok(published.has(code), `${code} is mapped here and published on neither decision`);
   });
 
   /* `REQ-ENTER-004` guards a group MOVE, which no acceptance performs: a row is created here, never
      moved. Reaching it from this action would refuse an acceptance over fixtures it does not touch. */
   it("leaves the group move's own refusal on the move", () => {
     assert.ok(!mappedCodes.includes("REQ-ENTER-004"), "the triage answers the group move's refusal");
-    assert.ok(!declaredCodes(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the register moved the lock onto the acceptance");
+    assert.ok(!publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the document moved the lock onto the acceptance");
   });
 });
 
@@ -314,36 +316,29 @@ describe("how each endpoint is addressed", () => {
   });
 });
 
-/** One branch with its comments dropped: only a rendered string is German a reader ever sees. */
-const withoutComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
-
 /** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
 const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
 
-/**
- * Where one surface's German comes from. A mapper hands over its own text and the cut below finds the
- * branch; a builder hands over what it returned, its title being a template literal no cut can read.
- */
-type RenderingSource = { where: string; source: string } | { where: string; rendered: readonly string[] };
+/** Where one surface's German comes from: what it rendered, split into its sentences. */
+type RenderingSource = { where: string; rendered: readonly string[] };
 
 /**
  * Every rendering of one refusal code. Read across the surfaces rather than out of one: what a code
  * means is the backend's, and two surfaces naming that meaning differently is what this looks for.
  */
-function renderingsOf(code: string, sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
-  return sources.flatMap((source) =>
-    "rendered" in source
-      ? [{ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }]
-      : source.source
-          .split(`"${code}"`)
-          .slice(1)
-          // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
-          .map((tail, index) => {
-            const german = withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? "");
+function renderingsOf(sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
+  return sources.map((source) => ({ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }));
+}
 
-            return { where: `${source.where} #${String(index + 1)}`, german: german, sentences: sentencesOf(german) };
-          }),
-  );
+/**
+ * What one mapper renders for one code, one sentence per entry: a banner's reason and its repair,
+ * or a field's message. Nothing where the mapper leaves the code, which the counts below then catch.
+ */
+function renderedBy(where: string, answer: string | { error?: string; fieldErrors?: Record<string, string> } | null): RenderingSource[] {
+  if (answer === null) return [];
+  const texts = typeof answer === "string" ? [answer] : [answer.error ?? "", ...Object.values(answer.fieldErrors ?? {})];
+
+  return [{ where: where, rendered: texts.flatMap((text) => text.split(/(?<=\.)\s+/)).filter((sentence) => sentence !== "") }];
 }
 
 /**
@@ -379,9 +374,13 @@ const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): Re
  */
 const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
-const RETIRED_RENDERINGS = renderingsOf("REQ-ENTER-005", [
-  { where: "the triage", source: MAPPER },
-  { where: "the club editor", source: TEAMS_ACTIONS },
+const RETIRED_RENDERINGS = renderingsOf([
+  ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy(
+    "the club editor's replacement",
+    mapReplacementRefusal(refusedOn("POST /teams/{team_id}/saisons/{saison_id}/replace", "REQ-ENTER-005")),
+  ),
   ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
 
@@ -481,9 +480,9 @@ const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,
-  renderings: renderingsOf(code, [
-    { where: "the triage", source: MAPPER },
-    { where: "the club editor", source: TEAMS_ACTIONS },
+  renderings: renderingsOf([
+    ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, code))),
+    ...renderedBy("the club editor", mapEntryRefusal(refusedOn(ENTRY_OPERATION, code))),
   ]),
 }));
 
@@ -656,25 +655,20 @@ describe("what each decision message is told", () => {
 });
 
 describe("the re-sent confirmation link", () => {
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(ERNEUT_OPERATION).length > 0, `no rule is declared against ${ERNEUT_OPERATION}`);
-  });
-
-  it("maps every code the re-send declares", () => {
-    for (const code of declaredCodes(ERNEUT_OPERATION)) {
-      assert.ok(erneutCodes.includes(code), `${code} is declared against the re-send and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of erneutCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the re-send and declared by no rule`,
+  it("maps every code the re-send publishes", () => {
+    for (const code of publishedRefusals(ERNEUT_OPERATION)) {
+      assert.notEqual(
+        adminAnswer(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
+        null,
+        `${code} is published on the re-send and reaches the admin unmapped`,
       );
     }
+  });
+
+  it("maps no rule the re-send does not publish", () => {
+    const published = publishedRefusals(ERNEUT_OPERATION);
+
+    for (const code of erneutCodes) assert.ok(published.includes(code), `${code} is mapped by the re-send and published on it by no rule`);
   });
 
   it("addresses its own endpoint, with the seat in the path", () => {
@@ -819,25 +813,22 @@ describe("the re-sent confirmation link", () => {
 });
 
 describe("the corrected contact address", () => {
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(KORREKTUR_OPERATION).length > 0, `no rule is declared against ${KORREKTUR_OPERATION}`);
-  });
-
-  it("maps every code the correction declares", () => {
-    for (const code of declaredCodes(KORREKTUR_OPERATION)) {
-      assert.ok(korrekturCodes.includes(code), `${code} is declared against the correction and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of korrekturCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the correction and declared by no rule`,
+  it("maps every code the correction publishes", () => {
+    for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
+      assert.notEqual(
+        adminAnswer(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
+        null,
+        `${code} is published on the correction and reaches the admin unmapped`,
       );
     }
+  });
+
+  it("maps no rule the correction does not publish", () => {
+    const published = publishedRefusals(KORREKTUR_OPERATION);
+
+    assert.ok(korrekturCodes.length > 0, "no refusal code could be read out of the correction's mapper at all");
+    for (const code of korrekturCodes)
+      assert.ok(published.includes(code), `${code} is mapped by the correction and published on it by no rule`);
   });
 
   it("addresses its own endpoint, with the seat in the path and the address in the body", () => {
@@ -899,7 +890,8 @@ describe("the person seated where one stepped out", () => {
      reading an empty string and passing. */
   it("cuts the reseat's mapper and its action out of the file", () => {
     assert.ok(SITZ_MAPPER.includes("error.serverErrorCode"), "the reseat mapper's switch is outside its slice");
-    assert.ok(!SITZ_MAPPER.includes("besetzenKontaktSitz("), "the reseat mapper's slice reaches the write");
+    assert.ok(KORREKTUR_MAPPER.includes("error.serverErrorCode"), "the correction mapper's switch is outside its slice");
+    assert.ok(!KORREKTUR_MAPPER.includes("Neu besetzt"), "the correction mapper's slice reaches the reseat's");
 
     assert.ok(SITZ_ACTION.includes("besetzenKontaktSitz(validated.data)"), "the reseat's call is outside its slice");
     assert.ok(!KORREKTUR_ACTION.includes("besetzenKontaktSitz("), "the correction's slice still runs to the end of the file");
@@ -907,25 +899,20 @@ describe("the person seated where one stepped out", () => {
     assert.ok(sitzCodes.length > 0, "no refusal code could be read out of the reseat's mapper at all");
   });
 
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(SITZ_OPERATION).length > 0, `no rule is declared against ${SITZ_OPERATION}`);
-  });
-
-  it("maps every code the reseat declares", () => {
-    for (const code of declaredCodes(SITZ_OPERATION)) {
-      assert.ok(sitzCodes.includes(code), `${code} is declared against the reseat and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of sitzCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the reseat and declared by no rule`,
+  it("maps every code the reseat publishes", () => {
+    for (const code of publishedRefusals(SITZ_OPERATION)) {
+      assert.notEqual(
+        adminAnswer(SITZ_OPERATION, code, mapKontaktSitzRefusal),
+        null,
+        `${code} is published on the reseat and reaches the admin unmapped`,
       );
     }
+  });
+
+  it("maps no rule the reseat does not publish", () => {
+    const published = publishedRefusals(SITZ_OPERATION);
+
+    for (const code of sitzCodes) assert.ok(published.includes(code), `${code} is mapped by the reseat and published on it by no rule`);
   });
 
   /* The correction's own path with the `/email` segment dropped, and it takes a body: everything but

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { BEWERBUNG_DUBLETTE_LABEL, markBewerbungDubletten } from "./duplicates.ts";
 

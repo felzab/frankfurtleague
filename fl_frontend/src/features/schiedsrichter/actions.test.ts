@@ -3,6 +3,7 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, describe, it, mock } from "node:test";
 
@@ -14,10 +15,20 @@ import { userEvent } from "@testing-library/user-event";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
+import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
+import {
+  mapAnonymiseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
 import type { ReactNode } from "react";
 
@@ -29,6 +40,22 @@ const { calls, answerWith } = doubleActions({
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
+
+/* The referee's own link is worded beside its reads, which reach two packages this process cannot
+   load; no component a case renders reaches either. */
+const PACKAGE_DOUBLES: Record<string, string> = {
+  "server-only": "export {};",
+  "next/headers": "export const headers = async () => new Headers();",
+};
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const double = PACKAGE_DOUBLES[specifier];
+    return double === undefined
+      ? nextResolve(specifier, context)
+      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
+  },
+});
+const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
@@ -58,13 +85,16 @@ const PAGE = readFileSync(
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
-const ANONYMISE_CODES = ["REQ-ANONYMISE-004"];
+const CREATE_OPERATION = "POST /schiedsrichter";
+const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
+const EINLADEN_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen";
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
+const RETIRE_OPERATION = "DELETE /schiedsrichter/{schiedsrichter_id}";
+const BESTAETIGUNG_OPERATION = "POST /schiedsrichter/bestaetigung";
+const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
 /* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
 const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
-/* Read per slice rather than over the file: three mappers live here, and a search over the whole source
-   is satisfied by whichever one happens to carry the arm. */
-const ANONYMISE_MAP = sliceBetween(ACTIONS, "function mapAnonymiseRefusal", "export async function postSchiedsrichterAction");
 const RETIRE_ACTION = sliceBetween(
   ACTIONS,
   "export async function deleteSchiedsrichterAction",
@@ -77,20 +107,11 @@ const RENAME_ACTION = sliceBetween(
   "export async function patchSchiedsrichterAction",
   "export async function deleteSchiedsrichterAction",
 );
-
-/* The first mapper in the module, so its slice ends where the retire's begins. */
-const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
-const GESPERRT_MAP = sliceBetween(ACTIONS, "function mapGesperrteAdresseRefusal", "function mapEinladenRefusal");
-const EINLADEN_MAP = sliceBetween(ACTIONS, "function mapEinladenRefusal", "const SCHON_BESTAETIGT");
-/** The referee's OWN link is read rather than written by an admin action, so its German sits here. */
-const QUERIES = readFileSync(path.resolve(import.meta.dirname, "queries.ts"), "utf8");
 const CREATE_ACTION = sliceBetween(
   ACTIONS,
   "export async function postSchiedsrichterAction",
   "export async function patchSchiedsrichterAction",
 );
-/* The venue's copy of the same sentence, read where it is written rather than retyped here. */
-const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
 
 /** The route that REPLAYS the save, whose German is the third site `.claude/rules/cross-surface.md` names. */
 const UNDO_ROUTE = readFileSync(
@@ -104,12 +125,12 @@ const REACTIVATE_ACTION = sliceBetween(
   "export async function anonymiseSchiedsrichterAction",
 );
 
-describe("the anonymisation against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the action out of the file before reading them", () => {
-    assert.ok(ANONYMISE_MAP.includes("serverErrorCode"), "the anonymisation's arms are outside its slice");
-    assert.ok(!ANONYMISE_MAP.includes("REQ-RETIRE-004"), "the anonymisation's slice runs back into the retire's mapper");
+/** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
+const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
+describe("the referee's writes against the codes their endpoints publish", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
+  it("cuts each action out of the file before reading it", () => {
     assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
@@ -121,15 +142,12 @@ describe("the anonymisation against the backend's refusal register", () => {
   });
 
   /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
-     opening the row every erased referee's fixtures point at. A rule declared later and left unmapped
+     opening the row every erased referee's fixtures point at. A rule published later and left unmapped
      fails this. */
-  it("maps every refusal its endpoint declares", () => {
-    const declared = declaredCodes(ANONYMISE_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, ANONYMISE_CODES);
-    for (const code of declared)
-      assert.ok(ANONYMISE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+  it("maps every refusal the anonymisation publishes", () => {
+    for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
+      assert.notEqual(adminAnswer(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
 
     assert.ok(ANONYMISE_ACTION.includes("mapAnonymiseRefusal(error)"), "the anonymisation consults some other mapper");
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
@@ -137,53 +155,74 @@ describe("the anonymisation against the backend's refusal register", () => {
 
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the 409 fallback, which names an entry rather than a rule. */
-  it("words the one refusal the reactivation declares", () => {
-    assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), ["REQ-SCHIEDSRICHTER-007"]);
+  it("words every refusal the reactivation publishes", () => {
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        adminAnswer(REACTIVATE_OPERATION, code, mapReactivateRefusal),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
+    }
+
+    assert.ok(REACTIVATE_ACTION.includes("mapReactivateRefusal(error)"), "the reactivation consults no mapper");
   });
 
   /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
      the administrator an equivalent entry exists (`.claude/rules/cross-surface.md`). */
   it("words the ban the replayed save can be refused on, at the undo route too", () => {
-    for (const code of declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}")) {
+    for (const code of publishedRefusals(SAVE_OPERATION)) {
+      // The shared reader's own sentence, which the replay reaches as the save does.
+      if (code === DUPLICATE_KEY) continue;
       assert.ok(UNDO_ROUTE.includes(code), `${code} reaches the admin through the undo as an unhandled conflict`);
     }
   });
 
   /* Both writes mint where an address was given, so both meet the ban list, and one mapper words it
      for the box that holds the value the list refused. */
-  it("maps every refusal the create and the save declare, on the box that owes the link", () => {
-    assert.deepEqual(declaredCodes("POST /schiedsrichter"), ["REQ-SCHIEDSRICHTER-007"]);
-    // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
-    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), ["REQ-SCHIEDSRICHTER-007"]);
-
-    assert.ok(
-      GESPERRT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-007"`),
-      "the banned address reaches the admin as an unhandled conflict",
-    );
-    assert.ok(GESPERRT_MAP.includes(`"kontakt.email"`), "the ban lands anywhere but the box that holds the refused address");
+  it("maps every refusal the create and the save publish", () => {
+    for (const [operation, published] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
+      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
+    ] as const) {
+      assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
+      for (const code of published) {
+        assert.notEqual(adminAnswer(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+      }
+    }
   });
 
-  /* Every refusal the re-send declares, worded at the panel: nothing there is a form, so each is a
-     sentence rather than a field error. */
-  it("words every refusal the re-send declares", () => {
-    const declared = declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen");
+  it("lands the ban on the box that holds the refused address", () => {
+    assert.deepEqual(Object.keys(saveAnswer(refusedOn(CREATE_OPERATION, "REQ-SCHIEDSRICHTER-007"))?.fieldErrors ?? {}), ["kontakt.email"]);
+  });
 
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"]);
-    for (const code of declared) assert.ok(EINLADEN_MAP.includes(`case "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+  /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
+     sentence rather than a field error. */
+  it("words every refusal the re-send publishes", () => {
+    for (const code of publishedRefusals(EINLADEN_OPERATION)) {
+      assert.notEqual(adminAnswer(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
   /* The public page's own two endpoints. Their German is the visitor's, so it is worded where the
-     page reads them rather than in an admin action's mapper. */
-  it("words every refusal the referee's own link declares", () => {
-    const declared = [...declaredCodes("POST /schiedsrichter/bestaetigung"), ...declaredCodes("POST /schiedsrichter/bestaetigung/ansicht")];
-
-    assert.ok(declared.length >= 4, `expected the link's four refusals, found ${String(declared.length)}`);
-    for (const code of new Set(declared)) assert.ok(QUERIES.includes(`case "${code}"`), `${code} reaches the visitor as an unhandled conflict`);
+     page reads them rather than in an admin action's mapper, and no shared fallback stands behind it. */
+  it("words every refusal the referee's own link publishes", async () => {
+    for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
+      const answered = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => Promise.resolve(16));
+      assert.notEqual(answered, null, `${code} reaches the visitor as an unhandled conflict`);
+    }
+    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
+      assert.notEqual(
+        mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)),
+        null,
+        `${code} reaches the visitor as an unhandled conflict`,
+      );
+    }
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
-    assert.deepEqual(declaredCodes("DELETE /schiedsrichter/{schiedsrichter_id}"), ["REQ-RETIRE-004"]);
+    for (const code of publishedRefusals(RETIRE_OPERATION)) {
+      assert.notEqual(adminAnswer(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
     assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
@@ -191,33 +230,30 @@ describe("the anonymisation against the backend's refusal register", () => {
   /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
      back: the person's row is gone, so the repair names the referee they meant instead. */
   it("words the ghost's refusal without offering a retry on it", () => {
-    assert.match(ANONYMISE_MAP, /keine Person/, "the refusal does not say why this entry cannot be erased");
-    assert.doesNotMatch(ANONYMISE_MAP, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
+    const refusal = String(mapAnonymiseRefusal(refusedOn(ANONYMISE_OPERATION, "REQ-ANONYMISE-004")));
+
+    assert.match(refusal, /keine Person/, "the refusal does not say why this entry cannot be erased");
+    assert.doesNotMatch(refusal, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
   });
 });
 
 describe("the referee name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the create out of the file before reading them", () => {
-    assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
-    assert.ok(!NAME_MAP.includes("REQ-RETIRE-004"), "the duplicate name's slice runs on into the retire's mapper");
-
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
+  it("cuts the create out of the file before reading it", () => {
     assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
     assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
   });
 
   /* `uniq_schiedsrichter_name` is this collection's only unique index, so the 409 it raises is always
      the name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about
-     an id, which names no box and no way out. */
+     an entry, which names no box and no way out. */
   it("lands the duplicate on the name box rather than in a banner", () => {
-    assert.match(NAME_MAP, /serverErrorCode === "DB-COMMON-002"/, "the duplicate name reaches the admin as an unhandled conflict");
-    assert.match(NAME_MAP, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the duplicate name lands as a bare sentence");
     // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
-    assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
+    assert.deepEqual(mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)), { fieldErrors: { name: "Diesen Namen gibt es schon." } });
   });
 
-  /* The unique index is the only 409 either write raises now, so both consult this mapper and nothing
-     else: one left unmapped drops the duplicate into the conflict fallback, which names no box. */
+  /* The ban's mapper stands behind the name's in both actions, so the duplicate must be claimed by the
+     first or it drops into the conflict fallback, which names no box. */
   it("consults the mapper on the create and on the edit", () => {
     assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
     assert.ok(RENAME_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
@@ -226,7 +262,10 @@ describe("the referee name a unique index already holds", () => {
   /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one
      copy would tell two of them something the other two do not say. */
   it("words a venue's duplicate name the same way", () => {
-    assert.match(SPIELORTE_ACTIONS, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the two slices word one refusal apart");
+    assert.deepEqual(
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
+      mapSpielortNameRefusal(refusedOn("POST /spielorte", DUPLICATE_KEY)),
+    );
   });
 });
 

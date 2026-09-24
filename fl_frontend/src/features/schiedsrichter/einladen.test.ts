@@ -185,7 +185,7 @@ describe("the re-send the editor's panel presses", () => {
     });
   }
 
-  /* The one refusal here that no endpoint declares, so `declaredCodes` never reaches it and a verb
+  /* The one refusal here that no endpoint publishes, so `publishedRefusals` never reaches it and a verb
      drifting back would stand unseen beside the four sentences that say „senden“. */
   it("names the send in the league's own verb where the mint was not acknowledged", async () => {
     recorders.__flEinladenMint = () => ({ acknowledged: 0, bestaetigung: null });

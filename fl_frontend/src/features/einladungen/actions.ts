@@ -5,7 +5,6 @@ import { refresh } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
-import { APIBadStatusError } from "@/core/errors";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -18,41 +17,12 @@ import { bestaetigteEmpfaenger } from "./empfaenger";
 import { adressenSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
 import { deleteEinladung, postEinladung, postEinladungVersand } from "./mutations";
 import { getEinladung, getEinladungVersandVorschau } from "./queries";
+import { mapEinladungRefusal } from "./refusals";
 import { FLEinladungKeyPayloadSchema, FLEinladungMailPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
 import type { EinladungVersandErgebnis } from "./types";
-
-/**
- * **The mint, the revoke, the preview and the season-wide send share this mapper**: the rules are
- * the season's and the junction's, and which press met one is nothing an administrator acts on
- * differently.
- */
-function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    case "REQ-EINLADUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Dieses Team steht nicht in dieser Saison",
-          repair: "Nimm es zuerst in die Saison auf",
-          where: "Saison",
-        }),
-      };
-    case "REQ-EINLADUNG-002":
-      return {
-        error: buildRefusal({
-          reason: "Diese Saison ist abgeschlossen, und für eine abgeschlossene Saison gibt es keine Registrierungslinks mehr",
-          repair: "Wähle eine laufende oder geplante Saison",
-        }),
-      };
-    default:
-      return null;
-  }
-}
 
 /**
  * Mints the team's link for the season, closing any live one in the same transaction. **The raw link

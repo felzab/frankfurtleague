@@ -5,11 +5,13 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
+import { mapSpieltagRefusal } from "./refusals.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
 
@@ -19,7 +21,6 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm");
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieltage", "undo", "route.ts"), "utf8");
 const EDIT_FORM = readFileSync(path.resolve(EDITOR_DIR, "AdminSpieltagEditForm.tsx"), "utf8");
 /** The span validator the pickers feed, which is the backend's and not the Zod mirror's. */
@@ -29,35 +30,20 @@ const HINT_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormZeitraumSection.
 
 const PATCH_OPERATION = "PATCH /spieltage/{spieltag_id}";
 
-/** Every refusal the matchday PATCH declares, read off the register rather than restated here. */
-const PATCH_CODES = declaredCodes(PATCH_OPERATION);
-
 /**
- * The ordering rule, found by the symbol implementing it: its code is renumbered whenever the
- * programme reserves that number, and a restated one would then prove a rule nobody wrote.
+ * The ordering rule, `fl_backend/app/api/spieltage/services.py :: find_spieltag_order_refusal`'s code.
+ * Restated rather than looked up: the case below fails on a renumbering, and the loop over the
+ * published codes then names the one the mapper leaves unanswered.
  */
-function orderingCode(): string {
-  return DECLARED_RULES.find((rule) => rule.source.includes("find_spieltag_order_refusal"))?.code ?? "";
-}
-
-/** The body of one `serverErrorCode === "<code>"` branch, cut at the brace that closes it. */
-function refusalArm(code: string): string {
-  const rest = ACTIONS.split(`error.serverErrorCode === "${code}"`)[1] ?? "";
-  // The closing brace and not the next branch: the LAST arm has none after it, and everything the
-  // module holds below would then answer an assertion meant for one message.
-  return rest.split("\n  }")[0] ?? "";
-}
+const ORDERING_CODE = "REQ-DATE-008";
 
 /**
- * The German one arm renders, its literals joined back into one string. A long message is written as
- * a concatenation, so the seam falls wherever the line ran out and lands mid-phrase often enough.
+ * The German the mapper renders for one code, as a sentence. Thrown rather than answered as "": a
+ * `doesNotMatch` below passes over an empty message while the German it is about is unwritten.
  */
 function refusalMessage(code: string): string {
-  const message = [...refusalArm(code).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1]).join("");
-
-  // Thrown rather than answered as "": a `doesNotMatch` below passes over an empty message while the
-  // German it is about is unwritten.
-  if (message === "") throw new Error(`the mapper spells no message for ${code}`);
+  const message = mapSpieltagRefusal(refusedOn(PATCH_OPERATION, code))?.error ?? "";
+  if (message === "") throw new Error(`the mapper words no message for ${code}`);
 
   return message;
 }
@@ -79,12 +65,9 @@ function replayRow(code: string): string {
   return new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
 }
 
-describe("the Spieltag refusals against the backend's register", () => {
-  it("finds the matchday PATCH's rules at all", () => {
-    // A floor rather than the list: a restated list fails on a renumbering, which is the one thing
-    // here that changes without a German message going missing.
-    assert.ok(PATCH_CODES.length >= 3, `expected at least 3 declared refusals, found ${String(PATCH_CODES.length)}`);
-    assert.match(orderingCode(), /^REQ-DATE-\d{3}$/);
+describe("the Spieltag refusals against the codes the matchday PATCH publishes", () => {
+  it("publishes the ordering rule on the matchday PATCH", () => {
+    assert.ok(publishedRefusals(PATCH_OPERATION).includes(ORDERING_CODE), `${ORDERING_CODE} is no longer the ordering rule's code`);
   });
 
   /* Hoisted rather than spelled per row: a row keeping its own copy would reach the admin twice in
@@ -97,11 +80,17 @@ describe("the Spieltag refusals against the backend's register", () => {
     assert.ok(UNDO_ROUTE.includes("`${refusal} ${CHANGE_STANDS}`"), "a refused replay answers the cause with no outcome beside it");
   });
 
-  for (const code of PATCH_CODES) {
+  for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
-      const row = replayRow(code);
+      assert.notEqual(
+        adminAnswer(PATCH_OPERATION, code, mapSpieltagRefusal),
+        null,
+        `${code} falls through to the generic conflict message when the edit is saved`,
+      );
+      // The shared reader's own sentence, which the replay reaches as the save does.
+      if (code === DUPLICATE_KEY) return;
 
-      assert.notEqual(refusalArm(code), "", `${code} falls through to the generic conflict message when the edit is saved`);
+      const row = replayRow(code);
       assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
       // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
       assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
@@ -115,8 +104,8 @@ describe("the German the ordering refusal renders", () => {
      message naming one direction misdirects the admins who met the other. The ordering is the claim
      all three share, and one wording keeps it so. */
   it("claims the ordering itself rather than the direction one admin happened to meet", () => {
-    assert.match(refusalMessage(orderingCode()), /in die Reihenfolge der Spieltage seiner Phase passen/);
-    assert.match(replayRow(orderingCode()), /in die Reihenfolge der Spieltage seiner Phase/);
+    assert.match(refusalMessage(ORDERING_CODE), /in die Reihenfolge der Spieltage seiner Phase passen/);
+    assert.match(replayRow(ORDERING_CODE), /in die Reihenfolge der Spieltage seiner Phase/);
     assert.match(spanWarningBody(), /in die Reihenfolge der Spieltage seiner Phase passen/);
   });
 
@@ -124,8 +113,8 @@ describe("the German the ordering refusal renders", () => {
      matchdays alone. A message naming the immediate neighbours sends the admin at a row reading
      "Noch kein Zeitraum", which states nothing they can act on. */
   it("keeps the admin off the undated matchdays the endpoint steps over", () => {
-    assert.match(refusalMessage(orderingCode()), /schon einen Zeitraum haben/);
-    assert.match(replayRow(orderingCode()), /schon einen Zeitraum haben/);
+    assert.match(refusalMessage(ORDERING_CODE), /schon einen Zeitraum haben/);
+    assert.match(replayRow(ORDERING_CODE), /schon einen Zeitraum haben/);
     assert.match(spanWarningBody(), /schon einen Zeitraum haben/);
   });
 
@@ -133,7 +122,7 @@ describe("the German the ordering refusal renders", () => {
      where this matchday is to be played first, this one's where it is to be postponed. Only the
      goal names the right row in both. */
   it("names the escape by the goal, which is the referent both arms share", () => {
-    const message = refusalMessage(orderingCode());
+    const message = refusalMessage(ORDERING_CODE);
 
     assert.match(message, /Das Ende ist daran nicht gebunden und darf weiter reichen/);
     assert.match(message, /die Spiele des Spieltags, der später gespielt werden soll/);
@@ -143,7 +132,7 @@ describe("the German the ordering refusal renders", () => {
      `beginn > following.beginn`, so every refusal it can produce carries an `ende` past the
      neighbour. An imperative to widen it would name a step the admin has taken. */
   it("asks for no wider Ende, which the refused payload already carries", () => {
-    assert.doesNotMatch(refusalMessage(orderingCode()), /Erweitere/);
+    assert.doesNotMatch(refusalMessage(ORDERING_CODE), /Erweitere/);
   });
 });
 
@@ -206,7 +195,10 @@ describe("the one date a final's Spieltag is given", () => {
      `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`'s unhandled-refusal toast. */
   it("keeps that picker on the one path a refusal can land on", () => {
     assert.deepEqual(fieldNames(SINGLE_DAY), ["beginn"]);
-    assert.match(ACTIONS, /fieldErrors: \{ beginn:/);
+    const landed = publishedRefusals(PATCH_OPERATION).flatMap((code) =>
+      Object.keys(mapSpieltagRefusal(refusedOn(PATCH_OPERATION, code))?.fieldErrors ?? {}),
+    );
+    assert.deepEqual([...new Set(landed)], ["beginn"]);
   });
 
   /* A label is a promise about the value under it, and this day is the matchday's end as much as its

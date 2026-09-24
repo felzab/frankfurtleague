@@ -775,13 +775,16 @@ section in place of one is the excuse that decision refuses.
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
 `fl_frontend/src/shared/components/ui/formSubmit.test.ts` (I32) among them.
-`fl_frontend/src/shared/testing/refusalRegister.ts` parses `fl_backend/app/core/domain.py` at test
-time, so each slice asserts its mapper covers the endpoint's own declared set rather than a list
-somebody typed. **A caller that ITERATES that answer asserts it first**, because a loop
-over an operation the register no longer names runs zero times and proves nothing; the assertion is
-the whole list where the codes are stable, and a floor on the count where one gets renumbered
-(`fl_frontend/src/features/spieltage/actions.test.ts`). **Each caller of `:: sliceBetween` pins its
-cut before reading it**, an assertion over a cut that has silently emptied proving nothing either.
+`fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` reads the codes
+`fl_backend/openapi.json` publishes on one operation's 409, so each slice asks its mapper about the
+endpoint's own published set rather than a list somebody typed, and **it throws for an operation
+publishing no 409**, because a loop over an empty answer runs zero times and proves nothing.
+`fl_frontend/src/core/refusalCoverage.test.ts` holds the other half (I368): every published 409 is
+asked about by some test, and no test asks about an operation publishing none. **`DB-COMMON-002` is the
+one code the shared 409 fallback words**, so an admin slice's mapper answers it only where a box
+holds the refused value (`fl_frontend/src/shared/testing/publishedRefusals.ts :: adminAnswer`).
+**Each caller of `fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween` pins its cut before
+reading it**, an assertion over a cut that has silently emptied proving nothing either.
 `fl_frontend/src/core/apiContract.test.ts` compares every Zod schema against the component
 `fl_backend/openapi.json` publishes (I17), discovering the schema modules by walking the
 tree — so a new slice is DISCOVERED without an edit and `core` gains no static import of `features`
@@ -1916,6 +1919,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I348 | **The application and registration forms renew their key only where a box carries the refusal**; any other answer keeps it                                                                                                                 | `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx` and `fl_frontend/src/features/registrierungen/components/views/RegistrierungFormPanel.tsx` through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`; `fl_frontend/src/features/bewerbungen/submissionKey.test.ts` and `fl_frontend/src/features/registrierungen/submissionKey.test.ts`                                                                                          |
 | I351 | **A repeated submission's refused change is titled as arrived**, never I250's „nicht abgeschickt“: the first submission stands                                                                                                             | `fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal` and `fl_frontend/src/features/registrierungen/utils.ts :: mapRegistrierungSubmitRefusal` mark it; `fl_frontend/src/features/bewerbungen/form.test.ts`, `fl_frontend/src/features/registrierungen/publicRoutes.test.ts`                                                                                                                                                                                     |
 | I356 | **A state update after an `await` in a transition runs in another `startTransition`** until React lifts the limitation: bare, it commits before the transition ends                                                                        | `fl_frontend/eslint.config.mjs :: TRANSITION_REWRAP` inside the awaiting callback, driven by `fl_frontend/eslint-plants/transitions.tsx.txt`; review where another function runs it                                                                                                                                                                                                                                                                                                     |
+| I368 | **Every code `fl_backend/openapi.json` publishes on a 409 is put to the mapper answering it**, or the shared fallback calls it a duplicate entry                                                                                           | `fl_frontend/src/core/refusalCoverage.test.ts`; each slice's test, through `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals`                                                                                                                                                                                                                                                                                                                                   |
 
 ## 3. Violation → remedy
 

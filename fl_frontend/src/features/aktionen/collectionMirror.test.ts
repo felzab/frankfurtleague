@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { AKTION_COLLECTION_LABELS } from "./constants.ts";
 

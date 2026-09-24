@@ -7,8 +7,8 @@ import { beforeEach, describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
@@ -118,7 +118,7 @@ const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSperreAct
 const REMOVE_ACTION = sliceBetween(ACTIONS, "export async function deleteSperreAction", null);
 
 describe("the address a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
   it("cuts both writes out of the file before reading them", () => {
     assert.ok(CREATE_ACTION.includes("postSperre(validated.data)"), "the create's call is outside its slice");
     assert.ok(!CREATE_ACTION.includes("deleteSperre("), "the create's slice runs on into the removal");
@@ -212,19 +212,7 @@ describe("the message the barred person is sent", () => {
   });
 });
 
-describe("the ban list's writes against the backend's refusal register", () => {
-  it("leaves the read and the removal with no declared rule to map", () => {
-    for (const operation of ["GET /sperrliste", "DELETE /sperrliste/{sperrliste_id}"]) {
-      assert.deepEqual(declaredCodes(operation), [], `${operation} declares a refusal no mapper answers`);
-    }
-  });
-
-  /* The floor under the two empty lookups above: each has to mean "this operation declares none"
-     rather than "the register was read as nothing at all", which a misspelled name also answers. */
-  it("reads a declared refusal where one exists", () => {
-    assert.deepEqual(declaredCodes("DELETE /spieler/{spieler_id}/erasure"), ["REQ-PURGE-001"]);
-  });
-
+describe("the ban list's removal", () => {
   /* A removal whose row another administrator has already lifted answers 404, which
      `fl_frontend/src/shared/utils/actionError.ts` already words as the reload it is. */
   it("leaves the removal with no mapper of its own", () => {

@@ -8,8 +8,8 @@ import { createElement as h } from "react";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
@@ -98,8 +98,6 @@ const PAGE_MARKUP = renderTree(
   }),
 );
 
-const ERASURE_OPERATION = "POST /kontakte/erasure";
-
 /* Each declaration is cut at the one named after it, the header above the first included: a boundary
    that stopped matching then fails the case pinning the cut rather than every case reading the slice. */
 const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseKontaktpersonAction", " * The three seats one club holds");
@@ -133,8 +131,8 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
   };
 }
 
-describe("the erasure against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
+describe("the erasure's refusals", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
   it("cuts the action out of the file before reading it", () => {
     assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
@@ -148,19 +146,12 @@ describe("the erasure against the backend's refusal register", () => {
     assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
   });
 
-  /* The endpoint refuses nothing: a person may want their details gone while the club they were
-     reached for still plays. A rule declared against it later fails here, rather than reaching the
-     admin unmapped. */
-  it("has no refusal to map, and maps none", () => {
-    assert.deepEqual(declaredCodes(ERASURE_OPERATION), []);
+  /* The endpoint refuses on no rule: a person may want their details gone while the club they were
+     reached for still plays. A rule published against it later is a 409 no test asks about, which
+     `fl_frontend/src/core/refusalCoverage.test.ts` fails on. */
+  it("maps no refusal of its own", () => {
     assert.ok(!ERASE_ACTION.includes("serverErrorCode"), "the erasure maps a code its endpoint does not answer");
     assert.ok(!ERASE_ACTION.includes("APIBadStatusError"), "the erasure catches a refusal its endpoint does not raise");
-  });
-
-  /* The floor under the case above: an empty list has to mean "this endpoint declares none" rather
-     than "the register was read as nothing at all". */
-  it("reads a declared refusal where one exists", () => {
-    assert.deepEqual(declaredCodes("DELETE /spieler/{spieler_id}/erasure"), ["REQ-PURGE-001"]);
   });
 });
 
