@@ -142,7 +142,7 @@ describe("what the dialog puts in front of the administrator", () => {
   });
 
   /* A read the edge cut wrote nothing, so it is the failed read it is: uncaught, the opening's
-     spinner stood for good and nothing was said. */
+     spinner stands for good and nothing is said. */
   it("answers a rejected opening read as a failed read", async () => {
     answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
     open();

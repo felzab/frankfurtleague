@@ -133,7 +133,7 @@ describe("the season's bulk invite send", () => {
   });
 
   /* A preview the edge cut wrote nothing, so it is the failed read it is: uncaught in the preview's
-     transition, it replaced the page with the error page. */
+     transition, it replaces the page with the error page. */
   it("answers a rejected preview as a failed read, and leaves the press at rest", async () => {
     const user = userEvent.setup();
     answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
