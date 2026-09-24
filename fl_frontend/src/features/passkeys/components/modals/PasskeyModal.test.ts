@@ -7,7 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
@@ -72,6 +72,24 @@ const controls = (): string[] => screen.getAllByRole("button").map((control) => 
 function addPressable(): boolean {
   const add = screen.getByRole("button", { name: "Passkey hinzufügen" });
   return !add.hasAttribute("disabled") && add.getAttribute("aria-disabled") !== "true";
+}
+
+/**
+ * Read once React has committed every update already scheduled: a release scheduled a moment
+ * before the read would otherwise land after it and pass unseen.
+ */
+async function settledPressable(): Promise<boolean> {
+  await act(async () => undefined);
+  return addPressable();
+}
+
+/** A step's answer, held back until the case lets it through. */
+function gate(): { held: Promise<void>; open: () => void } {
+  let open: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { held, open };
 }
 
 beforeEach(() => {
@@ -247,17 +265,15 @@ describe("the step-up both writes take", () => {
     ["done", { success: true, message: "Gelöscht." }],
     ["refused", { success: false, error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu." }],
   ] as const) {
-    it(`holds the add control while a removal runs, and releases it once the removal is ${outcome}`, async (t) => {
+    it(`holds the add control until the list is read again, and releases it once the removal is ${outcome}`, async (t) => {
       const user = userEvent.setup();
-      let release: () => void = () => undefined;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
+      const removal = gate();
+      const reread = gate();
+      answerWith(() => {
+        const listing = Promise.resolve({ success: true, message: "Gespeichert.", ...listed });
+        if (calls.at(-1)?.action === "removePasskeyAction") return removal.held.then(() => answered);
+        return calls.some((call) => call.action === "removePasskeyAction") ? reread.held.then(() => listing) : listing;
       });
-      answerWith(() =>
-        calls.at(-1)?.action === "removePasskeyAction"
-          ? held.then(() => answered)
-          : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
-      );
       open();
       await screen.findByText("Windows Hello");
       t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
@@ -271,15 +287,42 @@ describe("the step-up both writes take", () => {
           "the removal never reached its write",
         ),
       );
+      const whileRemoving = await settledPressable();
+      removal.open();
+      await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction", "the list was never read again"));
+      const whileRereading = await settledPressable();
+      reread.open();
 
-      const whileRunning = addPressable();
-      release();
-      await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction"));
-
-      assert.equal(whileRunning, false, "the add control was pressable while the removal ran");
+      assert.equal(whileRemoving, false, "the add control was pressable while the removal ran");
+      assert.equal(whileRereading, false, "the add control was pressable before the list was read again");
       await waitFor(() => assert.ok(addPressable(), "the add control stayed held after the removal was over"));
     });
   }
+
+  /* The step-up's own refusal reads nothing again, so the control reopens the moment it answers. */
+  it("holds the add control while the step-up runs, and releases it once the step-up is refused", async (t) => {
+    const user = userEvent.setup();
+    const stepUp = gate();
+    answer = () => stepUp.held.then(() => ({ data: null, error: { message: "cancelled", status: 400, statusText: "BAD_REQUEST" } }));
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+    await waitFor(() => assert.deepEqual(reached, ["signInPasskey"], "the removal never asked for the step-up"));
+    const whileAsserting = await settledPressable();
+    stepUp.open();
+
+    assert.equal(whileAsserting, false, "the add control was pressable while the step-up ran");
+    await waitFor(() => assert.ok(addPressable(), "the add control stayed held after the step-up was refused"));
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["readPasskeysAction"],
+      "a step-up that failed still reached the removal or a re-read",
+    );
+  });
 
   it("asserts before it deletes, and only on the second press", async (t) => {
     const user = userEvent.setup();
