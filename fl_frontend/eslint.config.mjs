@@ -298,6 +298,12 @@ const DYNAMIC_LOADS = [
   },
 ];
 
+/**
+ * A push or replace on any object named `*router`, `this.router` and an `appRouter` included, or a
+ * redirect. Its target is its FIRST argument: `redirect`'s second is the history mode.
+ */
+const NAVIGATION = String.raw`CallExpression:matches([callee.property.name=/^(?:push|replace)$/]:matches([callee.object.name=/(?:^r|R)outer$/], [callee.object.property.name=/(?:^r|R)outer$/]), [callee.name=/^(?:redirect|permanentRedirect)$/], [callee.property.name=/^(?:redirect|permanentRedirect)$/])`;
+
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
@@ -401,11 +407,11 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: String.raw`CallExpression:matches([callee.object.name="router"][callee.property.name=/^(?:push|replace)$/], [callee.name="redirect"]) > Literal.arguments[value=/^(?!\x2F|[a-z]+:)/]`,
+    selector: String.raw`${NAVIGATION} > Literal.arguments:first-child[value=/^(?!\x2F|[a-z]+:)/]`,
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {
-    selector: String.raw`CallExpression:matches([callee.object.name="router"][callee.property.name=/^(?:push|replace)$/], [callee.name="redirect"]) > TemplateLiteral.arguments:not([quasis.0.value.raw=/^(?:\x2F|[a-z]+:)/]):not([expressions.0.name="pathname"][quasis.0.value.raw=""])`,
+    selector: String.raw`${NAVIGATION} > TemplateLiteral.arguments:first-child:not([quasis.0.value.raw=/^(?:\x2F|[a-z]+:)/]):not([expressions.0.name="pathname"][quasis.0.value.raw=""])`,
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {

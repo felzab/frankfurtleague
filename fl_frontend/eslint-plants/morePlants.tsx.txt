@@ -30,3 +30,15 @@ export function plantedBacks(): void {
 export function plantedRedirect(): never {
   return redirect("spiele"); // expect: relative-nav
 }
+
+declare const appRouter: { push: (to: string) => void };
+declare const shell: { router: { replace: (to: string) => void } };
+declare const response: { redirect: (to: string) => void };
+declare const permanentRedirect: (to: string) => never;
+
+export function plantedNavigations(): void {
+  appRouter.push("teams"); // expect: relative-nav
+  shell.router.replace(`teams/${String(appRouter)}`); // expect: relative-nav
+  response.redirect("teams"); // expect: relative-nav
+  permanentRedirect("teams"); // expect: relative-nav
+}
