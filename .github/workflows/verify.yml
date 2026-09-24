@@ -159,8 +159,9 @@ jobs:
           # The sha check's test walks recent commits for one whose short form carries a digit and
           # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
           fetch-depth: 20
-      # The venv carries the repository's own ruff for the python under scripts/. The dev group
-      # alone: the checkers and their suite need nothing past the standard library.
+      # The venv carries the repository's own ruff, pyright and pytest for the python under scripts/,
+      # and the markdown-it-py the documentation gate reads with. The dev group alone: no checker
+      # and no case imports the application.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false

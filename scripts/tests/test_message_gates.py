@@ -829,8 +829,7 @@ def test_a_real_commit_is_judged_against_the_diff_it_carries() -> None:
 
 
 # Through pytest's fixture: a module imported by name is a `ModuleType`, whose attribute pyright
-# will not let a test assign and ruff's B010 will not let it `setattr`. Unannotated because
-# `pyrightconfig.json` names no environment.
+# will not let a test assign and ruff's B010 will not let it `setattr`.
 def test_a_diff_git_would_not_hand_over_is_failed_rather_than_skipped(monkeypatch) -> None:
     """An empty departure set and an unread one decide opposite things, so the diff nothing read is its own finding."""
     with tempfile.TemporaryDirectory() as scratch:

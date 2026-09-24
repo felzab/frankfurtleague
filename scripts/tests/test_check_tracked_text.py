@@ -48,11 +48,7 @@ def written(path: Path, text: str) -> Path:
 
 
 def run_main(*argv: str) -> tuple[int, str, str]:
-    """`main` over those arguments: its exit code and each stream it wrote.
-
-    Captured by hand rather than through a fixture, so this file imports nothing outside the
-    standard library -- `scripts/pyrightconfig.json` declares no environment.
-    """
+    """`main` over those arguments: its exit code and each stream it wrote."""
     out, err = io.StringIO(), io.StringIO()
     argv_before = markers.sys.argv
     markers.sys.argv = ["check_tracked_text.py", *argv]
