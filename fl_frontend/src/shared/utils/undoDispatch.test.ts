@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, it } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 import { setImmediate as settled } from "node:timers/promises";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -44,7 +44,7 @@ type Pressed = {
 };
 
 /** Offers an undo, presses it against one answer from the route or a request that never arrived, and reports what the press did. */
-async function pressAgainst(answer: Response | Error): Promise<Pressed> {
+async function pressAgainst(answer: Response | Error, { refreshFails = false } = {}): Promise<Pressed> {
   const replacedWith: string[] = [];
   const toastsBeforeLeaving: number[] = [];
   let refreshed = 0;
@@ -60,7 +60,10 @@ async function pressAgainst(answer: Response | Error): Promise<Pressed> {
       body: {},
       fallback: "Die Spielortdaten wurden aktualisiert.",
       router: {
-        refresh: () => refreshed++,
+        refresh: () => {
+          refreshed++;
+          if (refreshFails) throw new Error("the router is gone");
+        },
         replace: (href) => {
           replacedWith.push(href);
           toastsBeforeLeaving.push(raised.length - 1);
@@ -91,6 +94,24 @@ describe("what the shared undo dispatch says when it never landed", () => {
       [["Rücknahme unklar", RUECKNAHME_UNKLAR]],
     );
     assert.deepEqual(pressed.replacedWith, [], "a dispatch that never answered leaves the page");
+  });
+
+  /* The browser's one path into the log is the crash report (`docs/logging/spec.md` §1.3); a `console`
+     call from here lands outside the envelope. */
+  it("writes nothing to the console when the dispatch or the re-read fails", async () => {
+    const written: string[] = [];
+    for (const channel of ["log", "info", "warn", "error"] as const)
+      mock.method(console, channel, (...parts: unknown[]) => void written.push(`${channel} ${parts.map(String).join(" ")}`));
+    try {
+      await pressAgainst(new TypeError("Failed to fetch"));
+      raised.length = 0;
+      const refused = await pressAgainst(Response.json({ success: false, error: "Die Änderung steht weiterhin." }), { refreshFails: true });
+      assert.equal(refused.refreshed, 1, "the failing re-read never ran, so nothing below is judged");
+    } finally {
+      mock.restoreAll();
+    }
+
+    assert.deepEqual(written, []);
   });
 });
 

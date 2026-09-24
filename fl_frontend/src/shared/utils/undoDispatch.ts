@@ -48,8 +48,6 @@ type UndoOffer<TPayload> = {
   unrestorable?: string | null;
   /** A stable singleton, so the detached press closure may call its `refresh` and its `replace`. */
   router: { refresh: () => void; replace: (href: string) => void };
-  /** Replaces the transport-failure toast — `AdminEditSpielDataForm` reports the raw error. */
-  reportRejection?: (dispatchError: unknown) => void;
 };
 
 /**
@@ -96,7 +94,6 @@ export function offerUndo<TPayload>({
   warn = false,
   unrestorable = null,
   router,
-  reportRejection,
 }: UndoOffer<TPayload>): void {
   const raise = warn ? appToast.warning : appToast.success;
 
@@ -125,8 +122,9 @@ export function offerUndo<TPayload>({
         const refreshTheScreen = () => {
           try {
             router.refresh();
-          } catch (refreshError) {
-            console.warn("Undo answered, refresh failed", refreshError);
+          } catch {
+            // Unlogged: the browser's one path into the log is the crash report (`docs/logging/spec.md`
+            // §1.3), and a bare `console` call writes outside the envelope.
           }
         };
 
@@ -161,14 +159,9 @@ export function offerUndo<TPayload>({
 
             refreshTheScreen();
           },
-          (dispatchError) => {
+          () => {
             appToast.close(pendingKey);
-            console.warn("Undo dispatch failed", dispatchError);
-            if (reportRejection !== undefined) {
-              reportRejection(dispatchError);
-              return;
-            }
-
+            // Unlogged, for the reason the refresh's catch gives: the toast is the whole report.
             appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
           },
         );
