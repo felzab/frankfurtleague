@@ -10,6 +10,7 @@ from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exceptions import DOCUMENT_NOT_FOUND
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
@@ -25,7 +26,6 @@ ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
 UNREACHED_DATABASE = "DB-FAIL-001"
-DOCUMENT_NOT_FOUND = "DB-COMMON-001"
 
 SAISON_ID = "2026"
 

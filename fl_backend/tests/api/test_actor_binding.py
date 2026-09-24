@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.core.exceptions import RequestAuthorizationException
+from app.core.exceptions import NO_DATABASE_CLIENT, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR, Actor, actor_var, request_var
 from app.core.security import (
     ACTOR_HEADER,
@@ -43,7 +43,7 @@ PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-CONN-001"
+UNREACHED_DATABASE = NO_DATABASE_CLIENT
 
 
 def client() -> TestClient:

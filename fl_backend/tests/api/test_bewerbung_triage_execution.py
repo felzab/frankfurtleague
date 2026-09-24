@@ -51,7 +51,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DUPLICATE_KEY, DocumentConflictException, DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
@@ -71,10 +71,6 @@ DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as the rollback.
 DOCUMENT_VALIDATION_FAILED = 121
-
-# The unique index refused a write: `app/core/exception_handlers.py` answers 409 with this rather
-# than letting a duplicate shorthand read as a crash.
-DUPLICATE_KEY = "DB-COMMON-002"
 
 SAISON_ID = "2026"
 

@@ -9,6 +9,7 @@ from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH
@@ -27,10 +28,6 @@ SPIELORTE = f"/api/v{API_VERSION}/spielorte"
 
 # The write router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`).
 ACTOR = "spielorte.admin@example.com"
-
-# What `app/core/exception_handlers.py` answers a refused unique index with, and what the venue
-# slice's mapper lands on the name box.
-DUPLICATE_KEY = "DB-COMMON-002"
 
 # Fixed rather than generated, so a failure names the same row every run.
 STANDING_OID = ObjectId("6890a1b2c3d4e5f607450001")
