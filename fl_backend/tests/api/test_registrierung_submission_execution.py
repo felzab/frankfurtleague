@@ -464,14 +464,16 @@ class _HoldsAfterItsLookup:
         """Raced against the press, never polled: a press ending without its lookup fails here rather than hanging the tier."""
 
         looked_up = asyncio.create_task(self.looked_up.wait())
-        await asyncio.wait({press, looked_up}, return_when=asyncio.FIRST_COMPLETED)
+        try:
+            await asyncio.wait({press, looked_up}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            # On every path, as `abandon` drains its press: `cancel()` only schedules the cancellation,
+            # and awaiting the task finishes it inside this case rather than on the next one's loop pass.
+            looked_up.cancel()
+            await asyncio.gather(looked_up, return_exceptions=True)
         if self.looked_up.is_set():
             return
 
-        # Drained, as `abandon` drains its press: `cancel()` only asks, and the task stays pending on
-        # the shared seed loop until something awaits it.
-        looked_up.cancel()
-        await asyncio.gather(looked_up, return_exceptions=True)
         # A press that raised is its own failure, not a missing lookup.
         if (error := press.exception()) is not None:
             raise error
