@@ -143,7 +143,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case(
         "the budget failed beside an advisory step",
         [run(26, "failure")],
-        1,
+        0,
         {26: jobs(*SCOPES, aggregate("failure", **{publish.BUDGET_STEP: "failure", "Report the gate's wall clock": "failure"}))},
     ),
     Case(
@@ -321,41 +321,63 @@ def test_main_refuses_a_commit_that_is_no_full_sha(tmp_path: Path):
 STEP_START_RE: Final = re.compile(r"^      - ")
 STEP_NAME_RE: Final = re.compile(r"^      (?:- |  )name: (.+)$")
 STEP_IF_RE: Final = re.compile(r"^      (?:- |  )if: (.+)$")
+STEP_CONTINUE_RE: Final = re.compile(r"^      (?:- |  )continue-on-error: (.+)$")
 BUDGET_CALL: Final = "scripts/checks/check_gate_budget.py --jobs"
 
 
-def budget_step_of(workflow: str) -> list[tuple[str, str | None, str | None]]:
-    """Every step calling the budget check, found by the call: its job's name as the API reports it, the step's `name:` and its `if:`."""
-    found: list[tuple[str, str | None, str | None]] = []
+def value_of(step: list[str], key: re.Pattern[str]) -> str | None:
+    return next((matched[1].strip() for line in step if (matched := key.match(line)) is not None), None)
+
+
+def budget_jobs_of(workflow: str) -> list[tuple[str, list[list[str]]]]:
+    """Every job calling the budget check, found by the call: its name as the API reports it, and each of its steps' lines."""
+    found: list[tuple[str, list[list[str]]]] = []
     for key, body in job_bodies(workflow).items():
         if BUDGET_CALL not in body:
             continue
         assert MATRIX_RE.search(body) is None, f"`{key}` runs the budget in a matrix, whose instance names no reader here expands"
         template = JOB_NAME_RE.search(body)
-        job_name = template[1].strip() if template is not None else key
-        name: str | None = None
-        condition: str | None = None
+        steps: list[list[str]] = []
         for line in body.splitlines():
             if STEP_START_RE.match(line):
-                name = condition = None
-            if (named := STEP_NAME_RE.match(line)) is not None:
-                name = named[1].strip()
-            if (guarded := STEP_IF_RE.match(line)) is not None:
-                condition = guarded[1].strip()
-            if BUDGET_CALL in line:
-                found.append((job_name, name, condition))
+                steps.append([])
+            if steps:
+                steps[-1].append(line)
+        found.append((template[1].strip() if template is not None else key, steps))
     return found
 
 
-def test_the_reader_finds_a_renamed_budget_step_under_its_jobs_api_name():
-    """`budget_step_of` over a renamed step in a named job: a reader answering the constants back would pass the tree whatever it holds."""
+def budget_step_of(workflow: str) -> list[tuple[str, str | None, str | None]]:
+    """Every step calling the budget check: its job's name, the step's `name:` and its `if:`."""
+    return [
+        (job_name, value_of(step, STEP_NAME_RE), value_of(step, STEP_IF_RE))
+        for job_name, steps in budget_jobs_of(workflow)
+        for step in steps
+        if any(BUDGET_CALL in line for line in step)
+    ]
+
+
+def advisory_steps_of(workflow: str) -> list[tuple[str, str | None, str | None]]:
+    """Every step of a job calling the budget check that carries `continue-on-error`: its job's name, its `name:` and that key's value."""
+    return [
+        (job_name, value_of(step, STEP_NAME_RE), value)
+        for job_name, steps in budget_jobs_of(workflow)
+        for step in steps
+        if (value := value_of(step, STEP_CONTINUE_RE)) is not None
+    ]
+
+
+def test_the_reader_finds_renamed_steps_under_their_jobs_api_name():
+    """The readers over renamed steps in a named job: a reader answering the constants back would pass the tree whatever it holds."""
     workflow = (
-        "on: push\njobs:\n  verify:\n    name: verify (required)\n    runs-on: x\n    steps:\n      - name: Report\n        run: echo\n"
+        "on: push\njobs:\n  verify:\n    name: verify (required)\n    runs-on: x\n    steps:\n"
+        "      - name: Report\n        continue-on-error: true\n        run: echo\n"
         "      - name: Hold every job to its budget\n        if: always()\n        run: |\n"
         "          python scripts/checks/check_gate_budget.py --jobs x\n"
     )
 
     assert budget_step_of(workflow) == [("verify (required)", "Hold every job to its budget", "always()")]
+    assert advisory_steps_of(workflow) == [("verify (required)", "Report", "true")]
 
 
 def test_the_budget_names_and_condition_are_the_ones_verify_runs_under():
@@ -367,6 +389,18 @@ def test_the_budget_names_and_condition_are_the_ones_verify_runs_under():
 
     assert found == [(publish.AGGREGATE_JOB, publish.BUDGET_STEP, "${{ !cancelled() }}")], (
         f"verify.yml's budget step is {found}; check_publish_verdict.py matches {publish.AGGREGATE_JOB!r} / {publish.BUDGET_STEP!r}"
+    )
+
+
+def test_the_advisory_steps_are_the_aggregate_jobs_continue_on_error_steps():
+    """A step left off the list refuses a budget-only run it failed beside; a verdict step put on it publishes over its failure."""
+    found = advisory_steps_of((WORKFLOWS / "verify.yml").read_text(encoding="utf-8"))
+
+    assert {(job_name, value) for job_name, _, value in found} == {(publish.AGGREGATE_JOB, "true")}, (
+        f"verify.yml's continue-on-error steps are {found}; only a literal `true` in the aggregate job reads as advisory here"
+    )
+    assert {name for _, name, _ in found} == publish.ADVISORY_STEPS, (
+        f"verify.yml's continue-on-error steps are {found}; check_publish_verdict.py leaves out {sorted(publish.ADVISORY_STEPS)}"
     )
 
 

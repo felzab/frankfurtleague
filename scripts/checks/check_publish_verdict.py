@@ -32,6 +32,9 @@ from checker_kernel import EXIT_FINDINGS, EXIT_OK, EXIT_REFUSED, UNREADABLE, Fin
 # `scripts/tests/test_check_publish_verdict.py` holds both to that file.
 AGGREGATE_JOB: Final = "verify"
 BUDGET_STEP: Final = "Hold every job to its wall-clock budget"
+# The aggregate job's `continue-on-error` steps, which the same tests find in that file by the key:
+# each decides nothing, and one failing beside the budget would refuse a run the budget alone failed.
+ADVISORY_STEPS: Final = frozenset({"Report each scope's result", "Report the gate's wall clock"})
 
 # What the workflow writes: the listing, and one jobs file per run it names, keyed by the attempt
 # the listing reports, so the jobs read are the ones that attempt's conclusion describes.
@@ -79,7 +82,7 @@ def runs_for(listing: object, commit: str) -> list[Run]:
 
 
 def failed_in(payload: object) -> list[str]:
-    """One attempt's jobs, each neither passed nor skipped named, the aggregate job by such steps instead.
+    """One attempt's jobs, each neither passed nor skipped named, the aggregate job by such steps instead, its advisory steps apart.
 
     A null conclusion is a job still running, and it is named.
     """
@@ -102,7 +105,7 @@ def failed_in(payload: object) -> list[str]:
         for step in job.get("steps") or []:
             if not isinstance(step, dict) or not isinstance(step.get("name"), str):
                 raise Unjudged(f"a step of `{AGGREGATE_JOB}` has no name")
-            if step.get("conclusion") not in PASSED:
+            if step.get("conclusion") not in PASSED and step["name"] not in ADVISORY_STEPS:
                 named.append(f"{AGGREGATE_JOB} / {step['name']}")
     return named
 
