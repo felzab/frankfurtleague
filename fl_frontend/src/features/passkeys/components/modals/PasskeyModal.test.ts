@@ -7,7 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
@@ -233,6 +233,41 @@ describe("the step-up both writes take", () => {
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."]],
     );
+  });
+
+  /* A removal changes the list both of the add control's refusals are read off, so the control is
+     held for as long as the removal runs rather than offered over a list about to move. */
+  it("holds the add control while a removal is still running", async (t) => {
+    const user = userEvent.setup();
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    answerWith(() =>
+      calls.at(-1)?.action === "removePasskeyAction"
+        ? held.then(() => ({ success: true, message: "Gelöscht." }))
+        : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
+    );
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+    await waitFor(() =>
+      assert.ok(
+        calls.some((call) => call.action === "removePasskeyAction"),
+        "the removal never reached its write",
+      ),
+    );
+
+    const add = screen.getByRole("button", { name: "Passkey hinzufügen" });
+    const pressable = !add.hasAttribute("disabled") && add.getAttribute("aria-disabled") !== "true";
+    release();
+    await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction"));
+
+    assert.equal(pressable, false, "the add control was pressable while the removal ran");
   });
 
   it("asserts before it deletes, and only on the second press", async (t) => {

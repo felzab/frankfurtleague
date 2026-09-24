@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useOptimistic, useState } from "react";
 
 import Plus from "@gravity-ui/icons/Plus";
 
@@ -72,6 +72,9 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const [kannHinzufuegen, setKannHinzufuegen] = useState(false);
   const [ladefehler, setLadefehler] = useState(false);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
+  // Optimistic, never plain state: a removal runs inside its row's press transition, which holds a
+  // plain update back until the removal is over, so the add control would never be held.
+  const [entferntGerade, setEntferntGerade] = useOptimistic(false);
 
   /** One answer applied, from wherever it was asked for: the opening below, or a finished write. */
   const uebernimm = (result: Awaited<ReturnType<typeof readPasskeysAction>>): void => {
@@ -193,8 +196,8 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
   const entfernen = async (id: string): Promise<void> => {
     // Held for a REMOVAL too, or the add control stays pressable over a list one of the rows below
-    // is in the middle of changing.
-    setIstBeschaeftigt(true);
+    // is in the middle of changing; the press's transition ending is what releases it.
+    setEntferntGerade(true);
     const held = await removalHeld(id);
 
     if (held !== null) {
@@ -205,7 +208,6 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // `await` outside it.
       startTransition(() => {
         if (gelesen !== null) uebernimm(gelesen);
-        setIstBeschaeftigt(false);
       });
       appToast.danger("Passkey nicht gelöscht", { description: held.description });
       return;
@@ -213,10 +215,9 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
     appToast.success("Passkey gelöscht", { description: "Alle anderen Geräte wurden abgemeldet." });
     const gelesen = await readPasskeysAction();
-    // Wrapped again, as above: the list and the released hold commit with the press's own release.
+    // Wrapped again, as above: the list commits with the press's own release, and the hold with it.
     startTransition(() => {
       uebernimm(gelesen);
-      setIstBeschaeftigt(false);
     });
   };
 
@@ -257,7 +258,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             type="button"
             variant="primary"
             isPending={istBeschaeftigt}
-            isDisabled={eintraege === null || !kannHinzufuegen}
+            isDisabled={eintraege === null || !kannHinzufuegen || entferntGerade}
             onPress={() => void hinzufuegen()}
             className={formButton({ intent: "submit", fullWidth: true })}>
             <Plus
