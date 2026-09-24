@@ -30,7 +30,7 @@ const sources = new Map(
   collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
 );
 
-type Site = { file: string; tag: string; line: number; bounds: string[] };
+type Site = { file: string; tag: string; bounds: string[] };
 
 /** `minValue={undefined}` is an attribute with no bound in it: present to a name check, absent to the user. */
 function carriesAValue(attribute: ts.JsxAttribute, source: ts.SourceFile): boolean {
@@ -92,7 +92,7 @@ function sitesIn(file: string, text: string): Site[] {
           if (BOUNDS.includes(spelt) && carriesAValue(attribute, source)) bounds.push(spelt);
         }
 
-        sites.push({ file, tag, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, bounds });
+        sites.push({ file, tag, bounds });
       }
     }
     ts.forEachChild(node, visit);
@@ -124,7 +124,6 @@ function declaresProp(file: string, text: string, bound: string): boolean {
   visit(source);
   return declares;
 }
-const idOf = (site: Site) => `${site.file}:${String(site.line)} <${site.tag}>`;
 
 describe("where a date control's bounds live", () => {
   it("finds the date controls it is meant to sweep", () => {
