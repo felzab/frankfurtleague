@@ -2,9 +2,10 @@
 #
 # SCRIPTS · map the changed paths of a branch to verify.sh scopes.
 #
-# Prints one `name=true|false` line per scope on stdout, the shape `$GITHUB_OUTPUT` accepts, and the
-# summary on stderr where it cannot leak into the outputs. Arms are matched most-specific-first and
-# a path no arm recognises turns every scope on, so a new kind of file can never skip validation.
+# Prints one `name=true|false` line per scope but `frontend-units`, whose shards run wherever the
+# frontend scope does, on stdout in the shape `$GITHUB_OUTPUT` accepts, and the summary on stderr
+# where it cannot leak into the outputs. Arms are matched most-specific-first and a path no arm
+# recognises turns every scope on, so a new kind of file can never skip validation.
 #
 #   ./scripts/gate/scope_map.sh origin/main   scopes for the diff against the merge base with that ref
 #   ./scripts/gate/scope_map.sh --all         every scope true — a push to main proves everything
