@@ -29,6 +29,7 @@ const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
+/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */
 const MINDESTALTER = 16;
 
 /** One refused answer as the client raises it; only the status and the code are read past this file. */
