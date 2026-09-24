@@ -159,8 +159,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
 type JsonSchema = Record<string, unknown>;
 
 /**
- * The whole of what is compared. Patterns, lengths, bounds and messages diverge by design, and
- * comparing validation policy produces failures nobody can act on.
+ * The whole of what is compared here. Patterns, floors and messages diverge by design, and
+ * comparing validation policy produces failures nobody can act on; a published ceiling is compared
+ * on its own (`fl_frontend/src/core/payloadBounds.test.ts`).
  */
 type FieldFacts = {
   required: boolean;

@@ -15,7 +15,7 @@ paths:
 `.claude/CLAUDE.md` §7's never-clauses that a session on either side can break, on §7's terms.
 
 - **db** — Add a second direct `MongoClient`
-- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum
+- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a published ceiling
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
 - **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
