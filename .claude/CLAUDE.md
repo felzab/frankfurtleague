@@ -92,7 +92,9 @@ at every scope it names; never choose the scope by hand.
   - **suppression** — a lint rule turned off to make something fit
   - **test seam** — a testing-only API in production code: `dependency_overrides`, monkeypatching,
     env mutation
-  - **wrong site** — a fix applied where a failure surfaced rather than where it originates
+  - **symptom** — a fix that makes a failure stop without removing its cause: one applied where
+    the failure surfaced rather than where it originates, or a raised timeout, limit, retry or
+    ignore entry that stops it without explaining it
 - **Verification is its own pass, and for anything large its own agent** that has not seen the work
   written. Verify the thing you changed, not the thing that is easy to verify — a build never runs
   `CMD`, a passing import never proves a request, a green suite on a configured machine never proves
