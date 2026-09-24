@@ -1,15 +1,9 @@
 "use client";
 
-import Plus from "@gravity-ui/icons/Plus";
-
-import { useOverlayState } from "@heroui/react";
-import { Button } from "@heroui/react/button";
-
 import { AdminCreateTeamForm } from "@/features/teams/components/forms/AdminCreateTeamForm";
 import { TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { Callout } from "@/shared/components/ui/Callout";
-import { formButton } from "@/shared/components/ui/formButtons";
-import { FormModal } from "@/shared/components/ui/FormModal";
+import { CreateModal } from "@/shared/components/ui/CreateModal";
 
 import type { TeamCreateSaisonOption } from "@/features/teams/types";
 
@@ -27,30 +21,16 @@ export function AdminCreateTeamModal({
   /** The season preselected in the form — the viewed one when it is planned, else the next planned. */
   defaultSaisonId: string | null;
 }) {
-  const modalState = useOverlayState();
-
   return (
-    <>
-      <Button
-        onPress={modalState.open}
-        className={formButton({ intent: "trigger" })}>
-        <Plus
-          aria-hidden="true"
-          className="size-4.5"
-        />
-        {/* Hidden from sight rather than from the tree below `sm`: it is the button's only name. */}
-        <span className="max-sm:sr-only">{TEAMS_CRUD_COPY.createLabel}</span>
-      </Button>
-
-      <FormModal
-        isOpen={modalState.isOpen}
-        onClose={modalState.close}
-        heading="Team anlegen">
-        {saisonOptions.length > 0 && defaultSaisonId !== null ? (
+    <CreateModal
+      label={TEAMS_CRUD_COPY.createLabel}
+      heading="Team anlegen">
+      {(close) =>
+        saisonOptions.length > 0 && defaultSaisonId !== null ? (
           <AdminCreateTeamForm
             saisonOptions={saisonOptions}
             defaultSaisonId={defaultSaisonId}
-            onClose={modalState.close}
+            onClose={close}
           />
         ) : (
           <Callout
@@ -58,8 +38,8 @@ export function AdminCreateTeamModal({
             title="Keine geplante Saison">
             Teams können nur in eine geplante Saison aufgenommen werden, und derzeit ist keine angelegt. Lege zuerst die kommende Saison an.
           </Callout>
-        )}
-      </FormModal>
-    </>
+        )
+      }
+    </CreateModal>
   );
 }
