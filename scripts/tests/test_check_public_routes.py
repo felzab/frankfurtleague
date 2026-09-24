@@ -40,7 +40,7 @@ PASS = "        proxy_pass http://frontend:3000;\n"
 
 
 def block(header: str, *lines: str) -> str:
-    """One location block, written the way `nginx/prod.conf` writes them."""
+    """One location block, written the way `nginx/shared/site.conf` writes them."""
     return "\n    " + header + " {\n" + "".join(lines) + "    }\n"
 
 
@@ -488,6 +488,22 @@ def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():
     assert [(one.exact, one.path) for one in found] == [(False, "/api/admin/")]
 
 
+def test_a_server_body_file_is_read_at_its_top_level():
+    """`nginx/shared/site.conf` is a server's body, included inside each entry file's `server`."""
+    found = routes.locations(routes.parse(prefix("/api/") + CATCH_ALL, SOURCE), SOURCE)
+    assert [one.path for one in found] == ["/api/", "/"]
+
+
+def test_locations_at_the_top_and_inside_a_server_refuse():
+    text = prefix("/api/") + "server {\n" + CATCH_ALL + "}\n"
+    try:
+        routes.locations(routes.parse(text, SOURCE), SOURCE)
+    except routes.NginxSyntax as refusal:
+        assert re.search("both at the top and inside a server block", str(refusal)), refusal
+    else:
+        raise AssertionError("locations at two levels were read")
+
+
 def test_two_server_blocks_declaring_locations_refuse():
     """A location in the www redirect would read as coverage, and nothing says which serves what."""
     text = "server {\n" + CATCH_ALL + "}\nserver {\n" + prefix("/api/") + "}\n"
@@ -553,7 +569,10 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 
 
 def test_the_module_under_test_is_this_repository_own():
-    """`test_check_compose_mirror.py :: test_the_module_under_test_is_this_repository_own`'s argument, over the route accounting's import."""
+    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
+
+    A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
+    """
     assert routes.REPO_ROOT == SCRIPTS.parent
 
 

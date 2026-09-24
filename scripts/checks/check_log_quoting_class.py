@@ -47,8 +47,7 @@ FRONTEND: Final = "fl_frontend/src/core/logFormat.ts"
 # declaration to disagree over, which is not two files that agree.
 DECLARING_RE: Final = re.compile(r"^(?:const\s+)?" + LITERAL + r"\s*=", re.MULTILINE)
 
-# The second, as `check_csp_identity.py` reads a policy: a declaration it cannot take one class out
-# of is what the refusal below is for.
+# The second: a declaration it cannot take one class out of is what the refusal below is for.
 BACKEND_RE: Final = re.compile(r"^" + LITERAL + r'\s*=\s*re\.compile\(r"\[(?P<body>.*)\]"\)$', re.MULTILINE)
 FRONTEND_RE: Final = re.compile(r"^const\s+" + LITERAL + r"\s*=\s*/\[(?P<body>.*)\]/[a-z]*;$", re.MULTILINE)
 

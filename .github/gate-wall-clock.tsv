@@ -45,7 +45,7 @@
 #
 # `ops` answers to a shorter population than every other row cut from main runs, counted in its own
 # stamp -- `commits` and `format`, carved out just above, are shorter still and are pull-request
-# runs. `nginx/redaction_test.sh` joined that scope partway through those rows' window, and a run
+# runs. `nginx/edge_test.sh` joined that scope partway through those rows' window, and a run
 # from before that merge measures a gate this one is not. A population that short cannot be cut
 # into two windows of twelve, so its floor is the p95 movement between two 12-run medians drawn
 # with replacement from it. On the three rows computable both ways that draw lands within a point
@@ -76,12 +76,6 @@
 # pooled with the scope's other three units, so the job pays that span only where the pool cannot
 # start all four at once, and either way it sits inside the floor the `backend` row carries.
 #
-# `ops` gained a check: `check_csp_identity.py` costs 101-114 ms over two runs of seven rounds
-# interleaved with `check_compose_mirror.py`, each returning exit 0, measured locally on 2026-09-07
-# on a sixteen-core machine carrying a fleet of agent sessions and an editor, so both ends read
-# that contention as much as the check. The span is the whole process, which is what the ops step
-# pays. It sits inside the floor the `ops` row carries.
-#
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
 # reader answers for and the prose corpus by the notice file, with the fork-pool read behind the
@@ -99,12 +93,6 @@
 # the check. It is pooled with the docs scope's other units, so the job pays that span only where
 # the pool cannot start them all at once, and either way it sits inside the floor the docs row
 # carries, so neither reference nor budget moves and neither takes a new stamp.
-#
-# `ops` gained a check: `check_nginx_mirror.py` costs 0.141-0.167 s over eight interleaved runs in
-# two spreads, each returning exit 0, measured locally on 2026-09-07 on a sixteen-core machine
-# carrying twelve agent sessions on one tree, so both ends are upper bounds reading that contention
-# as much as the check. It sits far inside the floor the `ops` row carries, and the ceiling it
-# answers to is that row's budget.
 #
 # `db` gained a guard in front of the tier: a claim that refuses a second gate run rather
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
@@ -288,6 +276,13 @@
 # 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both spreads are upper
 # bounds and they overlap: the guard's cost is inside that machine's noise and inside the floor the
 # `backend` row carries. Neither the reference nor the budget moves and neither takes a new stamp.
+#
+# `ops` traded three mirror checkers for one exposure check and a header block in the edge test.
+# `nginx/edge_test.sh`, its header block now asking every location, took 3.21-3.33 s against
+# 2.85-3.08 s for the redaction test alone, three interleaved rounds each, measured locally on
+# 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both ends are upper
+# bounds; `check_compose_exposure.py` is a standard-library read of two JSON files. Both sit inside
+# the floor the `ops` row carries, and no row moves.
 #
 # `scripts` lost the comment classifier, its cases and its self-check step, and gained four cases
 # driving `verify.sh` over a fixture branch -- two named runs against the mapping, two

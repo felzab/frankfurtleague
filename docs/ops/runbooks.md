@@ -32,9 +32,9 @@ the machine is outside the repository. What it does tell you:
 
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
-  compose file and `nginx/prod.conf` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./secrets/tunnel_token` and `./certs/`
-  must all exist beside the compose file — preflight checks each before anything is pulled.
+  compose file, `nginx/prod.conf` and `nginx/shared/` up to date before the containers are recreated.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./nginx/shared/`, `./secrets/tunnel_token` and
+  `./certs/` must all exist beside the compose file — preflight checks each before anything is pulled.
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`), a file it cannot read failing the recreate, the
   health read and the rollback in turn, none of which stopped a container. **It refuses at exit 2
@@ -70,8 +70,8 @@ the machine is outside the repository. What it does tell you:
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
-  run that applies an `nginx/prod.conf` the pull changed: nothing recreates nginx for a mounted file's
-  contents.
+  run that applies an `nginx/prod.conf` or an `nginx/shared/` file the pull changed; a pull that changed
+  nginx's own service definition makes the same `up` recreate it.
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored

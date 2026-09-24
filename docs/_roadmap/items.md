@@ -891,11 +891,11 @@ a product ruling per entity, and that cost does not grow while it waits.
 | --------------------------------------------------------------------- | ------ | ---------- |
 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams | Open   | —          |
 
-**`nginx/prod.conf` and `nginx/local.conf` both send `style-src 'self' 'unsafe-inline'`, and my
-ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
-`style-src-attr`, and no component-library switch. Each file declares the whole policy three times,
-because `add_header` in a location replaces the inherited set
-([`docs/ops/spec.md`](../ops/spec.md) §1.4).
+**`nginx/shared/security_headers.conf` sends `style-src 'self' 'unsafe-inline'` from both edges,
+and my ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
+`style-src-attr`, and no component-library switch. The policy is written there once and included
+wherever a block sets a header of its own, because `add_header` in a location replaces the
+inherited set ([`docs/ops/spec.md`](../ops/spec.md) §1.4).
 
 **The population that directive governs is narrower than the application.** CSP judges a `style`
 attribute in served HTML and a `<style>` element; a property written on an element's `style` object
@@ -945,35 +945,29 @@ from react-dom's `setValueForStyle` and from each project's own documentation; a
 without us.)
 
 **Done when** the swatches and the `ScrollShadow` attribute are gone;
-`Content-Security-Policy-Report-Only: style-src 'self'` has been served from `nginx/prod.conf`
-beside the enforcing header for a week, its `report-to` naming an ingest route of this application
-that writes each violation report as one line under the envelope, and the reports read; and the
-enforcing policy has then been switched with `scripts/checks/check_csp_identity.py` green.
+`Content-Security-Policy-Report-Only: style-src 'self'` has been served from
+`nginx/shared/security_headers.conf` beside the enforcing header for a week, its `report-to`
+naming an ingest route of this application that writes each violation report as one line under the
+envelope, and the reports read; and the enforcing policy has then been switched there, with the
+edge's header check green on every location.
 
 **The Report-Only phase is the rollout a tightened policy gets everywhere, and my ruling of
 2026-09-07 clears its two obstacles here.**
 [`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md)'s `csp` clause forbids a
 second _enforcing_ policy, so a Report-Only header may stand beside the one that enforces; and
-`scripts/checks/check_csp_identity.py` reads `Content-Security-Policy-Report-Only` as a declaration
-of the header it watches, its `:: DECLARING_RE` matching up to the hyphen while `:: POLICY_RE`
-cannot take a quoted policy out of that line, so the check learns to hold the enforcing copies to
-each other and to accept one Report-Only header per file, reporting its policy beside them.
-`:: blocks` is the second site it has to learn, and the sharper one: it counts every line
-`:: DECLARING_RE` matches toward a block's `policies`, and `:: dropped` fails a block that sets a
-header while that count is zero — so a block restating the Report-Only header alone would pass as
-having put a policy back while serving none. The ingest route takes the shape of
+`nginx/edge_test.sh` counts each security header by its exact name, so the Report-Only header
+joins its `:: SECURITY_HEADERS` in the commit that serves it, or no location is held to sending
+it. The ingest route takes the shape of
 `fl_frontend/src/app/api/client-error/route.ts`: public and unauthenticated, since a browser posts a
 report with no session, and metered at the edge by an exact-match location of its own, which
 `scripts/checks/check_public_routes.py` fails until that location exists.
 
 **What the change makes untrue.** [`docs/ops/spec.md`](../ops/spec.md) §1.4 states that several
 components set a runtime-computed inline `style` attribute, and offers the `style-src-attr` pair as
-the narrowing with `_global-error` as its whole cost. The same section states that
-`scripts/checks/check_csp_identity.py` holds each file's three declarations to each other and fails
-any further block that sets a header without restating the policy — an accounting the Report-Only
-phase changes at both ends, since the file then carries a fourth declaring line that restates
-neither header. The policy row, that paragraph and that sentence move in the same commit (CUR-2),
-the code being the higher source (PRE-1).
+the narrowing with `_global-error` as its whole cost. The same section states that the policy is
+written once, which the Report-Only phase makes two policies in one file. The policy row, that
+paragraph and that sentence move in the same commit (CUR-2), the code being the higher source
+(PRE-1).
 
 **Not verified.** No Report-Only header has been served and no page opened in a browser, so nothing
 here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, or that

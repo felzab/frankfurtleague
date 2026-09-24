@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_compose_mirror.py`:
+# Withdrawn again, kernel dropped from the cache with it, matching `test_check_public_routes.py`:
 # a `checker_kernel` left cached here would answer another suite's imports and root it at the wrong
 # repository.
 sys.path.insert(0, str(SCRIPTS / "checks"))

@@ -1,7 +1,7 @@
 export const TRACEPARENT_HEADER = "traceparent";
 
 // No proxied path reaches a backend write, so the actor is always the one the session set
-// (`docs/backend/spec.md :: I41`). The edge blanks a visitor's header too (`nginx/prod.conf`),
+// (`docs/backend/spec.md :: I41`). The edge blanks a visitor's header too (`nginx/shared/site.conf`),
 // which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 

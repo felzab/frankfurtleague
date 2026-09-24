@@ -1220,7 +1220,7 @@ written at the rule, never suppressed at this call site." \
   fi
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, so each file is parsed from a
+  # Compose refuses to parse a file whose env_file is missing, so each stack is parsed from a
   # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
   # frontend scopes read while they run. The EXIT trap removes the scratch.
   OPS_SCRATCH="$(mktemp -d)"
@@ -1228,59 +1228,33 @@ written at the rule, never suppressed at this call site." \
   cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
   : > "${OPS_SCRATCH}/fl_backend/.env"
   : > "${OPS_SCRATCH}/fl_frontend/.env"
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --quiet \
+  # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
+  # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
+  # stream writes the model; `--no-env-resolution` keeps every env_file's values out of it.
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json --no-env-resolution \
+    --output "${OPS_SCRATCH}/production.json" \
     || die "docker-compose.yml does not parse."
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.local.yml" config --quiet \
-    || die "docker-compose.local.yml does not parse."
-  ok "both compose files parse"
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" -f "${OPS_SCRATCH}/docker-compose.local.yml" \
+    config --format json --no-env-resolution --output "${OPS_SCRATCH}/local.json" \
+    || die "docker-compose.local.yml does not merge over docker-compose.yml."
+  ok "both stacks parse"
 
-  # Both files parse whatever they say, so nothing else holds the local stack to production's
-  # shape: a setting production gains and local does not is a difference local can never catch.
-  step "ops · the local stack still mirrors production"
+  # A parse accepts a published port and a database alike, so nothing else holds
+  # `docs/ops/spec.md` I1 and I174.
+  step "ops · only the edge is reachable off this host"
 
   # The interpreter is the only thing this step may skip for; past that guard the checker's
   # verdict stands, refusals included.
   OPS_PY="$(any_python || true)"
-  OPS_AT_FLOOR=0
-  # Read once, the three steps below sharing one answer: a per-step probe would spawn an interpreter
-  # each time to learn what the first already knew.
-  if [[ -n "$OPS_PY" ]] && python_at_floor "$OPS_PY"; then OPS_AT_FLOOR=1; fi
   if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the compose files were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the compose files were not compared"
+    skip "no python found, so neither stack's exposure was judged"
+  elif ! python_at_floor "$OPS_PY"; then
+    skip "this python is below the checkers' floor, so neither stack's exposure was judged"
   else
-    run_checker stop "scripts/checks/check_compose_mirror.py" "The compose files have drifted. The findings above name
-the service and the key, and the declared deltas are the checker's own list." \
-      "$OPS_PY" scripts/checks/check_compose_mirror.py
-    ok "every delta between the two files is a declared one"
-  fi
-
-  # `nginx -t` below reads no location it parses, so nothing else notices one location's copy of the
-  # policy drifting from the server block's. Same interpreter guard as the step above.
-  step "ops · each nginx file's Content-Security-Policy says one thing"
-  if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the policy's copies were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the policy's copies were not compared"
-  else
-    run_checker stop "scripts/checks/check_csp_identity.py" "A Content-Security-Policy copy has drifted. Each finding above names
-the site and the site it disagrees with, both inside one file." \
-      "$OPS_PY" scripts/checks/check_csp_identity.py
-    ok "every declaration in a file matches that file's first"
-  fi
-
-  step "ops · the local edge still mirrors production"
-
-  if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the edge files were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the edge files were not compared"
-  else
-    run_checker stop "scripts/checks/check_nginx_mirror.py" "The two edge configurations have drifted. The findings above name
-the block and the directive, and the declared deltas are the checker's own list." \
-      "$OPS_PY" scripts/checks/check_nginx_mirror.py
-    ok "every difference between the two edge files is a declared one"
+    run_checker stop "scripts/checks/check_compose_exposure.py" "A stack exposes more than its edge. The findings above name the
+service, and docs/ops/spec.md I1 and I174 are the rules." \
+      "$OPS_PY" scripts/checks/check_compose_exposure.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback"
   fi
 
   step "ops · nginx accepts prod.conf"
@@ -1301,21 +1275,23 @@ the block and the directive, and the declared deltas are the checker's own list.
   MSYS_NO_PATHCONV=1 quietly docker run --rm \
     --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
     -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
+    -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
     nginx:1.31-alpine nginx -t \
     || die "nginx refuses prod.conf — its own explanation is above."
   ok "nginx accepts prod.conf"
 
-  # A parse cannot see a log line, so nothing else here asserts what the access line CONTAINS
-  # (`docs/logging/spec.md` L11). Below `nginx -t`, whose pull this reuses rather than paying twice.
-  step "ops · the edge's access log carries no credential"
+  # A parse sees neither a log line nor a response, so nothing else here asserts what the access
+  # line CONTAINS (`docs/logging/spec.md` L11) or which headers a location sends
+  # (`docs/ops/spec.md` I2). Below `nginx -t`, reusing its pull.
+  step "ops · the edge logs no credential and sends every security header once"
   # `nginx/local.conf` alone: prod.conf terminates TLS and could not serve a request without a
-  # certificate, and its copy of the maps and the `log_format` is held in step by hand.
-  run_checker stop "nginx/redaction_test.sh" "A credential reached an access line. Each failing case above is what nginx WROTE,
-and nginx/local.conf's map blocks are what decide it." \
-    bash nginx/redaction_test.sh
-  ok "every spelling in the table logged with its token and address gone"
+  # certificate, and what it would serve is the same `nginx/shared/` files.
+  run_checker stop "nginx/edge_test.sh" "The running edge failed a case. Each failing case above is what nginx WROTE or SENT,
+and the files under nginx/shared/ are what decide it." \
+    bash nginx/edge_test.sh
+  ok "every spelling in the table logged with its token and address gone, and every location sent each header once"
 fi
 
 # --- db --------------------------------------------------------------------------------------------

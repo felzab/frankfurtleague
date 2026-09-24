@@ -216,6 +216,8 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # `scripts/tests/test_check_gate_budget.py` parses this table itself and drives every budgeted
     # row red and green, so an edit to it is proved in the scripts scope and nowhere else.
     (".github/gate-wall-clock.tsv", ("scripts", "docs")),
+    # `fl_frontend/src/core/edgeRedaction.ts` reads this file's redaction map for five frontend suites.
+    ("nginx/shared/http.conf", ("ops", "docs", "frontend")),
 )
 
 

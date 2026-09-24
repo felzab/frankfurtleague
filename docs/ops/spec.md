@@ -90,15 +90,16 @@ where a version left behind breaks something; §3 carries what each failure look
 | Host path                        | Container path                   | Mode       |
 | -------------------------------- | -------------------------------- | ---------- |
 | `./nginx/prod.conf`              | `/etc/nginx/conf.d/default.conf` | read-only  |
+| `./nginx/shared`                 | `/etc/nginx/shared`              | read-only  |
 | `./certs`                        | `/etc/nginx/certs`               | read-only  |
 | `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
 | `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`      | read-only  |
 
-Each must exist before `up`. `deploy.sh` checks the two read-only ones before anything is stopped or
-pulled, and creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a
+Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/shared`
+included, before anything is stopped or pulled, and creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a
 directory it left to Docker would be root-owned, and the host's `logrotate` file names it. If a
 mounted config file is missing, Docker creates a **directory** at that path and nginx fails with
-`not a directory`; the token is a Compose secret rather than a bind mount, so a missing one fails
+`not a directory`, and a missing `./nginx/shared` is mounted empty, failing nginx on its includes; the token is a Compose secret rather than a bind mount, so a missing one fails
 the `up` itself. **`./secrets/` is `.gitignore`d**, which is what keeps the credential
 uncommittable from a checkout that has to hold it.
 
@@ -176,7 +177,7 @@ published ranges could never be, being every customer's egress rather than this 
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL` (§1.6).
+address in `nginx/prod.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
@@ -184,7 +185,7 @@ address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL
 under `/api/auth`, would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
-`nginx/prod.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
+`nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
 $client_net48` for the /48, the whole address on IPv4 either way. A /56 key is not expressible from
 these strings at all, nginx stripping a group's leading zeros.
 
@@ -192,26 +193,7 @@ these strings at all, nginx stripping a group's leading zeros.
 `nginx:1.31-alpine` answering with what it rendered, driven across every zero/non-zero group
 pattern and address class: no prefix split across two keys, no two prefixes shared one, no address
 reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
-2026-08-30). Both files carry the same map arms in the same order, held there by
-`scripts/checks/check_nginx_mirror.py` (§1.6), which compares arms rather than bytes: a body
-respaced on one side passes. **Source order is the grain wherever nginx acts on it**: a `map` or
-`geo` body's arms and every repeated directive compare in the order they are written, because nginx
-tests an arm and runs a `rewrite` that way. **The exception is a list of the comparator's own**,
-`scripts/checks/check_nginx_mirror.py :: ORDER_FREE`, whose repetitions compare sorted on the
-leading arguments that identify one of them, two sharing an identity staying in source order — a
-second `add_header` or `proxy_set_header` on one field name is emitted in it, so a swap there is a
-difference. **A name joins that list against nginx's semantics, and half of it rests on
-inference**: nginx's pages state that several `add_header` or `limit_req` may stand on a level and
-inherit all-or-nothing, and `proxy_set_header`'s gives that rule without an order, leaving distinct
-field names to HTTP's own indifference to the order of unlike fields; the `listen`,
-`limit_req_zone` and `set_real_ip_from` pages say nothing about repetition at all, and read as a
-bound socket, an independently named zone and a membership test. Freeing a name wrongly is the one
-direction that hides a difference.
-
-**Two shapes refuse rather than compare**: a level writing two of the rewrite module's ordered
-directives — `break`, `return`, `rewrite`, `set` — whose relative order a reader keying a level by
-directive name keeps nothing of, and a regex `location`, which nginx tests in source order while a
-server's locations are keyed on their text.
+2026-08-30), and both edges serve the one copy in `nginx/shared/http.conf`.
 
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the
@@ -229,13 +211,12 @@ resolves each before matching, all three measured reaching their zone (measured 
 the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
 share one pair. `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
 RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
-What decides that number, and what it risks, is at the zone in `nginx/prod.conf`.
+What decides that number, and what it risks, is at the zone in `nginx/shared/http.conf`.
 
 **`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
 narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
-makes one directive count differently in the two files**: `nginx/local.conf` serves HTTP/1.1, so
-the identical line bounds whole connections locally. The mirror holds the two lines equal (§1.6)
-and cannot see that they mean different things.
+makes one directive count differently on the two stacks**: `nginx/local.conf` serves HTTP/1.1, so
+the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
 **Three public writes cap their bodies against the server block's `20M`** — the application form's
 at `64k`, the confirmation link's and the sign-in link's completion at `8k`. The `64k` cap alone is
@@ -318,12 +299,12 @@ carrying an inline `<style>` — a directive on attributes does not reach an ele
 would render unstyled. Every route this application declares carries none.
 `docs/_roadmap/items.md :: qw6j-scru` owns the decision.
 
-**The policy is written six times, and every pairing is held.** Each of the two nginx files
-declares it at server level, in the liveness location and in
-`location /_next/static/`, because `add_header` in a location replaces the inherited set (I2);
-`scripts/checks/check_csp_identity.py` holds each file's three to each other and fails any further
-block that sets a header without restating the policy, while the pair across the two files is
-`scripts/checks/check_nginx_mirror.py`'s (§1.6).
+**The policy is written once**, in `nginx/shared/security_headers.conf`, which
+`nginx/shared/site.conf` includes at server level and again in each location adding a header of
+its own, because `add_header` in a location replaces the inherited set (I2), and which
+`nginx/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location for it. A
+restated copy would be a second enforcing policy, which the
+[`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md) **csp** clause forbids.
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
@@ -347,8 +328,8 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block lists the overrides while each argument sits at
-the line it constrains). The same
+(`docker-compose.local.yml`, an override Compose merges over `docker-compose.yml`, whose invariant
+block says so while each argument sits at the line it constrains). The same
 block sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`. The database is a copy of production, so
 an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
 notices it raises off the people those rows name, each landing in the sink instead
@@ -698,7 +679,7 @@ every job's version; the reason is at that workflow's `commits` job.
 | `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                                    | pnpm install                                                                                                                                 |
 | `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then `next build` alone                                                                                                                                                     | pnpm install                                                                                                                                 |
-| `--ops`            | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_exposure.py` judges their exposure; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                                    | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
 | `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6), then `pnpm run test:db` (`docs/frontend/spec.md` §1.9)                                                                                                | venv + pnpm install + Docker                                                                                                                 |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                        | Docker                                                                                                                                       |
 
@@ -768,15 +749,17 @@ decides nothing and can shrink no scope.
 
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
-time. What the nginx half does have is `nginx/redaction_test.sh`, which drives a real request
-through a real edge and reads the access line back (`docs/logging/spec.md` L11).
+time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real request
+through a real edge, reads the access line back (`docs/logging/spec.md` L11) and asks every
+location for its security headers (I2).
 
-**The scope also holds the local stack to production's shape.** The differences meant to be there
-are the local file's declared list, restated as data in `scripts/checks/check_compose_mirror.py` so
-the claim is testable, and a declared delta matching no real difference is a finding too: the list
-stays honest in both directions. A compose construct outside the reader's parsed subset is a
-refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
-with it**, which is why I1 is held by a check of its own over both files rather than by that list.
+**The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what
+the override writes differs, and each difference is argued at its key. What no merge can hold is
+exposure, so `scripts/checks/check_compose_exposure.py` reads the two models
+`docker compose config` renders, production's alone and the merged pair: production publishes no
+port and declares exactly `:: PRODUCTION_SERVICES`, and locally only nginx leaves loopback (I1,
+I174). A model it cannot read, a short-syntax port among them, is a refusal rather than a verdict
+(§1.7).
 
 **An arm reaches across the package boundary wherever one package's suite reads the other's file as
 source text**, and what makes it necessary is that the assertion sits on the far side: a scope
@@ -1052,8 +1035,8 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 
 | #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                                                                                                        |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_mirror.py :: off_host_ports` over both files, and its `:: DECLARED_DELTAS` row pinning production's `services.nginx.ports` absent                                                                                                                    |
-| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `scripts/checks/check_csp_identity.py :: dropped` for the policy, over every block that sets a header and does not redirect; the other four observed carrying, 2026-08-30                                                                                                          |
+| I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_exposure.py :: production` and `:: local`, over the models `docker compose config` renders                                                                                                                                                           |
+| I2   | Security headers are included in every `location` that sets any header, from `nginx/shared/security_headers.conf`                                                             | `nginx/edge_test.sh`, requesting every location `nginx/shared/site.conf` declares: a missing copy and a doubled one fail alike, and an underivable location refuses                                                                                                                |
 | I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                                                                                                          |
 | I4   | Sign-in metering is POST-keyed and edge-only: the library's limiter is off, and a request meets the zone its PATH fell to and nothing else                                    | the `map` producing an empty key otherwise, and the library's own limiter, on by default in production, turned off in `fl_frontend/src/core/auth.ts`                                                                                                                               |
 | I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                                                                                                |
@@ -1062,16 +1045,16 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                                                                                                        |
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                  |
 | I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts, and what makes the two length counts agree                                                                         |
-| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — `scripts/checks/check_nginx_mirror.py` holds the two files' `location` sets equal (§1.6); `nginx -t` reads no location and no test requests a backend path                                                                                                                |
+| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                           |
 | I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                       |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                      |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                                                                    |
 | I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                                                 |
-| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                                                                                 |
-| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                                 |
+| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/prod.conf :: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                                                       |
+| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                          |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                                                                     |
-| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                                                                                |
-| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/lib/checker_kernel.py :: uncovered` over `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for an unpinned difference                                      |
+| I149 | One `frontend` service, declared once, and no replica count is what lets the retention sweep hold one timer per process with no lease                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                          |
+| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` is declared in `docker-compose.local.yml` alone                                    | `scripts/checks/check_compose_exposure.py :: PRODUCTION_SERVICES`, over the model `docker compose config` renders                                                                                                                                                                  |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                    |
 | I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                                 |
 | I178 | `deploy.sh` reads `secrets/tunnel_token` for existence alone, and `fl_frontend/.env` for its names besides; a value either holds is refused at boot or not at all             | `scripts/lib/_lib.sh :: require_file`, which tests existence alone; the frontend's values are `fl_frontend/src/core/config.ts :: frontend_config`'s                                                                                                                                |
@@ -1082,7 +1065,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                                   |
 | I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                      |
 | I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
-| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/redaction_test.sh`, serving `nginx/local.conf`, whose logging directives `scripts/checks/check_nginx_mirror.py` holds equal to `nginx/prod.conf`'s                                                                                                                          |
+| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod.conf` includes too                                                                                                                                    |
 | I353 | A published build is a `main` commit whose own push run of `verify` passed every job, the aggregate job's wall-clock budget step alone excepted                               | `.github/workflows/publish.yml`, whose first two steps refuse any other ref and read that run's jobs through the runs API                                                                                                                                                          |
 
 ## 3. Violation → remedy

@@ -780,12 +780,14 @@ WAIT_HEALTHY_REASON=""
 # A started container and a working app are different statements: on a bad environment variable
 # the frontend stays up and 500s on every route.
 wait_healthy() {
+  # An empty compose file leaves the choice to COMPOSE_FILE, which is how `scripts/ops/local.sh`
+  # names its two-file stack.
   local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
   WAIT_HEALTHY_REASON=""
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
   while (( waited < timeout )); do
     rc=0
-    cid="$(docker compose -f "$compose_file" ps -q "$service" 2>/dev/null)" || rc=$?
+    cid="$(docker compose ${compose_file:+-f "$compose_file"} ps -q "$service" 2>/dev/null)" || rc=$?
     # An unasked question and an answered one both leave `cid` empty, and "no running container"
     # about a daemon that never replied sends an operator to the container, not the engine.
     if (( rc )); then
@@ -797,7 +799,7 @@ This says nothing about the container; the daemon or the compose file is what di
     if [[ -z "$cid" ]]; then
       WAIT_HEALTHY_REASON="no-container"
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
+      docker compose ${compose_file:+-f "$compose_file"} logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -809,7 +811,7 @@ This says nothing about the container; the daemon or the compose file is what di
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
         # prints the arm below underneath the lines it just found.
-        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
+        log_tail="$(docker compose ${compose_file:+-f "$compose_file"} logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
         matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
         if [[ -n "$matched" ]]; then
           printf '%s\n' "$matched" | excerpt 12
@@ -818,7 +820,7 @@ This says nothing about the container; the daemon or the compose file is what di
           printf '%s\n' "$log_tail" | tail -30 | detail
         else
           detail "(no log came back for '${service}' — ask compose yourself)" \
-                 "   docker compose -f ${compose_file} logs ${service}"
+                 "   docker compose ${compose_file:+-f ${compose_file}} logs ${service}"
         fi
         return 1 ;;
     esac
@@ -827,7 +829,7 @@ This says nothing about the container; the daemon or the compose file is what di
   # shellcheck disable=SC2034  # read by the scripts that source this file
   WAIT_HEALTHY_REASON="timeout"
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
+  docker compose ${compose_file:+-f "$compose_file"} logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
   return 1
 }
 

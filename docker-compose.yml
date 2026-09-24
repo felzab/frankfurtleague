@@ -9,8 +9,9 @@
 #   the connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
-# - Keep this file and docker-compose.local.yml in step. A difference here is a difference the
-#   local stack will not have caught.
+# - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
+#   this file, so a setting here reaches both stacks and a difference exists only where that file
+#   writes one. No database service, here or ever (`docs/ops/spec.md :: I174`).
 #
 # See:
 # - docs/ops/spec.md -- the service table and invariants
@@ -99,21 +100,22 @@ services:
           memory: "128M"
 
   nginx:
-    # Pinned to the minor so this proxy and the local one are the same nginx. An unpinned `alpine`
-    # tag is whatever each host happened to pull first -- and nothing here pulls nginx again, so the
-    # component that terminates TLS and owns the security headers drifts per host, silently. Bump
-    # this and docker-compose.local.yml together.
+    # Pinned to the minor: nothing here pulls nginx again, so an unpinned `alpine` tag drifts per
+    # host, and this component terminates TLS and owns the security headers. The local stack
+    # inherits this line; `scripts/gate/verify.sh` and `nginx/edge_test.sh` name the tag again.
     image: nginx:1.31-alpine
     restart: unless-stopped
-    # The two config mounts must exist before `up`: if one is missing, Docker creates a DIRECTORY at
-    # that path and nginx fails with "not a directory", which `deploy.sh` checks for rather than
-    # letting it surface as a mystery.
+    # The config mounts must exist before `up`: Docker creates a missing file's path as a DIRECTORY,
+    # which nginx refuses as "not a directory", and a missing `nginx/shared` as an empty one, which
+    # fails the include. `deploy.sh` checks for both.
 
     # The access and error logs are host-side so they outlive this container and `logrotate` can
     # bound their age (`docs/ops/runbooks.md` §7). Host and container paths are spelled alike, so
     # the stanza and `nginx/prod.conf` name one string.
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # What both edges share, which prod.conf includes by this container path.
+      - ./nginx/shared:/etc/nginx/shared:ro
       - ./certs:/etc/nginx/certs:ro
       - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     networks:

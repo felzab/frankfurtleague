@@ -21,7 +21,12 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
-COMPOSE="docker-compose.local.yml"
+# Windows' docker defaults to this separator, spelled so a reader need not know that default.
+export COMPOSE_PATH_SEPARATOR=";"
+# docker-compose.local.yml merged over docker-compose.yml, named for every call below by Compose's
+# own variable:
+# https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_file
+export COMPOSE_FILE="docker-compose.yml;docker-compose.local.yml"
 
 # Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
 FRESH=0; FOLLOW=0; DOWN=0; SEED=0; REFRESH_DB=0
@@ -102,7 +107,7 @@ restore_dump() {
   # Inside the mongo container, which holds the tools and the copy mount: no plumbing, no
   # credential. MSYS_NO_PATHCONV because MSYS rewrites `/dump`. Never --quiet, which hides the
   # document count and makes a real restore and a no-op identical.
-  MSYS_NO_PATHCONV=1 docker compose -f "$COMPOSE" exec -T mongo \
+  MSYS_NO_PATHCONV=1 docker compose exec -T mongo \
     mongorestore --uri="mongodb://localhost:27017/?directConnection=true" --drop /dump
 }
 
@@ -110,7 +115,7 @@ restore_dump() {
 # an empty directory writes nothing and exits 0, and counting what the database holds afterwards
 # cannot tell this restore from the one before it.
 dump_collections_seen() {
-  MSYS_NO_PATHCONV=1 docker compose -f "$COMPOSE" exec -T mongo \
+  MSYS_NO_PATHCONV=1 docker compose exec -T mongo \
     sh -c 'find /dump -name "*.bson" | wc -l'
 }
 
@@ -166,14 +171,15 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
 
 require_platform windows
 require_docker
-require_file "$COMPOSE"
+require_file "docker-compose.yml"
+require_file "docker-compose.local.yml"
 
 if (( DOWN )); then
   section "down"
   # --fresh combines: stop AND delete the volumes, instead of being silently ignored.
   if (( FRESH )); then
     step "Stopping the local stack and removing volumes"
-    quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
+    quietly docker compose down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
     # The copy, the edge's access log and the mail sink go with the volume: all four are records of
     # real people, and a machine done with a local stack should be left holding none of them.
     rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log" "${REPO_ROOT:?}/.tmp-mail"
@@ -182,7 +188,7 @@ if (( DOWN )); then
     step "Stopping the local stack"
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
     # leaves a container behind that nothing else on this machine will ever mention again.
-    quietly docker compose -f "$COMPOSE" down --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
+    quietly docker compose down --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
     # A withheld sign-in mail holds a live magic link, a credential nothing needs once the stack is
     # down; the copy and the access log stay until --fresh, being records rather than credentials.
     rm -rf "${REPO_ROOT:?}/.tmp-mail"
@@ -213,7 +219,7 @@ ok "checked"
 
 if (( FRESH )); then
   step "Tearing down, including volumes"
-  quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be torn down — the output above is compose's own."
+  quietly docker compose down -v --remove-orphans || die "the stack could not be torn down — the output above is compose's own."
   # As on the way down, and for the same reason.
   rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log" "${REPO_ROOT:?}/.tmp-mail"
   ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed fills it again"
@@ -230,7 +236,7 @@ ok "ready — a message this stack withholds lands in .tmp-mail in the checkout"
 section "build"
 
 step "Building images from source"
-docker compose -f "$COMPOSE" build || die "The image build failed — its own output is above."
+docker compose build || die "The image build failed — its own output is above."
 ok "images built"
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
@@ -240,9 +246,9 @@ if (( SEED )); then
   fetch_copy
 
   step "The database, before anything reads it"
-  quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans mongo \
+  quietly docker compose up -d --force-recreate --remove-orphans mongo \
     || die "the database could not be started — compose's own output is above."
-  wait_healthy "$COMPOSE" mongo 150 \
+  wait_healthy "" mongo 150 \
     || die "the database did not elect itself primary, so there is nothing to restore into."
   ok "database up"
 
@@ -255,7 +261,7 @@ step "Starting the stack"
 # Guarded, not bare: nginx depends on both services being HEALTHY, so `up` exits non-zero on an
 # unhealthy start and an unguarded call would take the error trap instead of the explanation below.
 UP_RC=0
-quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans || UP_RC=$?
+quietly docker compose up -d --force-recreate --remove-orphans || UP_RC=$?
 if (( UP_RC )); then
   fail "compose could not bring the stack up (exit ${UP_RC}); each service is asked what happened below"
 else
@@ -267,9 +273,9 @@ HEALTHY=1
 # Each is waited on even when an earlier fails, so one run reports every unhealthy service. `mongo`
 # is named rather than left to the other two's `depends_on`, which would report a database that
 # never elected itself as two services that never started.
-wait_healthy "$COMPOSE" mongo 150    || HEALTHY=0
-wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
-wait_healthy "$COMPOSE" frontend 150 || HEALTHY=0
+wait_healthy "" mongo 150    || HEALTHY=0
+wait_healthy "" backend 150  || HEALTHY=0
+wait_healthy "" frontend 150 || HEALTHY=0
 if (( UP_RC )); then HEALTHY=0; fi
 
 # `wait_healthy` answers 1 for "reports UNHEALTHY" and for "could not ask compose" alike, and only
@@ -278,11 +284,11 @@ if (( ! HEALTHY && ! UP_RC )); then
   # Not where `up` itself exited non-zero: the start was attempted and did not complete, so this
   # run has a verdict whether or not the daemon answered afterwards.
   ASK_RC=0
-  docker compose -f "$COMPOSE" ps -q backend  >/dev/null 2>&1 || ASK_RC=$?
-  docker compose -f "$COMPOSE" ps -q frontend >/dev/null 2>&1 || ASK_RC=$?
+  docker compose ps -q backend  >/dev/null 2>&1 || ASK_RC=$?
+  docker compose ps -q frontend >/dev/null 2>&1 || ASK_RC=$?
   if (( ASK_RC )); then
     refuse "compose could not be asked about this stack (exit ${ASK_RC}), so 'unhealthy' is not what
-this run established. Ask it directly:  docker compose -f ${COMPOSE} ps"
+this run established. Ask it directly:  COMPOSE_FILE='${COMPOSE_FILE}' docker compose ps"
   fi
 fi
 
@@ -294,7 +300,7 @@ if (( HEALTHY )); then
   # Offered only where it was not just done, so the table never names the step this run performed.
   (( SEED )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed")
   CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
-            "Logs:               docker compose -f $COMPOSE logs -f frontend" \
+            "Logs:               COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend" \
             "Stop:               ./scripts/ops/local.sh --down")
   detail "${CLOSING[@]}"
 else
@@ -316,10 +322,10 @@ if (( FOLLOW )); then
   # under it — would take the ERR trap and grade a running stack as a crash. 130 is Ctrl-C, whose
   # ending the library's INT trap owns.
   LOG_RC=0
-  docker compose -f "$COMPOSE" logs -f frontend || LOG_RC=$?
+  docker compose logs -f frontend || LOG_RC=$?
   if (( LOG_RC && LOG_RC != 130 )); then
     warn "the log follow ended on its own (exit ${LOG_RC}); the stack is still up.
-Follow it again with:  docker compose -f ${COMPOSE} logs -f frontend"
+Follow it again with:  COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend"
   fi
 fi
 

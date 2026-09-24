@@ -208,9 +208,12 @@ else
       # frontend's db-tier files to it, so a bump here owes the frontend scope too.
       fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
-      # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats
+      # The ops scope parses the compose files and runs nginx over both edges; prettier also formats
       # them. Both carry `docs`, their comments being documentation (INC-6).
       docker-compose.yml|docker-compose.local.yml) ops=true; docs=true ;;
+      # `fl_frontend/src/core/edgeRedaction.ts` reads this file's redaction map for the frontend
+      # suites that build a link, so an edit here owes the frontend scope too.
+      nginx/shared/http.conf) ops=true; docs=true; frontend=true ;;
       nginx/*) ops=true; docs=true ;;
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.

@@ -1,7 +1,8 @@
 """SCRIPTS · every Next route handler is accounted for against the edge's own locations.
 
 A route handler is a public URL from the moment the file exists, and nothing else compares the App
-Router tree to `nginx/prod.conf`: a handler no location names reaches Next through `location /`,
+Router tree to the edge's locations, which `nginx/shared/site.conf` holds for both entry files: a
+handler no location names reaches Next through `location /`,
 which carries no `limit_req`. The accounting is total rather than aimed at the public handlers
 alone, because no predicate selects those, and `REASONS` carries the locations covering an unmetered
 one (`docs/ops/spec.md`).
@@ -39,7 +40,7 @@ from checker_kernel import (  # noqa: E402 -- the insert above is what resolves 
 )
 
 APP_ROUTER: Final = "fl_frontend/src/app"
-NGINX_CONF: Final = "nginx/prod.conf"
+NGINX_CONF: Final = "nginx/shared/site.conf"
 
 # The whole App Router tree rather than `api/` alone: a handler filed outside that folder serves a
 # URL just the same, and a walk that cannot see it accounts for nothing.
@@ -297,9 +298,6 @@ def read_location(directive: Directive, source: str) -> Location:
             return Location(True, path, metered, directive.line)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
-
-        # `scripts/checks/check_nginx_mirror.py :: server_body` keys a regex location instead and
-        # compares the pair as text, which asks nothing about the URLs one answers.
         if modifier == "^~":
             return Location(False, path, metered, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
@@ -307,17 +305,24 @@ def read_location(directive: Directive, source: str) -> Location:
 
 
 def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
-    """Every `location` of the one server block that declares any."""
+    """Every `location` of the one level that declares any.
+
+    That level is a server body: the top of `nginx/shared/site.conf`, which each entry file includes
+    inside its own `server`, or one server block of a file carrying its own.
+    """
     serving = [
         directive
         for directive in tree
         if directive.name == "server" and directive.block is not None and any(child.name == "location" for child in directive.block)
     ]
-    if len(serving) != 1:
+    top = any(directive.name == "location" for directive in tree)
+    if top and serving:
+        raise NginxSyntax(f"{source}: locations both at the top and inside a server block, and this reader cannot say which answers")
+    if not top and len(serving) != 1:
         raise NginxSyntax(
             f"{source}: {len(serving)} server blocks declare a location, and this reader cannot say which one answers a route handler"
         )
-    block = serving[0].block or ()
+    block = tree if top else (serving[0].block or ())
     found = tuple(read_location(child, source) for child in block if child.name == "location")
     _declared_once(found, source)
     return found

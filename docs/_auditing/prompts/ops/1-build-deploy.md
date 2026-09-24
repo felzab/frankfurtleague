@@ -41,9 +41,9 @@ THE CHECKS, in priority order:
    a variable is absent — the startup gate should fail closed, so verify the chain
    healthcheck → `service_healthy` → nginx never starting. Then `depends_on` conditions, volumes and
    mounts (certs, configs — `deploy.sh` checks some of these; do the checks match the mounts?),
-   restart policies, port exposure. Diff the local and production compose files and verify every
-   divergence is intended and documented — both files carry header blocks stating their invariants,
-   so check those claims against what the file actually does.
+   restart policies, port exposure. The local file is an override merged over the production one, so
+   every key it writes is a divergence: verify each is intended and argued at its key, and check the
+   invariants both header blocks state against what the merge actually does.
 
 4. **SCRIPTS VS THEIR DOCUMENTATION.** For each script in `scripts/`: does it do what its header and
    `docs/ops/spec.md` claim? Failure modes: what happens on a dirty tree, a half-pulled image, a dead

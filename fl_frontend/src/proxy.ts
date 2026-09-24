@@ -5,7 +5,7 @@ import { auth, isAdminSession, SIGN_IN_LANDING } from "./core/auth";
 import type { NextRequest } from "next/server";
 
 /**
- * No per-request nonce CSP here: the one enforced policy lives in `nginx/prod.conf`. That is what lets
+ * No per-request nonce CSP here: the one enforced policy lives in `nginx/shared/site.conf`. That is what lets
  * the matcher stay scoped to `/admin` — the session read is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {

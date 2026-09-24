@@ -246,7 +246,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
     return 0
   fi
   # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
-  # in `nginx/prod.conf` are plain, so a container recreated at a new address is invisible to a proxy
+  # in `nginx/shared/site.conf` are plain, so a container recreated at a new address is invisible to a proxy
   # that kept running, and only a reload re-resolves them.
   local test_out="" test_rc=0
   # A reload with an unparseable file leaves the master serving the configuration it already had and
@@ -261,11 +261,11 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
     if [[ "$test_out" == *"test failed"* ]]; then
       fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
 proxying to the addresses of the containers this deploy replaced. Its own output is above."
-      detail "Fix nginx/prod.conf, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+      detail "Fix nginx/prod.conf or nginx/shared/, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
       return 1
     fi
     warn "nginx could not be asked to test its configuration (exit ${test_rc}), and nothing above is
-nginx's own verdict on it, so this says nothing about nginx/prod.conf. It was NOT reloaded either
+nginx's own verdict on it, so this says nothing about its configuration. It was NOT reloaded either
 way, so it may still be proxying to the addresses of the containers this deploy replaced."
     detail "Ask it yourself:  docker compose -f ${COMPOSE} exec -T nginx nginx -t"
     return 2
@@ -534,6 +534,11 @@ step "Files and directories the stack mounts, before anything is stopped or pull
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
 require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
+# The file each include names, not the directory alone: Docker would mount an empty one and nginx
+# refuse the include, with the edge still serving its previous configuration until it restarts.
+require_file "nginx/shared/http.conf" "nginx/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+require_file "nginx/shared/site.conf" "nginx/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
@@ -875,7 +880,7 @@ This host's own DNS, egress and TLS trust sit between the two. Ask from somewher
     SITE_VERIFIED=0
     fail "the edge replied over HTTPS carrying neither Content-Security-Policy nor
 Strict-Transport-Security, so every visitor is being served without them."
-    detail "Check nginx/prod.conf and the certificates in certs/."
+    detail "Check nginx/shared/security_headers.conf, nginx/prod.conf and the certificates in certs/."
   fi
 
   # The container healthcheck calls this from inside, so it stays green while the edge answers a

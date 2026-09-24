@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
-# OPS · what the edge's access line CONTAINS, driven against the pinned nginx.
+# OPS · the running edge: what its logs CONTAIN and which security headers it sends.
 #
-# `nginx -t` is a parse: it cannot see a log line, so a redaction that fails open passes every
-# gate. Every way this one can is a row in the table below, grouped by the shape it turns on.
+# `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
+# location dropping a header both pass it. This serves `nginx/local.conf` itself, never a copy — a
+# copy proves the copy — and grades what nginx wrote and sent; prod.conf would need a certificate to
+# serve a request at all, and both entry files include the same `nginx/shared/` files. Which
+# locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
+# about.
 #
-# It serves `nginx/local.conf` ITSELF, never a copy — a copy proves the copy — and grades each case
-# on the access line nginx wrote rather than on anything this file models.
+# Invariants:
+# - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
+# - `docs/ops/spec.md` I2, each security header sent once on every location's response.
+# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
 #
-# Enforces `docs/logging/spec.md` L11, what the access line CONTAINS, and the edge's half of L12,
-# the span every line carries; and `docs/ops/spec.md` I352, that the container's own
-# streams name no visitor. Not that sheet's I13, which asks which locations the edge makes
-# reachable.
-#
-# local.conf rather than prod.conf because prod.conf terminates TLS and needs a certificate to serve
-# a request at all, while its maps, `log_format` and logging directives are identical between the
-# pair.
-#
-#   ./nginx/redaction_test.sh --verbose   print the access line every case was graded on
-#   ./nginx/redaction_test.sh --help
+#   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
+#   ./nginx/edge_test.sh --help
 
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/lib/_lib.sh
@@ -46,10 +43,10 @@ Only curl has --path-as-is, which every alternate spelling in this table needs."
 TOK="Rk9VUlRJTUVTQlJPS0VO"
 EM="admin.probe@frankfurtleague.de"
 
-CONTAINER="fl-redaction-$$"
+CONTAINER="fl-edge-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
-SCRATCH="${REPO_ROOT}/.tmp-redaction-$$"
+SCRATCH="${REPO_ROOT}/.tmp-edge-$$"
 
 cleanup() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
@@ -81,16 +78,17 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   -v "/${REPO_ROOT}/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro" \
+  -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
   nginx:1.31-alpine >/dev/null \
-  || refuse "could not start the pinned nginx for the redaction test."
+  || refuse "could not start the pinned nginx for the edge test."
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
 ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || refuse "the redaction test's nginx published no port."
-[[ -n "$ADDR" ]] || refuse "the redaction test's nginx published no port."
+  || refuse "the edge test's nginx published no port."
+[[ -n "$ADDR" ]] || refuse "the edge test's nginx published no port."
 BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
@@ -102,7 +100,7 @@ for _ in $(seq 1 50); do
   fi
   sleep 0.2
 done
-(( _up )) || refuse "the redaction test's nginx never answered on ${BASE}."
+(( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
 
 # --- the table ---------------------------------------------------------------------------------
 
@@ -187,7 +185,7 @@ CASES=(
   "KEEP|${BASE}/teams/./x?saison_id=abc|/teams/./x"
 )
 
-# `user_agent`: the one field `nginx/local.conf :: log_format fl_json` carries unredacted and no
+# `user_agent`: the one field `nginx/shared/http.conf :: log_format fl_json` carries unredacted and no
 # map reads, so no case is graded on a neighbour's line.
 MARKER="fl-redaction"
 
@@ -209,7 +207,7 @@ for case_line in "${CASES[@]}"; do
   case "$verb" in
     LEAK|KEEP)  REQUESTS+=( "$subject" ) ;;
     LEAK-REF)   REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
-    *)          die "nginx/redaction_test.sh: unknown verb '${verb}' in its own table." ;;
+    *)          die "nginx/edge_test.sh: unknown verb '${verb}' in its own table." ;;
   esac
 done
 
@@ -366,7 +364,7 @@ for expected in "${EXPECTED_ERRORS[@]}"; do
 done
 
 docker logs "$CONTAINER" > "${SCRATCH}/stdout" 2> "${SCRATCH}/stderr" \
-  || refuse "could not read the redaction test's nginx streams back from Docker."
+  || refuse "could not read the edge test's nginx streams back from Docker."
 for stream in stdout stderr; do
   while IFS= read -r logged_line; do
     fail "STREAM ${stream}"
@@ -380,4 +378,61 @@ if (( FAILURES > 0 )); then
 Each line above is what nginx WROTE."
 fi
 
-ok "${#CASES[@]} redaction cases clean, and no visitor in the container's own streams"
+# --- the security headers, as served (`docs/ops/spec.md` I2) -------------------------------------
+
+# One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
+# location added there is probed without this one learning it.
+HEADER_PATHS=()
+while IFS= read -r location_line; do
+  [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
+  location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
+  case "$location_args" in
+    "= "*) HEADER_PATHS+=( "${location_args#= }" ) ;;
+    /*/) HEADER_PATHS+=( "${location_args}probe" ) ;;
+    /) HEADER_PATHS+=( "/" ) ;;
+    /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
+    # A regex or named location answers no path this can derive, and probing around it would call
+    # the file covered while one of its locations went unasked.
+    *) refuse "nginx/shared/site.conf declares 'location ${location_args}', whose path this probe cannot derive." ;;
+  esac
+done < "${REPO_ROOT}/nginx/shared/site.conf"
+(( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
+SECURITY_HEADERS=(strict-transport-security x-frame-options x-content-type-options referrer-policy content-security-policy)
+# One curl for every path, each response's headers to a file of its own, and the counting in bash:
+# on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
+HEADER_REQUESTS=()
+for _i in "${!HEADER_PATHS[@]}"; do
+  if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
+  HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost" "${BASE}${HEADER_PATHS[_i]}" )
+done
+curl "${HEADER_REQUESTS[@]}" || true
+HEADER_FAILURES=0
+for _i in "${!HEADER_PATHS[@]}"; do
+  declare -A SENT=()
+  if [[ -f "${SCRATCH}/headers-${_i}" ]]; then
+    while IFS= read -r header_line; do
+      header_line="${header_line%$'\r'}"
+      header_name="${header_line%%:*}"
+      header_name="${header_name,,}"
+      # The blank line closing the block names no header.
+      [[ -n "$header_name" ]] || continue
+      SENT["$header_name"]=$(( ${SENT["$header_name"]:-0} + 1 ))
+    done < "${SCRATCH}/headers-${_i}"
+  fi
+  for name in "${SECURITY_HEADERS[@]}"; do
+    # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
+    # restated beside the include -- for the CSP, a second enforcing policy.
+    if [[ "${SENT[$name]:-0}" != 1 ]]; then
+      fail "HEADER ${HEADER_PATHS[_i]}"
+      detail "expected one ${name}, nginx sent ${SENT[$name]:-0}"
+      HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+    fi
+  done
+  unset SENT
+done
+if (( HEADER_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} security-header cases failed. Each is what nginx SENT."
+fi
+
+ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams, and
+${#HEADER_PATHS[@]} paths each sending the security headers once"

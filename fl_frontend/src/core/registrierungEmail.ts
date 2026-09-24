@@ -29,7 +29,7 @@ export const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 /**
  * The one place a pupil's confirmation link is spelled.
  *
- * `token` is the parameter name because `nginx/prod.conf :: $credential_free_uri` matches that name;
+ * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
  * a second spelling reaches the access line and the referer unredacted.
  */
 export function spielerBestaetigungsLink(origin: string, token: string): string {
