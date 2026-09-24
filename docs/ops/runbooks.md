@@ -877,9 +877,10 @@ whatever closed the host's inbound 80 and 443 since is opened.
 
 ## 9. Checking that the retention sweep has run
 
-**One call answers it**, on the system key, against the origin rather than through the tunnel:
+**One call answers it**, on the system key, from inside the frontend container: the backend publishes
+no port on the host, and the container holds the key, so it never passes through your shell.
 
-    curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
+    docker compose exec frontend sh -c 'wget -qO- --header "Authorization: Bearer $INTERNAL_API_KEY_SYSTEM" http://backend:8000/api/v0/bewerbungen/sweep'
 
 **`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
 and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
