@@ -21,6 +21,7 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, team_document
 from tests.worker import worker_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -100,8 +101,6 @@ class TestWhetherTheClubIsStillInTheLeague:
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
-SAISON_START = "2026-01-01"
-SAISON_END = "2026-06-30"
 
 # Fixed rather than generated, so a failure names the same club every run.
 LIVE_OID = ObjectId("6890a1b2c3d4e5f607230001")
@@ -110,22 +109,11 @@ ABSENT_OID = ObjectId("6890a1b2c3d4e5f607230003")
 
 CLUB_NAMES = {LIVE_OID: ("Adler", "AD"), RETIRED_OID: ("Bieber", "BI")}
 
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
-
 
 def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, Any]:
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": "https://example.com",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
-    }
+    return team_document(team_id, name, shorthand, website_url="https://example.com", inactive_since=inactive_since)
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -134,17 +122,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(
-                # The span is the shipped validator's, not this suite's: no body here reads a date,
-                # and a row without one is a season the product cannot hold.
-                {
-                    "_id": SAISON_ID,
-                    "start_date": SAISON_START,
-                    "end_date": SAISON_END,
-                    "status": saison_status,
-                    "rules": RULES.model_dump(mode="json"),
-                }
-            )
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=RULES.model_dump(mode="json")))
             await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
 
             return await body(database)

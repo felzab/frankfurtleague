@@ -28,6 +28,7 @@ from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import trace_id_var
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -87,35 +88,13 @@ AKTIONEN_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Coll
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    """3/1 and a 3:0 forfeit are the ordinary competition, so no rule this file is not about refuses the draw first."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": qualifiers,
-        "number_of_groups": groups,
-        "teams_per_group": teams,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    }
+    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
+    """`spielplan` is OMITTED where absent rather than nulled, which is the shape a season nobody has drawn carries."""
 
-    `spielplan` is OMITTED where absent rather than nulled, which is the shape a season nobody has
-    drawn carries.
-    """
-
-    document: dict[str, Any] = {
-        "_id": saison_id,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": status,
-        "rules": rules_document(),
-    }
+    document = documents.saison_document(saison_id, status, start_date="2026-01-01", end_date="2026-06-30", rules=rules_document())
 
     return document if spielplan is None else {**document, "spielplan": spielplan}
 
@@ -123,22 +102,7 @@ def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spiel
 def team_document(oid: ObjectId, shorthand: str) -> dict[str, Any]:
     """A club as `teams` holds one: the entry endpoint reads it to seed the season's own copy of the name."""
 
-    return {
-        "_id": oid,
-        "name": f"{shorthand}-Schule",
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{shorthand}-Schule Frankfurt",
-        "website_url": f"https://{shorthand.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstrasse",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": None,
-    }
+    return documents.team_document(oid, f"{shorthand}-Schule", shorthand)
 
 
 def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP) -> list[dict[str, Any]]:
@@ -149,15 +113,14 @@ def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GRO
     """
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
-            "saison_id": saison_id,
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+        documents.saison_team_document(
+            saison_id,
+            ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(teams), offered_gruppen(groups)))
     ]
 

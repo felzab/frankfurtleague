@@ -12,6 +12,7 @@ from pymongo.errors import OperationFailure
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -40,16 +41,7 @@ RECORDED_AT_DATE = datetime(2026, 3, 15, 18, 0, 0, tzinfo=UTC)
 def team_document() -> dict[str, Any]:
     """The `teams` validator is applied here too, so the collection whose writes are recorded has to be written legally."""
 
-    return {
-        "_id": TEAM_OID,
-        "name": SEEDED_NAME,
-        "shorthand": "LE",
-        "description": "",
-        "full_name": "Lessing-Gymnasium",
-        "website_url": "https://lessing.example.de",
-        "address": {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": STADT},
-        "inactive_since": None,
-    }
+    return documents.team_document(TEAM_OID, SEEDED_NAME, "LE", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "stadt": STADT})
 
 
 def bulk_team_document(shorthand: str) -> dict[str, Any]:

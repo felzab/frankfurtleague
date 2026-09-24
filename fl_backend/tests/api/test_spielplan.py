@@ -25,6 +25,7 @@ from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from tests.bracket_reference import BRACKET_SEEDING
+from tests.documents import rules_document
 
 GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
 
@@ -52,20 +53,10 @@ SHAPES: tuple[tuple[int, int, int], ...] = (
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
-    """3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
-
     return FLSaisonRules.model_validate(
-        {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": qualifiers,
-            "number_of_groups": groups,
-            "teams_per_group": teams,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
-        }
+        rules_document(
+            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+        )
     )
 
 

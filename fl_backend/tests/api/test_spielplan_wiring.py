@@ -13,6 +13,7 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielList
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from tests.documents import rules_document
 
 GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
 
@@ -37,20 +38,10 @@ PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
-    """3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
-
     return FLSaisonRules.model_validate(
-        {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": qualifiers,
-            "number_of_groups": groups,
-            "teams_per_group": teams,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
-        }
+        rules_document(
+            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+        )
     )
 
 

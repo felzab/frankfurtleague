@@ -19,6 +19,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline
 from app.shared.folding import sign_in_identifier
+from tests.documents import saison_spieler_document, spieler_document
 
 SAISON = "2026"
 PRIOR_SAISON = "2025"
@@ -319,32 +320,13 @@ class TestTheAddressASignedInPersonIsJoinedOn:
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": SPIELER_OIDS[name],
-        "vorname": name[0],
-        "nachname": name,
-        "inactive_since": inactive_since,
-        "einwilligung": {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        },
-    }
+    return spieler_document(SPIELER_OIDS[name], name[0], name, inactive_since=inactive_since)
 
 
 def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "spieler_id": SPIELER_OIDS[name],
-        "saison_id": saison_id,
-        "team_id": TEAM_OID,
-        "nummer": nummer,
-        "position": "Mittelfeld",
-        "stufe": "Q1",
-        "ist_nachnominiert": False,
-        "rolle": None,
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(
+        SPIELER_OIDS[name], saison_id, TEAM_OID, nummer=nummer, position="Mittelfeld", stufe="Q1", inactive_since=inactive_since
+    )
 
 
 def _legacy_spieler(name: str) -> dict[str, Any]:

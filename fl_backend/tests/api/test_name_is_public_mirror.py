@@ -18,6 +18,7 @@ from app.api.spieler.schemas import FLSpielerFilterParams
 from app.api.spieler.services import build_spieler_pipeline, name_is_public
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import saison_spieler_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -183,30 +184,11 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         # refuses a null record, so the states the predicate exists to answer are ones it refuses.
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
             await database.spieler.insert_many(
-                [
-                    {
-                        "_id": _oid_for(case),
-                        "vorname": VORNAME,
-                        "nachname": NACHNAME,
-                        "inactive_since": None,
-                        "einwilligung": case.einwilligung,
-                    }
-                    for case in NAME_IS_PUBLIC
-                ]
+                [spieler_document(_oid_for(case), VORNAME, NACHNAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
             )
             await database.saison_spieler.insert_many(
                 [
-                    {
-                        "spieler_id": _oid_for(case),
-                        "saison_id": SAISON,
-                        "team_id": TEAM_OID,
-                        "nummer": "7",
-                        "position": "Angriff",
-                        "stufe": "Q3",
-                        "ist_nachnominiert": False,
-                        "rolle": None,
-                        "inactive_since": None,
-                    }
+                    saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer="7", position="Angriff", stufe="Q3")
                     for case in NAME_IS_PUBLIC
                 ]
             )

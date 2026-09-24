@@ -71,28 +71,14 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
     """
 
     await database[Collection.SAISONS].insert_one(saison_document(saison_id, "future"))
-    # Every key spelled out because the shipped validator requires all sixteen, and each null below
-    # sits on a field its own sub-schema declares nullable.
     await database[Collection.SPIELE].insert_one(
-        {
-            "_id": ObjectId(),
-            "spiel_nr": 1,
-            "saison_id": saison_id,
-            "saison_phase": "gruppenphase",
-            "spieltag_id": SPIELTAG_ID,
-            "team1": {"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
-            "team2": None,
-            "team1_quelle": None,
-            "team2_quelle": None,
-            "datum": None,
-            "uhrzeit": None,
-            "ort": None,
-            "schiedsrichter": None,
-            "ergebnis": None,
-            "elfmeterschiessen": None,
-            "sonderereignis": None,
-            "notiz": None,
-        }
+        documents.spiel_document(
+            spiel_id=ObjectId(),
+            saison_id=saison_id,
+            spiel_nr=1,
+            spieltag_id=SPIELTAG_ID,
+            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+        )
     )
 
 

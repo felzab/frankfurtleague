@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient, monitoring
 from pymongo.database import Database
 
+from tests.documents import EINWILLIGUNG, rules_document
 from tests.tier import TIER_GUARD, UNMARKED_USE
 from tests.worker import guard_every_database, release_every_database, worker_database
 
@@ -196,14 +197,7 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def einwilligung() -> PayloadFactory:
-    return _factory(
-        {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        }
-    )
+    return _factory(dict(EINWILLIGUNG))
 
 
 @pytest.fixture
@@ -242,12 +236,7 @@ def spieler() -> PayloadFactory:
             "team_id": TEAM_ID,
             "inactive_since": None,
             # Collected rather than carried over, so the default corpus is the case the rule is for.
-            "einwilligung": {
-                "umfang": "kader_oeffentlich",
-                "erteilt_von": "erziehungsberechtigt",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-01-20",
-            },
+            "einwilligung": dict(EINWILLIGUNG),
         }
     )
 
@@ -276,17 +265,8 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            "rules": {
-                "win_points": 3,
-                "draw_points": 1,
-                "qualifiers_per_group": 2,
-                "number_of_groups": 4,
-                "teams_per_group": 4,
-                "tiebreak_order": "tordifferenz",
-                "max_kadergroesse": 18,
-                "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-                "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-            },
+            # The shape the schedule below follows from, passed rather than left to the builder's default.
+            "rules": rules_document(number_of_groups=4, teams_per_group=4, qualifiers_per_group=2),
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},

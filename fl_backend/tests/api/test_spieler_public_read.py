@@ -31,6 +31,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import saison_spieler_document, spieler_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -75,18 +76,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
     """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus."""
 
-    return {
-        "_id": SPIELER_OIDS[key],
-        "vorname": vorname,
-        "nachname": nachname,
-        "inactive_since": inactive_since,
-        "einwilligung": {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        },
-    }
+    return spieler_document(SPIELER_OIDS[key], vorname, nachname, inactive_since=inactive_since)
 
 
 def _squad_row(
@@ -98,17 +88,9 @@ def _squad_row(
     rolle: str | None = None,
     inactive_since: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "spieler_id": SPIELER_OIDS[key],
-        "saison_id": SAISON,
-        "team_id": TEAM_OID,
-        "nummer": nummer,
-        "position": position,
-        "stufe": stufe,
-        "ist_nachnominiert": False,
-        "rolle": rolle,
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(
+        SPIELER_OIDS[key], SAISON, TEAM_OID, nummer=nummer, position=position, stufe=stufe, rolle=rolle, inactive_since=inactive_since
+    )
 
 
 def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:

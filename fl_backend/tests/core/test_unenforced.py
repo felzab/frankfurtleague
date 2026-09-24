@@ -76,6 +76,7 @@ from tests.core.app_source import (
     removals,
     transactional_callbacks,
 )
+from tests.documents import rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -193,20 +194,7 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
 
 
 def _rules(**overrides: Any) -> FLSaisonRules:
-    return FLSaisonRules.model_validate(
-        {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 50,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
-            **overrides,
-        }
-    )
+    return FLSaisonRules.model_validate(rules_document(**{"max_kadergroesse": 50, "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
 
 
 def _on_create(proposed: FLSaisonRules):

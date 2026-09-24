@@ -14,6 +14,7 @@ from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS,
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -35,14 +36,6 @@ HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 # 17 years and 364 days against `TODAY`: the age the Trainer seat takes and the other two refuse.
 A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 
 def person(vorname: str) -> dict[str, Any]:

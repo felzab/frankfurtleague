@@ -20,6 +20,7 @@ from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -178,19 +179,11 @@ LOG_ROWS_PER_REACHED_ROW = 3
 
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: Collection.SAISON_TEAMS` requires, seeded in the FORMER state."""
+    """Seeded in the FORMER state."""
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": "blau",
-        "kontakte": FORMER_BLOCKS[row_id],
-        "name": "Testschule",
-        "shorthand": "TS",
-    }
+    return documents.saison_team_document(
+        saison_id, team_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=FORMER_BLOCKS[row_id]
+    )
 
 
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
@@ -337,17 +330,7 @@ def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -
     Which is what lets a case seed as many rows as it likes under `uniq_saison_id_team_id`.
     """
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": row_id,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": "blau",
-        "kontakte": dict(block),
-        "name": "Testschule",
-        "shorthand": "TS",
-    }
+    return documents.saison_team_document(saison_id, row_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=dict(block))
 
 
 def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:

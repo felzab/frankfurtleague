@@ -56,6 +56,7 @@ from app.shared.schemas.bounds import (
     TEAM_NAME_MAX_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
+from tests.documents import ADDRESS
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -86,15 +87,6 @@ REFUSED_CHARACTERS = [
 # The refused characters Python calls whitespace, so `strip_whitespace` removes them before the
 # pattern runs. NUL is the one left out: it is no more whitespace here than it is in the mirror.
 TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
-
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 
 def person(**overrides: Any) -> dict[str, Any]:

@@ -35,6 +35,7 @@ from app.main import STORES_NOTHING_EXTENSION, api_routes, create_app
 from tests.config import ADMIN_AUTH, TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -212,16 +213,14 @@ def _junction_row(team_id: ObjectId) -> dict[str, Any]:
         },
     }
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "kontakte": {"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
-        "name": TEAM_NAMES[team_id],
-        "shorthand": TEAM_NAMES[team_id][:2].upper(),
-    }
+    return saison_team_document(
+        SAISON_ID,
+        team_id,
+        TEAM_NAMES[team_id],
+        TEAM_NAMES[team_id][:2].upper(),
+        _id=ObjectId(),
+        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
+    )
 
 
 class _StallsOneTeam:
@@ -284,24 +283,12 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
     async def body() -> Pressed:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": "active",
-                    "rules": {
-                        "win_points": 3,
-                        "draw_points": 1,
-                        "qualifiers_per_group": 2,
-                        "number_of_groups": 2,
-                        "teams_per_group": 4,
-                        "tiebreak_order": "tordifferenz",
-                        "max_kadergroesse": 50,
-                        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-                        "erlaubte_stufen": ["E1"],
-                    },
-                    "registrierung": {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
-                }
+                saison_document(
+                    SAISON_ID,
+                    "active",
+                    rules=rules_document(number_of_groups=2, max_kadergroesse=50, erlaubte_stufen=["E1"]),
+                    registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
+                )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
             if seeded:

@@ -26,6 +26,7 @@ from app.api.bewerbungen.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -55,14 +56,6 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 # 17 years and 364 days against `TODAY`: the one age the two floors answer differently.
 A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 
 def _seat_paths(block: str, *leaves: str) -> set[str]:
@@ -151,19 +144,7 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.TEAMS].insert_one(
-                {
-                    "_id": CLUB_OID,
-                    "name": CLUB_NAME,
-                    "shorthand": "AD",
-                    "description": "",
-                    "full_name": f"{CLUB_NAME}-Schule",
-                    "website_url": None,
-                    "schulform": "gymnasium_g9",
-                    "address": dict(ADDRESS),
-                    "inactive_since": None,
-                }
-            )
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
             return await body(database, client)

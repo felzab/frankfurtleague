@@ -20,6 +20,7 @@ from app.api.registrierungen.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -64,27 +65,9 @@ A_TWINS_BIRTHDATE = "2007-02-02"
 THIS_SEASONS_LABEL = "2026-09-spielerseite"
 AN_OLDER_LABEL = "2025-09-spielerseite"
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": name[:2].upper(),
-        "description": "",
-        "full_name": full_name,
-        "website_url": None,
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, name[:2].upper(), full_name=full_name, website_url=None, schulform="gymnasium_g9")
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
@@ -102,16 +85,11 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
 def spieler_document(spieler_id: ObjectId, **overrides: Any) -> dict[str, Any]:
     """One person the league already holds, whose record a returning pupil's page shows back."""
 
-    return {
-        "_id": spieler_id,
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": A_RETURNING_PUPILS_BIRTHDATE,
-        "einwilligung": einwilligung(),
-        "email": FOLDED_EMAIL,
-        "inactive_since": None,
-        **overrides,
-    }
+    person = documents.spieler_document(
+        spieler_id, "Quillhilde", "Brackenmoor", geburtsdatum=A_RETURNING_PUPILS_BIRTHDATE, einwilligung=einwilligung(), email=FOLDED_EMAIL
+    )
+
+    return {**person, **overrides}
 
 
 def registrierung_document(**overrides: Any) -> dict[str, Any]:

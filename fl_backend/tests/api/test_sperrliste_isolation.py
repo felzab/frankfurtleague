@@ -86,25 +86,13 @@ def saison_document(saison_id: str, status: str) -> dict[str, Any]:
 def a_targets_fixture(target: str) -> dict[str, Any]:
     """What makes a target activatable (`REQ-ACTIVATE-003`); no matchday row is seeded, so `-004` has none to count."""
 
-    return {
-        "_id": ObjectId(),
-        "spiel_nr": 1,
-        "saison_id": target,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=target,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+    )
 
 
 def the_lapsing_ban() -> dict[str, Any]:

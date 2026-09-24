@@ -26,7 +26,8 @@ EINWILLIGUNG: Final[Mapping[str, str]] = {
     "bestaetigt_am": "2026-01-20",
 }
 
-# Every key spelled out, so a key added to `FLSaisonRules` fails a seed rather than taking a default nobody picked.
+# The ordinary competition, so no rule a suite is not about refuses first. Every key spelled out, so a
+# key added to `FLSaisonRules` fails a seed rather than taking a default nobody picked.
 _RULES: Final[Mapping[str, Any]] = {
     "win_points": 3,
     "draw_points": 1,
@@ -117,7 +118,7 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
     }
 
 
-def spieler_document(spieler_id: Any, vorname: str, nachname: str, **fields: Any) -> dict[str, Any]:
+def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fields: Any) -> dict[str, Any]:
     return {
         "_id": spieler_id,
         "vorname": vorname,

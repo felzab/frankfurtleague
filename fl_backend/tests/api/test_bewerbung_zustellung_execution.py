@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
@@ -13,6 +13,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -33,14 +34,6 @@ ACCEPTED_AT = "2026-03-29T10:00:00.000000+00:00"
 BOUNCED_AT = "2026-03-29T10:05:00.000000+00:00"
 DELIVERED_AT = "2026-03-29T10:02:00.000000+00:00"
 LATER_STILL = "2026-03-29T11:00:00.000000+00:00"
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 
 def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:

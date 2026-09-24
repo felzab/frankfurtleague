@@ -33,6 +33,7 @@ from app.api.bewerbungen.services import (
 from app.core.exception_handlers import base_api_exception_handler
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import FL_LOGGER_NAME, JSONFormatter
+from tests.documents import ADDRESS
 
 # Fixed rather than generated, so a failure names the same club every run.
 PICKED_OID = ObjectId("6890a1b2c3d4e5f607900001")
@@ -424,15 +425,6 @@ class TestWhatSeatingAnotherPersonWrites:
         )
 
         assert update["$set"]["bestaetigungsfrist"] == "2026-04-09"
-
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 
 def schule_block(**overrides: Any) -> dict[str, Any]:
