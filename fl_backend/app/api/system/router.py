@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 
 @router.get("/is_live", response_model=CheckIsLiveResponse, summary="Liveness probe")
-async def check_is_live(request: Request) -> JSONResponse:
+async def check_is_live() -> JSONResponse:
     """
     Liveness: is this process serving requests?
 
@@ -27,7 +27,7 @@ async def check_is_live(request: Request) -> JSONResponse:
 
 
 @router.get("/is_ready", dependencies=[Depends(verify_access_system)], response_model=CheckIsReadyResponse, summary="Readiness probe")
-async def check_is_ready(request: Request, db: Annotated[AsyncDatabase, Depends(get_database)]):
+async def check_is_ready(db: Annotated[AsyncDatabase, Depends(get_database)]):
     """
     Readiness: can this process reach its database?
 
@@ -41,7 +41,7 @@ async def check_is_ready(request: Request, db: Annotated[AsyncDatabase, Depends(
 
 
 @router.get("/info", dependencies=[Depends(verify_access_system)], response_model=SystemInfoResponse, summary="Service metadata")
-async def system_info(request: Request) -> JSONResponse:
+async def system_info() -> JSONResponse:
     """Report the running API version. Requires the system key; not intended for public consumption."""
 
     return JSONResponse(
