@@ -159,7 +159,10 @@ class TestFailureBodies:
         # The exact SET, not a search for words: a message copied into any header, under any name,
         # moves this. `www-authenticate` is the one header this exception is allowed to add.
         assert response.status_code == 401
-        assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
+        assert set(response.headers) == {"www-authenticate", "content-length", "content-type", "vary"}
+        # `CORSMiddleware` adds `vary` to every response granting no origin; its value is pinned so
+        # nothing else rides in it.
+        assert response.headers["vary"] == "Origin"
 
         # Named too, so the case cannot pass on a set that matched while a value leaked: this is
         # the message the 401 above actually carries.

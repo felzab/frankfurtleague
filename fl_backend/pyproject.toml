@@ -79,7 +79,7 @@ DEP002 = ["tzdata", "uvicorn"]
 # The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
 # setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
 # line, and `scripts/gate/selfcheck.sh :: UV_PIN` refuses the pair when it does not.
-required-version = "==0.12.15"
+required-version = "==0.12.18"
 
 [tool.ruff]
 line-length = 144

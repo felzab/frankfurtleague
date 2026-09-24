@@ -67,21 +67,6 @@ const location = ({ component, field, keyword, at }: PublishedCeiling): string =
 
 type Capped = PublishedCeiling & { within: unknown; over: unknown };
 
-/** A host of exactly this many characters: `z.regexes.domain` caps ONE label at 63, so past that it dots. */
-function dottedHost(length: number): string {
-  const labels: string[] = [];
-  let left = length;
-
-  // 61, not 60: leaving exactly zero would append an empty final label and trail the host with a dot.
-  while (left > 61) {
-    labels.push("a".repeat(60));
-    left -= 61;
-  }
-  labels.push("a".repeat(left));
-
-  return labels.join(".");
-}
-
 /**
  * Values of an exact length in the shapes these payloads take: `"a".repeat(301)` is refused by a URL
  * field whatever its ceiling, so it would pass this file with `.max()` deleted. Only a value the
@@ -91,7 +76,8 @@ const FILLERS: { min: number; build: (length: number) => string }[] = [
   { min: 1, build: (length) => "a".repeat(length) },
   // A season id is a year the league can play, which no run of one character is.
   { min: 4, build: (length) => String(new Date().getFullYear()).padStart(length, "1") },
-  { min: 12, build: (length) => `https://${dottedHost(length - 11)}.de` },
+  // The length goes into the path: `z.regexes.domain` caps a whole host at 253 characters, below a URL's ceiling.
+  { min: 20, build: (length) => `https://beispiel.de/${"a".repeat(length - 20)}` },
   { min: 13, build: (length) => `${"a".repeat(length - 12)}@beispiel.de` },
 ];
 
