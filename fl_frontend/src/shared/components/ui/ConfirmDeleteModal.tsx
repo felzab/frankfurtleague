@@ -62,7 +62,7 @@ export function ConfirmDeleteModal({
    */
   failureMessage: string;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startRetiring] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
 
   // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
@@ -79,7 +79,7 @@ export function ConfirmDeleteModal({
       return;
     }
 
-    startTransition(async () => {
+    startRetiring(async () => {
       const res = await onConfirm();
 
       if (!res.success) {
@@ -92,7 +92,7 @@ export function ConfirmDeleteModal({
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startRetiring(() => {
         onClose();
       });
     });

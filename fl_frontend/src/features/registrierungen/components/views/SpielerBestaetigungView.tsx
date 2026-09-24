@@ -321,7 +321,7 @@ function SpielerBestaetigungForm({
   fassung: SpielerFassung;
   onAbschluss: (abschluss: Abschluss) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   // The stored answers for a returning pupil and nothing preselected for a new one: a media switch
   // that opened on and a scope already picked are consents nobody gave.
   const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
@@ -382,7 +382,7 @@ function SpielerBestaetigungForm({
   const sende = () => {
     const body = payload();
 
-    startTransition(async () => {
+    startSending(async () => {
       const gesendet = await postPublicForm<Antwort>("/api/bestaetigung/spieler", body);
 
       if (!gesendet.answered) {
@@ -396,7 +396,7 @@ function SpielerBestaetigungForm({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSending(() => {
         if (!antwort.success) {
           // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
           // sentence is an administrator's repair, and a reload of this page has lost its token.

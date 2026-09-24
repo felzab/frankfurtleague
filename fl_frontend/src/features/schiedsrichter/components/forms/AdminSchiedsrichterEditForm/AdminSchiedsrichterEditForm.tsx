@@ -89,7 +89,7 @@ export function AdminSchiedsrichterEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // The BOX is a string where the record may hold no name: an empty one is what the admin then types
   // into, and `PersonNameSchema` refuses it at the submit rather than storing the sentinel back.
@@ -182,7 +182,7 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
       const undoPayload: SchiedsrichterUndoBody = {
@@ -200,7 +200,7 @@ export function AdminSchiedsrichterEditForm({
       const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           reportSubmitFailure(res, { schiedsrichter: payload });
           return;

@@ -50,7 +50,7 @@ export function AdminSpielortEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const [name, setName] = useState(spielort.name);
   const [address, setAddress] = useState<FLAddress>(spielort.address);
@@ -131,7 +131,7 @@ export function AdminSpielortEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
       const undoPayload: FLPatchSpielortPayload = {
@@ -148,7 +148,7 @@ export function AdminSpielortEditForm({
       const res = await patchSpielortAction(payload).catch(unansweredAction);
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           reportSubmitFailure(res, { spielort: payload });
           return;

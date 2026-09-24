@@ -49,7 +49,7 @@ export function AdminSpieltagEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // An undated matchday enters as the empty string, which is the same state a cleared picker leaves
   // behind — so one branch below covers both, and the schema refuses the save either way.
@@ -121,7 +121,7 @@ export function AdminSpieltagEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component. The payload carries both dates or neither of them, so no replay
       // can ask the endpoint to take the dates away again.
@@ -133,7 +133,7 @@ export function AdminSpieltagEditForm({
       const res = await patchSpieltagAction(payload).catch(unansweredAction);
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           reportSubmitFailure(res, { spieltag: payload });
           return;

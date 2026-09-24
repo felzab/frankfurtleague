@@ -87,7 +87,7 @@ export function AdminSaisonEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // `CalendarDate` in state, strings on the wire — `parseDate` takes exactly the `YYYY-MM-DD` the API
   // sends. A picker cleared to null is held as null, and the schema is what reports it.
@@ -239,7 +239,7 @@ export function AdminSaisonEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Built BEFORE the write, from this render's props: they still carry what was stored, and the
       // toast that offers the undo outlives this page.
       const undoPayload: FLPatchSaisonPayload = {
@@ -257,7 +257,7 @@ export function AdminSaisonEditForm({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           reportSubmitFailure(res, { saison: payload });
           return;

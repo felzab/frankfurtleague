@@ -95,7 +95,7 @@ export function BewerbungForm({
    */
   hinweisSlot?: ReactNode;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
 
   const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
@@ -246,7 +246,7 @@ export function BewerbungForm({
   const writeAfterBlock = () => {
     const payload = bewerbungPayload(draft);
 
-    startTransition(async () => {
+    startSending(async () => {
       const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
@@ -263,7 +263,7 @@ export function BewerbungForm({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSending(() => {
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {

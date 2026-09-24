@@ -59,7 +59,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    */
   marksRequired?: boolean;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { entity: schema },
@@ -78,13 +78,13 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   };
 
   const writeAfterBlock = (payload: TPayload) => {
-    startTransition(async () => {
+    startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the dialog down with it.
       const res = await onSubmit(payload).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           // The hook owns the press's one toast: none where a field shows the refusal.
           reportSubmitFailure(res, { entity: payload });

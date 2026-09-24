@@ -103,7 +103,7 @@ export function AdminEditSpielDataForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
   // Held, never derived from the value: a scalar has no empty-but-present form, so a derived
@@ -361,13 +361,13 @@ export function AdminEditSpielDataForm({
     // dialog between them holds it still, so a second failure branch would be one nothing can reach.
     const narrowed = FLPatchSpielDataPayloadSchema.parse(payload);
 
-    startTransition(async () => {
+    startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           // A field error rather than a toast, so the message lands on the control to change.
           const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);

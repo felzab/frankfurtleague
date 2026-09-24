@@ -76,7 +76,7 @@ export function AdminSpielerEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -217,7 +217,7 @@ export function AdminSpielerEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       const collectedErrors: FieldErrors = {};
       // Built once, so what goes to each action is also what a later blur is graded against.
       const personPayload = buildPersonPayload();
@@ -255,7 +255,7 @@ export function AdminSpielerEditForm({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (failures.length > 0) {
           // One press, one failure: the half that saved leads each sentence, and one half of unknown
           // outcome makes the whole press one, whatever the other half answered.

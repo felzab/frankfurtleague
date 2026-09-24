@@ -69,7 +69,7 @@ export function AdminKontakteEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const storedMembership = saison.membership;
   // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
@@ -158,7 +158,7 @@ export function AdminKontakteEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
       const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
@@ -169,7 +169,7 @@ export function AdminKontakteEditForm({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSaving(() => {
         if (!res.success) {
           reportSubmitFailure(res, { kontakte: payload });
           return;

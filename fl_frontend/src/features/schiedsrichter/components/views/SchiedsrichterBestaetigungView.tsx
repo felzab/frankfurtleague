@@ -265,7 +265,7 @@ function SchiedsrichterFormPanel({
   medienMindestalter: number;
   onAbschluss: (stand: Stand) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>(LEERER_ENTWURF);
 
   const panel = formPanel();
@@ -312,7 +312,7 @@ function SchiedsrichterFormPanel({
 
     // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
     // so bare it commits before the pending state lifts.
-    startTransition(() => {
+    startSending(() => {
       if (!antwort.success) {
         // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
         // sentence is an administrator's repair, and a reload of this page has lost its token.
@@ -344,7 +344,7 @@ function SchiedsrichterFormPanel({
   const handleSubmit = () => {
     const payload = antwortPayload(token, entwurf, medienAngeboten);
     guardSubmit({ bestaetigung: payload }, () => {
-      startTransition(async () => {
+      startSending(async () => {
         await sende(payload);
       });
     });

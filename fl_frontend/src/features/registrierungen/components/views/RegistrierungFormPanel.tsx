@@ -68,7 +68,7 @@ export function RegistrierungFormPanel({
   /** Raised where the write found the invite gone, which is the whole page's answer rather than this panel's. */
   onLinkTot: () => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
@@ -97,7 +97,7 @@ export function RegistrierungFormPanel({
   const writeAfterBlock = () => {
     const payload = registrierungPayload(draft, token);
 
-    startTransition(async () => {
+    startSending(async () => {
       const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
@@ -114,7 +114,7 @@ export function RegistrierungFormPanel({
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startTransition(() => {
+      startSending(() => {
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {
