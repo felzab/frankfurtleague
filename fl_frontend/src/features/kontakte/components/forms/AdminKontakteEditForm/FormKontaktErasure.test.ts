@@ -9,11 +9,13 @@ import { act, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { APINetworkError } from "@/core/errors.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /** The panel's read and its write alike: a real one needs a session and a backend. */
 const { calls, answerWith } = doubleActions({
@@ -29,6 +31,11 @@ const { FormKontaktErasure } = await import("./FormKontaktErasure.tsx");
 const OHNE_VERBINDUNG =
   "Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. " +
   "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.";
+
+/** The read the backend never answered in time, as the panel words it. */
+const OHNE_ANTWORT =
+  "Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. " +
+  "Der Server hat zu lange nicht geantwortet. Versuche es erneut.";
 
 /** The names the arming read answers with, which the confirming press is taken over. */
 const ANSICHT = { success: true, ansicht: { acknowledged: 1, saison_teams: [], bewerbungen: [] } };
@@ -76,6 +83,28 @@ describe("the person's erasure over its arming read", () => {
       screen.queryAllByText(OHNE_VERBINDUNG).some((sentence) => sentence.closest("[hidden]") === null),
       "the armed reveal says less than the closed press",
     );
+  });
+
+  /* A backend stalled past the client's timeout, answered as `runAdminMutation` answers this read-only
+     POST: the read changed nothing, so the reveal says the list failed to load and never that an
+     erasure may stand. */
+  it("words a read the backend stalled as a failed read, never as an outcome unknown", async () => {
+    const stalled = new APINetworkError({
+      message: "timed out",
+      url: "http://localhost/api/v0/kontakte/erasure/ansicht",
+      method: "POST",
+      readOnly: true,
+      traceId: "0",
+      isTimeout: true,
+    });
+    answerWith(() => Promise.resolve(toActionErrorResult(stalled, { method: "POST", readOnly: true })));
+    const { user } = renderPanel();
+
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await settle();
+
+    closedControl(ARMED, OHNE_ANTWORT);
+    assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
   });
 
   /* A read still running ends by itself, as a running write does, so it names no reason; the press is held
