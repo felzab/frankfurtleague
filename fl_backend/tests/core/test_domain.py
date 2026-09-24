@@ -18,6 +18,7 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS, SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
 
@@ -210,7 +211,9 @@ def _classify(token: str) -> tuple[str, bool | None]:
 
     if endpoint := _ENDPOINT.match(token):
         route, method = endpoint.group(2), endpoint.group(1).lower()
-        return "endpoint", any(path.endswith(route) and method in operations for path, operations in _published_routes().items())
+        # The whole path, never its end: `/saisons/{saison_id}` also ends the team and player routes,
+        # which would go on resolving a season route renamed away.
+        return "endpoint", method in _published_routes().get(f"/api/v{API_VERSION}{route}", {})
 
     if _SURFACE.match(token):
         return "surface", (REPO_ROOT / f"fl_frontend/src/app{token}/page.tsx").is_file()
@@ -569,6 +572,13 @@ def test_an_invariant_number_resolves_against_the_spec_sheets_rather_than_the_so
     assert _classify("I1") == ("invariant", True)
     assert _classify("L1") == ("invariant", True)
     assert _classify("I999") == ("invariant", False)
+
+
+def test_an_endpoint_resolves_against_the_whole_published_path():
+    """The second token ends the published season route and names no route at all."""
+
+    assert _classify("PATCH /saisons/{saison_id}") == ("endpoint", True)
+    assert _classify("PATCH /{saison_id}") == ("endpoint", False)
 
 
 def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():
