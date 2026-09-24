@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { keyTierOf } from "@/core/keyTiers.ts";
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -146,14 +146,9 @@ function operationsAsked(fileName: string, source: string): Asked {
 
 /** Every operation outside the system tier the document publishes a 409 on, spelled as the reader is asked for it. */
 function operationsRefusing(): string[] {
-  let document: unknown;
-  try {
-    document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8"));
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
   const paths =
-    (document as { paths?: Record<string, Record<string, Record<string, unknown> & { responses?: Record<string, unknown> }>> }).paths ?? {};
+    (readPublishedDocument() as { paths?: Record<string, Record<string, Record<string, unknown> & { responses?: Record<string, unknown> }>> })
+      .paths ?? {};
 
   return Object.entries(paths).flatMap(([published, operations]) =>
     Object.entries(operations)

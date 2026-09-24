@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 
 import { APIBadStatusError } from "@/core/errors.ts";
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { DOCUMENT_PATH, readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FieldErrors } from "@/shared/utils/validation.ts";
@@ -21,12 +20,7 @@ export const DUPLICATE_KEY = "DB-COMMON-002";
 const UNCLAIMED = "REQ-UNCLAIMED-000";
 
 function readDocument(): JsonObject {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8"));
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
+  const parsed = readPublishedDocument();
   if (!isObject(parsed) || !isObject(parsed.paths)) throw new Error(`${DOCUMENT_PATH} publishes no paths`);
 
   return parsed;

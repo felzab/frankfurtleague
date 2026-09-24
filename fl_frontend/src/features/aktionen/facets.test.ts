@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
@@ -106,7 +105,7 @@ const KIND_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPER
 
 /** Every query parameter `GET /aktionen` publishes, read off the document rather than retyped here. */
 function publishedQueryNames(): string[] {
-  const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as {
+  const document = readPublishedDocument() as {
     paths: Record<string, { get?: { parameters?: { in?: string; name?: string }[] } }>;
   };
   const listed = Object.entries(document.paths).find(([published]) => /^\/api\/v\d+\/aktionen$/.test(published));

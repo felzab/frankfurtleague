@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 
 import {
   BESTAETIGUNG_ABSAETZE,
@@ -60,7 +59,7 @@ const fassungDigest = (fassung: EinwilligungFassung): string =>
 
 /** The bound the API publishes, so the label is judged against the tier that stores it rather than a copy of the number. */
 function publishedVersionMaxLength(): number {
-  const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as {
+  const document = readPublishedDocument() as {
     components?: { schemas?: Record<string, { properties?: Record<string, { maxLength?: number }> }> };
   };
   const bound = document.components?.schemas?.FLBewerbungEinwilligungPayload?.properties?.text_version?.maxLength;

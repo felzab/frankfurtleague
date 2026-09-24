@@ -1,7 +1,3 @@
-import { readFileSync } from "node:fs";
-
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
-
 type JsonSchema = Record<string, unknown>;
 
 export type PublishedDocument = {
@@ -23,14 +19,6 @@ export type PublishedCeiling = {
   bound: number;
   at: string;
 };
-
-export function readPublishedDocument(): PublishedDocument {
-  try {
-    return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as PublishedDocument;
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
-}
 
 /**
  * Every component some operation's request body reaches, closed over what those reference: a payload

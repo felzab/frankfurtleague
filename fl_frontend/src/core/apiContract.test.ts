@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -170,14 +169,6 @@ type FieldFacts = {
   enumValues: string[] | null;
 };
 
-function readDocument(): JsonSchema {
-  try {
-    return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonSchema;
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
-}
-
 function findSchemaModules(dir: string): string[] {
   // Sorted because `mirrors.set` below lets a later module overwrite an earlier one: without a
   // fixed order, a name two modules both export would attribute to either of them run to run.
@@ -327,7 +318,7 @@ function reachableFrom(document: JsonSchema, side: "requestBody" | "responses"):
   return reached;
 }
 
-const document = readDocument();
+const document = readPublishedDocument() as JsonSchema;
 const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
 const RESPONSE_REACHABLE = reachableFrom(document, "responses");
 const REQUEST_REACHABLE = reachableFrom(document, "requestBody");

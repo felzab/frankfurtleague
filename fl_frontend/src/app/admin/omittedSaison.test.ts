@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -10,6 +9,7 @@ import { pathToFileURL } from "node:url";
 
 import { render } from "@testing-library/react";
 
+import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -330,7 +330,7 @@ async function headerShows(searchParams: Record<string, string>): Promise<string
  * Every published read, marked where it takes an optional `saison_id`: an omitted one is resolved to
  * the running season, which answers 404 while none runs.
  */
-const OPENAPI = JSON.parse(readFileSync(path.resolve(APP_DIR, "..", "..", "..", "..", "fl_backend", "openapi.json"), "utf8")) as {
+const OPENAPI = readPublishedDocument() as {
   paths: Record<string, Record<string, { parameters?: { name: string; in: string }[] }>>;
 };
 const READ_ROUTES = Object.entries(OPENAPI.paths)

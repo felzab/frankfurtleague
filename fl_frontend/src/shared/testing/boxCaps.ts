@@ -1,4 +1,7 @@
-import { publishedCeilings, readPublishedDocument } from "@/core/publishedCeilings.ts";
+import { readPublishedDocument } from "@/core/openapiDocument.ts";
+import { publishedCeilings } from "@/core/publishedCeilings.ts";
+
+import type { PublishedDocument } from "@/core/publishedCeilings.ts";
 
 /** One character ceiling a payload publishes, and the `maxlength` of every rendered box writing that field. */
 export type WidthAgainstBoxes = { field: string; bound: number; caps: (number | null)[] };
@@ -16,7 +19,7 @@ export function widthsAgainstBoxes(markup: string, component: string): WidthAgai
     return { name: /(?<![-\w])name="([^"]*)"/.exec(attrs)?.[1], cap: cap === undefined ? null : Number(cap) };
   });
 
-  return publishedCeilings(readPublishedDocument(), [component])
+  return publishedCeilings(readPublishedDocument() as PublishedDocument, [component])
     .filter(({ keyword }) => keyword === "maxLength")
     .map(({ field, bound }) => ({ field, bound, caps: boxes.filter(({ name }) => name === field).map(({ cap }) => cap) }));
 }

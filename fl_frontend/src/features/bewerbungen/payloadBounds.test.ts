@@ -3,12 +3,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { publishedCeilings, readPublishedDocument } from "@/core/publishedCeilings";
+import { readPublishedDocument } from "@/core/openapiDocument";
+import { publishedCeilings } from "@/core/publishedCeilings";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
 import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import { FLBewerbungKaderPayloadSchema } from "./schemas.ts";
+
+import type { PublishedDocument } from "@/core/publishedCeilings";
 
 /*
  The components whose fields this form's boxes write. Whether each mirror refuses their ceilings is
@@ -25,7 +28,7 @@ const FORM_COMPONENTS = [
   "FLBewerbungKontaktpersonPayload",
 ];
 
-const document = readPublishedDocument();
+const document = readPublishedDocument() as PublishedDocument;
 // A character ceiling alone reaches a box's width; a count's ceiling is its number box's, read below.
 const widths = publishedCeilings(document, FORM_COMPONENTS).filter(({ keyword }) => keyword === "maxLength");
 

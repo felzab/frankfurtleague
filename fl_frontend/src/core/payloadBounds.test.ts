@@ -3,15 +3,16 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { publishedCeilings, readPublishedDocument, requestComponents } from "@/core/publishedCeilings.ts";
+import { readPublishedDocument } from "@/core/openapiDocument.ts";
+import { publishedCeilings, requestComponents } from "@/core/publishedCeilings.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 
-import type { PublishedCeiling } from "@/core/publishedCeilings.ts";
+import type { PublishedCeiling, PublishedDocument } from "@/core/publishedCeilings.ts";
 import type { ZodType } from "zod";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-const document = readPublishedDocument();
+const document = readPublishedDocument() as PublishedDocument;
 
 /*
  Read off the document, never listed: the ceiling added next is the one nobody would list. Responses
