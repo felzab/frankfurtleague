@@ -206,8 +206,9 @@ else
       # selfcheck.sh lints and probes these, so a hook edit selects the scripts scope — matched before
       # the .claude/* arm, which would leave the hook probes unrun on the change that needs them.
       .claude/hooks/*) scripts=true; docs=true ;;
-      # Shell under the same lint, building no image: without this arm a commit-msg edit reaches the
-      # fallback and runs the whole matrix.
+      # The hooks and the formatting helper: the scripts scope lints the shell and runs the helper
+      # under a real node (`scripts/tests/test_pre_commit_format.py`). Without this arm a commit-msg
+      # edit reaches the fallback and runs the whole matrix.
       .githooks/*) scripts=true; docs=true ;;
       # zizmor audits this file under `--strict-collection`, and the ops scope is the one running
       # zizmor; ahead of the `.github/*` arm, which would map it to `docs` alone.
