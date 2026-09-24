@@ -4,7 +4,7 @@
 
 | Section                                                       | Answers                                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [1.1 Service inventory](#11-service-inventory)                | What runs in production, with which limits and health checks                 |
+| [1.1 Service inventory](#11-service-inventory)                | What runs in production, and where its limits and health checks are set      |
 | [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                                      |
 | [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                             |
 | [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                              |
@@ -24,19 +24,16 @@ The recurring procedures are in [`runbooks.md`](runbooks.md).
 
 ### 1.1 Service inventory
 
-| Service       | Image                                            | Ports published | Resource limits                   | Health check                         |
-| ------------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
-| `frontend`    | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
-| `backend`     | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
-| `nginx`       | `nginx:1.31-alpine`                              | none            | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
-| `cloudflared` | `cloudflare/cloudflared:2026.8.3`                | none            | none                              | none                                 |
-
-**Production publishes no port at all** (I1): `cloudflared` dials out to Cloudflare and carries every
+**Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port at
+all** (I1): `cloudflared` dials out to Cloudflare and carries every
 request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
 internet, and the connector holds a static address on that network because `nginx/prod.conf` trusts
 it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
 variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
 settings are dashboard state (§1.8).
+
+Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
+`image:`, its `deploy.resources` and its `healthcheck:`.
 
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address
@@ -44,8 +41,8 @@ between them, and only the sockets it had pooled to the container that went fail
 from cloudflared's own source at the release `docker-compose.yml` pins, 2026-09-07, and a version
 bump moves it; nothing here observes it.
 
-All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
-`frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
+All four: `restart: unless-stopped`, and JSON file logging capped by
+`docker-compose.yml :: x-logging`, on the `frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
 the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
 destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy cannot install bound
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
@@ -113,7 +110,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
 | `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
 | `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
-| `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
+| `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
 | the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
@@ -270,15 +267,13 @@ other two with it, nothing under that prefix running application code.
 
 ### 1.4 Security headers
 
-Set at server level with `always`:
+Every response carries five, each sent with `always`:
 
-| Header                      | Value                                                                                                                                                                                                                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`                                                                                                                                                                                                     |
-| `X-Frame-Options`           | `SAMEORIGIN`                                                                                                                                                                                                                                       |
-| `X-Content-Type-Options`    | `nosniff`                                                                                                                                                                                                                                          |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                                                                                                                                                  |
-| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self';` |
+- `Strict-Transport-Security`
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- `Content-Security-Policy`
 
 `'unsafe-inline'` remains on `script-src` because a per-request nonce cannot cover build-time
 prerendered HTML, which this application prerenders (`cacheComponents` in
