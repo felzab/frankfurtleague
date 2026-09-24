@@ -25,6 +25,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-SQUAD-001": "Das ursprüngliche Team dieses Kadereintrags nimmt nicht mehr an dieser Saison teil.",
   "REQ-SQUAD-003": "Der Kader des ursprünglichen Teams ist für diese Saison inzwischen voll.",
   "REQ-SQUAD-004": "Die ursprüngliche Rolle ist in diesem Team inzwischen an einen anderen Spieler vergeben.",
+  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
 
 /** The second half of every refusal above: a cause alone leaves the admin unsure what the squad now holds. */

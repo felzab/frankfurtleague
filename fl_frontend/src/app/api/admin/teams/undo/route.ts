@@ -25,6 +25,9 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-ENTER-002": "Die ursprüngliche Gruppe gibt es in dieser Saison nicht mehr.",
   "REQ-ENTER-003": "Die ursprüngliche Gruppe ist inzwischen voll.",
   "REQ-ENTER-004": "Für dieses Team sind in dieser Saison inzwischen Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln.",
+  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
+  // The club half's one refusal too, which that half replays against this table.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
 
 /** The second half of every refusal above: a cause alone leaves the admin unsure what the team now holds. */
@@ -39,8 +42,17 @@ export async function POST(request: NextRequest) {
     schema: UndoRequestSchema,
     restore: async ({ club, saison }) => {
       if (club !== undefined) {
-        // No replay catch: the register declares no refusal against the season-independent club row.
-        const operation = await patchTeam(club);
+        let operation;
+        try {
+          operation = await patchTeam(club);
+        } catch (error) {
+          const refusal = replayRefusal(error, REPLAY_REFUSALS);
+          if (refusal === undefined) throw error;
+
+          // First of the two halves, so nothing is restored yet.
+          return { refusal: `${refusal} ${CHANGE_STANDS}` };
+        }
+
         if (!operation.acknowledged) {
           return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
         }

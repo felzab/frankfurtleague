@@ -12,6 +12,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums.",
   "REQ-DATE-008":
     "Der ursprüngliche Beginn dieses Spieltags passt nicht mehr in die Reihenfolge der Spieltage seiner Phase, die schon einen Zeitraum haben.",
+  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
 
 /** The second half of every refusal above: a cause alone leaves the admin unsure what the matchday now holds. */

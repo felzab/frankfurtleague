@@ -1,26 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import { DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
-
-// Source text because the table is module-private, and a test-only export of it would be a seam.
-const ROUTE = readFileSync(path.resolve(import.meta.dirname, "route.ts"), "utf8");
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
-
-/* The table alone: the handler below it reads a row by code and words an outcome of its own, and a
-   search over the whole route is satisfied by either. */
-const TABLE = sliceBetween(ROUTE, "const REPLAY_REFUSALS", "const CHANGE_STANDS");
-
-/** Each row opens its own line with the code it answers; a wrapped German value opens none. */
-const KEYED_ROW = /^\s+"(?<code>[A-Z][A-Z0-9-]*)":/gm;
-
-const rowCodes = [...TABLE.matchAll(KEYED_ROW)].map((row) => row.groups?.code).filter((code) => code !== undefined);
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
@@ -73,6 +58,7 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
+const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 
 /** One refused answer as the client raises it; only the status and the code are read past this file. */
 const aRefusal = (statusCode: number, serverErrorCode: string) =>
@@ -131,26 +117,36 @@ beforeEach(() => {
 });
 
 describe("the undo route's replay refusals against the endpoint it replays", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the replay table out of the route before reading it", () => {
-    assert.notEqual(TABLE, "", "the table's opening or the declaration closing it stopped matching");
-    assert.ok(!TABLE.includes("export async function POST"), "the cut runs on into the handler, whose lines this reader would take for rows");
+  /* Three sites per refusal: a code the route's table leaves unmapped reaches the admin as the 409
+     fallback in `fl_frontend/src/shared/utils/actionError.ts`, which says nothing of the change. */
+  it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
+    for (const code of publishedRefusals(REPLAY_OPERATION)) {
+      recorders.__flUndoAnswer = () => {
+        throw aRefusal(409, code);
+      };
+
+      const answered = await post(aReplayOf(SPIEL_ID));
+
+      assert.equal(answered.success, false, `${code} resolved as a restore`);
+      assert.match(
+        answered.error ?? "",
+        /\S\. Die Änderung steht weiterhin\.$/,
+        `${code} leaves the admin guessing what the fixtures now hold`,
+      );
+      assert.equal(answered.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
+    }
   });
 
-  /* The comparison below would hold of a reader that stopped finding rows, were the endpoint's set
-     ever empty; `publishedRefusals` refuses an empty one itself. */
-  it("reads rows out of the route", () => {
-    assert.ok(rowCodes.length > 0, "no row was read out of the replay table");
-  });
+  /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
+     row here is: two spellings of one sentence, held together. */
+  it("words the duplicate key as the shared reader does, saying the change stands", async () => {
+    recorders.__flUndoAnswer = () => {
+      throw aRefusal(409, DUPLICATE_KEY);
+    };
 
-  /* The whole set rather than a floor: a code this table misses reaches the admin as the 409 fallback
-     in `fl_frontend/src/shared/utils/actionError.ts`, the sentence about an equivalent entry, which is
-     the duplicate key's own. */
-  it("words exactly the refusals the replayed endpoint publishes", () => {
-    assert.deepEqual(
-      [...rowCodes].sort(),
-      publishedRefusals(REPLAY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-    );
+    const answered = await post(aReplayOf(SPIEL_ID));
+
+    assert.equal(answered.error, `${String(toActionErrorResult(aRefusal(409, DUPLICATE_KEY)).error)} Die Änderung steht weiterhin.`);
   });
 });
 

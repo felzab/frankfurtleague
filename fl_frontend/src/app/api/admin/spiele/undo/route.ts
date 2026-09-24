@@ -42,6 +42,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",
   "REQ-WIRING-002": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich.",
   "REQ-WIRING-003": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, die es in dieser Saison nicht gibt.",
+  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
 
 /**
