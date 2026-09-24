@@ -18,7 +18,7 @@ from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from app.main import create_app
+from app.main import api_routes, create_app
 from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -275,18 +275,9 @@ SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin
 GATED_PREFIXES = ("/api/v0/teams/", "/api/v0/spiele/", "/api/v0/spieltage/")
 
 
-def routes_in_matching_order(router: Any) -> Iterator[APIRoute]:
-    """Depth-first: FastAPI wraps an included router rather than splicing it in, and matching descends into that wrapper in place."""
-
-    for route in router.routes:
-        included = getattr(route, "original_router", None)
-        if included is not None:
-            yield from routes_in_matching_order(included)
-        elif isinstance(route, APIRoute):
-            yield route
-
-
-ROUTES = list(routes_in_matching_order(APP.router))
+# In the order a request is matched against them: `api_routes` opens each included router's wrapper
+# where it stands in `app.routes`, which is where matching descends into it.
+ROUTES = list(api_routes(APP))
 
 # Concrete ids, never `{spieltag_id}`: what is asked here is which route a REQUEST lands on, and a
 # literal segment reaching an id route is the failure these paths are shaped to rule out.
