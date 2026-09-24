@@ -25,8 +25,7 @@ nothing keeps true as entries arrive and leave.
   a reader finds them by searching; a second mechanism for that fact is a second home, which COR-2
   refuses.
 - **No check on whether a `Lands with:` line is still worth acting on.** Its tokens are validated for
-  resolving to an entry and no further
-  (`scripts/checks/docs_gate/checks.py :: _check_batches`).
+  resolving to an entry and no further (`scripts/checks/docs_gate/checks.py :: _check_batches`).
 
 ## 2. The id
 
@@ -69,11 +68,11 @@ not only the entries the session worked on. The set is closed and the first matc
 
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
 remains. **`Skipped` is not declined**: the work is still wanted, so the entry stays and nothing
-re-opens it until I say so (ruled 2026-09-06). A status that contradicts the `Depends on`
-beside it is the failure this rule exists to catch, so read the two columns together. **The
-status is a word the table above derives, a `Depends on` names only other entries the page still
-holds, and a `Blocked` names at least one** (`scripts/checks/docs_gate/checks.py :: _check_status`), which
-reads that set out of the table rather than repeating it.
+re-opens it until I say so (ruled 2026-09-06). A status that contradicts the `Depends on` beside it
+is the failure this rule exists to catch, so read the two columns together. **The status is a word
+the table above derives, a `Depends on` names only other entries the page still holds, and a
+`Blocked` names at least one** (`scripts/checks/docs_gate/checks.py :: _check_status`), which reads
+that set out of the table rather than repeating it.
 
 **Rule 4's three homes are the whole set.** An argument recorded anywhere else — a page holding it
 until it reaches its own destination, a commit body, a report — leaves the entry at rule 5, because

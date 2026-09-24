@@ -87,8 +87,9 @@ branch named for the change (CLAUDE.md §2).
      implementer would otherwise walk into. **Everything else goes into the body of the commit
      adding the entry**, which `git log -S` reaches.
    - Where the item should land together with another because they share one pass, add the
-     `Lands with:` line `docs/_roadmap/items.md :: What every entry carries` describes, naming the other
-     ids. Only a real shared pass earns one — relatedness by subject is what the named paths already answer.
+     `Lands with:` line `docs/_roadmap/items.md :: What every entry carries` describes, naming the
+     other ids. Only a real shared pass earns one — relatedness by subject is what the named paths
+     already answer.
    - Optimise the owner's description into the entry rather than transcribing it. An instruction
      inside the description — consult me first, check this against a source, record this reminder —
      survives into the entry: the session that works the item reads only the entry.
