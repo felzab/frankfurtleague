@@ -40,6 +40,9 @@ REPO_ROOT = BACKEND_ROOT.parent
 # One file, so the pairing below can be exact in both directions.
 UNENFORCED_TESTS = "tests/core/test_unenforced.py"
 
+FRONTEND_APP = REPO_ROOT / "fl_frontend" / "src" / "app"
+_ROUTE_GROUP = re.compile(r"^\(.+\)$")
+
 # `saison_teams` and `saison_spieler` have no row model: their fields are declared by their
 # `$jsonSchema` alone.
 ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
@@ -120,6 +123,24 @@ def _resolved_path(cited: str) -> Path | None:
     """Package-relative first: a reason spells a backend path as the package does, `app/core/crud.py` rather than repository-relative."""
 
     return next((candidate for candidate in (BACKEND_ROOT / cited, REPO_ROOT / cited) if candidate.exists()), None)
+
+
+def _page_serves(url: str, app_dir: Path = FRONTEND_APP) -> bool:
+    """Whether a `page.tsx` serves `url`, through any route group.
+
+    A folder named `(name)` is left out of the URL (https://nextjs.org/docs/app/api-reference/file-conventions/route-groups,
+    Next.js 16.3.6, read 2026-09-24), so a page moved into one keeps its address and must keep resolving.
+    """
+
+    def serves(folder: Path, segments: list[str]) -> bool:
+        groups = [child for child in folder.iterdir() if child.is_dir() and _ROUTE_GROUP.match(child.name)] if folder.is_dir() else []
+        here = (folder / "page.tsx").is_file() if not segments else serves(folder / segments[0], segments[1:])
+
+        return here or any(serves(group, segments) for group in groups)
+
+    segments = [segment for segment in url.split("/") if segment]
+
+    return not any(_ROUTE_GROUP.match(segment) for segment in segments) and serves(app_dir, segments)
 
 
 @functools.cache
@@ -222,7 +243,7 @@ def _classify(token: str) -> tuple[str, bool | None]:
         return "endpoint", method in _published_routes().get(f"/api/v{API_VERSION}{route}", {})
 
     if _SURFACE.match(token):
-        return "surface", (REPO_ROOT / f"fl_frontend/src/app{token}/page.tsx").is_file()
+        return "surface", _page_serves(token)
 
     if _REPO_PATH.match(token):
         return "path", _resolved_path(token) is not None
@@ -568,9 +589,20 @@ def test_every_unenforced_surface_resolves(entry):
     if not entry.surfaced_by:
         return
 
-    target = REPO_ROOT / (f"fl_frontend/src/app{entry.surfaced_by}/page.tsx" if entry.surfaced_by.startswith("/") else entry.surfaced_by)
+    served = _page_serves(entry.surfaced_by) if entry.surfaced_by.startswith("/") else (REPO_ROOT / entry.surfaced_by).is_file()
 
-    assert target.is_file(), f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
+    assert served, f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
+
+
+def test_a_surface_resolves_through_a_route_group_and_never_to_the_groups_own_name(tmp_path: Path):
+    """A synthetic tree, so the arm is pinned whether or not a page in the real one sits in a group today."""
+
+    (tmp_path / "admin" / "(current-saison)" / "action_required").mkdir(parents=True)
+    (tmp_path / "admin" / "(current-saison)" / "action_required" / "page.tsx").touch()
+
+    assert _page_serves("/admin/action_required", tmp_path)
+    assert not _page_serves("/admin/(current-saison)/action_required", tmp_path)
+    assert not _page_serves("/admin/elsewhere", tmp_path)
 
 
 @pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
