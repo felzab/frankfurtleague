@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -18,8 +18,6 @@ from app.api.spiele.schemas import (
     FLBracketFaultClash,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLPatchSpielePaarungenPayload,
-    FLPatchSpielePaarungenResponse,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
@@ -1194,22 +1192,6 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
 
         assert (spiele[HALBFINALE_NR]["ergebnis"], spiele[HALBFINALE_NR]["ort"]) == ("2:0", booking(SPIELORT_RETIRED))
         assert booking_faults(faults) == []
-
-
-async def replay(database: AsyncDatabase, client: AsyncMongoClient, paarungen: list[dict[str, Any]]) -> FLPatchSpielePaarungenResponse:
-    """`PATCH /spiele/paarungen` over `paarungen` as the wire carries them."""
-
-    return await patch_spiele_paarungen(
-        payload=FLPatchSpielePaarungenPayload.model_validate({"paarungen": paarungen}),
-        db=client,
-        spiele_collection=database[Collection.SPIELE],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-    )
 
 
 def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:
