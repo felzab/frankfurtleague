@@ -8,12 +8,17 @@ export const PLANT_MAP_CLASSES = { open: "zz-unknown-value" }; // expect: unknow
 export const PLANT_FLUID_TYPE_CLASSES = "text-fluid-sm"; // expect: unknown-class
 const BOX = "flex gap-2";
 export const COMPOSED_CLASSES = `${BOX} items-center`; // expect: class-constant-name
+const TONES = { open: "flex" };
+export const MEMBER_COMPOSED_CLASSES = `${TONES.open} items-center`; // expect: class-constant-name
+export const COMPOSED_MAP_CLASSES = { open: `${BOX} p-1`, shut: `${TONES.open} p-1` }; // expect: class-constant-name expect: class-constant-name
 
 export function ClassReach() {
   return (
     <div className={BOX} /* expect: class-constant-name */>
       <span className={`${BOX} p-1`} /* expect: class-constant-name */ />
       <span className={PLANT_MAP_CLASSES.open} />
+      <span className={TONES.open} /* expect: class-constant-name */ />
+      <span className={`${TONES.open} p-1`} /* expect: class-constant-name */ />
     </div>
   );
 }
