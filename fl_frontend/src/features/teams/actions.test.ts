@@ -31,6 +31,8 @@ const RETIRE_OPERATION = "DELETE /teams/{team_id}";
 const REACTIVATE_OPERATION = "POST /teams/{team_id}/reactivate";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
+/* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
+const JUNCTION_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
 
 const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
@@ -215,14 +217,11 @@ describe("the junction edit's refusals when the undo replays it", () => {
   /** One row of the route's replay table, which is a literal keyed by code. */
   const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
 
-  /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
-  const PATCH_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
-
   /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule, which is why the
      route catches nothing around it: its duplicate shorthand is the shared reader's sentence. */
   it("reads the junction patch's own rules, and none on the club patch", () => {
     assert.deepEqual(
-      publishedRefusals(PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      publishedRefusals(JUNCTION_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"],
     );
     assert.deepEqual(
@@ -243,10 +242,10 @@ describe("the junction edit's refusals when the undo replays it", () => {
     assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
   });
 
-  for (const code of publishedRefusals(PATCH_OPERATION)) {
+  for (const code of publishedRefusals(JUNCTION_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
       assert.notEqual(
-        answerShown(PATCH_OPERATION, code, mapEntryRefusal),
+        answerShown(JUNCTION_OPERATION, code, mapEntryRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
