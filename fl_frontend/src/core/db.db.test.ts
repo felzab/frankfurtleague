@@ -177,7 +177,15 @@ const { auth } = await import("./auth.ts");
 // inside its own case.
 const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
 opened.clients.push(coldClient);
-const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?recovery`)) as { client: MongoClient };
+// Built by the development branch, which caches its client on `global`: the cold start above holds the
+// production branch's. Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
+const env = process.env as Record<string, string | undefined>;
+const nodeEnv = env.NODE_ENV;
+env.NODE_ENV = "development";
+const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
+  if (nodeEnv === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = nodeEnv;
+})) as { client: MongoClient };
 opened.clients.push(recoveringClient);
 const { client: handshakeClient } = (await import(`${import.meta.resolve("./db.ts")}?handshake`)) as { client: MongoClient };
 opened.clients.push(handshakeClient);
