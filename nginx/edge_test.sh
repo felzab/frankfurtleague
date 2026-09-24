@@ -94,9 +94,9 @@ for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
-# The edge's `command` and `tmpfs` off the model Compose renders for the local stack, beside
-# stand-in environment files as `scripts/gate/verify.sh`'s compose step renders it: the Control API
-# the deploy reloads through exists only as that command starts nginx.
+# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, as
+# `scripts/gate/verify.sh`'s compose step renders it: the Control API the deploy reloads through
+# exists only as that command starts that release.
 EDGE_PY="$(any_python || true)"
 if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
   refuse "no python at the checkers' floor, so the edge's command could not be read off its model."
@@ -113,12 +113,14 @@ import json
 import sys
 
 nginx = json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]
+print("image", nginx.get("image") or "", sep="\t")
 for argument in nginx.get("command") or []:
     print("command", argument, sep="\t")
 tmpfs = nginx.get("tmpfs") or []
 for entry in [tmpfs] if isinstance(tmpfs, str) else tmpfs:
     print("tmpfs", entry, sep="\t")
 '
+EDGE_IMAGE=""
 EDGE_COMMAND=()
 EDGE_TMPFS=()
 mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
@@ -126,6 +128,7 @@ mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/loc
 for model_line in "${EDGE_MODEL[@]}"; do
   model_line="${model_line%$'\r'}"
   case "$model_line" in
+    image$'\t'*) EDGE_IMAGE="${model_line#*$'\t'}" ;;
     command$'\t'*) EDGE_COMMAND+=( "${model_line#*$'\t'}" ) ;;
     tmpfs$'\t'*) EDGE_TMPFS+=( --tmpfs "${model_line#*$'\t'}" ) ;;
     *) refuse "the local stack's model could not be read: ${model_line}" ;;
@@ -141,10 +144,10 @@ done
 # edge started without it.
 [[ -n "$EDGE_SOCKET" ]] \
   || die "the edge's command in docker-compose.yml opens no Control API socket (-l unix:...), which the deploy reloads through."
-if verbose; then info "the model starts the edge with: ${EDGE_COMMAND[*]} ${EDGE_TMPFS[*]}"; fi
+[[ -n "$EDGE_IMAGE" ]] || refuse "the local stack's model names no image for nginx, so there is no release to serve."
+if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_COMMAND[*]} ${EDGE_TMPFS[*]}"; fi
 
-# The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
-# subject is the same MSYS exclusion that step uses.
+# The leading slash on each `-v` subject is `scripts/gate/verify.sh`'s nginx step's MSYS exclusion.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
@@ -154,7 +157,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
-  nginx:1.31-alpine "${EDGE_COMMAND[@]}" >/dev/null \
+  "$EDGE_IMAGE" "${EDGE_COMMAND[@]}" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
@@ -662,7 +665,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/certs:/etc/nginx/certs:ro" \
   -v "/${SCRATCH}/log-prod:/var/log/frankfurtleague/nginx" \
-  nginx:1.31-alpine >/dev/null \
+  "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx over nginx/prod/."
 PROD_ADDR="$(docker port "$PROD_CONTAINER" 443/tcp | head -n 1)" \
   || refuse "the nginx/prod/ edge published no port."

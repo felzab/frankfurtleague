@@ -1156,7 +1156,7 @@ I1, I174 or I355." \
     -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
-    nginx:1.31-alpine nginx -t \
+    nginx:1.31.6-alpine nginx -t \
     || die "nginx refuses prod.conf — its own explanation is above."
   ok "nginx accepts prod.conf"
 

@@ -100,14 +100,14 @@ services:
           memory: "128M"
 
   nginx:
-    # Pinned to the minor: nothing here pulls nginx again, so an unpinned `alpine` tag drifts per
-    # host, and this component terminates TLS and owns the security headers. The local stack
-    # inherits this line; `scripts/gate/verify.sh` and `nginx/edge_test.sh` name the tag again.
-    image: nginx:1.31-alpine
+    # The exact patch, never the minor: a host pulls a tag it lacks and never again, so a minor tag
+    # stays at whichever patch it first pulled. The local stack and `nginx/edge_test.sh` read this
+    # line; `scripts/gate/verify.sh` spells it again.
+    image: nginx:1.31.6-alpine
     restart: unless-stopped
     # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
-    # (https://nginx.org/en/docs/switches.html, `-l`). A socket, never a port: a port answers on every
-    # interface of this network, reloads included.
+    # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
+    # answers on every interface of this network, reloads included.
     command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
     # A tmpfs: a socket a killed master leaves on disk makes the next start refuse to bind and
     # exit. Mode 700, so no user but root reaches the socket, whatever mode nginx gives it.
