@@ -72,6 +72,8 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (".github/gate-wall-clock.tsv", ("scripts", "docs")),
     # `fl_frontend/src/core/edgeRedaction.ts` reads this file's redaction map for five frontend suites.
     ("nginx/shared/http.conf", ("ops", "docs", "frontend")),
+    # The ops scope's zizmor reads the Dependabot configuration, and nothing else in the gate does.
+    (".github/dependabot.yml", ("ops", "docs")),
 )
 
 

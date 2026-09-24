@@ -216,6 +216,9 @@ else
       # Shell under the same lint, building no image: without this arm a commit-msg edit reaches the
       # fallback and runs the whole matrix.
       .githooks/*) scripts=true; docs=true ;;
+      # zizmor audits this file under `--strict-collection`, and the ops scope is the one running
+      # zizmor; ahead of the `.github/*` arm, which would map it to `docs` alone.
+      .github/dependabot.yml) ops=true; docs=true ;;
       .claude/*|.github/*) docs=true ;;
       *) all ;;
     esac
