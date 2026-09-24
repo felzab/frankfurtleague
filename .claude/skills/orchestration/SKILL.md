@@ -8,18 +8,18 @@ description: Coordinating a long multi-agent session — planning file ownership
 You are the coordinator. Agents write files; you own every landed commit, every routing decision,
 and every claim that reaches a permanent artefact.
 
-| You are…                                   | Read                                  |
-| ------------------------------------------ | ------------------------------------- |
-| starting, pausing or resuming a session    | [§1](#1-starting-pausing-or-resuming) |
-| about to dispatch the first agent          | [§2](#2-before-the-first-dispatch)    |
-| about to dispatch any agent                | [§3](#3-every-dispatch)               |
-| running the fleet or replying to the owner | [§4](#4-running-the-fleet)            |
-| planning a wave, or asked how long         | [§4](#the-schedule-is-read-back)      |
-| about to change the tree, or to measure    | [§4](#machine-and-refs-are-shared)    |
-| judging a landed report, or committing     | [§5](#5-commits-and-the-boundary)     |
-| taking a slice through the audit cycle     | [§6](#6-the-cycle)                    |
-| ending the session                         | [§7](#7-ending-the-session)           |
-| planning a programme                       | [handoff](handoff-template.md)        |
+| You are…                                      | Read                                  |
+| --------------------------------------------- | ------------------------------------- |
+| starting, pausing or resuming a session       | [§1](#1-starting-pausing-or-resuming) |
+| about to dispatch the first agent             | [§2](#2-before-the-first-dispatch)    |
+| about to dispatch any agent                   | [§3](#3-every-dispatch)               |
+| running the fleet or replying to the owner    | [§4](#4-running-the-fleet)            |
+| planning a wave, measuring, or asked how long | [§4](#the-schedule-is-read-back)      |
+| about to change a guard, hook or manifest     | [§4](#machine-and-refs-are-shared)    |
+| judging a landed report, or committing        | [§5](#5-commits-and-the-boundary)     |
+| taking a slice through the audit cycle        | [§6](#6-the-cycle)                    |
+| ending the session                            | [§7](#7-ending-the-session)           |
+| planning a programme                          | [handoff](handoff-template.md)        |
 
 **This page is a fixed budget, and nothing checks it.** Compaction keeps only its opening
 ([USAGE.md](USAGE.md) has the budget and the why), so **remove something of its own size before you
@@ -138,8 +138,10 @@ Run it for every agent, the fifteenth as much as the first.
    prep agent resolves a whole wave's premises against `HEAD` before its briefs are written** —
    half of them otherwise carry one the tree contradicts (`.claude/agents/implementer.md` section
    4), each paid for twice, in the agent's rediscovery and in the fix round that follows.
-5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer` and an auditor
-   needing a shell — to plant, run a suite or read an exit code — as `driving-reauditor`**.
+5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer`, an auditor that
+   must plant or run a suite as `driving-reauditor`, and research or an audit reading only committed
+   state as `researcher`**, whose shell writes nothing; `general-purpose` keeps a question that reads
+   no repository.
 6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
 7. **Record the dispatch in the register before it runs. An agent that writes the repository or
@@ -207,9 +209,6 @@ rather than the change (`.claude/agents/implementer.md` section 12).
 
 ### Machine and refs are shared
 
-- **The trees are not; the machine, the stores and the refs are.** A plant in an agent's worktree
-  reaches nobody, but a timing loop still contends for the CPU, so a figure is taken in an
-  exclusive window ([register-template.md](register-template.md)).
 - **A guard, a hook registration or a manifest changes what every other agent may do once it lands**
   (`.claude/agents/implementer.md` section 10) — hooks run from your checkout, and a lockfile
   obliges every later worktree to reinstall — so it lands in an exclusive window even at one line,

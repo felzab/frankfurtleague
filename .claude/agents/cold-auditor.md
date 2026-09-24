@@ -1,6 +1,6 @@
 ---
 name: cold-auditor
-description: Read-only auditor for a diff, a document, a plan or a handoff. Use for every audit and re-audit that judges rather than drives. It cannot write, edit or stage anything anywhere and cannot spawn agents, and its report is its final message rather than a file. An audit that must plant a violation, run a suite, read an exit code or read committed state needs a shell and goes to driving-reauditor instead.
+description: Read-only auditor for a diff, a document, a plan or a handoff. Use for every audit and re-audit that judges rather than drives. It cannot write, edit or stage anything anywhere and cannot spawn agents, and its report is its final message rather than a file. An audit that needs a shell goes elsewhere: one that must plant a violation or run a suite to driving-reauditor, and one that must only read committed state or a read-only command's exit code to researcher.
 tools: Read, Grep, Glob
 ---
 
