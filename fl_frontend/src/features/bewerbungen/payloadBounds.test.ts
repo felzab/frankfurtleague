@@ -3,142 +3,37 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { publishedCeilings, readPublishedDocument } from "@/core/publishedCeilings";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
 import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
-import {
-  FLBewerbungKaderPayloadSchema,
-  FLBewerbungKontaktpersonPayloadSchema,
-  FLBewerbungSchulePayloadSchema,
-  FLBewerbungTrikotPayloadSchema,
-  FLPostBewerbungPayloadSchema,
-} from "./schemas.ts";
+import { FLBewerbungKaderPayloadSchema } from "./schemas.ts";
 
-import type { ZodType } from "zod";
-
-const DOCUMENT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "fl_backend", "openapi.json");
-
-/**
- * Discovered from the backend's own document rather than listed here: a ceiling this file names is one somebody
- * remembered, and the ceiling added next is the one nobody adds.
- */
-const MIRRORS: Record<string, ZodType> = {
+/*
+ The components whose fields this form's boxes write. Whether each mirror refuses their ceilings is
+ `fl_frontend/src/core/payloadBounds.test.ts`'s, over every payload; this file asks whether a ceiling
+ reaches the box the applicant types in, which only a render of this form answers.
+*/
+const FORM_COMPONENTS = [
   // The submission's own root, whose two capped fields sit on no nested block: an application's
   // season and the opponent it wishes for.
-  FLPostBewerbungPayload: FLPostBewerbungPayloadSchema,
-  FLBewerbungSchulePayload: FLBewerbungSchulePayloadSchema,
-  FLBewerbungTrikotPayload: FLBewerbungTrikotPayloadSchema,
-  FLBewerbungKaderPayload: FLBewerbungKaderPayloadSchema,
-  FLBewerbungKontaktpersonPayload: FLBewerbungKontaktpersonPayloadSchema,
-};
-
-/** `characters` is `null` where the field is bounded by a `maximum` instead, which caps a count and no box's width. */
-type Capped = { component: string; field: string; characters: number | null; at: unknown; over: unknown };
-
-/** A host of exactly this many characters: `z.regexes.domain` caps ONE label at 63, so past that it dots. */
-function dottedHost(length: number): string {
-  const labels: string[] = [];
-  let left = length;
-
-  // 61, not 60: leaving exactly zero would append an empty final label and trail the host with a dot.
-  while (left > 61) {
-    labels.push("a".repeat(60));
-    left -= 61;
-  }
-  labels.push("a".repeat(left));
-
-  return labels.join(".");
-}
-
-/**
- * Values of an exact length in the shapes these payloads take: `"a".repeat(301)` is refused by a URL
- * field whatever its ceiling, so it would pass this file with `.max()` deleted. Only a value the
- * mirror otherwise accepts shows the ceiling.
- */
-const FILLERS: { min: number; build: (length: number) => string }[] = [
-  { min: 1, build: (length) => "a".repeat(length) },
-  { min: 12, build: (length) => `https://${dottedHost(length - 11)}.de` },
-  { min: 13, build: (length) => `${"a".repeat(length - 12)}@beispiel.de` },
+  "FLPostBewerbungPayload",
+  "FLBewerbungSchulePayload",
+  "FLBewerbungTrikotPayload",
+  "FLBewerbungKaderPayload",
+  "FLBewerbungKontaktpersonPayload",
 ];
 
-/** Whether the mirror leaves this field unfaulted — the object around it is partial, so only its own path counts. */
-function fieldAccepts(component: string, field: string, value: unknown): boolean {
-  const result = MIRRORS[component]?.safeParse({ [field]: value });
+const document = readPublishedDocument();
+const capped = publishedCeilings(document, FORM_COMPONENTS);
 
-  return result !== undefined && (result.success || result.error.issues.every((issue) => issue.path.join(".") !== field));
-}
-
-function cappedFields(): Capped[] {
-  const document = JSON.parse(readFileSync(DOCUMENT, "utf8")) as {
-    components: { schemas: Record<string, { properties?: Record<string, Record<string, unknown>> }> };
-  };
-  const found: Capped[] = [];
-
-  for (const component of Object.keys(MIRRORS)) {
-    const properties = document.components.schemas[component]?.properties ?? {};
-    for (const [field, spec] of Object.entries(properties)) {
-      // A nullable field publishes its bound inside `anyOf`, never beside the type: read only the outer
-      // level and `website_url`'s own ceiling is silently unswept.
-      const branches = [spec, ...((spec.anyOf as Record<string, unknown>[] | undefined) ?? [])];
-      const maxLength = branches.map((branch) => branch.maxLength).find((value) => typeof value === "number");
-      const maximum = branches.map((branch) => branch.maximum).find((value) => typeof value === "number");
-
-      // One past the ceiling and one at it, in the shape the field takes.
-      if (typeof maxLength === "number") {
-        const filler = FILLERS.find((candidate) => candidate.min <= maxLength && fieldAccepts(component, field, candidate.build(maxLength)));
-
-        found.push({
-          component,
-          field,
-          characters: maxLength,
-          at: filler?.build(maxLength) ?? null,
-          over: filler === undefined ? null : filler.build(maxLength + 1),
-        });
-      } else if (typeof maximum === "number") found.push({ component, field, characters: null, at: maximum, over: maximum + 1 });
-    }
-  }
-
-  return found;
-}
-
-const capped = cappedFields();
-
-describe("every ceiling the backend publishes is one the mirror refuses", () => {
-  it("finds the capped fields to judge", () => {
-    // Anti-vacuity: a renamed component or a document that stopped publishing bounds would otherwise
-    // leave every case below true of an empty list.
-    assert.ok(capped.length >= 10, `expected at least 10 capped fields, found ${String(capped.length)}`);
-  });
-
-  it("judges each of them with a value its own shape accepts", () => {
-    // Without this, a field whose shape no filler fits is still swept and still passes — refused at the
-    // ceiling and past it alike, for a reason that is not the ceiling.
-    assert.deepEqual(
-      capped.filter(({ at }) => at === null).map(({ component, field }) => `${component}.${field}`),
-      [],
-    );
-  });
-
-  for (const { component, field, at, over } of capped) {
-    it(`${component}.${field} is refused one past its ceiling`, () => {
-      // Parsed, never compared as a number: what matters is that the applicant is told at the keystroke,
-      // and only the schema actually refusing does that.
-      const result = MIRRORS[component]?.safeParse({ [field]: over });
-
-      assert.ok(result !== undefined && !result.success, `${component}.${field} accepted a value past its ceiling`);
-      assert.ok(
-        result.error.issues.some((issue) => issue.path.join(".") === field),
-        `${component}.${field} is over its ceiling and the refusal names another field`,
-      );
-    });
-
-    it(`${component}.${field} is accepted at its ceiling`, () => {
-      // The half that makes the case above about the CEILING: a field refused at its own limit is one
-      // the mirror bounds tighter than the backend publishes, and the applicant is stopped early.
-      assert.ok(fieldAccepts(component, field, at), `${component}.${field} is refused at the ceiling the backend publishes`);
-    });
-  }
+it("names only components the backend publishes", () => {
+  // A renamed component would otherwise drop its ceilings out of every case below without failing one.
+  assert.deepEqual(
+    FORM_COMPONENTS.filter((component) => !(component in document.components.schemas)),
+    [],
+  );
 });
 
 const FORM_DIR = path.join(import.meta.dirname, "components", "forms", "BewerbungForm");
