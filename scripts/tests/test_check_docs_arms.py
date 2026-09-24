@@ -124,6 +124,13 @@ def test_a_field_table_headed_out_of_order_is_reported_once() -> None:
     _assert_corpus_restored()
 
 
+def test_a_field_row_wider_than_its_header_is_reported() -> None:
+    """Under the two right headings the header arm passes, and read by name the extra cell is dropped unread."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open | — |", "| Open | — | ui |")))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a row wider than its header was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 EMPTY_STATUS: Final = "|  |"
 
 

@@ -526,21 +526,17 @@ def _check_status_vocabulary() -> list[Finding]:
     return [Finding("fail", "roadmap-shape", rel, detail)]
 
 
-def _entry_table(section: str) -> tuple[tuple[str, ...], dict[str, str]]:
-    """One entry's field table: its header, and each column mapped to the value beneath it.
-
-    Read by name, so a header the column arm refuses is still read field for field, and reported once.
-    """
+def _entry_table(section: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """One entry's field table: its header, and the values row beneath it."""
     rows = _table_rows(section)
     head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
     if head is None:
-        return (), {}
-    header = tuple(rows[head])
+        return (), ()
     for cells in rows[head + 1 :]:
         if cells and all(TABLE_DELIMITER_RE.match(cell) for cell in cells):
             continue
-        return header, dict(zip(header, cells, strict=False))
-    return header, {}
+        return tuple(rows[head]), tuple(cells)
+    return tuple(rows[head]), ()
 
 
 def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
@@ -615,10 +611,16 @@ def _check_status(rel: str, filed: dict[str, str]) -> list[Finding]:
     found: list[Finding] = []
     expected = " | ".join(ROADMAP_FIELD_COLUMNS)
     for token, section in filed.items():
-        header, fields = _entry_table(section)
+        header, values = _entry_table(section)
+        # Read by name, so a header refused here is still read field for field below, and reported once.
+        fields = dict(zip(header, values, strict=False))
         # A table with no `Status` column is the vocabulary arm's below, which reports no status.
         if header and header != ROADMAP_FIELD_COLUMNS:
             detail = f"entry {token}'s field table is headed `{' | '.join(header)}` -- an entry's fields are `{expected}` alone"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        # GFM ignores a cell past the header's (spec §4.10), so a value there is one no reader sees.
+        elif len(values) > len(header):
+            detail = f"entry {token}'s field row holds {len(values)} cells under {len(header)} headings -- a cell past them is never rendered"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
         status = fields.get(STATUS_COLUMN, "")
         # `Closed` is outside the set as well: the closing commit deletes an entry rather than marking it.
