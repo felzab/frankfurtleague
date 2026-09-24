@@ -854,6 +854,52 @@ every overlay still positions under the strict policy; both are read off the rea
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
 
+### `scfh-f6gw` · Every privacy decision the sign-up programme took is reviewed once, and a German brief puts the open questions to a Datenschutzexperte
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**My item, 2026-09-24**, in my words: "a quick roadmap entry to go over all datenschutz related
+decisions again and compile a nice and comprehensive brief for a datenschutzexperte in german. But
+that should run after this whole programme is done so it stays a roadmap entry". The programme is
+the one building the pupil sign-up and the admin panels, and this runs after its last session and
+never inside it: a decision a later session of it takes would otherwise be missing from the review.
+
+**One review of every privacy decision, then one brief.** The review reads each ruling
+[`docs/datenschutz.md`](../datenschutz.md) records against the tree as it then stands, and against
+the published notice, `fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`, so the
+brief quotes what ships rather than what a ruling once said. The brief is written in German for a
+Datenschutzexperte, and for each open question it states what ships today and what each possible
+answer would change on the site, in the notice and in the stored data.
+
+**The questions are every entry
+[`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision) lists as open when the
+review runs, and those my checklist of 2026-09-24 named**, which the brief covers whether or not §11
+still carries them:
+
+- a pupil's own consent at sixteen and seventeen, with no guardian asked;
+- the media consent narrowed to images in which the person can be identified;
+- a referee's record, which carries no end date;
+- the basis of a referee's fee, and whether the word „Honorar“ fits it;
+- Cloudflare's challenge on `/bewerbung/*`, set without consent, against § 25 TDDDG;
+- the refusals the code takes alone, against Art. 22;
+- how the refusal of an address that is not plain ASCII is classified;
+- Art. 14 (5) (b) for the referees standing today;
+- joint control over the Instagram account, and which Meta company provides Instagram in the EU;
+- the board's full names in the Impressum, under § 18 MStV and § 5 DDG;
+- the ban list's key, which cannot be rotated without losing every ban it keys;
+- the date WhatsApp Ireland's privacy policy was last read for
+  [section 7](../datenschutz.md#7-processors-and-third-parties);
+- whether pupils whose records were erased are owed a message saying so;
+- MongoDB's support access to the hosted database, and which Google company provides Gmail in the
+  EEA;
+- the pending appeal in Latombe (C-703/25 P) and what it would mean for the transfers section 7
+  names.
+
+**Done when** the brief exists and each of its questions carries the Datenschutzexperte's answer or
+a ruling of mine.
+
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
 | Status | Depends on |
