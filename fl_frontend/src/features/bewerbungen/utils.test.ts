@@ -7,7 +7,7 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -459,7 +459,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      as the generic sentence, which names no field and no way out. */
   it("maps every code the submission publishes", () => {
     for (const code of publishedRefusals(SUBMIT_OPERATION)) {
-      assert.notEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), null, `${code} reaches the applicant unmapped`);
+      assert.notEqual(answerShown(SUBMIT_OPERATION, code, mapBewerbungSubmitRefusal), null, `${code} reaches the applicant unmapped`);
     }
   });
 
@@ -587,11 +587,8 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation publishes", () => {
     for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      assert.notEqual(
-        mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER),
-        null,
-        `${code} reaches the contact person unmapped`,
-      );
+      const answered = answerShown(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, VERTRETUNG_MIN_ALTER));
+      assert.notEqual(answered, null, `${code} reaches the contact person unmapped`);
     }
   });
 

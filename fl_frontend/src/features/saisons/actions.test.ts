@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
@@ -63,7 +63,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(CREATE_OPERATION, code, createAnswer), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(CREATE_OPERATION, code, createAnswer), null, `${code} reaches the admin as a generic conflict`);
       // A mapped rule reported as a taken id would name a field the admin cannot repair it at.
       if (code !== DUPLICATE_KEY)
         assert.notEqual(
@@ -120,7 +120,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       ],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(EDIT_OPERATION, code, mapRulesRefusal), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(EDIT_OPERATION, code, mapRulesRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
     assert.ok(EDIT_ACTION.includes("mapRulesRefusal(error)"), "the edit answers its refusals somewhere else");
   });
@@ -133,14 +133,14 @@ describe("the saison actions against the codes their endpoints publish", () => {
       ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(ACTIVATE_OPERATION, code, mapActivateRefusal), null, `${code} reaches the admin as a generic failure`);
+      assert.notEqual(answerShown(ACTIVATE_OPERATION, code, mapActivateRefusal), null, `${code} reaches the admin as a generic failure`);
     }
     assert.ok(ACTIVATE_ACTION.includes("mapActivateRefusal(error)"), "the rollover answers its refusals somewhere else");
   });
 
   it("maps every refusal the group swap publishes", () => {
     for (const code of publishedRefusals(SWAP_OPERATION)) {
-      assert.notEqual(adminAnswer(SWAP_OPERATION, code, mapSwapRefusal), null, `${code} reaches the admin as a generic failure`);
+      assert.notEqual(answerShown(SWAP_OPERATION, code, mapSwapRefusal), null, `${code} reaches the admin as a generic failure`);
     }
     assert.ok(SWAP_ACTION.includes("mapSwapRefusal(error)"), "the swap answers its refusals somewhere else");
   });
@@ -168,7 +168,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
     );
     for (const code of published) {
       for (const carriedShape of [false, true]) {
-        const answered = adminAnswer(DRAW_OPERATION, code, (error) => mapSpielplanRefusal(error, carriedShape));
+        const answered = answerShown(DRAW_OPERATION, code, (error) => mapSpielplanRefusal(error, carriedShape));
         assert.notEqual(answered, null, `${code} reaches the admin as a generic failure`);
       }
     }
@@ -185,7 +185,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       ["REQ-SPIELPLAN-006"],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
+      assert.notEqual(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
     }
     assert.ok(UNDRAW_ACTION.includes("mapUndrawRefusal(error)"), "the undraw answers its refusal somewhere else");
   });

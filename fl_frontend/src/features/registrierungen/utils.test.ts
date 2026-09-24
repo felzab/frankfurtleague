@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit.ts";
@@ -162,7 +162,7 @@ describe("what one refused submission shows", () => {
     ];
 
     for (const code of new Set([...published, ...mapped])) {
-      assert.notEqual(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", code)), null, `${code} maps to nothing`);
+      assert.notEqual(answerShown("POST /registrierungen", code, mapRegistrierungSubmitRefusal), null, `${code} maps to nothing`);
     }
     assert.deepEqual(
       published.filter((code) => code !== DUPLICATE_KEY),
@@ -260,8 +260,8 @@ describe("what one refused confirmation shows", () => {
     ];
 
     for (const code of new Set([...published, ...mapped])) {
-      const answered = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
-      assert.notEqual(answered, null, `${code} maps to nothing`);
+      const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
+      assert.notEqual(own ?? answerShown("POST /registrierungen/bestaetigung", code, () => null), null, `${code} maps to nothing`);
     }
     assert.deepEqual(
       published.filter((code) => code !== DUPLICATE_KEY),

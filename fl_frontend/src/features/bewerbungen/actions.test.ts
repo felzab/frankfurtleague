@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
@@ -152,7 +152,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
     for (const code of published) {
       assert.notEqual(
-        adminAnswer(ANNEHMEN_OPERATION, code, mapTriageRefusal),
+        answerShown(ANNEHMEN_OPERATION, code, mapTriageRefusal),
         null,
         `${code} is published on the acceptance and reaches the admin unmapped`,
       );
@@ -168,7 +168,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     );
     for (const code of published) {
       assert.notEqual(
-        adminAnswer(ABLEHNEN_OPERATION, code, mapTriageRefusal),
+        answerShown(ABLEHNEN_OPERATION, code, mapTriageRefusal),
         null,
         `${code} is published on the decline and reaches the admin unmapped`,
       );
@@ -658,7 +658,7 @@ describe("the re-sent confirmation link", () => {
   it("maps every code the re-send publishes", () => {
     for (const code of publishedRefusals(ERNEUT_OPERATION)) {
       assert.notEqual(
-        adminAnswer(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
+        answerShown(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
         null,
         `${code} is published on the re-send and reaches the admin unmapped`,
       );
@@ -816,7 +816,7 @@ describe("the corrected contact address", () => {
   it("maps every code the correction publishes", () => {
     for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
       assert.notEqual(
-        adminAnswer(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
+        answerShown(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
         null,
         `${code} is published on the correction and reaches the admin unmapped`,
       );
@@ -902,7 +902,7 @@ describe("the person seated where one stepped out", () => {
   it("maps every code the reseat publishes", () => {
     for (const code of publishedRefusals(SITZ_OPERATION)) {
       assert.notEqual(
-        adminAnswer(SITZ_OPERATION, code, mapKontaktSitzRefusal),
+        answerShown(SITZ_OPERATION, code, mapKontaktSitzRefusal),
         null,
         `${code} is published on the reseat and reaches the admin unmapped`,
       );

@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -98,6 +99,8 @@ const PAGE_MARKUP = renderTree(
   }),
 );
 
+const ERASURE_OPERATION = "POST /kontakte/erasure";
+
 /* Each declaration is cut at the one named after it, the header above the first included: a boundary
    that stopped matching then fails the case pinning the cut rather than every case reading the slice. */
 const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseKontaktpersonAction", " * The three seats one club holds");
@@ -147,9 +150,15 @@ describe("the erasure's refusals", () => {
   });
 
   /* The endpoint refuses on no rule: a person may want their details gone while the club they were
-     reached for still plays. A rule published against it later is a 409 no test asks about, which
-     `fl_frontend/src/core/refusalCoverage.test.ts` fails on. */
+     reached for still plays. A rule published against it later fails here until a mapper words it. */
   it("maps no refusal of its own", () => {
+    for (const code of publishedRefusals(ERASURE_OPERATION)) {
+      assert.notEqual(
+        answerShown(ERASURE_OPERATION, code, () => null),
+        null,
+        `${code} is published on the erasure and reaches the admin unmapped`,
+      );
+    }
     assert.ok(!ERASE_ACTION.includes("serverErrorCode"), "the erasure maps a code its endpoint does not answer");
     assert.ok(!ERASE_ACTION.includes("APIBadStatusError"), "the erasure catches a refusal its endpoint does not raise");
   });

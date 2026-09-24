@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import {
@@ -28,6 +28,7 @@ const RETIRE_ACTION = sliceBetween(ACTIONS, "export async function deleteTeamAct
 const CREATE_OPERATION = "POST /teams";
 const EDIT_OPERATION = "PATCH /teams/{team_id}";
 const RETIRE_OPERATION = "DELETE /teams/{team_id}";
+const REACTIVATE_OPERATION = "POST /teams/{team_id}/reactivate";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
 
@@ -69,13 +70,13 @@ describe("the team actions against the codes their endpoints publish", () => {
      message about an entry that already exists — confidently wrong for three of these four. */
   it("maps every refusal the replacement endpoint publishes", () => {
     for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
-      assert.notEqual(adminAnswer(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
   });
 
   it("maps every refusal the entry endpoint publishes", () => {
     for (const code of publishedRefusals(ENTRY_OPERATION)) {
-      assert.notEqual(adminAnswer(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin as a generic conflict`);
     }
     assert.ok(ENTRY_ACTION.includes("mapEntryRefusal(error)"), "the entry answers its rules somewhere else");
     assert.ok(ENTRY_ACTION.includes("mapAlreadyEnteredRefusal(error)"), "the entry leaves its unique index to the generic conflict message");
@@ -83,9 +84,21 @@ describe("the team actions against the codes their endpoints publish", () => {
 
   it("maps every refusal the retirement publishes", () => {
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
-      assert.notEqual(adminAnswer(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement answers its refusal somewhere else");
+  });
+
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the reactivation publishes to the shared reader", () => {
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REACTIVATE_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin as a generic conflict`,
+      );
+    }
   });
 
   /* A club's only unique key is its shorthand, so the create and the edit each land a 409 on that box,
@@ -233,7 +246,7 @@ describe("the junction edit's refusals when the undo replays it", () => {
   for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
       assert.notEqual(
-        adminAnswer(PATCH_OPERATION, code, mapEntryRefusal),
+        answerShown(PATCH_OPERATION, code, mapEntryRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );

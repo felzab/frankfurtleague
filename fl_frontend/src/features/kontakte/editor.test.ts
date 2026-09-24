@@ -20,7 +20,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -276,7 +276,7 @@ describe("the contacts write against the codes its endpoint publishes", () => {
       [STALE_BLOCK],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
     assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);

@@ -15,7 +15,7 @@ import { userEvent } from "@testing-library/user-event";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -146,7 +146,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
      fails this. */
   it("maps every refusal the anonymisation publishes", () => {
     for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
-      assert.notEqual(adminAnswer(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
 
     assert.ok(ANONYMISE_ACTION.includes("mapAnonymiseRefusal(error)"), "the anonymisation consults some other mapper");
@@ -158,7 +158,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   it("words every refusal the reactivation publishes", () => {
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
-        adminAnswer(REACTIVATE_OPERATION, code, mapReactivateRefusal),
+        answerShown(REACTIVATE_OPERATION, code, mapReactivateRefusal),
         null,
         `${code} reaches the admin as an unhandled conflict`,
       );
@@ -186,7 +186,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     ] as const) {
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
-        assert.notEqual(adminAnswer(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+        assert.notEqual(answerShown(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
       }
     }
   });
@@ -199,16 +199,20 @@ describe("the referee's writes against the codes their endpoints publish", () =>
      sentence rather than a field error. */
   it("words every refusal the re-send publishes", () => {
     for (const code of publishedRefusals(EINLADEN_OPERATION)) {
-      assert.notEqual(adminAnswer(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
   });
 
   /* The public page's own two endpoints. Their German is the visitor's, so it is worded where the
-     page reads them rather than in an admin action's mapper, and no shared fallback stands behind it. */
+     page reads them rather than in an admin action's mapper. */
   it("words every refusal the referee's own link publishes", async () => {
     for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
-      const answered = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => Promise.resolve(16));
-      assert.notEqual(answered, null, `${code} reaches the visitor as an unhandled conflict`);
+      const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => Promise.resolve(16));
+      assert.notEqual(
+        own ?? answerShown(BESTAETIGUNG_OPERATION, code, () => null),
+        null,
+        `${code} reaches the visitor as an unhandled conflict`,
+      );
     }
     for (const code of publishedRefusals(ANSICHT_OPERATION)) {
       assert.notEqual(
@@ -221,7 +225,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
 
   it("leaves the retirement's own refusal on the retirement", () => {
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
-      assert.notEqual(adminAnswer(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
     assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");

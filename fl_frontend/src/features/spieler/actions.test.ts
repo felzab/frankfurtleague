@@ -14,7 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
@@ -171,6 +171,7 @@ const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
+const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
 const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
 const ENTRY_ACTION = sliceBetween(ACTIONS, "export async function postSaisonSpielerAction", "export async function patchSaisonSpielerAction");
@@ -199,7 +200,7 @@ describe("the player actions against the codes their endpoints publish", () => {
       ["REQ-PURGE-001"],
     );
     for (const code of published) {
-      assert.notEqual(adminAnswer(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
   });
 
@@ -214,7 +215,7 @@ describe("the player actions against the codes their endpoints publish", () => {
      which the index finds among retired ones too — is the sentence left once the rules are ruled out. */
   it("maps every refusal the squad entry publishes", () => {
     for (const code of publishedRefusals(ENTRY_OPERATION)) {
-      const answered = adminAnswer(ENTRY_OPERATION, code, (error) => mapSquadRefusal(error) ?? mapAlreadyInSaisonRefusal(error));
+      const answered = answerShown(ENTRY_OPERATION, code, (error) => mapSquadRefusal(error) ?? mapAlreadyInSaisonRefusal(error));
       assert.notEqual(answered, null, `${code} reaches the admin as an unhandled conflict`);
     }
     assert.ok(ENTRY_ACTION.includes("mapSquadRefusal(error)"), "the entry answers the squad's rules somewhere else");
@@ -223,9 +224,21 @@ describe("the player actions against the codes their endpoints publish", () => {
 
   it("maps every refusal the row's reactivation publishes", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
-      assert.notEqual(adminAnswer(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
     assert.ok(REACTIVATE_ROW_ACTION.includes("mapSquadRefusal(error)"), "the row's reactivation answers the squad's rules somewhere else");
+  });
+
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the row's retirement publishes to the shared reader", () => {
+    for (const code of publishedRefusals(RETIRE_ROW_OPERATION)) {
+      assert.notEqual(
+        answerShown(RETIRE_ROW_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
+    }
   });
 });
 
@@ -760,7 +773,7 @@ describe("the squad edit's refusals when the undo replays it", () => {
   for (const code of publishedRefusals(SQUAD_PATCH_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
       assert.notEqual(
-        adminAnswer(SQUAD_PATCH_OPERATION, code, mapSquadRefusal),
+        answerShown(SQUAD_PATCH_OPERATION, code, mapSquadRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );

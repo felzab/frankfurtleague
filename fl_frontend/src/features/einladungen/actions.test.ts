@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapEinladungRefusal } from "./refusals.ts";
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
+const REVOKE_OPERATION = "DELETE /teams/{team_id}/saisons/{saison_id}/einladung";
 /** S9's flow raises it; this slice calls neither endpoint it is published on. */
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
@@ -20,7 +21,7 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
     );
     for (const code of published) {
       assert.notEqual(
-        adminAnswer(MINT_OPERATION, code, mapEinladungRefusal),
+        answerShown(MINT_OPERATION, code, mapEinladungRefusal),
         null,
         `${code} is published on the mint and reaches the admin unmapped`,
       );
@@ -36,9 +37,20 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
     );
     for (const code of published) {
       assert.notEqual(
-        adminAnswer(VERSAND_OPERATION, code, mapEinladungRefusal),
+        answerShown(VERSAND_OPERATION, code, mapEinladungRefusal),
         null,
         `${code} is published on the send and reaches the admin unmapped`,
+      );
+    }
+  });
+
+  /* The revoke asks the same mapper, which leaves the unique index's code to the shared reader. */
+  it("maps every code the revoke publishes", () => {
+    for (const code of publishedRefusals(REVOKE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REVOKE_OPERATION, code, mapEinladungRefusal),
+        null,
+        `${code} is published on the revoke and reaches the admin unmapped`,
       );
     }
   });

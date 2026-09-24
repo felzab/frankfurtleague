@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { mapSpielRefusal } from "./refusals.ts";
@@ -57,7 +57,7 @@ describe("the match editor's refusals against the codes its endpoint publishes",
      published here. */
   for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin as its own refusal`, () => {
-      assert.notEqual(adminAnswer(PATCH_OPERATION, code, mapSpielRefusal), null, `${code} tells the admin an equivalent entry already exists`);
+      assert.notEqual(answerShown(PATCH_OPERATION, code, mapSpielRefusal), null, `${code} tells the admin an equivalent entry already exists`);
     });
   }
 

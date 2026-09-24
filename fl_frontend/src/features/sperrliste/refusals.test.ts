@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAdresseRefusal } from "./refusals.ts";
 
@@ -22,7 +22,7 @@ describe("the address a unique index already holds", () => {
 
   it("answers every refusal the create publishes", () => {
     for (const code of publishedRefusals(CREATE_OPERATION)) {
-      assert.notEqual(adminAnswer(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
   });
 

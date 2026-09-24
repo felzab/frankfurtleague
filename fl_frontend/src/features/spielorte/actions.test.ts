@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
@@ -13,6 +13,7 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "u
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
 const CREATE_OPERATION = "POST /spielorte";
 const EDIT_OPERATION = "PATCH /spielorte/{spielort_id}";
+const REACTIVATE_OPERATION = "POST /spielorte/{spielort_id}/reactivate";
 
 /* Read per slice rather than over the file: four writes live here, and a search over the whole
    source is satisfied by whichever one happens to carry the call. */
@@ -32,7 +33,7 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
      still waiting for a result. */
   it("maps every refusal the retirement publishes", () => {
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
-      assert.notEqual(adminAnswer(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
 
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement consults no mapper");
@@ -47,6 +48,18 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
   it("leaves a conflict it does not know, and the same code at another status, to the shared reader", () => {
     assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, DUPLICATE_KEY)), null);
     assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 404)), null);
+  });
+
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the reactivation publishes to the shared reader", () => {
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REACTIVATE_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
+    }
   });
 });
 
@@ -70,7 +83,7 @@ describe("the venue name a unique index already holds", () => {
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
         assert.notEqual(
-          adminAnswer(operation, code, mapNameRefusal),
+          answerShown(operation, code, mapNameRefusal),
           null,
           `${code} reaches the admin as an unhandled conflict on ${operation}`,
         );

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { adminAnswer, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -83,7 +83,7 @@ describe("the Spieltag refusals against the codes the matchday PATCH publishes",
   for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin in German on both write paths`, () => {
       assert.notEqual(
-        adminAnswer(PATCH_OPERATION, code, mapSpieltagRefusal),
+        answerShown(PATCH_OPERATION, code, mapSpieltagRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );

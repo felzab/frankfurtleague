@@ -781,8 +781,8 @@ endpoint's own published set rather than a list somebody typed, and **it throws 
 publishing no 409**, because a loop over an empty answer runs zero times and proves nothing.
 `fl_frontend/src/core/refusalCoverage.test.ts` holds the other half (I368): every published 409 is
 asked about by some test, and no test asks about an operation publishing none. **`DB-COMMON-002` is the
-one code the shared 409 fallback words**, so an admin slice's mapper answers it only where a box
-holds the refused value (`fl_frontend/src/shared/testing/publishedRefusals.ts :: adminAnswer`).
+one code the shared 409 fallback words**, so a slice's mapper answers it only where a box holds
+the refused value (`fl_frontend/src/shared/testing/publishedRefusals.ts :: answerShown`).
 **Each caller of `fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween` pins its cut before
 reading it**, an assertion over a cut that has silently emptied proving nothing either.
 `fl_frontend/src/core/apiContract.test.ts` compares every Zod schema against the component
