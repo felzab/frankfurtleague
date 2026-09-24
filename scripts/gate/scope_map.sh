@@ -102,6 +102,7 @@ else
       # through one of these waits for the push to main.
       fl_frontend/src/core/passkeyRefusal.ts|fl_frontend/src/features/passkeys/actions.ts| \
       fl_frontend/src/core/authDoubles.ts|fl_frontend/src/shared/utils/refusal.ts| \
+      fl_frontend/src/shared/testing/cacheScope.ts| \
       fl_frontend/app-source-maps.mjs|fl_frontend/tsconfig-alias-hook.mjs| \
       fl_frontend/worker-exit-reporter.mjs)
         frontend=true; db=true; docs=true ;;
