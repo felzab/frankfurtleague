@@ -1895,6 +1895,22 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 
 
+def test_a_rule_register_read_as_nothing_is_named_once_and_compared_to_nothing() -> None:
+    """The register's opening renamed, so the declaration reads as empty and the sample rule is still spelled.
+
+    One finding: a comparison run after it would add a second, demanding a row for that spelled rule.
+    """
+    _reset()
+    _replace(DOMAIN_REGISTER, "RULES: tuple[Rule, ...] = (", "RULES = (")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    spoke = {key: count for key, count in reported.items() if key[1] == "error-codes"}
+    assert spoke == {("fail", "error-codes", ERROR_CODES): 1}, "an unreadable rule register was not named alone: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
     """Two root-level files, so an arm narrowed to one filename leaves the other resolving to nothing."""
     _reset()

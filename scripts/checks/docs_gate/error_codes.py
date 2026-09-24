@@ -99,12 +99,13 @@ def check_error_codes() -> list[Finding]:
     if (text := _readable(page)) is None:
         return [Finding("fail", ERROR_CODES_CHECK, rel, "unreadable, so the register was held to nothing")]
     rows = frozenset(CODE_ROW_RE.findall(text))
-    found: list[Finding] = []
     declared = _declared_rules()
     if not declared:
-        # Named rather than left to the comparison below, whose remedy would be a row per rule.
+        # The one finding, and no comparison after it: the one below subtracts the declared rules,
+        # and would demand a row for every domain rule the backend spells.
         detail = f"`{DOMAIN_MODULE}` yielded no rule declaration, so every domain rule was read as a row owed"
-        found.append(Finding("fail", ERROR_CODES_CHECK, rel, detail))
+        return [Finding("fail", ERROR_CODES_CHECK, rel, detail)]
+    found: list[Finding] = []
     for code in sorted(rows & declared):
         detail = f"`{code}` is a domain rule, stated at `{DOMAIN_MODULE} :: RULES`, and takes no row here"
         found.append(Finding("fail", ERROR_CODES_CHECK, rel, detail))
