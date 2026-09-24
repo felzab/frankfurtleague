@@ -58,6 +58,7 @@ function selectorsOf(rule: Rule): string[] {
 interface Declaration {
   /** Every selector the declaration applies under, a pseudo-element's left out as another box than the one asked about. */
   selectors: string[];
+  prop: string;
   /** Tailwind writes an arbitrary value without the spaces the vendored sheet keeps, so both are read without them. */
   value: string;
   /** The `@layer` it sits in, or `null` for an unlayered one, which outranks every layer. */
@@ -90,6 +91,7 @@ async function declarationsOf(prop: RegExp): Promise<Declaration[]> {
 
     found.push({
       selectors: selectorsOf(decl.parent as Rule).filter((selector) => !selector.includes("::")),
+      prop: decl.prop,
       value: decl.value.replace(/\s+/g, ""),
       layer,
       conditions,
@@ -247,6 +249,48 @@ describe("the toast against HeroUI's stacking states", () => {
       );
       const clipRadius = matching(clip, radii).map((declaration) => declaration.value);
       assert.ok(clipRadius.length > 0 && clipRadius.every((value) => value === "inherit"), `the timer bar's clip: ${clipRadius.join(", ")}`);
+    });
+  });
+
+  /* The site's reduced-motion policy is "remove movement, keep fades" (`globals.css`), and HeroUI's `motion-reduce`
+     arms, a media query and a `data-reduce-motion` ancestor, each stop every toast transition. Whether the fade then
+     renders is a browser's to show. */
+  it("fades in and out under reduced motion, on HeroUI's own timing, and moves not at all", async () => {
+    const REDUCED = "(prefers-reduced-motion: reduce)";
+    const transitions = await declarationsOf(/^(?:transition-property|--tw-duration|--tw-ease)$/);
+    const timing = await declarationsOf(/^--toast-(?:opacity-duration|ease)$/);
+
+    await withToast((toast) => {
+      enter(toast, { frontmost: true, expanded: false, exiting: false });
+      // A var() nothing declares leaves the duration invalid, which a browser reads as none at all.
+      const declared = matching(toast, timing).filter((declaration) => declaration.layer === "components");
+      for (const name of ["--toast-opacity-duration", "--toast-ease"]) {
+        assert.ok(
+          declared.some((declaration) => declaration.prop === name),
+          `toast.css does not declare ${name} on the toast: re-read it and restamp`,
+        );
+      }
+
+      for (const arm of ["media", "attribute"] as const) {
+        if (arm === "attribute") toast.setAttribute("data-reduce-motion", "true");
+        const reduced = matching(toast, transitions).filter((declaration) =>
+          arm === "media"
+            ? declaration.conditions.includes(REDUCED)
+            : declaration.selectors.some((selector) => selector.includes("data-reduce-motion")),
+        );
+        const valuesOf = (prop: string, layer: string) =>
+          reduced.filter((declaration) => declaration.layer === layer && declaration.prop === prop).map(({ value }) => value);
+
+        // Otherwise there is nothing to restore, and a later HeroUI keeping its transitions would leave this a second copy.
+        assert.ok(
+          valuesOf("transition-property", "components").includes("none"),
+          `HeroUI does not stop the toast's transitions (${arm}): re-read toast.css and restamp`,
+        );
+        assert.deepEqual(valuesOf("transition-property", "utilities"), ["opacity"], `the toast's reduced-motion transitions (${arm})`);
+        assert.deepEqual(valuesOf("--tw-duration", "utilities"), ["var(--toast-opacity-duration)"], `the fade's duration (${arm})`);
+        assert.deepEqual(valuesOf("--tw-ease", "utilities"), ["var(--toast-ease)"], `the fade's easing (${arm})`);
+      }
+      toast.removeAttribute("data-reduce-motion");
     });
   });
 });

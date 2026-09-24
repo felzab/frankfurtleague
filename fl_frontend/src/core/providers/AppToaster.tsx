@@ -13,12 +13,16 @@ import { dismissControl } from "@/core/dismissControl";
  */
 const toastCard = tv({
   slots: {
+    // Reduced motion keeps the fade, the site's policy, where HeroUI's `motion-reduce:transition-none` drops every
+    // transition: opacity alone comes back, on HeroUI's own timing, and nothing that moves or scales.
+
     // Two holds over disjoint states, so no ranking inside the utilities layer picks between them.
     /**
      * A closing toast keeps the scale it rested at, where HeroUI shrinks one behind the front through `--toast-scale`,
      * out of reach of the document's scale pin. Written against `@heroui/styles` 3.2.6.
      */
-    toast: "data-exiting:not-data-expanded:[--toast-scale:var(--scale-collapsed,1)] data-exiting:data-expanded:[--toast-scale:1]",
+    toast:
+      "data-exiting:not-data-expanded:[--toast-scale:var(--scale-collapsed,1)] data-exiting:data-expanded:[--toast-scale:1] motion-reduce:transition-opacity motion-reduce:duration-(--toast-opacity-duration) motion-reduce:ease-(--toast-ease)",
     /** Clips the bar to the rounded corners, which the toast itself may not: see the `.toast` rule in `globals.css`. */
     clip: "pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]",
     /** `origin-left` is what makes the scaleX read as draining. */
