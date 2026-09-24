@@ -10,7 +10,7 @@ export type PublishedDocument = {
 };
 
 /** The ceilings this reader reads. `maxLength` alone caps a box's width; the other two cap a count. */
-export const CEILING_KEYWORDS = ["maxLength", "maxItems", "maximum"] as const;
+const CEILING_KEYWORDS = ["maxLength", "maxItems", "maximum"] as const;
 
 /**
  * One ceiling the backend publishes on a component's own field, one entry per keyword. `at` is where
