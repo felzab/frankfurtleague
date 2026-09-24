@@ -6,17 +6,17 @@
 # environment gate, nginx nor the security headers — and so cannot see `instrumentation.ts` being
 # dropped from the image, nor a module-scope `AUTH_URL` read failing in the builder stage.
 #
-#   ./scripts/ops/local.sh              build changed layers, start, wait for health
-#   ./scripts/ops/local.sh --fresh      ALSO delete the volumes, and with them Next's build cache, the
-#                                   local database and the copy of production under .local-db —
-#                                   for when the stack behaves in a way the code does not explain,
-#                                   and for leaving a machine holding no contact records
-#   ./scripts/ops/local.sh --seed       ALSO fill the local database from production, reusing the copy
-#                                   in .local-db where there is one
-#   ./scripts/ops/local.sh --refresh-db as --seed, but take a new copy from production first
-#   ./scripts/ops/local.sh --logs       start, then follow the frontend log
-#   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes
-#   ./scripts/ops/local.sh --verbose    stream each command's own output instead of capturing it
+#   ./scripts/ops/local.sh               build changed layers, start, wait for health
+#   ./scripts/ops/local.sh --fresh       ALSO delete the volumes, and with them Next's build cache, the
+#                                    local database and the copy of production under .local-db —
+#                                    for when the stack behaves in a way the code does not explain,
+#                                    and for leaving a machine holding no contact records
+#   ./scripts/ops/local.sh --seed        ALSO fill the local database from production, reusing the copy
+#                                    in .local-db where there is one
+#   ./scripts/ops/local.sh --refresh-db  as --seed, but take a new copy from production first
+#   ./scripts/ops/local.sh --logs        start, then follow the frontend log
+#   ./scripts/ops/local.sh --down        stop the stack; with --fresh, also delete the volumes
+#   ./scripts/ops/local.sh --verbose     stream each command's own output instead of capturing it
 #   ./scripts/ops/local.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
