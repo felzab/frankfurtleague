@@ -92,6 +92,9 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
       <h3>
         Titel <Hint /* expect: hint-nest */ />
       </h3>
+      <h4>
+        Titel <HintPopover /* expect: hint-nest */ />
+      </h4>
       <span>fluid-xs tabular-nums</span>{/* expect: numeric-pair */}
       {String(facets)}
     </div>

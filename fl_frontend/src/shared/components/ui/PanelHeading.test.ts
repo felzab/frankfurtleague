@@ -81,14 +81,15 @@ function hintBearingNames(source: string): Set<string> {
 const mentions = (body: string, names: Set<string>) => body.split(/[^A-Za-z0-9_$]+/).some((token) => names.has(token));
 
 describe("a panel's hint sits beside its heading", () => {
-  it("leaves no hint inside a heading, by any route", () => {
-    // A heading names itself from its contents and `Hint` renders a `role="button"` carrying a label of
-    // its own, so a nested one is read out as part of the title.
+  // A hint inside a heading is read out as part of the title. `hint-nest` in
+  // `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses a `<Hint…>` tag written there; no selector
+  // follows a name to the declaration rendering one.
+  it("leaves no hint inside a heading through a name that renders one", () => {
     const nested = FILES.filter((file) => {
       const source = code(readFileSync(file, "utf8"));
       const names = hintBearingNames(source);
 
-      return headings(source, rel(file)).some(({ body }) => body.includes("<Hint") || mentions(body, names));
+      return headings(source, rel(file)).some(({ body }) => mentions(body, names));
     });
 
     assert.deepEqual(nested.map(rel), []);
