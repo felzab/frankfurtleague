@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 
 # Named once, because a literal repeated across files is one a rename leaves behind.
 DOCUMENT_NOT_FOUND = "DB-COMMON-001"
+DUPLICATE_KEY = "DB-COMMON-002"
 NO_DATABASE_CLIENT = "DB-CONN-001"
 
 

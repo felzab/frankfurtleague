@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from app.core.exceptions import BaseAPIException
+from app.core.exceptions import DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
 from app.core.security import SAFE_METHODS
 
@@ -103,10 +103,10 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     """
     fl_logger.warning(
         f"Unique index refused a write: {refused_index_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "DB-COMMON-002"},
+        extra={"error_code": DUPLICATE_KEY},
     )
 
-    return error_response(status.HTTP_409_CONFLICT, "DB-COMMON-002")
+    return error_response(status.HTTP_409_CONFLICT, DUPLICATE_KEY)
 
 
 # The server's own spelling in `errmsg`; `keyValue` sits right beside it, which is why the whole
