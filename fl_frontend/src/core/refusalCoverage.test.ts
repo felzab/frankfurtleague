@@ -51,6 +51,8 @@ function moduleConstantOf(file: ts.SourceFile): (name: ts.Identifier) => string 
 }
 
 const CASE_FUNCTIONS = new Set(["it", "test", "describe", "suite"]);
+/** The case functions that run a body of assertions, where a suite only groups them. */
+const LEAF_FUNCTIONS = new Set(["it", "test"]);
 
 /**
  * Whether `call` is a case or suite that asks nothing: a skipped one runs no body, and a failing todo fails
@@ -77,6 +79,34 @@ function isSkippedCase(call: ts.CallExpression, caseFunctions: ReadonlySet<strin
 }
 
 /**
+ * Whether anything under `node` registers a case that runs: `"skipped"` where every case or suite there
+ * asks nothing, `"none"` where there is none to ask.
+ */
+function casesUnder(node: ts.Node, caseFunctions: ReadonlySet<string>, leaves: ReadonlySet<string>): "running" | "skipped" | "none" {
+  let found: "running" | "skipped" | "none" = "none";
+  const visit = (child: ts.Node): void => {
+    if (found === "running") return;
+    if (ts.isCallExpression(child)) {
+      const target = ts.isPropertyAccessExpression(child.expression) ? child.expression.expression : child.expression;
+      if (ts.isIdentifier(target) && caseFunctions.has(target.text)) {
+        const runs = !isSkippedCase(child, caseFunctions);
+        if (runs && leaves.has(target.text)) {
+          found = "running";
+          return;
+        }
+        // A suite asks nothing until a case inside it runs, and a skipped one runs nothing below it.
+        found = "skipped";
+        if (!runs) return;
+      }
+    }
+    ts.forEachChild(child, visit);
+  };
+  ts.forEachChild(node, visit);
+
+  return found;
+}
+
+/**
  * The operations a test module asks the reader about, and the calls it cannot resolve: an argument is
  * a literal or a module-scope `const` holding one, and an alias or a namespace hides no call.
  */
@@ -86,16 +116,22 @@ function operationsAsked(fileName: string, source: string): Asked {
   const namespaces = new Set<string>();
   // By the local binding: `import { it as check } from "node:test"` makes `check.skip` the skipped case.
   const caseFunctions = new Set<string>();
+  const leaves = new Set<string>();
 
   for (const statement of file.statements) {
     if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) && statement.moduleSpecifier.text === "node:test") {
       const clause = statement.importClause;
       // The default export is `test` itself.
-      if (clause?.name !== undefined) caseFunctions.add(clause.name.text);
+      if (clause?.name !== undefined) {
+        caseFunctions.add(clause.name.text);
+        leaves.add(clause.name.text);
+      }
       const bindings = clause?.namedBindings;
       if (bindings !== undefined && ts.isNamedImports(bindings)) {
         for (const element of bindings.elements) {
-          if (CASE_FUNCTIONS.has((element.propertyName ?? element.name).text)) caseFunctions.add(element.name.text);
+          const imported = (element.propertyName ?? element.name).text;
+          if (CASE_FUNCTIONS.has(imported)) caseFunctions.add(element.name.text);
+          if (LEAF_FUNCTIONS.has(imported)) leaves.add(element.name.text);
         }
       }
     }
@@ -119,6 +155,8 @@ function operationsAsked(fileName: string, source: string): Asked {
   const visit = (node: ts.Node): void => {
     // A skipped case asks nothing, so nothing inside it is credited.
     if (ts.isCallExpression(node) && isSkippedCase(node, caseFunctions)) return;
+    // A loop registering cases asks through them alone: its iterable's call is credited only where one of them runs.
+    if (ts.isIterationStatement(node, false) && casesUnder(node.statement, caseFunctions, leaves) === "skipped") return;
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
       const isReader =
@@ -222,6 +260,21 @@ describe("the operation reader the sweep below rests on", () => {
     ].join("\n");
 
     assert.deepEqual(operationsAsked("skipped.test.ts", sample).operations, ["POST /runs", "POST /nested"]);
+  });
+
+  /* A loop's iterable sits outside every case it registers, so the case's own skip never reaches it. */
+  it("credits a loop's call only where the loop registers a case that runs", () => {
+    const sample = [
+      'import { describe, it as check } from "node:test";',
+      'import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";',
+      'for (const code of publishedRefusals("POST /skipped")) { check.skip(`a ${code}`, () => {}); }',
+      'for (const code of publishedRefusals("POST /suite")) { describe(`b ${code}`, () => { check.skip("c", () => {}); }); }',
+      'for (const code of publishedRefusals("POST /runs")) { check.skip(`d ${code}`, () => {}); check(`e ${code}`, () => {}); }',
+      'for (const code of publishedRefusals("POST /nested")) { describe(`f ${code}`, () => { check("g", () => {}); }); }',
+      'check("h", () => { for (const code of publishedRefusals("POST /inside")) assert.ok(code); });',
+    ].join("\n");
+
+    assert.deepEqual(operationsAsked("looped.test.ts", sample).operations, ["POST /runs", "POST /nested", "POST /inside"]);
   });
 });
 
