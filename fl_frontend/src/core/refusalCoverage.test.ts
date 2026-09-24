@@ -50,16 +50,58 @@ function moduleConstantOf(file: ts.SourceFile): (name: ts.Identifier) => string 
   };
 }
 
+/** `node:test`'s case and suite functions, whose `skip` and `todo` forms run nothing that can fail the run. */
+const CASE_FUNCTIONS = new Set(["it", "test", "describe", "suite"]);
+
+/**
+ * Whether `call` is a case or suite that asks nothing: `it.skip` runs no body, and a `todo` case's failure
+ * fails no run. An options object's `skip` or `todo` counts unless it is the literal `false`, since a
+ * computed one may skip.
+ */
+function isSkippedCase(call: ts.CallExpression, caseFunctions: ReadonlySet<string>): boolean {
+  const callee = call.expression;
+  if (ts.isPropertyAccessExpression(callee)) {
+    return ts.isIdentifier(callee.expression) && caseFunctions.has(callee.expression.text) && ["skip", "todo"].includes(callee.name.text);
+  }
+  if (!ts.isIdentifier(callee) || !caseFunctions.has(callee.text)) return false;
+
+  return call.arguments.some(
+    (argument) =>
+      ts.isObjectLiteralExpression(argument) &&
+      argument.properties.some(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          ts.isIdentifier(property.name) &&
+          ["skip", "todo"].includes(property.name.text) &&
+          property.initializer.kind !== ts.SyntaxKind.FalseKeyword,
+      ),
+  );
+}
+
 /**
  * The operations a test module asks the reader about, and the calls it cannot resolve: an argument is
- * a literal or a module-scope `const` holding one, and an alias or a namespace hides no call.
+ * a literal or a module-scope `const` holding one, and an alias or a namespace hides no call. A call
+ * inside a skipped case asks nothing, and is credited nothing.
  */
 function operationsAsked(fileName: string, source: string): Asked {
   const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
   const names = new Set<string>();
   const namespaces = new Set<string>();
+  // By the local binding: `import { it as check } from "node:test"` makes `check.skip` the skipped case.
+  const caseFunctions = new Set<string>();
 
   for (const statement of file.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) && statement.moduleSpecifier.text === "node:test") {
+      const clause = statement.importClause;
+      // The default export is `test` itself.
+      if (clause?.name !== undefined) caseFunctions.add(clause.name.text);
+      const bindings = clause?.namedBindings;
+      if (bindings !== undefined && ts.isNamedImports(bindings)) {
+        for (const element of bindings.elements) {
+          if (CASE_FUNCTIONS.has((element.propertyName ?? element.name).text)) caseFunctions.add(element.name.text);
+        }
+      }
+    }
     if (
       ts.isImportDeclaration(statement) &&
       ts.isStringLiteral(statement.moduleSpecifier) &&
@@ -78,6 +120,7 @@ function operationsAsked(fileName: string, source: string): Asked {
   if (names.size === 0 && namespaces.size === 0) return found;
   const constantOf = moduleConstantOf(file);
   const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && isSkippedCase(node, caseFunctions)) return;
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
       const isReader =
@@ -168,6 +211,24 @@ describe("the operation reader the sweep below rests on", () => {
       "shadowed.test.ts:4 publishedRefusals(OP)",
       "shadowed.test.ts:5 publishedRefusals(OP)",
     ]);
+  });
+
+  /* A skipped case runs nothing, so a question inside one leaves its operation unasked however the file reads. */
+  it("credits no call inside a skipped or todo case, whichever way it is spelled", () => {
+    const sample = [
+      'import { describe, it as check } from "node:test";',
+      'import test from "node:test";',
+      'import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";',
+      'check.skip("a", () => publishedRefusals("POST /skipped"));',
+      'describe.skip("b", () => { check("c", () => publishedRefusals("POST /suite")); });',
+      'check("d", { skip: true }, () => publishedRefusals("POST /option"));',
+      'describe("e", { skip: "not yet" }, () => { check("f", () => publishedRefusals("POST /reason")); });',
+      'test.todo("g", () => publishedRefusals("POST /todo"));',
+      'check("h", { skip: false }, () => publishedRefusals("POST /runs"));',
+      'describe("i", () => { check("j", () => publishedRefusals("POST /nested")); });',
+    ].join("\n");
+
+    assert.deepEqual(operationsAsked("skipped.test.ts", sample).operations, ["POST /runs", "POST /nested"]);
   });
 });
 
