@@ -632,10 +632,10 @@ page's:**
   consumed everywhere, beats a value that looks better on one page, and a real exception is ratified
   in prose where the next sweep finds it. The grammar the redesign replaces is
   [`docs/frontend/spec.md`](../frontend/spec.md) §1.16 to §1.21, over the tokens in
-  `fl_frontend/src/app/globals.css`, and the sweeps holding it —
-  `fl_frontend/src/shared/components/ui/gapLadder.test.ts` and
-  `fl_frontend/src/shared/components/ui/hoverToken.test.ts` among them — change with their rule
-  rather than being deleted. **No page leads its neighbours**: a page on the new grammar beside
+  `fl_frontend/src/app/globals.css`, and the checks holding it —
+  `fl_frontend/src/shared/components/ui/gapLadder.test.ts` and the `hover-opacity` and
+  `hover-alpha` bans in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` among them — change with
+  their rule rather than being deleted. **No page leads its neighbours**: a page on the new grammar beside
   pages on the old reads as a defect, so a new rule reaches every page it governs in the change that
   introduces it.
 - **Every string a visitor reads or navigates by is mine.** A heading, a label, a button or a
