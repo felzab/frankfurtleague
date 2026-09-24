@@ -261,22 +261,25 @@ const QUERY_IN_EQUALITY = {
 const TRANSITION_START = "CallExpression[callee.name=/^start[A-Z]/]";
 const AWAITING_TRANSITION = `${TRANSITION_START} > :function[async=true]`;
 
+// Also refused though safe: an `await` inside a function an earlier statement only declares, an
+// async re-wrap, and a setter in a function declared after the `await` for a start call to run.
 /**
  * A `set*` call React leaves outside the transition that awaited (`docs/frontend/spec.md ::
- * I356`). Read by position, so a callback run inside a transition from another
- * function, and an update not spelled `set*`, pass unseen.
+ * I356`); what it cannot see is that sheet's known-open row. `:has` matches the node itself, so
+ * the last arm's test may be the `await`.
  */
 const TRANSITION_REWRAP = {
   selector: [
     "BlockStatement > :has(AwaitExpression) ~ * CallExpression",
     "CallExpression:has(AwaitExpression)",
     "TryStatement:has(> BlockStatement.block:has(AwaitExpression)) > :matches(CatchClause, BlockStatement.finalizer) CallExpression",
-    "IfStatement:has(> :matches(AwaitExpression, :has(AwaitExpression)).test) > :not(.test) CallExpression",
+    "IfStatement:has(> :has(AwaitExpression).test) > :not(.test) CallExpression",
   ]
+    // Every setter under a sync start call passes, one wrapping the whole awaiting callback included.
     .map((arm) => `${AWAITING_TRANSITION} ${arm}[callee.name=/^set[A-Z]/]:not(${TRANSITION_START} > :function[async!=true] *)`)
     .join(", "),
   message:
-    "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` (docs/frontend/spec.md :: I356).",
+    "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` or the hook's own start function (docs/frontend/spec.md :: I356).",
 };
 
 /**
