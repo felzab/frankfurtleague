@@ -137,8 +137,11 @@ for _i in "${!EDGE_COMMAND[@]}"; do
     EDGE_SOCKET="${EDGE_COMMAND[_i + 1]#unix:}"
   fi
 done
+# A finding rather than a refusal: the command is the checkout's, and the deploy cannot reload an
+# edge started without it.
 [[ -n "$EDGE_SOCKET" ]] \
-  || refuse "the edge's command in docker-compose.yml opens no Control API socket (-l unix:...), which the deploy reloads through."
+  || die "the edge's command in docker-compose.yml opens no Control API socket (-l unix:...), which the deploy reloads through."
+if verbose; then info "the model starts the edge with: ${EDGE_COMMAND[*]} ${EDGE_TMPFS[*]}"; fi
 
 # The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
 # subject is the same MSYS exclusion that step uses.

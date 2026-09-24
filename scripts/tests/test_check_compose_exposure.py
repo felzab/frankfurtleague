@@ -141,6 +141,38 @@ def test_a_short_syntax_volume_refuses():
     raise AssertionError("a short-syntax volume was judged")
 
 
+# --- the edge's Control API socket ---------------------------------------------------------------
+
+SOCKET = "/run/nginx-control/control.sock"
+
+
+def started(command: list[str], tmpfs: list[str]) -> dict[str, Any]:
+    return model(nginx={"command": command, "tmpfs": tmpfs})
+
+
+LISTENING = ["nginx", "-g", "daemon off;", "-l", f"unix:{SOCKET}"]
+
+
+def test_a_socket_the_deploy_asks_in_a_root_only_tmpfs_is_clean():
+    assert exposure.control_socket(started(LISTENING, ["/run/nginx-control:mode=700"]), "p", SOCKET) == []
+
+
+def test_a_command_without_the_listener_or_on_another_socket_fails():
+    """Either way every reload the deploy sends meets no socket."""
+    tmpfs = ["/run/nginx-control:mode=700"]
+    assert len(exposure.control_socket(started(LISTENING[:3], tmpfs), "p", SOCKET)) == 1
+    assert len(exposure.control_socket(started([*LISTENING[:4], "unix:/run/nginx-control/other.sock"], tmpfs), "p", SOCKET)) == 1
+
+
+def test_a_tmpfs_at_dockers_default_mode_fails():
+    """1777, which lets the worker's user into the directory."""
+    assert len(exposure.control_socket(started(LISTENING, ["/run/nginx-control"]), "p", SOCKET)) == 1
+
+
+def test_the_socket_is_read_off_the_deploy_script():
+    assert exposure.deploy_socket(exposure.DEPLOY) == SOCKET
+
+
 def test_the_deploy_compares_exactly_the_pairs_production_mounts():
     """Read off the script itself: a pair missing there is a directory nginx loads and no deploy compares."""
     pairs = [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]

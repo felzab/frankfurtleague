@@ -11,6 +11,8 @@ Invariants:
 - Locally only the edge publishes to every interface; the rest bind a loopback address (`:: I1`).
 - Every mount the edge takes from `nginx/` is a directory, and production's are the pairs
   `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (`docs/ops/spec.md :: I355`).
+- The edge opens its Control API at `scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET`, in a tmpfs of
+  mode 700.
 """
 
 from __future__ import annotations
@@ -165,6 +167,44 @@ def compared(pairs: list[tuple[str, str]], compared_pairs: list[tuple[str, str]]
     ]
 
 
+def deploy_socket(deploy: Path) -> str:
+    """`EDGE_CONTROL_SOCKET` as the deploy script assigns it."""
+    found = re.search(r'^EDGE_CONTROL_SOCKET="([^"]+)"$', deploy.read_bytes().decode(), re.MULTILINE)
+    if found is None:
+        raise ValueError(f"{deploy.name} assigns no EDGE_CONTROL_SOCKET, so the edge's control socket was not compared")
+    return found.group(1)
+
+
+def control_socket(model: dict[str, Any], name: str, socket: str) -> list[Finding]:
+    """The edge opens its Control API where the deploy asks it, in a tmpfs only root can enter.
+
+    Any other socket refuses every reload; Docker's default mode lets the worker's user in.
+    """
+    edge = services(model, name).get(EDGE_SERVICE) or {}
+    command = [str(argument) for argument in edge.get("command") or []]
+    listens = [command[i + 1] for i, argument in enumerate(command[:-1]) if argument == "-l"]
+    findings: list[Finding] = []
+    if listens != [f"unix:{socket}"]:
+        findings.append(
+            Finding(
+                "fail",
+                f"{name}: {EDGE_SERVICE}'s command opens its Control API at {listens or 'nothing'}, and the deploy asks unix:{socket}\n"
+                f"{CONTINUATION}scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET and the command move together",
+            )
+        )
+    tmpfs = edge.get("tmpfs") or []
+    directory = socket.rsplit("/", 1)[0]
+    if f"{directory}:mode=700" not in ([tmpfs] if isinstance(tmpfs, str) else tmpfs):
+        findings.append(
+            Finding(
+                "fail",
+                f"{name}: {EDGE_SERVICE} mounts no tmpfs at {directory} with mode=700, among {tmpfs!r}\n"
+                f"{CONTINUATION}a socket left on disk refuses the next start, and any other mode lets the worker's user reload nginx",
+            )
+        )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
@@ -177,6 +217,8 @@ def main() -> int:
         prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
         _, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
+        socket = deploy_socket(DEPLOY)
+        findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
     except (*UNREADABLE, ValueError) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
@@ -185,6 +227,7 @@ def main() -> int:
     if not findings:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
+        print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
     return code
 
 
