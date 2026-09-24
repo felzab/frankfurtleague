@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# OPS · the running edge: what its logs CONTAIN and which security headers it sends.
+# OPS · the running edge: what its logs CONTAIN, which headers it sends, and which it hands upstream.
 #
 # `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
-# location dropping a header both pass it. This serves `nginx/local/local.conf` itself, never a
-# copy — a copy proves the copy — and grades what nginx wrote and sent; prod.conf would need a
-# certificate to serve a request at all, and both entry files include the same `nginx/shared/`
-# files. Which locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this
-# answers nothing about.
+# location dropping a header both pass it. This serves the checkout's own files, never a copy — a
+# copy proves the copy — and grades what nginx wrote and sent: `nginx/local/` for every location,
+# and `nginx/prod/` behind a throwaway certificate for the block production alone serves. Which
+# locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
+# about.
 #
 # Invariants:
 # - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
-# - `docs/ops/spec.md` I2, each security header sent once on every location's response.
+# - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
+# - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
 # - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
@@ -38,18 +39,22 @@ require_docker
 command -v curl >/dev/null 2>&1 \
   || refuse "curl is not on PATH, so the edge's redaction was not driven.
 Only curl has --path-as-is, which every alternate spelling in this table needs."
+command -v openssl >/dev/null 2>&1 \
+  || refuse "openssl is not on PATH, so there is no certificate for nginx/prod/ to serve behind."
 
 # Distinctive enough that a substring test over the whole access line is the assertion.
 TOK="Rk9VUlRJTUVTQlJPS0VO"
 EM="admin.probe@frankfurtleague.de"
 
 CONTAINER="fl-edge-$$"
+PROD_CONTAINER="fl-edge-prod-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
-SCRATCH="${REPO_ROOT}/.tmp-edge-$$"
+SCRATCH_NAME=".tmp-edge-$$"
+SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker rm -f "$CONTAINER" "$PROD_CONTAINER" >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" || true
 }
 trap cleanup EXIT
@@ -62,26 +67,36 @@ mkdir -p "${SCRATCH}/log"
 # The stub answers as `frontend` from inside the same nginx, so each case is graded on a real 200
 # rather than a 502 that never reached a location. Nothing answers as `backend`, whose 502 the
 # stream check below needs.
+
+# It answers with the two headers it was handed, so the header block below reads what reached Next.
 cat > "${SCRATCH}/zz-upstream-stub.conf" <<'STUB'
 server {
     listen 3000;
     server_name _;
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
+    add_header X-Seen-Traceparent $http_traceparent always;
+    add_header X-Seen-Actor $http_x_fl_actor always;
     location / { return 200 "stub\n"; }
 }
 STUB
 
+# Each `*.conf` of `nginx/local/` mounted by name beside the stub, which a read-only directory
+# mount would refuse. The empty tmpfs under them hides the image's own `default.conf`, as the
+# stacks' directory mount does.
+LOCAL_MOUNTS=( --tmpfs /etc/nginx/conf.d )
+for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
+  [[ -f "$conf" ]] || continue
+  LOCAL_MOUNTS+=( -v "/${conf}:/etc/nginx/conf.d/${conf##*/}:ro" )
+done
+(( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
+
 # The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
 # subject is the same MSYS exclusion that step uses.
-
-# The edge file mounted alone, where both stacks mount its directory: the stub below has to join it
-# in `conf.d`, which a read-only directory mount refuses, and nothing replaces a file under a
-# container this run removes.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
-  -v "/${REPO_ROOT}/nginx/local/local.conf:/etc/nginx/conf.d/default.conf:ro" \
+  "${LOCAL_MOUNTS[@]}" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
@@ -384,10 +399,60 @@ fi
 
 # --- the security headers, as served (`docs/ops/spec.md` I2) -------------------------------------
 
+# Each header's name and value off the file the set is written in, so a location restating the set
+# with a different value fails as surely as one dropping it.
+declare -A SECURITY_HEADERS=()
+while IFS= read -r written_line; do
+  [[ "$written_line" =~ ^[[:space:]]*add_header ]] || continue
+  [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+\"([^\"]*)\"[[:space:]]+always\;$ ]] \
+    || refuse "nginx/shared/security_headers.conf holds '${written_line}', whose name and value this test cannot read."
+  SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="${BASH_REMATCH[2]}"
+done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
+(( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
+
+HEADER_FAILURES=0
+declare -A SENT=() SENT_VALUE=()
+read_headers() {
+  SENT=(); SENT_VALUE=()
+  [[ -f "$1" ]] || return 0
+  while IFS= read -r header_line; do
+    header_line="${header_line%$'\r'}"
+    header_name="${header_line%%:*}"
+    header_name="${header_name,,}"
+    # The blank line closing the block names no header.
+    [[ -n "$header_name" ]] || continue
+    SENT["$header_name"]=$(( ${SENT["$header_name"]:-0} + 1 ))
+    SENT_VALUE["$header_name"]="${header_line#*: }"
+  done < "$1"
+}
+grade_security_headers() { # $1 what the request was, the headers already read
+  local name
+  for name in "${!SECURITY_HEADERS[@]}"; do
+    # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
+    # restated beside the include -- for the CSP, a second enforcing policy.
+    if [[ "${SENT[$name]:-0}" != 1 ]]; then
+      fail "HEADER $1"
+      detail "expected one ${name}, nginx sent ${SENT[$name]:-0}"
+      HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+    elif [[ "${SENT_VALUE[$name]}" != "${SECURITY_HEADERS[$name]}" ]]; then
+      fail "HEADER $1"
+      detail "expected ${name}: ${SECURITY_HEADERS[$name]}" "nginx sent ${name}: ${SENT_VALUE[$name]}"
+      HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+    fi
+  done
+}
+
 # One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
 # location added there is probed without this one learning it.
 HEADER_PATHS=()
+# Set for a location whose `proxy_pass` names the backend: nothing answers as `backend` here, so
+# what it hands upstream is not read.
+declare -A TO_BACKEND=()
 while IFS= read -r location_line; do
+  if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://backend: ]]; then
+    TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
+    continue
+  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
   case "$location_args" in
@@ -401,42 +466,86 @@ while IFS= read -r location_line; do
   esac
 done < "${REPO_ROOT}/nginx/shared/site.conf"
 (( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
-SECURITY_HEADERS=(strict-transport-security x-frame-options x-content-type-options referrer-policy content-security-policy)
+
+# The two headers a visitor may not choose (`docs/logging/spec.md` L7 and L10), sent on every
+# request below: nginx forwards every request header no `proxy_set_header` names, so a location
+# dropping the inherited set hands both to Next as they arrived.
+CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
+CLIENT_ACTOR="fl-edge-actor-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
 HEADER_REQUESTS=()
 for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
-  HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost" "${BASE}${HEADER_PATHS[_i]}" )
+  HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
+    -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01" -H "X-FL-Actor: ${CLIENT_ACTOR}"
+    "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
-HEADER_FAILURES=0
+UPSTREAM_READ=0
 for _i in "${!HEADER_PATHS[@]}"; do
-  declare -A SENT=()
-  if [[ -f "${SCRATCH}/headers-${_i}" ]]; then
-    while IFS= read -r header_line; do
-      header_line="${header_line%$'\r'}"
-      header_name="${header_line%%:*}"
-      header_name="${header_name,,}"
-      # The blank line closing the block names no header.
-      [[ -n "$header_name" ]] || continue
-      SENT["$header_name"]=$(( ${SENT["$header_name"]:-0} + 1 ))
-    done < "${SCRATCH}/headers-${_i}"
+  read_headers "${SCRATCH}/headers-${_i}"
+  grade_security_headers "${HEADER_PATHS[_i]}"
+  [[ -z "${TO_BACKEND[$_i]:-}" ]] || continue
+  UPSTREAM_READ=$(( UPSTREAM_READ + 1 ))
+  seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
+  if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
+    fail "UPSTREAM ${HEADER_PATHS[_i]}"
+    detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
-  for name in "${SECURITY_HEADERS[@]}"; do
-    # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
-    # restated beside the include -- for the CSP, a second enforcing policy.
-    if [[ "${SENT[$name]:-0}" != 1 ]]; then
-      fail "HEADER ${HEADER_PATHS[_i]}"
-      detail "expected one ${name}, nginx sent ${SENT[$name]:-0}"
-      HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
-    fi
-  done
-  unset SENT
+  if [[ -n "${SENT_VALUE[x-seen-actor]:-}" ]]; then
+    fail "UPSTREAM ${HEADER_PATHS[_i]}"
+    detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
 done
+
+# --- the block production alone serves -----------------------------------------------------------
+
+# `nginx/prod/` mounted as production mounts it, behind a certificate made for this run: the www
+# redirect is the one block outside `nginx/shared/site.conf` that includes the header set.
+mkdir -p "${SCRATCH}/certs" "${SCRATCH}/log-prod"
+# Relative output paths, for `scripts/gate/verify.sh`'s nginx step's reason: a Windows openssl
+# cannot open an MSYS-style absolute path.
+MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
+  -keyout "${SCRATCH_NAME}/certs/key.pem" -out "${SCRATCH_NAME}/certs/cert.pem" \
+  || refuse "could not generate a throwaway certificate for nginx/prod/."
+MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
+  -p 127.0.0.1:0:443 \
+  --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+  -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
+  -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
+  -v "/${SCRATCH}/certs:/etc/nginx/certs:ro" \
+  -v "/${SCRATCH}/log-prod:/var/log/frankfurtleague/nginx" \
+  nginx:1.31-alpine >/dev/null \
+  || refuse "could not start the pinned nginx over nginx/prod/."
+PROD_ADDR="$(docker port "$PROD_CONTAINER" 443/tcp | head -n 1)" \
+  || refuse "the nginx/prod/ edge published no port."
+PROD_ADDR="${PROD_ADDR%$'\r'}"
+[[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
+# The name resolved to the published port, so the handshake's SNI and the Host header are the
+# redirect's own, as a visitor's are.
+WWW=( --resolve "www.frankfurtleague.de:${PROD_ADDR##*:}:127.0.0.1" "https://www.frankfurtleague.de:${PROD_ADDR##*:}/probe" )
+_up=0
+for _ in $(seq 1 50); do
+  if curl -sk -o /dev/null --max-time 2 "${WWW[@]}" 2>/dev/null; then _up=1; break; fi
+  sleep 0.2
+done
+(( _up )) || refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."
+WWW_STATUS="$(curl -sk -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 "${WWW[@]}" || true)"
+read_headers "${SCRATCH}/headers-www"
+if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtleague.de/probe" ]]; then
+  fail "REDIRECT www.frankfurtleague.de"
+  detail "expected 301 to https://frankfurtleague.de/probe, nginx answered ${WWW_STATUS} to '${SENT_VALUE[location]:-}'"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
+grade_security_headers "www.frankfurtleague.de"
+
 if (( HEADER_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} security-header cases failed. Each is what nginx SENT."
+  die "${HEADER_FAILURES} header cases failed. Each is what nginx SENT, or what reached Next through it."
 fi
 
-ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams, and
-${#HEADER_PATHS[@]} paths each sending the security headers once"
+ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
+${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, and
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor"
