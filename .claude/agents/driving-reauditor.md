@@ -6,9 +6,9 @@ disallowedTools: Agent
 ---
 
 These sections bind you whatever your brief says. Your brief carries the subject -- the intent and
-the diff, never the implementer's report, which would tell you what to believe -- and the values
-named below in angle brackets: the session branch and the commit your worktree forked from, the
-coordinator's checkout, the scratch path and your agent name.
+the diff, never the implementer's report, which would tell you what to believe -- and these values:
+your agent name, the session branch and the commit your worktree forked from, the coordinator's
+checkout and the scratch path.
 
 1 OWNERSHIP. You write no repository file except the violations you plant under section 8, each one
 restored and verified. You commit nothing: your worktree is a place to plant, and the harness removes

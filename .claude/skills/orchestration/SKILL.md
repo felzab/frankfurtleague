@@ -61,8 +61,9 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
    it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
    reason spread over two agents' branches is one `-n` over both ranges. On a conflict, `--abort`;
-   the agent rebases onto the session branch and resolves in its own worktree. A later fix to a
-   landed commit lands as a commit of its own, naming the commit it corrects.
+   the agent rebases onto the session branch and resolves in its own worktree. A branch landed before
+   lands again only after its agent's rebase ([register-template.md](register-template.md)). A
+   later fix to a landed commit lands as a commit of its own, naming the commit it corrects.
 2. **A commit message is good enough when both routes accept it and its claims are true of its own
    diff.** Check it against the diff, never against the proposal it came from: for every path in the
    diff, does the body account for it? Validate with both routes
@@ -119,8 +120,7 @@ Run it for every agent, the fifteenth as much as the first.
 
 1. **Read the live-agent table.** Is a live agent already covering this question? Resume it rather
    than start a fresh one, which hands you a second conclusion to drive; a resumed agent re-enters
-   its partition, so check its files are still free. **That the harness can resume an agent at all
-   is established by attempting one send** ([resume-prompt.md](resume-prompt.md)).
+   its partition, so check its files are still free.
 2. **Diff this brief's file list against what every unclosed agent OWNS, path by path** — its whole
    brief list, never the subset it is writing now, because an agent can return to any of its files
    until it reports. Nothing mechanical sees
@@ -133,7 +133,8 @@ Run it for every agent, the fifteenth as much as the first.
    you write its brief**; none, and the work is yours. A question needing a fresh agent is yours to
    dispatch.
 4. **Brief from [agent-brief-template.md](agent-brief-template.md): one to an `implementer` carries
-   sections 1 and 3 and the values its definition names**, every path written out in full. **One
+   sections 1 and 3, the values its definition names and its work's own traps**, every path in
+   full. **One
    prep agent resolves a whole wave's premises against `HEAD` before its briefs are written** —
    half of them otherwise carry one the tree contradicts (`.claude/agents/implementer.md` section
    4), each paid for twice, in the agent's rediscovery and in the fix round that follows.
@@ -145,8 +146,8 @@ Run it for every agent, the fifteenth as much as the first.
    plants runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
    from your `HEAD` only under `worktree.baseRef: "head"`, and the call's own
    `isolation: "worktree"`, without which a named call launches as a teammate while agent teams are
-   on — so commit what it needs first; a reader stays in yours. A definition added mid-session is
-   dispatchable from the next turn on.
+   on (documented, not driven) — so commit what it needs first; a reader stays in yours. A
+   definition added mid-session is dispatchable from the next turn.
 
 ## 4. Running the fleet
 
@@ -176,9 +177,8 @@ Run it for every agent, the fifteenth as much as the first.
   what lands is what it committed, never what its worktree or its report says. **A finding about a
   file its reporter does not own is checked at `HEAD` before it is routed**: findings have dissolved
   that way. Route one agent's conclusion to another as a claim with its source named, never as a
-  premise; your own inference,
-  stated one notch wider than its evidence, reaches an agent as fact. When two agents disagree about
-  one file, drive the difference — never pick a side, never average.
+  premise; your own inference, stated one notch wider than its evidence, reaches an agent as fact.
+  When two agents disagree about one file, drive the difference — never pick a side, never average.
 - **Route every out-of-scope finding in the turn you read it**, from the report's separately headed
   list: a fixer in this wave where it is a fix, the owner where its place in this session is unsure,
   or a check where the class is mechanically detectable — never a roadmap entry the owner has not
@@ -186,10 +186,10 @@ Run it for every agent, the fifteenth as much as the first.
   scope, so the one that matters is rarely first. **Route at the class, never at the instance reported** — protecting the one file reported
   lost other agents' commit messages in the same directory a wave later.
 - **`.claude/agents/implementer.md` sections 8, 9 and 13 — plant-and-restore, the traps and the
-  siblings test — bind you as they bind an agent**, save that you plant only in a worktree of your
-  own and run `./scripts/ops/local.sh` in your checkout (§5); 13 binds what you bank from a report
-  too: ask which command established a claim about the tooling, and read its success as evidence
-  about that command and no wider class.
+  siblings test — bind you as they bind an agent**, save that you plant only through a driving
+  re-auditor and run `./scripts/ops/local.sh` in your checkout (§5); 13 binds what you bank from a
+  report too: ask which command established a claim about the tooling, and read its success as
+  evidence about that command and no wider class.
 
 ### The schedule is read back
 

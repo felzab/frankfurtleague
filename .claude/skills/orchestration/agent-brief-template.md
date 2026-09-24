@@ -103,8 +103,10 @@ Its tools are `Read`, `Grep` and `Glob`: no shell, no `Write`, no `Edit`, no sub
 writes nothing anywhere and its report is its final message. Its definition carries its tools and
 its report — the order **and the medium** — and no numbered section, so the block below is the
 brief's whole standing text. The implementer's sections 5 to 9, 12 and 15 have no counterpart here:
-shell commands, a scratch directory, planting, traps about running things, measuring and a docs
-check are all things this agent cannot do. Section 10 keeps its second half, because a guard refusal
+shell commands (5), sub-agents (6), a scratch directory (7), planting (8), traps about running
+things (9), measuring (12) and a docs check (15) are all things this agent cannot do, having no
+`Agent` tool and no shell; a question needing a fresh agent it names in its report, under
+section 13. Section 10 keeps its second half, because a guard refusal
 is the one clause of it this agent meets: its own `Read` of a credential path hits a deny rule.
 **Never restate the report contract in a brief**: the definition replaces section 14 whatever the
 brief says.
@@ -153,7 +155,9 @@ evidence.
 
 13 CLAIMS.      What the tooling, the harness or a guard permits is established only by attempting
                 it, which you cannot do: such a claim is reported "not established", with the
-                command that would settle it.
+                command that would settle it, and so is a question that needs a fresh agent.
+                Where a change leaves one file contradicting its siblings, the siblings are
+                evidence the change is wrong, not leftovers for it to tidy.
 
 14 REPORT.      Your agent definition `.claude/agents/cold-auditor.md` gives the order and the
                 medium, and it replaces this section.

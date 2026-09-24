@@ -51,8 +51,11 @@ Resume this session. Do not continue any work until you have finished this proto
        Where this harness has no send tool at all, or the resume fails, re-brief
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
-       Land what it committed first: the fresh dispatch forks from your `HEAD`, which holds none
-       of those commits until they land.
+       The fresh dispatch forks from your `HEAD`, which holds none of the dead agent's work, so
+       first: land only its commits whose acceptance evidence exists, judged as its report would
+       have been; save what it left uncommitted -- `git -C <path> diff`, its untracked files and
+       any stash entry "On <branch>" -- to the scratch path and name it in the fresh brief; and
+       keep its worktree row open until the fresh work lands, nothing there being yours to discard.
 
 4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
    For each, `git log --format='%h %s' $(git merge-base HEAD <branch>)..<branch>`, the landing's

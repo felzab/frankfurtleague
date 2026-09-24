@@ -53,9 +53,9 @@ secrets/
 # this file is the per-developer override and must never be committed.
 .claude/settings.local.json
 
-# Claude Code puts each writing agent's git worktree inside this repository -- a whole second tree,
-# with its own node_modules and .venv. .git/info/exclude is machine-local, absent from a fresh
-# clone, so without a tracked rule that tree reads as untracked.
+# Claude Code puts each writing or planting agent's git worktree inside this repository -- a whole
+# second tree, with its own node_modules and .venv. .git/info/exclude is machine-local, absent from
+# a fresh clone, so without a tracked rule that tree reads as untracked.
 .claude/worktrees/
 
 # Python bytecode. scripts/ holds scripts that are run rather than imported, so this fills only

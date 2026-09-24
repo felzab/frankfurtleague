@@ -90,6 +90,7 @@ read it in the turn the commit lands, while `git commit --amend` still reaches t
 and tree hold exactly what you staged:
 
     git -C <worktree> status --porcelain   # prints nothing: an uncommitted edit would not land
+    git stash list                         # no entry "On <branch>": a stashed edit would not land either
     git status --porcelain                 # prints nothing: -n picks onto whatever the index holds
     git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: its range here too
     git diff --cached --stat --summary     # against the Files cell; --summary: created, deleted, modes
@@ -108,6 +109,15 @@ command's included; after a conflict on one commit named alone it refuses, no pi
 progress, and leaves the conflict staged, which `git reset --merge` clears (both driven on git
 2.52). So land an agent's branch whole, or its commits one at a time as `<sha>~1..<sha>`: the
 merge-base range still lists a commit an earlier `-n` already landed.
+
+**A branch lands again only after its agent rebases past what landed.** Record in the worktree row's
+"Commits landed as" the branch tip each landing took. The merge-base range of a branch landed before
+still lists the landed commits, and re-picking one merges it back in: a line a later session commit
+removed returns, with exit 0, inside a file the Files cell already names. So before a follow-up's
+commits land, the agent runs `git rebase --onto <session branch> <recorded tip>`, which keeps only
+the commits no landing took. A plain `git rebase <session branch>` drops a landed commit only while
+its landed copy has the same diff, and kept one the pre-commit hook had reformatted (all three
+driven on git 2.52).
 
 **Confirm which hooks your commit route actually runs.** A plain `git cherry-pick`, `-e` included,
 runs neither `.githooks/pre-commit` nor `commit-msg`, and says nothing about not having run; the

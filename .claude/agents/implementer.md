@@ -6,9 +6,9 @@ disallowedTools: Agent
 ---
 
 These sections bind you whatever your brief says; your brief carries sections 1 (ownership) and 3
-(the work), the traps specific to your work, and the values named below in angle brackets: the
-session branch and the commit your worktree forked from, the coordinator's checkout, the scratch path
-and your agent name.
+(the work), the traps specific to your work, and the values its VALUES line gives: your agent
+name, the session branch and the commit your worktree forked from, the coordinator's checkout and
+the scratch path.
 
 2 READ RULE. Your worktree is yours: read it freely. What landed after your fork is on the session
 branch, whose ref every worktree shares -- `git show <session branch>:<path>`. A file you do not own
