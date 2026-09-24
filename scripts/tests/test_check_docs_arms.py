@@ -22,53 +22,40 @@ from typing import Final
 from conftest import git, write
 from test_check_docs import (
     BACKEND_SPEC,
-    BE_DERIVATION_ROW,
     BLOCKED_ENTRY,
     BLOCKED_FIELDS,
-    BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
-    DROPPED_GATE_ROW,
-    EDGE_DERIVATION_ROW,
-    GATE_DERIVATION_ROW,
     HASH,
     INVARIANT_ROW,
     NEWLINE,
     NOTES,
     ORPHAN_ENTRY,
     PARAGRAPH_CELL,
-    QUALIFIED_BE_ROW,
     QUOTES,
     ROADMAP,
-    ROADMAP_TAIL,
     SAMPLE,
     SCRIPTS_COPY,
     SHORT_FORM,
     SLICE_DONE,
-    SLICE_ROW,
-    SLICE_STRAY,
-    SPIELER_PANEL,
+    SLICE_ENTRY,
     STANDARD,
     UNDECODABLE_BYTES,
-    UNHELD_FILE_ROW,
-    UNHELD_SUBTREE_ROW,
     UNTOKENIZABLE_MODULE,
     VOCAB_ENTRY,
     VOCAB_FIELDS,
-    VOCAB_ROW,
-    WIDENED_GATE_ROW,
     Reported,
     _about,
     _append,
     _assert_corpus_restored,
     _clear_caches,
     _gate,
-    _heading,
     _module,
     _output,
     _page,
     _read,
     _replace,
+    _reported,
     _reset,
     _run,
     _shape,
@@ -101,65 +88,6 @@ def _roadmap_findings(plant: Callable[[], None]) -> Counter[Reported]:
         _reset()
 
 
-def test_an_entry_heading_no_index_row_defines_is_reported_once() -> None:
-    """An id in no index row is the pairing's finding, and nothing else on the page speaks about it."""
-    added = _page(
-        _heading(3, _tick(ORPHAN_ENTRY) + " · An entry no index row defines"),
-        "",
-        "It names `docs/notes.md`.",
-        "",
-        _heading(2, ROADMAP_TAIL),
-    ).rstrip("\n")
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, _heading(2, ROADMAP_TAIL), added))
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no row defines went unreported: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_written_tag_naming_a_slice_the_entry_never_touches_fails_both_ways() -> None:
-    """The arm the slice axis exists for: a tag derived from the tree, against one somebody wrote."""
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE, teams")))
-    # Both directions, because either alone passes a row half-right: a derived tag left out reads
-    # as a narrower item, and a written one nothing derives reads as a wider one.
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a slice tag no path touches passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_slice_is_matched_as_a_whole_segment_rather_than_as_a_substring() -> None:
-    """`spiele` opens `spieler` and `spieltage`, so a substring test tags an entry with slices it never touches.
-
-    The entry names the `spieler` panel alone: read as a substring its path carries `spiele` too.
-    """
-
-    def plant() -> None:
-        _replace(ROADMAP, SLICE_DONE, "Done is `" + SPIELER_PANEL + "` rendering the squad it names.")
-        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "FE, spieler"))
-
-    reported = _roadmap_findings(plant)
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a whole-segment match reported anyway: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_segment_under_a_slice_root_that_names_no_slice_is_reported() -> None:
-    """Dropped instead, a mistyped slice would leave the entry judged against a narrower derivation and the row reading as correct (PRE-4)."""
-    # Three: the stray segment, the frontend tag the new path derives, and the two the old one no
-    # longer does. The stray is what this case turns on, and the other two follow from the swap.
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, "Done is `" + SLICE_STRAY + "` naming a segment no slice owns."))
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 3, "a stray slice segment passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_an_entry_naming_no_path_is_reported_rather_than_defaulted() -> None:
-    """No derived tag is an entry nobody can place, which is a subject nobody stated."""
-
-    def plant() -> None:
-        _replace(ROADMAP, SLICE_DONE, "Done is a read that answers.")
-        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE"))
-
-    reported = _roadmap_findings(plant)
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry naming nothing was defaulted: " + _shape(reported)
-    _assert_corpus_restored()
-
-
 def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     """The batching line resolves rather than judges: a token that names an entry is the whole test."""
     reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + DOCS_ENTRY))
@@ -167,31 +95,52 @@ def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     _assert_corpus_restored()
 
 
+def test_an_entry_naming_no_path_is_reported() -> None:
+    """A reader finds an entry by the paths it names, so one naming none states no subject."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, "Done is a read that answers."))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry naming no path passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_blocked_entry_whose_only_dependency_left_is_reported_once() -> None:
+    """The departed token is the finding; the `Blocked` arm reporting it too would give one defect two findings."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, BLOCKED_FIELDS, "| Blocked | XS | " + _tick(ORPHAN_ENTRY) + " |"))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a departed blocker was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 EMPTY_STATUS: Final = "|  |"
 
 
-def test_a_status_cell_left_empty_is_reported_in_the_listing_that_holds_it() -> None:
-    """An empty cell agrees with an empty cell, so a page emptied on both sides reads as one that agrees."""
+def _roadmap_output(plant: Callable[[], None]) -> tuple[Counter[Reported], str]:
+    """One roadmap plant's findings and what the run printed, restored whatever it raised."""
+    _reset()
+    try:
+        plant()
+        _, output = _output()
+        return _reported(output), output
+    finally:
+        _reset()
 
-    def emptied() -> None:
-        _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS))
-        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS))
 
-    both = _roadmap_findings(emptied)
-    one = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS)))
-    assert both[("fail", "roadmap-shape", ROADMAP)] == 2, "two empty status cells agreed with each other: " + _shape(both)
-    assert one[("fail", "roadmap-shape", ROADMAP)] == 2, "one empty status cell drew the disagreement alone: " + _shape(one)
+def test_a_status_cell_left_empty_is_reported_as_no_status() -> None:
+    """An empty cell is no word, so it is named as missing rather than as a word outside the set."""
+    reported, output = _roadmap_output(lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS)))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an empty status cell was not reported once: " + _shape(reported)
+    assert "entry " + VOCAB_ENTRY + " states no status" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_batch_naming_its_own_entry_is_reported() -> None:
+    """A batch of one is no shared pass, and its token resolves, so the resolution arm alone would pass it."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + SLICE_ENTRY))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a batch naming its own entry passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
 def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
-    """Its own token resolves against the index, so the arm reading the column finds an entry and passes."""
-
-    def itself() -> None:
-        _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
-        _replace(ROADMAP, BLOCKED_FIELDS, "| Docs | Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |")
-
-    reported = _roadmap_findings(itself)
+    """Its own token resolves against the page, so the arm reading the column finds an entry and passes."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, BLOCKED_FIELDS, "| Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |"))
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
     _assert_corpus_restored()
 
@@ -204,34 +153,6 @@ def test_an_entry_naming_itself_in_its_dependency_column_is_reported_whatever_it
 
     reported = _roadmap_findings(itself)
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an open entry depending on itself passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_the_tag_derivation_table_is_held_to_the_paths_the_gate_derives_tags_from() -> None:
-    """One fact in two places, with nothing pairing them: the page's row and the gate's own tuple.
-
-    Both directions: a prefix dropped from the row narrows what a reader thinks earns the tag, and
-    one added widens it.
-    """
-    dropped = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, DROPPED_GATE_ROW))
-    widened = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, WIDENED_GATE_ROW))
-    assert dropped[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix dropped from the row passed: " + _shape(dropped)
-    assert widened[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix no tag derives from passed: " + _shape(widened)
-    _assert_corpus_restored()
-
-
-def test_a_source_cell_naming_a_path_no_prefix_of_its_row_reaches_is_reported() -> None:
-    """A token carrying no repository prefix is read by neither direction above.
-
-    The third arm keeps that silence from reading as a ban on relative names: a folder under a
-    prefix the cell itself writes qualifies its reach.
-    """
-    subtree = _roadmap_findings(lambda: _replace(ROADMAP, EDGE_DERIVATION_ROW, UNHELD_SUBTREE_ROW))
-    filename = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, UNHELD_FILE_ROW))
-    qualified = _roadmap_findings(lambda: _replace(ROADMAP, BE_DERIVATION_ROW, QUALIFIED_BE_ROW))
-    assert subtree[("fail", "roadmap-shape", ROADMAP)] == 1, "a subtree nothing holds passed: " + _shape(subtree)
-    assert filename[("fail", "roadmap-shape", ROADMAP)] == 1, "a filename no prefix of its row reaches passed: " + _shape(filename)
-    assert qualified[("fail", "roadmap-shape", ROADMAP)] == 0, "a folder under the row's own prefix was reported: " + _shape(qualified)
     _assert_corpus_restored()
 
 

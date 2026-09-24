@@ -6,7 +6,7 @@
 
 | Read                         | For                                                                             |
 | ---------------------------- | ------------------------------------------------------------------------------- |
-| [`items.md`](items.md)       | Every open item, tagged — each entry with the analysis a decision needs         |
+| [`items.md`](items.md)       | Every open item — each entry with the analysis a decision needs                 |
 | [`protocol.md`](protocol.md) | How an entry is shaped, identified and closed, and when it belongs in a tracker |
 
 ## What belongs here

@@ -62,11 +62,12 @@ HOOKS_STUB: Final = "nohooks"
 # What a branch-wide finding names in place of a file.
 BRANCH_DIFF: Final = "(branch diff)"
 
-# The id the fixture roadmap defines, so an added comment naming it is resolvable. Spelled only in
-# strings: named in a comment of this file it would be read as this file's own citation.
+# The id the fixture roadmap's one entry heading defines, so an added comment naming it is
+# resolvable. Spelled only in strings: named in a comment of this file it would be read as this
+# file's own citation.
 ROADMAP_ID: Final = "q7mf-zd4x"
-# What `LOOSE_ID_RE` matches and the roadmap table cannot resolve: a short hyphenated word, and a
-# token nothing files. Each is what an unresolved hit looks like, and the table is what parts a
+# What `LOOSE_ID_RE` matches and the roadmap headings cannot resolve: a short hyphenated word, and a
+# token nothing files. Each is what an unresolved hit looks like, and the headings are what part a
 # citation from either.
 PLAIN_WORD: Final = "read-only"
 UNFILED_TOKEN: Final = "zzzz-9999"
@@ -279,9 +280,7 @@ def _corpus() -> dict[str, str]:
         ROADMAP: _page(
             HASH + " Roadmap",
             "",
-            "| ID | Item | Tags | Status |",
-            "| --- | --- | --- | --- |",
-            "| `" + ROADMAP_ID + "` | A scenario item | Docs | Open |",
+            "### `" + ROADMAP_ID + "` · A scenario item",
         ),
         BACKEND_SPEC: _sheet(
             "Backend",

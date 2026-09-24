@@ -4,7 +4,7 @@ description: Work one open item to a conclusion — /roadmap:start <ID>
 
 Work the item named by the arguments to a conclusion: `$ARGUMENTS`
 
-The **first token** is the item ID, taken from the index table of `docs/_roadmap/items.md`. Anything
+The **first token** is the item ID, taken from an entry heading of `docs/_roadmap/items.md`. Anything
 after it is context carried forward by the session that unblocked this item — sort it in step 1
 before acting on any of it.
 
@@ -18,7 +18,7 @@ this table. **The first row that matches decides.**
 
 | The item                                                            | Do                                                                                                                |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Is on no page                                                       | **Stop.** List the ids from the index table                                                                       |
+| Is on no page                                                       | **Stop.** List the ids from the entry headings                                                                    |
 | Was already concluded by a closing commit                           | **Stop.** Report that commit — its body is the record. A regression opens a new id, not this one                  |
 | Carries `Status: Standing`                                          | **Stop.** Report the entry's own trigger and ask whether it has fired                                             |
 | Carries `Status: Skipped`                                           | **Stop.** A deferred entry is not restarted without a ruling lifting it (`docs/_roadmap/protocol.md` §4)          |
@@ -86,21 +86,20 @@ the change (CLAUDE.md §2).
      same-commit rule requires. They live in an audit pass prompt under `docs/_auditing/prompts/`.
      A spec sheet's `## 4. Known-open` table names no roadmap id (OUT-4), and INC-6 keeps one out
      of a source comment, which carries the constraint itself.
-   - **The same commit re-derives the `Status` of every row**, deletes any batching line naming the
-     id, and clears every `Depends on` that named it — reading each row's `Status` and `Depends on`
-     together is what catches the rows nobody edited.
+   - **The same commit re-derives the `Status` of every entry**, deletes any batching line naming the
+     id, and clears every `Depends on` that named it — reading each entry's `Status` and `Depends on`
+     together is what catches the entries nobody edited.
    - **An item that ends partly done is not closed:** rewrite the entry to describe what is left and
      what was decided, leave its `Status` at `Open` or `Decided`, write **no** `Closes:` trailer, and
      say plainly in the handover that the entry stayed.
 
 6. **Verify the close before handing over.** Every one of these holds:
 
-   | Check                                                             | How                                                                  |
-   | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
-   | The ID has left the page                                          | `git grep -n "<ID>" -- docs/_roadmap/items.md` returns nothing       |
-   | The closure is indexed exactly once                               | `git log --all --grep="Closes: <ID>"` names this commit and no other |
-   | Every index row has an entry, and each row's tags are its entry's | Read the index table against the `### <ID> ·` headings               |
-   | No reference to the ID is stale                                   | `git grep -n "<ID>"` — every remaining hit is deliberate             |
+   | Check                               | How                                                                  |
+   | ----------------------------------- | -------------------------------------------------------------------- |
+   | The ID has left the page            | `git grep -n "<ID>" -- docs/_roadmap/items.md` returns nothing       |
+   | The closure is indexed exactly once | `git log --all --grep="Closes: <ID>"` names this commit and no other |
+   | No reference to the ID is stale     | `git grep -n "<ID>"` — every remaining hit is deliberate             |
 
 7. **Hand over.** State the mode you were in, what was concluded, whether the entry was deleted or
    rewritten, and which other entries changed.

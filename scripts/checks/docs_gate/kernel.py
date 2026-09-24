@@ -160,7 +160,7 @@ ROADMAP_GLOB: Final = f"{ROADMAP_DIR}/*.md"
 # A fixed page is its own glob, so one spelling answers `tracked_glob` and `tracked_page` alike.
 GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
 STANDARD_PAGE: Final = f"{DOCS_DIR}/_standard/standard.md"
-# One file: an entry is placed by its tags, so a second page would state the surface tag twice.
+# One file: the page an entry sat on would be a category, which nothing keeps true as entries move.
 # `ROADMAP_GLOB` also matches the folder's other pages, so presence and tracking are asked of this
 # one by name instead.
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/items.md"
@@ -1051,9 +1051,11 @@ ENTRY_TOKEN_ALPHABET: Final = "abcdefghjkmnpqrstuvwxyz23456789"
 # alphanumerics is the shape of an ordinary identifier.
 ENTRY_TOKEN_PATTERN: Final = rf"[{ENTRY_TOKEN_ALPHABET}]{{4}}-[{ENTRY_TOKEN_ALPHABET}]{{4}}"
 ENTRY_TOKEN_RE: Final = re.compile(rf"^{ENTRY_TOKEN_PATTERN}$")
-# The token as a table row defines it: the first cell of an index row, backticked as COR-6 spells
-# every other identifier.
-ROADMAP_ID_DEF_RE: Final = re.compile(rf"^[ \t]*\|\s*`({ENTRY_TOKEN_PATTERN})`\s*\|", re.MULTILINE)
+# One entry heading, `### <token> · <claim>`, which every reader here takes. The id is captured
+# loose, so a malformed one is caught against the alphabet rather than dropped (PRE-4);
+# `scripts/checks/check_commits.py :: ENTRY_HEADING_DIFF_RE` reads it out of a diff.
+ROADMAP_HEADING_SEPARATOR: Final = "·"
+ROADMAP_ENTRY_RE: Final = re.compile(rf"^ {{0,3}}###[ \t]+`?([^\s`]+)`?[ \t]+{ROADMAP_HEADING_SEPARATOR}[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 
 
 def is_entry_token(text: str) -> bool:
@@ -1063,15 +1065,15 @@ def is_entry_token(text: str) -> bool:
 
 @cache
 def roadmap_ids() -> frozenset[str]:
-    """Every entry token the roadmap tables define.
+    """Every entry token the roadmap headings define.
 
-    Read from the tables rather than matched anywhere on the page: what an index row defines is
-    what a citation resolves against, and a page's prose names a token it does not file.
+    Read from the headings rather than matched anywhere on the page: what an entry defines is what a
+    citation resolves against, and a page's prose names a token it does not file.
     """
     ids: set[str] = set()
     for page in tracked_glob(ROADMAP_GLOB):
         if (text := _read_text(page)[0]) is not None:
-            ids.update(ROADMAP_ID_DEF_RE.findall(text))
+            ids.update(token for token, _ in ROADMAP_ENTRY_RE.findall(text) if is_entry_token(token))
     return frozenset(ids)
 
 

@@ -89,14 +89,8 @@ TEMPLATE_MARKER_PATH: Final = "docs/gone-in-a-template-literal.md"
 RUNAWAY_BLOCK_PATH: Final = "docs/gone-after-a-runaway-block.md"
 # The comment beside them, so the case cannot pass on a reader that blanks the file whole.
 REAL_COMMENT_PATH: Final = "docs/gone-in-a-real-comment.md"
-# One slice per arm the tag checks take: derived, stale and frontend-only. A slice exists only
-# while a file holds its folder open, and `git clean` takes an empty one with it.
 SPIELE_ROUTER: Final = "fl_backend/app/api/spiele/router.py"
-TEAMS_ROUTER: Final = "fl_backend/app/api/teams/router.py"
 SPIELER_PANEL: Final = "fl_frontend/src/features/spieler/Panel.tsx"
-# A file sitting directly under a slice root, so a named segment can be one the tree defines no
-# slice for. Every other fixture path under these roots names a folder.
-SLICE_STRAY: Final = "fl_frontend/src/features/registry.ts"
 SCHEME: Final = "fl_frontend/src/app/schemes/2025-26.css"
 # A second season, planted rather than committed: the past scheme a file-to-file drift needs.
 PAST_SCHEME: Final = "fl_frontend/src/app/schemes/2024-25.css"
@@ -186,11 +180,6 @@ CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
-# One committed file per folder the derivation table names that no other fixture holds: a cell's
-# path is a backticked path like any other, so `path` reports one no tree carries.
-COMMIT_HOOK: Final = ".githooks/pre-commit"
-CLAUDE_HOOK: Final = ".claude/hooks/agreement.sh"
-WORKFLOW: Final = ".github/workflows/gate.yml"
 BACKEND_TEST: Final = "fl_backend/tests/test_agreement.py"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # A root-level file a citation names, beside the attributes file: every other cited path sits under a
@@ -251,46 +240,8 @@ SLICE_ENTRY: Final = "vb4n-hs9t"
 # What a plant files without an entry under it, and an id carrying a letter the alphabet excludes.
 ORPHAN_ENTRY: Final = "jd8s-hrkm"
 MALFORMED_ENTRY: Final = "kxr7-m2qo"
-# One item's claim, spelled once: the corpus writes it into the index row and the heading alike, and
-# a plant rewriting either has to keep them in step.
 DOCS_ITEM: Final = "Give the gate a fixture net"
 SLICE_ITEM: Final = "Serve a fixture through the slice"
-DOCS_ROW: Final = "| " + _tick(DOCS_ENTRY) + " | " + DOCS_ITEM + " | Docs | Open |"
-SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spiele | Open |"
-# The derivation the page states, spelled out rather than lifted from the checker's own tuple, for
-# `SCHEME_TOKENS`' reason.
-TAG_DERIVATION: Final[tuple[tuple[str, str, str], ...]] = (
-    ("**Surface**", "FE", "`fl_frontend/`"),
-    # A backticked run that is no repository prefix, here and on the `ci` row: what parts a path
-    # the arm holds from a folder the sentence merely names.
-    ("", "BE", "`fl_backend/` whole, `tests/` included"),
-    ("", "Ops", "`scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file"),
-    ("", "Docs", "`docs/`, `.claude/`"),
-    ("**Concern**", "gate", "`scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`"),
-    ("", "ci", "`.github/` whole, not its `workflows/` alone"),
-    ("", "tests", "`scripts/tests/`, `fl_backend/tests/`"),
-    ("", "edge", "`nginx/`"),
-)
-DERIVATION_HEADER: Final = "| Axis | Vocabulary | Derived from a path or symbol under |"
-DERIVATION_ROWS: Final[tuple[str, ...]] = tuple(
-    "| " + axis + " | " + _tick(tag) + " | " + sources + " |" for axis, tag, sources in TAG_DERIVATION
-)
-# The row a plant edits: it names four prefixes, so either edit leaves three of them standing and
-# every other row answering.
-GATE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("gate") in row)
-DROPPED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(", " + _tick(".claude/hooks/"), "")
-WIDENED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("docs/"))
-# A filename none of its own row's prefixes reaches: one they did reach would restate that reach
-# rather than claim a source of its own.
-UNHELD_FILE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("local.conf"))
-# The row a subtree nothing holds is added to, its own cell still naming every prefix `edge` derives
-# from, so the added token is all the comparison leaves.
-EDGE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("edge") in row)
-UNHELD_SUBTREE_ROW: Final = EDGE_DERIVATION_ROW.replace(_tick("nginx/"), _tick("nginx/") + ", " + _tick("edgy/"))
-# The same shape written legibly: a folder under a prefix the cell itself writes, which qualifies
-# that prefix rather than deriving the tag from anywhere new.
-BE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("BE") in row)
-QUALIFIED_BE_ROW: Final = BE_DERIVATION_ROW.replace(_tick("tests/"), _tick("tests/") + " and " + _tick("app/"))
 
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
@@ -369,32 +320,28 @@ def _refusal_arm(code: str) -> str:
 BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write", MAPPER_CITATION)
 FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer", "—")
 SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, "—")
-# One entry per agreement arm, so a plant breaking one leaves the others answering. They ascend as
-# the page's own listings do.
-STATUS_ENTRY: Final = "bqxs-4dtn"
+# One entry per status arm, so a plant breaking one leaves the others answering. They ascend as
+# the page's entries do.
+DEPENDS_ENTRY: Final = "bqxs-4dtn"
 VOCAB_ENTRY: Final = "dm93-7kvz"
 BLOCKED_ENTRY: Final = "gtz5-9wqr"
 # Sorting below every one of them, and appended by a plant rather than committed: it is what ends
 # the run the other three are in.
 ORDER_ENTRY: Final = "2xkq-7bnm"
-STATUS_ITEM: Final = "Hold both listings' status cells to each other"
+DEPENDS_ITEM: Final = "Hold a dependency to the entries the page holds"
 VOCAB_ITEM: Final = "Hold a status to the vocabulary deriving it"
 BLOCKED_ITEM: Final = "Hold a blocked entry to the column beside it"
 ORDER_ITEM: Final = "File an entry below the run it belongs to"
 # One effort apiece, a value nothing reads, so a plant naming a field row reaches the entry it means.
-STATUS_FIELDS: Final = "| Docs | Open | L | — |"
-VOCAB_FIELDS: Final = "| Docs | Open | XL | — |"
-BLOCKED_FIELDS: Final = "| Docs | Open | XS | — |"
-ORDER_FIELDS: Final = "| Docs | Open | XXL | — |"
-# One line of prose apiece, each naming the page every fixture entry's tag derives from.
-STATUS_PROSE: Final = "A status arm needs an entry beside `docs/notes.md` whose two cells a plant can part."
+DEPENDS_FIELDS: Final = "| Open | L | — |"
+VOCAB_FIELDS: Final = "| Open | XL | — |"
+BLOCKED_FIELDS: Final = "| Open | XS | — |"
+ORDER_FIELDS: Final = "| Open | XXL | — |"
+# One line of prose apiece, each naming a repository path, which is what the subject arm asks of an entry.
+DEPENDS_PROSE: Final = "A dependency arm needs an entry beside `docs/notes.md` that a plant can make depend on a departed one."
 VOCAB_PROSE: Final = "A vocabulary arm needs an entry beside `docs/notes.md` carrying a word to put outside the set."
 BLOCKED_PROSE: Final = "A blocked arm needs an entry beside `docs/notes.md` whose dependency column stays an em dash."
 ORDER_PROSE: Final = "An order arm needs an entry beside `docs/notes.md` filed below the run above it."
-STATUS_ROW: Final = "| " + _tick(STATUS_ENTRY) + " | " + STATUS_ITEM + " | Docs | Open |"
-VOCAB_ROW: Final = "| " + _tick(VOCAB_ENTRY) + " | " + VOCAB_ITEM + " | Docs | Open |"
-BLOCKED_ROW: Final = "| " + _tick(BLOCKED_ENTRY) + " | " + BLOCKED_ITEM + " | Docs | Open |"
-ORDER_ROW: Final = "| " + _tick(ORDER_ENTRY) + " | " + ORDER_ITEM + " | Docs | Open |"
 # The heading closing the page. Every plant that APPENDS to this page lands under it, so nothing a
 # case appends is read as the last entry's own prose.
 ROADMAP_TAIL: Final = "Appendix"
@@ -490,16 +437,12 @@ SWALLOWING_STANDARD: Final = _page(
 
 
 def _roadmap_entry(token: str, item: str, fields: str, prose: str) -> str:
-    """One agreement arm's entry, in the shape the page's committed entries carry.
-
-    The claim is spelled once and written into the heading and the index row alike, so a plant
-    parting the two has to say so.
-    """
+    """One status arm's entry, in the shape the page's committed entries carry."""
     return _page(
         _heading(3, _tick(token) + " · " + item),
         "",
-        "| Tags | Status | Effort | Depends on |",
-        "| --- | --- | --- | --- |",
+        "| Status | Effort | Depends on |",
+        "| --- | --- | --- |",
         fields,
         "",
         prose,
@@ -728,19 +671,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "**Purpose:** what is open, in one file.",
             "",
-            DERIVATION_HEADER,
-            "| --- | --- | --- |",
-            *DERIVATION_ROWS,
-            "",
-            "| ID | Item | Tags | Status |",
-            "| --- | --- | --- | --- |",
-            STATUS_ROW,
-            VOCAB_ROW,
-            BLOCKED_ROW,
-            DOCS_ROW,
-            SLICE_ROW,
-            "",
-            _roadmap_entry(STATUS_ENTRY, STATUS_ITEM, STATUS_FIELDS, STATUS_PROSE),
+            _roadmap_entry(DEPENDS_ENTRY, DEPENDS_ITEM, DEPENDS_FIELDS, DEPENDS_PROSE),
             "",
             _roadmap_entry(VOCAB_ENTRY, VOCAB_ITEM, VOCAB_FIELDS, VOCAB_PROSE),
             "",
@@ -748,18 +679,18 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
             "",
-            "| Tags | Status | Effort | Depends on |",
-            "| --- | --- | --- | --- |",
-            "| Docs | Open | S | — |",
+            "| Status | Effort | Depends on |",
+            "| --- | --- | --- |",
+            "| Open | S | — |",
             "",
             "No check is driven against a planted violation. A check nobody drives red is one nobody",
             "proved. Done is a net beside `docs/notes.md` that plants one violation per check.",
             "",
             _heading(3, _tick(SLICE_ENTRY) + " · " + SLICE_ITEM),
             "",
-            "| Tags | Status | Effort | Depends on |",
-            "| --- | --- | --- | --- |",
-            "| BE, spiele | Open | M | — |",
+            "| Status | Effort | Depends on |",
+            "| --- | --- | --- |",
+            "| Open | M | — |",
             "",
             "The slice answers no request. A reader filtering on it meets one half of the feature.",
             SLICE_DONE,
@@ -919,22 +850,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "UMLAUT = 1",
         ),
         SPIELE_ROUTER: _page(
-            QUOTES + "BACKEND · the slice an entry names, so a derived tag has a folder to come from." + QUOTES,
+            QUOTES + "BACKEND · a live module the other-spelling case names from inside its package." + QUOTES,
             "",
             "SPIELE = 1",
         ),
-        TEAMS_ROUTER: _page(
-            QUOTES + "BACKEND · a second slice, so a row can carry a tag the entry derives nothing for." + QUOTES,
-            "",
-            "TEAMS = 1",
-        ),
         SPIELER_PANEL: _page(
             "export function Panel() {",
-            "  return <output>a third slice, and the one spelled on the frontend alone</output>;",
+            "  return <output>a component under a slice root</output>;",
             "}",
-        ),
-        SLICE_STRAY: _page(
-            "export const REGISTRY = 1;",
         ),
         TSX_SAMPLE: _page(
             "export function Sample() {",
@@ -1006,25 +929,8 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "# OPS · an entry point, scanned for its comments and nothing else.",
             "exec nginx",
         ),
-        # The four folders the derivation table names that nothing else here holds. Each is one
-        # file, because a folder is tracked only while something under it is.
-        COMMIT_HOOK: _page(
-            "#!/usr/bin/env bash",
-            "# OPS · a commit hook, holding open the folder two derivation rows name.",
-            "exec true",
-        ),
-        CLAUDE_HOOK: _page(
-            "#!/usr/bin/env bash",
-            "# OPS · a guard, holding open the hook folder two derivation rows name.",
-            "exec true",
-        ),
-        WORKFLOW: _page(
-            "# OPS · a workflow, holding open the folder the `ci` row names.",
-            "name: gate",
-            "on: push",
-        ),
         BACKEND_TEST: _page(
-            QUOTES + "BACKEND · a test module, holding open the folder the `tests` row names." + QUOTES,
+            QUOTES + "BACKEND · a test module, whose cases a citation names by class and by function." + QUOTES,
             "",
             "TESTED = 1",
             "",
@@ -1469,52 +1375,38 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every structural shape the file can lose, one producer apiece.
-
-    The tag arms are planted by the cases below this one, where each can be asserted on its own.
-    """
-    # A row nothing files under it.
-    _replace(ROADMAP, DOCS_ROW, DOCS_ROW + "\n| " + _tick(ORPHAN_ENTRY) + " | A row with no entry below it | Docs | Open |")
-    # The status the trailer replaces, in both places a status is written.
-    _replace(ROADMAP, DOCS_ROW, DOCS_ROW.replace("| Open |", "| Closed |"))
-    _replace(ROADMAP, "| Docs | Open | S | — |", "| Docs | Closed | S | — |")
-    # A heading between two entries, which is a category kept in a second place.
-    _replace(ROADMAP, _heading(3, _tick(SLICE_ENTRY)), _heading(2, "The slice work") + "\n\n" + _heading(3, _tick(SLICE_ENTRY)))
+    """Every shape the file can lose, one producer apiece."""
     # A batch naming an id this file holds no entry for.
     _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + ORPHAN_ENTRY)
     # A second entry under an id already filed, and an id carrying a letter the alphabet excludes.
-    # Both go above the closing heading, or the heading would sit between two entries as well.
+    # Above the closing heading, each with a clean table and a path, so neither draws a stand-in
+    # finding if filed.
     _replace(
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
         _page(
-            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
+            _roadmap_entry(DOCS_ENTRY, DOCS_ITEM, "| Open | XXS | — |", "A second entry under an id already filed, naming `docs/notes.md`."),
             "",
-            "A second entry under an id already filed, naming `docs/notes.md` so its tags still agree.",
-            "",
-            # A malformed id is planted as a heading and never as a row: the pairing runs over the
-            # well-formed ids alone, so planting both would be one defect reported twice.
-            _heading(3, _tick(MALFORMED_ENTRY) + " · An id no alphabet admits"),
-            "",
-            "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
+            _roadmap_entry(
+                MALFORMED_ENTRY,
+                "An id no alphabet admits",
+                "| Open | XXS | — |",
+                "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
+            ),
             "",
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
-    _plant_roadmap_agreement()
+    _plant_roadmap_status()
 
 
-def _plant_roadmap_agreement() -> None:
-    """The arms holding one listing to the other.
+def _plant_roadmap_status() -> None:
+    """The arms holding the run's order and each entry's status and dependencies.
 
-    A value that is itself the defect is planted in BOTH listings: changing one alone parts the two
-    cells as well, and a plant answering two arms proves neither.
+    One entry per arm, each planted where no other arm reads (PRE-4): a plant two arms could
+    answer would leave one of them proven by the other's finding.
     """
-    # One entry per arm, each planted where no other arm reads (PRE-4): a plant two arms could
-    # answer would leave one of them proven by the other's finding.
-
-    # A token below every one above it, in both listings, so each ends a run of its own.
-    _replace(ROADMAP, SLICE_ROW, SLICE_ROW + "\n" + ORDER_ROW)
+    # A token below every one above it, filed last, so it ends the run.
     _replace(
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
@@ -1524,19 +1416,14 @@ def _plant_roadmap_agreement() -> None:
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
-    # The two cells parted, both values still inside the vocabulary, so this arm answers alone.
-    _replace(ROADMAP, STATUS_FIELDS, STATUS_FIELDS.replace("| Open |", "| Standing |"))
-    # A claim the heading beside it does not carry.
-    _replace(ROADMAP, STATUS_ROW, STATUS_ROW.replace(STATUS_ITEM, "A claim the heading beside it does not carry"))
     # A word the derivation does not produce.
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     # The same arm at its near miss: a value differing from one of the four in case alone, which a
     # comparison folding case would pass.
-    _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("| Open |", "| open |"))
-    _replace(ROADMAP, "| BE, spiele | Open | M | — |", "| BE, spiele | open | M | — |")
-    # Blocked in both listings with an em dash beside it, which names no entry at all.
-    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    _replace(ROADMAP, "| Open | M | — |", "| open | M | — |")
+    # An open entry depending on a token that left the page: stale whatever its status says.
+    _replace(ROADMAP, DEPENDS_FIELDS, DEPENDS_FIELDS.replace("| — |", "| " + _tick(ORPHAN_ENTRY) + " |"))
+    # Blocked with an em dash beside it, which names no entry at all.
     _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open |", "| Blocked |"))
 
 
@@ -1575,21 +1462,6 @@ def _plant_error_codes() -> None:
     # The boundary: a row no rule declares, carrying a citation rather than the em dash saying
     # nothing is owed there.
     _replace(ERROR_CODES, SECOND_FRONTEND_ROW, _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, MAPPER_CITATION))
-
-
-def _plant_compose_entry() -> None:
-    """The docs entry given a compose file as a second subject, its index row left as it stands."""
-    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + COMPOSE_FILE + "` that plant")
-
-
-def _plant_hook_entry() -> None:
-    """The docs entry given a hook as a second subject, its index row left as it stands.
-
-    The file is written rather than committed: the resolver lists an untracked path too, and the
-    reset takes it away again.
-    """
-    write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "exec true"))
-    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + HOOK_SAMPLE + "` that plant")
 
 
 def _plant_segment_map() -> None:
@@ -2001,7 +1873,7 @@ CASES: Final[tuple[Case, ...]] = (
     # Prose lines, not table rows: OUT-3 counts the words a table does not hold, so a plant made of
     # rows would leave the bound unreached however long the page grew.
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line of README prose." for _ in range(160)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 16), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
@@ -2060,45 +1932,8 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 
 
-def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
-    """Driven through the whole gate rather than through the derivation alone.
-
-    The derivation reads what the resolver placed, so a case handing it paths of its own would pass
-    with the resolver unchanged.
-    """
-    _reset()
-    _plant_compose_entry()
-    try:
-        code, output = _main()
-    finally:
-        _reset()
-    assert code == 1, output
-    assert "entry " + DOCS_ENTRY + " names Ops, edge work" in output, output
-    _assert_corpus_restored()
-
-
-def test_an_entry_naming_a_hook_earns_the_ops_and_gate_tags_beside_its_docs_one() -> None:
-    """A hook sits under the prefix `Docs` claims, so derived as documentation alone it is invisible to a `gate` filter.
-
-    Driven through the whole gate for the compose case's reason.
-    """
-    _reset()
-    _plant_hook_entry()
-    try:
-        code, output = _main()
-    finally:
-        _reset()
-    assert code == 1, output
-    assert "entry " + DOCS_ENTRY + " names Ops, gate work" in output, output
-    _assert_corpus_restored()
-
-
 def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
-    """Asked of the resolver as well as of the case above.
-
-    That case stays green with this arm narrowed to the two compose filenames the derivation reads,
-    leaving every other root-level path resolving to nothing.
-    """
+    """Two root-level files, so an arm narrowed to one filename leaves the other resolving to nothing."""
     _reset()
     kernel = _module("docs_gate.kernel")
     _clear_caches(_gate().root / SCRIPTS_COPY)

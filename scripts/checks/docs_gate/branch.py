@@ -323,8 +323,8 @@ REVIEW_REF_RE: Final = re.compile(
 )
 
 
-# Loose, and resolved against the roadmap's own table rather than trusted: this shape also spells
-# a short hyphenated name, and what an index row defines is the only thing that separates a
+# Loose, and resolved against the roadmap's own headings rather than trusted: this shape also spells
+# a short hyphenated name, and what an entry heading defines is the only thing that separates a
 # citation from one.
 LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 

@@ -758,7 +758,7 @@ def test_only_a_heading_carrying_a_token_is_an_entry_heading() -> None:
     # nothing, so nothing is asked of a commit that could not write it.
     assert commits.entry_tokens_departed(_diff(entries, *invisible)) == frozenset()
     assert commits.entry_tokens_departed(_diff(entries, f"-{_entry(TOKEN, 'A claim')}")) == frozenset({TOKEN})
-    # The token unbackticked, which `scripts/checks/docs_gate/checks.py :: ROADMAP_ENTRY_RE` also
+    # The token unbackticked, which `scripts/checks/docs_gate/kernel.py :: ROADMAP_ENTRY_RE` also
     # reads as an entry and no check refuses: a heading only one of the two calls an entry would
     # leave a retirement here asking for nothing.
     assert commits.entry_tokens_departed(_diff(entries, f"-### {TOKEN}{dot}A claim")) == frozenset({TOKEN})

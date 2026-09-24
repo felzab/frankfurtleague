@@ -132,7 +132,7 @@ ROADMAP_DIR: Final = "docs/_roadmap"
 # retires nothing.
 ROADMAP_ENTRY_PAGES: Final[tuple[str, ...]] = (f"{ROADMAP_DIR}/items.md",)
 # One entry heading as a diff line, with the side it sits on. Backticks are optional here because
-# `scripts/checks/docs_gate/checks.py :: ROADMAP_ENTRY_RE` admits both, and a heading only one
+# `scripts/checks/docs_gate/kernel.py :: ROADMAP_ENTRY_RE` admits both, and a heading only one
 # reader calls an entry switches this contract off unseen.
 ENTRY_HEADING_DIFF_RE: Final = re.compile(rf"^([-+])[ ]{{0,3}}###[ \t]+`?({ENTRY_TOKEN})`?[ \t]+·")
 

@@ -22,7 +22,6 @@ from test_check_docs import (
     ADDED_STATUS_RULE,
     APP_GLOBALS,
     BLOCKED_FIELDS,
-    BLOCKED_ROW,
     DOCS_ENTRY,
     ERROR_CODES,
     FRONTEND_ROW,
@@ -31,7 +30,6 @@ from test_check_docs import (
     HASH,
     HELPER_LEAD_IN,
     IGNORED_MODULE,
-    MALFORMED_ENTRY,
     NEWLINE,
     NOTES,
     OPS_SPEC,
@@ -42,6 +40,7 @@ from test_check_docs import (
     QUOTES,
     ROADMAP,
     SKIPPED_MODULE,
+    SLICE_ENTRY,
     STANDARD,
     STATUS_COLUMN_ROW,
     UNDECODABLE,
@@ -49,7 +48,6 @@ from test_check_docs import (
     UNSTAGED_BLOCK,
     UNSTAGED_MODULE,
     VOCAB_FIELDS,
-    VOCAB_ROW,
     _append,
     _assert_corpus_restored,
     _gate,
@@ -197,14 +195,14 @@ def test_a_protocol_page_that_cannot_be_decoded_is_reported_rather_than_emptying
         _, output = _output()
     finally:
         _reset()
-    assert "unreadable, so the status vocabulary was derived from nothing" in output, output
+    assert "untracked or unreadable, so the status vocabulary was derived from nothing" in output, output
     _assert_corpus_restored()
 
 
 def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
     """A second `Status`-headed table on the page is not the derivation, and a reader re-arming on any header would take it.
 
-    Its word is planted as a status in both listings, so a reader taking it reports nothing.
+    Its word is planted as an entry's status, so a reader taking it reports nothing.
     """
     _reset()
     _append(
@@ -216,13 +214,12 @@ def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
         "| --- | --- | --- |",
         "| 1 | A row a reader scoped to section four never reads | **Parked** |",
     )
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     try:
         _, reported = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a table outside section four widened the vocabulary: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a table outside section four widened the vocabulary: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -234,7 +231,6 @@ def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
     """
     _reset()
     _replace(PROTOCOL, OTHERWISE_RULE, ADDED_STATUS_RULE + "\n" + OTHERWISE_RULE.replace("| 4 |", "| 5 |"))
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     try:
         _, reported = _run()
@@ -244,23 +240,23 @@ def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
     _assert_corpus_restored()
 
 
-def test_a_blocked_entry_naming_two_dependencies_is_held_to_either_of_them() -> None:
-    """A `Depends on` cell naming two entries is read token by token, one of them filed being enough.
+def test_a_blocked_entry_naming_two_dependencies_is_read_token_by_token() -> None:
+    """A `Depends on` cell naming two entries is read token by token, each held to the page.
 
-    Read as one token it names no entry, and a true claim about another entry draws a finding.
+    Read as one token it names no entry, and a true claim about two other entries draws a finding.
     """
     _reset()
-    both = "| Docs | Blocked | XS | " + _tick(ORPHAN_ENTRY) + ", " + _tick(DOCS_ENTRY) + " |"
-    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    both = "| Blocked | XS | " + _tick(DOCS_ENTRY) + ", " + _tick(SLICE_ENTRY) + " |"
     _replace(ROADMAP, BLOCKED_FIELDS, both)
     try:
         _, reported = _run()
-        _replace(ROADMAP, both, both.replace(_tick(DOCS_ENTRY), _tick(MALFORMED_ENTRY)))
-        _, unfiled = _run()
+        _replace(ROADMAP, both, both.replace(_tick(DOCS_ENTRY), _tick(ORPHAN_ENTRY)))
+        _, departed = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a dependency filed beside an unfiled one was refused: " + _shape(reported)
-    assert unfiled[("fail", "roadmap-shape", ROADMAP)] == 1, "two unfiled dependencies passed: " + _shape(unfiled)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "two filed dependencies were refused: " + _shape(reported)
+    # One: the departed token, and never the `Blocked` arm as well while the other still blocks.
+    assert departed[("fail", "roadmap-shape", ROADMAP)] == 1, "a departed dependency beside a filed one passed: " + _shape(departed)
     _assert_corpus_restored()
 
 

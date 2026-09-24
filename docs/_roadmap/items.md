@@ -1,28 +1,26 @@
 # Open items
 
 **Purpose:** everything open on the product, the toolchain, the gate and the documentation corpus —
-each entry carrying the analysis its decision needs. How an entry is authored, tagged and closed is
+each entry carrying the analysis its decision needs. How an entry is authored and closed is
 [`protocol.md`](protocol.md)'s.
 
 | Section                                               | Answers                                                  |
 | ----------------------------------------------------- | -------------------------------------------------------- |
 | [What every entry carries](#what-every-entry-carries) | Which fields an entry states, and what each one may hold |
-| [The items at a glance](#the-items-at-a-glance)       | Every item, its tags and its status                      |
 | [The items](#the-items)                               | Each entry in full                                       |
 
 ## What every entry carries
 
-An entry is a ``### `<token>` · <the claim>`` heading, then one table of the three fields below, then
+An entry is a ``### `<token>` · <the claim>`` heading, then one table of the two fields below, then
 the analysis, and it says what is wrong, why it matters and what done looks like. Analysis stays
 only where it changes the approach — a rejected alternative written as a present constraint, or a
 trap the implementer would otherwise walk into. Everything else goes to the body of the commit that
 files the entry, which `git log -S` reaches.
 
-| Field          | Holds                                                                                                                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tags**       | Every axis below that the paths the entry names fall under. Derived from the entry's own text, never chosen: a tag disagreeing with what is written is the failure this field exists to catch |
-| **Status**     | One value from the closed set [`protocol.md`](protocol.md) derives                                                                                                                            |
-| **Depends on** | The token of an entry here that blocks this one, or an em dash                                                                                                                                |
+| Field          | Holds                                                              |
+| -------------- | ------------------------------------------------------------------ |
+| **Status**     | One value from the closed set [`protocol.md`](protocol.md) derives |
+| **Depends on** | The token of an entry here that blocks this one, or an em dash     |
 
 **A token is eight characters from `abcdefghjkmnpqrstuvwxyz23456789`, hyphenated after the fourth** —
 no `i`, `l`, `o`, `0` or `1`, because a token is read aloud and typed into a commit trailer.
@@ -30,79 +28,26 @@ It is generated at random when the entry is filed rather than allocated from a s
 collision with one `git grep`, and carries no order and no meaning. It is never reused, and a
 closing commit's trailer names it.
 
-**Tags come from three axes, and an entry carries every tag its own text earns.**
-
-| Axis        | Vocabulary                                                                      | Derived from a path or symbol under                                                |
-| ----------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Surface** | `FE`                                                                            | `fl_frontend/`                                                                     |
-|             | `BE`                                                                            | `fl_backend/` whole, `tests/` included                                             |
-|             | `DB`                                                                            | a collection name, an index, `fl_backend/app/core/crud.py`                         |
-|             | `Ops`                                                                           | `scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file, a Dockerfile |
-|             | `Docs`                                                                          | `docs/`, `.claude/`                                                                |
-| **Concern** | `gate`                                                                          | `scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`                 |
-|             | `ci`                                                                            | `.github/` whole, not its `workflows/` and `actions/` alone                        |
-|             | `tests`                                                                         | `scripts/tests/`, `fl_backend/tests/`, a `*.test.ts`                               |
-|             | `edge`                                                                          | `nginx/`, Cloudflare, a compose service definition                                 |
-|             | `versions`                                                                      | a manifest, a lockfile, a pin, a digest                                            |
-| **Slice**   | the directory names under `fl_frontend/src/features/` and `fl_backend/app/api/` | a whole path segment matching one of them, anywhere in the path                    |
-
-**`BE` reaches the whole package rather than its `app/`**, because a backend test otherwise carries
-`tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: both trees are
-documentation to the reader filtering on it. A hook under `.claude/hooks/` earns `Ops` and `gate`
-beside it, being a script the gate probes rather than a page. `DB` and `versions` are the two a path
-need not produce — a collection name and a manifest are named in prose — so either may stand where
-no path derives it, and neither may be missing where one does.
-
-**A slice matches a whole path segment and never a substring**, because German compounds a term into
-a longer word meaning something else: `spiele` sits inside `spieler`, and both are live slices with
-large trees, so a substring match tags every `spieler` path as the most-used slice in the repository.
-The segment matches anywhere in a path rather than under the two roots alone, so
-`fl_frontend/src/app/admin/aktionen/` earns `aktionen` from the route tree as well as from the
-feature package. The set is whatever `scripts/checks/docs_gate/checks.py :: slice_names` walks off the
-two roots, so a package under either one is a slice whether or not the other holds its twin. **An entry
-naming no path carries no tag**, and that is a finding
-rather than a default: an entry nobody can place is one whose subject is not stated.
-
 **A status is derived, never chosen**, by the first matching row of
 [`protocol.md`](protocol.md) — which is also where each value's meaning is fixed. A closure
-re-derives every entry's, not only its own, because `Blocked` is a claim about another row.
+re-derives every entry's, not only its own, because `Blocked` is a claim about another entry.
 
 **An entry may carry one `Lands with:` line** naming the tokens it shares a pass with. It is deleted
 when any member of that batch lands, so it is either current or gone. Relatedness by subject is
-never written there: the tags already answer it.
+never written there: the paths two entries name already answer it.
 
 Some entries are seeded into an audit pass under `docs/_auditing/prompts/` as one of its starting
 checks. Some are issue-shaped feature work parked here at my direction, so that one place holds what
 is outstanding; everything else belongs here only while the reasoning, rather than the work, is the
 deliverable.
 
-## The items at a glance
-
-| Token       | Item                                                                                                                                       | Tags                                                                                                      | Status   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------- |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                        | FE, BE, DB, Docs, spiele                                                                                  | Skipped  |
-| `3s6w-kndn` | A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread | Ops, Docs, gate, ci, tests                                                                                | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package                           | BE, ci, tests, versions                                                                                   | Standing |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                             | FE, Docs, versions                                                                                        | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite                   | FE, Docs, versions                                                                                        | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                              | BE, DB, Docs, tests, registrierungen                                                                      | Blocked  |
-| `dgdv-27yw` | No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared             | FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage                                                | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                            | FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open     |
-| `f8sh-mbgg` | The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it                                     | FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele    | Open     |
-| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                                         | FE, BE, Ops, Docs, gate, tests                                                                            | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                          | FE, BE, spiele                                                                                            | Skipped  |
-| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                                        | FE, BE, meta, schiedsrichter                                                                              | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                              | FE, BE, Docs, admin, spiele                                                                               | Skipped  |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                               | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams                                     | Open     |
-| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                                        | FE, BE, Docs                                                                                              | Open     |
-
 ## The items
 
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
-| Tags                     | Status  | Depends on |
-| ------------------------ | ------- | ---------- |
-| FE, BE, DB, Docs, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
@@ -143,9 +88,9 @@ work inside it.
 
 ### `3s6w-kndn` · A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread
 
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| Ops, Docs, gate, ci, tests | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **The profile re-taken on 2026-09-22, two full-form runs on the idle 16-core machine:** the runs took
 224.4 and 206.3 seconds, and three sections close last and trade the tail —
@@ -202,9 +147,9 @@ rejected against that reading.
 
 ### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
 
-| Tags                    | Status   | Depends on |
-| ----------------------- | -------- | ---------- |
-| BE, ci, tests, versions | Standing | —          |
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
 
 **Importing starlette's test client emits one `DeprecationWarning` naming `anyio.abc.BlockingPortal`,
 and the import is what emits it rather than any test.** That module binds its portal-factory type at
@@ -250,9 +195,9 @@ deduplication.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
-| Tags               | Status   | Depends on |
-| ------------------ | -------- | ---------- |
-| FE, Docs, versions | Standing | —          |
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
 
 **eslint 9.x reached end of life on 2026-08-06, and `fl_frontend/package.json` declares `^9.39.5`** —
 a caret range spanning a line that will publish nothing further, so `pnpm update` cannot move it and
@@ -296,9 +241,9 @@ it lands. The move also re-answers the cache key and threading decision
 
 ### `6m3r-xpcu` · Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite
 
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| FE, Docs, versions | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **The criteria are mine, and they are five.** Free, open source preferred. Performant, with CSS load
 time and JavaScript bundle size above everything else. Easy to work with, with no odd behaviours. At
@@ -373,9 +318,9 @@ question that could move Mantine's rank.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags                                 | Status  | Depends on  |
-| ------------------------------------ | ------- | ----------- |
-| BE, DB, Docs, tests, registrierungen | Blocked | `f3ar-m4qf` |
+| Status  | Depends on  |
+| ------- | ----------- |
+| Blocked | `f3ar-m4qf` |
 
 **The flow it waits on is an admission, which is not built.** The `Depends on` beside it names
 `f3ar-m4qf`, whose part "Admitting a confirmed registration into its squad" is the writer this entry
@@ -415,9 +360,9 @@ carrying the state that ends there. The notice's referee publication row is `pw5
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared
 
-| Tags                                                       | Status | Depends on |
-| ---------------------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **Every class of hand-written source reader has been measured against the rule engines, and none
 carries it** (decided 2026-09-23). The three named sweeps were expressed in each candidate or shown to
@@ -466,9 +411,9 @@ reader can open.
 
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                                                      | Status | Depends on |
-| --------------------------------------------------------------------------------------------------------- | ------ | ---------- |
-| FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through
 a whole new season — its dates, which clubs play it, which clubs are new, and the rules it runs
@@ -636,9 +581,9 @@ on it, which is a heavy consequence for a step in a flow designed to be fast.
 
 ### `f8sh-mbgg` · The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it
 
-| Tags                                                                                                   | Status | Depends on |
-| ------------------------------------------------------------------------------------------------------ | ------ | ---------- |
-| FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **My item, 2026-09-23.** A later session redoes the design and the UI and UX of the whole site, to
 make it more professional and better, and takes the frontend's deduplication, the deletion of
@@ -762,9 +707,9 @@ are in the body of the commit that filed this entry.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
-| Tags                           | Status | Depends on |
-| ------------------------------ | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, tests | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **A code today fuses two facts, what went wrong and what kind of thing that is, and only the first
 is machine-readable.** `docs/logging/error-codes.md` fixes the grammar `<AREA>-<SUBJECT>-<NNN>`,
@@ -801,9 +746,9 @@ per surface with a comparator, the shape `scripts/checks/check_log_quoting_class
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
-| Tags           | Status  | Depends on |
-| -------------- | ------- | ---------- |
-| FE, BE, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as
 one** (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change the match
@@ -825,9 +770,9 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
 ### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
 
-| Tags                         | Status | Depends on |
-| ---------------------------- | ------ | ---------- |
-| FE, BE, meta, schiedsrichter | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **A referee's own consent record is stored, and the published notice still rests their name on a
 different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
@@ -852,9 +797,9 @@ notice's publication row rests on that consent rather than on legitimate interes
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
-| Tags                        | Status  | Depends on |
-| --------------------------- | ------- | ---------- |
-| FE, BE, Docs, admin, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **The Fehlt and Offen markers exist on the match editor alone, and putting them on the other entity editors is
 a domain question before it is a UI one.**
@@ -887,9 +832,9 @@ a product ruling per entity, and that cost does not grow while it waits.
 
 ### `qw6j-scru` · Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship
 
-| Tags                                                                  | Status | Depends on |
-| --------------------------------------------------------------------- | ------ | ---------- |
-| FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **`nginx/shared/security_headers.conf` sends `style-src 'self' 'unsafe-inline'` from both edges,
 and my ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
@@ -977,9 +922,9 @@ each page actually streams.
 
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
-| Tags         | Status | Depends on |
-| ------------ | ------ | ---------- |
-| FE, BE, Docs | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **The plumbing is complete and the coverage is of failures alone.** One envelope with an asserted
 field set on three surfaces, a trace id minted at the edge and re-spanned at every hop, an access

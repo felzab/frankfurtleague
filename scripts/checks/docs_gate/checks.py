@@ -47,7 +47,6 @@ from .kernel import (
     DIRECTIVE_RE,
     DOCS_DIR,
     ENTRY_TOKEN_ALPHABET,
-    ENTRY_TOKEN_PATTERN,
     GATE,
     GLOSSARY_PAGE,
     HEADER_SUFFIXES,
@@ -59,6 +58,7 @@ from .kernel import (
     PROTOCOL_PAGE,
     QUOTED_SPAN_RE,
     REPO_ROOT,
+    ROADMAP_ENTRY_RE,
     ROADMAP_PAGE,
     SCANNED_SUFFIXES,
     SPEC_GLOB,
@@ -201,8 +201,6 @@ SEGMENT_SAMPLE: Final = 8
 PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 # Where a finding about a registered claim is filed: the row to repair is there.
 KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
-# Named by a finding about the tag derivation, for the same reason.
-CHECKS_PAGE: Final = "scripts/checks/docs_gate/checks.py"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
@@ -262,29 +260,15 @@ GLOSSARY_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Za-z][A-Za-z ]*):\*\*", r
 GLOSSARY_FIELDS: Final[tuple[str, ...]] = ("Is", "In code", "Trap", "See")
 
 
-# `check_commits.py :: ENTRY_HEADING_DIFF_RE` reads this same heading out of a diff. The id is
-# captured loose so a malformed one is caught against the alphabet rather than dropping out of a
-# listing the alphabet selected (PRE-4).
-ROADMAP_HEADING_SEPARATOR: Final = "·"
-ROADMAP_ENTRY_RE: Final = re.compile(rf"^ {{0,3}}###[ \t]+`?([^\s`]+)`?[ \t]+{ROADMAP_HEADING_SEPARATOR}[ \t]*(.*?)[ \t]*$", re.MULTILINE)
-# An index row is a table row opening on an id. The token's shape is what separates one from the
-# file's other tables, and a heading is where a malformed id is caught instead.
-ROADMAP_INDEX_ROW_RE: Final = re.compile(rf"^[ \t]*\|\s*`({ENTRY_TOKEN_PATTERN})`\s*\|(.*)$", re.MULTILINE)
-# The index row's columns past the id, in the order `docs/_roadmap/protocol.md` states: a column
-# order read out of the row instead would be whatever the row happened to carry.
-ROADMAP_CLAIM_CELL: Final = 0
-ROADMAP_TAGS_CELL: Final = 1
-ROADMAP_STATUS_CELL: Final = 2
-ROADMAP_ROW_CELLS: Final = 3
-# Closed exists for no commit at all: the `Closes:` trailer concluding an entry deletes it.
-ROADMAP_TRANSIENT_STATUS: Final = "Closed"
 # The one status that is a claim about another entry, which is why it is held to the column beside
 # it rather than to the vocabulary alone.
 ROADMAP_BLOCKED_STATUS: Final = "Blocked"
-# The two field columns read by name. A position would read the neighbouring field where a sheet
-# adds a column, and both tables here have carried different ones.
+# The two field columns read by name: a position would read the neighbouring field once an entry's
+# table adds a column.
 STATUS_COLUMN: Final = "Status"
 DEPENDS_COLUMN: Final = "Depends on"
+# What `Depends on` holds where nothing blocks the entry, by `ROADMAP_PAGE`'s field table.
+ROADMAP_NO_DEPENDENCY: Final = "—"
 # Which rows of `PROTOCOL_PAGE`'s status table carry a value: the derivation numbers its rules, and
 # the delimiter row's dashes are what this parts them from.
 PROTOCOL_RULE_RE: Final = re.compile(r"^\d+$")
@@ -296,52 +280,7 @@ PROTOCOL_STATUS_SECTION: Final = "4."
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
 TABLE_DELIMITER_RE: Final = re.compile(r"^:?-+:?$")
 
-# What `_check_tag_derivation` holds `docs/_roadmap/items.md`'s derivation table to, as far as a
-# path can carry it. A path is resolved before it is matched, so a prefix here is a real subtree
-# rather than a spelling.
-TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("FE", ("fl_frontend/",)),
-    ("BE", ("fl_backend/",)),
-    ("DB", ("fl_backend/app/core/crud.py",)),
-    # `.claude/hooks/` sits under `Docs`' prefix as well, and a hook is a script the gate probes
-    # rather than a page: derived as documentation alone it is invisible to the filter its own work
-    # answers to.
-    ("Ops", ("scripts/", "nginx/", ".githooks/", ".claude/hooks/")),
-    # A `corpus` row's paths would be this row's exactly, which is one fact stated twice (COR-2).
-    ("Docs", ("docs/", ".claude/")),
-    ("gate", ("scripts/gate/", "scripts/checks/", ".githooks/", ".claude/hooks/")),
-    ("ci", (".github/",)),
-    ("tests", ("scripts/tests/", "fl_backend/tests/")),
-    ("edge", ("nginx/",)),
-)
-# The two columns of that table read by name, for `STATUS_COLUMN`'s reason.
-DERIVATION_VOCABULARY_COLUMN: Final = "Vocabulary"
-DERIVATION_SOURCE_COLUMN: Final = "Derived from a path or symbol under"
-
-# The axes, in the order the Tags cell writes them. A slice is the third axis and the tree's own,
-# so it is not spelled here.
-SURFACE_TAGS: Final[tuple[str, ...]] = ("FE", "BE", "DB", "Ops", "Docs")
-CONCERN_TAGS: Final[tuple[str, ...]] = ("gate", "ci", "tests", "edge", "versions")
-STATIC_TAGS: Final[frozenset[str]] = frozenset(SURFACE_TAGS + CONCERN_TAGS)
-
-# The slice axis groups a feature across the stack, and both roots spell a slice the same way.
-SLICE_ROOTS: Final[tuple[tuple[str, ...], ...]] = (
-    ("fl_frontend", "src", "features"),
-    ("fl_backend", "app", "api"),
-)
-# Two tags have a source no path and no token states: a collection name and an index for `DB`, a
-# manifest this list does not know for `versions`.
-TAGS_DERIVED_ONE_WAY: Final[frozenset[str]] = frozenset({"DB", "versions"})
-# `versions`' mechanical half: a digest, and an action pinned to a commit.
-VERSION_MARK_RE: Final = re.compile(r"sha256:[0-9a-f]{8,}|@[0-9a-f]{40}\b")
-VERSION_FILENAMES: Final[frozenset[str]] = frozenset({"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "uv.lock", "pyproject.toml"})
-# `edge`' and `Ops`' shared source: a compose service definition. `edge`'s other non-path source.
-COMPOSE_FILENAMES: Final[frozenset[str]] = frozenset({"docker-compose.yml", "docker-compose.local.yml"})
-EDGE_WORD_RE: Final = re.compile(r"\bCloudflare\b")
-# A tag cell lists several, and the page separates them with either mark.
-TAG_SEPARATOR_RE: Final = re.compile(r"[,·]")
-
-# The one relation the tags cannot express: entries that land together because they share a pass.
+# The one relation no field expresses: entries that land together because they share a pass.
 # Whether the batch is still worth doing is nobody's to hold mechanically, so only the tokens on
 # the line are resolved.
 BATCH_LINE_RE: Final = re.compile(r"^[ \t]*Lands with:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
@@ -493,23 +432,16 @@ def check_owner_voice(rel: str, body: str) -> list[Finding]:
 
 
 def check_roadmap() -> list[Finding]:
-    """The roadmap agrees with itself: index and entries, ids, tags, batches, no transient status.
-
-    Nothing here reads a position: entries are categorised by their tags rather than ordered.
-    """
+    """The roadmap's entries: well-formed ids in one run, a named subject, a derived status, references that resolve."""
     found = _check_status_vocabulary()
     rel = ROADMAP_PAGE
-    page = tracked_page(rel)
-    if page is None:
-        # Absence is `check_inputs`' alone. A page on disk but untracked is neither absent nor
-        # selected by anything reading the corpus, so this is the one place it is not green.
-        if (REPO_ROOT / rel).exists():
-            found.append(Finding("fail", "roadmap-shape", rel, "untracked, so the roadmap was read against nothing"))
-        return found
-    if (body := _readable(page)) is None:
-        found.append(Finding("fail", "roadmap-shape", rel, "unreadable, so the roadmap was read against nothing"))
-        return found
-    return found + _check_roadmap_page(rel, body)
+    if (body := _tracked_text(rel)) is not None:
+        return found + _check_roadmap_page(rel, body)
+    # Absence is `check_inputs`' alone: on disk, a page the tracked corpus does not yield is this
+    # check's, as it is every named-page reader's.
+    if (REPO_ROOT / rel).exists():
+        found.append(Finding("fail", "roadmap-shape", rel, "untracked or unreadable, so the roadmap was read against nothing"))
+    return found
 
 
 def _entry_sections(body: str) -> list[tuple[str, str, str]]:
@@ -553,8 +485,7 @@ def _protocol_section(text: str) -> str:
 def protocol_statuses() -> frozenset[str]:
     """The statuses `PROTOCOL_PAGE` §4 derives, read from the table deriving them.
 
-    A vocabulary retyped here would go stale with the gate green either way (COR-4), the argument
-    `scripts/checks/docs_gate/checks.py :: slice_names` rests on too.
+    A vocabulary retyped here would go stale with the gate green either way (COR-4).
     """
     text = _tracked_text(PROTOCOL_PAGE)
     if text is None:
@@ -581,13 +512,10 @@ def _check_status_vocabulary() -> list[Finding]:
     silence, so each way of emptying one is reported.
     """
     rel = PROTOCOL_PAGE
-    page = tracked_page(rel)
-    if page is None:
+    if _tracked_text(rel) is None:
         if (REPO_ROOT / rel).exists():
-            return [Finding("fail", "roadmap-shape", rel, "untracked, so the status vocabulary was derived from nothing")]
+            return [Finding("fail", "roadmap-shape", rel, "untracked or unreadable, so the status vocabulary was derived from nothing")]
         return []
-    if _readable(page) is None:
-        return [Finding("fail", "roadmap-shape", rel, "unreadable, so the status vocabulary was derived from nothing")]
     if protocol_statuses():
         return []
     detail = f"§4's table yields no status, so `{ROADMAP_PAGE}`'s status cells were held to nothing"
@@ -597,8 +525,7 @@ def _check_status_vocabulary() -> list[Finding]:
 def _entry_table(section: str) -> dict[str, str]:
     """One entry's field table, its columns mapped to the values row beneath them.
 
-    Read by name: the two tables here carry different columns, so a position would read the
-    neighbouring field on whichever grows first.
+    Read by name, so a column added to the table never shifts the field a position would read.
     """
     rows = _table_rows(section)
     head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
@@ -611,408 +538,96 @@ def _entry_table(section: str) -> dict[str, str]:
     return {}
 
 
-def _filed_once(tokens: list[str]) -> list[str]:
-    """The well-formed tokens in page order, a repeat dropped.
-
-    A malformed id and a second entry under one id are each reported above, and reporting them here
-    too would give one defect two findings.
-    """
-    seen: set[str] = set()
-    run: list[str] = []
-    for token in tokens:
-        if is_entry_token(token) and token not in seen:
-            seen.add(token)
-            run.append(token)
-    return run
-
-
 def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
-    """The file's entries against its index table, its ids, its batches and the tags they name."""
+    """The file's entry ids and their order, and each entry's subject, batches, status and dependencies."""
     found: list[Finding] = []
-    sections = _entry_sections(body)
-    rows = {match.group(1): match.group(2) for match in ROADMAP_INDEX_ROW_RE.finditer(body)}
-
-    seen: set[str] = set()
-    for token, _, _ in sections:
+    # One entry per id, the first: a malformed or repeated id is reported here and read no further.
+    filed: dict[str, str] = {}
+    for token, _, section in _entry_sections(body):
         if not is_entry_token(token):
             detail = f"entry id `{token}` is not four characters of `{ENTRY_TOKEN_ALPHABET}`, a hyphen, and four more"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
-        elif token in seen:
+        elif token in filed:
             found.append(Finding("fail", "roadmap-shape", rel, f"a second entry carries the id {token} -- an id names one entry"))
-        seen.add(token)
-    # The pairing below runs over the well-formed ids alone: a malformed one matches no index row
-    # either, and reporting that too would give one defect two findings.
-    valid = {token for token in seen if is_entry_token(token)}
-
-    for token in sorted(valid - set(rows)):
-        found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} has no row in the index table"))
-    for token in sorted(set(rows) - valid):
-        found.append(Finding("fail", "roadmap-shape", rel, f"index row {token} has no entry below it"))
-
-    paired = [(token, section) for token, _, section in sections if token in valid and token in rows]
-    # One entry per id, the first: the arms below hold a row to an entry, and a second entry under
-    # that id would hold the one row twice.
-    filed: dict[str, tuple[str, str]] = {}
-    for token, claim, section in sections:
-        if token in valid and token in rows:
-            filed.setdefault(token, (claim, section))
-    found.extend(_check_flat_run(rel, body))
-    found.extend(_check_tag_derivation(rel, body))
-    found.extend(_check_batches(rel, valid, paired))
-    found.extend(_check_transient_status(rel, rows, paired))
-    found.extend(_check_derived_tags(rel, rows, paired))
-    found.extend(_check_status_agreement(rel, rows, filed))
-    found.extend(_check_claim_agreement(rel, rows, filed))
-    found.extend(_check_token_order(rel, [token for token, _, _ in sections], rows, filed))
+        else:
+            filed[token] = section
+    found.extend(_check_token_order(rel, list(filed)))
+    found.extend(_check_subjects(rel, filed))
+    found.extend(_check_batches(rel, filed))
+    found.extend(_check_status(rel, filed))
     return found
 
 
-def _check_flat_run(rel: str, body: str) -> list[Finding]:
-    """No section heading stands between two entries.
+def _check_subjects(rel: str, filed: dict[str, str]) -> list[Finding]:
+    """Each entry names a repository path, by the path check's own resolver.
 
-    A heading grouping entries is a category, and the tags are where a category lives: kept in both
-    places it is a fact somebody has to keep true twice.
+    A reader finds an entry by the paths it touches (`PROTOCOL_PAGE` §1), so one naming none is an
+    entry nobody can find and whose subject is unstated.
     """
-    lines = body.split("\n")
-    entries = [number for number, line in enumerate(lines) if ROADMAP_ENTRY_RE.match(line)]
-    if not entries:
-        return []
-    found: list[Finding] = []
-    # A closing section below the last entry is outside the run and left alone.
-    for number in range(entries[0], entries[-1]):
-        if (heading := atx_heading(lines[number], 2)) is not None:
-            detail = f"`{heading}` groups the entries below it -- the run is flat, and the tag column is the category"
-            found.append(Finding("fail", "roadmap-shape", rel, detail, number + 1))
-    return found
+    detail = "names no repository path -- an entry nobody can find by what it touches states no subject"
+    return [
+        Finding("fail", "roadmap-shape", rel, f"entry {token} {detail}")
+        for token, section in filed.items()
+        if not any(repo_path(span.split(" :: ")[0].strip()) is not None for span in code_spans(section))
+    ]
 
 
-def _derivation_rows(body: str) -> list[list[str]] | None:
-    """The derivation table's rows, or None where the page opens no table carrying both columns.
-
-    Bounded at the first line that is not a row, so a later table's rows cannot stand in for a row
-    this one lost.
-    """
-    lines = body.split("\n")
-    wanted = {DERIVATION_VOCABULARY_COLUMN, DERIVATION_SOURCE_COLUMN}
-    opened = next((number for number, line in enumerate(lines) if wanted <= set(next(iter(_table_rows(line)), []))), None)
-    if opened is None:
-        return None
-    kept: list[str] = []
-    for line in lines[opened:]:
-        if not TABLE_LINE_RE.match(line):
-            break
-        kept.append(line)
-    return _table_rows("\n".join(kept))
-
-
-def _unheld_sources(prefixes: frozenset[str], cell: str) -> list[str]:
-    """Every path-shaped token in the source cell the comparison below reads neither way.
-
-    A name resolving under a prefix the cell itself writes qualifies that prefix's reach; one
-    resolving nowhere derives the tag from a path nothing here holds.
-    """
-    dropped: set[str] = set()
-    for token in code_spans(cell):
-        if token.startswith(repo_prefixes()) or is_placeholder(token):
-            continue
-        # A slash or a scanned suffix is what parts a path from the prose this column carries
-        # beside one: a `Dockerfile` and a compose service both derive a tag and name no subtree.
-        if ("/" not in token and not has_suffix(token, SCANNED_SUFFIXES)) or any(holds_path(prefix + token) for prefix in prefixes):
-            continue
-        dropped.add(token)
-    return sorted(dropped)
-
-
-def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
-    """The page's derivation table against `TAG_PATH_SOURCES`, both directions.
-
-    One fact in two places otherwise: a prefix dropped from either leaves the tag derived one way
-    and documented the other, with nothing pairing them.
-    """
-    # `TAGS_DERIVED_ONE_WAY` off, its rows naming a collection and a manifest this tuple cannot
-    # spell; the slice row is prose in the vocabulary column and matches no tag at all.
-    held = {tag: frozenset(prefixes) for tag, prefixes in TAG_PATH_SOURCES if tag not in TAGS_DERIVED_ONE_WAY}
-    rows = _derivation_rows(body)
-    if rows is None:
-        headed = f"`{DERIVATION_VOCABULARY_COLUMN}` and `{DERIVATION_SOURCE_COLUMN}`"
-        return [Finding("fail", "roadmap-shape", rel, f"opens no table under {headed}, so no tag's paths were held to the gate's")]
-
-    written: dict[str, frozenset[str]] = {}
-    unheld: dict[str, list[str]] = {}
-    columns = (rows[0].index(DERIVATION_VOCABULARY_COLUMN), rows[0].index(DERIVATION_SOURCE_COLUMN))
-    for cells in rows[1:]:
-        if max(columns) >= len(cells):
-            continue
-        tag = cells[columns[0]].strip("*` ")
-        if tag in held:
-            written[tag] = frozenset(token for token in code_spans(cells[columns[1]]) if token.startswith(repo_prefixes()))
-            unheld[tag] = _unheld_sources(written[tag], cells[columns[1]])
-
-    found: list[Finding] = []
-    for tag, prefixes in sorted(held.items()):
-        if tag not in written:
-            detail = f"the derivation table states no row for `{tag}`, so its paths were held to nothing"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-            continue
-        for prefix in sorted(written[tag] - prefixes):
-            detail = f"the derivation table derives `{tag}` from `{prefix}`, which `{CHECKS_PAGE}`'s own derivation does not"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        for prefix in sorted(prefixes - written[tag]):
-            detail = f"the gate derives `{tag}` from `{prefix}`, and the derivation table's row does not name it"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        for token in unheld[tag]:
-            detail = f"the derivation table derives `{tag}` from `{token}`, which names a path the gate derives nothing from"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-    return found
-
-
-def _check_batches(rel: str, valid: set[str], paired: list[tuple[str, str]]) -> list[Finding]:
-    """Each token an entry batches itself with names an entry this file holds.
+def _check_batches(rel: str, filed: dict[str, str]) -> list[Finding]:
+    """Each token an entry batches itself with names another entry this file holds.
 
     Resolution only: whether a batch is still worth doing is a judgement nothing mechanical holds,
     and a check that cannot fail honestly should not exist.
     """
     found: list[Finding] = []
-    for token, section in paired:
+    for token, section in filed.items():
         for match in BATCH_LINE_RE.finditer(section):
-            named = [named.strip(" `") for named in match.group(1).split(",")]
-            for other in sorted({one for one in named if one and one != token} - valid):
-                detail = f"entry {token} lands with {other}, which is no entry here"
-                found.append(Finding("fail", "roadmap-shape", rel, detail))
-            if token in named:
-                found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} lands with itself"))
+            named = {one.strip(" `") for one in match.group(1).split(",")} - {""}
+            # Oneself included: a batch of one is no shared pass.
+            for other in sorted(named - (set(filed) - {token})):
+                found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} lands with {other}, which is no other entry here"))
     return found
 
 
-def _row_cells(rest: str) -> list[str]:
-    """One index row's cells past the id, the closing pipe's empty half dropped."""
-    cells = table_cells(rest)
-    return cells[:-1] if cells and not cells[-1] else cells
-
-
-def _check_transient_status(rel: str, rows: dict[str, str], paired: list[tuple[str, str]]) -> list[Finding]:
-    """`Closed` is written nowhere: the commit trailer concluding an entry deletes it instead.
-
-    Both places a status is written, because a file half-converted carries the value in one of them
-    and reads as clean from the other.
-    """
-    transient = f"{ROADMAP_TRANSIENT_STATUS} is no status -- the `Closes:` trailer concluding an entry deletes it"
-    # The rows are walked once and the sections once, so an id carrying two entries reports its
-    # row once rather than per entry.
-    found = [
-        Finding("fail", "roadmap-shape", rel, f"index row {token} states {transient}")
-        for token in sorted({token for token, _ in paired})
-        if ROADMAP_TRANSIENT_STATUS in _row_cells(rows[token])
-    ]
-    found.extend(
-        Finding("fail", "roadmap-shape", rel, f"entry {token} states {transient}")
-        for token, section in paired
-        if any(ROADMAP_TRANSIENT_STATUS in cells for cells in _table_rows(section))
-    )
-    return found
-
-
-def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
-    """Both listings' status cells, held to each other and to `PROTOCOL_PAGE` §4's closed set.
-
-    A value repaired in one listing and left in the other leaves the index saying one thing and the
-    entry another.
-    """
-    vocabulary = protocol_statuses()
-    found: list[Finding] = []
-    for token, (_, section) in filed.items():
-        cells = _row_cells(rows[token])
-        # A row of another width is `_check_derived_tags`' finding, and its cells place nothing.
-        if len(cells) != ROADMAP_ROW_CELLS:
-            continue
-        fields = _entry_table(section)
-        row_status = cells[ROADMAP_STATUS_CELL]
-        entry_status = fields.get(STATUS_COLUMN, "")
-        if row_status != entry_status:
-            detail = f"index row {token} states `{row_status}` where its entry states `{entry_status}` -- one status, written twice"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        for where, value in (("index row", row_status), ("entry", entry_status)):
-            # An empty cell is reported here or nowhere: it agrees with the empty cell beside it, so
-            # the arm above passes a page emptied on both sides. The transient value is
-            # `_check_transient_status`' finding, which this arm therefore leaves alone.
-            if not value:
-                found.append(Finding("fail", "roadmap-shape", rel, f"{where} {token} states no status"))
-            elif vocabulary and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
-                detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
-                found.append(Finding("fail", "roadmap-shape", rel, detail))
-        cell = fields.get(DEPENDS_COLUMN, "")
-        named = code_spans(cell) or [cell.strip()]
-        # Ahead of the status fork: a dependency on oneself never clears, whatever the status says,
-        # and the `Blocked` arm below would read it as a blocker filed.
-        if token in named:
-            found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} names itself in `{DEPENDS_COLUMN}`"))
-        # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it --
-        # token by token, one filed being enough, since a cell names every blocker at once.
-        elif ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and not any(one in rows for one in named):
-            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-    return found
-
-
-def _check_claim_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
-    """The index row's claim against the heading it files.
-
-    Held identical rather than free to shorten, because nothing mechanical separates a shortening
-    from a claim that has drifted -- which is what a reader filtering the index acts on.
-    """
-    found: list[Finding] = []
-    for token, (claim, _) in filed.items():
-        cells = _row_cells(rows[token])
-        if len(cells) != ROADMAP_ROW_CELLS:
-            continue
-        if cells[ROADMAP_CLAIM_CELL] != claim:
-            detail = f"index row {token} states a claim its entry's heading does not repeat -- one claim, written twice"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-    return found
-
-
-def _check_token_order(rel: str, opened: list[str], rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
-    """Each listing is one ascending run of tokens, the order `sorted()` gives.
+def _check_token_order(rel: str, tokens: list[str]) -> list[Finding]:
+    """The entries are one ascending run of tokens, the order `sorted()` gives.
 
     Two concatenated runs read as one, so a reader who reached the end of the first took a token's
     absence for an answer.
     """
-    # A token the pairing above already reported is in neither run, or one defect there would end a
-    # run here as well.
-    entries = [token for token in _filed_once(opened) if token in filed]
-    indexed = [token for token in rows if token in filed]
+    # The first out-of-order pair alone: what follows it is whatever the unfolded run left.
+    pair = next(((this, next_one) for this, next_one in zip(tokens, tokens[1:], strict=False) if this > next_one), None)
+    if pair is None:
+        return []
+    return [Finding("fail", "roadmap-shape", rel, f"entry {pair[1]} follows {pair[0]} -- the entries are one run in token order")]
+
+
+def _check_status(rel: str, filed: dict[str, str]) -> list[Finding]:
+    """Each entry's status against `PROTOCOL_PAGE` §4's closed set, and its `Depends on` against the page.
+
+    A dependency goes stale when the entry it names leaves, which no edit to this entry shows.
+    """
+    vocabulary = protocol_statuses()
     found: list[Finding] = []
-    for one, many, tokens in (("entry", "entries", entries), ("index row", "index rows", indexed)):
-        # The first out-of-order pair alone: what follows it is whatever the unfolded run left.
-        pair = next(((this, next_one) for this, next_one in zip(tokens, tokens[1:], strict=False) if this > next_one), None)
-        if pair is not None:
-            detail = f"{one} {pair[1]} follows {pair[0]} -- the {many} are one run in token order"
+    for token, section in filed.items():
+        fields = _entry_table(section)
+        status = fields.get(STATUS_COLUMN, "")
+        # `Closed` is outside the set as well: the closing commit deletes an entry rather than marking it.
+        if vocabulary and status not in vocabulary:
+            detail = (
+                f"entry {token} states `{status}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
+                if status
+                else f"entry {token} states no status"
+            )
             found.append(Finding("fail", "roadmap-shape", rel, detail))
-    return found
-
-
-def _named_paths(section: str) -> frozenset[str]:
-    """Every repository path an entry names, resolved from its backticked tokens.
-
-    The path check's own resolver, so a token this cannot place is one that check already failed
-    rather than a path the derivation below silently missed.
-    """
-    found: set[str] = set()
-    for token in code_spans(section):
-        if (rel := repo_path(token.split(" :: ")[0].strip())) is not None:
-            found.add(rel)
-    return frozenset(found)
-
-
-@cache
-def slice_names() -> frozenset[str]:
-    """Every slice the code defines, walked off the tree.
-
-    A list of slices is a value the repository states elsewhere, so it would go stale with the gate
-    green either way (COR-4).
-    """
-    found: set[str] = set()
-    for root in SLICE_ROOTS:
-        base = REPO_ROOT.joinpath(*root)
-        if base.is_dir():
-            found.update(child.name for child in base.iterdir() if child.is_dir())
-    return frozenset(found)
-
-
-def _slice_segments(paths: frozenset[str]) -> frozenset[str]:
-    """Every whole path segment the entry names.
-
-    Anywhere in a path and not only under the two slice roots, because the frontend route tree
-    carries a slice name too: `fl_frontend/src/app/admin/aktionen/page.tsx` is plainly an
-    `aktionen` entry.
-    """
-    # Whole segments and never a substring: `spiele` opens `spieler`, both are live slices with
-    # large trees, and a substring matcher tags every `spieler` path as the most-used slice in the
-    # repository, wrong.
-    return frozenset(segment for path in paths for segment in path.split("/"))
-
-
-def _stray_root_segments(paths: frozenset[str]) -> frozenset[str]:
-    """Every segment directly under a slice root.
-
-    Root-scoped where the tag derivation is not: everything directly under `features/` or `api/`
-    is a slice by construction, so one that is not is a file parked where a package belongs.
-    """
-    found: set[str] = set()
-    for path in paths:
-        segments = path.split("/")
-        for root in SLICE_ROOTS:
-            if tuple(segments[: len(root)]) == root and len(segments) > len(root):
-                found.add(segments[len(root)])
-    return frozenset(found)
-
-
-def _derived_tags(section: str, paths: frozenset[str]) -> frozenset[str]:
-    """The tags an entry's own text produces, by `docs/_roadmap/items.md`'s tag derivation table."""
-    tags = {tag for tag, prefixes in TAG_PATH_SOURCES if any(path.startswith(prefixes) for path in paths)}
-    names = {path.rsplit("/", 1)[-1] for path in paths}
-    if names & VERSION_FILENAMES or VERSION_MARK_RE.search(section):
-        tags.add("versions")
-    if names & COMPOSE_FILENAMES:
-        tags.update(("Ops", "edge"))
-    if "Dockerfile" in names:
-        tags.add("Ops")
-    if any(name.endswith((".test.ts", ".test.tsx")) for name in names):
-        tags.add("tests")
-    if EDGE_WORD_RE.search(section):
-        tags.add("edge")
-    return frozenset(tags)
-
-
-def _axis_of(tag: str, slices: frozenset[str]) -> int:
-    """Which axis a tag belongs to, as the rank the Tags cell orders them by."""
-    if tag in SURFACE_TAGS:
-        return 0
-    return 1 if tag in CONCERN_TAGS else 2 if tag in slices else 3
-
-
-def _check_derived_tags(rel: str, rows: dict[str, str], paired: list[tuple[str, str]]) -> list[Finding]:
-    """An index row's tags against the paths and symbols the entry under it names.
-
-    Two routes required to agree (PRE-4): the row states the tags, and the entry's own prose is
-    where they come from.
-    """
-    found: list[Finding] = []
-    known = slice_names()
-    vocabulary = STATIC_TAGS | known
-    for token, section in paired:
-        cells = _row_cells(rows[token])
-        if len(cells) != ROADMAP_ROW_CELLS:
-            detail = f"index row {token} carries {len(cells)} cell(s) past the id -- the columns are the claim, the tags and the status"
+        cell = fields.get(DEPENDS_COLUMN, "")
+        # Token by token, since one cell names every blocker at once, and oneself included, since a
+        # dependency on oneself never clears.
+        named = set(code_spans(cell) or [cell.strip()]) - {"", ROADMAP_NO_DEPENDENCY}
+        for other in sorted(named - (set(filed) - {token})):
+            detail = f"entry {token} depends on `{other}`, which is no other entry this page holds"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
-            continue
-        paths = _named_paths(section)
-        for stray in sorted(_stray_root_segments(paths) - known):
-            detail = f"entry {token} names `{stray}` directly under a slice root, and the tree defines no such slice"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        # `admin` comes off the route group as well as off its feature package, a less precise tag
-        # rather than a wrong one, and a carve-out for one segment outlives its reason.
-        spanned = _slice_segments(paths) & known
-        derived = _derived_tags(section, paths) | spanned
-        if not derived:
-            detail = f"entry {token} names no path a tag derives from -- an entry nobody can place is one whose subject is unstated"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-            continue
-        listed = [stripped for tag in TAG_SEPARATOR_RE.split(cells[ROADMAP_TAGS_CELL]) if (stripped := tag.strip())]
-        written = set(listed)
-        axes = [_axis_of(tag, known) for tag in listed]
-        if axes != sorted(axes):
-            detail = f"index row {token} lists its tags out of axis order -- the surfaces come first, then the concerns, then the slices"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        if unknown := sorted(written - vocabulary):
-            found.append(Finding("fail", "roadmap-shape", rel, f"index row {token} carries {', '.join(unknown)}, which is no tag"))
-        if missing := sorted(derived - written):
-            detail = f"entry {token} names {', '.join(missing)} work and its index row does not carry that tag"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
-        # A DERIVED tag missing from the row still fails; a WRITTEN one is never faulted as
-        # underived, or an entry about a collection would fail for naming it in prose.
-        if stale := sorted((written & vocabulary) - derived - TAGS_DERIVED_ONE_WAY):
-            detail = f"index row {token} carries {', '.join(stale)}, which nothing the entry names derives"
+        if status == ROADMAP_BLOCKED_STATUS and not named:
+            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
