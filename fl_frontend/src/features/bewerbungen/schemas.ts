@@ -40,6 +40,7 @@ import {
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+  DELETIONS_LISTED_PER_PASS,
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
@@ -999,7 +1000,7 @@ export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSc
 
 /** Which candidates' notices the caller delivered. The backend re-judges them, so an id that has stopped qualifying is skipped. */
 export const FLBewerbungSweepAngekuendigtPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema),
+  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
 });
 export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSweepAngekuendigtPayloadSchema>;
 
@@ -1011,7 +1012,7 @@ export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSwe
 
 /** Which candidates to erase. The backend re-selects them, so an id that has stopped qualifying, or that was never announced, is skipped. */
 export const FLBewerbungSweepLoeschenPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema),
+  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
 });
 export type FLBewerbungSweepLoeschenPayload = z.infer<typeof FLBewerbungSweepLoeschenPayloadSchema>;
 

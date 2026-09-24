@@ -120,6 +120,13 @@ export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
 
 /**
+ * How many ids one sweep pass sends back, restated from
+ * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
+ * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
+ */
+export const DELETIONS_LISTED_PER_PASS = 125;
+
+/**
  * The picker key standing for „meine Schule ist nicht dabei“.
  *
  * **Not an ObjectId and never one**: every other key in that list is a club id, so a sentinel that

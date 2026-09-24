@@ -6,7 +6,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSch
 
 import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
-import { NOTIZ_MAX_LENGTH } from "./constants";
+import { NOTIZ_MAX_LENGTH, PAARUNGEN_MAX } from "./constants";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
@@ -564,7 +564,7 @@ export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPaylo
 export const FLPatchSpielePaarungenPayloadSchema = z.object({
   // Never empty: the report this replays leads with the fixture the save named, so an empty list is
   // a body no save produced and a replay over it would answer as a restore having written nothing.
-  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1).max(PAARUNGEN_MAX),
 });
 
 export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;

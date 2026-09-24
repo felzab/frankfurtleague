@@ -82,6 +82,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "KONTAKT_NAME_MAX_LENGTH", "KONTAKT_NAME_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
+    Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
@@ -101,7 +102,6 @@ MIRRORED_BOUNDS: Final = (
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
 # neither register fails the direction below rather than reading as covered.
 UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
-    "LIST_LIMIT_DEFAULT": "the page size a read applies for a caller that asks for none",
     "LIST_LIMIT_MAX": "the ceiling on what a caller may ask for; every frontend read sends the size it needs or none",
     "AKTION_RETENTION_SECONDS": (
         "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"

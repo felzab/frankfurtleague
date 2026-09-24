@@ -94,13 +94,6 @@ function fieldAccepts(component: string, field: string, value: unknown): boolean
  */
 const UNMIRRORED: Record<string, string> = {
   "FLSubjektPayload.email": "`fl_frontend/src/core/schemas.ts :: FLSubjektPayloadSchema` restates no length or alphabet",
-  // No person sends these three: each list is the server's own earlier answer relayed back.
-  "FLBewerbungSweepAngekuendigtPayload.bewerbung_ids":
-    "`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepBewerbungen` sends ids from the listing `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` caps at this number",
-  "FLBewerbungSweepLoeschenPayload.bewerbung_ids":
-    "`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepBewerbungen` sends ids from the listing `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` caps at this number",
-  "FLPatchSpielePaarungenPayload.paarungen":
-    "the undo replays one save's report, never more fixtures than a season holds (`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielePaarungenPayload`)",
 };
 
 // Item-agnostic on purpose: an item's own refusal lands on a path below the field's, which `fieldAccepts` ignores.
