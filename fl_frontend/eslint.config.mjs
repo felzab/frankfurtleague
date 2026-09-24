@@ -128,8 +128,8 @@ const CLASS_LIST_SITES = [
 
 /**
  * A package root loads whole under `node --test`, which has no bundler to narrow it
- * (`docs/frontend/spec.md` §1.9). `useOverlayState` is published at the root alone, and an
- * `await import` escapes the rule.
+ * (`docs/frontend/spec.md` §1.9). `useOverlayState` is published at the root alone. An `import()` of
+ * a root is `DYNAMIC_LOADS`' to refuse.
  */
 const VENDOR_ROOTS = [
   {
@@ -279,6 +279,25 @@ const TRANSITION_REWRAP = {
     "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` (docs/frontend/spec.md :: I356).",
 };
 
+/**
+ * A module named to `import()`, which `no-restricted-imports` never reads. `require()` needs no arm:
+ * `@typescript-eslint/no-require-imports` refuses every call.
+ */
+const loadOf = (pattern) =>
+  `:matches(ImportExpression > Literal.source[value=/${pattern}/], ImportExpression > TemplateLiteral.source[expressions.length=0] > TemplateElement[value.cooked=/${pattern}/])`;
+
+/** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
+const DYNAMIC_LOADS = [
+  {
+    selector: loadOf(String.raw`^(?:@heroui\/react|@gravity-ui\/icons)$`),
+    message: "An `import()` of a package root loads it whole as well: take a HeroUI component or an icon from its own subpath.",
+  },
+  {
+    selector: loadOf(String.raw`^@heroui\/react\/form$`),
+    message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
+  },
+];
+
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
@@ -298,6 +317,7 @@ const SOURCE_BANS = [
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
   { ...QUERY_IN_EQUALITY, tests: true, production: false },
+  ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     selector: inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
     message: "A hover is one of globals.css's hover tokens, never an opacity (docs/frontend/spec.md :: I162).",

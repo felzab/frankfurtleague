@@ -64,6 +64,13 @@ export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
 export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
 export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
 export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
+export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root-load
+export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-load
+export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
+export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
+// A subpath loads its component alone, and a hole leaves the specifier to run time.
+export const BUTTON_LOADED = import("@heroui/react/button");
+export const HOLED_LOADED = import(`@heroui/react${extra}`);
 
 export async function plantedCalls(): Promise<void> {
   await auth.api.getSession({ headers, request }); // expect: auth-request

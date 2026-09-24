@@ -16,6 +16,8 @@ export const FORM = HeroForm;
 export const ICON = Bars;
 export const FIELD = DateField;
 export const POPOVER = HintPopover;
+export const ICONS_LOADED = await import("@gravity-ui/icons"); // expect: vendor-root-load
+export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
 
 declare const assert: { equal: (a: unknown, b: unknown) => void };
 declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };
