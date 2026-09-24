@@ -279,6 +279,9 @@ do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
 do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
+# `app/` alone, deptry's default: `tests/` imports the dev group by design, and `scripts/` would
+# need every first-party module it imports off `sys.path` named to deptry by hand.
+do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
 
 build_image() {
   local name="$1" dockerfile="$2" context="$3"
@@ -395,7 +398,7 @@ run_writer() { # $1 unit
 # beside that proof rather than behind it.
 DOCS_POOL=(tracked_text docs_gate commit_messages public_routes log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
-BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
+BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate backend_deps)
 
 # A name with no body reaches `FL_GATE_STEP` as a child-process crash; refused here, where the
 # list is written.
@@ -1018,6 +1021,12 @@ These are the same errors Pylance shows in the editor."
   unit_join backend_estate
   unit_verdict backend_estate "${LINENO}" "The backend suite carries a guarantee nothing is checking."
   ok "the estate answers loudly"
+
+  step "backend · deptry  (what app/ imports against what the manifest declares)"
+  unit_join backend_deps
+  unit_verdict backend_deps "${LINENO}" "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the
+package and its rule (https://deptry.com/rules-violations/); after a manifest edit:  cd fl_backend && uv lock"
+  ok "the manifest declares what app/ imports"
 fi
 
 # --- format ----------------------------------------------------------------------------------------

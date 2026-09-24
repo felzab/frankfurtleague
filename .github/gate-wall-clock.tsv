@@ -73,8 +73,8 @@
 # `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
 # workloads, so both ends are upper bounds reading that contention as much as the check. It is
-# pooled with the scope's other three units, so the job pays that span only where the pool cannot
-# start all four at once, and either way it sits inside the floor the `backend` row carries.
+# pooled with the scope's other units, so the job pays that span only where the pool cannot start
+# them all at once, and either way it sits inside the floor the `backend` row carries.
 #
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
@@ -310,6 +310,16 @@
 # It is pooled with tsc, eslint and the audit and ran shorter than tsc in every round, so the job
 # pays it only as contention; either way it sits inside the floor the `frontend` row carries, so
 # neither the reference nor the budget moves and neither takes a new stamp.
+#
+# `backend` gained a check: deptry over `app/` (`scripts/gate/verify.sh :: do_backend_deps`) costs
+# 328-2045 ms end to end, of which 340-462 ms at the median is deptry rather than this
+# interpreter's own start, over two spreads of ten rounds interleaved with a bare interpreter after
+# one warm run of each, every run returning exit 0. Measured locally on 2026-09-24 on a sixteen-core
+# Windows machine carrying a fleet of agent sessions, so both ends are upper bounds reading that
+# contention as much as the check. It is pooled with the scope's other units, so the job pays that
+# span only where the pool cannot start them all at once, and either way it sits inside the floor
+# the `backend` row carries, so neither the reference nor the budget moves and neither takes a new
+# stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
