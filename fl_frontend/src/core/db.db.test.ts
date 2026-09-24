@@ -3,14 +3,27 @@ import { createServer, connect as dial } from "node:net";
 import { after, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
-import { MongoOperationTimeoutError, MongoServerSelectionError } from "mongodb";
+import { MongoOperationTimeoutError, MongoServerSelectionError, MongoTransactionError } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
 
+import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
 import type { Socket } from "node:net";
 
+/* Each resource set as it opens, and the hook registered before the first await that can throw: a
+   container that started is stopped whatever fails after it. */
+const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
+
+after(async () => {
+  opened.relay?.resume();
+  for (const client of opened.clients) await client.close();
+  await opened.relay?.close();
+  await opened.mongod?.stop();
+});
+
 const mongod = await new MongoDBContainer("mongo:8").start();
+opened.mongod = mongod;
 
 /**
  * A TCP relay to the mongod that can stop passing the client's requests on: a hung connection as the
@@ -18,6 +31,10 @@ const mongod = await new MongoDBContainer("mongo:8").start();
  */
 class Relay {
   private hung = false;
+  /** The command whose first request hangs the relay, as its name opens a BSON key. */
+  private trigger: Buffer | null = null;
+  /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
+  triggered = false;
   private readonly sockets = new Set<Socket>();
   private readonly server = createServer((inbound) => {
     const outbound = dial(mongod.getMappedPort(27017), mongod.getHost());
@@ -26,7 +43,11 @@ class Relay {
       socket.on("close", () => this.sockets.delete(socket));
       socket.on("error", () => undefined);
     }
-    inbound.on("data", (chunk) => {
+    inbound.on("data", (chunk: Buffer) => {
+      if (this.trigger !== null && chunk.includes(this.trigger)) {
+        this.hung = true;
+        this.triggered = true;
+      }
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
       if (!this.hung) outbound.write(chunk);
@@ -53,9 +74,21 @@ class Relay {
     }
   }
 
+  /** `hang` from the first request carrying `command` on, every request before it answered. */
+  async hangFrom<T>(command: string, body: () => Promise<T>): Promise<T> {
+    this.triggered = false;
+    this.trigger = Buffer.from(`${command}\0`);
+    try {
+      return await body();
+    } finally {
+      this.resume();
+    }
+  }
+
   /** Also called before the client closes: a case timed out inside `hang` never reaches its `finally`. */
   resume(): void {
     this.hung = false;
+    this.trigger = null;
   }
 
   async close(): Promise<void> {
@@ -65,6 +98,7 @@ class Relay {
 }
 
 const relay = new Relay();
+opened.relay = relay;
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
 
 const SENT = "__flDbTierSentMail";
@@ -95,18 +129,12 @@ registerAuthDoubles({
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
+opened.clients.push(client);
 const { auth } = await import("./auth.ts");
 // The same module evaluated a second time, so a second client built by the same code: an automatic
 // connect that fails closes its client's topology for good, and every later operation on it fails.
 const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
-
-after(async () => {
-  relay.resume();
-  await coldClient.close();
-  await client.close();
-  await relay.close();
-  await mongod.stop();
-});
+opened.clients.push(coldClient);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -159,20 +187,24 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.ok(elapsed < (client.timeoutMS ?? 0) + LATENESS_MS, `the hung read took ${Math.round(elapsed)} ms`);
   });
 
-  // The calls `@better-auth/mongo-adapter` makes for a transaction, in its order: a session taking
-  // no options of its own, so its commit inherits the client's bound or none.
-  it("ends a commit the store never answers within its `timeoutMS`", CASE_TIMEOUT, async () => {
-    const session = client.startSession();
-    try {
-      session.startTransaction();
-      await client.db("store_bound").collection("probe").insertOne({ written: true }, { session });
+  /* A magic link's sign-in runs the adapter's own transaction to consume its token. The timeout does
+     not surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and
+     that refusal replaces it, unlogged. */
+  it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", CASE_TIMEOUT, async () => {
+    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
+    const token = lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`);
+    logged.length = 0;
 
-      const { elapsed, outcome } = await relay.hang(() => timed(() => session.commitTransaction()));
+    const { elapsed, outcome } = await relay.hangFrom("commitTransaction", () =>
+      timed(() => auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true })),
+    );
 
-      assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
-      assert.ok(elapsed < (client.timeoutMS ?? 0) + LATENESS_MS, `the hung commit took ${Math.round(elapsed)} ms`);
-    } finally {
-      await session.endSession();
-    }
+    assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
+    assert.ok(
+      outcome instanceof MongoTransactionError && outcome.message === "Cannot call abortTransaction after calling commitTransaction",
+      `the hung commit settled with ${String(outcome)}`,
+    );
+    assert.deepEqual(logged, []);
+    assert.ok(elapsed < (client.timeoutMS ?? 0) + LATENESS_MS, `the hung commit took ${Math.round(elapsed)} ms`);
   });
 });
