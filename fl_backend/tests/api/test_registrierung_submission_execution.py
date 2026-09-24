@@ -468,7 +468,10 @@ class _HoldsAfterItsLookup:
         if self.looked_up.is_set():
             return
 
+        # Drained, as `abandon` drains its press: `cancel()` only asks, and the task stays pending on
+        # the shared seed loop until something awaits it.
         looked_up.cancel()
+        await asyncio.gather(looked_up, return_exceptions=True)
         # A press that raised is its own failure, not a missing lookup.
         if (error := press.exception()) is not None:
             raise error
