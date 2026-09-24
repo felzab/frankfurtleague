@@ -94,7 +94,8 @@ describe("the team's invite panel", () => {
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
 
     assert.deepEqual(sent("postEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
-    // Found rather than got: the mint's update commits with the press's transition, after the click.
+    // Found rather than got: the first mint's update commits when `startMinting`'s transition ends,
+    // after the click has resolved.
     const feld = await screen.findByRole("textbox", { name: "Registrierungslink" });
     // The property and not the attribute: React writes a textarea's value as neither markup nor an
     // attribute, so an attribute read here would compare the empty string against the link forever.
