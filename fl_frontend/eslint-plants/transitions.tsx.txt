@@ -11,7 +11,7 @@ declare const appToast: { success: (title: string) => string };
 declare const router: { push: (to: string) => void; refresh: () => void };
 
 // Each arm once: a later statement of the block that awaited, the update's own argument, a handler
-// after an awaiting try, and a branch after an awaiting test.
+// after an awaiting try, and a branch after a test holding an `await` or being one.
 export function afterTheAwait() {
   startSaving(async () => {
     const wert = await lies();
@@ -33,6 +33,11 @@ export function afterTheAwait() {
   });
   startSaving(async () => {
     if (!(await pruefe())) {
+      setFehler(true); // expect: transition-rewrap
+    }
+  });
+  startSaving(async () => {
+    if (await pruefe()) {
       setFehler(true); // expect: transition-rewrap
     }
   });
