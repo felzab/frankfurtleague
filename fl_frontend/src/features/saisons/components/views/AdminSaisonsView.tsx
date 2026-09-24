@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { AdminSaisonsTable } from "@/features/saisons/components/collections/AdminSaisonsTable";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
+import { Callout } from "@/shared/components/ui/Callout";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
@@ -31,15 +32,28 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
   );
 
   return (
-    <AdminCrudView<AdminSaisonRow>
-      items={processedSaisons}
-      searchKeys={SEARCH_KEYS}
-      renderTable={({ filteredItems, emptiness }) => (
-        <AdminSaisonsTable
-          filteredSaisons={filteredItems}
-          emptiness={emptiness}
-        />
+    <div className="flex flex-col gap-4">
+      {/* Read off the list this page already holds: the pages needing a running season send the admin
+          here while none runs (`fl_frontend/src/app/admin/(current-saison)/layout.tsx`), and this says why. */}
+      {!saisons.some((saison) => saison.status === "active") && (
+        <Callout
+          severity="info"
+          title="Derzeit ist keine Saison aktiv">
+          Handlungsbedarf, Finalrunden und Spielsuche öffnen sich, sobald eine Saison aktiv ist. Umgestellt wird auf der Seite der geplanten
+          Saison.
+        </Callout>
       )}
-    />
+
+      <AdminCrudView<AdminSaisonRow>
+        items={processedSaisons}
+        searchKeys={SEARCH_KEYS}
+        renderTable={({ filteredItems, emptiness }) => (
+          <AdminSaisonsTable
+            filteredSaisons={filteredItems}
+            emptiness={emptiness}
+          />
+        )}
+      />
+    </div>
   );
 }
