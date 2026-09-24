@@ -384,6 +384,42 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BOOKING-001",
+                            "REQ-CLASH-001",
+                            "REQ-DATE-001",
+                            "REQ-ELIGIBILITY-001",
+                            "REQ-ELIGIBILITY-002",
+                            "REQ-RESULT-001",
+                            "REQ-SPIELTAG-001",
+                            "REQ-SPIELTAG-002",
+                            "REQ-STATE-002",
+                            "REQ-STATE-003",
+                            "REQ-WIRING-001",
+                            "REQ-WIRING-002",
+                            "REQ-WIRING-003"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -653,6 +689,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -803,6 +862,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -853,6 +935,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLTeamWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-RETIRE-001"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -1104,6 +1210,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-DATE-002",
+                            "REQ-DATE-003",
+                            "REQ-DATE-008"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -1583,6 +1715,34 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-DATE-005",
+                            "REQ-RULES-001",
+                            "REQ-RULES-007",
+                            "REQ-RULES-008",
+                            "REQ-RULES-010",
+                            "REQ-RULES-013"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "admin"
@@ -1738,6 +1898,43 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-DATE-004",
+                            "REQ-DATE-005",
+                            "REQ-RULES-001",
+                            "REQ-RULES-002",
+                            "REQ-RULES-003",
+                            "REQ-RULES-004",
+                            "REQ-RULES-005",
+                            "REQ-RULES-006",
+                            "REQ-RULES-007",
+                            "REQ-RULES-008",
+                            "REQ-RULES-009",
+                            "REQ-RULES-010",
+                            "REQ-RULES-011",
+                            "REQ-RULES-012",
+                            "REQ-RULES-013"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "admin"
@@ -1866,6 +2063,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1986,6 +2206,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2036,6 +2279,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSpielortWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-RETIRE-003"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2206,6 +2473,30 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SCHIEDSRICHTER-007"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2326,6 +2617,30 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SCHIEDSRICHTER-007"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2376,6 +2691,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-RETIRE-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2566,6 +2905,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLPostBewerbungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-004",
+                            "REQ-BEWERBUNG-005",
+                            "REQ-BEWERBUNG-006",
+                            "REQ-BEWERBUNG-007",
+                            "REQ-BEWERBUNG-008",
+                            "REQ-BEWERBUNG-015"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2832,6 +3200,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLPostRegistrierungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-EINLADUNG-003",
+                            "REQ-REGISTRIERUNG-001",
+                            "REQ-REGISTRIERUNG-002",
+                            "REQ-REGISTRIERUNG-003",
+                            "REQ-REGISTRIERUNG-008",
+                            "REQ-REGISTRIERUNG-009",
+                            "REQ-REGISTRIERUNG-011"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3176,6 +3574,42 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BOOKING-001",
+                            "REQ-CLASH-001",
+                            "REQ-DATE-001",
+                            "REQ-ELIGIBILITY-001",
+                            "REQ-ELIGIBILITY-002",
+                            "REQ-RESULT-001",
+                            "REQ-SPIELTAG-001",
+                            "REQ-SPIELTAG-002",
+                            "REQ-STATE-002",
+                            "REQ-STATE-003",
+                            "REQ-WIRING-001",
+                            "REQ-WIRING-002",
+                            "REQ-WIRING-003"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3497,6 +3931,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3559,6 +4016,33 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSaisonTeamResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-ENTER-001",
+                            "REQ-ENTER-002",
+                            "REQ-ENTER-003",
+                            "REQ-ENTER-005"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3638,6 +4122,32 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-ENTER-002",
+                            "REQ-ENTER-003",
+                            "REQ-ENTER-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3709,6 +4219,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLPatchSaisonTeamKontakteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-KONTAKT-001"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3788,6 +4322,33 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-ENTER-005",
+                            "REQ-REPLACE-001",
+                            "REQ-REPLACE-002",
+                            "REQ-REPLACE-003"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3853,6 +4414,31 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-EINLADUNG-001",
+                            "REQ-EINLADUNG-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3912,6 +4498,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLEinladungWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4388,6 +4997,29 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-PURGE-001"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "admin"
@@ -4431,6 +5063,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SQUAD-001",
+                            "REQ-SQUAD-003",
+                            "REQ-SQUAD-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4510,6 +5168,32 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SQUAD-001",
+                            "REQ-SQUAD-003",
+                            "REQ-SQUAD-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -4569,6 +5253,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4634,6 +5341,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SQUAD-001",
+                            "REQ-SQUAD-003",
+                            "REQ-SQUAD-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4822,6 +5555,32 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-ACTIVATE-001",
+                            "REQ-ACTIVATE-002",
+                            "REQ-ACTIVATE-003",
+                            "REQ-ACTIVATE-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "admin"
@@ -4865,6 +5624,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSwapGruppenResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SWAP-001",
+                            "REQ-SWAP-002",
+                            "REQ-SWAP-003",
+                            "REQ-SWAP-004",
+                            "REQ-SWAP-005",
+                            "REQ-SWAP-006"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4953,6 +5741,39 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-DATE-005",
+                            "REQ-RULES-001",
+                            "REQ-RULES-007",
+                            "REQ-RULES-008",
+                            "REQ-RULES-010",
+                            "REQ-RULES-013",
+                            "REQ-SPIELPLAN-001",
+                            "REQ-SPIELPLAN-002",
+                            "REQ-SPIELPLAN-003",
+                            "REQ-SPIELPLAN-004",
+                            "REQ-SPIELPLAN-005"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "x-fl-tier": "admin"
@@ -5004,6 +5825,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLFailureBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-SPIELPLAN-006"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -5120,6 +5964,30 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-EINLADUNG-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5172,6 +6040,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSpielortWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -5232,6 +6123,30 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SCHIEDSRICHTER-007"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5288,6 +6203,33 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SCHIEDSRICHTER-001",
+                            "REQ-SCHIEDSRICHTER-004",
+                            "REQ-SCHIEDSRICHTER-006",
+                            "REQ-SCHIEDSRICHTER-007"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5340,6 +6282,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-ANONYMISE-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -5598,6 +6564,37 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-001",
+                            "REQ-BEWERBUNG-002",
+                            "REQ-BEWERBUNG-003",
+                            "REQ-BEWERBUNG-013",
+                            "REQ-ENTER-001",
+                            "REQ-ENTER-002",
+                            "REQ-ENTER-003",
+                            "REQ-ENTER-005"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5664,6 +6661,30 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-001"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5725,6 +6746,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungEinwilligungErneutResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-001",
+                            "REQ-BEWERBUNG-011"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -5804,6 +6850,32 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-001",
+                            "REQ-BEWERBUNG-011",
+                            "REQ-BEWERBUNG-014"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -5875,6 +6947,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungKontaktSitzResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-001",
+                            "REQ-BEWERBUNG-011",
+                            "REQ-BEWERBUNG-014"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -5985,6 +7083,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -6069,6 +7190,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLPostSperrlisteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SPERRLISTE-001",
+                            "REQ-SPERRLISTE-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -6449,6 +7595,29 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-BEWERBUNG-009"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6482,6 +7651,33 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-BEWERBUNG-009",
+                            "REQ-BEWERBUNG-010",
+                            "REQ-BEWERBUNG-011",
+                            "REQ-BEWERBUNG-012"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -6560,6 +7756,29 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-EINLADUNG-003"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6616,6 +7835,29 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-REGISTRIERUNG-004"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6649,6 +7891,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLRegistrierungBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-REGISTRIERUNG-004",
+                            "REQ-REGISTRIERUNG-005",
+                            "REQ-REGISTRIERUNG-006",
+                            "REQ-REGISTRIERUNG-007",
+                            "REQ-REGISTRIERUNG-010"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -6727,6 +7997,29 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "REQ-SCHIEDSRICHTER-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6760,6 +8053,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002",
+                            "REQ-SCHIEDSRICHTER-002",
+                            "REQ-SCHIEDSRICHTER-003",
+                            "REQ-SCHIEDSRICHTER-004",
+                            "REQ-SCHIEDSRICHTER-005",
+                            "REQ-SCHIEDSRICHTER-008"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -6860,6 +8181,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -6922,6 +8266,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -7042,6 +8409,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -7093,6 +8483,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -7158,6 +8571,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -7204,6 +8640,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -7263,6 +8722,29 @@
               }
             }
           },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -7314,6 +8796,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current state refuses the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FLFailureBody"
+                    },
+                    {
+                      "properties": {
+                        "error_code": {
+                          "enum": [
+                            "DB-COMMON-002"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -12087,6 +13592,7 @@
           },
           "name": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Name"
@@ -13305,6 +14811,7 @@
           },
           "name": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Name"
