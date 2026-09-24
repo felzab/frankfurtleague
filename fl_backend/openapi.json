@@ -12601,6 +12601,7 @@
         "properties": {
           "vorname": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Vorname"
@@ -12609,6 +12610,8 @@
             "anyOf": [
               {
                 "type": "string",
+                "maxLength": 80,
+                "minLength": 1,
                 "pattern": "^\\p{L}[\\p{L}\\-' ]*$"
               },
               {

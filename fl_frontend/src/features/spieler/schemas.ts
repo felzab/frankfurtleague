@@ -2,6 +2,7 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
@@ -116,9 +117,9 @@ export type FLSpielerMembershipsResponse = z.infer<typeof FLSpielerMembershipsRe
  */
 export const FLPatchSpielerPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  vorname: PersonNameSchema,
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
-  nachname: PersonNameSchema.nullable(),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
   // Nullable, and the form states the null rather than omitting: no flow collects a pupil's own
   // date yet (`fl_backend/app/core/domain.py :: UNENFORCED`).
   geburtsdatum: CustomDateStringSchema.nullable(),

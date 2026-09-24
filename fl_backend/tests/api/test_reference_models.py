@@ -30,7 +30,7 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
-from app.shared.schemas.bounds import SAISON_ID_LENGTH
+from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -233,6 +233,18 @@ class TestSpieler:
             FLPatchSpielerPayload.model_validate(without)
 
         assert FLPatchSpielerPayload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+
+    @pytest.mark.parametrize("part", ["vorname", "nachname"])
+    def test_the_person_patch_holds_a_name_to_the_registrations_ceiling(self, part: str):
+        """An administrator's edit may not store a name the pupil's own registration would refuse."""
+
+        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+
+        with pytest.raises(ValidationError):
+            FLPatchSpielerPayload.model_validate({**names, part: "A" * (KONTAKT_NAME_MAX_LENGTH + 1)})
+
+        at_the_bound = FLPatchSpielerPayload.model_validate({**names, part: "A" * KONTAKT_NAME_MAX_LENGTH})
+        assert len(getattr(at_the_bound, part) or "") == KONTAKT_NAME_MAX_LENGTH
 
 
 class TestEinwilligung:

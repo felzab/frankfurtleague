@@ -22,6 +22,7 @@ import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   GRUPPEN_OPTIONS,
   KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
@@ -167,9 +168,6 @@ export const FLKontaktpersonSchema = z.object({
   einwilligung: FLKontaktKenntnisnahmeSchema,
 });
 export type FLKontaktperson = z.infer<typeof FLKontaktpersonSchema>;
-
-/** One sentence for both name ceilings: the two boxes sit side by side and share the constant. */
-const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 
 /** Mirrors `FLKontaktpersonPayload`. German throughout: the team editor binds it to its inputs. */
 export const FLKontaktpersonPayloadSchema = z.object({

@@ -6,6 +6,7 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
@@ -364,7 +365,6 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
-const NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
 /**
@@ -372,8 +372,8 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
  * Kenntnisnahme the form gathers for all three seats at once.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
@@ -858,8 +858,8 @@ export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktE
 export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // The label alone and no `erteilt`: it says which wording the new person will be shown, and their

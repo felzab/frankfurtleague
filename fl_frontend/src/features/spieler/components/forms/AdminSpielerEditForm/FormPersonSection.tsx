@@ -6,6 +6,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { TextField } from "@heroui/react/textfield";
 
+import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -51,7 +52,8 @@ export function FormPersonSection({
             name="vorname"
             value={draft.vorname}
             onChange={(next) => onChange({ ...draft, vorname: next })}
-            onBlur={() => onFieldLeft(["vorname"])}>
+            onBlur={() => onFieldLeft(["vorname"])}
+            maxLength={KONTAKT_NAME_MAX_LENGTH}>
             <FieldLabel path="vorname">Vorname</FieldLabel>
             <Input
               placeholder="z.B. Lena"
@@ -65,7 +67,8 @@ export function FormPersonSection({
             value={draft.nachname ?? ""}
             // Emptied means absent, not an empty surname — the boundary where `""` becomes `null`.
             onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
-            onBlur={() => onFieldLeft(["nachname"])}>
+            onBlur={() => onFieldLeft(["nachname"])}
+            maxLength={KONTAKT_NAME_MAX_LENGTH}>
             <FieldLabel path="nachname">Nachname</FieldLabel>
             <Input
               placeholder="z.B. Meier"

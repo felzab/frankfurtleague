@@ -83,6 +83,8 @@ export const TEAM_WEBSITE_URL_MAX_LENGTH = 300;
 // One part of one name, at every field the backend types with
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
 export const KONTAKT_NAME_MAX_LENGTH = 80;
+// The one refusal of that ceiling, for every form that holds a name to it.
+export const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 
 type SchulformOption = {
   readonly value: FLSchulform;

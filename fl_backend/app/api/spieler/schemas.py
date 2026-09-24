@@ -3,7 +3,8 @@ from typing import Annotated, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
@@ -188,8 +189,8 @@ class FLPatchSpielerPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
-    nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None
+    vorname: CustomKontaktName
+    nachname: CustomKontaktName | None
     geburtsdatum: CustomOptionalDateString
 
 
