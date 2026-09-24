@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 
 import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
@@ -8,6 +9,7 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import type { ReactNode, RefObject } from "react";
 
@@ -24,6 +26,57 @@ export const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-m
  */
 export function Wert({ children }: { children: ReactNode }) {
   return <strong className="text-foreground font-bold">{children}</strong>;
+}
+
+/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
+const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
+const DATENSCHUTZ_SLOT = "datenschutz";
+
+/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
+const SLOT_TEILER = /(\{\w+\})/;
+
+export type Slots = Readonly<Record<string, string>>;
+
+/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
+function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>): ReactNode {
+  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
+
+  if (name === undefined) return stueck;
+  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
+  if (name === DATENSCHUTZ_SLOT) {
+    return (
+      <Link
+        href="/datenschutz"
+        prefetch={false}
+        className={textLink()}>
+        {DATENSCHUTZ_TEXT}
+      </Link>
+    );
+  }
+
+  const wert = werte[name];
+
+  // A slot no record filled stands as written, which is `fl_frontend/src/core/einwilligung.ts ::
+  // fuelleFassung`'s rule at the string end.
+  if (wert === undefined) return stueck;
+
+  // Emphasis is presentation, so each page decides it here rather than in the stored sentence,
+  // whose words and digest do not move for it.
+  return eigene.has(name) ? <Wert>{wert}</Wert> : wert;
+}
+
+/**
+ * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
+ * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
+ */
+export function Gefuellt({ text, werte, eigene }: { text: string; werte: Slots; eigene: ReadonlySet<string> }) {
+  return (
+    <>
+      {text.split(SLOT_TEILER).map((stueck, index) => (
+        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte, eigene)}</Fragment>
+      ))}
+    </>
+  );
 }
 
 /**

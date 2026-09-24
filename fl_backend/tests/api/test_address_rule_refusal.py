@@ -18,7 +18,7 @@ from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -45,14 +45,6 @@ BEYOND_ASCII = [
 # character above ASCII fails here rather than passing the cases above.
 UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
 UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives the control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all; a millisecond, so it is spent
-# before the route's first driver call, which a live deadline can hold for a selection's half-second look.
-REQUEST_DEADLINE_S = 0.001
 
 # The control's answer: a well-formed request that got past validation and reached the database. The
 # refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
@@ -101,7 +93,7 @@ def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -
                 # The app's request deadline would hold each control against this unanswered server,
                 # and nested inside this one it cannot extend it. A refused body touches no driver
                 # call, so no deadline turns a 422 into the control's answer.
-                with pymongo.timeout(REQUEST_DEADLINE_S):
+                with pymongo.timeout(UNANSWERED_DEADLINE_S):
                     return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
         finally:
             await served.state.db_client.close()

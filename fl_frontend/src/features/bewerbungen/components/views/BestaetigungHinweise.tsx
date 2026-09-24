@@ -1,14 +1,10 @@
-import { Fragment } from "react";
-import Link from "next/link";
-
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
-import { textLink } from "@/shared/components/ui/textLink";
 
-import { ABSATZ, BestaetigungAbschnitt, Wert } from "./BestaetigungPanels";
+import { ABSATZ, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
 
-import type { ReactNode } from "react";
+import type { Slots } from "./BestaetigungPanels";
 
 const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT = "flex flex-col gap-y-2";
@@ -18,61 +14,8 @@ const ABSCHNITT = "flex flex-col gap-y-2";
 /** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/**
- * The slots a record fills from the person who opened the link. **Emphasis is presentation**, so it
- * is decided here rather than in the stored sentence, whose words and digest do not move for it.
- */
+/** The slots a record fills from the person who opened the link (`BestaetigungPanels.tsx :: Gefuellt`). */
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
-
-type Slots = Readonly<Record<string, string>>;
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-function DatenschutzLink() {
-  return (
-    <Link
-      href="/datenschutz"
-      prefetch={false}
-      className={textLink()}>
-      {DATENSCHUTZ_TEXT}
-    </Link>
-  );
-}
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
-  if (name === DATENSCHUTZ_SLOT) return <DatenschutzLink />;
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
-
-/**
- * A stored sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
-function Gefuellt({ text, werte }: { text: string; werte: Slots }) {
-  return (
-    <>
-      {text.split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
-  );
-}
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
 export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
@@ -80,6 +23,7 @@ export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAET
     <Gefuellt
       text={BESTAETIGUNG_ABSAETZE[schluessel]}
       werte={werte}
+      eigene={EIGENE_SLOTS}
     />
   );
 }

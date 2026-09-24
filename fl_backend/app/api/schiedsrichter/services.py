@@ -408,27 +408,6 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     )
 
 
-def find_korrektur_mint(*, stored: Mapping[str, Any], payload_email: str, token_hash: str, today: str) -> dict[str, Any] | None:
-    """The `$set` fragment a corrected address owes, or `None`.
-
-    An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
-    credential in the wrong inbox.
-    """
-
-    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
-    # them the address moved (`docs/ops/runbooks.md` §5).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
-        return None
-
-    # One inbox rather than one string: a row stored before the address rule holds its domain in
-    # Unicode, which the payload now stores in punycode, so a raw compare re-mails an address nobody moved.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
-        return None
-
-    return compose_mint_update(token_hash=token_hash, today=today)
-
-
 def compose_korrektur_update(
     *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
 ) -> tuple[dict[str, Any], bool]:
@@ -438,15 +417,23 @@ def compose_korrektur_update(
     mailbox replaced; the reactivation is what asks them.
     """
 
-    minted = find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=token_hash, today=today)
+    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
+    # them the address moved (`docs/ops/runbooks.md` §5).
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+        return {"$set": dict(payload)}, False
 
-    if minted is None:
+    # One inbox rather than one string: a row stored before the address rule holds its domain in
+    # Unicode, which the payload now stores in punycode, so a raw compare re-mails an address nobody moved.
+    stored_email = (stored.get("kontakt") or {}).get("email")
+    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:
         return {"$set": dict(payload), "$unset": {BESTAETIGUNG_FELD: ""}}, False
 
-    return {"$set": {**payload, **minted}}, True
+    # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
+    # credential in the wrong inbox.
+    return {"$set": {**payload, **compose_mint_update(token_hash=token_hash, today=today)}}, True
 
 
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:

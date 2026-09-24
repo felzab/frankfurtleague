@@ -4,7 +4,7 @@ import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
-import { ADMIN_EMAIL, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import { ADMIN_EMAIL, Barrier, BARRIER_TIMEOUT_MS, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
@@ -49,43 +49,6 @@ const LOGGING_DOUBLE = `export const logger = {
 };`;
 
 registerAuthDoubles({ core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE } });
-
-/** Holds the first `expected` writes until all have arrived; every write after them passes. */
-class Barrier {
-  private expected = 0;
-  private arrived = 0;
-  private waiters: (() => void)[] = [];
-
-  arm(expected: number): void {
-    this.expected = expected;
-    this.arrived = 0;
-    this.waiters = [];
-  }
-
-  disarm(): void {
-    this.expected = 0;
-    for (const release of this.waiters) release();
-    this.waiters = [];
-  }
-
-  async arrive(): Promise<void> {
-    if (this.expected === 0 || this.arrived >= this.expected) return;
-    this.arrived += 1;
-    if (this.arrived === this.expected) {
-      this.disarm();
-      return;
-    }
-
-    // Bounded, so a request that never reaches a held write fails its own assertion rather than
-    // hanging the run.
-    await new Promise<void>((resolve) => {
-      this.waiters.push(resolve);
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
-    });
-  }
-}
-
-const BARRIER_TIMEOUT_MS = 5000;
 
 /**
  * Holds the one write that arrives first until `release`, and passes every later one: the order in

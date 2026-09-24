@@ -12,7 +12,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -26,14 +26,6 @@ ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure.
 UNREACHED_DATABASE = "DB-FAIL-001"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives each control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
-# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
-UNANSWERED_DEADLINE_S = 0.001
 
 CONTAINER_SELECTION_MS = 10_000
 

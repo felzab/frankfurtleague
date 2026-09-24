@@ -32,7 +32,7 @@ from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
 from app.main import STORES_NOTHING_EXTENSION, api_routes, create_app
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.openapi_document import build_document
@@ -40,10 +40,6 @@ from tests.worker import worker_database
 
 FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives the case something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
 
 # Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
 # asserted is that the route stops at whatever the deadline says.

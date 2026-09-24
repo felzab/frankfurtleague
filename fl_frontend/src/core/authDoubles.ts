@@ -85,6 +85,44 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
   });
 }
 
+/** How long a held write or read waits for the requests racing it, in both db-tier suites. */
+export const BARRIER_TIMEOUT_MS = 5000;
+
+/** Holds the first `expected` writes until all have arrived; every write after them passes. */
+export class Barrier {
+  private expected = 0;
+  private arrived = 0;
+  private waiters: (() => void)[] = [];
+
+  arm(expected: number): void {
+    this.expected = expected;
+    this.arrived = 0;
+    this.waiters = [];
+  }
+
+  disarm(): void {
+    this.expected = 0;
+    for (const release of this.waiters) release();
+    this.waiters = [];
+  }
+
+  async arrive(): Promise<void> {
+    if (this.expected === 0 || this.arrived >= this.expected) return;
+    this.arrived += 1;
+    if (this.arrived === this.expected) {
+      this.disarm();
+      return;
+    }
+
+    // Bounded, so a request that never reaches a held write fails its own assertion rather than
+    // hanging the run.
+    await new Promise<void>((resolve) => {
+      this.waiters.push(resolve);
+      setTimeout(resolve, BARRIER_TIMEOUT_MS);
+    });
+  }
+}
+
 /** The `Cookie` header a browser would send back after this response. */
 export const cookieHeader = (response: { headers: Headers }): string =>
   response.headers

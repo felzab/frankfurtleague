@@ -503,10 +503,7 @@ In CI the implication is off, each of the three being a job of its own.
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
 captured output in written order — so a parallel run reads as the serial one per stream, on the
 terms below: a terminal merging stdout and stderr sees a scope's error lines after its output rather
-than between it, which is the merge and not a defect. **That default holds only where the machine
-can hold every width-taking section's declared floor** (`scripts/gate/verify.sh :: gate_widths_fit`);
-under it the scopes run one at a time, each alone with the machine at the width its own work was
-measured at. A failing scope still ends the run at its
+than between it, which is the merge and not a defect. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — and, where that later scope failed or was refused itself, its own captured output replayed
 after those rows under a heading naming it

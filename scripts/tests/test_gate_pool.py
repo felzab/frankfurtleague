@@ -38,7 +38,7 @@ DRIVER: Final[tuple[str, ...]] = (
     # reason is not read as stopped.
     "STOPPED_BY = -signal.SIGTERM if gate_pool.POSIX else 1",
     "def pool():",
-    "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False, slots=threading.Semaphore(1))",
+    "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False)",
 )
 
 TERMINATE: Final[tuple[str, ...]] = (
@@ -176,7 +176,6 @@ WINDOWS_TERMINATED: Final[tuple[str, ...]] = (
 STOPPED: Final[tuple[str, ...]] = (
     "import time",
     "running = pool()",
-    "running.slots = threading.Semaphore(2)",
     "raiser = gate_pool.Unit(name='raiser', environment={}, command=('never run',))",
     "held = gate_pool.Unit(name='held', environment={}, command=(sys.executable, '-c', 'import time; time.sleep(300)'))",
     "running.results['raiser'] = gate_pool.Result()",
@@ -192,24 +191,6 @@ STOPPED: Final[tuple[str, ...]] = (
     "gate_pool.run_unit = interrupting",
     "assert gate_pool.drive(running, [raiser, held]) == gate_pool.EXIT_INTERRUPTED",
     "assert running.results['held'].status not in ('0', gate_pool.NOT_STARTED), running.results['held'].status",
-)
-
-SCHEDULE: Final[tuple[str, ...]] = (
-    "seen = []",
-    "gate_pool.drive = lambda running, submission: seen.append((running, [unit.name for unit in submission])) or 0",
-    "units_file = Path(DIRECTORY) / 'schedule.tsv'",
-    "rows = ''.join(name + chr(9) + sys.executable + chr(10) for name in ('ops', 'db', 'frontend'))",
-    "units_file.write_bytes(rows.encode('utf-8'))",
-    "def once(*extra):",
-    "    sys.argv = ['gate_pool.py', '--dir', DIRECTORY, '--units', str(units_file), *extra]",
-    "    assert gate_pool.main() == 0",
-    "    return seen.pop()",
-    "running, order = once('--width', '2')",
-    "expected = sorted(('ops', 'db', 'frontend'), key=lambda name: -gate_pool.TYPICAL_MS[name])",
-    "assert order == expected, (order, expected)",
-    "assert [running.slots.acquire(blocking=False) for _ in range(3)] == [True, True, False]",
-    "running, order = once()",
-    "assert [running.slots.acquire(blocking=False) for _ in range(4)] == [True, True, True, False]",
 )
 
 
@@ -252,7 +233,7 @@ def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tm
 
 
 def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tmp_path: Path) -> None:
-    """`longest_first` submits whichever of the two the table ranks longer first; the caller replays in written order."""
+    """The caller replays in written order, so the manifest keeps it whichever unit finished first."""
     result = _pool(tmp_path, [("db", *_exits(0)), ("ops", *_exits(0))])
     assert result.returncode == 0, result.stderr
     assert [row[0] for row in _rows(tmp_path)] == ["db", "ops"]
@@ -328,7 +309,7 @@ def test_the_run_ends_once_the_caller_that_asked_for_it_is_gone(tmp_path: Path) 
 
 
 def test_a_unit_still_queued_when_the_run_ends_never_starts(tmp_path: Path) -> None:
-    """Under a `--width` below the unit count a freed slot would otherwise start a build for nobody."""
+    """A unit whose thread reaches its turn after the stop would otherwise start a build for nobody."""
     result = _drive(QUEUED_UNIT, tmp_path)
     assert result.returncode == 0, result.stderr
 
@@ -381,10 +362,4 @@ def test_an_interrupt_ends_the_units_before_the_run_waits_on_them(tmp_path: Path
         result = _drive(STOPPED, tmp_path, timeout=90)
     except subprocess.TimeoutExpired:
         raise AssertionError("the run waited on the unit it had been told to stop") from None
-    assert result.returncode == 0, result.stderr
-
-
-def test_the_expected_longest_unit_is_submitted_first_and_width_bounds_the_slots(tmp_path: Path) -> None:
-    """Both are `main`'s wiring rather than a helper's: the schedule and the semaphore are built there and passed on."""
-    result = _drive(SCHEDULE, tmp_path)
     assert result.returncode == 0, result.stderr

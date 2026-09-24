@@ -555,9 +555,12 @@ step "8. Documented flags match accepted flags"
 # the local stack as a side effect of a documentation test.
 unit_flags() { # $1 index · $2 script name · $3 label
   local doc code
-  # Header only, stopping at the first line of code: a fixed line range would reach the case
-  # statement and compare the code against itself.
-  doc="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$2" | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
+  # The header's invocation lines, each up to the two spaces opening its description: prose may
+  # name another tool's flag, and a fixed line range would reach the case statement and compare the
+  # code against itself.
+  doc="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$2" \
+    | sed -nE 's/^#[[:space:]]+(([A-Z_]+=[^[:space:]]+[[:space:]]+)*\.\/scripts\/[^[:space:]]+.*)$/\1/p' \
+    | sed -E 's/ {2,}.*$//' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
   code="$(grep -oE '^[[:space:]]+--[a-z|[:space:]-]+\)' "scripts/$2" | tr -d ' )' | tr '|' '\n' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
   if [[ "$doc" == "$code" ]]; then
     printf 'info\t%s\n' "$2"

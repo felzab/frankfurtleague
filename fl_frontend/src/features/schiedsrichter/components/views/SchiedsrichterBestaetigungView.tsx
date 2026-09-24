@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 
 import { CircleCheck } from "@gravity-ui/icons";
 import { parseDate } from "@internationalized/date";
@@ -15,6 +14,7 @@ import {
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
+  Gefuellt,
   GespeicherteAngaben,
   Wert,
   ZurLiga,
@@ -35,19 +35,18 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
-import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
+import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 
 /**
  * What the page opens on. The token rides only with a link a press can still spend: every other
@@ -81,61 +80,24 @@ const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es er
 /** This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here made. */
 const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/** The slots a record fills from the person who opened the link; emphasis is presentation and is decided here. */
+/** The slots a record fills from the person who opened the link (`BestaetigungPanels.tsx :: Gefuellt`). */
 const EIGENE_SLOTS = new Set(["vorname"]);
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-type Slots = Readonly<Record<string, string>>;
 
 /** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
-  if (name === DATENSCHUTZ_SLOT) {
-    return (
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {DATENSCHUTZ_TEXT}
-      </Link>
-    );
-  }
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
 
 // Read off the stamped version rather than off the paragraph object beside it: the words this page
 // renders and the label its press stores are then one source, which a rewording cannot part.
 type Schluessel = keyof typeof SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel;
 
-/**
- * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
+/** A stamped sentence, filled as `BestaetigungPanels.tsx :: Gefuellt` fills one. */
 function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
   return (
-    <>
-      {SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel[schluessel].split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
+    <Gefuellt
+      text={SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel[schluessel]}
+      werte={werte}
+      eigene={EIGENE_SLOTS}
+    />
   );
 }
 

@@ -103,9 +103,8 @@ five to six seconds after its worker, so no scope starts late and the wall is co
 pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
 24.0 at three, 21.0 at four, 18.5 at six and 19.2/19.4 at eight, against 48 to 49 at one worker over five
 runs of which no pair converged, so the distribution took thirty seconds off the tier and the cap
-and floor `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and `:: GATE_WIDTH_DB_PYTEST_FLOOR`
-carry sit on those readings. Whether the shared server becomes the
-new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
+`scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` carries sits on those readings. Whether the shared
+server becomes the new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
 belongs inside the width question.
 
 **Lever 2, the documentation gate's net split into modules a worker each can draw, is taken, and

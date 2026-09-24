@@ -12,6 +12,16 @@ CORPUS_DATABASE = "frankfurtleague_test"
 # request needs: `TrustedHostMiddleware` refuses any other `Host` before a route sees it.
 TEST_BASE_URL = "http://testserver"
 
+# The server a suite attaches to where no database may answer. Not the configured URI: a developer
+# plausibly runs a real `mongod` on 27017, and a database that answers gives a control something
+# other than the failure it asserts.
+UNANSWERED_URI = "mongodb://localhost:1"
+
+# Positive, because pymongo reads zero as no deadline; a millisecond, spent before a route's first
+# driver call. Inside a request the app's deadline replaces `serverSelectionTimeoutMS`, so only this
+# keeps a request to `UNANSWERED_URI` short.
+UNANSWERED_DEADLINE_S = 0.001
+
 # Distinct on purpose: `verify_api_key` compares with `compare_digest`, so equal values would let a
 # test asserting that the admin router rejects the base key pass vacuously. Padded because the boot
 # pins the length, which no test here reads.

@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { CircleCheck } from "@gravity-ui/icons";
 import { parseDate } from "@internationalized/date";
@@ -15,6 +14,7 @@ import {
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
+  Gefuellt,
   GespeicherteAngaben,
   Wert,
   ZurLiga,
@@ -30,7 +30,6 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
-import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -40,10 +39,10 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
+import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
   SpielerAbsatzSchluessel,
@@ -74,17 +73,7 @@ const ABSCHNITT = "flex flex-col gap-y-2";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-/**
- * The slots a record fills from the person who opened the link. **Emphasis is presentation**, so it
- * is decided here rather than in the stored sentence, whose words and digest do not move for it.
- */
+/** The slots a record fills from the person who opened the link (`BestaetigungPanels.tsx :: Gefuellt`). */
 const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
 
 /**
@@ -97,50 +86,6 @@ const umfangOptionen = (fassung: SpielerFassung): readonly { value: FLEinwilligu
   EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({ value: value, label: fassung.bedienelemente[value] }));
 
 const UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
-
-type Slots = Readonly<Record<string, string>>;
-
-function DatenschutzLink() {
-  return (
-    <Link
-      href="/datenschutz"
-      prefetch={false}
-      className={textLink()}>
-      {DATENSCHUTZ_TEXT}
-    </Link>
-  );
-}
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the page's own link.
-  if (name === DATENSCHUTZ_SLOT) return <DatenschutzLink />;
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fl_frontend/src/core/einwilligung.ts ::
-  // fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
-
-/**
- * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
-function Gefuellt({ text, werte }: { text: string; werte: Slots }) {
-  return (
-    <>
-      {text.split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
-  );
-}
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -156,6 +101,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
     <Gefuellt
       text={absaetze[schluessel]}
       werte={werte}
+      eigene={EIGENE_SLOTS}
     />
   );
 
@@ -208,6 +154,7 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
             <Gefuellt
               text={absaetze[schluessel]}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </li>
         ))}
@@ -555,6 +502,7 @@ function SpielerBestaetigungForm({
             <Gefuellt
               text={fassung.absaetze.veroeffentlichung}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </p>
         </section>
@@ -581,6 +529,7 @@ function SpielerBestaetigungForm({
             <Gefuellt
               text={fassung.absaetze.medien}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </p>
         </section>

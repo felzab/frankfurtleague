@@ -2,6 +2,7 @@ import json
 import math
 import re
 import string
+from collections.abc import Callable, Iterator
 from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Final, NamedTuple, get_args
@@ -38,8 +39,14 @@ from app.shared.schemas.custom import (
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
 
-# What a frontend comment writes when it says a number below it was retyped from this package.
-MIRROR_CLAIM: Final = "bounds.py"
+# What a frontend comment writes when it says a number below it was retyped from this package: the
+# file beside the verb, so prose may cite the file for any other reason.
+MIRROR_SOURCE: Final = "bounds.py"
+MIRROR_VERB: Final = re.compile(r"\b(?:[Mm]irror(?:ed|ing|s)?|[Rr]etyped|[Cc]opied)\b")
+
+
+def _claims_a_mirror(block: str) -> bool:
+    return MIRROR_SOURCE in block and MIRROR_VERB.search(block) is not None
 
 
 class Mirror(NamedTuple):
@@ -114,14 +121,9 @@ def _source(module: str) -> str:
     return (FRONTEND_SRC / module).read_text(encoding="utf-8")
 
 
-def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[str]:
-    """Every name `declaration` matches whose own comment block names `claim`.
+def _blocks(source: str) -> Iterator[tuple[str, str]]:
+    """Each line beside the comment block governing it."""
 
-    One reader for the bounds and the patterns alike, so a claim the two directions read differently
-    cannot be covered by one and passed over by the other.
-    """
-
-    named: set[str] = set()
     block = ""
     was_comment = False
     for line in source.splitlines():
@@ -132,10 +134,17 @@ def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[st
             # up to the next comment, blank lines and statements between them included.
             block = f"{block} {stripped}" if was_comment else stripped
         was_comment = is_comment
-        found = declaration.match(line)
-        if found is not None and claim in block:
-            named.add(found["name"])
-    return named
+        yield line, block
+
+
+def _attributed(source: str, declaration: re.Pattern[str], claims: Callable[[str], bool]) -> set[str]:
+    """Every name `declaration` matches whose own comment block `claims` accepts.
+
+    One reader for the bounds and the patterns alike, so a claim the two directions read differently
+    cannot be covered by one and passed over by the other.
+    """
+
+    return {found["name"] for line, block in _blocks(source) if (found := declaration.match(line)) is not None and claims(block)}
 
 
 def _claimed_mirrors(source: str) -> set[str]:
@@ -145,7 +154,7 @@ def _claimed_mirrors(source: str) -> set[str]:
     number comparison enforces.
     """
 
-    return _attributed(source, ANY_EXPORT, MIRROR_CLAIM)
+    return _attributed(source, ANY_EXPORT, _claims_a_mirror)
 
 
 def _declared_bounds() -> dict[str, int]:
@@ -155,13 +164,13 @@ def _declared_bounds() -> dict[str, int]:
 
 
 def _modules_naming_the_source() -> set[str]:
-    """Every non-test frontend module whose prose names `bounds.py`, which is the claim this register has to cover."""
+    """Every non-test frontend module one of whose comment blocks claims a mirror, which is the claim this register has to cover."""
 
     return {
         path.relative_to(FRONTEND_SRC).as_posix()
         for path in FRONTEND_SRC.rglob("*.ts*")
         if not path.name.endswith((".test.ts", ".test.tsx"))
-        if MIRROR_CLAIM in path.read_text(encoding="utf-8")
+        if any(_claims_a_mirror(block) for _, block in _blocks(path.read_text(encoding="utf-8")))
     }
 
 
@@ -209,7 +218,7 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
     claimed = _claimed_mirrors(_source(module))
     declared = {mirror.typescript for mirror in MIRRORED_BOUNDS if mirror.module == module}
 
-    assert claimed, f"{module} names {MIRROR_CLAIM} and no claim was attributed to any constant in it"
+    assert claimed, f"{module} claims a mirror of {MIRROR_SOURCE} and no claim was attributed to any constant in it"
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
 
 
@@ -1220,7 +1229,9 @@ def _claimed_pattern_mirrors() -> set[tuple[str, str]]:
         if path.name.endswith((".test.ts", ".test.tsx")):
             continue
         module = path.relative_to(FRONTEND_SRC).as_posix()
-        claimed.update((module, name) for name in _attributed(path.read_text(encoding="utf-8"), REGEX_EXPORT, PATTERN_CLAIM))
+        claimed.update(
+            (module, name) for name in _attributed(path.read_text(encoding="utf-8"), REGEX_EXPORT, lambda block: PATTERN_CLAIM in block)
+        )
     return claimed
 
 

@@ -642,8 +642,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
   declined — a refusal the ban's own create, the public registration and every referee write that
   mints a confirmation link perform ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
-  The key the hash is taken under can never be rotated, a replacement disarming every ban in
-  silence (`docs/glossary.md :: Sperrliste`). One question to put: what
+  One question to put: what
   an access request reaches, given that no route finds the row from the address it was taken from
   while the reason beside it may name its subject outright. The bound is
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure

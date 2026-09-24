@@ -3,8 +3,7 @@
 # SCRIPTS · the pre-merge gate — everything, or exactly the surfaces a change touched.
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
-# `compilerOptions` key is absent; the frontend CI job diffs that path. Name no other tool's flag
-# in this block: `scripts/gate/selfcheck.sh` reads every double-dashed word here as one this takes.
+# `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
 #   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
@@ -203,8 +202,9 @@ fi
 
 # --- how many workers a tool may start -----------------------------------------------------------
 
-# A tool's width is a property of its WORK, the budget a property of the machine; `gate_width`
-# reconciles the two.
+# A tool's width is a property of its WORK: each is its measured optimum, which `-n auto` caps at
+# the machine's cores. Two sharing a smaller machine oversubscribe it, slowing the run and moving
+# no verdict.
 
 # MEASURED 2026-09-02 on one contended 16-core machine: an upper bound, and no contract. Three
 # interleaved readings each of `scripts/tests` -- `-n 16` gave 94.7/47.1/80.6s, `-n 8` gave
@@ -213,41 +213,12 @@ GATE_WIDTH_SCRIPTS_PYTEST=8
 # MEASURED 2026-09-07 on the same machine idle, one run at a time: 8, 12 and 16 landed within 2.2s
 # of one another (53.9-56.1s), 6 cost 12.7s more and 4 cost 33s more, twice.
 
-# Below this a worker costs more than it collects: it pays its own process start, its own
-# interpreter and this suite's fixture repository before it takes a case -- the reason `do_pytest`
-# distributes over `--dist loadfile`.
-GATE_WIDTH_SCRIPTS_PYTEST_FLOOR=8
-
 # MEASURED 2026-09-02, two interleaved pairs of the db tier: `--maxprocesses 8` gave 55.9/40.3s and
 # `6` gave 47.2/28.5s, six faster in both. A cap on `auto`, never a floor: a two-core runner
 # resolves `auto` below it and takes nothing up.
 GATE_WIDTH_DB_PYTEST=6
 # MEASURED 2026-09-07 idle, each width a converged pair: 4 gave 21.0/20.9s against 18.5/18.5s at
 # 6 and 19.2/19.4s at 8, while 3, 2 and 1 gave 24.0, 30.1 and 48-49s -- flat above, steep below.
-
-# Below this the tier's workers stop paying for themselves against the two shared mongods they
-# already queue on, so a narrower share buys nothing back.
-GATE_WIDTH_DB_PYTEST_FLOOR=4
-
-gate_width() { # $1 the tool's own measured optimum · $2 the floor declared beside it
-  local want="$1" floor="$2" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
-  if (( budget <= 0 || demand <= 0 || budget >= demand )); then printf '%s' "$want"; return 0; fi
-  # In proportion, never in equal shares: an equal split takes the most from the tool asking for the
-  # most, which is the section already setting the run's wall clock.
-  share=$(( want * budget / demand ))
-  # The consumer's own floor rather than one worker: under it a runner is slower than at the floor
-  # rather than merely narrower, and `gate_widths_fit` has already refused the pool where the
-  # floors do not fit together.
-  if (( share < floor )); then share="$floor"; fi
-  printf '%s' "$share"
-}
-
-gate_widths_fit() { # every enabled consumer's floor against the budget, before a pool is opened
-  local budget="${FL_GATE_BUDGET:-0}" floors="${FL_GATE_FLOOR_DEMAND:-0}"
-  # A section narrowed under its floor runs slower for the whole run, while one that waits its turn
-  # runs at a width that works. So a budget too small to hold every floor sequences the scopes.
-  (( budget <= 0 || floors <= 0 || budget >= floors ))
-}
 
 # --- what a unit runs --------------------------------------------------------------------------------
 
@@ -274,7 +245,7 @@ do_pyright() {
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST" "$GATE_WIDTH_SCRIPTS_PYTEST_FLOOR")"
+    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -730,36 +701,6 @@ fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
-# Ahead of the block below, because what it answers is whether there is a pool at all. A run this
-# clears reaches the same serial sections a CI job takes, each section alone with the machine.
-if (( PARALLEL )); then
-  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
-  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
-  # The self-check's 16 workers stay out of this sum: MEASURED 2026-09-02, counted in they made
-  # demand 30 against 16 cores, cutting these two to 4 and 3; under the floors that would
-  # sequence the run.
-  FL_GATE_DEMAND=0
-  FL_GATE_FLOOR_DEMAND=0
-  if (( RUN_SCRIPTS )); then
-    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST ))
-    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST_FLOOR ))
-  fi
-  if (( RUN_DB )); then
-    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST ))
-    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_DB_PYTEST_FLOOR ))
-  fi
-  if ! gate_widths_fit; then
-    # Reported rather than taken quietly, as the pool's own fallback is: a run whose scopes
-    # never overlapped is one whose wall clock nobody can account for.
-    info "a budget of ${FL_GATE_BUDGET} cannot hold the ${FL_GATE_FLOOR_DEMAND} workers the enabled scopes floor at, so the scopes run in sequence, each alone with the machine at its own measured width"
-    # Unset rather than left standing: a scope's call site is a command substitution, which
-    # reads these as shell variables whether or not they were ever exported, so a budget
-    # surviving the decision would divide a pool that never opened.
-    unset FL_GATE_BUDGET FL_GATE_DEMAND FL_GATE_FLOOR_DEMAND
-    PARALLEL=0
-  fi
-fi
-
 if (( PARALLEL )); then
   # Closed before the pool, or the scope section's row reports the whole run's wall clock.
   end_section
@@ -768,10 +709,6 @@ if (( PARALLEL )); then
   # Only here: a scope is replayed to the parent's terminal, where a step's capture is read back
   # by the same `quietly` the serial run uses.
   if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
-
-  # Exported here alone: the scopes compete only in a pool, and elsewhere -- serial, verbose, a
-  # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
-  export FL_GATE_BUDGET FL_GATE_DEMAND
 
   # `pnpm install` and every pnpm call the `packageManager` pin switches open a store, writing and
   # deleting a probe file in fl_frontend that the format scope's walk can list and then not read.
@@ -1403,17 +1340,16 @@ if (( RUN_DB )); then
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
-  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST" "$GATE_WIDTH_DB_PYTEST_FLOOR")"
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  ( cd fl_backend && quietly "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$DB_WIDTH" ) || DB_RC=$?
+  ( cd fl_backend && quietly "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" ) || DB_RC=$?
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
 testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon.
-Re-run without \`-n auto --dist loadfile --maxprocesses ${DB_WIDTH}\` to see whether distribution is what broke it." ;;
+Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\` to see whether distribution is what broke it." ;;
     130) on_interrupt ;;
     *) on_error "$DB_RC" "${LINENO}" "pytest -m db" ;;
   esac

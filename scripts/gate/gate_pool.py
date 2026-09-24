@@ -46,23 +46,6 @@ CALLER_POLL_S: Final = 1.0
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-# Submission order under `--width`, which no caller passes: insurance for a bounded run, never a
-# saving. An unlisted unit sorts last.
-
-# MEASURED 2026-09-07, two full-form runs on one idle 16-core Windows machine, each scope's longer
-# span of the two; a section's span inside a run is an upper bound on its work, and the ranking
-# is what the table is for.
-TYPICAL_MS: Final[dict[str, int]] = {
-    "frontend": 134_000,
-    "scripts": 126_000,
-    "images": 95_000,
-    "format": 91_000,
-    "backend": 45_000,
-    "db": 45_000,
-    "ops": 36_000,
-    "docs": 27_000,
-}
-
 
 class Terminated(BaseException):
     """The run was asked to stop, by a signal or by its caller leaving.
@@ -92,13 +75,12 @@ class Result:
 class Pool:
     directory: Path
     merge: bool
-    slots: threading.Semaphore
     results: dict[str, Result] = field(default_factory=dict)
     futures: dict[str, Future[None]] = field(default_factory=dict)
     # Locked: a thread registers its child while another is asked to stop.
     live: dict[str, subprocess.Popen[bytes]] = field(default_factory=dict)
     live_lock: threading.Lock = field(default_factory=threading.Lock)
-    # Under `--width` a queued unit would otherwise take a freed slot after the caller has gone.
+    # A unit whose thread reaches its turn after the stop would otherwise start a build for nobody.
     stopping: bool = False
     started: float = 0.0
 
@@ -132,15 +114,6 @@ def parse_units(path: Path) -> list[Unit]:
         seen.add(name)
         units.append(Unit(name=name, environment=environment, command=tuple(rest)))
     return units
-
-
-def longest_first(units: list[Unit]) -> list[Unit]:
-    """A schedule and never a verdict.
-
-    The manifest and the replay stay in the caller's own order, so re-profiling `TYPICAL_MS`
-    changes nothing a reader compares.
-    """
-    return sorted(units, key=lambda unit: -TYPICAL_MS.get(unit.name, 0))
 
 
 def spawn(pool: Pool, unit: Unit) -> int:
@@ -177,17 +150,16 @@ def spawn(pool: Pool, unit: Unit) -> int:
 
 
 def run_unit(pool: Pool, unit: Unit) -> None:
-    """Take a slot, run the unit, record what it returned and when."""
-    with pool.slots:
-        # Leaves `NOT_STARTED`, the truth for a unit cut short before its turn.
-        if pool.stopping:
-            return
-        result = pool.results[unit.name]
-        result.started_ms = pool.elapsed_ms()
-        try:
-            result.status = str(spawn(pool, unit))
-        finally:
-            result.ended_ms = pool.elapsed_ms()
+    """Run the unit, record what it returned and when."""
+    # Leaves `NOT_STARTED`, the truth for a unit cut short before its turn.
+    if pool.stopping:
+        return
+    result = pool.results[unit.name]
+    result.started_ms = pool.elapsed_ms()
+    try:
+        result.status = str(spawn(pool, unit))
+    finally:
+        result.ended_ms = pool.elapsed_ms()
 
 
 def terminate(pool: Pool) -> None:
@@ -285,18 +257,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(add_help=True, description="Run the gate's units concurrently.")
     parser.add_argument("--dir", required=True, help="where the captures and the manifest go")
     parser.add_argument("--units", required=True, help="a file of units -- name, environment, command")
-    parser.add_argument("--width", type=int, default=0, help="most units at once; 0 for no limit")
     parser.add_argument("--merge", action="store_true", help="capture each unit's two streams as one")
     given = parser.parse_args()
 
     units = parse_units(Path(given.units))
     if not units:
         raise ValueError(f"{given.units} lists no unit to run")
-    submission = longest_first(units)
     pool = Pool(
         directory=Path(given.dir),
         merge=given.merge,
-        slots=threading.Semaphore(given.width if given.width > 0 else len(units)),
         results={unit.name: Result() for unit in units},
         started=time.monotonic(),
     )
@@ -304,7 +273,7 @@ def main() -> int:
     watched = threading.Event()
     arm(pool, watched)
     try:
-        return drive(pool, submission)
+        return drive(pool, units)
     finally:
         watched.set()
         # Without a manifest a crash here reads as a gate that proved nothing rather than one that

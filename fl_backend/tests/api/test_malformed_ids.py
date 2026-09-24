@@ -8,21 +8,13 @@ from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
 
 from app.main import create_app
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.config import BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
 # `ObjectId` tests length before it decodes hex, so query validation refuses this one on its
 # characters rather than on its length.
 NON_HEX_ID = "z" * 24
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives each control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
-# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
-UNANSWERED_DEADLINE_S = 0.001
 
 # Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
 # the harness's own included.
