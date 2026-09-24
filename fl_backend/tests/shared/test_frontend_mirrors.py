@@ -296,10 +296,10 @@ def test_every_mirror_claim_governs_a_constant_the_register_reads():
 
 
 def test_every_mention_of_the_source_is_read_as_a_comment():
-    """Found in the raw text, independently of the comment scanner every case above reads through.
+    """Raw text against the scanner every case above reads through.
 
-    The scanner models no regular-expression literal and no `${}` in a template, so a comment either
-    swallows reads as code and drops its claim from every listing; this is where that fails.
+    That scanner models no regular-expression literal and no `${}` in a template, and a comment either
+    swallows loses its claim everywhere but here.
     """
 
     def unread(source: str) -> list[int]:
