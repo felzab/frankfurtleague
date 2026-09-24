@@ -1,5 +1,12 @@
 // Linted as src/app/zzplant/page.tsx.
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: facets-server
+export { SPIELER_FACETS } from "@/features/spieler/facets"; // expect: facets-server
+export * from "@/features/spiele/facets"; // expect: facets-server
+
+// A directive inside a function leaves the module a server one.
+export function nested(): void {
+  "use client";
+}
 
 export default function PlantPage() {
   return <div className="flex gap-5">{TEAM_FACETS.length}</div>; // expect: gap

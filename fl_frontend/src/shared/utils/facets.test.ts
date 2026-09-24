@@ -547,7 +547,6 @@ describe("the counts a server-narrowed facet is told", () => {
   });
 });
 
-const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 // Stands in for I13 over the admin views; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 // Separators normalised before it is tested, so the pattern does not have to know the platform's.
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
@@ -555,33 +554,6 @@ const asPosix = (file: string): string => file.split(path.sep).join("/");
 
 /** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
 const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
-
-// Stands in for I13 over the app tree; `docs/frontend/spec.md` §4 records the shapes no check reaches.
-/**
- * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
- * matched: a pattern skipping leading block comments backtracks exponentially (CodeQL `js/redos`).
- */
-function isClientModule(source: string): boolean {
-  let at = 0;
-
-  while (at < source.length) {
-    const zeichen = source[at]!;
-
-    if (zeichen.trim() === "") {
-      at += 1;
-    } else if (zeichen === "/" && source[at + 1] === "/") {
-      const schluss = source.indexOf("\n", at + 2);
-      at = schluss === -1 ? source.length : schluss + 1;
-    } else if (zeichen === "/" && source[at + 1] === "*") {
-      const schluss = source.indexOf("*/", at + 2);
-      // Unterminated, so everything after it is comment and no directive stands outside one.
-      if (schluss === -1) return false;
-      at = schluss + 2;
-    } else break;
-  }
-
-  return source.startsWith('"use client"', at) || source.startsWith("'use client'", at);
-}
 
 /**
  * The exported component's own parameter list. A window taken to the file's first `)` instead stops
@@ -605,24 +577,6 @@ function parameterList(source: string, viewName: string): string {
 }
 
 describe("who may hold a facet", () => {
-  /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
-     (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
-     a digest alone. */
-  it("keeps every facets module out of the server half of the app", () => {
-    const leaks = sourcesUnder(APP_DIR, 50)
-      .filter((file) => !isClientModule(readFileSync(file, "utf8")))
-      // The extension optional: `tsconfig-alias-hook.mjs` resolves both spellings, so a specifier
-      // carrying one is the same import.
-      .filter((file) => /from "[^"]*facets(?:\.tsx?)?"/.test(readFileSync(file, "utf8")))
-      .map((file) => asPosix(path.relative(APP_DIR, file)));
-
-    assert.deepEqual(
-      leaks,
-      [],
-      `these server modules import a facets module, whose \`read\` cannot cross into a client:\n  ${leaks.join("\n  ")}`,
-    );
-  });
-
   /* The same defect arriving as a prop instead of an import: a view that TAKES its facets is handed
      them by whoever renders it, and the admin pages are Server Components. Built inside the view
      from plain data, nothing but data crosses. */

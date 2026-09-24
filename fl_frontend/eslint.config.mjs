@@ -458,7 +458,9 @@ const SOURCE_BANS = [
 const SCOPED_BANS = [
   {
     files: ["src/app/**/*.{ts,tsx}"],
-    selector: 'Program:not(:has(ExpressionStatement[directive="use client"])) ImportDeclaration[source.value=/facets(\\.tsx?)?$/]',
+    // The directive is the module's own prologue alone: one inside a function makes no client module.
+    selector:
+      'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
     message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
   },
   {
