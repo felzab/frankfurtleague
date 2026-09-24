@@ -12,7 +12,6 @@ import functools
 import json
 import posixpath
 import re
-import shutil
 import subprocess
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -20,10 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import REPO_ROOT, base_env, configure, copy_scripts, git, new_root, run_shell, write, write_shell
+from conftest import BASH, REPO_ROOT, base_env, configure, copy_scripts, git, new_root, run_shell, write, write_shell
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 MAPPING: Final = REPO_ROOT / "scripts" / "gate" / "scope_map.sh"
 VERIFY: Final = REPO_ROOT / "scripts" / "gate" / "verify.sh"
 

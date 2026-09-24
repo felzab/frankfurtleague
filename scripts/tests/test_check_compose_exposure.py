@@ -7,22 +7,11 @@ rule rather than either compose file's current wording.
 
 from __future__ import annotations
 
-import importlib
-import sys
-from pathlib import Path
 from typing import Any
 
-SCRIPTS = Path(__file__).resolve().parents[1]
+from conftest import import_scripts
 
-# Withdrawn again, kernel dropped from the cache with it: a `checker_kernel` left cached here
-# would answer another suite's imports and root it at the wrong repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    exposure = importlib.import_module("check_compose_exposure")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_compose_exposure", None)
-    sys.modules.pop("checker_kernel", None)
+[exposure] = import_scripts("check_compose_exposure")
 
 
 def model(**services: dict[str, Any]) -> dict[str, Any]:

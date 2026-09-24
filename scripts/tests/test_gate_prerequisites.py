@@ -11,13 +11,9 @@ Invariants:
 
 from __future__ import annotations
 
-import shutil
 from typing import Final
 
-from conftest import base_env, copy_scripts, new_root, run_shell
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
+from conftest import BASH, base_env, copy_scripts, new_root, run_shell
 
 # One of the four scopes the guard stands above proves it, being one condition over all four; not
 # `--db`, whose Docker guard would refuse ahead of it.

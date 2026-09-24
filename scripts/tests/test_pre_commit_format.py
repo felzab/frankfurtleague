@@ -14,12 +14,10 @@ import subprocess
 from pathlib import Path
 from typing import Final
 
-from conftest import REPO_ROOT, base_env, configure, git, new_root, write, write_shell
+from conftest import BASH, REPO_ROOT, base_env, configure, git, new_root, write, write_shell
 
 HOOK: Final = REPO_ROOT / ".githooks" / "pre-commit"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # The stand-in's one rewrite, and the marker it refuses as prettier refuses a file that will not
 # parse, with its exit 2.

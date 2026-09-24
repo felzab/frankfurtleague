@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 from typing import Final
 
-from conftest import declared, lift_function, run_shell, write_shell
+from conftest import BASH, declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 SELFCHECK: Final = SCRIPTS / "gate" / "selfcheck.sh"
@@ -27,8 +27,6 @@ CHECKER: Final = SCRIPTS / "checks" / "docs_gate" / "checks.py"
 # reader that arms on one has moved to.
 AWK_PATTERN_RE: Final = re.compile(r"/(\^[^/\n]*)/")
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # A value rather than a `skipif`: nothing here imports pytest (`scripts/tests/conftest.py`), and
 # without node every row reaches the same arm, so each is read for the line its machine can print.

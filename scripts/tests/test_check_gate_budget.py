@@ -4,36 +4,26 @@
 parsed tables with the clock injected, and `main` over both so the exit contract is the thing
 proven rather than the rules alone. The committed reference is driven too, against a payload cut
 from its own budgets: a table the check cannot read, or cannot fail on, would otherwise ship green.
-
-Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
-as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib
 import io
 import itertools
 import json
 import re
-import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from conftest import import_scripts
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPTS.parent
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_tracked_text.py`.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    budget = importlib.import_module("check_gate_budget")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_gate_budget", None)
-    sys.modules.pop("checker_kernel", None)
+[budget] = import_scripts("check_gate_budget")
 
 TODAY = date(2026, 9, 2)
 STAMP = "24@2026-09-01"

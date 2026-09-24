@@ -12,19 +12,16 @@ to `:: pool_units_replayed` is the guard over a unit nothing replays.
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, declared, lift_function, run_shell, write_shell
+from conftest import BASH, base_env, declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # The step-level pair, which most cases below want. `adopt_finished` and `pool_wait` are asked for
 # by name instead, the first sitting inside the block that runs only outside a worker.

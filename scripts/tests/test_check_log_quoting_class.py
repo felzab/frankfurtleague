@@ -6,31 +6,19 @@ comparison against the three answers it owes -- a pair that agrees, one that dri
 class it could not expand at all.
 
 The real pair is driven too, so a drift in either file fails here and not only at the gate.
-
-`scripts/checks/` is put on the path here because the module under test is run as a script
-everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib
 import sys
 from pathlib import Path
 
-from conftest import details, severities, withdraw, write
+from conftest import details, import_scripts, severities, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn at module import, kernel dropped from the cache with it: `test_check_docs.py` runs the
-# gate from a throwaway copy of scripts/, and a `checker_kernel` cached here would answer its
-# imports and root every check at the wrong repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    quoting = importlib.import_module("check_log_quoting_class")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    withdraw("check_log_quoting_class", "checker_kernel")
+[quoting] = import_scripts("check_log_quoting_class")
 
 # The class both packages spell today, as the source text of either literal carries it. Written as
 # escapes here for the reason the two literals are: every character in it is invisible.

@@ -6,32 +6,19 @@ that cannot fire and a rule that always fires are both green here.
 The rules run against a corpus this file writes, so they pin the mechanism rather than whatever
 `fl_backend/tests/` happens to hold. `main` is driven separately, as a process, the exit contract
 being the half a rule test cannot reach.
-
-Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
-as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
-import importlib
 import subprocess
 import sys
 from pathlib import Path
 
-from conftest import REPO_ROOT, copy_scripts, new_root, write
+from conftest import REPO_ROOT, copy_scripts, import_scripts, new_root, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_public_routes.py`:
-# a `checker_kernel` left cached here would answer another suite's imports and root it at the wrong
-# repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    estate = importlib.import_module("check_test_estate")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_test_estate", None)
-    sys.modules.pop("checker_kernel", None)
+[estate] = import_scripts("check_test_estate")
 
 # No fixture at all: one a case never takes would be a second, unrelated finding.
 PLAIN_CONFTEST = "import pytest\n"

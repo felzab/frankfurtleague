@@ -156,7 +156,6 @@ PUBLISHED_LINES: Final[tuple[str, ...]] = (
 PUBLISHED_TEXT: Final = "\n".join(PUBLISHED_LINES)
 # A docstring of the same length under the same decorator, which the document does not publish.
 UNPUBLISHED_LINES: Final[tuple[str, ...]] = (PUBLISHED_LINES[0].replace("Read the", "Write the"), *PUBLISHED_LINES[1:])
-UNPUBLISHED_TEXT: Final = "\n".join(UNPUBLISHED_LINES)
 # A bulleted clause short enough that six of them keep the bound on words and break it on markers.
 BULLET_TEXT: Final = "a bulleted clause charging no word"
 BULLET_ITEMS: Final = 6

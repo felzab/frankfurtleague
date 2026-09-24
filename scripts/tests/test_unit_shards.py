@@ -12,16 +12,12 @@ from __future__ import annotations
 
 import functools
 import re
-import shutil
 from pathlib import Path
 from typing import Final
 
-from conftest import REPO_ROOT, base_env, copy_scripts, new_root, run_shell
+from conftest import BASH, REPO_ROOT, base_env, copy_scripts, new_root, run_shell
 from test_check_gate_budget import AXIS_RE, MATRIX_RE, job_bodies
 from test_gate_prerequisites import PAST_THE_GUARD
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 WORKFLOW: Final = REPO_ROOT / ".github" / "workflows" / "verify.yml"
 SHARD_JOB: Final = "frontend-units"

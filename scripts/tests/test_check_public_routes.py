@@ -7,31 +7,19 @@ read the repository are what tie the mechanism to the tree it guards.
 
 The refusals are driven for the same reason: a construct the reader cannot place has to end the run
 at `EXIT_REFUSED`, and one it quietly skips reads as coverage.
-
-`scripts/checks/` is put on the path here because the module under test is run as a script
-everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
-import importlib
 import re
 import sys
 from pathlib import Path
 
-from conftest import details, new_root, severities, withdraw, write
+from conftest import details, import_scripts, new_root, severities, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from
-# a throwaway copy of scripts/, and a `checker_kernel` cached here would answer its imports and
-# root every check at the wrong repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    routes = importlib.import_module("check_public_routes")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    withdraw("check_public_routes", "checker_kernel")
+[routes] = import_scripts("check_public_routes")
 
 SOURCE = "fixture.conf"
 HANDLER = "export const POST = () => new Response();\n"

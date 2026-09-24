@@ -14,20 +14,17 @@ about a single claim, so the cases below drive that window from both ends.
 from __future__ import annotations
 
 import re
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, lift_function, run_shell, write_shell
+from conftest import BASH, base_env, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 CLAIM: Final[tuple[str, ...]] = ("pid_alive", "take_db_run", "refuse_to_the_holder", "claim_db_run")
 RECLAIM: Final[tuple[str, ...]] = (*CLAIM, "gate_exit")

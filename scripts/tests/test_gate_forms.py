@@ -23,11 +23,8 @@ from functools import cache
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, configure, copy_scripts, git, new_root, run_shell, write_shell
+from conftest import BASH, base_env, configure, copy_scripts, git, new_root, run_shell, write_shell
 from test_gate_prerequisites import PAST_THE_GUARD
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # `--frontend` alone selects three scopes -- it implies `--format` and `--frontend-units` -- and
 # every tool those scopes run is `pnpm`, so one stub covers them and no daemon, virtualenv or

@@ -8,20 +8,15 @@ an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 from __future__ import annotations
 
 import ast
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, run_shell, write_shell
+from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
-
-# Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
-# the gate at all, and a contract silently skipped is what this file exists to stop.
-BASH: Final = shutil.which("bash")
 
 
 @dataclass(frozen=True)

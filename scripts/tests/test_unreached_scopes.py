@@ -8,19 +8,15 @@ absence this guards against is one no comparison of literals can see.
 from __future__ import annotations
 
 import re
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, run_shell, write_shell
+from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 
 def _run(body: tuple[str, ...], env_extra: dict[str, str] | None = None) -> tuple[int, str]:

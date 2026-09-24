@@ -6,32 +6,20 @@ finding of the checker it drives, and the suite would fail on its own source.
 
 `main` is exercised as well as the rules, the exit contract being the half a rule test cannot
 reach: a checker answering 0 where it found something is the failure this one exists to prevent.
-
-Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
-as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib
 import io
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
+from conftest import import_scripts
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_public_routes.py`:
-# a `checker_kernel` left cached here would answer another suite's imports and root it at the wrong
-# repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    markers = importlib.import_module("check_tracked_text")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_tracked_text", None)
-    sys.modules.pop("checker_kernel", None)
+[markers] = import_scripts("check_tracked_text")
 
 OPENER = "<" * 7
 SEPARATOR = "=" * 7

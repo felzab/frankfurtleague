@@ -20,15 +20,13 @@ import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, configure, copy_scripts, lift_function, new_root, run_shell, write, write_shell
+from conftest import BASH, base_env, configure, copy_scripts, lift_function, new_root, run_shell, write, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 HOOK: Final = REPO_ROOT / ".githooks" / "commit-msg"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # One stub per shape a real interpreter answers with, the pair either side of the floor being the
 # whole comparison.

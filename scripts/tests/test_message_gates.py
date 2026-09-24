@@ -8,7 +8,6 @@ every reporting site in either checker to a case that reaches it rather than cou
 from __future__ import annotations
 
 import ast
-import importlib
 import os
 import subprocess
 import sys
@@ -19,21 +18,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
-from conftest import write
+from conftest import import_scripts, write
 
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
-# Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from a
-# throwaway copy of scripts/, and a `checker_kernel` cached here would root its checks here too.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    commits = importlib.import_module("check_commits")
-    body_gate = importlib.import_module("check_pr_body")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_commits", None)
-    sys.modules.pop("check_pr_body", None)
-    sys.modules.pop("checker_kernel", None)
+commits, body_gate = import_scripts("check_commits", "check_pr_body")
 
 # Built rather than typed, so no byte of this file is one: the ban's own finding quotes the subject
 # it found the character in.

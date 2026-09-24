@@ -5,12 +5,17 @@ Every gate-facing suite builds its throwaway `scripts/` through
 other module in this directory measures. It has no module of its own to answer to, which is why its
 cases live here rather than beside a subject they happen to share a fixture with: a builder that
 silently stops copying an uncommitted checker leaves every suite green over a copy missing exactly
-the file a branch is adding.
+the file a branch is adding. `scripts/tests/conftest.py :: import_scripts`, the other half of how a
+suite reaches a checker, answers here for the same reason.
 """
 
 from __future__ import annotations
 
-from conftest import configure, copy_scripts, git, new_root, write
+import sys
+from pathlib import Path
+from types import ModuleType
+
+from conftest import REPO_ROOT, configure, copy_scripts, git, import_scripts, new_root, write
 
 
 def test_the_fixture_builder_copies_what_git_does_not_ignore_and_leaves_the_rest() -> None:
@@ -83,3 +88,20 @@ def test_the_fixture_builder_copies_a_tracked_file_whose_name_opens_with_a_space
     copy_scripts(copy, source=source)
     assert (copy / " leading.py").is_file(), "the space opening a tracked name was lost before the copy"
     assert (copy / "gate" / "demo.sh").is_file(), "the copy dropped the whole listing rather than its head"
+
+
+def test_the_import_helper_hands_the_checker_this_repository_s_kernel_and_caches_none() -> None:
+    """A kernel another fixture left cached would root the checker at that fixture's tree.
+
+    The stand-in answers every name, so an import reaching it succeeds and only the root tells the two apart.
+    """
+    stand_in = ModuleType("checker_kernel")
+    vars(stand_in)["__getattr__"] = lambda name: Path("stand-in")
+    sys.modules["checker_kernel"] = stand_in
+    try:
+        [checker] = import_scripts("check_tracked_text")
+        assert vars(checker)["REPO_ROOT"] == REPO_ROOT, "the checker was handed the kernel already cached"
+        assert "checker_kernel" not in sys.modules, "the kernel stayed cached for the next fixture to be handed"
+    finally:
+        if sys.modules.get("checker_kernel") is stand_in:
+            del sys.modules["checker_kernel"]

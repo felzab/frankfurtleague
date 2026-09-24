@@ -11,27 +11,16 @@ Invariants:
 
 from __future__ import annotations
 
-import importlib
 import io
 import sys
 from pathlib import Path
 from typing import Final
 
-from conftest import withdraw
+from conftest import import_scripts
 
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
-# Both directories, and both modules withdrawn again with the kernel behind them: a `checker_kernel`
-# left cached here answers another suite's imports and roots that suite at the wrong repository.
-sys.path.insert(0, str(SCRIPTS / "lib"))
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    kernel = importlib.import_module("checker_kernel")
-    markers = importlib.import_module("check_tracked_text")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.path.remove(str(SCRIPTS / "lib"))
-    withdraw("check_tracked_text", "checker_kernel")
+kernel, markers = import_scripts("checker_kernel", "check_tracked_text", directories=("lib", "checks"))
 
 OPENER: Final = "<" * 7
 

@@ -1051,6 +1051,8 @@ def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = new_root("check-docs-fixture-")
     copy_scripts(root / SCRIPTS_COPY)
+    # `scripts/tests/conftest.py :: import_scripts`'s sequence, apart because it must differ: the
+    # copy's path entry stays for the run, `_module` importing the gate's other modules from it later.
     sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
     withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
     gate = importlib.import_module("check_docs")

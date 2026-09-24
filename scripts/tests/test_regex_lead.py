@@ -7,24 +7,14 @@ comment after it on the same line. Each case lexes a module through the real rea
 
 from __future__ import annotations
 
-import importlib
-import sys
 from pathlib import Path
 from typing import Final
 
-from conftest import withdraw
+from conftest import import_scripts
 
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
-# Withdrawn on both sides of the import: `test_check_docs.py` imports a copy of this package under
-# the same names.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-withdraw("docs_gate", "checker_kernel")
-try:
-    kernel = importlib.import_module("docs_gate.kernel")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    withdraw("docs_gate", "checker_kernel")
+[kernel] = import_scripts("docs_gate.kernel")
 
 TYPESCRIPT: Final = ".ts"
 COMMENT: Final = "// The comment below the literal."

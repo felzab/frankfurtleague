@@ -11,20 +11,17 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, run_shell, write_shell
+from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 CASE_VAR: Final = "FL_IMAGE_CASE"
 
