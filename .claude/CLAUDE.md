@@ -77,8 +77,10 @@ owner's.
 
 ### The gate
 
-Before every push, run `./scripts/gate/verify.sh` with no flags, which runs every scope; a run
-naming its scopes is for iterating, and no push rests on one.
+**Before calling a pull request ready to merge, run `./scripts/gate/verify.sh` with no flags**, which
+runs every scope, over the tree its last push carries, and fix every finding until it exits 0; a
+run naming its scopes is for iterating. A push before then needs no gate run: the pull request's
+CI runs on every push.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never

@@ -80,9 +80,9 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
    table has landed. Remove a landed one and delete its branch, which is your routine work and
    never the owner's question ([register-template.md](register-template.md)).
-6. **Push once per wave, and run no gate for it** (item 4, §7). The local stack runs in your
-   checkout, which holds landed work only, so it never waits for the fleet (§4), and it still holds
-   port 3000 against the next build.
+6. **Push once per wave; the bare gate is the ending's** (item 4, §7, CLAUDE.md §2). The local
+   stack runs in your checkout, which holds landed work only, so it never waits for the fleet (§4),
+   and it still holds port 3000 against the next build.
 
 ## 7. Ending the session
 
