@@ -3,11 +3,11 @@
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 
-import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
+import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
-import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 
 import type { FLTeam } from "../../schemas";
 
@@ -15,7 +15,7 @@ import type { FLTeam } from "../../schemas";
  * **Never `variant`/`color` on a Chip here**: those resolve against HeroUI's own theme tokens, which
  * this app maps none of, so the chip renders in HeroUI's stock palette rather than this one's.
  */
-const STAT_CHIP_CLASSES = `${PILL_RADIUS} ${PILL_TINT.success}`;
+const STAT_CHIP_CLASSES = `${PILL_RADIUS_CLASSES} ${PILL_TINT_CLASSES.success}`;
 
 /** `value` rather than a precomputed number, so each row stays one declaration. */
 const STAT_CHIPS: { label: string; value: (team: FLTeam) => number }[] = [
@@ -38,12 +38,12 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
               to `Card.Title` (`.claude/rules/frontend.md`). */}
           <Card.Title<"h2">
             render={({ children, ...props }) => <h2 {...props}>{children}</h2>}
-            className={`fluid-base font-bold ${NAME_WRAP}`}>
+            className={`fluid-base font-bold ${NAME_WRAP_CLASSES}`}>
             {teamData.name}
           </Card.Title>
           <Card.Description className="fluid-xxs text-foreground-muted font-medium">{teamData.address.stadtteil}</Card.Description>
         </div>
-        <div className={`${DISPLAY_HEADING} ${BRAND_TILE}`}>{teamData.shorthand}</div>
+        <div className={`${DISPLAY_HEADING_CLASSES} ${BRAND_TILE_CLASSES}`}>{teamData.shorthand}</div>
       </Card.Header>
 
       <Card.Content className="mt-2 p-0">

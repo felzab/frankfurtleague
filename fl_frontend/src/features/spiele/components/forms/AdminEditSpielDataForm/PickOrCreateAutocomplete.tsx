@@ -13,7 +13,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { dismissControl } from "@/core/dismissControl";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { ExpectedMarker } from "./ExpectedMarker";
@@ -99,7 +99,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           extraMarker={<ExpectedMarker path={fieldPath} />}>
           {label}
         </FieldLabel>
-        <Autocomplete.Trigger className={FIELD_TRIGGER}>
+        <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
           <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
               truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`

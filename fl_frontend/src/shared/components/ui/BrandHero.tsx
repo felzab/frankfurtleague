@@ -1,4 +1,4 @@
-import { DISPLAY_HEADING, WORDMARK } from "./displayType";
+import { DISPLAY_HEADING_CLASSES, WORDMARK_CLASSES } from "./displayType";
 import { FLLogo } from "./FLLogo";
 
 /**
@@ -14,10 +14,10 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
         {/* `aria-hidden` because the navbar's wordmark is the link a reader is given the name by. */}
         <span
           aria-hidden="true"
-          className={`${WORDMARK} fluid-sm text-brand-solid-accent`}>
+          className={`${WORDMARK_CLASSES} fluid-sm text-brand-solid-accent`}>
           Frankfurt League
         </span>
-        <h1 className={`${DISPLAY_HEADING} fluid-4xl text-balance`}>{title}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-4xl text-balance`}>{title}</h1>
         <p className="fluid-lg text-brand-solid-foreground/85 max-w-2xl font-medium text-pretty">{lead}</p>
       </div>
 
@@ -28,7 +28,7 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
 }
 
 // Shared by both ends, so one scale governs the drawing: a marking is the same size at either edge.
-const PITCH_LINE = "pointer-events-none absolute top-0 h-full w-auto";
+const PITCH_LINE_CLASSES = "pointer-events-none absolute top-0 h-full w-auto";
 
 /**
  * The two ends of one half pitch, each pinned to the block's own edge: the block is far wider than
@@ -47,7 +47,7 @@ function PitchTrace() {
         stroke="currentColor"
         strokeOpacity={0.13}
         strokeWidth={2}
-        className={`${PITCH_LINE} left-0 max-w-[38%]`}>
+        className={`${PITCH_LINE_CLASSES} left-0 max-w-[38%]`}>
         {/* `non-scaling-stroke` on every stroked shape, because the drawing is sized off the block:
             without it the stroke thickens with the hero's height instead of staying a drawn line. */}
         <circle
@@ -76,7 +76,7 @@ function PitchTrace() {
         stroke="currentColor"
         strokeOpacity={0.13}
         strokeWidth={2}
-        className={`${PITCH_LINE} right-0 max-w-[62%]`}>
+        className={`${PITCH_LINE_CLASSES} right-0 max-w-[62%]`}>
         <path
           d="M0 -20.16H-16.5V20.16H0"
           vectorEffect="non-scaling-stroke"

@@ -5,7 +5,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextField } from "@heroui/react/textfield";
 
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import {
   ADDRESS_HAUSNUMMER_MAX_LENGTH,
   ADDRESS_STADT_MAX_LENGTH,
@@ -76,9 +76,9 @@ export function AddressFields({
           maxLength={ADDRESS_STRASSE_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="min-w-0 flex-2">
-          {renderLabel ? renderLabel(`${namePrefix}.strasse`, "Straße") : <Label className={FIELD_LABEL}>Straße</Label>}
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
+          {renderLabel ? renderLabel(`${namePrefix}.strasse`, "Straße") : <Label className={FIELD_LABEL_CLASSES}>Straße</Label>}
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
         </TextField>
         {/* `HAUSNUMMER_REGEX` is spelled with `*` rather than `+`, so an empty number passes: a sports
             ground can genuinely lack one. Marking this field required promises a refusal no schema
@@ -92,9 +92,9 @@ export function AddressFields({
           maxLength={ADDRESS_HAUSNUMMER_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
           className="min-w-0 flex-1">
-          {renderLabel ? renderLabel(`${namePrefix}.hausnummer`, "Nr.") : <Label className={FIELD_LABEL}>Nr.</Label>}
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
+          {renderLabel ? renderLabel(`${namePrefix}.hausnummer`, "Nr.") : <Label className={FIELD_LABEL_CLASSES}>Nr.</Label>}
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
         </TextField>
       </div>
 
@@ -108,9 +108,9 @@ export function AddressFields({
           onBlur={() => onFieldLeft?.([`${namePrefix}.plz`])}
           isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
           className="min-w-0 flex-1">
-          {renderLabel ? renderLabel(`${namePrefix}.plz`, "PLZ") : <Label className={FIELD_LABEL}>PLZ</Label>}
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.plz`]}</FieldError>
+          {renderLabel ? renderLabel(`${namePrefix}.plz`, "PLZ") : <Label className={FIELD_LABEL_CLASSES}>PLZ</Label>}
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.plz`]}</FieldError>
         </TextField>
         <TextField
           isRequired
@@ -122,9 +122,9 @@ export function AddressFields({
           maxLength={ADDRESS_STADT_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="min-w-0 flex-2">
-          {renderLabel ? renderLabel(`${namePrefix}.stadt`, "Stadt") : <Label className={FIELD_LABEL}>Stadt</Label>}
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
+          {renderLabel ? renderLabel(`${namePrefix}.stadt`, "Stadt") : <Label className={FIELD_LABEL_CLASSES}>Stadt</Label>}
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
         </TextField>
       </div>
 
@@ -137,12 +137,12 @@ export function AddressFields({
         onBlur={() => onFieldLeft?.([`${namePrefix}.stadtteil`])}
         maxLength={ADDRESS_STADTTEIL_MAX_LENGTH}
         isInvalid={errors?.[`${namePrefix}.stadtteil`] ? true : undefined}>
-        {renderLabel ? renderLabel(`${namePrefix}.stadtteil`, "Stadtteil") : <Label className={FIELD_LABEL}>Stadtteil</Label>}
+        {renderLabel ? renderLabel(`${namePrefix}.stadtteil`, "Stadtteil") : <Label className={FIELD_LABEL_CLASSES}>Stadtteil</Label>}
         <Input
           placeholder="z.B. Nordend"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadtteil`]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.stadtteil`]}</FieldError>
       </TextField>
     </div>
   );

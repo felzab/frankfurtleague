@@ -45,7 +45,7 @@ beforeEach(() => {
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
  registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
-const { Form } = await import("@heroui/react/form");
+const { Form } = await import("@/shared/components/ui/Form.tsx");
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
@@ -61,7 +61,7 @@ const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
-const { FIELD_ERROR, FIELD_ERROR_SWITCH } = await import("@/shared/components/ui/formFieldStyles.ts");
+const { FIELD_ERROR_CLASSES, FIELD_ERROR_SWITCH_CLASSES } = await import("@/shared/components/ui/formFieldStyles.ts");
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
@@ -596,22 +596,22 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
      form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {
     const section = h(FormEinwilligungSection, { erteilt: false, onErteiltPicked: () => undefined });
-    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { validationBehavior: "aria" }, section)))?.[1];
+    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, null, section)))?.[1];
     assert.ok(name !== undefined, "the Kenntnisnahme switch renders no named control, so no refusal can reach it");
 
-    const refused = renderTree(h(Form, { validationBehavior: "aria", validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }, section));
+    const refused = renderTree(h(Form, { validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }, section));
     const message = /<\w+\b([^>]*\bdata-slot="field-error"[^>]*)>Bestätige die Kenntnisnahme\.</.exec(refused)?.[1];
     assert.ok(message !== undefined, "a refusal handed to the switch's name renders no message under it");
 
     const wornClasses = (/\bclass="([^"]*)"/.exec(message)?.[1] ?? "").split(/\s+/);
-    for (const token of FIELD_ERROR_SWITCH.split(/\s+/)) {
+    for (const token of FIELD_ERROR_SWITCH_CLASSES.split(/\s+/)) {
       assert.ok(
         wornClasses.includes(token),
         `the switch's message wears a text field's recipe: ${token} is missing from ${wornClasses.join(" ")}`,
       );
     }
-    assert.ok(FIELD_ERROR_SWITCH.startsWith(FIELD_ERROR), "the switch recipe is no longer the field recipe with a start added");
-    assert.match(FIELD_ERROR_SWITCH, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
+    assert.ok(FIELD_ERROR_SWITCH_CLASSES.startsWith(FIELD_ERROR_CLASSES), "the switch recipe is no longer the field recipe with a start added");
+    assert.match(FIELD_ERROR_SWITCH_CLASSES, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
   });
 });
 

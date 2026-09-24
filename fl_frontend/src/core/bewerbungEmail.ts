@@ -5,18 +5,18 @@ import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
-  BRAND_CLASS,
   BRAND_COLOR,
+  BRAND_MAIL_CLASS,
   BRAND_NAME,
   brandPhrase,
   escapeHtml,
   escapeHtmlLines,
-  HEAD_CLASS,
+  HEAD_MAIL_CLASS,
   HEADING_COLOR,
   LABEL_TEXT,
   link,
   mailOrigin,
-  PANEL_CLASS,
+  PANEL_MAIL_CLASS,
   paragraph,
   renderKarte,
   RULE_COLOR,
@@ -24,8 +24,8 @@ import {
   stuffSignatureDelimiter,
   SURFACE_COLOR,
   TABLE_ATTRS,
-  TEXT_CLASS,
   TEXT_COLOR,
+  TEXT_MAIL_CLASS,
   textFooter,
 } from "./emailShell";
 import { joinUnd } from "./joinUnd";
@@ -233,13 +233,13 @@ function faktZeile(fakt: Fakt, oben: number, unten: number): string {
   /* Its own full-width pair of rows, and its value left OUT of the value column: a thousand
      characters in the 35% that is left would set one or two words to the line. */
   if (fakt.gestapelt === true) {
-    return `<tr><td colspan="2" class="${TEXT_CLASS}" style="padding:${oben}px 18px 2px;${labelStil}">${label}:</td></tr>
-                        <tr><td colspan="2" class="${HEAD_CLASS}" style="padding:0 18px ${unten}px;${LABEL_TEXT}color:${HEADING_COLOR};">${escapeHtmlLines(fakt.value)}</td></tr>`;
+    return `<tr><td colspan="2" class="${TEXT_MAIL_CLASS}" style="padding:${oben}px 18px 2px;${labelStil}">${label}:</td></tr>
+                        <tr><td colspan="2" class="${HEAD_MAIL_CLASS}" style="padding:0 18px ${unten}px;${LABEL_TEXT}color:${HEADING_COLOR};">${escapeHtmlLines(fakt.value)}</td></tr>`;
   }
 
   return `<tr>
-                          <td width="35%" valign="top" class="${TEXT_CLASS}" style="padding:${oben}px 12px ${unten}px 18px;${labelStil}">${label}:</td>
-                          <td valign="top" class="${akzent ? BRAND_CLASS : HEAD_CLASS}" style="padding:${oben}px 18px ${unten}px 0;${LABEL_TEXT}color:${akzent ? BRAND_COLOR : HEADING_COLOR};font-weight:700;">${escapeHtml(fakt.value)}</td>
+                          <td width="35%" valign="top" class="${TEXT_MAIL_CLASS}" style="padding:${oben}px 12px ${unten}px 18px;${labelStil}">${label}:</td>
+                          <td valign="top" class="${akzent ? BRAND_MAIL_CLASS : HEAD_MAIL_CLASS}" style="padding:${oben}px 18px ${unten}px 0;${LABEL_TEXT}color:${akzent ? BRAND_COLOR : HEADING_COLOR};font-weight:700;">${escapeHtml(fakt.value)}</td>
                         </tr>`;
 }
 
@@ -254,7 +254,7 @@ function renderFakten(fakten: readonly Fakt[]): string {
   return `<table ${TABLE_ATTRS} width="100%">
                   <tr>
                     <td style="padding:0 0 20px;">
-                      <table ${TABLE_ATTRS} width="100%" class="${PANEL_CLASS}" style="background-color:${SURFACE_COLOR};border:1px solid ${RULE_COLOR};border-radius:8px;">
+                      <table ${TABLE_ATTRS} width="100%" class="${PANEL_MAIL_CLASS}" style="background-color:${SURFACE_COLOR};border:1px solid ${RULE_COLOR};border-radius:8px;">
                         ${zeilen.join("\n                        ")}
                       </table>
                     </td>

@@ -12,7 +12,6 @@ import PersonPlus from "@gravity-ui/icons/PersonPlus";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextField } from "@heroui/react/textfield";
@@ -30,13 +29,14 @@ import {
 } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
@@ -55,7 +55,7 @@ import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
  * One height for every chip on this readout and for the control beside them, so a row carrying a
  * button does not stand taller than the rows that do not. `formButton`'s `xs` step is the other half.
  */
-const STRIP_CHIP = "h-7 shrink-0";
+const STRIP_CHIP_CLASSES = "h-7 shrink-0";
 
 /** Named rather than muted: a grey chip on a coloured row reads as disabled (my rule, 2026-09-04). */
 const ROLLEN_TINT: PillTone = "info";
@@ -175,7 +175,8 @@ export function BewerbungBestaetigungStrip({
             title="Bestätigungen"
           />
           <span className="shrink-0">
-            <span className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP}`}>
+            <span
+              className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP_CLASSES}`}>
               {String(bestaetigt)} von {String(staende.length)} bestätigt
             </span>
           </span>
@@ -264,8 +265,8 @@ function SitzZeile({
   return (
     <div className="flex w-full flex-col gap-y-2">
       <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
-        <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP}`}>{sitz.label}</span>
-        {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP}`}>Zugleich Trainer</span>}
+        <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP_CLASSES}`}>{sitz.label}</span>
+        {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
 
         <span className="fluid-sm text-foreground min-w-0 font-medium">
           {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
@@ -300,7 +301,7 @@ function SitzZeile({
           </IconTooltip>
         )}
 
-        <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP} ml-auto gap-x-1`}>
+        <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP_CLASSES} ml-auto gap-x-1`}>
           <Glyph
             className="size-3.5"
             aria-hidden="true"
@@ -310,7 +311,7 @@ function SitzZeile({
 
         {/* Between the seat's own state and the re-send, so a refused delivery reads next to the link
             it refused rather than next to the person. */}
-        {zustellung !== null && <span className={`${labelBadge(zustellung.tone)} ${STRIP_CHIP}`}>{zustellung.label}</span>}
+        {zustellung !== null && <span className={`${labelBadge(zustellung.tone)} ${STRIP_CHIP_CLASSES}`}>{zustellung.label}</span>}
 
         {/* In the right-hand cluster where the re-send stands, never beside the name: what it offers
             is a fresh link for this seat, and the two are never offered at once. */}
@@ -477,7 +478,6 @@ function AdresseKorrigieren({
   return (
     <Form
       ref={formRef}
-      validationBehavior="aria"
       validationErrors={fieldErrors}
       onSubmit={runOnSubmit(() => {
         // The pending button is not the whole guard: `Enter` in the field submits too, and a second
@@ -486,7 +486,7 @@ function AdresseKorrigieren({
 
         guardSubmit({ korrektur: payload }, () => void schreibe());
       })}
-      className={`${PANEL_REVEAL} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
       <TextField
         isRequired
         type="email"
@@ -499,12 +499,12 @@ function AdresseKorrigieren({
         className="w-full sm:max-w-md">
         {/* Not the form's „E-Mail“: the row above still shows the stored address, so the reader sees
             old over new, which is what a correction is. */}
-        <Label className={FIELD_LABEL}>Neue E-Mail-Adresse</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Neue E-Mail-Adresse</Label>
         <Input
           placeholder="z.B. name@beispiel.de"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
@@ -648,7 +648,6 @@ function SitzNeuBesetzen({
   return (
     <Form
       ref={formRef}
-      validationBehavior="aria"
       validationErrors={fieldErrors}
       onSubmit={runOnSubmit(() => {
         // The pending button is not the whole guard: `Enter` in a field submits too, and a second
@@ -657,7 +656,7 @@ function SitzNeuBesetzen({
 
         guardSubmit({ neubesetzung: payload }, () => void schreibe());
       })}
-      className={`${PANEL_REVEAL} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
       {/* The seat is named here and not on the button: the row above says „Niemand mehr in der
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
@@ -678,7 +677,7 @@ function SitzNeuBesetzen({
         ))}
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isRequired
           name="vorname"
@@ -687,9 +686,9 @@ function SitzNeuBesetzen({
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["vorname"]);
           }}>
-          <Label className={FIELD_LABEL}>Vorname</Label>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
@@ -700,13 +699,13 @@ function SitzNeuBesetzen({
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["nachname"]);
           }}>
-          <Label className={FIELD_LABEL}>Nachname</Label>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isRequired
           type="email"
@@ -716,12 +715,12 @@ function SitzNeuBesetzen({
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["email"]);
           }}>
-          <Label className={FIELD_LABEL}>E-Mail</Label>
+          <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
           <Input
             placeholder="z.B. name@beispiel.de"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
@@ -733,12 +732,12 @@ function SitzNeuBesetzen({
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["telefon"]);
           }}>
-          <Label className={FIELD_LABEL}>Telefon</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
           <Input
             placeholder="z.B. 069 1234567"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 

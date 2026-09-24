@@ -12,7 +12,7 @@ import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT, toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { Form } = await import("@heroui/react/form");
+const { Form } = await import("@/shared/components/ui/Form.tsx");
 const { SchiedsrichterFormFields } = await import("./components/forms/SchiedsrichterFormFields.tsx");
 
 const ENTWURF = { name: "Anna Meier", schule: "", default_payment: 20, kontakt: { email: "anna@beispiel.test", telefon: "" } };
@@ -23,13 +23,7 @@ describe("an address only the API refuses", () => {
   it("is marked on the address box the create form renders, and on no other", () => {
     const result = toActionErrorResult(refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter"));
 
-    render(
-      h(
-        Form,
-        { validationBehavior: "aria", validationErrors: result.fieldErrors },
-        h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined }),
-      ),
-    );
+    render(h(Form, { validationErrors: result.fieldErrors }, h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined })));
 
     const box = screen.getByRole("textbox", { name: "E-Mail" });
     assert.equal(box.getAttribute("aria-invalid"), "true", "the address box is not marked");

@@ -6,7 +6,7 @@ import { Switch } from "@heroui/react/switch";
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -103,7 +103,7 @@ export function FormSonderereignisSection({
             className="w-full">
             <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
 
-            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+            <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
               {/* From the prop rather than `Select.Value`, which resolves its label out of the
                   react-aria collection and shows HeroUI's English placeholder on a render where that
                   collection has not committed — `SaisonSelector`'s reason. */}
@@ -135,7 +135,7 @@ export function FormSonderereignisSection({
               </ListBox>
             </Select.Popover>
 
-            <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+            <FieldError className={FIELD_ERROR_CLASSES}>{status?.error}</FieldError>
           </Select>
         )}
 

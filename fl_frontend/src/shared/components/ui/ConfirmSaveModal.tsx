@@ -9,7 +9,7 @@ import { Button } from "@heroui/react/button";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import { Callout } from "./Callout";
-import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
+import { formButton, MODAL_FOOTER_STACK_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { BlockingBanners } from "./railBanner";
@@ -91,7 +91,7 @@ export function ConfirmSaveModal({
         </div>
 
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
-        <div className={MODAL_FOOTER_STACK}>
+        <div className={MODAL_FOOTER_STACK_CLASSES}>
           {/* Held, never closed: the press that started the save left the keyboard's focus here, and a
               disabled button drops it to the page (`docs/frontend/spec.md` §1.14). */}
           <Button

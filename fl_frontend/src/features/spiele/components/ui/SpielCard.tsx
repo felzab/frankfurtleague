@@ -7,13 +7,13 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
 import { Button } from "@heroui/react/button";
 
-import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
+import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
@@ -79,7 +79,7 @@ export function SpielCard({
                 aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. */
-                className={BRAND_ICON_BUTTON}>
+                className={BRAND_ICON_BUTTON_CLASSES}>
                 <PencilToSquare
                   aria-hidden="true"
                   className="m-0 size-4.5"
@@ -123,7 +123,7 @@ export function SpielCard({
         <SpielScore
           ergebnis={spielErgebnis}
           elfmeterschiessen={spielElfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
         />
 
         <span className="flex min-w-0 justify-start">

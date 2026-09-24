@@ -7,7 +7,7 @@ import { Switch } from "@heroui/react/switch";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -92,19 +92,19 @@ export function FormBewerbungSection({
                     does it: it governs the pair below rather than either field beside it. */}
                 <span
                   id={FRIST_LABEL_ID}
-                  className={FORM_SECTION_HEADING}>
+                  className={FORM_SECTION_HEADING_CLASSES}>
                   Bewerbungsfrist
                 </span>
               </FieldLabel>
               <div
                 role="group"
                 aria-labelledby={FRIST_LABEL_ID}
-                className={FIELD_PAIR}>
+                className={FIELD_PAIR_CLASSES}>
                 <AppDatePicker
                   isRequired
                   name="bewerbung.von"
                   calendarLabel="Beginn der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL}>Beginn</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
                   value={von}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, von: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.von"])}
@@ -114,7 +114,7 @@ export function FormBewerbungSection({
                   isRequired
                   name="bewerbung.bis"
                   calendarLabel="Ende der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL}>Ende</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
                   value={bis}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, bis: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.bis"])}

@@ -8,7 +8,7 @@ import { BewerbungForm } from "@/features/bewerbungen/components/forms/Bewerbung
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
 import { abiJahrgang, fensterZustand } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -67,7 +67,7 @@ export function BewerbungView({
         {/* No dot: the page reads the season's window and never its status, so it cannot say the season is running. */}
         <SaisonChip isLaufend={false}>Saison {saisonId}</SaisonChip>
 
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>
           Mit Deiner Schule <span className="text-brand">mitspielen</span>
         </h1>
 

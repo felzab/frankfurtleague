@@ -7,7 +7,6 @@ import { parseDate } from "@internationalized/date";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Switch } from "@heroui/react/switch";
@@ -18,7 +17,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
 import {
-  ABSATZ,
+  ABSATZ_CLASSES,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
@@ -36,13 +35,20 @@ import {
 import { buildSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+  TOGGLE_GROUP_ALIGN_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -78,10 +84,10 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The contact confirmation's own column, so the league's two consent pages are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
@@ -112,7 +118,7 @@ function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots })
 /** A stamped paragraph in the page's body grade, which every standing sentence here takes. */
 function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
   return (
-    <p className={ABSATZ}>
+    <p className={ABSATZ_CLASSES}>
       <Absatz
         schluessel={schluessel}
         werte={werte}
@@ -128,16 +134,16 @@ function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slo
 function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
         <StandAbsatz
           schluessel="worum"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
         <StandAbsatz
           schluessel="gespeichert"
           werte={werte}
@@ -152,24 +158,24 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was nicht veröffentlicht wird</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht veröffentlicht wird</h3>
         <StandAbsatz
           schluessel="wer"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange Dein Eintrag bleibt</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange Dein Eintrag bleibt</h3>
         <StandAbsatz
           schluessel="frist"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wenn Du etwas zurücknehmen willst</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du etwas zurücknehmen willst</h3>
         <StandAbsatz
           schluessel="widerruf"
           werte={werte}
@@ -192,8 +198,8 @@ function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         {(["klickIdentitaet", "klickEintrag", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
           <li key={schluessel}>
             <Absatz
@@ -344,7 +350,6 @@ function SchiedsrichterFormPanel({
     <Form
       ref={formRef}
       // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
@@ -353,15 +358,15 @@ function SchiedsrichterFormPanel({
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Dein Geburtsdatum</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
           {/* The form's own field grid, so one box on a wide page stands in a column rather than
               stretching the segments across it. */}
-          <div className={FIELD_PAIR}>
+          <div className={FIELD_PAIR_CLASSES}>
             <div className="flex flex-col gap-y-2">
               <AppDatePicker
                 isRequired
                 name="geburtsdatum"
-                label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
+                label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
                 calendarLabel="Geburtsdatum auswählen"
                 value={toCalendarDate(entwurf.geburtsdatum)}
                 onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
@@ -380,7 +385,7 @@ function SchiedsrichterFormPanel({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Auf der Website</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
           {/* Two chips and no default, as the pupil's page and the application form ask a required
               choice: a control resting on an answer records one this person did not give. */}
           <TextField
@@ -388,7 +393,7 @@ function SchiedsrichterFormPanel({
             name="umfang"
             value={entwurf.umfang ?? ""}
             className="w-full">
-            <Label className={FIELD_LABEL}>{SCHIEDSRICHTER_UMFANG_FRAGE}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{SCHIEDSRICHTER_UMFANG_FRAGE}</Label>
             <ToggleButtonGroup
               aria-label={SCHIEDSRICHTER_UMFANG_FRAGE}
               size="sm"
@@ -403,12 +408,12 @@ function SchiedsrichterFormPanel({
                 const option = SCHIEDSRICHTER_UMFANG_OPTIONS.find((candidate) => candidate.value === picked);
                 if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
               }}
-              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
               {SCHIEDSRICHTER_UMFANG_OPTIONS.map((option) => (
                 <ToggleButton
                   key={option.value}
                   id={option.value}
-                  className={OPTION_CHIP}>
+                  className={OPTION_CHIP_CLASSES}>
                   {option.label}
                 </ToggleButton>
               ))}
@@ -417,7 +422,7 @@ function SchiedsrichterFormPanel({
             {/* The field's own value carries the pick, so the refusal lands here rather than beside a
                 group that renders no message of its own. */}
             <Input className="hidden" />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
           <StandAbsatz
             schluessel="veroeffentlichung"
@@ -426,7 +431,7 @@ function SchiedsrichterFormPanel({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
           {/* The paragraph below stands for every age and the switch alone goes: the record's label then
               reproduces the screen whichever of the two its person was shown. */}
           {medienAngeboten && (
@@ -506,9 +511,9 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
   }, [hatGeantwortet]);
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
       </header>
 
       {stand.zustand === "gueltig" && (
@@ -528,7 +533,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke, <Wert>{stand.vorname}</Wert>. Dein Eintrag als Schiedsrichterin oder Schiedsrichter ist bestätigt.
           </p>
           {/* What the press stored and nothing the reader already knows: the three answers they just
@@ -540,11 +545,11 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
               { label: "Fotos, Videos und Interviews", wert: stand.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Du musst nichts weiter tun. Sobald die Verwaltung Dich zu einem Spiel einteilt, erreichen wir Dich unter der Adresse, an die dieser
             Link ging.
           </p>
-          <p className={ABSATZ}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -555,8 +560,8 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -567,11 +572,11 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage, und ein neuer ersetzt
             jeden früheren.
           </p>
-          <p className={ABSATZ}>Dein Eintrag bleibt bestehen. Die Verwaltung schickt Dir auf Wunsch einen neuen Link.</p>
+          <p className={ABSATZ_CLASSES}>Dein Eintrag bleibt bestehen. Die Verwaltung schickt Dir auf Wunsch einen neuen Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -582,7 +587,9 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

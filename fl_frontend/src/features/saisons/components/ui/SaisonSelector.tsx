@@ -7,7 +7,7 @@ import { Description } from "@heroui/react/description";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 
-import { SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import { SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
 import { useMounted } from "@/shared/hooks/useMounted";
@@ -108,7 +108,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
           <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
         </Select.Trigger>
 
-        <Select.Popover className={SELECT_POPOVER}>
+        <Select.Popover className={SELECT_POPOVER_CLASSES}>
           <ListBox aria-label="Verfügbare Saisons">
             {saisons.map((saison) => (
               <ListBox.Item

@@ -41,14 +41,14 @@ const DARK_BRAND_COLOR = "#8dbf6c";
  * Hooks for the one stylesheet. An inline style outranks a rule, so every dark declaration carries
  * `!important` and every element it must reach carries one of these.
  */
-const PAGE_CLASS = "fl-page";
-const CARD_CLASS = "fl-card";
-export const PANEL_CLASS = "fl-panel";
-export const TEXT_CLASS = "fl-text";
-export const HEAD_CLASS = "fl-head";
-export const BRAND_CLASS = "fl-brand";
-const RULE_CLASS = "fl-rule";
-const GHOST_CLASS = "fl-ghost";
+const PAGE_MAIL_CLASS = "fl-page";
+const CARD_MAIL_CLASS = "fl-card";
+export const PANEL_MAIL_CLASS = "fl-panel";
+export const TEXT_MAIL_CLASS = "fl-text";
+export const HEAD_MAIL_CLASS = "fl-head";
+export const BRAND_MAIL_CLASS = "fl-brand";
+const RULE_MAIL_CLASS = "fl-rule";
+const GHOST_MAIL_CLASS = "fl-ghost";
 
 const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const BODY_TEXT = `font-size:15px;line-height:1.6;color:${TEXT_COLOR};`;
@@ -106,14 +106,14 @@ function buttonPadding(umrandet: boolean): string {
  */
 const DARK_STYLE = `<style>
       @media (prefers-color-scheme: dark) {
-        .${PAGE_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; }
-        .${CARD_CLASS} { background-color: ${DARK_CARD_COLOR} !important; }
-        .${PANEL_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; border-color: ${DARK_RULE_COLOR} !important; }
-        .${TEXT_CLASS} { color: ${DARK_TEXT_COLOR} !important; }
-        .${HEAD_CLASS} { color: ${DARK_HEADING_COLOR} !important; }
-        .${BRAND_CLASS} { color: ${DARK_BRAND_COLOR} !important; }
-        .${RULE_CLASS} { border-top-color: ${DARK_RULE_COLOR} !important; }
-        .${GHOST_CLASS} { border-color: ${DARK_RULE_COLOR} !important; }
+        .${PAGE_MAIL_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; }
+        .${CARD_MAIL_CLASS} { background-color: ${DARK_CARD_COLOR} !important; }
+        .${PANEL_MAIL_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; border-color: ${DARK_RULE_COLOR} !important; }
+        .${TEXT_MAIL_CLASS} { color: ${DARK_TEXT_COLOR} !important; }
+        .${HEAD_MAIL_CLASS} { color: ${DARK_HEADING_COLOR} !important; }
+        .${BRAND_MAIL_CLASS} { color: ${DARK_BRAND_COLOR} !important; }
+        .${RULE_MAIL_CLASS} { border-top-color: ${DARK_RULE_COLOR} !important; }
+        .${GHOST_MAIL_CLASS} { border-color: ${DARK_RULE_COLOR} !important; }
       }
       @media (max-width: ${CARD_WIDTH}px) {
         .fl-actions, .fl-actions tbody, .fl-actions tr, .fl-action, .fl-gap {
@@ -139,22 +139,22 @@ export function escapeHtmlLines(value: string): string {
 
 /** A body paragraph. `margin` and `grade` are the caller's: the last one before the controls closes quieter. */
 export function paragraph(inner: string, margin = "0 0 16px", grade = BODY_TEXT): string {
-  return `<p class="${TEXT_CLASS}" style="margin:${margin};${grade}">${inner}</p>`;
+  return `<p class="${TEXT_MAIL_CLASS}" style="margin:${margin};${grade}">${inner}</p>`;
 }
 
 /** The emphasis grade for the one fact a paragraph exists to carry. */
 export function strong(inner: string): string {
-  return `<strong class="${HEAD_CLASS}" style="color:${HEADING_COLOR};">${inner}</strong>`;
+  return `<strong class="${HEAD_MAIL_CLASS}" style="color:${HEADING_COLOR};">${inner}</strong>`;
 }
 
 /** Underlined as well as coloured, because colour alone is not a link to a reader who cannot see it. */
 export function link(href: string, label: string): string {
-  return `<a href="${escapeHtml(href)}" class="${BRAND_CLASS}" style="color:${BRAND_COLOR};text-decoration:underline;">${escapeHtml(label)}</a>`;
+  return `<a href="${escapeHtml(href)}" class="${BRAND_MAIL_CLASS}" style="color:${BRAND_COLOR};text-decoration:underline;">${escapeHtml(label)}</a>`;
 }
 
 /** The brand colour on the phrase a message turns on, wherever it stands. */
 export function brandPhrase(inner: string): string {
-  return `<strong class="${BRAND_CLASS}" style="color:${BRAND_COLOR};">${inner}</strong>`;
+  return `<strong class="${BRAND_MAIL_CLASS}" style="color:${BRAND_COLOR};">${inner}</strong>`;
 }
 
 /** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
@@ -215,8 +215,8 @@ function aktionZelle(aktion: Aktion): string {
      background: `bg-transparent` is what `ctaButton` gives it, and a declared one would need a
      second dark rule to follow the card. */
   if (umrandet) {
-    return `<td align="center" class="fl-action ${GHOST_CLASS}" style="border:1px solid ${RULE_COLOR};border-radius:${BUTTON_RADIUS}px;">
-                      <a href="${escapeHtml(aktion.href)}" class="${HEAD_CLASS}" style="${BUTTON_TEXT}${polster}color:${HEADING_COLOR};">${escapeHtml(aktion.label)}</a>
+    return `<td align="center" class="fl-action ${GHOST_MAIL_CLASS}" style="border:1px solid ${RULE_COLOR};border-radius:${BUTTON_RADIUS}px;">
+                      <a href="${escapeHtml(aktion.href)}" class="${HEAD_MAIL_CLASS}" style="${BUTTON_TEXT}${polster}color:${HEADING_COLOR};">${escapeHtml(aktion.label)}</a>
                     </td>`;
   }
 
@@ -266,31 +266,31 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, orig
     <title>${escapeHtml(titel)}</title>
     ${DARK_STYLE}
   </head>
-  <body class="${PAGE_CLASS}" style="margin:0;padding:0;background-color:${SURFACE_COLOR};">
-    <table ${TABLE_ATTRS} width="100%" class="${PAGE_CLASS}" style="background-color:${SURFACE_COLOR};">
+  <body class="${PAGE_MAIL_CLASS}" style="margin:0;padding:0;background-color:${SURFACE_COLOR};">
+    <table ${TABLE_ATTRS} width="100%" class="${PAGE_MAIL_CLASS}" style="background-color:${SURFACE_COLOR};">
       <tr>
         <td align="center" style="padding:24px 12px;font-family:${FONT_STACK};">
           <!--[if mso]><table ${TABLE_ATTRS} width="${CARD_WIDTH}" align="center"><tr><td><![endif]-->
-          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" class="${CARD_CLASS}" style="max-width:${CARD_WIDTH}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
+          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" class="${CARD_MAIL_CLASS}" style="max-width:${CARD_WIDTH}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
               <td style="padding:32px;font-family:${FONT_STACK};">
-                <p class="${TEXT_CLASS}" style="margin:0 0 8px;${FOOTER_TEXT}letter-spacing:1px;text-transform:uppercase;font-weight:700;">${BRAND_NAME}</p>
-                <h1 class="${HEAD_CLASS}" style="margin:0 0 20px;font-size:22px;line-height:1.3;color:${HEADING_COLOR};font-weight:800;">
+                <p class="${TEXT_MAIL_CLASS}" style="margin:0 0 8px;${FOOTER_TEXT}letter-spacing:1px;text-transform:uppercase;font-weight:700;">${BRAND_NAME}</p>
+                <h1 class="${HEAD_MAIL_CLASS}" style="margin:0 0 20px;font-size:22px;line-height:1.3;color:${HEADING_COLOR};font-weight:800;">
                   ${ueberschrift}
                 </h1>
                 ${bloecke.join("\n                ")}
-                <hr class="${RULE_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0;" />
+                <hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0;" />
                 ${renderAktionen(aktionen)}
-                <hr class="${RULE_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0 16px;" />
-                <p class="${TEXT_CLASS}" style="margin:0;${FOOTER_TEXT}">
+                <hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0 16px;" />
+                <p class="${TEXT_MAIL_CLASS}" style="margin:0;${FOOTER_TEXT}">
                   ${fuss}
                 </p>
-                <p class="${TEXT_CLASS}" style="margin:8px 0 0;${FOOTER_TEXT}">
+                <p class="${TEXT_MAIL_CLASS}" style="margin:8px 0 0;${FOOTER_TEXT}">
                   ${rechtsSeiten(origin)
                     .map(({ label, href }) => link(href, label))
                     .join(" · ")}
                 </p>
-                <p class="${TEXT_CLASS}" style="margin:4px 0 0;${FOOTER_TEXT}">
+                <p class="${TEXT_MAIL_CLASS}" style="margin:4px 0 0;${FOOTER_TEXT}">
                   ${VERANTWORTLICH_HTML}
                 </p>
               </td>

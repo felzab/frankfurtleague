@@ -2,7 +2,7 @@
 
 import { Card } from "@heroui/react/card";
 
-import { PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
 import { ergebnisTone, formatSpielDisplay } from "../../utils";
@@ -75,7 +75,7 @@ export function SpielCardUltraCompact({
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${PILL_TINT[ergebnisTone(spielData)]}`}
+            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${PILL_TINT_CLASSES[ergebnisTone(spielData)]}`}
           />
 
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>

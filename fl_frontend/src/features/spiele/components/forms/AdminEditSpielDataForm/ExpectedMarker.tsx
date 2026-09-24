@@ -2,7 +2,7 @@
 
 import CircleDashed from "@gravity-ui/icons/CircleDashed";
 
-import { FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_MARKER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 
 import { useSpielExpectedField } from "./SpielExpectedContext";
@@ -19,7 +19,7 @@ export function ExpectedMarker({ path }: { path: string }) {
   const blocksScoring = field.expectedSeverity === "scoring";
 
   const trigger = (
-    <span className={`${FIELD_MARKER} ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
+    <span className={`${FIELD_MARKER_CLASSES} ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
       <CircleDashed
         aria-hidden="true"
         className="size-3"

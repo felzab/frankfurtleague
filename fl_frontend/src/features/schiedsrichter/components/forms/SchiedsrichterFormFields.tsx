@@ -6,7 +6,13 @@ import { Label } from "@heroui/react/label";
 import { NumberField } from "@heroui/react/number-field";
 import { TextField } from "@heroui/react/textfield";
 
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { emptyAsNull } from "@/shared/utils/draftStatus";
 import { enteredNumber } from "@/shared/utils/numberField";
 
@@ -37,12 +43,12 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
         // API, and on the input react-aria's field state never sees a value at all.
         isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Name</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["name"]}</FieldError>
       </TextField>
 
       <TextField
@@ -50,12 +56,12 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.schule ?? ""}
         onChange={(next) => onChange({ ...draft, schule: next })}
         isInvalid={errors?.["schule"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Schule / Verein</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Schule / Verein</Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["schule"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["schule"]}</FieldError>
       </TextField>
 
       <TextField
@@ -65,12 +71,12 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.kontakt.email ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: emptyAsNull(next) } })}
         isInvalid={errors?.["kontakt.email"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>E-Mail</Label>
+        <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.email"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["kontakt.email"]}</FieldError>
       </TextField>
 
       <TextField
@@ -79,12 +85,12 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.kontakt.telefon ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}
         isInvalid={errors?.["kontakt.telefon"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Telefon</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.telefon"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["kontakt.telefon"]}</FieldError>
       </TextField>
 
       <NumberField
@@ -101,13 +107,13 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className={FIELD_LABEL}>Standard-Honorar</Label>
-        <NumberField.Group className={FIELD_GROUP}>
+        <Label className={FIELD_LABEL_CLASSES}>Standard-Honorar</Label>
+        <NumberField.Group className={FIELD_GROUP_CLASSES}>
           <NumberField.DecrementButton />
-          <NumberField.Input className={FIELD_COUNT_INPUT} />
+          <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR}>{errors?.["default_payment"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["default_payment"]}</FieldError>
       </NumberField>
     </>
   );

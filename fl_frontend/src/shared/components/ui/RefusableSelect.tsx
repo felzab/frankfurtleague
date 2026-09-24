@@ -4,7 +4,7 @@ import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 
-import { FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
 import { listboxRow, pickIfOffered } from "./refusableOption";
 
@@ -61,8 +61,8 @@ export function RefusableSelect({
       className={`w-full ${className ?? ""}`}>
       {/* HeroUI's own `Label`, not a bare span: it wires `for`/`id` onto the trigger, which an
           `aria-label` alone leaves unlabelled for anything reading the DOM rather than the a11y tree. */}
-      <Label className={FIELD_LABEL}>{label}</Label>
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      <Label className={FIELD_LABEL_CLASSES}>{label}</Label>
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop rather than `Select.Value`, which can lag a render behind and would show
             HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
         <span className={value ? "" : "text-foreground-muted"}>

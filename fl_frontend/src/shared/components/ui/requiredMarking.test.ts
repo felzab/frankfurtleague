@@ -10,7 +10,6 @@ import postcss from "postcss";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextField } from "@heroui/react/textfield";
@@ -21,6 +20,7 @@ import type { FLAddress } from "@/shared/schemas.ts";
 import type { ComponentProps, ReactNode } from "react";
 
 const { AddressFields } = await import("./AddressFields.tsx");
+const { Form } = await import("./Form.tsx");
 
 const NO_ADDRESS: FLAddress = { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" };
 
@@ -38,9 +38,8 @@ function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequi
   return renderToStaticMarkup(
     h(
       Form,
-      // The app's own mode. In `native` these fields would carry a real `required`, which is what
-      // paints the browser's message the moment an edited field is cleared.
-      { validationBehavior: "aria", ...(marksRequired ? MARKS_REQUIRED : {}) } as ComponentProps<typeof Form>,
+      // The app's own form rather than HeroUI's, so the mode the case below pins is the one it sets.
+      (marksRequired ? MARKS_REQUIRED : {}) as ComponentProps<typeof Form>,
       h(TextField, { isRequired: true, name: "strasse" }, label, h(Input, null), h(FieldError, null)),
       h(TextField, { name: "stadtteil" }, h(Label, null, "Stadtteil"), h(Input, null), h(FieldError, null)),
     ),
@@ -105,7 +104,7 @@ describe("what an opt-in required prop actually reaches", () => {
     const html = renderTree(
       h(
         Form,
-        { validationBehavior: "aria" },
+        null,
         h(AddressFields, {
           value: NO_ADDRESS,
           onChange: () => undefined,

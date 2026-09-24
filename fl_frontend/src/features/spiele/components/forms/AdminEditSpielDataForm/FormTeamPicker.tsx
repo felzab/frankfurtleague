@@ -21,7 +21,13 @@ import {
 import { austrittZustand, GRUPPEN_OPTIONS } from "@/features/teams/constants";
 import { labelBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FIELD_TRIGGER_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
@@ -279,7 +285,7 @@ export function FormTeamPicker({
         extraMarker={<ExpectedMarker path={`${fieldName}.team_id`} />}>
         {label}
       </FieldLabel>
-      <Autocomplete.Trigger className={FIELD_TRIGGER}>
+      <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
             `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30 and I61). */}
         <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
@@ -364,7 +370,7 @@ export function FormTeamPicker({
         </Autocomplete.Filter>
       </Autocomplete.Popover>
       {/* No `Description`: the placeholder and the list's first entry already say as much. */}
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </Autocomplete>
   );
 
@@ -389,7 +395,7 @@ export function FormTeamPicker({
           extraMarker={<ExpectedMarker path={`${fieldName}_quelle`} />}>
           {label}: Herkunft
         </FieldLabel>
-        <Autocomplete.Trigger className={FIELD_TRIGGER}>
+        <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
           {/* From `choice`, NOT the collection: `Autocomplete.Value` renders the selected item's
               children verbatim and drops its className, so the chip would reappear here as unstyled
               inline text — and it is about a choice not yet made. */}
@@ -421,12 +427,12 @@ export function FormTeamPicker({
           </ListBox>
         </Autocomplete.Popover>
         {/* No `Description`: the Begegnung panel's `Hint` explains the wiring once. */}
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </Autocomplete>
 
       {/* Rendered per variant, so no box belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {/* Closed rather than dropped: the stored placing is the only readout of what this side is
               wired to, and only a save MOVING the source is refused, so it must come back unchanged.
               The banner below names the way out. */}
@@ -445,8 +451,8 @@ export function FormTeamPicker({
                 platz: blockedKeys.has(`gruppe:${String(key)}:${quelle.platz}`) ? NaN : quelle.platz,
               })
             }>
-            <Label className={FIELD_LABEL}>Gruppe</Label>
-            <Autocomplete.Trigger className={FIELD_TRIGGER}>
+            <Label className={FIELD_LABEL_CLASSES}>Gruppe</Label>
+            <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
               <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
@@ -468,7 +474,7 @@ export function FormTeamPicker({
                 )}
               </ListBox>
             </Autocomplete.Popover>
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </Autocomplete>
 
           {/* Picked, not typed: the group bounds its placings and one another slot seeds stays
@@ -486,8 +492,8 @@ export function FormTeamPicker({
               onQuelleChange(nextQuelle);
               onValidateSelection([`${fieldName}_quelle.platz`], { [`${fieldName}_quelle`]: nextQuelle });
             }}>
-            <Label className={FIELD_LABEL}>Platz</Label>
-            <Autocomplete.Trigger className={FIELD_TRIGGER}>
+            <Label className={FIELD_LABEL_CLASSES}>Platz</Label>
+            <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
               <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
@@ -515,7 +521,7 @@ export function FormTeamPicker({
                   })}
               </ListBox>
             </Autocomplete.Popover>
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </Autocomplete>
         </div>
       )}
@@ -534,8 +540,8 @@ export function FormTeamPicker({
             onQuelleChange(nextQuelle);
             onValidateSelection([`${fieldName}_quelle.spiel_nr`], { [`${fieldName}_quelle`]: nextQuelle });
           }}>
-          <Label className={FIELD_LABEL}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
-          <Autocomplete.Trigger className={FIELD_TRIGGER}>
+          <Label className={FIELD_LABEL_CLASSES}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
+          <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
             {/* From the draft, not the collection: the default render would print the row's
                 chip, which belongs in the LIST only. */}
             <Autocomplete.Value className="fluid-sm min-w-0 truncate">
@@ -567,7 +573,7 @@ export function FormTeamPicker({
             </ListBox>
           </Autocomplete.Popover>
           {/* Why a match is missing lives in the panel's `Hint`, not under every control. */}
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </Autocomplete>
       )}
 
@@ -598,8 +604,8 @@ export function FormTeamPicker({
       ) : (
         /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
         <div className="flex w-full flex-col gap-y-1">
-          <span className={FIELD_LABEL}>{label}</span>
-          <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
+          <span className={FIELD_LABEL_CLASSES}>{label}</span>
+          <div className={`${FIELD_INPUT_CLASSES} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>
           </div>
           {/* The control above is labelled Herkunft, so the note names it rather than the machinery behind it. */}

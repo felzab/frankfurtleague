@@ -7,7 +7,7 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { countBadge, labelBadge, PILL_SOLID, PILL_TINT, trackCountBadge, trackLabelBadge } from "./badges.ts";
+import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge, trackLabelBadge } from "./badges.ts";
 
 import type { FeedbackTone, PillTone } from "./badges.ts";
 
@@ -19,7 +19,7 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const NEUTRAL = "bg-muted text-foreground-muted";
 
 /**
- * Spelled out rather than read off `PILL_SOLID`, which is the record the cases below grade: a list
+ * Spelled out rather than read off `PILL_SOLID_CLASSES`, which is the record the cases below grade: a list
  * derived from it would grade a fifth tone by nothing and a retired one not at all.
  */
 const SOLID_TONES: readonly FeedbackTone[] = ["success", "warning", "danger", "info"];
@@ -38,16 +38,18 @@ const TONES: readonly PillTone[] = [
   "finale",
 ];
 
-/* Test files are OUT: this file's own sample below spells the refused pair beside a `PILL_RADIUS`
+/* Test files are OUT: this file's own sample below spells the refused pair beside a `PILL_RADIUS_CLASSES`
    import, and a sweep reading it would grade its own fixture as production text. */
 const isProduction = (name: string): boolean => (name.endsWith(".ts") || name.endsWith(".tsx")) && !isTestFile(name);
 
-/** A `PILL_RADIUS` binding, whichever specifier reaches this module — the app writes it two ways. */
+/** A `PILL_RADIUS_CLASSES` binding, whichever specifier reaches this module — the app writes it two ways. */
 function composesAPill(node: ts.ImportDeclaration): boolean {
   if (!ts.isStringLiteral(node.moduleSpecifier) || !/badges(\.ts)?$/.test(node.moduleSpecifier.text)) return false;
 
   const bindings = node.importClause?.namedBindings;
-  return bindings !== undefined && ts.isNamedImports(bindings) && bindings.elements.some((element) => element.name.text === "PILL_RADIUS");
+  return (
+    bindings !== undefined && ts.isNamedImports(bindings) && bindings.elements.some((element) => element.name.text === "PILL_RADIUS_CLASSES")
+  );
 }
 
 /**
@@ -78,25 +80,28 @@ const paintsNeutral = (reading: { pill: boolean; written: readonly string[] }): 
 
 /** A pill painted neutral two ways, a pill painted from the set, and two shapes that are not this sweep's. */
 const SAMPLE = {
-  inAToneMap: 'import { PILL_RADIUS } from "@/shared/components/ui/badges";\nconst T = { unbekannt: "bg-muted text-foreground-muted" };',
-  inAClassList: 'import { PILL_RADIUS } from "./badges";\nconst c = <span className={`${PILL_RADIUS} bg-muted text-foreground-muted`} />;',
-  fromTheSet: 'import { PILL_RADIUS } from "@/shared/components/ui/badges";\nconst T = { heute: "bg-info/15 text-info-strong" };',
+  inAToneMap:
+    'import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";\nconst T = { unbekannt: "bg-muted text-foreground-muted" };',
+  inAClassList:
+    'import { PILL_RADIUS_CLASSES } from "./badges";\nconst c = <span className={`${PILL_RADIUS_CLASSES} bg-muted text-foreground-muted`} />;',
+  fromTheSet: 'import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";\nconst T = { heute: "bg-info/15 text-info-strong" };',
   aColumnHeader: 'const H = <th className="bg-muted text-foreground-muted px-6 py-4" />;',
-  namedInAComment: 'import { PILL_RADIUS } from "./badges";\n// Never `bg-muted text-foreground-muted`.\nconst c = PILL_RADIUS;',
+  namedInAComment:
+    'import { PILL_RADIUS_CLASSES } from "./badges";\n// Never `bg-muted text-foreground-muted`.\nconst c = PILL_RADIUS_CLASSES;',
 };
 
 describe("the closed set every pill takes its colour from", () => {
   /* A tone with no fill or no ink paints half a chip, which renders and reports nothing; the neutral
      pair readmitted under a tone name puts it back in the closed set (`docs/frontend/spec.md :: I170`). */
   it("gives every tone a fill and an ink, and none of them the refused pair", () => {
-    assert.deepEqual([...TONES].sort(), Object.keys(PILL_TINT).sort(), "the set and this case's list no longer name the same tones");
+    assert.deepEqual([...TONES].sort(), Object.keys(PILL_TINT_CLASSES).sort(), "the set and this case's list no longer name the same tones");
 
     for (const tone of TONES) {
-      const tokens = PILL_TINT[tone].split(/\s+/);
+      const tokens = PILL_TINT_CLASSES[tone].split(/\s+/);
 
       assert.ok(
         tokens.some((token) => token.startsWith("bg-")) && tokens.some((token) => token.startsWith("text-")),
-        `\`${tone}\` is ${PILL_TINT[tone]}, which paints no chip`,
+        `\`${tone}\` is ${PILL_TINT_CLASSES[tone]}, which paints no chip`,
       );
       assert.ok(!tokens.includes("bg-muted") && !tokens.includes("text-foreground-muted"), `\`${tone}\` is the refused pair under a name`);
     }
@@ -106,7 +111,7 @@ describe("the closed set every pill takes its colour from", () => {
      left off. */
   it("carries the tone's own pair into the pill it composes", () => {
     for (const tone of TONES) {
-      assert.ok(labelBadge(tone).endsWith(PILL_TINT[tone]), `\`${tone}\` composes to ${labelBadge(tone)}, which drops its own pair`);
+      assert.ok(labelBadge(tone).endsWith(PILL_TINT_CLASSES[tone]), `\`${tone}\` composes to ${labelBadge(tone)}, which drops its own pair`);
     }
   });
 
@@ -140,15 +145,19 @@ describe("the closed set every pill takes its colour from", () => {
   /* A solid pair with a fill and no ink, or an ink and no fill, paints half a chip and reports
      nothing, which is what the tinted set is already held to. */
   it("gives every solid tone a fill and its paired on-colour, and none of them the refused pair", () => {
-    assert.deepEqual([...SOLID_TONES].sort(), Object.keys(PILL_SOLID).sort(), "the set and this case's list no longer name the same tones");
+    assert.deepEqual(
+      [...SOLID_TONES].sort(),
+      Object.keys(PILL_SOLID_CLASSES).sort(),
+      "the set and this case's list no longer name the same tones",
+    );
 
     for (const tone of SOLID_TONES) {
-      const tokens = PILL_SOLID[tone].split(/\s+/);
+      const tokens = PILL_SOLID_CLASSES[tone].split(/\s+/);
 
       assert.ok(
         tokens.some((token) => token.endsWith("-solid") && token.startsWith("bg-")) &&
           tokens.some((token) => token.endsWith("-solid-foreground") && token.startsWith("text-")),
-        `\`${tone}\` is ${PILL_SOLID[tone]}, which is not a fill under its on-colour`,
+        `\`${tone}\` is ${PILL_SOLID_CLASSES[tone]}, which is not a fill under its on-colour`,
       );
       assert.ok(!tokens.includes("bg-muted") && !tokens.includes("text-foreground-muted"), `\`${tone}\` is the refused pair under a name`);
     }
@@ -158,10 +167,13 @@ describe("the closed set every pill takes its colour from", () => {
      (`docs/frontend/spec.md :: I229`). */
   it("carries each ground's own pair into the count it composes", () => {
     for (const tone of TONES) {
-      assert.ok(countBadge(tone).endsWith(PILL_TINT[tone]), `\`${tone}\` composes to ${countBadge(tone)}, which drops its own tint`);
+      assert.ok(countBadge(tone).endsWith(PILL_TINT_CLASSES[tone]), `\`${tone}\` composes to ${countBadge(tone)}, which drops its own tint`);
     }
     for (const tone of SOLID_TONES) {
-      assert.ok(trackCountBadge(tone).endsWith(PILL_SOLID[tone]), `\`${tone}\` composes to ${trackCountBadge(tone)}, which drops its own fill`);
+      assert.ok(
+        trackCountBadge(tone).endsWith(PILL_SOLID_CLASSES[tone]),
+        `\`${tone}\` composes to ${trackCountBadge(tone)}, which drops its own fill`,
+      );
     }
   });
 
@@ -169,7 +181,10 @@ describe("the closed set every pill takes its colour from", () => {
      (`docs/frontend/spec.md :: I229`). */
   it("carries the solid ground's own pair into the word it composes", () => {
     for (const tone of SOLID_TONES) {
-      assert.ok(trackLabelBadge(tone).endsWith(PILL_SOLID[tone]), `\`${tone}\` composes to ${trackLabelBadge(tone)}, which drops its own fill`);
+      assert.ok(
+        trackLabelBadge(tone).endsWith(PILL_SOLID_CLASSES[tone]),
+        `\`${tone}\` composes to ${trackLabelBadge(tone)}, which drops its own fill`,
+      );
     }
   });
 });

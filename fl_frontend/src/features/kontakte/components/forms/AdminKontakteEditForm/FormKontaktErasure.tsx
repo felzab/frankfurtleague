@@ -10,7 +10,7 @@ import { settledErasureAnsicht } from "@/features/kontakte/utils";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -117,7 +117,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
   return (
     <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-      <h4 className={FORM_SECTION_HEADING}>Kontaktperson löschen</h4>
+      <h4 className={FORM_SECTION_HEADING_CLASSES}>Kontaktperson löschen</h4>
 
       <p className="muted-hint">
         Löscht <strong>{fullName}</strong> überall, nicht nur hier. Für eine Person, die vergessen werden möchte.

@@ -5,7 +5,7 @@ import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
@@ -66,14 +66,14 @@ export function GruppeSelect({
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>Gruppe</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>Gruppe</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
         <span className={value ? "" : "text-foreground-muted"}>{value ? `Gruppe ${value}` : "Gruppe wählen"}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
         <ListBox aria-label="Verfügbare Gruppen">
           {offer.map(({ gruppe, occupied, capacity }) => {

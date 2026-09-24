@@ -14,7 +14,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -155,7 +155,7 @@ export function AdminBewerbungAnnehmenSection({
               </p>
             )}
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <GruppeSelect
                 value={gruppe}
                 onChange={(next) => {
@@ -181,7 +181,7 @@ export function AdminBewerbungAnnehmenSection({
             {isConfirming && gruppe !== null && teamName !== null && (
               <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
-                  <h3 className={FORM_SECTION_HEADING}>{createsTeam ? "Was dabei angelegt wird" : "Was dabei eingetragen wird"}</h3>
+                  <h3 className={FORM_SECTION_HEADING_CLASSES}>{createsTeam ? "Was dabei angelegt wird" : "Was dabei eingetragen wird"}</h3>
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label={createsTeam ? "Neues Team" : "Team"}

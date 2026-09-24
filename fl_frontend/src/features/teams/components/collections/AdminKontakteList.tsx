@@ -8,9 +8,9 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
-import { IDENTITY_HEAD, IDENTITY_NAME, IDENTITY_ROW } from "@/shared/components/ui/adminTable";
+import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -103,12 +103,12 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   };
 
   const renderIdentity = (row: AdminKontakteRow) => (
-    <div className={IDENTITY_ROW}>
-      <span className={`${SHORTHAND_CHIP} w-10`}>{row.teamShorthand}</span>
-      {/* No `IDENTITY_STACK` around it: one child stacks against nothing, and the head carries the
+    <div className={IDENTITY_ROW_CLASSES}>
+      <span className={`${SHORTHAND_CHIP_CLASSES} w-10`}>{row.teamShorthand}</span>
+      {/* No `IDENTITY_STACK_CLASSES` around it: one child stacks against nothing, and the head carries the
           `min-w-0` the club name needs beside the chip. */}
-      <div className={IDENTITY_HEAD}>
-        <span className={IDENTITY_NAME}>{row.teamName}</span>
+      <div className={IDENTITY_HEAD_CLASSES}>
+        <span className={IDENTITY_NAME_CLASSES}>{row.teamName}</span>
         {renderBesetzung(row)}
       </div>
     </div>

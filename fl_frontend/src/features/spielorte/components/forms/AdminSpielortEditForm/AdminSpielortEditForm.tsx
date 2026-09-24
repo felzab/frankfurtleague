@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react/form";
-
 import { patchSpielortAction } from "@/features/spielorte/actions";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { deriveSpielortDraftStatus } from "@/features/spielorte/spielortDraftStatus";
@@ -13,6 +11,7 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -174,7 +173,6 @@ export function AdminSpielortEditForm({
     <DraftStatusProvider status={status}>
       <Form
         // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

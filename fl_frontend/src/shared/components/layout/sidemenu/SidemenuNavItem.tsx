@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 
 import { IconTooltip } from "../../ui/IconTooltip";
-import { RAIL_SQUARE_RING } from "./railGutter";
+import { RAIL_SQUARE_RING_CLASSES } from "./railGutter";
 
 export function SidemenuNavItem({
   href,
@@ -34,7 +34,7 @@ export function SidemenuNavItem({
       // Collapsed, this is the same square `SidemenuFooter`'s controls are: under `w-full` the fill would be
       // a wide rectangle in the nav beside neat squares in the footer.
       className={`flex h-9 items-center rounded-md transition-colors ${
-        isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING}` : "w-full justify-start gap-2 px-3"
+        isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
       } ${isActive ? "bg-brand/15 text-brand font-medium shadow-sm" : "text-foreground hover:bg-hover hover:text-foreground fluid-sm"}`}
       href={href}>
       {IconComponent && (

@@ -2,10 +2,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { ctaButton } from "@/shared/components/ui/formButtons";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -21,7 +21,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6 flex flex-col gap-1">
       <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
-      <h2 className={`${DISPLAY_HEADING} fluid-2xl text-foreground`}>{title}</h2>
+      <h2 className={`${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`}>{title}</h2>
     </div>
   );
 }
@@ -30,7 +30,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
  * Roughly one card row. Without it an empty section collapses to a single line, the page ends far
  * shorter than expected, and the footer rides up into view.
  */
-const SECTION_MIN_HEIGHT = "min-h-44";
+const SECTION_MIN_HEIGHT_CLASSES = "min-h-44";
 
 /** A read that was never made, which `SectionBody` must not read as one that failed. */
 const KEINE_SPIELE: Pick<FLSpieleListResponse, "spiele"> = { spiele: [] };
@@ -101,7 +101,7 @@ function SectionBody({
     return (
       <EmptyState
         title={emptyTitle}
-        className={SECTION_MIN_HEIGHT}
+        className={SECTION_MIN_HEIGHT_CLASSES}
       />
     );
   }
@@ -109,7 +109,7 @@ function SectionBody({
   return (
     <SpielCardGrid
       role="list"
-      className={CARDS_CASCADE}>
+      className={CARDS_CASCADE_CLASSES}>
       <SpielCardsList
         spiele={res.spiele}
         today={today}

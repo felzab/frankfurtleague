@@ -1,4 +1,4 @@
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { TeamAustrittNote } from "../ui/TeamAustrittNote";
 import { TeamDetailsBackButton } from "../ui/TeamDetailsBackButton";
@@ -28,7 +28,7 @@ export function TeamDetailsView({
   isFinishedSaison: boolean;
 }) {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>
+    <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 pb-12`}>
       <TeamDetailsBackButton saisonId={saisonId} />
 
       <TeamIdentityCard teamData={teamData} />

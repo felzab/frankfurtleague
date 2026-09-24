@@ -19,16 +19,16 @@ import { judgeRowReturn } from "@/features/spieler/utils";
 import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
-  CELL_EDGE,
-  CELL_INNER,
-  COLUMN_EDGE,
-  COLUMN_INNER,
-  IDENTITY_HEAD,
-  IDENTITY_LINE,
-  IDENTITY_ROW,
-  IDENTITY_STACK,
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
   identityName,
-  TABLE_HEADING,
+  TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -191,7 +191,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
-    if (row?.teamName == null || row.teamName === "") return <span className={IDENTITY_LINE}>Kein Team in dieser Saison</span>;
+    if (row?.teamName == null || row.teamName === "") return <span className={IDENTITY_LINE_CLASSES}>Kein Team in dieser Saison</span>;
 
     return (
       <Link
@@ -203,10 +203,10 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   };
 
   const renderIdentity = (spieler: AdminSpielerRow) => (
-    <div className={IDENTITY_ROW}>
+    <div className={IDENTITY_ROW_CLASSES}>
       {renderNummer(spieler)}
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
           <span className={identityName(spieler.inactive_since !== null)}>{spieler.fullName}</span>
           {renderRolle(spieler)}
           {renderStatusBadges(spieler)}
@@ -259,16 +259,16 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                 is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES}`}>
                   Spieler
                 </Table.Column>
                 {/* Both stay columns: they are what a squad view is scanned down, and a merged
                     „Position / Stufe“ heading is wider than the two of them together. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-28`}>Position</Table.Column>
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-20`}>Stufe</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-28`}>Position</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-20`}>Stufe</Table.Column>
                 {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-48 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-48 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` + a render function, not mapped children — see the memo note above. */}
@@ -279,21 +279,21 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   <Table.Row
                     id={spieler.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(spieler)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(spieler)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>
+                    <Table.Cell className={CELL_INNER_CLASSES}>
                       {spieler.selected?.position ? (
                         <span className="fluid-sm text-foreground font-semibold">{spieler.selected.position}</span>
                       ) : null}
                     </Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>
+                    <Table.Cell className={CELL_INNER_CLASSES}>
                       {spieler.selected?.stufe ? (
                         <span className="fluid-sm text-foreground font-semibold">{spieler.selected.stufe}</span>
                       ) : null}
                     </Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(spieler)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(spieler)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

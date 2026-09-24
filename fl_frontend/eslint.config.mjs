@@ -5,6 +5,8 @@ import path from "node:path";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
+import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
+import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
@@ -114,6 +116,16 @@ const TEST_ONLY = [
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
+/** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
+const CLASS_LIST_CONSTANT = "^[A-Z][A-Z0-9_]*_CLASSES$";
+const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
+const CLASS_LIST_SITES = [
+  'JSXAttribute[name.name="className"] > JSXExpressionContainer',
+  'JSXAttribute[name.name="className"] > JSXExpressionContainer > TemplateLiteral',
+  "VariableDeclarator[id.name=/_CLASSES$/] > TemplateLiteral",
+  "VariableDeclarator[id.name=/_CLASSES$/] > ObjectExpression > Property > TemplateLiteral",
+].join(", ");
+
 /**
  * A package root loads whole under `node --test`, which has no bundler to narrow it
  * (`docs/frontend/spec.md` §1.9). `useOverlayState` is published at the root alone, and an
@@ -134,11 +146,73 @@ const VENDOR_ROOTS = [
  */
 const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [...VENDOR_ROOTS, ...patterns] }] });
 
-// A syntax rule rather than a test sweep: two comments in this tree name `router.back()` without
-// calling it, and a matcher over source text cannot tell them from a call. The exemption below is the
-// one guarded site.
+/**
+ * Next keeps the router and search-parameter contexts on private modules no public export carries. A
+ * slice reaching one outside the test harness carries a disable comment naming why, which
+ * `reportUnusedDisableDirectives` fails once the import is gone.
+ */
+const NEXT_PRIVATE_CONTEXTS = {
+  regex: String.raw`next/dist/shared/lib/(?:app-router-context|hooks-client-context)\.shared-runtime`,
+  message: "Mount Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts rather than its private modules.",
+};
+
+/** The segmented date and time controls, composed in one file so every field reads as the dates the app prints. */
+const SEGMENTED_DATE_CONTROLS = {
+  group: ["@heroui/react"],
+  importNames: ["DatePicker", "DateField", "TimeField", "DateRangePicker"],
+  message: "Compose a date or time field through fl_frontend/src/shared/components/ui/DateTimeFields.tsx.",
+};
+
+/** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
+const HEROUI_FORM = {
+  group: ["@heroui/react"],
+  importNames: ["Form"],
+  message: 'Render a form through fl_frontend/src/shared/components/ui/Form.tsx, which sets validationBehavior="aria".',
+};
+
+/**
+ * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
+ * comment is none of these, so prose naming a spelling never trips its ban.
+ */
+const inLiteral = (pattern) => `:matches(Literal[value=/${pattern}/], TemplateElement[value.raw=/${pattern}/], JSXText[value=/${pattern}/])`;
+
+/** A class token, whole: bounded by whitespace or the literal's end, any variant prefix allowed. */
+const TOKEN_START = String.raw`(?:^|\s)(?:\S*:)?`;
+const TOKEN_END = String.raw`(?:\s|$)`;
+
+const wholeClass = (token) => `(?:^|\\s)${token.replaceAll(".", "\\.")}(?:\\s|$)`;
+
+/**
+ * One class list holding every token of `all` and none of `none`. A string or JSX text is one list;
+ * a template is one list across its holes, so its chunks are asked together rather than one by one.
+ */
+function classList({ all, none = [] }) {
+  const text = `^${all.map((token) => `(?=[\\s\\S]*${wholeClass(token)})`).join("")}${none.map((token) => `(?![\\s\\S]*${wholeClass(token)})`).join("")}`;
+  const chunk = (token) => `:has(> TemplateElement[value.raw=/${wholeClass(token)}/])`;
+  const template = `TemplateLiteral${all.map(chunk).join("")}${none.map((token) => `:not(${chunk(token)})`).join("")}`;
+  return `:matches(Literal[value=/${text}/], JSXText[value=/${text}/], ${template})`;
+}
+
+/**
+ * What a `@utility` in `globals.css` expands to, read rather than copied so a grade changed in the
+ * stylesheet moves its ban with it. Empty where the stylesheet declares no such utility, which the
+ * ban below then refuses to build.
+ */
+function utilityExpansion(stylesheet, utility) {
+  const declared = new RegExp(String.raw`@utility\s+${utility}\s*\{\s*@apply\s+([^;}]+);`).exec(stylesheet);
+  const tokens = declared === null ? [] : declared[1].split(/\s+/).filter((token) => token !== "");
+  if (tokens.length === 0) throw new Error(`src/app/globals.css declares no @utility ${utility} to ban a copy of`);
+  return tokens;
+}
+
+const GLOBALS_CSS = readFileSync(path.join(HERE, "src", "app", "globals.css"), "utf8");
+
+/**
+ * `back` on any object, a destructured `{ back }` included, which a call selector would let an alias
+ * carry past.
+ */
 const HISTORY_BACK = {
-  selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
+  property: "back",
   message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
 };
 
@@ -169,6 +243,191 @@ const QUERY_IN_EQUALITY = {
     "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
 };
 
+/** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
+const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
+
+/**
+ * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
+ * spell it, `tests` puts test files in the population, and `production: false` takes production out.
+ */
+const SOURCE_BANS = [
+  {
+    // A test's router double counts `seen.back` and destructures `back` off itself, which the
+    // property rule production takes would refuse, so a test keeps the call ban alone.
+    selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
+    message: HISTORY_BACK.message,
+    tests: true,
+    production: false,
+  },
+  // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
+  PASSKEY_DELETION,
+  { ...QUERY_IN_EQUALITY, tests: true, production: false },
+  {
+    selector: inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
+    message: "A hover is one of globals.css's hover tokens, never an opacity (docs/frontend/spec.md :: I162).",
+  },
+  {
+    selector: inLiteral(
+      String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):(?:bg|text|border|ring|outline|shadow|fill|stroke|decoration|divide|accent|from|via|to)-[^\s\x2F]+\x2F(?:\d{1,3}|\[[^\]\s\x2F]+\])${TOKEN_END}`,
+    ),
+    message: "A hover is a declared token, never a tint of one (docs/frontend/spec.md :: I162).",
+  },
+  {
+    // `(?![xy]-)` keeps `gap-x-4` from being read as a bare `gap-` with the value `x-4`.
+    selector: inLiteral(String.raw`${TOKEN_START}gap(?:-[xy])?-(?![xy]-)(?!(?:0|0\.5|1|2|3|4|6|8|12)${TOKEN_END})\S+`),
+    message: "A gap is one of §1.20's rungs, 0.5 1 2 3 4 6 8 12, or 0 for no gap (docs/frontend/spec.md §1.20).",
+  },
+  {
+    selector: inLiteral(String.raw`(?:^|\s)\S*(?:hover:underline|underline-offset)`),
+    message: "A link inside text takes `textLink` rather than spelling its underline (docs/frontend/spec.md :: I43).",
+    exempt: ["src/shared/components/ui/textLink.ts"],
+  },
+  {
+    selector: inLiteral("hover:text-brand-solid"),
+    message:
+      "A brand control outside prose takes `BRAND_INK_OUTSIDE_PROSE_CLASSES` rather than spelling its grade (docs/frontend/spec.md :: I238).",
+    exempt: ["src/shared/components/ui/textLink.ts"],
+  },
+  ...["muted-hint", "muted-meta"].map((utility) => ({
+    // A `leading-*` beside the recipe overrides the line height `fluid-*` sets, which is knowingly not the utility.
+    selector: classList({ all: utilityExpansion(GLOBALS_CSS, utility), none: ["leading-\\S+"] }),
+    message: `Wear \`${utility}\` rather than retyping what it applies.`,
+  })),
+  ...[
+    ["BRAND_TILE_CLASSES", ["bg-brand-solid", "size-10", "rounded-xl"]],
+    ["BRAND_ICON_BUTTON_CLASSES", ["bg-brand-solid", "size-9", "rounded-xl"]],
+    ["SHORTHAND_CHIP_CLASSES", ["bg-brand-solid", "rounded-md", "font-extrabold"]],
+  ].map(([name, grade]) => ({
+    selector: classList({ all: grade }),
+    message: `Take \`${name}\` from brandTile.ts rather than spelling the box.`,
+    exempt: ["src/shared/components/ui/brandTile.ts"],
+  })),
+  {
+    selector: classList({ all: ["bg-brand", "animate-ping"] }),
+    message: "Take `laufendDot` rather than spelling the running season's dot.",
+    exempt: ["src/features/saisons/components/ui/laufendDot.ts"],
+  },
+  {
+    selector: `Program:has(ImportDeclaration[source.value=/badges(\\.ts)?$/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${inLiteral("bg-muted text-foreground-muted")}`,
+    message: "A pill takes its colour from a `PillTone`, never the neutral pair (docs/frontend/spec.md :: I170).",
+  },
+  {
+    selector: `Program:has(JSXOpeningElement[name.name="EmptyState"]) ${inLiteral("Für diese Saison gibt es")}`,
+    message: "Render `SeasonEmptyState` rather than spelling the season's empty sentence.",
+    exempt: ["src/shared/components/ui/SeasonEmptyState.tsx"],
+  },
+  ...[
+    ["tabular-nums", "font-numeric"],
+    ["font-numeric", "tabular-nums"],
+  ].map(([alone, partner]) => ({
+    selector: classList({ all: [alone], none: [partner] }),
+    message: "`font-numeric` and `tabular-nums` go together: the page face has no tabular figures.",
+  })),
+  {
+    selector: inLiteral(String.raw`(?<![a-z-])\d+vh\b|\bvh-screen\b`),
+    message: "Size a viewport box in dvh: vh is the chrome-hidden height and overshoots on a phone.",
+  },
+  {
+    selector:
+      'CallExpression[callee.type="MemberExpression"][callee.object.type="MemberExpression"][callee.object.property.name="api"] > ObjectExpression.arguments > Property[key.name="request"]',
+    message: "A `request` handed to an `auth.api` call carries that call onto the browser's paths.",
+  },
+  {
+    selector: inLiteral(String.raw`api\.resend\.com\x2Femails`),
+    message: "The provider's endpoint is named in fl_frontend/src/core/mail.ts alone.",
+    exempt: ["src/core/mail.ts", "src/core/mail.test.ts"],
+    tests: true,
+  },
+  {
+    selector: `:matches(${inLiteral(String.raw`\x2Fbestaetigung\?`)}, ${inLiteral(String.raw`\x2Fapi\x2Fbestaetigung$`)})`,
+    message: "The confirmation moved off /bestaetigung: mint the link through `bestaetigungsLink`.",
+    tests: true,
+  },
+  {
+    selector: String.raw`CallExpression:matches([callee.object.name="router"][callee.property.name=/^(?:push|replace)$/], [callee.name="redirect"]) > Literal.arguments[value=/^(?!\x2F|[a-z]+:)/]`,
+    message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
+  },
+  {
+    selector: String.raw`CallExpression:matches([callee.object.name="router"][callee.property.name=/^(?:push|replace)$/], [callee.name="redirect"]) > TemplateLiteral.arguments:not([quasis.0.value.raw=/^(?:\x2F|[a-z]+:)/]):not([expressions.0.name="pathname"][quasis.0.value.raw=""])`,
+    message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
+  },
+  {
+    // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
+    // handed to `ShellNotFound` is carried by that component, which a test holds to `useSaisonHref()`.
+    selector: String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
+    message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
+  },
+  {
+    selector: String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
+    message: "An admin link carries ?saison_id=: wrap it in `withSaisonId`/`useSaisonHref()`, or excuse it with the reason it cannot.",
+  },
+  {
+    // `AdminCrudView` is the shared view the slices' admin views hand the facets they built.
+    selector:
+      'FunctionDeclaration[id.name=/^Admin\\w+View$/]:not([id.name="AdminCrudView"]) > ObjectPattern.params > Property[key.name="facets"]',
+    message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
+  },
+  {
+    selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression[callee.name="heading"]',
+    message: "Render `PanelHeading` rather than spelling a panel heading.",
+    exempt: ["src/shared/components/ui/PanelHeading.tsx"],
+  },
+  {
+    selector: 'JSXElement[openingElement.name.name=/^h[1-6]$/] JSXElement[openingElement.name.name="Hint"]',
+    message: "A heading names itself from its contents, so a hint beside it is read out as part of the title.",
+  },
+  {
+    // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
+    // only a constant the class list itself holds is refused.
+    selector: `:matches(${CLASS_LIST_SITES}) > :matches(Identifier${UNSUFFIXED_CONSTANT}, MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
+    message: "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
+  },
+];
+
+/**
+ * Bans reaching only part of the tree, each with the glob that is its population. Each scope lies
+ * inside every scope listed before it, which is what lets its block restate theirs.
+ */
+const SCOPED_BANS = [
+  {
+    files: ["src/app/**/*.{ts,tsx}"],
+    selector: 'Program:not(:has(ExpressionStatement[directive="use client"])) ImportDeclaration[source.value=/facets(\\.tsx?)?$/]',
+    message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
+  },
+  {
+    files: ["src/app/**/route.ts"],
+    selector: inLiteral("REQ-EINLADUNG"),
+    message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
+  },
+];
+
+/**
+ * eslint takes `no-restricted-syntax`'s options from the LAST block matching a file, so each block
+ * below restates every ban reaching its files, and an exempt file's block comes last. No exempt file
+ * sits inside a scope.
+ */
+const syntaxBans = (bans) => ({
+  "no-restricted-syntax": ["error", ...bans.map(({ selector, message }) => ({ selector, message }))],
+});
+const PRODUCTION_BANS = SOURCE_BANS.filter((ban) => ban.production !== false);
+const TEST_BANS = SOURCE_BANS.filter((ban) => ban.tests === true);
+const EXEMPT_FILES = [...new Set(SOURCE_BANS.flatMap((ban) => ban.exempt ?? []))];
+const isTestPath = (file) => /\.test\.tsx?$/.test(file);
+
+const SOURCE_BAN_BLOCKS = [
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: syntaxBans(PRODUCTION_BANS) },
+  { files: TEST_FILES, rules: syntaxBans(TEST_BANS) },
+  ...SCOPED_BANS.map((scoped, index) => ({
+    files: scoped.files,
+    ignores: TEST_FILES,
+    rules: syntaxBans([...PRODUCTION_BANS, ...SCOPED_BANS.slice(0, index + 1)]),
+  })),
+  ...EXEMPT_FILES.map((file) => ({
+    files: [file],
+    rules: syntaxBans((isTestPath(file) ? TEST_BANS : PRODUCTION_BANS).filter((ban) => !(ban.exempt ?? []).includes(file))),
+  })),
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -185,32 +444,78 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
 
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
-
-      "no-restricted-syntax": ["error", HISTORY_BACK, PASSKEY_DELETION],
     },
   },
 
-  // The vendor-root ban alone, for the files no block below reaches: tests outside `core` and `shared`.
-  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports() },
+  // An exemption written as a disable comment is a roster entry: once the line it excuses is gone,
+  // the comment fails rather than standing ready to excuse whatever is written there next.
+  { linterOptions: { reportUnusedDisableDirectives: "error" } },
+
+  // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
+  // trips one.
+  ...SOURCE_BAN_BLOCKS,
+
+  // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
+  // because it IS the guard.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: { "no-restricted-properties": ["error", HISTORY_BACK] },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "react/forbid-component-props": [
+        "error",
+        {
+          forbid: ["minValue", "maxValue", "isDateUnavailable"].map((propName) => ({
+            propName,
+            disallowedFor: JUDGING_DATE_CONTROLS,
+            message: "A bound goes on the Calendar that offers the days, never on the control that judges each keystroke.",
+          })),
+        },
+      ],
+      // Spreading stays free everywhere but on the segmented controls, whose bounds a spread hides.
+      "react/jsx-props-no-spreading": [
+        "error",
+        { html: "ignore", custom: "ignore", exceptions: [...JUDGING_DATE_CONTROLS, "DateRangePicker"] },
+      ],
+    },
+  },
+  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": "off" } },
+
+  // Every file first, so the Next, date-control and form bans reach tests and the slices neither boundary
+  // names; each later block restates them for `restrictImports`'s reason.
+  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM) },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.
-  { files: ["src/core/**/*.{ts,tsx}"], rules: restrictImports(LAYER_BOUNDARY.core) },
-  { files: ["src/shared/**/*.{ts,tsx}"], rules: restrictImports(LAYER_BOUNDARY.shared) },
+  {
+    files: ["src/core/**/*.{ts,tsx}"],
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, LAYER_BOUNDARY.core),
+  },
+  {
+    files: ["src/shared/**/*.{ts,tsx}"],
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, LAYER_BOUNDARY.shared),
+  },
 
   // The test-only ban, which a `*.test.ts(x)` file alone escapes. Each block restates the boundary
   // above it for `restrictImports`'s reason.
-  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY) },
-  { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.core) },
-  { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.shared) },
-
-  // The one site the history ban exists to protect: it IS the guard, so it is the only place the
-  // platform call belongs. Only that ban is lifted here.
-  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-syntax": ["error", PASSKEY_DELETION] } },
-
-  // A later block replaces an earlier one's options for the same rule, so the history ban is restated.
-  // The deletion ban is not: `src/core/auth.test.ts` calls the plugin's deletion to hold it closed.
-  { files: TEST_FILES, rules: { "no-restricted-syntax": ["error", HISTORY_BACK, QUERY_IN_EQUALITY] } },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY),
+  },
+  {
+    files: ["src/core/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY, LAYER_BOUNDARY.core),
+  },
+  {
+    files: ["src/shared/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, ...TEST_ONLY, LAYER_BOUNDARY.shared),
+  },
 
   {
     files: ["src/**/*.{ts,tsx}"],
@@ -218,11 +523,21 @@ const eslintConfig = defineConfig([
     settings: {
       // `detectComponentClasses` picks up the `@layer components` classes in globals.css; without it
       // they report as unknown.
-      "better-tailwindcss": { entryPoint: "src/app/globals.css", detectComponentClasses: true },
+      "better-tailwindcss": {
+        entryPoint: "src/app/globals.css",
+        detectComponentClasses: true,
+        // The plugin reads a variable by its whole name and nothing else, so a class list held in a
+        // module constant is reached through the suffix every such constant carries.
+        selectors: [
+          ...getDefaultSelectors(),
+          { kind: SelectorKind.Variable, name: CLASS_LIST_CONSTANT, match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }] },
+        ],
+      },
     },
     rules: {
-      // Catches a class name that resolves to nothing. It is the only check in the toolchain that
-      // can — tsc, the Prettier plugin and the browser all accept `bg-surface-muted` in silence.
+      // Catches a class name that resolves to nothing, which tsc, the Prettier plugin and the browser
+      // all accept in silence. It reads no class list outside its selectors, so a module constant
+      // holding one is named `*_CLASSES` (`docs/frontend/spec.md` §1.8).
       "better-tailwindcss/no-unknown-classes": "error",
 
       // Partial cover: it sees a literal abutting an interpolation, not two adjacent

@@ -211,8 +211,8 @@ const TABLE_BOX = new Set(["Table", "Table.ScrollContainer", "Table.Content"]);
 
 /** The shared inset each element kind takes, `fl_frontend/src/shared/components/ui/adminTable.ts`'s pair for a column and its cell's. */
 const INSETS: Record<string, readonly string[]> = {
-  "Table.Column": ["COLUMN_EDGE", "COLUMN_INNER"],
-  "Table.Cell": ["CELL_EDGE", "CELL_INNER"],
+  "Table.Column": ["COLUMN_EDGE_CLASSES", "COLUMN_INNER_CLASSES"],
+  "Table.Cell": ["CELL_EDGE_CLASSES", "CELL_INNER_CLASSES"],
 };
 
 /** Every inset utility Tailwind spells, the logical sides among them: one written as a token is one the shared pair did not give. */
@@ -310,7 +310,7 @@ describe("the six admin CRUD tables", () => {
   });
 
   /* Each declared width above was measured against the inset its column carries, and the arithmetic
-     reads no inset at all (`fl_frontend/src/shared/components/ui/adminTable.ts :: COLUMN_INNER`). */
+     reads no inset at all (`fl_frontend/src/shared/components/ui/adminTable.ts :: COLUMN_INNER_CLASSES`). */
   it("take every column inset from the shared pair rather than spelling one", () => {
     for (const { file } of TABLES) {
       const { columns, cells } = tableOf(file);
@@ -412,15 +412,15 @@ describe("the reader behind the hand-spelled inset sweep", () => {
   it("reads a shared inset out of either attribute shape, and a hand-spelled one out of neither", () => {
     const [column, shared, spelling] = elementsIn(
       "const T = () => (<Table.Content>" +
-        "<Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24 px-6`}>Gruppe</Table.Column>" +
-        "<Table.Cell className={CELL_EDGE}>x</Table.Cell>" +
+        "<Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-24 px-6`}>Gruppe</Table.Column>" +
+        "<Table.Cell className={CELL_EDGE_CLASSES}>x</Table.Cell>" +
         '<Table.Cell className="px-6 py-4">y</Table.Cell>' +
         "</Table.Content>);",
       "sample.tsx",
     ).filter((element) => element.tag !== "Table.Content");
 
-    assert.deepEqual(column?.interpolated, ["TABLE_HEADING", "COLUMN_INNER"]);
-    assert.deepEqual(shared?.interpolated, ["CELL_EDGE"]);
+    assert.deepEqual(column?.interpolated, ["TABLE_HEADING_CLASSES", "COLUMN_INNER_CLASSES"]);
+    assert.deepEqual(shared?.interpolated, ["CELL_EDGE_CLASSES"]);
     assert.deepEqual(spelling?.interpolated, []);
 
     const insets = (element: Element | undefined) => (element?.classes ?? []).filter((token) => PADDING.test(utilityOf(token)));

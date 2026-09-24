@@ -5,7 +5,7 @@ import PencilToLine from "@gravity-ui/icons/PencilToLine";
 import { Label } from "@heroui/react/label";
 
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
-import { FIELD_LABEL, FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_MARKER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 import type { ReactNode } from "react";
@@ -36,7 +36,7 @@ export function FieldLabel({
           a shift, and a mis-alignment between two fields sharing a grid row. Reserving the marker's
           height keeps every label row constant. */}
       <div className="flex min-h-5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-        <Label className={FIELD_LABEL}>{children}</Label>
+        <Label className={FIELD_LABEL_CLASSES}>{children}</Label>
 
         {extraMarker}
 
@@ -44,7 +44,7 @@ export function FieldLabel({
           <InfoHint
             label="Geändert"
             trigger={
-              <span className={`${FIELD_MARKER} bg-brand/15 text-brand`}>
+              <span className={`${FIELD_MARKER_CLASSES} bg-brand/15 text-brand`}>
                 <PencilToLine
                   aria-hidden="true"
                   className="size-3"

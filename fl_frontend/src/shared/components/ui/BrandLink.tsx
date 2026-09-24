@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { WORDMARK } from "./displayType";
+import { WORDMARK_CLASSES } from "./displayType";
 import { FLLogo } from "./FLLogo";
 
 /**
@@ -37,7 +37,7 @@ export function BrandLink({
       <FLLogo className="text-brand-solid dark:text-brand h-8 w-auto" />
 
       {/* The capitals are CSS, so a copy sweep finds the name as the league spells it. */}
-      {!hideName && <span className={`${WORDMARK} fluid-lg`}>Frankfurt League</span>}
+      {!hideName && <span className={`${WORDMARK_CLASSES} fluid-lg`}>Frankfurt League</span>}
     </Link>
   );
 }

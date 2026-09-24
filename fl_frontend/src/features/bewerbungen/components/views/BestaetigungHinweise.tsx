@@ -1,13 +1,13 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
-import { ABSATZ, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
+import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
 
 import type { Slots } from "./BestaetigungPanels";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 // No `{minAlter}` here: two of the three seats answer it differently, so a constant would put a
 // number on the page that the press is not judged by.
@@ -52,9 +52,9 @@ export function BestaetigungHinweise({
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="worum"
             werte={werte}
@@ -62,21 +62,21 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="gespeichert"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="geburtsdatum"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="rechtsgrundlage"
             werte={werte}
@@ -84,9 +84,9 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was nicht passiert</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht passiert</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="nichtOeffentlich"
             werte={werte}
@@ -94,9 +94,9 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange wir sie behalten</h3>
-        <ul className={LISTE}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange wir sie behalten</h3>
+        <ul className={LISTE_CLASSES}>
           <li>
             <Absatz
               schluessel="fristAbgelehnt"
@@ -124,21 +124,21 @@ export function BestaetigungHinweise({
         </ul>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wenn Du nicht einverstanden bist</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du nicht einverstanden bist</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="ablehnen"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="widerruf"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="art21"
             werte={werte}
@@ -154,7 +154,7 @@ export function BestaetigungHinweise({
  * paragraph in the form, so the stamped text is rendered from one place whichever screen shows it.
  */
 export function WiderspruchFolge() {
-  // The reveal's body scale rather than `ABSATZ`: this paragraph is read inside an escalation panel
+  // The reveal's body scale rather than `ABSATZ_CLASSES`: this paragraph is read inside an escalation panel
   // and beside the rest of that panel's copy.
   return (
     <p className="fluid-xxs text-foreground leading-normal font-medium">
@@ -169,7 +169,7 @@ export function WiderspruchFolge() {
 /** Rendered whole under the switch it belongs to: the withdrawal sentence has to stand beside the consent it withdraws. */
 export function WhatsappHinweis() {
   return (
-    <p className={ABSATZ}>
+    <p className={ABSATZ_CLASSES}>
       <Absatz
         schluessel="whatsapp"
         werte={KONSTANTEN}
@@ -202,8 +202,8 @@ export function KlickBestaetigung({
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         <li>
           <Absatz
             schluessel="klickIdentitaet"
@@ -229,7 +229,7 @@ export function KlickBestaetigung({
           />
         </li>
       </ul>
-      <p className={ABSATZ}>
+      <p className={ABSATZ_CLASSES}>
         <Absatz
           schluessel="keineEinwilligung"
           werte={werte}

@@ -4,7 +4,7 @@ import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/best
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
 import { AdminBewerbungAblehnenSection } from "../forms/AdminBewerbungAblehnenSection";
@@ -43,7 +43,7 @@ export function AdminBewerbungView({
   const hindernis = zusageHindernis(staende, teamName);
 
   return (
-    <div className={`${PAGE_RISE} w-full p-6 sm:p-8`}>
+    <div className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}>
       <div className="max-w-page mx-auto flex w-full flex-col">
         <BackButton fallbackHref={saisonHref("/admin/bewerbungen")} />
 

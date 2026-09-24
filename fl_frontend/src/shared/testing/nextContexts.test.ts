@@ -4,8 +4,11 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h, useContext } from "react";
+/* eslint-disable no-restricted-imports -- the helper that mounts Next's contexts for every other test */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+/* eslint-enable no-restricted-imports */
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 

@@ -932,12 +932,6 @@ describe("every page-owned editor", () => {
   }
 
   for (const file of formFiles) {
-    it(`${file} leaves missing values to the submit rather than to the browser`, () => {
-      // The one mechanism, on every form. In `native` react-aria commits on each DOM `change`, so an
-      // edited field cleared again paints the browser's required message on the blur.
-      assert.match(sources.get(file) ?? "", /validationBehavior="aria"/, `${file} still lets the browser judge an emptied field`);
-    });
-
     it(`${file} forgives against the payload it judges, not the draft beside it`, () => {
       // A LITERAL pin, not a property: two callers assemble a payload that is not the draft, and forgiving
       // against the draft judges a shape the schema never sees.

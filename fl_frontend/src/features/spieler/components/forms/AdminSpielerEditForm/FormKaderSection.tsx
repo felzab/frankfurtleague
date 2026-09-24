@@ -18,7 +18,7 @@ import { POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { nummerPayload } from "@/features/spieler/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_PAIR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -138,7 +138,7 @@ export function FormKaderSection({
       <div className={panel.body()}>
         {isMember ? (
           <>
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="team_id">Team</FieldLabel>
                 <TeamSelect
@@ -189,7 +189,7 @@ export function FormKaderSection({
                   const [picked] = [...keys].map(String);
                   onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
                 }}
-                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
                 {ROLLE_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}
@@ -206,7 +206,7 @@ export function FormKaderSection({
               </ToggleButtonGroup>
 
               <Input className="hidden" />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
 
               <InlineBanners
                 banners={banners}
@@ -214,7 +214,7 @@ export function FormKaderSection({
               />
             </TextField>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="position">Position</FieldLabel>
                 <ClosedSetSelect

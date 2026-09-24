@@ -4,7 +4,7 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import Plus from "@gravity-ui/icons/Plus";
 import Xmark from "@gravity-ui/icons/Xmark";
 
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 /** The structural slice a field status must satisfy, which is what lets one list serve every editor without importing a feature. */
@@ -51,7 +51,7 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
         <section
           key={group}
           className="bg-muted/50 flex w-full flex-col gap-y-2 rounded-lg p-2.5">
-          <h3 className={FORM_SECTION_HEADING}>{group}</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>{group}</h3>
           <ul className="flex w-full flex-col gap-y-1">
             {fields.map((field) => {
               const operation = operationOf(field);

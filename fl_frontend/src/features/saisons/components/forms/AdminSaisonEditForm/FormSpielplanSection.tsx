@@ -12,7 +12,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
+import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import {
   drawGroupCountOptions,
@@ -34,7 +34,12 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_LABEL_CLASSES,
+  FIELD_TRIO_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+  TOGGLE_GROUP_ALIGN_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -277,15 +282,15 @@ export function FormSpielplanSection({
               cancel();
               setPicked(next === "anlegen" || next === "zuruecknehmen" ? next : null);
             }}
-            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             <ToggleButton
               id="anlegen"
-              className={STUFE_CHIP}>
+              className={STUFE_CHIP_CLASSES}>
               Neu anlegen
             </ToggleButton>
             <ToggleButton
               id="zuruecknehmen"
-              className={STUFE_CHIP}>
+              className={STUFE_CHIP_CLASSES}>
               Zurücknehmen
             </ToggleButton>
           </ToggleButtonGroup>
@@ -325,8 +330,8 @@ export function FormSpielplanSection({
             numbers that moved under it. */}
         {isDrawing && replacesDraw && (
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
-            <div className={FIELD_TRIO}>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau des neuen Spielplans</h3>
+            <div className={FIELD_TRIO_CLASSES}>
               {/* `shapeKey` is destructured under that name and kept there:
                   `fl_frontend/src/core/refusalPaths.test.ts` binds the identifier to the three paths
                   these templates render, and a rename drops all three from the sweep silently. */}
@@ -339,7 +344,7 @@ export function FormSpielplanSection({
                       // that holds it. Nothing on the season's save bar spells a `shape.` path, so
                       // neither form can render the other's message.
                       name={`shape.${shapeKey}`}
-                      label={<Label className={FIELD_LABEL}>{label}</Label>}
+                      label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
                       minValue={teamsPerGroupFloor({
                         qualifiers: shape.qualifiers_per_group,
                         held: shape.teams_per_group,
@@ -362,7 +367,7 @@ export function FormSpielplanSection({
                     key={shapeKey}
                     name={`shape.${shapeKey}`}
                     ariaLabel={label}
-                    label={<Label className={FIELD_LABEL}>{label}</Label>}
+                    label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
                     isDisabled={isShapeFrozen}
                     // Against the DRAFT the boxes hold, so moving one moves what the next may reach:
                     // the three are judged together, and an offer read off the stored season would
@@ -397,7 +402,7 @@ export function FormSpielplanSection({
                   looked up again afterwards, and the scheduling is the half no refusal protects. */}
               {holdsADraw && (
                 <div className="flex w-full flex-col gap-y-1">
-                  <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
+                  <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label="Bisher angelegt"
@@ -418,7 +423,9 @@ export function FormSpielplanSection({
                   {/* A moved number is read out from AND to: this press stores it, so an admin agreeing
                       to a redraw is agreeing to the season's new shape in the same breath. */}
                   <div className="flex w-full flex-col gap-y-1">
-                    <h3 className={FORM_SECTION_HEADING}>{isShapeMoved ? "Aufbau, den diese Saison bekommt" : "Aufbau dieser Saison"}</h3>
+                    <h3 className={FORM_SECTION_HEADING_CLASSES}>
+                      {isShapeMoved ? "Aufbau, den diese Saison bekommt" : "Aufbau dieser Saison"}
+                    </h3>
                     <dl className="flex w-full flex-col gap-y-1">
                       {shapeRows.map((row) => (
                         // Keyed on the label, which is unique inside this list.
@@ -437,7 +444,7 @@ export function FormSpielplanSection({
                   </div>
 
                   <div className="flex w-full flex-col gap-y-1">
-                    <h3 className={FORM_SECTION_HEADING}>Daraus entsteht</h3>
+                    <h3 className={FORM_SECTION_HEADING_CLASSES}>Daraus entsteht</h3>
                     {/* The served schedule was derived from the STORED numbers, so it describes no season once they move. */}
                     {isShapeMoved ? (
                       <>

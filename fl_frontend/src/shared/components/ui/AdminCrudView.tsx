@@ -8,7 +8,7 @@ import { applyFacets } from "../../utils/facets";
 import { AdminCrudFallback } from "./AdminCrudFallback";
 import { useCrudListQuery } from "./AdminCrudPrivateQuery";
 import { FilterLeiste } from "./FilterLeiste";
-import { CONTENT_LAYER, COVER_LAYER, PLACEHOLDER_BOX } from "./placeholderBox";
+import { CONTENT_LAYER_CLASSES, COVER_LAYER_CLASSES, PLACEHOLDER_BOX_CLASSES } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet, FacetCounts } from "../../utils/facets";
@@ -104,8 +104,8 @@ export function AdminCrudView<TItem extends { id: string }>({
   return (
     // No entrance: the placeholder reserves this box exactly, so a fade or a rise animates content
     // that is not out of place. Both were tried and both read as a fault.
-    <div className={PLACEHOLDER_BOX[shape]}>
-      <div className={`${CONTENT_LAYER} gap-4`}>
+    <div className={PLACEHOLDER_BOX_CLASSES[shape]}>
+      <div className={`${CONTENT_LAYER_CLASSES} gap-4`}>
         {/* Counted over the unfiltered rows, so an option answers what it would leave, not what the selection already left. */}
         <FilterLeiste
           facets={facets}
@@ -125,7 +125,7 @@ export function AdminCrudView<TItem extends { id: string }>({
           rows hold positioned boxes — HeroUI's table root, every `Button` — that paint over anything left in flow. */}
       <div
         aria-hidden="true"
-        className={`bg-background pointer-events-none relative opacity-(--admin-region-held) ${COVER_LAYER}`}>
+        className={`bg-background pointer-events-none relative opacity-(--admin-region-held) ${COVER_LAYER_CLASSES}`}>
         {/* The cover must draw what THIS resource's route drew: a second shape here, or a bar over a
             facet-less page, is the boundary crossing the whole cover exists to hide. */}
         <AdminCrudFallback

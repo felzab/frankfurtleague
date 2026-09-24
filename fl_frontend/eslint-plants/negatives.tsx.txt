@@ -1,0 +1,45 @@
+// Linted as src/features/zzplant/negatives.tsx.
+"use client";
+
+import { Calendar } from "@heroui/react/calendar";
+import { useOverlayState } from "@heroui/react";
+
+// hover:opacity-80 gap-5 hover:underline fluid-sm text-foreground-muted font-medium -- prose, never a literal
+declare const router: { push: (to: string) => void; replace: (to: string) => void };
+declare const redirect: (to: string) => never;
+declare const pathname: string;
+declare const tint: string;
+declare const bounds: object;
+declare const labelBadge: (tone: string) => string;
+
+export const OVERLAY = useOverlayState;
+export const RUNGS = "gap-x-4 gap-0 gap-0.5 sm:gap-12 gap-y-3";
+export const PAIR_ACROSS_A_HOLE = `font-numeric ${tint} tabular-nums`;
+export const PAIR = "font-numeric fluid-xs tabular-nums";
+export const OVERRIDDEN_GRADE = "fluid-sm text-foreground-muted font-medium leading-5";
+export const LOADER_HALO = "bg-brand/20 absolute size-16 animate-ping rounded-full";
+export const HOVER_FILL = "bg-brand-solid-hover size-10 rounded-xl";
+export const DYNAMIC_HEIGHT = "h-[100dvh]";
+export const HOVER_TOKEN = "hover:bg-hover data-hovered:text-brand";
+export const NEUTRAL_OUTSIDE_A_PILL = "bg-muted text-foreground-muted";
+export const CONFIRMATION = "/bestaetigung/kontakt/token";
+// An unknown word in a constant not named as a class list, and a tone handed to a recipe, are no class list.
+export const PROSE = "zz-unknown-prose";
+const TONE = "info";
+
+export function allowedCalls(): void {
+  router.push("/teams");
+  router.replace(`${pathname}?q=1`);
+  redirect("https://example.org");
+}
+
+export function AdminCrudView({ facets }: { facets: unknown }) {
+  return (
+    <div {...bounds}>
+      <span className={labelBadge(TONE)} />
+      <Calendar minValue={bounds} {...bounds}>
+        {String(facets)}
+      </Calendar>
+    </div>
+  );
+}

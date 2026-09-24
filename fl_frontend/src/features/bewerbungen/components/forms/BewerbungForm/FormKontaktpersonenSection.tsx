@@ -12,7 +12,13 @@ import { TextField } from "@heroui/react/textfield";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
-import { FIELD_ERROR, FIELD_ERROR_SWITCH, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_ERROR_SWITCH_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -139,7 +145,7 @@ export function FormKontaktpersonenSection({
 
         {zeigtFelder && (
           <>
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <TextField
                 isRequired
                 aria-describedby={zeigtAltersHinweis ? altersHinweisId : undefined}
@@ -148,9 +154,9 @@ export function FormKontaktpersonenSection({
                 onChange={(next) => onChange({ ...person, vorname: next })}
                 onBlur={() => onFieldLeft([path("vorname")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Vorname</Label>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
 
               <TextField
@@ -160,13 +166,13 @@ export function FormKontaktpersonenSection({
                 onChange={(next) => onChange({ ...person, nachname: next })}
                 onBlur={() => onFieldLeft([path("nachname")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Nachname</Label>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               {/* The hint rides in the same grid cell as the box it explains, so it stays under that
                   box rather than under whichever field the two-column layout puts beside it. */}
               <div className="flex w-full flex-col gap-y-1">
@@ -178,12 +184,12 @@ export function FormKontaktpersonenSection({
                   value={person.email}
                   onChange={(next) => onChange({ ...person, email: next })}
                   onBlur={() => onFieldLeft([path("email")])}>
-                  <Label className={FIELD_LABEL}>E-Mail</Label>
+                  <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
                   <Input
                     placeholder="z.B. name@beispiel.de"
-                    className={FIELD_INPUT}
+                    className={FIELD_INPUT_CLASSES}
                   />
-                  <FieldError className={FIELD_ERROR} />
+                  <FieldError className={FIELD_ERROR_CLASSES} />
                 </TextField>
                 <Hint
                   mode="inline"
@@ -199,12 +205,12 @@ export function FormKontaktpersonenSection({
                 value={person.telefon}
                 onChange={(next) => onChange({ ...person, telefon: next })}
                 onBlur={() => onFieldLeft([path("telefon")])}>
-                <Label className={FIELD_LABEL}>Telefon</Label>
+                <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
                 <Input
                   placeholder="z.B. 069 1234567"
-                  className={FIELD_INPUT}
+                  className={FIELD_INPUT_CLASSES}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
           </>
@@ -288,7 +294,7 @@ export function FormEinwilligungSection({
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
-          <FieldError className={FIELD_ERROR_SWITCH} />
+          <FieldError className={FIELD_ERROR_SWITCH_CLASSES} />
         </Switch>
       </div>
     </section>

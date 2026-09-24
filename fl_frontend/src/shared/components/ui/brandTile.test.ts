@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { classListsIn } from "@/shared/testing/classTokens.ts";
 
-import { BRAND_ICON_BUTTON, BRAND_TILE, SHORTHAND_CHIP } from "./brandTile.ts";
+import { BRAND_ICON_BUTTON_CLASSES, BRAND_TILE_CLASSES, SHORTHAND_CHIP_CLASSES } from "./brandTile.ts";
 
 // Three levels up: this file sits at `src/shared/components/ui`, and a sweep rooted inside `shared`
 // reports a clean tree while a feature slice draws its own brand square.
@@ -24,10 +24,10 @@ const RECIPE = path.join(SRC, "shared", "components", "ui", "brandTile.ts");
  * tokens, so `bg-brand-solid-hover` never stands in for it.
  */
 const GRADES = {
-  BRAND_TILE: ["bg-brand-solid", "size-10", "rounded-xl"],
-  BRAND_ICON_BUTTON: ["bg-brand-solid", "size-9", "rounded-xl"],
+  BRAND_TILE_CLASSES: ["bg-brand-solid", "size-10", "rounded-xl"],
+  BRAND_ICON_BUTTON_CLASSES: ["bg-brand-solid", "size-9", "rounded-xl"],
   // Width-free, that being the caller's: what identifies the chip is its fill, its radius and its weight.
-  SHORTHAND_CHIP: ["bg-brand-solid", "rounded-md", "font-extrabold"],
+  SHORTHAND_CHIP_CLASSES: ["bg-brand-solid", "rounded-md", "font-extrabold"],
 };
 
 const isProduction = (name: string): boolean => (name.endsWith(".ts") || name.endsWith(".tsx")) && !isTestFile(name);
@@ -54,7 +54,7 @@ describe("the brand box every surface draws", () => {
   /* The tree is uniform, so a reader stopping at the first thing it finds passes over the violation
      this sweep exists for (`docs/frontend/spec.md :: 1.9 The test suite`). */
   it("reads the box out of a class list and a template, and grades neither a brand neighbour nor a comment", () => {
-    const reads = (source: string): boolean => spellsTheBox("sample.tsx", source, GRADES.BRAND_TILE);
+    const reads = (source: string): boolean => spellsTheBox("sample.tsx", source, GRADES.BRAND_TILE_CLASSES);
 
     assert.ok(reads(SAMPLE.inAClassList), "the box in a class list reads as absent");
     assert.ok(reads(SAMPLE.acrossATemplateHole), "the box parted by a template hole reads as absent");
@@ -66,9 +66,9 @@ describe("the brand box every surface draws", () => {
 
   it("composes each box out of its own grade", () => {
     for (const [name, spelled] of [
-      ["BRAND_TILE", BRAND_TILE],
-      ["BRAND_ICON_BUTTON", BRAND_ICON_BUTTON],
-      ["SHORTHAND_CHIP", SHORTHAND_CHIP],
+      ["BRAND_TILE_CLASSES", BRAND_TILE_CLASSES],
+      ["BRAND_ICON_BUTTON_CLASSES", BRAND_ICON_BUTTON_CLASSES],
+      ["SHORTHAND_CHIP_CLASSES", SHORTHAND_CHIP_CLASSES],
     ] as const) {
       const tokens = spelled.split(" ");
 

@@ -1,9 +1,9 @@
 import { card } from "@/shared/components/ui/card";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
-import { FROM_THREE_COLUMNS, FROM_TWO_COLUMNS, SpielCardGrid } from "./SpielCardGrid";
+import { FROM_THREE_COLUMNS_CLASSES, FROM_TWO_COLUMNS_CLASSES, SpielCardGrid } from "./SpielCardGrid";
 // Never from `SpielTeamSlot`: a `"use client"` module hands this Server Component a reference, not the string.
-import { TEAM_NAME_TRACK } from "./teamName";
+import { TEAM_NAME_TRACK_CLASSES } from "./teamName";
 
 /**
  * **The `invisible` spans are load-bearing**, carrying line boxes the visible blocks do not, so
@@ -30,7 +30,7 @@ function SpielCardSkeleton() {
       {/* One filled rectangle, not three bars in a tint. Its height is the taller of the score line and
           the name track, which reserves two lines on every card whatever its names measure. */}
       <div className={`${skeletonBlock()} flex w-full items-center rounded-xl p-2`}>
-        <span className={`fluid-xs lg:fluid-sm invisible font-bold ${TEAM_NAME_TRACK}`}>&nbsp;</span>
+        <span className={`fluid-xs lg:fluid-sm invisible font-bold ${TEAM_NAME_TRACK_CLASSES}`}>&nbsp;</span>
         <span className="fluid-base invisible font-extrabold">&nbsp;</span>
       </div>
 
@@ -53,9 +53,9 @@ const VISIBILITY = [
   "", // 1-3 always: one column -> 3 rows, and the page already exceeds a phone viewport
   "",
   "",
-  FROM_TWO_COLUMNS, // 4th from two columns -> 2 rows
-  FROM_THREE_COLUMNS, // 5th and 6th from three columns -> still 2 rows
-  FROM_THREE_COLUMNS,
+  FROM_TWO_COLUMNS_CLASSES, // 4th from two columns -> 2 rows
+  FROM_THREE_COLUMNS_CLASSES, // 5th and 6th from three columns -> still 2 rows
+  FROM_THREE_COLUMNS_CLASSES,
 ];
 
 /** Skeletons in the same grid the real lists use, revealed per column count by `VISIBILITY`. */

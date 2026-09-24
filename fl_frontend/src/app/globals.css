@@ -620,7 +620,7 @@ input:focus:placeholder-shown::placeholder {
    answers a key press, not a click. */
 /* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
    border and fill match it and lose, out-layered by the `utilities` classes
-   `formFieldStyles.ts :: FIELD_GROUP` puts on the group. */
+   `formFieldStyles.ts :: FIELD_GROUP_CLASSES` puts on the group. */
 :is(
     [data-slot="input"],
     [data-slot="input-group"],
@@ -899,7 +899,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 
   /* TIER 2 AT COLUMN SCOPE — the playoff bracket, one round per step. Its class
-     string is `BRACKET_SWEEP` in `shared/components/ui/motion.ts`. */
+     string is `BRACKET_SWEEP_CLASSES` in `shared/components/ui/motion.ts`. */
   /* It fades and does not move, and that is forced: each gutter's connector is two
      halves owned by adjacent columns, so any travel would break every joint for the
      length of the stagger. */

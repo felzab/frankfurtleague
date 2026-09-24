@@ -10,7 +10,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
@@ -91,7 +91,7 @@ export function SpielCardCompact({
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
           />
 
           <span className="flex min-w-0 justify-start">

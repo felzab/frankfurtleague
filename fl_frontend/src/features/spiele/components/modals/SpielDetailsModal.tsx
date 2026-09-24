@@ -15,9 +15,9 @@ import { buildMapsSearchUrl, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/f
 
 import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "../ui/SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "../ui/SpielScore";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
-import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "../ui/teamName";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../ui/teamName";
 
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
@@ -38,7 +38,9 @@ function TeamNameLine({
 }) {
   if (team === null) {
     return (
-      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP} font-bold italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP_CLASSES} font-bold italic`}>
+        {formatQuelle(quelle) ?? PLACEHOLDER.slot}
+      </span>
     );
   }
 
@@ -50,7 +52,7 @@ function TeamNameLine({
       saisonId={saisonId}
       placement="top"
       onNavigate={onNavigate}>
-      <strong className={`fluid-xl hover:text-brand ${TEAM_NAME_WRAP} font-bold transition-colors duration-(--motion-base)`}>
+      <strong className={`fluid-xl hover:text-brand ${TEAM_NAME_WRAP_CLASSES} font-bold transition-colors duration-(--motion-base)`}>
         {team.name}
       </strong>
     </TeamPopoverMenu>
@@ -151,7 +153,7 @@ export function SpielDetailsModal({
                   <SpielScore
                     ergebnis={spielErgebnis}
                     elfmeterschiessen={spielElfmeterschiessen}
-                    className={`fluid-lg my-1 flex flex-col items-center text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+                    className={`fluid-lg my-1 flex flex-col items-center text-center font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
                   />
                   {/* Spoken, so the two names read as a pairing rather than as two names around punctuation. */}
                   <span className="sr-only">gegen</span>

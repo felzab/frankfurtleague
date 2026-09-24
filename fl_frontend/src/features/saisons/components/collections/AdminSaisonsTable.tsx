@@ -10,8 +10,14 @@ import { Table } from "@heroui/react/table";
 
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, TABLE_HEADING } from "@/shared/components/ui/adminTable";
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
+import {
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  TABLE_HEADING_CLASSES,
+} from "@/shared/components/ui/adminTable";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActionMenu, RowActionMenuItem, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -25,7 +31,7 @@ import type { AdminSaisonRow } from "../../types";
  * short identifier a reader scans a column for. `h-7` fixes the box, so the chip's own `py-1` adds
  * nothing to it.
  */
-const ID_CHIP = `${SHORTHAND_CHIP} font-numeric h-7 w-14 tabular-nums shadow-sm`;
+const ID_CHIP_CLASSES = `${SHORTHAND_CHIP_CLASSES} font-numeric h-7 w-14 tabular-nums shadow-sm`;
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Saisons für diese Suche.",
@@ -120,7 +126,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             <div className="flex w-full flex-row items-center gap-3">
               {/* `shrink-0` here alone: this row is a flex row and the status badge beside the id
                   would otherwise squeeze it. */}
-              <span className={ID_CHIP}>{saison.id}</span>
+              <span className={ID_CHIP_CLASSES}>{saison.id}</span>
               {renderStatusBadge(saison)}
             </div>
             {renderZeitraum(saison)}
@@ -144,16 +150,16 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               <Table.Header>
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE} w-28`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-28`}>
                   Saison
                 </Table.Column>
                 {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
                     is the only one here holding free text. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER}`}>Zeitraum</Table.Column>
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-32`}>Status</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES}`}>Zeitraum</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-32`}>Status</Table.Column>
                 {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-36 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-36 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` + a render function, not mapped children — see the memo note above. */}
@@ -164,15 +170,15 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                   <Table.Row
                     id={saison.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>
-                      <span className={ID_CHIP}>{saison.id}</span>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>
+                      <span className={ID_CHIP_CLASSES}>{saison.id}</span>
                     </Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderZeitraum(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderZeitraum(saison)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderStatusBadge(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderStatusBadge(saison)}</Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(saison)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

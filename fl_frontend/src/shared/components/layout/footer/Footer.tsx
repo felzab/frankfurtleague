@@ -24,7 +24,7 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   );
 }
 
-const COLUMN_HEADING = "fluid-xs text-foreground font-semibold tracking-wider uppercase";
+const COLUMN_HEADING_CLASSES = "fluid-xs text-foreground font-semibold tracking-wider uppercase";
 
 const NAVIGATION_LINKS = [
   { href: "/about", label: "About" },
@@ -48,7 +48,7 @@ function FooterNavColumn({ title, links }: { title: string; links: readonly { hr
   return (
     <div className="flex flex-col gap-y-3">
       {/* `h2`, the rung under the page's `h1`: the footer follows every page, so a lower rung here skips one. */}
-      <h2 className={COLUMN_HEADING}>{title}</h2>
+      <h2 className={COLUMN_HEADING_CLASSES}>{title}</h2>
       <nav
         aria-label={title}
         className="flex flex-col gap-y-2">
@@ -121,7 +121,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         />
 
         <div className="flex flex-col gap-y-3">
-          <h2 className={COLUMN_HEADING}>Socials</h2>
+          <h2 className={COLUMN_HEADING_CLASSES}>Socials</h2>
           <div className="flex flex-wrap items-center gap-4">
             <FooterSocialLink
               href="https://www.threads.com/@frankfurt.league"

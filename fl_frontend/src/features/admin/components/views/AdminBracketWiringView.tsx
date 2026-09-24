@@ -8,11 +8,11 @@ import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
+import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -136,12 +136,12 @@ export function AdminBracketWiringView({
 
   return (
     /* `AdminCrudShell`'s frame rather than the component, which would owe this page a create trigger.
-       No page rise beside `CARDS_CASCADE`: the leading panel's own step is identical, so it would
+       No page rise beside `CARDS_CASCADE_CLASSES`: the leading panel's own step is identical, so it would
        travel the distance twice. */
     <div className="w-full px-3 py-4 sm:p-8">
       <div
         role="list"
-        className={`${CARDS_CASCADE} max-w-page mx-auto flex w-full flex-col gap-6`}>
+        className={`${CARDS_CASCADE_CLASSES} max-w-page mx-auto flex w-full flex-col gap-6`}>
         {rounds.map((round) => (
           <div
             role="listitem"
@@ -224,7 +224,7 @@ export function AdminBracketWiringView({
                                 <Link
                                   href={adminSpielEditHref(spiel.id, saisonId)}
                                   aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
-                                  className={BRAND_ICON_BUTTON}>
+                                  className={BRAND_ICON_BUTTON_CLASSES}>
                                   <PencilToSquare
                                     aria-hidden="true"
                                     className="m-0 size-4.5"

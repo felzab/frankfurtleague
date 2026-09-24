@@ -41,5 +41,6 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
 }
 
 export const config = {
+  // eslint-disable-next-line no-restricted-syntax -- the authorization matcher, not a link
   matcher: ["/admin/:path*"],
 };

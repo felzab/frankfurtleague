@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextField } from "@heroui/react/textfield";
@@ -14,8 +13,15 @@ import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSe
 import { orderStufen } from "@/features/spieler/constants";
 import { FLSpielerPositionSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -164,7 +170,6 @@ export function RegistrierungFormPanel({
     <Form
       ref={formRef}
       // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
@@ -181,7 +186,7 @@ export function RegistrierungFormPanel({
         </div>
 
         <div className={panel.body()}>
-          <div className={FIELD_PAIR}>
+          <div className={FIELD_PAIR_CLASSES}>
             <TextField
               isRequired
               name="vorname"
@@ -189,9 +194,9 @@ export function RegistrierungFormPanel({
               onChange={(next) => setDraft({ ...draft, vorname: next })}
               onBlur={() => validateFields(["vorname"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
-              <Label className={FIELD_LABEL}>Vorname</Label>
-              <Input className={FIELD_INPUT} />
-              <FieldError className={FIELD_ERROR} />
+              <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
+              <Input className={FIELD_INPUT_CLASSES} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
 
             <TextField
@@ -201,13 +206,13 @@ export function RegistrierungFormPanel({
               onChange={(next) => setDraft({ ...draft, nachname: next })}
               onBlur={() => validateFields(["nachname"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
-              <Label className={FIELD_LABEL}>Nachname</Label>
-              <Input className={FIELD_INPUT} />
-              <FieldError className={FIELD_ERROR} />
+              <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
+              <Input className={FIELD_INPUT_CLASSES} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
           </div>
 
-          <div className={FIELD_PAIR}>
+          <div className={FIELD_PAIR_CLASSES}>
             {/* The hint rides in the same grid cell as the box it explains, so it stays under that box
                 rather than under whichever field the two-column layout puts beside it. */}
             <div className="flex w-full flex-col gap-y-1">
@@ -219,12 +224,12 @@ export function RegistrierungFormPanel({
                 value={draft.email}
                 onChange={(next) => setDraft({ ...draft, email: next })}
                 onBlur={() => validateFields(["email"])}>
-                <Label className={FIELD_LABEL}>E-Mail</Label>
+                <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
                 <Input
                   placeholder="z.B. name@beispiel.de"
-                  className={FIELD_INPUT}
+                  className={FIELD_INPUT_CLASSES}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
               <Hint
                 mode="inline"
@@ -239,18 +244,18 @@ export function RegistrierungFormPanel({
               value={draft.nummer}
               onChange={(next) => setDraft({ ...draft, nummer: next })}
               onBlur={() => validateFields(["nummer"])}>
-              <Label className={FIELD_LABEL}>Rückennummer</Label>
+              <Label className={FIELD_LABEL_CLASSES}>Rückennummer</Label>
               <Input
                 placeholder="z.B. 7"
-                className={FIELD_INPUT}
+                className={FIELD_INPUT_CLASSES}
               />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
           </div>
 
           <section className="flex flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
-            <div className={FIELD_PAIR}>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
+            <div className={FIELD_PAIR_CLASSES}>
               <ClosedSetSelect
                 name="position"
                 label="Position"

@@ -15,19 +15,19 @@ import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand, TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
-  CELL_EDGE,
-  CELL_INNER,
-  COLUMN_EDGE,
-  COLUMN_INNER,
-  IDENTITY_HEAD,
-  IDENTITY_LINE,
-  IDENTITY_ROW,
-  IDENTITY_STACK,
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
   identityName,
-  TABLE_HEADING,
+  TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import {
@@ -95,14 +95,14 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
    * column wide enough for „Stillgelegt 09.09.2026“ leaves the name almost nothing.
    */
   const renderIdentity = (team: AdminTeamRow) => (
-    <div className={IDENTITY_ROW}>
-      <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
+    <div className={IDENTITY_ROW_CLASSES}>
+      <span className={`${SHORTHAND_CHIP_CLASSES} w-10`}>{team.shorthand}</span>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
           <span className={identityName(team.inactive_since !== null)}>{team.name}</span>
           {renderStatusBadges(team)}
         </div>
-        <span className={IDENTITY_LINE}>{team.full_name}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{team.full_name}</span>
       </div>
     </div>
   );
@@ -228,15 +228,15 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES}`}>
                   Team
                 </Table.Column>
                 {/* The season's one fact about a club that a reader scans down the page, so it keeps
                     a column; `w-24` is its heading's width, which runs wider than any group letter. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24`}>Gruppe</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-24`}>Gruppe</Table.Column>
                 {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-48 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-48 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` + a render function, not mapped children — see the memo note above. */}
@@ -247,11 +247,11 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   <Table.Row
                     id={team.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(team)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(team)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderGruppe(team)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderGruppe(team)}</Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(team)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(team)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

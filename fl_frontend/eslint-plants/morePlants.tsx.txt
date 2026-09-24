@@ -1,0 +1,32 @@
+// Linted as src/features/zzplant/morePlants.tsx.
+"use client";
+
+import { TimeField } from "@heroui/react/time-field"; // expect: segmented-import
+import { DateRangePicker as Range } from "@heroui/react/date-range-picker"; // expect: segmented-import
+
+declare const redirect: (to: string) => never;
+declare const size: string;
+
+export const ICON_BUTTON = "bg-brand-solid size-9 rounded-xl"; // expect: BRAND_ICON_BUTTON
+export const CHIP = "font-extrabold w-14 bg-brand-solid rounded-md"; // expect: SHORTHAND_CHIP
+export const META_COPY = "text-foreground-muted fluid-xs font-medium"; // expect: muted-meta
+export const FACE_ONLY = "font-numeric fluid-xs"; // expect: numeric-pair
+export const ARBITRARY_ALPHA = "group-hover:text-brand/[0.4]"; // expect: hover-alpha
+export const SCREEN = "vh-screen"; // expect: vh
+export const ARBITRARY_GAP = "gap-[3px]"; // expect: gap
+export const DOT_ACROSS_A_HOLE = `bg-brand ${size} animate-ping`; // expect: dot
+export const OFFSET = "underline underline-offset-4"; // expect: link-decoration
+export const PICKERS = [TimeField, Range];
+
+declare const history: { back: () => void };
+declare const nav: { back: () => void };
+
+export function plantedBacks(): void {
+  const { back } = nav; // expect: history-back
+  back();
+  history.back(); // expect: history-back
+}
+
+export function plantedRedirect(): never {
+  return redirect("spiele"); // expect: relative-nav
+}

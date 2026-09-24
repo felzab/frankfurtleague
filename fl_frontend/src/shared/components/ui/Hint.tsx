@@ -8,7 +8,7 @@ import { Popover } from "@heroui/react/popover";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 
-import { HINT_SURFACE } from "./hintSurface";
+import { HINT_SURFACE_CLASSES } from "./hintSurface";
 import { hintTrigger } from "./hintTrigger";
 import { overlayPanel } from "./overlayPanel";
 
@@ -292,7 +292,7 @@ function RefusalOverlay({
         <HintPanel
           isOpenedByHover={isOpenedByHover}
           panelRef={captureDialog}
-          className={`${HINT_SURFACE} text-foreground leading-normal font-medium`}>
+          className={`${HINT_SURFACE_CLASSES} text-foreground leading-normal font-medium`}>
           {reason}
         </HintPanel>
       </Popover.Content>

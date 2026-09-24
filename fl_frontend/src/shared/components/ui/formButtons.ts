@@ -102,13 +102,13 @@ export const confirmButton = (isConfirming: boolean): string =>
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.
  * **A call site must not add `w-full`**: with no `twMerge` in the path, `.w-full` is emitted last and silently wins.
  */
-export const MODAL_FOOTER = "border-border -mx-4 w-[calc(100%+2rem)] border-t px-4 pt-4";
+export const MODAL_FOOTER_CLASSES = "border-border -mx-4 w-[calc(100%+2rem)] border-t px-4 pt-4";
 
 /** The band with a symmetrical pair in it, its flex shape declared beside the width a site must not restate. */
-export const MODAL_FOOTER_ROW = `${MODAL_FOOTER} flex flex-row items-center justify-evenly gap-3`;
+export const MODAL_FOOTER_ROW_CLASSES = `${MODAL_FOOTER_CLASSES} flex flex-row items-center justify-evenly gap-3`;
 
 /**
  * The band for a pair that is not symmetrical — one of the two discards work. Stacked at every width, since
  * `ModalShell`'s narrow size cannot seat both labels side by side and a sometimes-stacked pair reads as two designs.
  */
-export const MODAL_FOOTER_STACK = `${MODAL_FOOTER} flex min-w-0 flex-col gap-3`;
+export const MODAL_FOOTER_STACK_CLASSES = `${MODAL_FOOTER_CLASSES} flex min-w-0 flex-col gap-3`;

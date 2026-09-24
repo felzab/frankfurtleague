@@ -1,4 +1,4 @@
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { TeamsGrid } from "../collections/TeamsGrid";
 
@@ -18,7 +18,7 @@ export function TeamSelectionView({
   return (
     /* The rise brings in what the cascade cannot: `TeamsGrid`'s empty state, which stands in for
        the whole collection when a season has no teams. */
-    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center pt-6`}>
+    <div className={`${PAGE_RISE_CLASSES} relative flex w-full flex-1 flex-col items-center pt-6`}>
       <TeamsGrid
         urlPrefix={urlPrefix}
         teams={teams}

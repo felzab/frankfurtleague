@@ -5,18 +5,21 @@ import { useRef } from "react";
 import Xmark from "@gravity-ui/icons/Xmark";
 
 import { Calendar } from "@heroui/react/calendar";
+// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { DateField } from "@heroui/react/date-field";
+// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { DatePicker } from "@heroui/react/date-picker";
 import { FieldError } from "@heroui/react/field-error";
+// eslint-disable-next-line no-restricted-imports -- the one composition every date and time field goes through
 import { TimeField } from "@heroui/react/time-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import {
-  DATE_PICKER_CALENDAR,
+  DATE_PICKER_CALENDAR_CLASSES,
   DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
+  DATE_PICKER_POPOVER_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
@@ -27,7 +30,7 @@ import type { ReactNode, RefObject } from "react";
  * HeroUI styles literal segments with `text-muted`, a *background* token, leaving the separators at roughly 1.1:1
  * against the field surface.
  */
-const LITERAL_SEGMENT = "data-[type=literal]:text-foreground-muted";
+const LITERAL_SEGMENT_CLASSES = "data-[type=literal]:text-foreground-muted";
 
 /** A segmented field has no other way back to empty, react-aria clearing one segment per Backspace. */
 function ClearFieldButton({ label, onClear, groupRef }: { label: string; onClear: () => void; groupRef: RefObject<HTMLDivElement | null> }) {
@@ -120,12 +123,12 @@ export function AppDatePicker({
         // the group's padding focus the group itself, where it would otherwise focus nothing.
         tabIndex={clearLabel === undefined ? undefined : -1}
         fullWidth
-        className={FIELD_GROUP}>
+        className={FIELD_GROUP_CLASSES}>
         <DateField.Input className="fluid-sm">
           {(segment) => (
             <DateField.Segment
               segment={segment}
-              className={LITERAL_SEGMENT}
+              className={LITERAL_SEGMENT_CLASSES}
             />
           )}
         </DateField.Input>
@@ -142,15 +145,15 @@ export function AppDatePicker({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <DatePicker.Popover
-        className={DATE_PICKER_POPOVER}
+        className={DATE_PICKER_POPOVER_CLASSES}
         placement={DATE_PICKER_PLACEMENT}>
         <Calendar
           aria-label={calendarLabel}
           minValue={minValue}
           maxValue={maxValue}
-          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
+          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR_CLASSES}`}>
           <Calendar.Header className="bg-transparent">
             {/* A birthdate is decades from today and a season's dates about a year, so a month-by-month
                 walk to either would be dozens of presses. */}
@@ -208,12 +211,12 @@ export function AppTimeField({
       <TimeField.Group
         ref={groupRef}
         tabIndex={clearLabel === undefined ? undefined : -1}
-        className={FIELD_GROUP}>
+        className={FIELD_GROUP_CLASSES}>
         <TimeField.Input className="fluid-sm w-full">
           {(segment) => (
             <TimeField.Segment
               segment={segment}
-              className={LITERAL_SEGMENT}
+              className={LITERAL_SEGMENT_CLASSES}
             />
           )}
         </TimeField.Input>
@@ -225,7 +228,7 @@ export function AppTimeField({
           />
         )}
       </TimeField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </TimeField>
   );
 }

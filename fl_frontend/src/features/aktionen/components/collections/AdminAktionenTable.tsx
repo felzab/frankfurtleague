@@ -11,7 +11,14 @@ import Person from "@gravity-ui/icons/Person";
 import { Table } from "@heroui/react/table";
 
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, IDENTITY_STACK, TABLE_HEADING } from "@/shared/components/ui/adminTable";
+import {
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  IDENTITY_STACK_CLASSES,
+  TABLE_HEADING_CLASSES,
+} from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -114,7 +121,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
-      <div className={IDENTITY_STACK}>
+      <div className={IDENTITY_STACK_CLASSES}>
         <div className="font-numeric flex flex-row flex-wrap items-baseline gap-x-2 tabular-nums">
           <span className="fluid-sm text-foreground font-bold">{datum}</span>
           {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
@@ -261,13 +268,13 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                     here whose row is two blocks of like weight, where every other has one. */}
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES}`}>
                   Zeitpunkt
                 </Table.Column>
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER}`}>Änderung</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES}`}>Änderung</Table.Column>
                 {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
                 the arithmetic, and below three the heading is wider than the controls it sits over. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-36 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-36 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -278,11 +285,11 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                   <Table.Row
                     id={aktion.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderZeitpunkt(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderZeitpunkt(aktion)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderAenderung(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderAenderung(aktion)}</Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(aktion)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

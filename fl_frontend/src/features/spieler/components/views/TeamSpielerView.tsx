@@ -5,9 +5,9 @@ import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 
 import { BackButton } from "@/shared/components/ui/BackButton";
-import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { istNameZurueckgehalten, spielerAnzeigename, spielerInitialen } from "../../constants";
@@ -32,7 +32,7 @@ export function TeamSpielerView({
   isFinishedSaison: boolean;
 }) {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col`}>
       {/* The season the page shows, or a cold entry on a past season's squad lands on the running season's list. */}
       <BackButton fallbackHref={withSaisonId("/dashboard/spieler", saisonId)} />
 
@@ -41,7 +41,7 @@ export function TeamSpielerView({
           <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">Kader von {teamName}</h2>
           <Chip
             size="sm"
-            className={`${PILL_RADIUS} ${PILL_TINT.success} font-bold`}>
+            className={`${PILL_RADIUS_CLASSES} ${PILL_TINT_CLASSES.success} font-bold`}>
             {teamSpieler.length} Spieler
           </Chip>
         </div>
@@ -106,7 +106,7 @@ export function TeamSpielerView({
                       {spielerData.position ? (
                         <Chip
                           size="sm"
-                          className={`${PILL_RADIUS} ${PILL_TINT.info} fluid-xxs font-semibold capitalize`}>
+                          className={`${PILL_RADIUS_CLASSES} ${PILL_TINT_CLASSES.info} fluid-xxs font-semibold capitalize`}>
                           {spielerData.position}
                         </Chip>
                       ) : (

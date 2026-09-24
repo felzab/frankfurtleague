@@ -2,13 +2,13 @@
  * The radius the recipes below carry, and the one every `Chip` in this app sets in place of HeroUI's. On a `Chip` it
  * overrides `rounded-2xl` from `.chip`, and a utility beats the component layer, so no `!` is needed.
  */
-export const PILL_RADIUS = "rounded-md";
+export const PILL_RADIUS_CLASSES = "rounded-md";
 
 /**
  * A number in a pill; `min-w-6` so single digits are not ovals. Colour stays the caller's, but the brand pair is
  * `bg-brand-solid` with its own foreground, never an alpha on `brand`, which flips per theme.
  */
-export const COUNT_BADGE = `font-numeric fluid-xxs inline-flex min-w-6 items-center justify-center ${PILL_RADIUS} px-1.5 py-0.5 font-extrabold tabular-nums`;
+export const COUNT_BADGE_CLASSES = `font-numeric fluid-xxs inline-flex min-w-6 items-center justify-center ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-extrabold tabular-nums`;
 
 /**
  * Every tone a pill may wear, and no member of it is neutral: a grey chip reads as a control that has
@@ -30,9 +30,9 @@ export type PillTone =
 /**
  * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
  * pill sits on `surface` or `background` alone: on any other fill its light ink composites under
- * the floor, and `PILL_SOLID` goes there instead.
+ * the floor, and `PILL_SOLID_CLASSES` goes there instead.
  */
-export const PILL_TINT: Record<PillTone, string> = {
+export const PILL_TINT_CLASSES: Record<PillTone, string> = {
   success: "bg-success/15 text-success-strong",
   warning: "bg-warning/15 text-warning-strong",
   danger: "bg-danger/15 text-danger-strong",
@@ -41,7 +41,7 @@ export const PILL_TINT: Record<PillTone, string> = {
   // it measures 1.18:1 in the dark one.
   brand: "bg-brand/15 text-brand",
   // A badge of office rather than a grade. `fl_frontend/src/shared/components/ui/brandTile.ts ::
-  // SHORTHAND_CHIP` draws the phone layout's twin of the one chip wearing it, so the two boxes match.
+  // SHORTHAND_CHIP_CLASSES` draws the phone layout's twin of the one chip wearing it, so the two boxes match.
   brandSolid: "bg-brand-solid text-brand-solid-foreground",
   // One alpha for every pill: a `/10` tint beside a `/15` one reads as a paler grade of the same
   // chip. The light teal and blue inks sit low enough to clear 4.5:1 here.
@@ -60,7 +60,7 @@ export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | 
  * the tone's fill under its paired on-colour, a pair no ground moves
  * (`docs/frontend/spec.md :: I229`).
  */
-export const PILL_SOLID: Record<FeedbackTone, string> = {
+export const PILL_SOLID_CLASSES: Record<FeedbackTone, string> = {
   success: "bg-success-solid text-success-solid-foreground",
   warning: "bg-warning-solid text-warning-solid-foreground",
   danger: "bg-danger-solid text-danger-solid-foreground",
@@ -69,12 +69,12 @@ export const PILL_SOLID: Record<FeedbackTone, string> = {
 
 /** A count on `surface` or `background`, tinted as a label pill is. */
 export function countBadge(tone: PillTone): string {
-  return `${COUNT_BADGE} ${PILL_TINT[tone]}`;
+  return `${COUNT_BADGE_CLASSES} ${PILL_TINT_CLASSES[tone]}`;
 }
 
 /** A count on a ground a tint's ink cannot survive: solid, under its on-colour. */
 export function trackCountBadge(tone: FeedbackTone): string {
-  return `${COUNT_BADGE} ${PILL_SOLID[tone]}`;
+  return `${COUNT_BADGE_CLASSES} ${PILL_SOLID_CLASSES[tone]}`;
 }
 
 /**
@@ -83,17 +83,17 @@ export function trackCountBadge(tone: FeedbackTone): string {
  * `whitespace-nowrap` here rather than per call site: a broken pill reads as two, and a fixed-layout
  * column is where one gets narrow enough to break.
  */
-const LABEL_BADGE = `fluid-xxs inline-flex items-center ${PILL_RADIUS} px-1.5 py-0.5 font-bold whitespace-nowrap`;
+const LABEL_BADGE_CLASSES = `fluid-xxs inline-flex items-center ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-bold whitespace-nowrap`;
 
 /**
  * The tone is a parameter rather than an optional variant, so no pill exists without one: a variant
  * left off emits no class and reports nothing.
  */
 export function labelBadge(tone: PillTone): string {
-  return `${LABEL_BADGE} ${PILL_TINT[tone]}`;
+  return `${LABEL_BADGE_CLASSES} ${PILL_TINT_CLASSES[tone]}`;
 }
 
 /** A word on `trackCountBadge`'s grounds, where the tint would composite with the fill under it. */
 export function trackLabelBadge(tone: FeedbackTone): string {
-  return `${LABEL_BADGE} ${PILL_SOLID[tone]}`;
+  return `${LABEL_BADGE_CLASSES} ${PILL_SOLID_CLASSES[tone]}`;
 }

@@ -14,7 +14,7 @@ import { z } from "zod";
 import { blankComments } from "@/core/blankComments.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { formButton, MODAL_FOOTER } from "./formButtons.ts";
+import { formButton, MODAL_FOOTER_CLASSES } from "./formButtons.ts";
 
 import type { ReactNode } from "react";
 
@@ -24,7 +24,7 @@ const relative = (file: string): string => path.relative(SRC, file).split(path.s
 
 /** Every component drawing a dialog footer, found by the recipe it spells rather than by a list. */
 const FOOTER_USERS = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 100)
-  .filter((file) => /\bMODAL_FOOTER(?:_ROW|_STACK)?\b/.test(blankComments(readFileSync(file, "utf8"))))
+  .filter((file) => /\bMODAL_FOOTER(?:_ROW|_STACK)?_CLASSES\b/.test(blankComments(readFileSync(file, "utf8"))))
   .map(relative)
   .sort();
 
@@ -100,8 +100,9 @@ describe("every dialog footer", () => {
       // The band carries no role of its own, so the recipe it wears is what finds it; its buttons are
       // then read the way a reader meets them.
       const band =
-        [...document.querySelectorAll("div")].find((element) => tokens(MODAL_FOOTER).every((token) => element.classList.contains(token))) ??
-        assert.fail("no element wears the footer band");
+        [...document.querySelectorAll("div")].find((element) =>
+          tokens(MODAL_FOOTER_CLASSES).every((token) => element.classList.contains(token)),
+        ) ?? assert.fail("no element wears the footer band");
       const buttons = within(band).getAllByRole("button");
 
       assert.deepEqual(

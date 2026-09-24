@@ -6,7 +6,7 @@ import XmarkShapeFill from "@gravity-ui/icons/XmarkShapeFill";
 
 import { Chip } from "@heroui/react/chip";
 
-import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielStatus } from "../../schemas";
@@ -71,7 +71,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
   return (
     <Chip
       size="sm"
-      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PILL_TINT[STATUS_TINT[spielStatus]]}`}>
+      className={`${PILL_RADIUS_CLASSES} border-none px-1.5 py-0.5 ${PILL_TINT_CLASSES[STATUS_TINT[spielStatus]]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {STATUS_ICONS[spielStatus]}
         {STATUS_LABELS[spielStatus]}

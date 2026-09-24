@@ -1,0 +1,24 @@
+// Linted as src/features/zzplant/plants.test.ts.
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
+
+declare const router: { back: () => void };
+
+export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
+export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+// A test fixture may spell a class the product may not: the class bans reach production alone.
+export const FIXTURE = "hover:opacity-80 gap-5";
+export const CONTEXT = AppRouterContext;
+export const FORM = HeroForm;
+export const ICON = Bars;
+
+declare const assert: { equal: (a: unknown, b: unknown) => void };
+declare const screen: { queryByText: (text: string) => unknown };
+assert.equal(screen.queryByText("Titel"), null); // expect: query-in-equality
+// A test calls the plugin's deletion to hold it closed, so the passkey ban stays out of tests.
+export const HOLDS_IT_CLOSED = "deletePasskey";
+
+export function plantedBack(): void {
+  router.back(); // expect: history-back
+}

@@ -5,7 +5,7 @@ import { Input } from "@heroui/react/input";
 import { TextField } from "@heroui/react/textfield";
 
 import { NUMMER_MAX_LENGTH } from "@/features/spieler/constants";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import type { ReactNode } from "react";
 
@@ -36,12 +36,12 @@ export function NummerField({
       {label}
       <Input
         placeholder="z.B. 7"
-        className={`${FIELD_INPUT} font-extrabold tracking-wider`}
+        className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-wider`}
       />
       {/* Bare: every refusal here is the schema's German, arriving by `name` through the form's
           `validationErrors`. react-aria fills `validationDetails` from native validity in `native`
           mode alone, so a branch on it never fires. */}
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </TextField>
   );
 }

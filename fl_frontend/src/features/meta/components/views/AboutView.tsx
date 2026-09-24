@@ -12,30 +12,30 @@ import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { getTeams } from "@/features/teams/queries";
-import { PILL_RADIUS } from "@/shared/components/ui/badges";
+import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 
-const CHIP = `${PILL_RADIUS} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
+const CHIP_CLASSES = `${PILL_RADIUS_CLASSES} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
 // The border answers the hover and not the text: `TeamPopoverMenu`'s trigger already spells
 // `hover:text-brand`, which this chip's own `text-foreground` outranks.
-const CHIP_AKTIV = `${CHIP} bg-muted border-border text-foreground hover:border-brand`;
+const CHIP_AKTIV_CLASSES = `${CHIP_CLASSES} bg-muted border-border text-foreground hover:border-brand`;
 // The tint under its `-strong` text grade, never the solid fill under white: a filled chip in a row
 // of outlined ones reads as the row's one button.
-const CHIP_AUSGETRETEN = `${CHIP} bg-danger/15 border-danger/40 text-danger-strong`;
+const CHIP_AUSGETRETEN_CLASSES = `${CHIP_CLASSES} bg-danger/15 border-danger/40 text-danger-strong`;
 
 /** School names of plausible lengths, varied so the row does not read as a barcode. */
 const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24", "w-32", "w-28"];
 
 export function AboutView() {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
+    <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
         title="About"
         lead="Alles auf dem Platz. Von Schülern, für Schüler."
@@ -49,7 +49,7 @@ export function AboutView() {
         <div className={`${card()} grid grid-cols-1 gap-3 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-4 sm:p-6 lg:p-8`}>
           <span
             aria-hidden="true"
-            className={BRAND_TILE}>
+            className={BRAND_TILE_CLASSES}>
             <StarFill
               aria-hidden="true"
               className="size-5"
@@ -148,7 +148,7 @@ function TeamChipSkeleton() {
         <Chip
           key={i}
           size="md"
-          className={`${skeletonBlock()} ${CHIP} border-transparent ${width}`}>
+          className={`${skeletonBlock()} ${CHIP_CLASSES} border-transparent ${width}`}>
           &nbsp;
         </Chip>
       ))}
@@ -176,7 +176,7 @@ async function ParticipatingTeamsDisplay() {
           saisonId={undefined}>
           <Chip
             size="md"
-            className={teamData.austritt !== null ? CHIP_AUSGETRETEN : CHIP_AKTIV}>
+            className={teamData.austritt !== null ? CHIP_AUSGETRETEN_CLASSES : CHIP_AKTIV_CLASSES}>
             {teamData.name}
             {/* The Kürzel beside the tone, as `SaisontabelleView`'s badge does: the red tint is
                 otherwise the only thing saying a school has left. */}

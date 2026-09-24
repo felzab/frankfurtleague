@@ -7,7 +7,7 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { PILL_TINT } from "./badges.ts";
+import { PILL_TINT_CLASSES } from "./badges.ts";
 
 /* Three levels up from `src/shared/components/ui`: the rule binds every module under `src`, not the
    directory this file happens to sit in. */
@@ -29,16 +29,16 @@ const SLOT_FLOOR = 25;
 const COLLECTION_OPTIONS = new Set(["ListBox.Item", "Dropdown.Item", "RowActionMenuItem"]);
 const BADGE_SLOT = { host: "RailSection", attribute: "badge" };
 
-/** The recipes that read a tone out of `PILL_TINT`, which is the alpha this rule is about. */
+/** The recipes that read a tone out of `PILL_TINT_CLASSES`, which is the alpha this rule is about. */
 const TINTED_CALLS = new Set(["countBadge", "labelBadge"]);
 
 /**
- * A tone whose `PILL_TINT` entry composites, against the fill class that makes it one. Derived from
+ * A tone whose `PILL_TINT_CLASSES` entry composites, against the fill class that makes it one. Derived from
  * the record rather than listed, so a tone that stops being an alpha stops being flagged in the
  * same edit that changes it.
  */
 const COMPOSITE_FILL = new Map(
-  Object.entries(PILL_TINT).flatMap(([tone, classes]) => {
+  Object.entries(PILL_TINT_CLASSES).flatMap(([tone, classes]) => {
     const fill = classes.split(/\s+/).find((token) => /\/\d+$/.test(token));
     return fill === undefined ? [] : [[tone, fill] as const];
   }),
@@ -73,11 +73,11 @@ function tintedIn(node: ts.Node, tinted: ReadonlySet<string>): string[] {
     if (ts.isIdentifier(inner) && tinted.has(inner.text) && !(ts.isCallExpression(inner.parent) && inner.parent.expression === inner)) {
       found.push(inner.text);
     }
-    if (ts.isPropertyAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT") {
-      if (COMPOSITE_FILL.has(inner.name.text)) found.push(`PILL_TINT.${inner.name.text}`);
+    if (ts.isPropertyAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT_CLASSES") {
+      if (COMPOSITE_FILL.has(inner.name.text)) found.push(`PILL_TINT_CLASSES.${inner.name.text}`);
     }
-    if (ts.isElementAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT") {
-      found.push("PILL_TINT[…]");
+    if (ts.isElementAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT_CLASSES") {
+      found.push("PILL_TINT_CLASSES[…]");
     }
     if (ts.isStringLiteralLike(inner)) readClasses(inner.text);
     if (ts.isTemplateExpression(inner))
@@ -153,8 +153,8 @@ describe("the population this rule is read over", () => {
 
   /* Every tone opaque and the case below is true by construction, which is how a retinted palette
      turns this file green and silent. */
-  it("still reads `PILL_TINT` as a record of alphas", () => {
-    assert.notEqual(COMPOSITE_FILL.size, 0, "no `PILL_TINT` tone reads as an alpha any more, so nothing below can be flagged");
+  it("still reads `PILL_TINT_CLASSES` as a record of alphas", () => {
+    assert.notEqual(COMPOSITE_FILL.size, 0, "no `PILL_TINT_CLASSES` tone reads as an alpha any more, so nothing below can be flagged");
   });
 });
 
@@ -166,7 +166,7 @@ describe("what a pill may be painted on", () => {
       wrong,
       [],
       "a tint composites against the fill under it and misses 4.5:1. Take the tone's opaque twin -- `trackCountBadge`," +
-        ` \`trackLabelBadge\`, \`PILL_SOLID\`, or the \`brandSolid\` tone. A phase tone has no twin, so its pill moves off this ground:\n  ${wrong.join("\n  ")}`,
+        ` \`trackLabelBadge\`, \`PILL_SOLID_CLASSES\`, or the \`brandSolid\` tone. A phase tone has no twin, so its pill moves off this ground:\n  ${wrong.join("\n  ")}`,
     );
   });
 });

@@ -9,8 +9,8 @@ import { Button } from "@heroui/react/button";
 
 import { appToast } from "@/shared/utils/appToast";
 
-import { CONFIRM_DANGER_PANEL } from "./ConfirmReveal";
-import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
+import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
+import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -127,7 +127,7 @@ export function ConfirmDeleteModal({
              button label changing. Deliberately not animated: a danger escalation should register at once. */
             <div
               role="alert"
-              className={`${CONFIRM_DANGER_PANEL} flex flex-col gap-2`}>
+              className={`${CONFIRM_DANGER_PANEL_CLASSES} flex flex-col gap-2`}>
               <div className="text-danger-strong flex items-center gap-2 font-bold">
                 <TriangleExclamation
                   className="size-4.5"
@@ -144,7 +144,7 @@ export function ConfirmDeleteModal({
 
         {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. The action
             first and the way back second, as on every confirmation (`docs/frontend/spec.md` §1.19). */}
-        <div className={MODAL_FOOTER_ROW}>
+        <div className={MODAL_FOOTER_ROW_CLASSES}>
           <Button
             type="button"
             variant="primary"

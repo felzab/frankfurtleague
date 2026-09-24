@@ -17,7 +17,12 @@ import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRA
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -315,7 +320,7 @@ function KontaktpersonInputs({
 
   return (
     <>
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isReadOnly={isMirrored}
           isRequired
@@ -325,8 +330,8 @@ function KontaktpersonInputs({
           onBlur={() => onFieldLeft([`kontakte.${rolle}.vorname`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel path={`kontakte.${rolle}`}>Vorname</FieldLabel>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
@@ -338,12 +343,12 @@ function KontaktpersonInputs({
           onBlur={() => onFieldLeft([`kontakte.${rolle}.nachname`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel path={`kontakte.${rolle}`}>Nachname</FieldLabel>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isReadOnly={isMirrored}
           isRequired
@@ -355,9 +360,9 @@ function KontaktpersonInputs({
           <FieldLabel path={`kontakte.${rolle}`}>E-Mail</FieldLabel>
           <Input
             placeholder="z.B. name@beispiel.de"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
@@ -371,13 +376,13 @@ function KontaktpersonInputs({
           <FieldLabel path={`kontakte.${rolle}`}>Telefon</FieldLabel>
           <Input
             placeholder="z.B. 069 1234567"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         {/* Read out and never picked: the date is the person's own to enter at their confirmation, and
             the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
         <TextField
@@ -385,14 +390,14 @@ function KontaktpersonInputs({
           value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
           onChange={() => undefined}>
           <FieldLabel path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
-          <Input className={FIELD_INPUT} />
+          <Input className={FIELD_INPUT_CLASSES} />
         </TextField>
       </div>
 
       <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-        <h4 className={FORM_SECTION_HEADING}>Kenntnisnahme</h4>
+        <h4 className={FORM_SECTION_HEADING_CLASSES}>Kenntnisnahme</h4>
 
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {/* Read out and never picked: an administrator may not record a Kenntnisnahme as the person's
               own, and the server preserves whatever the seat's own Bestätigung wrote here. */}
           <TextField
@@ -400,7 +405,7 @@ function KontaktpersonInputs({
             value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
             onChange={() => undefined}>
             <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
-            <Input className={FIELD_INPUT} />
+            <Input className={FIELD_INPUT_CLASSES} />
           </TextField>
 
           <TextField
@@ -408,11 +413,11 @@ function KontaktpersonInputs({
             value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
             onChange={() => undefined}>
             <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
-            <Input className={FIELD_INPUT} />
+            <Input className={FIELD_INPUT_CLASSES} />
           </TextField>
         </div>
 
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <TextField
             isReadOnly
             isRequired
@@ -423,8 +428,8 @@ function KontaktpersonInputs({
             {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
                 and a stored one keeps the version it was given, or the record would cite a text this
                 person never saw. */}
-            <Input className={FIELD_INPUT} />
-            <FieldError className={FIELD_ERROR} />
+            <Input className={FIELD_INPUT_CLASSES} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <AppDatePicker

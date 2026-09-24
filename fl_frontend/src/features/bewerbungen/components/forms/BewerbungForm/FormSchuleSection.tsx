@@ -33,14 +33,14 @@ import {
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import {
-  FIELD_COUNT_INPUT,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  FIELD_LABEL,
-  FIELD_PAIR,
-  FIELD_TRIGGER,
-  FORM_SECTION_HEADING,
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FIELD_TRIGGER_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -54,14 +54,14 @@ import type { FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
-const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
+const SCHULE_ITEM_CLASSES = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
 
 /**
  * The sentinel's row: the SAME box as every other option, distinguished only by what cannot change
  * its shape. A border on one row reads as a half-border — a rule between two rows is a separator
  * element between them, never an edge on one.
  */
-const NICHT_IN_LISTE_ITEM = `${SCHULE_ITEM} text-brand font-semibold`;
+const NICHT_IN_LISTE_ITEM_CLASSES = `${SCHULE_ITEM_CLASSES} text-brand font-semibold`;
 
 /** The lead line under the picker, where the list has nothing to offer and the reason differs. */
 const LISTE_LEER = "Die Liga führt noch keine Schule. Wähle die Option oben und trage Deine selbst ein.";
@@ -160,7 +160,7 @@ export function FormSchuleSection({
         {/* OUTSIDE the new-school branch below: a school picking a club it already holds answers this
             too, and behind that branch the box would be unrendered for such a school, so the refusal
             naming it would mark nothing. */}
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <div className="flex w-full flex-col">
             {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
                 picked club under — including the two that arrive as a whole-record rule. */}
@@ -175,8 +175,8 @@ export function FormSchuleSection({
               isOpen={isOpen}
               onOpenChange={setIsOpen}
               onChange={(key: Key | null) => onAuswahlPicked(key === null ? null : key.toString())}>
-              <Label className={FIELD_LABEL}>Deine Schule</Label>
-              <Autocomplete.Trigger className={FIELD_TRIGGER}>
+              <Label className={FIELD_LABEL_CLASSES}>Deine Schule</Label>
+              <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
                 <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
                 {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
                     truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
@@ -187,7 +187,7 @@ export function FormSchuleSection({
                 />
                 <Autocomplete.Indicator />
               </Autocomplete.Trigger>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
 
               <Autocomplete.Popover className={overlayPanel()}>
                 <Autocomplete.Filter filter={filter}>
@@ -215,7 +215,7 @@ export function FormSchuleSection({
                     <ListBox.Item
                       id={SCHULE_NICHT_IN_LISTE}
                       textValue={SCHULE_NICHT_IN_LISTE_LABEL}
-                      className={NICHT_IN_LISTE_ITEM}>
+                      className={NICHT_IN_LISTE_ITEM_CLASSES}>
                       {SCHULE_NICHT_IN_LISTE_LABEL}
                       {/* As every school row carries: without it, picking this option is the one
                           selection in the list that leaves no mark on the row it was made on. */}
@@ -232,7 +232,7 @@ export function FormSchuleSection({
                         key={eintrag.id}
                         id={eintrag.id}
                         textValue={eintrag.name}
-                        className={SCHULE_ITEM}>
+                        className={SCHULE_ITEM_CLASSES}>
                         {eintrag.name}
                         <ListBox.ItemIndicator />
                       </ListBox.Item>
@@ -267,13 +267,13 @@ export function FormSchuleSection({
               value={stufengroesse ?? NaN}
               onChange={(next) => onStufengroesseChange(enteredNumber(next))}
               onBlur={() => onFieldLeft(["stufengroesse"])}>
-              <Label className={FIELD_LABEL}>Größe der Stufe</Label>
-              <NumberField.Group className={FIELD_GROUP}>
+              <Label className={FIELD_LABEL_CLASSES}>Größe der Stufe</Label>
+              <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </NumberField>
             <Hint
               mode="inline"
@@ -285,9 +285,9 @@ export function FormSchuleSection({
 
         {istNeueSchule(auswahl) && (
           <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-            <h3 className={FORM_SECTION_HEADING}>Neue Schule</h3>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Neue Schule</h3>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               {/* At the box rather than in the panel's own hint: a school picking a club the league
                   already holds never reaches this row, and a panel hint explaining it would answer a
                   question that reader cannot see. */}
@@ -300,12 +300,12 @@ export function FormSchuleSection({
                   onChange={(next) => setSchuleFeld({ team_name: next })}
                   onBlur={() => onFieldLeft(["schule.team_name"])}
                   maxLength={TEAM_NAME_MAX_LENGTH}>
-                  <Label className={FIELD_LABEL}>Teamname</Label>
+                  <Label className={FIELD_LABEL_CLASSES}>Teamname</Label>
                   <Input
                     placeholder="z.B. Goethe-Gymnasium"
-                    className={FIELD_INPUT}
+                    className={FIELD_INPUT_CLASSES}
                   />
-                  <FieldError className={FIELD_ERROR} />
+                  <FieldError className={FIELD_ERROR_CLASSES} />
                 </TextField>
                 <Hint
                   mode="inline"
@@ -321,16 +321,16 @@ export function FormSchuleSection({
                 onChange={(next) => setSchuleFeld({ full_name: next })}
                 onBlur={() => onFieldLeft(["schule.full_name"])}
                 maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
+                <Label className={FIELD_LABEL_CLASSES}>Vollständiger Schulname</Label>
                 <Input
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
-                  className={FIELD_INPUT}
+                  className={FIELD_INPUT_CLASSES}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
                   club, retired ones included, so a case variant must not look like a different value. */}
               {/* Both ids while the check has something to say: the standing explanation and the
@@ -349,13 +349,13 @@ export function FormSchuleSection({
                   }}>
                   {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
                       it hands out is another one where this is taken. */}
-                  <Label className={FIELD_LABEL}>Wunschkürzel</Label>
+                  <Label className={FIELD_LABEL_CLASSES}>Wunschkürzel</Label>
                   <Input
                     placeholder="z.B. GG"
                     maxLength={KUERZEL_LAENGE}
-                    className={FIELD_INPUT}
+                    className={FIELD_INPUT_CLASSES}
                   />
-                  <FieldError className={FIELD_ERROR} />
+                  <FieldError className={FIELD_ERROR_CLASSES} />
                   {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
                       line beside the field would push its neighbour out of the column. */}
                   {kuerzelHinweis !== null && (
@@ -381,8 +381,8 @@ export function FormSchuleSection({
                 value={schule.schulform}
                 onChange={handleSchulformChange}
                 className="w-full">
-                <Label className={FIELD_LABEL}>Schulform</Label>
-                <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+                <Label className={FIELD_LABEL_CLASSES}>Schulform</Label>
+                <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
                   {/* From the prop, not `Select.Value` — the collection can lag a render behind and
                       would then show HeroUI's English placeholder. */}
                   <span className={schule.schulform ? "" : "text-foreground-muted"}>
@@ -390,7 +390,7 @@ export function FormSchuleSection({
                   </span>
                   <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
                 </Select.Trigger>
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
                   <ListBox aria-label="Schulformen">
                     {SCHULFORM_OPTIONS.map((option) => (
@@ -418,7 +418,7 @@ export function FormSchuleSection({
             />
 
             <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-              <h3 className={FORM_SECTION_HEADING}>Adresse der Schule</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Adresse der Schule</h3>
               {/* Not copy to trim: the address stays public, and the form says so where it is asked
                   for. The rule stands where the read serves it
                   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}

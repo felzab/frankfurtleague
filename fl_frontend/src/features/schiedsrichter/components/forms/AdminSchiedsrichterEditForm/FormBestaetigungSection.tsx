@@ -19,7 +19,7 @@ import {
 } from "@/features/schiedsrichter/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -88,7 +88,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
   const istAbgelaufen = !istBestaetigt && bestaetigung.frist < getGermanTodayStr();
 
   return (
-    <dl className={FIELD_PAIR}>
+    <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
       <Angabe label="Gültig bis">
         {formatSpielDatum(bestaetigung.frist)}
@@ -115,7 +115,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
 /** The record the referee's own press wrote, read back as facts. */
 function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEinwilligung; geburtsdatum: string | null }) {
   return (
-    <dl className={FIELD_PAIR}>
+    <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">{SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
       <Angabe label="Bestätigt am">
         {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}

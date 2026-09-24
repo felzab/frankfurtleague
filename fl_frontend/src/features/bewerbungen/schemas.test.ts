@@ -629,7 +629,7 @@ describe("the squad question asks for one level in both halves", () => {
       path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "FormTeamSection.tsx"),
       "utf8",
     );
-    const label = /<Label className=\{FIELD_LABEL\}>(Davon[^<]*)<\/Label>/.exec(TEAM_SECTION)?.[1] ?? "";
+    const label = /<Label className=\{FIELD_LABEL_CLASSES\}>(Davon[^<]*)<\/Label>/.exec(TEAM_SECTION)?.[1] ?? "";
     const refusal =
       FLPostBewerbungPayloadSchema.safeParse(
         bewerbungPayload(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } })),

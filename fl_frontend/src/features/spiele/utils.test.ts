@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "../../shared/utils/format.ts";
 import { GHOST_SCHIEDSRICHTER_ID } from "../schiedsrichter/constants.ts";
-import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "./components/ui/teamName.ts";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_WRAP_CLASSES } from "./components/ui/teamName.ts";
 import { FLSonderereignisSchema, FLSpielAdminSchema, FLSpielSchema } from "./schemas.ts";
 import {
   adminSpielEditHref,
@@ -1376,7 +1376,7 @@ const { SpielCard } = await import("./components/ui/SpielCard.tsx");
 const { SpielCardCompact } = await import("./components/ui/SpielCardCompact.tsx");
 const { SpielCardUltraCompact } = await import("./components/ui/SpielCardUltraCompact.tsx");
 const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
-const { ERGEBNIS_INK } = await import("./components/ui/SpielScore.tsx");
+const { ERGEBNIS_INK_CLASSES } = await import("./components/ui/SpielScore.tsx");
 
 /**
  * The two money fields the base tier withholds, supplied rather than cast over: the preview reads a
@@ -1437,8 +1437,8 @@ describe("the names a score surface sets", () => {
       const html = markup(SPIEL_MIT_SEITEN);
 
       for (const [classes, recipe] of [
-        [classesNaming(html, club(CLUB)), TEAM_NAME_WRAP],
-        [classesNaming(html, "Verlierer von Spiel 29"), SLOT_LABEL_WRAP],
+        [classesNaming(html, club(CLUB)), TEAM_NAME_WRAP_CLASSES],
+        [classesNaming(html, "Verlierer von Spiel 29"), SLOT_LABEL_WRAP_CLASSES],
       ] as const) {
         const rendered = classes.split(" ");
         for (const token of recipe.split(" ")) assert.ok(rendered.includes(token), `${name} drops ${token}: ${classes}`);
@@ -1449,7 +1449,7 @@ describe("the names a score surface sets", () => {
 
 describe("the tint a score carries", () => {
   /* `ergebnisTone` decides every grade and is held above, so one fixture per grade shows a surface
-     paints that decision through `ERGEBNIS_INK` rather than through a palette of its own. */
+     paints that decision through `ERGEBNIS_INK_CLASSES` rather than through a palette of its own. */
   const GRADED: readonly FLSpiel[] = [
     { ...CARD_SPIEL, sonderereignis: "ausgefallen" },
     CARD_SPIEL,
@@ -1462,7 +1462,7 @@ describe("the tint a score carries", () => {
         const classes = scoreClasses(markup(spiel));
 
         assert.ok(
-          classes.split(" ").includes(ERGEBNIS_INK[ergebnisTone(spiel)]),
+          classes.split(" ").includes(ERGEBNIS_INK_CLASSES[ergebnisTone(spiel)]),
           `${name} paints ${String(spiel.sonderereignis)} off: ${classes}`,
         );
       }

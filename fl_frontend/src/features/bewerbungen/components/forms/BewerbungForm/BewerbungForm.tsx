@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
-import { Form } from "@heroui/react/form";
 
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
@@ -18,6 +17,7 @@ import {
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
 } from "@/features/bewerbungen/utils";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -336,7 +336,6 @@ export function BewerbungForm({
       <Form
         ref={formRef}
         // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"

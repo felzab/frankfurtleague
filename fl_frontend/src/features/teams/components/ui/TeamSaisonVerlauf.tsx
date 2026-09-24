@@ -2,7 +2,7 @@ import { Chip } from "@heroui/react/chip";
 
 import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
 import { ImElfmeterschiessen } from "@/features/spiele/components/ui/ImElfmeterschiessen";
-import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import { computeSaisonVerlauf } from "../../utils";
@@ -94,7 +94,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
             <li key={phaseVerlauf.phase}>
               <Chip
                 size="sm"
-                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${PILL_TINT[chipTint(phaseVerlauf)]}`}>
+                className={`${PILL_RADIUS_CLASSES} fluid-xxs border-none px-2 py-1 font-bold ${PILL_TINT_CLASSES[chipTint(phaseVerlauf)]}`}>
                 {outcomeLabel(phaseVerlauf)}
               </Chip>
             </li>

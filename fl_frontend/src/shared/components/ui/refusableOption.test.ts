@@ -130,9 +130,9 @@ const PICKER_POPOVER = "<Select.Popover";
 /**
  * A filter surface marks the current row IN its list, its trigger being an icon or a chip that
  * cannot; a picker's trigger carries the value instead, so a picker row draws no selected state
- * (`fl_frontend/src/shared/components/ui/pickedOption.ts :: PICKED_OPTION`).
+ * (`fl_frontend/src/shared/components/ui/pickedOption.ts :: PICKED_OPTION_CLASSES`).
  */
-const FILTER_ROW = "PICKED_OPTION";
+const FILTER_ROW = "PICKED_OPTION_CLASSES";
 
 const PICKERS = COMPONENTS.filter(([, source]) => source.includes(PICKER_POPOVER) && !source.includes(FILTER_ROW));
 

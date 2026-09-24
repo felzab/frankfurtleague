@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { IDENTITY_NAME, identityName } from "@/shared/components/ui/adminTable.ts";
+import { IDENTITY_NAME_CLASSES, identityName } from "@/shared/components/ui/adminTable.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -155,11 +155,11 @@ describe("a retired row on an admin list", () => {
      name its own way, and the table and its phone card then disagree about the row. */
   it("draws its name in the shared retired ink in both layouts, and a live row's in the shared live ink", () => {
     assert.notEqual(identityName(true), identityName(false), "a retired row's name reads exactly like a live one's");
-    assert.equal(identityName(false), IDENTITY_NAME);
+    assert.equal(identityName(false), IDENTITY_NAME_CLASSES);
 
     for (const [list, { live, retired, html }] of Object.entries(LISTS)) {
       assert.equal(drawn(html, identityName(true), retired), 2, `${list} draws the retired row's name in some other ink`);
-      assert.equal(drawn(html, IDENTITY_NAME, live), 2, `${list} draws the live row's name in some other ink`);
+      assert.equal(drawn(html, IDENTITY_NAME_CLASSES, live), 2, `${list} draws the live row's name in some other ink`);
     }
   });
 });

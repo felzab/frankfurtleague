@@ -1,0 +1,68 @@
+// Linted as src/features/zzplant/plants.tsx.
+"use client";
+
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import * as HeroUI from "@heroui/react"; // expect: segmented-import expect: heroui-form expect: vendor-root
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+
+import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Hint } from "@/shared/components/ui/Hint";
+
+declare const auth: { api: { getSession: (options: object) => unknown } };
+declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
+declare const redirect: (to: string) => never;
+declare const heading: () => string;
+declare const headers: Headers;
+declare const request: Request;
+declare const id: string;
+declare const extra: string;
+declare const bounds: object;
+
+export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
+export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
+export const GAP = "flex gap-5"; // expect: gap
+export const GAP_X = "grid sm:gap-x-7"; // expect: gap
+export const LINK = "text-brand hover:underline"; // expect: link-decoration
+export const GRADE = "dark:hover:text-brand-solid-accent"; // expect: brand-grade
+export const HINT_COPY = "font-medium fluid-sm text-foreground-muted"; // expect: muted-hint
+export const TILE = "bg-brand-solid flex size-10 rounded-xl shadow-sm"; // expect: BRAND_TILE
+export const TILE_ACROSS_A_HOLE = `bg-brand-solid size-10 ${extra} rounded-xl`; // expect: BRAND_TILE
+export const DOT = "bg-brand size-2 animate-ping rounded-full"; // expect: dot
+export const TONES = { unbekannt: "bg-muted text-foreground-muted" }; // expect: neutral-pill
+export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
+export const TALL = "min-h-[100vh]"; // expect: vh
+export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
+export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
+export const RADIUS = PILL_RADIUS_CLASSES;
+export const CONTEXT = AppRouterContext;
+export const NAMESPACE = HeroUI;
+export const FORM = HeroForm;
+export const BUTTON = Button;
+export const DELETION = "deletePasskey"; // expect: passkey-deletion
+
+export async function plantedCalls(): Promise<void> {
+  await auth.api.getSession({ headers, request }); // expect: auth-request
+  router.push("teams"); // expect: relative-nav
+  router.back(); // expect: history-back
+  redirect(`teams/${id}`); // expect: relative-nav
+}
+
+export function AdminPlantView({ facets }: { facets: unknown }) { // expect: view-facets
+  return (
+    <div>
+      <EmptyState>Für diese Saison gibt es keine Spiele.</EmptyState>{/* expect: season-empty */}
+      <DatePicker minValue={bounds} /* expect: date-bound */ />
+      <DateField {...bounds} /* expect: date-spread */ />
+      <h2 className={heading()} /* expect: heading */>Titel</h2>
+      <h3>
+        Titel <Hint /* expect: hint-nest */ />
+      </h3>
+      {String(facets)}
+    </div>
+  );
+}

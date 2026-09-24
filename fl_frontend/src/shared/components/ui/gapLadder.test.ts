@@ -96,7 +96,7 @@ const parse = (file: string): ts.SourceFile =>
 const shown = (file: string): string => path.relative(SRC_DIR, file).split(path.sep).join("/");
 
 /* Every string the tree writes, not the `className` attributes alone: a recipe module spells its
-   class list as a plain literal, so a reader watching JSX would pass `formFieldStyles.ts :: FIELD_PAIR`
+   class list as a plain literal, so a reader watching JSX would pass `formFieldStyles.ts :: FIELD_PAIR_CLASSES`
    and every `tv` slot without looking at them. */
 function classListsIn(source: ts.SourceFile): { text: string; line: number }[] {
   const found: { text: string; line: number }[] = [];

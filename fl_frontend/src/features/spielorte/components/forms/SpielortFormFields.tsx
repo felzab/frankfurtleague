@@ -7,7 +7,13 @@ import { NumberField } from "@heroui/react/number-field";
 import { TextField } from "@heroui/react/textfield";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -33,12 +39,12 @@ export function SpielortFormFields<T extends SpielortDraft>({
         onChange={(next) => onChange({ ...draft, name: next })}
         // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
         isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Name</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["name"]}</FieldError>
       </TextField>
 
       <AddressFields
@@ -61,13 +67,13 @@ export function SpielortFormFields<T extends SpielortDraft>({
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className={FIELD_LABEL}>Standard Mietpreis</Label>
-        <NumberField.Group className={FIELD_GROUP}>
+        <Label className={FIELD_LABEL_CLASSES}>Standard Mietpreis</Label>
+        <NumberField.Group className={FIELD_GROUP_CLASSES}>
           <NumberField.DecrementButton />
-          <NumberField.Input className={FIELD_COUNT_INPUT} />
+          <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR}>{errors?.["default_mietpreis"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["default_mietpreis"]}</FieldError>
       </NumberField>
     </>
   );

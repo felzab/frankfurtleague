@@ -5,9 +5,9 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "../../ui/SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
-import { SLOT_LABEL_WRAP, TEAM_NAME_TRACK, TEAM_NAME_WRAP } from "../../ui/teamName";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../../ui/teamName";
 
 import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 
@@ -37,11 +37,11 @@ export function SpielDraftPreview({
   // The fall-through every card uses, so this names a side exactly as the bracket will: a club clamped
   // at two lines, a label never.
   const sideName = (team: FLSpielWithDraftFields["team1"], quelle: FLSpielWithDraftFields["team1_quelle"], align: string) => (
-    <span className={`fluid-xs text-foreground font-bold ${align} ${TEAM_NAME_TRACK}`}>
+    <span className={`fluid-xs text-foreground font-bold ${align} ${TEAM_NAME_TRACK_CLASSES}`}>
       {team?.name ? (
-        <span className={`${align} ${TEAM_NAME_WRAP}`}>{team.name}</span>
+        <span className={`${align} ${TEAM_NAME_WRAP_CLASSES}`}>{team.name}</span>
       ) : (
-        <span className={`${align} ${SLOT_LABEL_WRAP}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+        <span className={`${align} ${SLOT_LABEL_WRAP_CLASSES}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
       )}
     </span>
   );
@@ -69,7 +69,7 @@ export function SpielDraftPreview({
         <SpielScore
           ergebnis={ergebnis}
           elfmeterschiessen={elfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(previewSpiel)]}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(previewSpiel)]}`}
         />
         {sideName(previewSpiel.team2, previewSpiel.team2_quelle, "text-left")}
       </div>

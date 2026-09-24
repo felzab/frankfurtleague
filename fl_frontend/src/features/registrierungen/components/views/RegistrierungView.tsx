@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ, BestaetigungErgebnis, FaktenBanner, FrageStellen, Wert } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import {
+  ABSATZ_CLASSES,
+  BestaetigungErgebnis,
+  FaktenBanner,
+  FrageStellen,
+  Wert,
+} from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { textLink } from "@/shared/components/ui/textLink";
 
 import { formularZustand } from "../../utils";
@@ -34,7 +40,7 @@ const TITEL: Record<Stand, string> = {
 };
 
 /** The application page's own column, so the two public forms are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 /** What the page knows about the team, or `null` where it may name nobody. */
 type Geoeffnet = { stand: Stand; ansicht: FLEinladungAnsichtResponse | null };
@@ -65,12 +71,12 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
   }, [stand]);
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
         {/* No dot: the invite's read carries the season's id and its status, and „läuft“ on the chip
             is a claim about the season rather than about the registration window. */}
         {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand]}</h1>
 
         {ansicht !== null && (
           <FaktenBanner
@@ -85,13 +91,13 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         {/* Said before anything is typed, because it changes what the registration means rather than
             whether it is accepted: the squad's own entries closed when the first matchday began. */}
         {stand === "gueltig" && ansicht !== null && ansicht.nachnominierung && (
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Der erste Spieltag hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
           </p>
         )}
 
         {stand === "gueltig" && (
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Was mit Deinen Angaben passiert, steht in der{" "}
             <Link
               href="/datenschutz"
@@ -106,7 +112,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         {/* Its own paragraph, before anything is typed: Art. 21(4) DSGVO asks the objection to reach
             a person at the first contact and apart from every other piece of information. */}
         {stand === "gueltig" && (
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
             Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an{" "}
             <Link
@@ -129,10 +135,10 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
 
       {stand === "kader-voll" && (
         <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Der Kader dieses Teams ist für diese Saison voll, deshalb können wir gerade keine weitere Registrierung annehmen.
           </p>
-          <p className={ABSATZ}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
+          <p className={ABSATZ_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -141,8 +147,10 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
           the one place that can repair it and says nothing about why the team is missing. */}
       {stand === "team-fehlt" && (
         <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ}>Dieses Team spielt in dieser Saison nicht mit, deshalb können wir für den Link keine Registrierung annehmen.</p>
-          <p className={ABSATZ}>Frag in Deinem Team nach. Sobald es eingetragen ist, funktioniert derselbe Link.</p>
+          <p className={ABSATZ_CLASSES}>
+            Dieses Team spielt in dieser Saison nicht mit, deshalb können wir für den Link keine Registrierung annehmen.
+          </p>
+          <p className={ABSATZ_CLASSES}>Frag in Deinem Team nach. Sobald es eingetragen ist, funktioniert derselbe Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -151,8 +159,10 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
           whose season is over, and a reader told otherwise goes away believing their team misled them. */}
       {stand === "geschlossen" && (
         <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ}>Für diese Saison ist die Registrierung geschlossen. Der Link Deines Teams funktioniert, das Fenster nicht.</p>
-          <p className={ABSATZ}>Zur nächsten Saison öffnet die Registrierung wieder, und Dein Team bekommt dafür einen neuen Link.</p>
+          <p className={ABSATZ_CLASSES}>
+            Für diese Saison ist die Registrierung geschlossen. Der Link Deines Teams funktioniert, das Fenster nicht.
+          </p>
+          <p className={ABSATZ_CLASSES}>Zur nächsten Saison öffnet die Registrierung wieder, und Dein Team bekommt dafür einen neuen Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -161,8 +171,8 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
           nobody. */}
       {stand === "ungueltig" && (
         <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ}>Dieser Link gilt nicht mehr. Dein Team hat ihn entweder ersetzt, oder er war nie vollständig.</p>
-          <p className={ABSATZ}>Frag in Deinem Team nach dem aktuellen Link.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Link gilt nicht mehr. Dein Team hat ihn entweder ersetzt, oder er war nie vollständig.</p>
+          <p className={ABSATZ_CLASSES}>Frag in Deinem Team nach dem aktuellen Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -171,7 +181,9 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
           call a live link void on a day the backend was merely unreachable. */}
       {stand === "unlesbar" && (
         <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

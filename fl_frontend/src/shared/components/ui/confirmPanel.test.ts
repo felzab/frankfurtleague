@@ -11,7 +11,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { refusalWrappers, renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { confirmButton, formButton } from "./formButtons";
-import { PANEL_REVEAL } from "./motion";
+import { PANEL_REVEAL_CLASSES } from "./motion";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
@@ -20,7 +20,7 @@ import { PANEL_REVEAL } from "./motion";
 const { ConfirmActionRow } = await import("./ConfirmActionRow.tsx");
 const { ConfirmPressButton } = await import("./ConfirmPressButton.tsx");
 const { ConfirmReadoutRow } = await import("./ConfirmReadoutRow.tsx");
-const { ConfirmReveal, CONFIRM_DANGER_PANEL } = await import("./ConfirmReveal.tsx");
+const { ConfirmReveal, CONFIRM_DANGER_PANEL_CLASSES } = await import("./ConfirmReveal.tsx");
 
 /** The shared control's tag, which is also what a panel is searched for: one name, spelled once. */
 const CONTROL = "ConfirmPressButton";
@@ -393,14 +393,14 @@ describe("the armed reveal", () => {
   /* Tier 3, a section unfolding inside a page already in view, so the app's one motion vocabulary
      reaches it — and reduced motion with it, which is what `motion.ts` alone is wired for. */
   it("reveals through the shared motion token rather than its own classes", () => {
-    for (const token of PANEL_REVEAL.split(" ")) {
+    for (const token of PANEL_REVEAL_CLASSES.split(" ")) {
       assert.ok(rootClasses(REVEAL).includes(token), `the reveal is missing ${token}, which the shared token carries`);
     }
 
     assert.equal(rootClasses(REVEAL).filter((token) => token === "animate-in").length, 1, "the reveal wears a second entry animation");
     // A literal spelling the same classes renders identically, so which of the two stands here is
     // legible in the source alone.
-    assert.match(REVEAL_SOURCE, /\$\{PANEL_REVEAL\}/, "the reveal spells its motion beside the vocabulary the app keeps");
+    assert.match(REVEAL_SOURCE, /\$\{PANEL_REVEAL_CLASSES\}/, "the reveal spells its motion beside the vocabulary the app keeps");
   });
 
   /* One gap for every panel on the roster. A prop here would be a variant prop under another name,
@@ -418,11 +418,11 @@ describe("the armed reveal", () => {
      (`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx`). Two spellings of that box render
      identically, so which of them stands there is legible in the source alone. */
   it("draws its tint from the constant the delete dialog draws from", () => {
-    for (const token of CONFIRM_DANGER_PANEL.split(" ")) {
+    for (const token of CONFIRM_DANGER_PANEL_CLASSES.split(" ")) {
       assert.ok(rootClasses(REVEAL).includes(token), `the reveal is missing ${token}, which the shared box carries`);
     }
 
-    assert.match(DELETE_MODAL_SOURCE, /\$\{CONFIRM_DANGER_PANEL\}/, "the delete dialog's step two dresses a box of its own");
+    assert.match(DELETE_MODAL_SOURCE, /\$\{CONFIRM_DANGER_PANEL_CLASSES\}/, "the delete dialog's step two dresses a box of its own");
     assert.doesNotMatch(DELETE_MODAL_SOURCE, /bg-danger\/5\b|border-danger\/20\b/, "the delete dialog spells the box beside the constant");
   });
 });

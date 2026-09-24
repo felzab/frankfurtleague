@@ -13,4 +13,4 @@ export const overlayPanel = tv({
  * `min-w-(--trigger-width)` and no maximum, so a long row opens the list far past the form it sits
  * in. Written against `@heroui/styles` 3.2.4.
  */
-export const SELECT_POPOVER = `${overlayPanel()} mt-2 w-(--trigger-width) p-1.5`;
+export const SELECT_POPOVER_CLASSES = `${overlayPanel()} mt-2 w-(--trigger-width) p-1.5`;

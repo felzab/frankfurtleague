@@ -1,6 +1,6 @@
 import { Separator } from "@heroui/react/separator";
 
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -64,7 +64,7 @@ export function FormAnsetzungSection({
 
       <div className={styles.body()}>
         <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Termin</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Termin</h3>
           <FormDateTimeSection
             datum={datum}
             onDatumChange={onDatumChange}

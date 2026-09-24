@@ -78,7 +78,7 @@ function Panel({ title, hinweis, children }: { title: string; hinweis?: ReactNod
 }
 
 /** The one grid every block's facts stand in. */
-const ANGABEN_GRID = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
+const ANGABEN_GRID_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
 
 /**
  * Everything one school submitted, read-only. **Nothing here is editable**: an application is the
@@ -102,7 +102,7 @@ export function BewerbungAngabenPanel({
       {/* Neither arm's name where the application names neither: that row is the one acceptance refuses,
           and a title claiming a club would send the administrator looking for one. */}
       <Panel title={herkunft === null ? "Schule oder Team" : BEWERBUNG_HERKUNFT_LABELS[herkunft]}>
-        <dl className={ANGABEN_GRID}>
+        <dl className={ANGABEN_GRID_CLASSES}>
           <Angabe label="Team">
             {teamName === null ? (
               <Leer />
@@ -167,7 +167,7 @@ export function BewerbungAngabenPanel({
                 {person === null ? (
                   <p className="muted-hint">Für diese Rolle steht niemand mehr in der Bewerbung.</p>
                 ) : (
-                  <dl className={ANGABEN_GRID}>
+                  <dl className={ANGABEN_GRID_CLASSES}>
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
                     {/* Null until that seat's contact has confirmed and entered it themselves, so an
                         empty one is a step still outstanding rather than a school's omission. */}
@@ -240,7 +240,7 @@ export function BewerbungAngabenPanel({
             }}
           />
         }>
-        <dl className={ANGABEN_GRID}>
+        <dl className={ANGABEN_GRID_CLASSES}>
           <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
           <Angabe label="Wunschfarbe">
             {trikot.wunschfarbe === null ? (
@@ -271,7 +271,7 @@ export function BewerbungAngabenPanel({
 
       {entscheidung !== null && (
         <Panel title="Entscheidung">
-          <dl className={ANGABEN_GRID}>
+          <dl className={ANGABEN_GRID_CLASSES}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
             <Angabe label="Von">{entscheidung.von === "" ? "System" : entscheidung.von}</Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance

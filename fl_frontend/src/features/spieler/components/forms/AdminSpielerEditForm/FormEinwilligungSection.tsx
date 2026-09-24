@@ -7,7 +7,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -85,7 +85,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           <>
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
 
-            <dl className={FIELD_PAIR}>
+            <dl className={FIELD_PAIR_CLASSES}>
               <Angabe label="Umfang">{EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
               <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a

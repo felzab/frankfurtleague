@@ -10,7 +10,7 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -164,7 +164,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={`${BRAND_TILE} font-numeric fluid-sm font-extrabold tabular-nums`}>
+                    className={`${BRAND_TILE_CLASSES} font-numeric fluid-sm font-extrabold tabular-nums`}>
                     {spieltag.position}
                   </span>
 

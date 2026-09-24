@@ -1,5 +1,5 @@
 import { card } from "./card";
-import { ROW_ACTION_SIZE } from "./rowActionSize";
+import { ROW_ACTION_SIZE_CLASSES } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
 
 const TABLE_ROWS = [0, 1, 2, 3, 4];
@@ -11,14 +11,14 @@ const SECTION_ROW_ACTIONS = [0, 1];
 /** Which placeholder a resource draws, and with it whether its rows reach the DOM a pass late. */
 export type AdminCrudShape = "table" | "sections" | "cards";
 
-/** How many targets decides only the cluster's width; its height comes from `ROW_ACTION_SIZE`, which `RowActions` reads too. */
+/** How many targets decides only the cluster's width; its height comes from `ROW_ACTION_SIZE_CLASSES`, which `RowActions` reads too. */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
     <div className={`flex flex-row items-center justify-end gap-2 ${className}`}>
       {slots.map((slot) => (
         <span
           key={slot}
-          className={`${skeletonBlock()} ${ROW_ACTION_SIZE} rounded-xl`}
+          className={`${skeletonBlock()} ${ROW_ACTION_SIZE_CLASSES} rounded-xl`}
         />
       ))}
     </div>
@@ -111,10 +111,10 @@ function TableFallback() {
             <div
               key={row}
               className="border-border/50 flex items-center gap-6 border-b px-6 py-4 last:border-b-0">
-              {/* One line, so `ROW_ACTION_SIZE` stays the tallest thing in the row and the height is fixed at any width. */}
+              {/* One line, so `ROW_ACTION_SIZE_CLASSES` stays the tallest thing in the row and the height is fixed at any width. */}
               <span className={`${skeletonBlock()} fluid-sm block w-2/5 rounded`}>&nbsp;</span>
 
-              <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} ml-auto shrink-0 rounded-xl`} />
+              <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE_CLASSES} ml-auto shrink-0 rounded-xl`} />
             </div>
           ))}
         </div>
@@ -144,7 +144,7 @@ function SectionedFallback() {
               key={row}
               className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0`}>
               <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
-                {/* Spelled rather than read from `ROW_ACTION_SIZE`, which it only happens to match. */}
+                {/* Spelled rather than read from `ROW_ACTION_SIZE_CLASSES`, which it only happens to match. */}
                 <span className={`${skeletonBlock()} size-10 shrink-0 rounded-xl`} />
                 <div className="flex min-w-0 flex-1 flex-col gap-y-1">
                   <span className={`${skeletonBlock()} fluid-sm block w-1/2 rounded`}>&nbsp;</span>

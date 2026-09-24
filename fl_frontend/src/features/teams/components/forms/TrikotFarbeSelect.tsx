@@ -7,7 +7,7 @@ import { Select } from "@heroui/react/select";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
@@ -91,8 +91,8 @@ export function TrikotFarbeSelect({
       value={value ?? leerschluessel}
       onChange={handleChange}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>{label}</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
         <span className="flex min-w-0 flex-row items-center gap-x-2">
@@ -101,7 +101,7 @@ export function TrikotFarbeSelect({
         </span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Trikotfarben">
           {!isRequired && (

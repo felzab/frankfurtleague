@@ -1,6 +1,6 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLKontaktSitz } from "@/features/kontakte/schemas";
 
@@ -31,7 +31,7 @@ export function FormKontaktReveal({
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex w-full flex-col gap-y-1">
-        <h4 className={FORM_SECTION_HEADING}>Wer dabei gelöscht wird</h4>
+        <h4 className={FORM_SECTION_HEADING_CLASSES}>Wer dabei gelöscht wird</h4>
 
         {sitze.length === 0 ? (
           <p className="muted-hint">Diese E-Mail-Adresse steht in keiner Saison und in keiner Bewerbung.</p>

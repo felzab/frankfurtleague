@@ -6,7 +6,6 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
 import { Button } from "@heroui/react/button";
-import { Form } from "@heroui/react/form";
 import { Label } from "@heroui/react/label";
 import { Switch } from "@heroui/react/switch";
 
@@ -18,8 +17,9 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -114,17 +114,17 @@ function BestaetigungAngaben({
   return (
     <>
       <section className="flex flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Deine Angaben</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Angaben</h3>
 
         {/* The form's own field grid, so one box on a wide page stands in a column rather than
             stretching the segments across it. */}
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <div className="flex flex-col gap-y-2">
             <AppDatePicker
               isRequired
               isDisabled={isDisabled}
               name="geburtsdatum"
-              label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
+              label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
               calendarLabel="Geburtsdatum auswählen"
               value={toCalendarDate(entwurf.geburtsdatum)}
               onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
@@ -145,7 +145,7 @@ function BestaetigungAngaben({
       </section>
 
       <section className="flex flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
         {/* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */}
         <Switch
           className="flex w-full flex-col gap-y-1"
@@ -357,7 +357,6 @@ export function BestaetigungFormPanel({
     <Form
       ref={formRef}
       // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"

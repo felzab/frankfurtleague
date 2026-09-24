@@ -4,9 +4,9 @@ import type { ErgebnisTone } from "../../utils";
 
 /**
  * A score's ink on a ground that is not a pill's: `-strong`, the tokens' rule being plain for fills and
- * `-strong` for text. The bracket's score is a pill and takes `PILL_TINT` instead.
+ * `-strong` for text. The bracket's score is a pill and takes `PILL_TINT_CLASSES` instead.
  */
-export const ERGEBNIS_INK: Record<ErgebnisTone, string> = {
+export const ERGEBNIS_INK_CLASSES: Record<ErgebnisTone, string> = {
   success: "text-success-strong",
   danger: "text-danger-strong",
   warning: "text-warning-strong",

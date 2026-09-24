@@ -687,6 +687,8 @@ export async function getSignInDestination(): Promise<SignInDestination> {
   if (isUserAdmin(served.user.email)) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to
     // move this landing with it, or `/admin` is offered to somebody the proxy bounces.
+
+    // eslint-disable-next-line no-restricted-syntax -- where a finished sign-in lands; no season is in scope at sign-in
     if (isAdminSession(served)) return "/admin";
 
     // Past either figure the session is spent, and an administrator asks for a fresh link rather

@@ -5,7 +5,7 @@ import Bars from "@gravity-ui/icons/Bars";
 import { BrandLink } from "../../ui/BrandLink";
 import { InfoHint } from "../../ui/InfoHint";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
-import { RAIL_WIDTH_LG } from "./railWidth";
+import { RAIL_WIDTH_LG_CLASSES } from "./railWidth";
 import { SignOutButton } from "./SignOutButton";
 
 import type { FormState, SidemenuHint } from "@/shared/types/types";
@@ -34,7 +34,7 @@ export function AppTopBar({
 }) {
   // Hoisted out of the class template because the Tailwind lint cannot read a class string through an
   // index expression — it reads `collapsed` and `expanded` as class names.
-  const railWidth = RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"];
+  const railWidth = RAIL_WIDTH_LG_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   return (
     /* `inert` with `<main>` and for its reason: the open drawer covers the left of this bar and the

@@ -15,8 +15,8 @@ import { userEvent } from "@testing-library/user-event";
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
-import { NAME_WRAP } from "@/shared/components/ui/nameWrap.ts";
+import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -805,15 +805,15 @@ describe("how the form asks for a wished opponent", () => {
     assert.match(WISH_MARKUP, /<label[^>]*>Wunschgegner[^<]*<\/label>/, "the control carries no label naming the wish");
   });
 
-  /* Read off `FIELD_LABEL` rather than spelled here: a hand-typed size or weight drifts from the
+  /* Read off `FIELD_LABEL_CLASSES` rather than spelled here: a hand-typed size or weight drifts from the
      labels above it on the same panel, and the case above passes on the words alone. */
   it("dresses that label in the shared field-label style", () => {
     const labelAttrs = /<label ([^>]*)>Wunschgegner[^<]*<\/label>/.exec(WISH_MARKUP)?.[1] ?? "";
     const classesOf = (/class="([^"]*)"/.exec(labelAttrs)?.[1] ?? "").split(" ");
 
     assert.notEqual(labelAttrs, "", "the wish's label moved, so the loop below reads nothing");
-    for (const classToken of FIELD_LABEL.split(" "))
-      assert.ok(classesOf.includes(classToken), `the wish's label lost FIELD_LABEL's ${classToken}`);
+    for (const classToken of FIELD_LABEL_CLASSES.split(" "))
+      assert.ok(classesOf.includes(classToken), `the wish's label lost FIELD_LABEL_CLASSES's ${classToken}`);
   });
 
   /* The whole reason this is not a picker. A closed set moves the payload name onto a hidden input
@@ -1232,8 +1232,12 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
   it("breaks a long school name through the shared recipe rather than a copy of its classes", () => {
     // Read rather than rendered: a literal spelling those same classes renders identical markup, so
     // only the source separates the shared recipe from a copy of its output.
-    assert.match(PANELS, /unbegrenzt: \{\s*\/\/[^\n]*\n\s*true: \{ zelle: "[^"]*", wert: NAME_WRAP \}/, "the banner spells the wrap itself");
-    for (const classToken of NAME_WRAP.split(" ")) {
+    assert.match(
+      PANELS,
+      /unbegrenzt: \{\s*\/\/[^\n]*\n\s*true: \{ zelle: "[^"]*", wert: NAME_WRAP_CLASSES \}/,
+      "the banner spells the wrap itself",
+    );
+    for (const classToken of NAME_WRAP_CLASSES.split(" ")) {
       assert.doesNotMatch(
         PANELS,
         new RegExp(`"[^"]*\\b${classToken.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}\\b`),

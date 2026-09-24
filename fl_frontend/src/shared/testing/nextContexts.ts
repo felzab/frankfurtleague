@@ -1,8 +1,10 @@
 import { createElement as h } from "react";
+/* eslint-disable no-restricted-imports -- the helper that mounts Next's contexts for every other test */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+/* eslint-enable no-restricted-imports */
 import type { ReactNode } from "react";
 
 /** Where a component sent the reader, counted and collected so a case asserts over the navigation rather than over the router. */
@@ -41,6 +43,7 @@ export function recordingRouter(overrides: Partial<AppRouterInstance> = {}): { r
 
   return {
     router: nextRouter({
+      // eslint-disable-next-line no-restricted-properties -- the router double counts the history back it stands in for
       back: () => void (seen.back += 1),
       refresh: () => void (seen.refresh += 1),
       push: (href: string) => void seen.pushed.push(href),

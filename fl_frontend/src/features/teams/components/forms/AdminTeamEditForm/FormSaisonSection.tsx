@@ -20,7 +20,7 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -113,7 +113,7 @@ function GruppenTauschControl({
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
           for one picker would read as a second subject. */}
-      <h3 className={FORM_SECTION_HEADING}>Gruppe tauschen</h3>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Gruppe tauschen</h3>
 
       {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
           none of them is a row. Each title states the rule that shut it rather than the state that
@@ -321,7 +321,7 @@ export function FormSaisonSection({
               </div>
             ) : (
               <>
-                <div className={FIELD_PAIR}>
+                <div className={FIELD_PAIR_CLASSES}>
                   <div className="flex w-full flex-col gap-y-1">
                     <FieldLabel path="gruppe">Gruppe</FieldLabel>
                     <GruppeSelect
@@ -344,7 +344,7 @@ export function FormSaisonSection({
               </>
             )}
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="trikot_farbe">Trikotfarbe</FieldLabel>
                 <TrikotFarbeSelect

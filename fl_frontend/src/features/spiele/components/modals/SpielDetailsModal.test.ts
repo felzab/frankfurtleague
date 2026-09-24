@@ -7,7 +7,10 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries the router context, and the club popover's links read it. A Next release that
    moves the module fails this file at import rather than quietly. */
+/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+
+/* eslint-enable no-restricted-imports */
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -17,13 +20,13 @@ import { spokenText } from "@/shared/testing/spokenText.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
 import { ergebnisTone } from "../../utils.ts";
-import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "../ui/teamName.ts";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../ui/teamName.ts";
 
 import type { FLSpiel } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielDetailsModal } = await import("./SpielDetailsModal.tsx");
-const { ERGEBNIS_INK } = await import("../ui/SpielScore.tsx");
+const { ERGEBNIS_INK_CLASSES } = await import("../ui/SpielScore.tsx");
 
 const HEIM = "6780e194677bfbfb5ea8396c";
 const GAST = "6780e19192c4cd94b2504985";
@@ -97,8 +100,8 @@ describe("what the fixture dialog says about the result", () => {
       const score = within(dialog).getByText(spiel.ergebnis ?? PLACEHOLDER.ergebnis);
 
       assert.ok(
-        score.className.split(" ").includes(ERGEBNIS_INK[ergebnisTone(spiel)]),
-        `${spiel.sonderereignis ?? spiel.ergebnis ?? "unplayed"} is painted off ERGEBNIS_INK: ${score.className}`,
+        score.className.split(" ").includes(ERGEBNIS_INK_CLASSES[ergebnisTone(spiel)]),
+        `${spiel.sonderereignis ?? spiel.ergebnis ?? "unplayed"} is painted off ERGEBNIS_INK_CLASSES: ${score.className}`,
       );
       unmount();
     }
@@ -112,8 +115,8 @@ describe("the names the fixture dialog sets", () => {
     const { dialog } = openDialog({ ...HALBFINALE, team2: null, team2_quelle: { type: "spiel", spiel_nr: 29, ausgang: "verlierer" } });
 
     for (const [text, recipe] of [
-      ["Mainufer Beispiel", TEAM_NAME_WRAP],
-      ["Verlierer von Spiel 29", SLOT_LABEL_WRAP],
+      ["Mainufer Beispiel", TEAM_NAME_WRAP_CLASSES],
+      ["Verlierer von Spiel 29", SLOT_LABEL_WRAP_CLASSES],
     ] as const) {
       const classes = within(dialog).getByText(text).className.split(" ");
 

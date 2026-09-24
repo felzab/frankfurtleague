@@ -15,7 +15,7 @@ import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
-import { RAIL_SQUARE_HEROUI_RING } from "./railGutter";
+import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -49,7 +49,7 @@ export function SidemenuOptionsMenu({
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
           className={`text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
-            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING}` : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
           }`}>
           <Ellipsis
             aria-hidden="true"

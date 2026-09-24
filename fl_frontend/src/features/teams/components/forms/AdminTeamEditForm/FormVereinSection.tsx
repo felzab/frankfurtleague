@@ -21,7 +21,7 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -92,9 +92,9 @@ export function FormVereinSection({
             <FieldLabel path="name">Name</FieldLabel>
             <Input
               placeholder="z.B. Goethe-Gymnasium"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <TextField
@@ -105,8 +105,8 @@ export function FormVereinSection({
             onBlur={() => onFieldLeft(["shorthand"])}
             maxLength={2}>
             <FieldLabel path="shorthand">Kürzel</FieldLabel>
-            <Input className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`} />
-            <FieldError className={FIELD_ERROR} />
+            <Input className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-widest uppercase`} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
         </div>
 
@@ -120,9 +120,9 @@ export function FormVereinSection({
           <FieldLabel path="full_name">Vollständiger Name</FieldLabel>
           <Input
             placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <div className="flex w-full flex-col gap-y-1 sm:max-w-96">
@@ -135,7 +135,7 @@ export function FormVereinSection({
             value={draft.schulform ?? SCHULFORM_UNBEANTWORTET}
             onChange={handleSchulformChange}
             className="w-full">
-            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+            <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
               {/* From the prop, not `Select.Value` — the collection can lag a render behind and would
                   then show HeroUI's English placeholder. */}
               <span className={draft.schulform ? "" : "text-foreground-muted"}>
@@ -143,7 +143,7 @@ export function FormVereinSection({
               </span>
               <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
             </Select.Trigger>
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
             <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
               <ListBox aria-label="Schulformen">
                 <ListBox.Item

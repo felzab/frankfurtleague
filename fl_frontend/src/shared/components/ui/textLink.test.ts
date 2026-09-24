@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { classTokensIn } from "@/shared/testing/classTokens.ts";
 
-import { BRAND_INK_OUTSIDE_PROSE, textLink } from "./textLink.ts";
+import { BRAND_INK_OUTSIDE_PROSE_CLASSES, textLink } from "./textLink.ts";
 
 // Three levels: this file sits at `src/shared/components/ui`, and the sweeps below have to walk all
 // of `src` or they report a clean tree while every feature spells its own.
@@ -78,21 +78,25 @@ describe("the grade a brand-coloured control outside prose wears", () => {
   /* `brand-solid` is one value in both themes, so a grade losing its dark arm compiles, lints and
      renders — and sinks the hovered control into the card it sits on (`docs/frontend/spec.md :: I161`). */
   it("hovers to a value each theme declares for itself", () => {
-    assert.match(BRAND_INK_OUTSIDE_PROSE, /(^|\s)hover:text-brand-solid(\s|$)/);
-    assert.match(BRAND_INK_OUTSIDE_PROSE, /(^|\s)dark:hover:text-brand-solid-accent(\s|$)/);
+    assert.match(BRAND_INK_OUTSIDE_PROSE_CLASSES, /(^|\s)hover:text-brand-solid(\s|$)/);
+    assert.match(BRAND_INK_OUTSIDE_PROSE_CLASSES, /(^|\s)dark:hover:text-brand-solid-accent(\s|$)/);
   });
 
   /* The underline is what parts this from `textLink`, whose base carries one for every caller
      (`docs/frontend/spec.md :: I43`). With one here the two names reach the same control. */
   it("leaves the underline to the link recipe", () => {
-    assert.doesNotMatch(BRAND_INK_OUTSIDE_PROSE, /underline/);
+    assert.doesNotMatch(BRAND_INK_OUTSIDE_PROSE_CLASSES, /underline/);
   });
 
   /* What the two dresses being one grade means, held in both directions: the drift a second spelling
      produced was one class at a time, and the class it dropped was the dark arm. */
   it("is the brand link's own grade with the underline taken off", () => {
-    const inTheLinkOnly = [...classesOf(textLink({ tone: "brand" }))].filter((className) => !classesOf(BRAND_INK_OUTSIDE_PROSE).has(className));
-    const outsideOnly = [...classesOf(BRAND_INK_OUTSIDE_PROSE)].filter((className) => !classesOf(textLink({ tone: "brand" })).has(className));
+    const inTheLinkOnly = [...classesOf(textLink({ tone: "brand" }))].filter(
+      (className) => !classesOf(BRAND_INK_OUTSIDE_PROSE_CLASSES).has(className),
+    );
+    const outsideOnly = [...classesOf(BRAND_INK_OUTSIDE_PROSE_CLASSES)].filter(
+      (className) => !classesOf(textLink({ tone: "brand" })).has(className),
+    );
 
     assert.deepEqual(inTheLinkOnly, ["underline", "underline-offset-2"], "the link wears something over the grade that is not its underline");
     assert.deepEqual(outsideOnly, [], "the control grade carries a class the brand link does not");
@@ -111,7 +115,7 @@ describe("the grade a brand-coloured control outside prose wears", () => {
     assert.deepEqual(
       spellings,
       [],
-      `these spell the brand grade inline instead of taking \`BRAND_INK_OUTSIDE_PROSE\`:\n  ${spellings.join("\n  ")}`,
+      `these spell the brand grade inline instead of taking \`BRAND_INK_OUTSIDE_PROSE_CLASSES\`:\n  ${spellings.join("\n  ")}`,
     );
   });
 });

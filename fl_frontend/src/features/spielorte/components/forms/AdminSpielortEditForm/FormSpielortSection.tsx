@@ -5,7 +5,7 @@ import { Input } from "@heroui/react/input";
 import { TextField } from "@heroui/react/textfield";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -49,9 +49,9 @@ export function FormSpielortSection({
           <FieldLabel path="name">Name</FieldLabel>
           <Input
             placeholder="z.B. Sportpark Nord"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
     </section>

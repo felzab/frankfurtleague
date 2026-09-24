@@ -1,0 +1,11 @@
+// Linted as src/core/zzPlant.ts.
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
+import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; // expect: layer-core
+import { captureStdout } from "./stdoutCapture"; // expect: test-only
+import { sources } from "./actionSources"; // expect: test-only
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private expect: layer-core
+
+export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext];

@@ -4,7 +4,12 @@ import { Separator } from "@heroui/react/separator";
 import { Switch } from "@heroui/react/switch";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_PAIR_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -168,7 +173,7 @@ export function FormErgebnisSection({
 
         {/* Side by side from `sm`: the counts are one answer, but two steppers in a phone row
             leave neither wide enough to hit. */}
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {(
             [
               { slot: "team1" as const, name: team1Name, value: team1Tore },
@@ -189,12 +194,12 @@ export function FormErgebnisSection({
                 extraMarker={<ExpectedMarker path={`${slot}.tore`} />}>
                 {name}
               </FieldLabel>
-              <NumberField.Group className={FIELD_GROUP}>
+              <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </NumberField>
           ))}
         </div>
@@ -215,7 +220,7 @@ export function FormErgebnisSection({
             </Switch>
 
             {elfmeterschiessen !== null && (
-              <div className={FIELD_PAIR}>
+              <div className={FIELD_PAIR_CLASSES}>
                 {(
                   [
                     { slot: "team1" as const, name: team1Name, value: elfmeterschiessen.team1 },
@@ -234,12 +239,12 @@ export function FormErgebnisSection({
                       extraMarker={<ExpectedMarker path={`elfmeterschiessen.${slot}`} />}>
                       {name}: Treffer
                     </FieldLabel>
-                    <NumberField.Group className={FIELD_GROUP}>
+                    <NumberField.Group className={FIELD_GROUP_CLASSES}>
                       <NumberField.DecrementButton />
-                      <NumberField.Input className={FIELD_COUNT_INPUT} />
+                      <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                       <NumberField.IncrementButton />
                     </NumberField.Group>
-                    <FieldError className={FIELD_ERROR} />
+                    <FieldError className={FIELD_ERROR_CLASSES} />
                   </NumberField>
                 ))}
               </div>

@@ -3,8 +3,8 @@
 import React, { Suspense } from "react";
 
 import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";
-import { RAIL_WIDTH_LG } from "../shell/railWidth";
-import { RAIL_GUTTER } from "./railGutter";
+import { RAIL_WIDTH_LG_CLASSES } from "../shell/railWidth";
+import { RAIL_GUTTER_CLASSES } from "./railGutter";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import { SidemenuFooter } from "./SidemenuFooter";
 import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
@@ -44,8 +44,8 @@ export function Sidemenu<TIcon extends string>({
 }) {
   // The `lg:` half is shared with the bar's brand block, so the seam between them cannot drift.
   // Hoisted out of the class template for the reason `AppTopBar` gives.
-  const railWidth = `w-sidemenu ${RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"]}`;
-  const railGutter = RAIL_GUTTER[isDesktopCollapsed ? "collapsed" : "expanded"];
+  const railWidth = `w-sidemenu ${RAIL_WIDTH_LG_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"]}`;
+  const railGutter = RAIL_GUTTER_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   const navLinkProps = {
     structure,

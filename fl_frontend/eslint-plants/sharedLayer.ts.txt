@@ -1,0 +1,8 @@
+// Linted as src/shared/zzPlant.ts.
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+
+export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext];

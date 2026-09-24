@@ -4,7 +4,7 @@ import { parseDate } from "@internationalized/date";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -61,7 +61,7 @@ export function FormZeitraumSection({
       </div>
 
       <div className={panel.body()}>
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <AppDatePicker
             isRequired
             name="start_date"

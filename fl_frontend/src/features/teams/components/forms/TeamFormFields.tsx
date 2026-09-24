@@ -15,7 +15,7 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -45,12 +45,12 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           maxLength={TEAM_NAME_MAX_LENGTH}
           // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
           isInvalid={errors?.["name"] ? true : undefined}>
-          <Label className={FIELD_LABEL}>Name</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Name</Label>
           <Input
             placeholder="z.B. Goethe-Gymnasium"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["name"]}</FieldError>
         </TextField>
 
         <TextField
@@ -62,9 +62,9 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
           maxLength={2}
           isInvalid={errors?.["shorthand"] ? true : undefined}>
-          <Label className={FIELD_LABEL}>Kürzel</Label>
-          <Input className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`} />
-          <FieldError className={FIELD_ERROR}>{errors?.["shorthand"]}</FieldError>
+          <Label className={FIELD_LABEL_CLASSES}>Kürzel</Label>
+          <Input className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-widest uppercase`} />
+          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["shorthand"]}</FieldError>
         </TextField>
       </div>
 
@@ -75,12 +75,12 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         onChange={(next) => onChange({ ...draft, full_name: next })}
         maxLength={TEAM_FULL_NAME_MAX_LENGTH}
         isInvalid={errors?.["full_name"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Vollständiger Name</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Vollständiger Name</Label>
         <Input
           placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["full_name"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["full_name"]}</FieldError>
       </TextField>
 
       <WebsiteUrlField
@@ -98,13 +98,13 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         onChange={(next) => onChange({ ...draft, description: next })}
         maxLength={DESCRIPTION_MAX_LENGTH}
         isInvalid={errors?.["description"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Beschreibung</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Beschreibung</Label>
         <TextArea
           fullWidth
           placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
-          className={`${FIELD_TEXTAREA} min-h-24`}
+          className={`${FIELD_TEXTAREA_CLASSES} min-h-24`}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["description"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["description"]}</FieldError>
       </TextField>
 
       <AddressFields

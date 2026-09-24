@@ -5,8 +5,8 @@ import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
@@ -74,14 +74,14 @@ export function TeamSelect({
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>Team</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>Team</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         <span className={value ? "" : "text-foreground-muted"}>
           {value === null ? "Team wählen" : (selected?.name ?? "Team außerhalb dieser Saison")}
         </span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Teams dieser Saison">
           {teams.map((team) => (
@@ -99,7 +99,7 @@ export function TeamSelect({
               <span className="flex shrink-0 flex-row items-center gap-x-2">
                 {team.isSquadFull === true && <span className={item.note()}>Kader voll</span>}
                 {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
-                <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
+                <span className={`${SHORTHAND_CHIP_CLASSES} w-10`}>{team.shorthand}</span>
               </span>
             </ListBox.Item>
           ))}

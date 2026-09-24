@@ -17,7 +17,12 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_TEXTAREA_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -127,13 +132,13 @@ export function AdminBewerbungAblehnenSection({
           }}
           onBlur={() => setLaengeError(zuLang)}
           isInvalid={error !== null ? true : undefined}>
-          <Label className={FIELD_LABEL}>Grund für die Absage</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Grund für die Absage</Label>
           <TextArea
             fullWidth
             placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
-            className={`${FIELD_TEXTAREA} min-h-24`}
+            className={`${FIELD_TEXTAREA_CLASSES} min-h-24`}
           />
-          <FieldError className={FIELD_ERROR}>{error}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
         </TextField>
 
         {/* The count, not a progress bar: what a writer needs near the cap is the number of
@@ -145,7 +150,7 @@ export function AdminBewerbungAblehnenSection({
         {isConfirming && !isEmpty && (
           <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Was dabei abgeschlossen wird</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei abgeschlossen wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Team"

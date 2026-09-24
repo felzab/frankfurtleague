@@ -11,7 +11,7 @@ import { postSperreAction } from "@/features/sperrliste/actions";
 import { SPERRE_DAUER_HINWEIS } from "@/features/sperrliste/constants";
 import { FLPostSperrlistePayloadSchema } from "@/features/sperrliste/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 
 import type { FLPostSperrlistePayload } from "@/features/sperrliste/schemas";
@@ -50,15 +50,15 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
               // controlled API, and on the input react-aria's field state never sees a value at all.
               onChange={(next) => setDraft({ ...draft, email: next })}>
               {/* „E-Mail“, as every neighbouring admin form labels the field. */}
-              <Label className={FIELD_LABEL}>E-Mail</Label>
+              <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
               {/* A submitted `type=email` value enters the browser's own autofill store, where the
                   address of somebody being banned has no business being kept. */}
               <Input
                 autoComplete="off"
                 placeholder="z.B. name@beispiel.de"
-                className={FIELD_INPUT}
+                className={FIELD_INPUT_CLASSES}
               />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
             {/* Both halves of what pressing save does to the person at this address: it lapses by
                 itself, and they are told at once. Neither is undoable from the list afterwards. */}
@@ -78,12 +78,12 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
               aria-describedby={grundHinweisId}
               value={draft.grund}
               onChange={(next) => setDraft({ ...draft, grund: next })}>
-              <Label className={FIELD_LABEL}>Grund</Label>
+              <Label className={FIELD_LABEL_CLASSES}>Grund</Label>
               <Input
                 placeholder="z.B. falsches Geburtsdatum angegeben"
-                className={FIELD_INPUT}
+                className={FIELD_INPUT_CLASSES}
               />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
             {/* The row is served back, copied into a removal's log image and kept past the person's
                 erasure, so a name typed here outlives every record the erasure was meant to end. */}

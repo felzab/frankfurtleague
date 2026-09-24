@@ -16,7 +16,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { BRAND_INK_OUTSIDE_PROSE } from "@/shared/components/ui/textLink";
+import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -187,7 +187,7 @@ export function FormRolloverSection({
                     <span className="fluid-xxs text-foreground-muted shrink-0">{formatSpielDatum(spiel.datum)}</span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xxs shrink-0 font-bold`}>
+                      className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} fluid-xxs shrink-0 font-bold`}>
                       Öffnen
                     </Link>
                   </li>

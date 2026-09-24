@@ -7,8 +7,11 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* `useSearchParams` reads a context no `next/navigation` export carries, so the list is mounted under
    the one Next keeps it on, as `fl_frontend/src/app/notFound.test.ts` mounts its boundaries. */
+/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+/* eslint-enable no-restricted-imports */
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";

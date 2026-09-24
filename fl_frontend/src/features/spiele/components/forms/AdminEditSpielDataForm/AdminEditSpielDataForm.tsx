@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { Form } from "@heroui/react/form";
-
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -461,7 +460,6 @@ export function AdminEditSpielDataForm({
       <SpielExpectedProvider expected={status.expected}>
         <Form
           // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-          validationBehavior="aria"
           ref={formRef}
           validationErrors={fieldErrors}
           className="flex min-h-0 w-full flex-1 flex-col"

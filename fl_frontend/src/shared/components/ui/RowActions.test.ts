@@ -21,7 +21,7 @@ const TEXT = readFileSync(path.resolve(import.meta.dirname, "RowActions.tsx"), "
 const SOURCE = TEXT.replace(/\s+/g, " ");
 
 const ICON_CONTROLS = new Set(["Button", "Link", "Dropdown.Trigger"]);
-const SHARED_DRESSINGS = new Set(["ACTION_BUTTON_CLASS", "ACTION_LINK_CLASS", "DANGER_CLASS"]);
+const SHARED_DRESSINGS = new Set(["ACTION_BUTTON_CLASSES", "ACTION_LINK_CLASSES", "DANGER_CLASSES"]);
 
 /** The constant a control's `className` names whole, or `undefined` where it is spelled any other way. */
 const dressing = (control: JsxRead): string | undefined => {
@@ -115,7 +115,7 @@ describe("a row action the endpoint already refuses", () => {
     }
   });
 
-  /* A literal spelling ACTION_BUTTON_CLASS's classes renders identically, so the markup above
+  /* A literal spelling ACTION_BUTTON_CLASSES's classes renders identically, so the markup above
      cannot tell the shared constant from a copy of it that stops tracking. */
   it("dresses every icon control from a shared constant rather than a copy", () => {
     // Found by their own elements: counting the constant's uses is a population filtered on the very

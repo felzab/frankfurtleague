@@ -9,7 +9,7 @@ import { TextField } from "@heroui/react/textfield";
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -78,9 +78,9 @@ export function FormNotizSection({
             ref={notizRef}
             fullWidth
             placeholder="z.B. Nachholspiel wegen Regen"
-            className={`${FIELD_TEXTAREA} min-h-24`}
+            className={`${FIELD_TEXTAREA_CLASSES} min-h-24`}
           />
-          <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{status?.error}</FieldError>
 
           {/* Under the field rather than in the panel's hint, which opens on a press: the reader this
               sentence has to reach is the admin already typing a name into the box. */}

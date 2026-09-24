@@ -12,7 +12,7 @@ import {
   RecentAndUpcomingSpieleGridSkeleton,
 } from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 import { card } from "@/shared/components/ui/card";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
 export default function LandingPage() {
@@ -38,7 +38,7 @@ export default function LandingPage() {
 
               {/* Season-independent, so the front door states nothing false between seasons. The chip
                   above carries whether one is running, and its absence carries that none is. */}
-              <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
+              <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>
                 Frankfurts Oberstufenliga. Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 

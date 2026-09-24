@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFacetSelection } from "@/shared/hooks/useFacetSelection";
@@ -137,7 +137,7 @@ export function SpielsucheView({
             replaying every surviving card's entrance for one row. */}
         <SpielCardGrid
           role="list"
-          className={CARDS_CASCADE}>
+          className={CARDS_CASCADE_CLASSES}>
           <SpielCardsList
             spiele={shown}
             today={today}

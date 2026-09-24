@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminSaisonEditForm } from "@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
@@ -35,7 +35,7 @@ export function AdminSaisonEditView({
   spieltagBound: SaisonSpieltagBound;
 }) {
   return (
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSaisonEditForm
         saison={saison}
         rollover={rollover}

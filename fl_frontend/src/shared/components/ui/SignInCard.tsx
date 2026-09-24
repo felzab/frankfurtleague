@@ -1,4 +1,4 @@
-import { DISPLAY_HEADING } from "./displayType";
+import { DISPLAY_HEADING_CLASSES } from "./displayType";
 
 import type { ReactNode } from "react";
 
@@ -23,7 +23,7 @@ export function SignInCard({
       <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         <div className="flex flex-col items-center pb-6 text-center">
           {ornament}
-          <h1 className={`${DISPLAY_HEADING} fluid-2xl text-foreground`}>{title}</h1>
+          <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`}>{title}</h1>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />

@@ -5,11 +5,11 @@
 import { Badge } from "@heroui/react/badge";
 import { Table } from "@heroui/react/table";
 
-import { PILL_SOLID } from "@/shared/components/ui/badges";
+import { PILL_SOLID_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { Hint } from "@/shared/components/ui/Hint";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
@@ -85,7 +85,7 @@ export function SaisontabelleView({
        it — the leading panel's step is identical, so a rise would make that panel travel twice. */
     <div
       role="list"
-      className={`${CARDS_CASCADE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
+      className={`${CARDS_CASCADE_CLASSES} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
       {typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {
         /* Derived, never row indices: a club that has left the season holds no place, and the
            seeding passes over it too. */
@@ -103,7 +103,7 @@ export function SaisontabelleView({
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
-              <h2 className={`${DISPLAY_HEADING} fluid-xl text-foreground`}>Gruppe {gruppe}</h2>
+              <h2 className={`${DISPLAY_HEADING_CLASSES} fluid-xl text-foreground`}>Gruppe {gruppe}</h2>
               {/* Not decoration: a team's own page counts the playoffs too, so the two pages disagree
                   by design and only this line says why. */}
               <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
@@ -176,14 +176,14 @@ export function SaisontabelleView({
                           <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                             {teamData.shorthand}
                           </span>
-                          {/* `PILL_SOLID` and not the tint: a qualifying row wears `bg-brand/5`, and
+                          {/* `PILL_SOLID_CLASSES` and not the tint: a qualifying row wears `bg-brand/5`, and
                               a tint stacked on that ground measures 4.49:1 in the light theme. */}
                           {teamData.austritt_type !== null && (
                             <Badge
                               size="sm"
                               placement="top-right"
                               aria-label={austrittZustand(teamData.austritt_type)}
-                              className={`fluid-xxs! ${PILL_SOLID.danger} translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6`}>
+                              className={`fluid-xxs! ${PILL_SOLID_CLASSES.danger} translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6`}>
                               {austrittKuerzel(teamData.austritt_type)}
                             </Badge>
                           )}

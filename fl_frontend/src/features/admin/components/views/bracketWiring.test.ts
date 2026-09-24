@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { PILL_TINT } from "@/shared/components/ui/badges.ts";
+import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges.ts";
 import { elementsIn, parseModule, staticValue } from "@/shared/testing/jsxReader.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -18,7 +18,7 @@ const VIEW = "AdminBracketWiringView.tsx";
 const { AdminBracketWiringView } = await import("./AdminBracketWiringView.tsx");
 
 /** A `Map` and not the record itself, so a tone name the view invented reads back as absent rather than as `any`. */
-const TONE_PAIRS = new Map<string, string>(Object.entries(PILL_TINT));
+const TONE_PAIRS = new Map<string, string>(Object.entries(PILL_TINT_CLASSES));
 
 /**
  * The view as written and not as rendered: a recipe call and its expansion render alike. Parsed
@@ -194,7 +194,7 @@ describe("the bracket wiring review", () => {
       if (tint.startsWith("PHASE_TINTS.")) continue;
 
       const pair = TONE_PAIRS.get(tint.slice(1, -1)) ?? "";
-      assert.notEqual(pair, "", `${VIEW}: the ${origin} origin is ${tint}, which names no member of \`PILL_TINT\``);
+      assert.notEqual(pair, "", `${VIEW}: the ${origin} origin is ${tint}, which names no member of \`PILL_TINT_CLASSES\``);
 
       const tokens = pair.split(/\s+/);
       assert.ok(

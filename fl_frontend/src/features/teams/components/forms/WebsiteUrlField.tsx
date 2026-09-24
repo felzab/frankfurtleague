@@ -9,7 +9,7 @@ import { TextField } from "@heroui/react/textfield";
 
 import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { toWebsiteUrl } from "@/features/teams/utils";
-import { FIELD_ERROR, FIELD_GROUP, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { ExternalUrlSchema } from "@/shared/schemas";
@@ -71,14 +71,14 @@ export function WebsiteUrlField({
       onChange={(next) => onChange(toWebsiteUrl(next))}
       onBlur={() => onFieldLeft?.()}
       isInvalid={error ? true : undefined}>
-      {labelSlot ?? <Label className={FIELD_LABEL}>Website</Label>}
+      {labelSlot ?? <Label className={FIELD_LABEL_CLASSES}>Website</Label>}
       {/* Beside the group, never in its suffix: HeroUI's vendored `input-group.js` focuses the input on every click
           inside the group's box, so a press in the suffix leaves the field typable behind the tab it opened. */}
       <div className="flex w-full flex-row items-center gap-x-2">
         {/* `flex-1` over `fullWidth`'s `w-full`, so the shrinking lands here and the link keeps its own 28px. */}
         <InputGroup
           fullWidth
-          className={`${FIELD_GROUP} min-w-0 flex-1`}>
+          className={`${FIELD_GROUP_CLASSES} min-w-0 flex-1`}>
           {/* Muted, because it is furniture: always there, never editable. */}
           <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
             {WEBSITE_URL_SCHEME}
@@ -104,7 +104,7 @@ export function WebsiteUrlField({
           </Hint>
         )}
       </div>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
     </TextField>
   );
 }

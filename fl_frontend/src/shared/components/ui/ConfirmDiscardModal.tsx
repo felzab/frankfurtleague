@@ -5,7 +5,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
 import { Button } from "@heroui/react/button";
 
-import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
+import { formButton, MODAL_FOOTER_STACK_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 /**
@@ -51,7 +51,7 @@ export function ConfirmDiscardModal({
 
         {/* The action the dialog exists for is the solid one and the way back the outline; two solid fills read as
             two primaries. The band declares its own width. */}
-        <div className={MODAL_FOOTER_STACK}>
+        <div className={MODAL_FOOTER_STACK_CLASSES}>
           <Button
             type="button"
             variant="primary"

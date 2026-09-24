@@ -17,7 +17,14 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FIELD_TRIO_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 
 import type { SaisonCreateDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 
@@ -83,12 +90,12 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             value={draft.id}
             onChange={(next) => setDraft((current) => ({ ...current, id: next }))}
             maxLength={SAISON_ID_LENGTH}>
-            <Label className={FIELD_LABEL}>Saison-ID</Label>
+            <Label className={FIELD_LABEL_CLASSES}>Saison-ID</Label>
             <Input
               placeholder="z.B. 2027"
-              className={`${FIELD_INPUT} font-extrabold tracking-wider`}
+              className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-wider`}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           {/* Two things about the id the field itself cannot carry: it is a calendar year rather than
@@ -100,12 +107,12 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             Die ID ist das Kalenderjahr, in dem gespielt wird, und kein Schuljahr: Die Saison im Jahr 2027 bekommt die ID 2027.
           </Callout>
 
-          <div className={FIELD_PAIR}>
+          <div className={FIELD_PAIR_CLASSES}>
             <AppDatePicker
               isRequired
               name="start_date"
               calendarLabel="Beginn auswählen"
-              label={<Label className={FIELD_LABEL}>Beginn</Label>}
+              label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
               value={asCalendarDate(draft.start_date)}
               onChange={(next) => setDraft((current) => ({ ...current, start_date: next?.toString() ?? "" }))}
             />
@@ -113,7 +120,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               isRequired
               name="end_date"
               calendarLabel="Ende auswählen"
-              label={<Label className={FIELD_LABEL}>Ende</Label>}
+              label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
               value={asCalendarDate(draft.end_date)}
               onChange={(next) => setDraft((current) => ({ ...current, end_date: next?.toString() ?? "" }))}
             />
@@ -124,18 +131,18 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               this group would part the pair further than whole groups are parted. */}
           <div className="flex w-full flex-col gap-y-4">
             <div className="flex w-full flex-col gap-y-3">
-              <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
-              <div className={FIELD_PAIR}>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Wertung eines Spiels</h3>
+              <div className={FIELD_PAIR_CLASSES}>
                 <SaisonRuleNumberField
                   name="rules.win_points"
-                  label={<Label className={FIELD_LABEL}>Punkte für einen Sieg</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Punkte für einen Sieg</Label>}
                   minValue={1}
                   value={draft.rules.win_points}
                   onChange={(win_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, win_points } }))}
                 />
                 <SaisonRuleNumberField
                   name="rules.draw_points"
-                  label={<Label className={FIELD_LABEL}>Punkte für ein Unentschieden</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Punkte für ein Unentschieden</Label>}
                   minValue={0}
                   value={draft.rules.draw_points}
                   onChange={(draw_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, draw_points } }))}
@@ -149,16 +156,16 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                   nothing to bind to. */}
               <span
                 id={FORFEIT_LABEL_ID}
-                className={FORM_SECTION_HEADING}>
+                className={FORM_SECTION_HEADING_CLASSES}>
                 Ergebnis eines Spiels, zu dem ein Team nicht antritt
               </span>
               <div
                 role="group"
                 aria-labelledby={FORFEIT_LABEL_ID}
-                className={FIELD_PAIR}>
+                className={FIELD_PAIR_CLASSES}>
                 <SaisonRuleNumberField
                   name="rules.forfeit_ergebnis.sieger_tore"
-                  label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Tore für den Sieger</Label>}
                   minValue={0}
                   value={draft.rules.forfeit_ergebnis.sieger_tore}
                   onChange={(sieger_tore) =>
@@ -170,7 +177,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 />
                 <SaisonRuleNumberField
                   name="rules.forfeit_ergebnis.verlierer_tore"
-                  label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Tore für den Verlierer</Label>}
                   minValue={0}
                   value={draft.rules.forfeit_ergebnis.verlierer_tore}
                   onChange={(verlierer_tore) =>
@@ -187,25 +194,25 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
           {/* Its own group and never under the points above, as the season editor has it: this
               re-sorts a table the points scored. */}
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Tiebreak</h3>
             <SaisonTiebreakSelect
               name="rules.tiebreak_order"
-              label={<Label className={FIELD_LABEL}>Was zuerst entscheidet</Label>}
+              label={<Label className={FIELD_LABEL_CLASSES}>Was zuerst entscheidet</Label>}
               value={draft.rules.tiebreak_order}
               onChange={(tiebreak_order) => setDraft((current) => ({ ...current, rules: { ...current.rules, tiebreak_order } }))}
             />
           </div>
 
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau der Saison</h3>
             {/* The season editor's own offer, from `fl_frontend/src/features/saisons/shapeOffer.ts`: this
                 dialog creates a season the editor then edits, so the two may not disagree about which
                 shapes exist. */}
-            <div className={FIELD_TRIO}>
+            <div className={FIELD_TRIO_CLASSES}>
               <SaisonCountSelect
                 name="rules.number_of_groups"
                 ariaLabel="Gruppen"
-                label={<Label className={FIELD_LABEL}>Gruppen</Label>}
+                label={<Label className={FIELD_LABEL_CLASSES}>Gruppen</Label>}
                 value={draft.rules.number_of_groups}
                 options={groupCountOptions({
                   groups: draft.rules.number_of_groups,
@@ -216,7 +223,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               />
               <SaisonRuleNumberField
                 name="rules.teams_per_group"
-                label={<Label className={FIELD_LABEL}>Teams pro Gruppe</Label>}
+                label={<Label className={FIELD_LABEL_CLASSES}>Teams pro Gruppe</Label>}
                 minValue={teamsPerGroupFloor({
                   qualifiers: draft.rules.qualifiers_per_group,
                   held: draft.rules.teams_per_group,
@@ -229,7 +236,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               <SaisonCountSelect
                 name="rules.qualifiers_per_group"
                 ariaLabel="Qualifikanten pro Gruppe"
-                label={<Label className={FIELD_LABEL}>Qualifikanten pro Gruppe</Label>}
+                label={<Label className={FIELD_LABEL_CLASSES}>Qualifikanten pro Gruppe</Label>}
                 value={draft.rules.qualifiers_per_group}
                 options={qualifierCountOptions({
                   groups: draft.rules.number_of_groups,
@@ -242,17 +249,17 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Kader</h3>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Kader</h3>
             <SaisonRuleNumberField
               name="rules.max_kadergroesse"
-              label={<Label className={FIELD_LABEL}>Maximale Kadergröße</Label>}
+              label={<Label className={FIELD_LABEL_CLASSES}>Maximale Kadergröße</Label>}
               minValue={1}
               value={draft.rules.max_kadergroesse}
               onChange={(max_kadergroesse) => setDraft((current) => ({ ...current, rules: { ...current.rules, max_kadergroesse } }))}
             />
             <span
               id={STUFEN_LABEL_ID}
-              className={FIELD_LABEL}>
+              className={FIELD_LABEL_CLASSES}>
               Welche Stufen diese Saison spielen
             </span>
             <StufenPicker

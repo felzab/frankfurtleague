@@ -8,7 +8,7 @@ import { tv } from "tailwind-variants";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
@@ -18,7 +18,7 @@ import type { ReactNode, RefObject } from "react";
  * The one body step, stamped text and the page's own sentences alike: these are legal words a
  * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
  */
-export const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
+export const ABSATZ_CLASSES = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
 
 /**
  * The one emphasis a reader's own value wears here: a second spelling is how the name in one
@@ -106,8 +106,8 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
  * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
-const ANGABE_LABEL = "fluid-xxs text-foreground-muted font-bold";
-const ANGABE_WERT = "fluid-sm";
+const ANGABE_LABEL_CLASSES = "fluid-xxs text-foreground-muted font-bold";
+const ANGABE_WERT_CLASSES = "fluid-sm";
 
 type Fakt = {
   label: string;
@@ -120,12 +120,12 @@ const fakt = tv({
   slots: {
     // `min-w-0` on every cell, or one long word would push the row past the panel's edge.
     zelle: "flex min-w-0 flex-col gap-y-0.5",
-    wert: ANGABE_WERT,
+    wert: ANGABE_WERT_CLASSES,
   },
   variants: {
     unbegrenzt: {
       // A line of its own on a phone; from `sm` it grows into the width the other facts leave.
-      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP },
+      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP_CLASSES },
       false: { zelle: "flex-initial" },
     },
   },
@@ -149,7 +149,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
           <div
             key={label}
             className={zelle()}>
-            <dt className={ANGABE_LABEL}>{label}</dt>
+            <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
             <dd className={wertKlasse()}>
               <Wert>{wert}</Wert>
             </dd>
@@ -171,8 +171,8 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
         <div
           key={label}
           className="flex flex-col gap-y-0.5">
-          <dt className={ANGABE_LABEL}>{label}</dt>
-          <dd className={ANGABE_WERT}>
+          <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
+          <dd className={ANGABE_WERT_CLASSES}>
             <Wert>{wert}</Wert>
           </dd>
         </div>
@@ -198,7 +198,7 @@ export const ergebnisPanel = tv({
 });
 
 const GLYPHE = { erfolg: CircleCheck, hinweis: TriangleExclamation } as const;
-const GLYPHE_FARBE = { erfolg: "text-success-strong size-10", hinweis: "text-warning-strong size-10" } as const;
+const GLYPHE_FARBE_CLASSES = { erfolg: "text-success-strong size-10", hinweis: "text-warning-strong size-10" } as const;
 
 /**
  * Every state but the form is this panel: one box, one glyph, one tone, so a done thing and a dead
@@ -224,7 +224,7 @@ export function BestaetigungErgebnis({
       className={ergebnisPanel({ tone })}>
       <Icon
         aria-hidden="true"
-        className={GLYPHE_FARBE[tone]}
+        className={GLYPHE_FARBE_CLASSES[tone]}
       />
       {children}
     </section>

@@ -3,7 +3,7 @@ import { NumberField } from "@heroui/react/number-field";
 
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
 import { enteredNumber } from "@/shared/utils/numberField";
 
@@ -132,20 +132,20 @@ export function FormSpielortSection({
           extraMarker={<ExpectedMarker path="ort.mietpreis" />}>
           Mietpreis
         </FieldLabel>
-        <NumberField.Group className={FIELD_GROUP}>
+        <NumberField.Group className={FIELD_GROUP_CLASSES}>
           <StepFiveButton
             direction="decrement"
             isDisabled={!ortPayload}
             onStep={() => stepMietpreis(-5)}
           />
-          <NumberField.Input className={FIELD_COUNT_INPUT} />
+          <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <StepFiveButton
             direction="increment"
             isDisabled={!ortPayload}
             onStep={() => stepMietpreis(5)}
           />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </NumberField>
     </div>
   );

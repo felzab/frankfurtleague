@@ -1,6 +1,6 @@
 import { AppDatePicker, AppTimeField } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -27,7 +27,7 @@ export function FormDateTimeSection({
 }) {
   return (
     <div
-      className={FIELD_PAIR}
+      className={FIELD_PAIR_CLASSES}
       onKeyDownCapture={suppressEnterSubmit}>
       <AppDatePicker
         name="datum"

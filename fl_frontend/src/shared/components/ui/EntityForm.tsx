@@ -3,13 +3,13 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@heroui/react/button";
-import { Form } from "@heroui/react/form";
 
+import { Form } from "@/shared/components/ui/Form";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
+import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
 import { runOnSubmit } from "./formSubmit";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -100,7 +100,6 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   return (
     <Form
       // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
       ref={formRef}
       validationErrors={fieldErrors}
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only
@@ -111,9 +110,9 @@ export function EntityForm<TDraft, TPayload = TDraft>({
       {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
-      {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER` owns the arithmetic. The
+      {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER_CLASSES` owns the arithmetic. The
           action first and the way back second, as in every dialog footer (`docs/frontend/spec.md` §1.19). */}
-      <div className={MODAL_FOOTER_ROW}>
+      <div className={MODAL_FOOTER_ROW_CLASSES}>
         {/* No icon: a checkmark on a button that has not yet done anything reads as "done" rather than "do it". */}
         <Button
           type="submit"

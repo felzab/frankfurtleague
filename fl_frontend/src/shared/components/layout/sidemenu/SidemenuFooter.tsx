@@ -7,7 +7,7 @@ import LayoutSideContentLeft from "@gravity-ui/icons/LayoutSideContentLeft";
 import LayoutSideContentRight from "@gravity-ui/icons/LayoutSideContentRight";
 
 import { IconTooltip } from "../../ui/IconTooltip";
-import { RAIL_GUTTER, RAIL_SQUARE_RING } from "./railGutter";
+import { RAIL_GUTTER_CLASSES, RAIL_SQUARE_RING_CLASSES } from "./railGutter";
 import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
 import type { FormState } from "@/shared/types/types";
@@ -27,7 +27,7 @@ export function SidemenuFooter({
   onManagePasskeys?: () => void;
 }) {
   // Hoisted out of the class template for the reason `AppTopBar` gives.
-  const railGutter = RAIL_GUTTER[isDesktopCollapsed ? "collapsed" : "expanded"];
+  const railGutter = RAIL_GUTTER_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   return (
     // `overflow-hidden` is what lets the gutter apply: `scrollbar-gutter` reserves nothing on a box that does not clip.
@@ -51,7 +51,7 @@ export function SidemenuFooter({
           href="/"
           onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
-            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING}` : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
           }`}
           aria-label="Zur öffentlichen Website">
           <ArrowRightToSquare
@@ -71,7 +71,7 @@ export function SidemenuFooter({
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${
-            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING}` : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
           }`}
           aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
           {isDesktopCollapsed ? (

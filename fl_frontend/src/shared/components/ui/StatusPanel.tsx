@@ -1,6 +1,6 @@
 import { tv } from "tailwind-variants";
 
-import { DISPLAY_HEADING } from "./displayType";
+import { DISPLAY_HEADING_CLASSES } from "./displayType";
 
 import type { ReactNode } from "react";
 
@@ -105,7 +105,9 @@ export function StatusPanel({
             display voice, and the inline variant sits below `fluid-xl`, where that voice starts. */}
         <Heading
           className={
-            variant === "page" ? `${DISPLAY_HEADING} fluid-2xl text-foreground` : "fluid-lg text-foreground font-extrabold tracking-tight"
+            variant === "page"
+              ? `${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`
+              : "fluid-lg text-foreground font-extrabold tracking-tight"
           }>
           {heading}
         </Heading>

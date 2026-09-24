@@ -2,7 +2,7 @@
 
 import { Tooltip } from "@heroui/react/tooltip";
 
-import { HINT_SURFACE } from "./hintSurface";
+import { HINT_SURFACE_CLASSES } from "./hintSurface";
 
 import type { ReactNode } from "react";
 
@@ -42,7 +42,7 @@ export function IconTooltip({
       {/* The surface is shared with `Hint`'s refusal panel, so a reader cannot tell which mechanism drew the panel. */}
       <Tooltip.Content
         placement={placement}
-        className={`${HINT_SURFACE} ${tone === "danger" ? "text-danger-strong" : "text-foreground"}`}>
+        className={`${HINT_SURFACE_CLASSES} ${tone === "danger" ? "text-danger-strong" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>

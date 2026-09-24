@@ -5,7 +5,7 @@ import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TeamFormFields } from "@/features/teams/components/forms/TeamFormFields";
 import { FLCreateTeamFormPayloadSchema } from "@/features/teams/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
 
 import type { TeamCreateDraft, TeamCreateSaisonOption } from "@/features/teams/types";
@@ -51,7 +51,7 @@ export function AdminCreateTeamForm({
               onChange={setDraft}
             />
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <SaisonSelect
                 value={draft.saison_id}
                 onChange={(nextSaisonId) => {

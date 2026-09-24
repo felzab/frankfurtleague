@@ -7,11 +7,11 @@ import { joinUnd } from "@/core/joinUnd";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { ABSATZ, BestaetigungErgebnis, FaktenBanner, FrageStellen, GespeicherteAngaben, Wert, ZurLiga } from "./BestaetigungPanels";
+import { ABSATZ_CLASSES, BestaetigungErgebnis, FaktenBanner, FrageStellen, GespeicherteAngaben, Wert, ZurLiga } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
@@ -40,7 +40,7 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The application page's own column, so the two ends of the workflow are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 /**
  * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
@@ -88,11 +88,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   const saison = saisonVon(stand);
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
         {/* No dot: the link's read carries the season's id and never its status, so the page cannot say it is running. */}
         {saison !== null && <SaisonChip isLaufend={false}>Saison {saison}</SaisonChip>}
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
         {/* The facts the mail led with, in the mail's own panel: standing in a sentence under the
             heading they were what a reader skimmed past on the way to the button. */}
@@ -108,7 +108,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         {/* Said here because the stamped wording cannot say it: one press confirms both seats, and a
             Widerspruch empties both. */}
         {stand.zustand === "gueltig" && stand.ansicht.zugleich_rolle !== null && (
-          <p className={ABSATZ}>Du bist in dieser Bewerbung zweimal eingetragen, und Deine Antwort gilt für beide Einträge.</p>
+          <p className={ABSATZ_CLASSES}>Du bist in dieser Bewerbung zweimal eingetragen, und Deine Antwort gilt für beide Einträge.</p>
         )}
       </header>
 
@@ -131,7 +131,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
             {stand.ansicht.zugleich_rolle === null ? (
               <>
@@ -151,11 +151,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
               { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine
             E-Mail. Du musst nichts weiter tun.
           </p>
-          <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -164,11 +164,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>. Deine Angaben haben wir aus der Bewerbung entfernt und der Person
             Bescheid gesagt, die sie eingereicht hat.
           </p>
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue
             E-Mail.
           </p>
@@ -182,8 +182,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -192,7 +192,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus der Bewerbung entfernt, und Du musst nichts weiter tun.
           </p>
           <ZurLiga />
@@ -205,11 +205,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die bis
             dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
           </p>
-          <p className={ABSATZ}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+          <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -220,7 +220,9 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

@@ -7,7 +7,6 @@ import { parseDate } from "@internationalized/date";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Switch } from "@heroui/react/switch";
@@ -17,7 +16,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import {
-  ABSATZ,
+  ABSATZ_CLASSES,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
@@ -31,13 +30,20 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+  TOGGLE_GROUP_ALIGN_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -74,10 +80,10 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The application page's own column, so both ends of every public workflow are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
@@ -115,32 +121,32 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
-        <p className={ABSATZ}>{absatz("worum")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("worum")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
-        <p className={ABSATZ}>{absatz("gespeichert")}</p>
-        <p className={ABSATZ}>{absatz("geburtsdatum")}</p>
-        <p className={ABSATZ}>{absatz("rechtsgrundlage")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("gespeichert")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("geburtsdatum")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("rechtsgrundlage")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wer was sieht</h3>
-        <p className={ABSATZ}>{absatz("wer")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wer was sieht</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("wer")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange wir Deine Angaben behalten</h3>
-        <p className={ABSATZ}>{absatz("frist")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange wir Deine Angaben behalten</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("frist")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Deine Rechte</h3>
-        <p className={ABSATZ}>{absatz("widerruf")}</p>
-        <p className={ABSATZ}>{absatz("art21")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Rechte</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("widerruf")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("art21")}</p>
       </section>
     </BestaetigungAbschnitt>
   );
@@ -155,8 +161,8 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         {(["klickIdentitaet", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
           <li key={schluessel}>
             <Gefuellt
@@ -204,10 +210,10 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
   const ansicht = stand.zustand === "gueltig" || stand.zustand === "erfolg" ? stand.ansicht : null;
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
         {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
         {stand.zustand === "gueltig" && (
           <FaktenBanner
@@ -240,7 +246,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke, <Wert>{stand.ansicht.vorname}</Wert>. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
           <GespeicherteAngaben
@@ -250,10 +256,10 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
               { label: "Fotos und Videos", wert: stand.gespeichert.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Dein Team entscheidet jetzt über die Aufnahme in den Kader. Du musst nichts weiter tun und bekommst Bescheid.
           </p>
-          <p className={ABSATZ}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -264,8 +270,8 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -276,8 +282,8 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
-          <p className={ABSATZ}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
+          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -286,7 +292,9 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -421,7 +429,6 @@ function SpielerBestaetigungForm({
     <Form
       ref={formRef}
       // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
@@ -435,15 +442,15 @@ function SpielerBestaetigungForm({
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Dein Geburtsdatum</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
 
           {ansicht.geburtsdatum === null ? (
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex flex-col gap-y-2">
                 <AppDatePicker
                   isRequired
                   name="geburtsdatum"
-                  label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
                   calendarLabel="Geburtsdatum auswählen"
                   value={toCalendarDate(entwurf.geburtsdatum)}
                   onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
@@ -467,7 +474,7 @@ function SpielerBestaetigungForm({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Auf der Website</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
           {/* `ToggleButtonGroup` takes no `name`, so this proxy field is what names it: it is the
               control a refusal on the path reaches, and the hidden `Input` is what puts the name in
               `form.elements`. */}
@@ -477,7 +484,7 @@ function SpielerBestaetigungForm({
             value={entwurf.umfang ?? ""}
             onChange={() => undefined}
             className="flex w-full flex-col gap-y-1">
-            <Label className={FIELD_LABEL}>{UMFANG_FRAGE}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{UMFANG_FRAGE}</Label>
             <ToggleButtonGroup
               aria-label={UMFANG_FRAGE}
               size="sm"
@@ -492,21 +499,21 @@ function SpielerBestaetigungForm({
                 const option = umfangOptionen(fassung).find((candidate) => candidate.value === picked);
                 if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
               }}
-              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
               {umfangOptionen(fassung).map((option) => (
                 <ToggleButton
                   key={option.value}
                   id={option.value}
-                  className={OPTION_CHIP}>
+                  className={OPTION_CHIP_CLASSES}>
                   {option.label}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
 
             <Input className="hidden" />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             <Gefuellt
               text={fassung.absaetze.veroeffentlichung}
               werte={werte}
@@ -516,7 +523,7 @@ function SpielerBestaetigungForm({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
           {/* The paragraph below stands for every age and the switch alone goes: the record's label
               then reproduces the screen whichever of the two its person was shown. */}
           {medienAngeboten && (
@@ -533,7 +540,7 @@ function SpielerBestaetigungForm({
               </Switch.Content>
             </Switch>
           )}
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             <Gefuellt
               text={fassung.absaetze.medien}
               werte={werte}

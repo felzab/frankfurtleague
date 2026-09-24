@@ -15,14 +15,14 @@ import {
 } from "@/features/bewerbungen/constants";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import {
-  FIELD_COUNT_INPUT,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  FIELD_LABEL,
-  FIELD_PAIR,
-  FIELD_TRIGGER,
-  FORM_SECTION_HEADING,
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FIELD_TRIGGER_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -36,7 +36,7 @@ import type { BewerbungFormDraft } from "@/features/bewerbungen/types";
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** `FormSchuleSection`'s club row, so the two lists of the league's schools read alike on one page. */
-const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
+const SCHULE_ITEM_CLASSES = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
 
 /**
  * What the team brings and what it would like — the two blocks an acceptance reads but copies
@@ -102,12 +102,12 @@ export function FormTeamSection({
           onChange={(next) => onTrikotChange({ ...trikot, vorhandener_satz: next })}
           onBlur={() => onFieldLeft(["trikot.vorhandener_satz"])}
           maxLength={BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH}>
-          <Label className={FIELD_LABEL}>Vorhandene Trikotsätze</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Vorhandene Trikotsätze</Label>
           <Input
             placeholder="z.B. 15 rote Trikots aus dem Schulsport"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TrikotFarbeSelect
@@ -127,9 +127,9 @@ export function FormTeamSection({
         />
 
         <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-          <h3 className={FORM_SECTION_HEADING}>Kader</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Kader</h3>
 
-          <div className={FIELD_PAIR}>
+          <div className={FIELD_PAIR_CLASSES}>
             {/* `minValue` is the schema's own floor rather than a second judgement: a stepper offering
                 a count the submit would send back is one that wasted the trip. */}
             <NumberField
@@ -140,13 +140,13 @@ export function FormTeamSection({
               value={kader.voraussichtliche_groesse ?? NaN}
               onChange={(next) => onKaderChange(kaderWithSquad(kader, enteredNumber(next)))}
               onBlur={() => onFieldLeft(["kader.voraussichtliche_groesse"])}>
-              <Label className={FIELD_LABEL}>Voraussichtliche Kadergröße</Label>
-              <NumberField.Group className={FIELD_GROUP}>
+              <Label className={FIELD_LABEL_CLASSES}>Voraussichtliche Kadergröße</Label>
+              <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </NumberField>
 
             <NumberField
@@ -159,13 +159,13 @@ export function FormTeamSection({
               onBlur={() => onFieldLeft(["kader.gute_spieler"])}>
               {/* The league plans the groups against this, so the bar it means is named in the label:
                   „im Verein“ alone was answered from breadth of membership rather than from level. */}
-              <Label className={FIELD_LABEL}>Davon im Verein aktiv (mind. Verbandsliga)</Label>
-              <NumberField.Group className={FIELD_GROUP}>
+              <Label className={FIELD_LABEL_CLASSES}>Davon im Verein aktiv (mind. Verbandsliga)</Label>
+              <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </NumberField>
           </div>
         </div>
@@ -184,22 +184,22 @@ export function FormTeamSection({
             // describe a name nobody has finished writing. `useComboBox` swallows the blur that moves
             // focus into the popover, so opening the list is not leaving the field.
             onBlur={() => onFieldLeft(["wunschgegner"])}>
-            <Label className={FIELD_LABEL}>Wunschgegner für den ersten Spieltag</Label>
+            <Label className={FIELD_LABEL_CLASSES}>Wunschgegner für den ersten Spieltag</Label>
             <ComboBox.InputGroup>
-              {/* `FIELD_TRIGGER` rather than `FIELD_INPUT`: the chevron is absolutely positioned over
+              {/* `FIELD_TRIGGER_CLASSES` rather than `FIELD_INPUT_CLASSES`: the chevron is absolutely positioned over
                   the input's trailing edge, and HeroUI's own reservation for it is a `@layer
-                  components` rule that `FIELD_INPUT`'s utility padding outranks. */}
+                  components` rule that `FIELD_INPUT_CLASSES`'s utility padding outranks. */}
               <Input
                 placeholder="z.B. Goethe-Gymnasium"
                 maxLength={BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH}
-                className={FIELD_TRIGGER}
+                className={FIELD_TRIGGER_CLASSES}
               />
               {/* Named here rather than left to react-aria's own label, which follows the VISITOR's locale
                   while this page is `lang="de"` — an English name on a German page for anyone whose
                   browser is not German. */}
               <ComboBox.Trigger aria-label="Vorschläge anzeigen" />
             </ComboBox.InputGroup>
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
 
             <ComboBox.Popover className={overlayPanel()}>
               <ListBox
@@ -212,7 +212,7 @@ export function FormTeamSection({
                     key={eintrag.id}
                     id={eintrag.id}
                     textValue={eintrag.name}
-                    className={SCHULE_ITEM}>
+                    className={SCHULE_ITEM_CLASSES}>
                     {eintrag.name}
                   </ListBox.Item>
                 ))}

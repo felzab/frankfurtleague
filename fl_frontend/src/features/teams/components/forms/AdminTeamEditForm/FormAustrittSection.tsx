@@ -10,11 +10,11 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { AUSTRITT_OPTIONS } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
@@ -118,19 +118,19 @@ export function FormAustrittSection({
                   const [picked] = [...keys].map(String);
                   if (picked !== undefined) onArtChange(picked as FLAustrittType);
                 }}
-                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
                 {AUSTRITT_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}
                     id={option.value}
-                    className={OPTION_CHIP}>
+                    className={OPTION_CHIP_CLASSES}>
                     {option.label}
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
 
               <Input className="hidden" />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -142,8 +142,8 @@ export function FormAustrittSection({
                 onChange={onGrundChange}
                 onBlur={() => onValidateFields(["austritt.grund"])}>
                 <FieldLabel path="austritt">Grund</FieldLabel>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 {/* Under the field rather than in the panel's hint, which opens on a press, or the
                     banner, which only a changed reason raises: this rule stands whatever is typed. */}
                 <Hint

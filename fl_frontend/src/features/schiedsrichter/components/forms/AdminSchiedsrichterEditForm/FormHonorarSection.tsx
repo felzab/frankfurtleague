@@ -4,7 +4,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { NumberField } from "@heroui/react/number-field";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -57,12 +57,12 @@ export function FormHonorarSection({
           formatOptions={{ style: "currency", currency: "EUR" }}
           className="w-full sm:max-w-xs">
           <FieldLabel path="default_payment">Standard-Honorar</FieldLabel>
-          <NumberField.Group className={FIELD_GROUP}>
+          <NumberField.Group className={FIELD_GROUP_CLASSES}>
             <NumberField.DecrementButton />
-            <NumberField.Input className={FIELD_COUNT_INPUT} />
+            <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
             <NumberField.IncrementButton />
           </NumberField.Group>
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </NumberField>
       </div>
     </section>

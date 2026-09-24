@@ -8,7 +8,7 @@ import { TextField } from "@heroui/react/textfield";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -45,7 +45,7 @@ export function FormPersonSection({
       </div>
 
       <div className={panel.body()}>
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <TextField
             isRequired
             name="vorname"
@@ -55,9 +55,9 @@ export function FormPersonSection({
             <FieldLabel path="vorname">Vorname</FieldLabel>
             <Input
               placeholder="z.B. Lena"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <TextField
@@ -69,13 +69,13 @@ export function FormPersonSection({
             <FieldLabel path="nachname">Nachname</FieldLabel>
             <Input
               placeholder="z.B. Meier"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
         </div>
 
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {/* Its own row: a third column in the name pair above would read the birthdate as part of a name. */}
           {/* No span: the calendar greys out what is offered, and this editor judges no age
               (`fl_backend/app/core/domain.py :: UNENFORCED`). */}

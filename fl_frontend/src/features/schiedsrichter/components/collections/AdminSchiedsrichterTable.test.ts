@@ -4,8 +4,11 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries either context — `Link` reads the first and `useSaisonHref` the second — and
    the table renders under both. A Next release that moves either module fails this file at import. */
+/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+/* eslint-enable no-restricted-imports */
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";

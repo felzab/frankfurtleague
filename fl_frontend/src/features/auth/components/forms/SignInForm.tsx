@@ -5,15 +5,15 @@ import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
-import { Form } from "@heroui/react/form";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Tabs } from "@heroui/react/tabs";
 import { TextField } from "@heroui/react/textfield";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -134,21 +134,21 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
     <Tabs
       defaultSelectedKey="Admin"
       className="w-full">
-      <Tabs.ListContainer className={`${TAB_TRACK} mb-6 p-1`}>
+      <Tabs.ListContainer className={`${TAB_TRACK_CLASSES} mb-6 p-1`}>
         <Tabs.List
           aria-label="Rolle auswählen"
           className="flex w-full gap-1">
           <Tabs.Tab
             id="Admin"
-            className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+            className={`${TAB_ITEM_CLASSES} flex-1 py-2.5 text-center`}>
             Admin
-            <Tabs.Indicator className={TAB_INDICATOR} />
+            <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
           </Tabs.Tab>
           <Tabs.Tab
             id="Spieler"
-            className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+            className={`${TAB_ITEM_CLASSES} flex-1 py-2.5 text-center`}>
             Spieler
-            <Tabs.Indicator className={TAB_INDICATOR} />
+            <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
           </Tabs.Tab>
         </Tabs.List>
       </Tabs.ListContainer>
@@ -156,7 +156,6 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
       <Tabs.Panel id="Admin">
         <Form
           // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-          validationBehavior="aria"
           ref={formRef}
           validationErrors={fieldErrors}
           onSubmit={runOnSubmit(handleFormSubmit)}
@@ -181,7 +180,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
               placeholder="z.B. name@beispiel.de"
               type="email"
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <Button
@@ -212,7 +211,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
               placeholder="Noch nicht verfügbar"
               disabled
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <Button

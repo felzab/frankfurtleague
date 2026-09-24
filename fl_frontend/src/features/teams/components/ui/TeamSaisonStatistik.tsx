@@ -8,7 +8,7 @@ import type { FLTeamStatistik } from "../../schemas";
 
 // Each step is n tiles of 9.5rem plus the `gap-4` between them: 9.5rem is the narrowest tile, at a
 // quarter-rem step, holding „15 / 10 / 12“ on one line at its largest type.
-const COLUMNS = "@min-[20rem]:grid-cols-2 @min-[51.5rem]:grid-cols-5";
+const COLUMNS_CLASSES = "@min-[20rem]:grid-cols-2 @min-[51.5rem]:grid-cols-5";
 
 /**
  * The `statistik_scope=gesamt` figures, which no other surface shows — hence the line under the
@@ -29,7 +29,7 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
       <div className="@container">
         {/* Punkte spans the two-column row: an odd card count leaves one alone on two columns, and it
             is the figure the rest produce rather than a peer. Undone at five, where all fit on one row. */}
-        <div className={`grid grid-cols-1 gap-4 ${COLUMNS}`}>
+        <div className={`grid grid-cols-1 gap-4 ${COLUMNS_CLASSES}`}>
           {[
             { label: "Punkte", value: statistik.punkte, isSummary: true },
             { label: "Spiele", value: statistik.anzahl_gespielte_spiele, isSummary: false },
