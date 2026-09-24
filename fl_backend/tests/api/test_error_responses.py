@@ -354,10 +354,10 @@ def planted_app(conflict: dict[str, Any]) -> FastAPI:
 
 class TestTheDeclared409:
     def test_the_codes_a_declaration_names_are_published_and_no_other(self):
-        """A second reason a route conflicts for, where reading every declaration as the duplicate key would relabel it `DB-COMMON-002`.
+        """A second reason a route conflicts for, read off the published document.
 
-        Through the document pass as well as the reading: the pass is where a 409 FastAPI already
-        placed could be taken for the duplicate key.
+        The pass over it is where a 409 FastAPI already placed could be taken for the duplicate key
+        and relabelled `DB-COMMON-002`.
         """
 
         app = planted_app(refusal_response({A_SECOND_REASON}))

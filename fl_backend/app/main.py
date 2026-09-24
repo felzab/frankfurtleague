@@ -139,11 +139,7 @@ class DocumentedRoute(NamedTuple):
 
 
 def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
-    """Each operation as FastAPI builds the document from it: an include's prefix and `responses=` applied, nested includes opened.
-
-    A copy rather than the route: an edit made to what this yields reaches neither the route nor the
-    document, so `publish_key_tiers` edits `api_routes`' instead.
-    """
+    """Each operation as FastAPI builds the document from it: an include's prefix and `responses=` applied, nested includes opened."""
 
     for context in iter_route_contexts(app.routes):
         # The one kind `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never `None`.
