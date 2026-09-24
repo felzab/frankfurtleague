@@ -22,7 +22,7 @@ from tests.config import TEST_BASE_URL, build_test_config
 async def app_client(url: str, *, config: BackendConfig | None = None, now: datetime | None = None) -> AsyncIterator[AsyncClient]:
     """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
 
-    So a server that never answers is bounded by the caller's `pymongo.timeout` alone.
+    So a server that never answers is bounded by that deadline, or by a shorter `pymongo.timeout` the caller holds around the request.
     """
 
     app = create_app(config or build_test_config())
