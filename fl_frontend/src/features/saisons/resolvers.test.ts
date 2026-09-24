@@ -7,7 +7,11 @@ import { before, beforeEach, describe, it } from "node:test";
 import "@/shared/testing/renderTest.ts";
 
 // Type-only, so nothing is imported at load: the resolver is pulled in from `before`, below.
-import type { resolveIsFinishedSaison as resolveIsFinishedSaisonFunction, selectSaison as selectSaisonFunction } from "./resolvers.ts";
+import type {
+  resolveIsFinishedSaison as resolveIsFinishedSaisonFunction,
+  resolveSaisonId as resolveSaisonIdFunction,
+  selectSaison as selectSaisonFunction,
+} from "./resolvers.ts";
 import type { FLSaisonsListResponse } from "./schemas.ts";
 
 /** How often the stand-in list was read, which is the whole of what the absent-id case is about. */
@@ -38,10 +42,11 @@ registerHooks({
 });
 
 let resolveIsFinishedSaison!: typeof resolveIsFinishedSaisonFunction;
+let resolveSaisonId!: typeof resolveSaisonIdFunction;
 let selectSaison!: typeof selectSaisonFunction;
 
 before(async () => {
-  ({ resolveIsFinishedSaison, selectSaison } = await import("./resolvers.ts"));
+  ({ resolveIsFinishedSaison, resolveSaisonId, selectSaison } = await import("./resolvers.ts"));
 });
 
 beforeEach(() => {
@@ -85,5 +90,16 @@ describe("which season a page addresses", () => {
   it("takes none where the league holds none, or the address names a season the list lacks", () => {
     assert.equal(selectSaison([], undefined), undefined);
     assert.equal(selectSaison([PAST, ACTIVE], "2027"), undefined);
+  });
+});
+
+describe("which season an address names", () => {
+  /* `SaisonSelector` matches the raw parameter, so an id only a trim finds would name a season on the
+     page and none in the header. */
+  it("strips a padded id rather than trimming it", async () => {
+    await assert.rejects(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "x" }), "admin"), (error: unknown) => {
+      assert.equal((error as { digest?: string }).digest?.split(";")[2], "?q=x");
+      return true;
+    });
   });
 });

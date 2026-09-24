@@ -9,7 +9,9 @@ import { searchWithoutSaisonId } from "./utils";
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSaison, FLSaisonStatus } from "./schemas";
 
-const saisonIdSchema = z.string().trim().length(SAISON_ID_LENGTH).optional().catch(undefined);
+// Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
+// here too, and stripped rather than shown on the page alone.
+const saisonIdSchema = z.string().length(SAISON_ID_LENGTH).optional().catch(undefined);
 
 /**
  * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
