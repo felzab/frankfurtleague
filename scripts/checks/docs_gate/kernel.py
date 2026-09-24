@@ -168,8 +168,9 @@ def _located(tokens: Iterable[Token]) -> Iterator[Token]:
             yield from _located(token.children)
 
 
-# markdown-it-py leaves a span as text where a `[` stands before it and a backtick run of another
-# length stays unclosed after it: the link label's look-ahead fills the backtick rule's cache first.
+# markdown-it-py reads a span as text, where CommonMark reads code, when a `[` before it opens a label
+# scan meeting an unclosed run of another length, and no run of the span's length follows
+# (`scripts/tests/test_check_docs_arms.py :: test_a_span_an_unclosed_label_scan_passes_is_text`).
 @cache
 def _line_spans(line: str) -> tuple[CodeSpan, ...]:
     """One line's code spans, offsets into the line, in its order."""

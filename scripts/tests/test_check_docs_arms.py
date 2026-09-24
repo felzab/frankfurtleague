@@ -501,6 +501,23 @@ def test_a_span_s_offsets_index_the_line_it_sits_on_an_image_s_alt_text_included
         assert line[span.start] == line[span.end - 1] == "`", span
 
 
+def test_a_span_an_unclosed_label_scan_passes_is_text() -> None:
+    """markdown-it-py's parse, not CommonMark's, which reads code here.
+
+    A release pairing it fails this, and the comment at `_line_spans` goes with it. Each control
+    moves one part of the trigger, so the pin holds that shape and no wider one.
+    """
+    kernel = _module("docs_gate.kernel")
+
+    def codes(line: str) -> list[str]:
+        return [span.code for span in kernel.located_code_spans(line)]
+
+    assert codes("[`a :: b` `` x") == [], "the label scan's cache no longer leaves the span as text"
+    assert codes("`a :: b` `` x") == ["a :: b"], "no bracket, no scan"
+    assert codes("[`a :: b`] `` x") == ["a :: b"], "the label closes before the unclosed run"
+    assert codes("[`a :: b` `` x `c`") == ["a :: b", "c"], "a later run of the span's length"
+
+
 def test_a_missing_markdown_parser_exits_as_a_broken_environment() -> None:
     """The parser is imported before `run` can classify a failure, so unguarded its absence exits 1 and reads as findings."""
     entry = REPO_ROOT / "scripts" / "checks" / "check_docs.py"
