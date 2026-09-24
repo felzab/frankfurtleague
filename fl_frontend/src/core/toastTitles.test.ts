@@ -391,6 +391,7 @@ interface RegisteredTitle {
 
 const TOAST_TITLES: Record<string, RegisteredTitle> = {
   Abgemeldet: { variant: "success", identifies: "one site" },
+  "Abmeldung unklar": { variant: "danger", identifies: "one site" },
   "Adresse gesperrt": { variant: "success", identifies: "one site" },
   "Adresse kopiert": { variant: "success", identifies: "one site" },
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
@@ -431,7 +432,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
   "Mit Folgen reaktiviert": { variant: "warning", identifies: "one site" },
   "Mit Folgen zurückgenommen": { variant: "warning", identifies: "one site" },
-  "Nicht abgemeldet": { variant: "danger", identifies: "its description" },
+  "Nicht abgemeldet": { variant: "danger", identifies: "one site" },
   "Nicht angemeldet": { variant: "danger", identifies: "one site" },
   "Nichts gefunden": { variant: "warning", identifies: "one site" },
   "Nimmt Änderung zurück...": { variant: "pending", identifies: "one site" },

@@ -53,7 +53,8 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         router.push("/");
         router.refresh();
       } catch {
-        appToast.danger("Nicht abgemeldet", { description: "Versuche es erneut." });
+        // A cut request may have ended the session or not, so neither answer above is true of it.
+        appToast.danger("Abmeldung unklar", { description: "Lade die Seite neu, um zu sehen, ob du noch angemeldet bist." });
       }
     });
   };
