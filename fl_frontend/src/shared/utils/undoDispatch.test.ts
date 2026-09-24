@@ -131,7 +131,7 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(pressed.replacedWith, ["/signin"]);
     assert.equal(gescheitert?.variant, "danger", "the lapsed session leaves the page without reporting the undo that did not happen");
     assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
-    assert.equal(gescheitert?.options?.description, "Die Änderung steht weiterhin. Melde Dich neu an.");
+    assert.equal(gescheitert?.options?.description, "Melde Dich neu an. Die Änderung steht weiterhin.");
     assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
   });
 
@@ -146,7 +146,7 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(pressed.replacedWith, ["/"]);
     assert.equal(gescheitert?.variant, "danger");
     assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
-    assert.equal(gescheitert?.options?.description, "Die Änderung steht weiterhin. Deine Sitzung hat keine Administratorrechte.");
+    assert.equal(gescheitert?.options?.description, "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.");
     assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
   });
 

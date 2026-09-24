@@ -16,7 +16,7 @@ import type { ZodType } from "zod";
  * lands in the dispatch's rejection arm, which blames the transport and sends the admin to check a
  * connection that is fine.
  */
-const FREMDE_HERKUNFT = `${AENDERUNG_STEHT_WEITERHIN} Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück.`;
+const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });

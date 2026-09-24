@@ -251,8 +251,11 @@ describe("what stands in for a session on the undo spine", () => {
 
     assert.equal(status, 200, "the spine answers a status no caller reads past");
     assert.equal(answer.success, false, "a cross-site request is reported as answered");
-    // The admin's own half: the undo did not happen and the change stands.
-    assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, "the refusal stopped saying the change still stands");
+    // The reason, the way back, and then what became of the change, as every undo sentence closes.
+    assert.equal(
+      answer.error,
+      "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. Die Änderung steht weiterhin.",
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import { AENDERUNG_STEHT_WEITERHIN } from "./actionError";
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
 import type { ActionFailure } from "@/shared/types/types";
@@ -11,9 +12,9 @@ type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: 
  * `/admin` rather than back on this change.
  */
 const TURNED_AWAY = {
-  signedOut: { destination: "/signin", description: "Die Änderung steht weiterhin. Melde Dich neu an." },
+  signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },
   // No repair: signing in again is refused to an address the allowlist does not hold.
-  withoutAdminRole: { destination: "/", description: "Die Änderung steht weiterhin. Deine Sitzung hat keine Administratorrechte." },
+  withoutAdminRole: { destination: "/", description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
 } as const;
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
@@ -143,7 +144,7 @@ export function offerUndo<TPayload>({
 
             if (!result.success) {
               if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
-              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error ?? "Die Änderung steht weiterhin." });
+              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error ?? AENDERUNG_STEHT_WEITERHIN });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.

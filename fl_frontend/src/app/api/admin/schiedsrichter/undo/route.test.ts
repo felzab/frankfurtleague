@@ -181,13 +181,13 @@ describe("the referee save's undo", () => {
     assert.match(answers.get("REQ-SCHIEDSRICHTER-007") ?? "", /Sperrliste/, "the blocked address is worded as something else");
   });
 
-  it("says the change stands where the replay committed nothing", async () => {
+  /* Never the change standing: an unacknowledged write may still have landed. */
+  it("sends the admin to the referee's row where the replay went unacknowledged", async () => {
     recorders.__flUndoRefAnswer = () => ({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });
 
     const answer = await bodyOf(aRequest(BODY));
 
-    assert.equal(answer.success, false);
-    assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./);
+    assert.deepEqual(answer, { success: false, error: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." });
   });
 
   it("turns a cross-site caller away without replaying anything", async () => {
