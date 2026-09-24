@@ -295,6 +295,22 @@ def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fra
     _assert_corpus_restored()
 
 
+def test_a_path_a_command_or_a_mount_spells_from_the_root_is_read_up_to_its_first_argument() -> None:
+    """`./` is how a page tells a reader to run a script, and read as prose it survives a rename.
+
+    The live span's argument is no part of its path; a mount's container half follows a colon.
+    """
+    _reset()
+    _append(NOTES, "A live " + _tick("./" + KERNEL + " --a-flag") + ", a dead " + _tick("./docs/gone-led-by-a-dot.md --a-flag") + ".")
+    _append(TWIN_NOTES, "A dead mount " + _tick("./docs/gone-mounted.md:/etc/gone.md") + ".")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported == Counter({("fail", "path", NOTES): 1, ("fail", "path", TWIN_NOTES): 1}), _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_a_root_level_directory_the_tree_holds_is_a_prefix_the_resolver_reaches() -> None:
     """The live path is planted beside the dead one because silence is what a typed tuple produces.
 

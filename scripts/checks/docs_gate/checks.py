@@ -1330,8 +1330,24 @@ def _joins(body: str, markers: tuple[str, ...]) -> list[int]:
     return offsets
 
 
+# What ends the path in a `./` span: a command's first argument, or a mount's container half.
+ROOT_LED_RE: Final = re.compile(r"[\s:]")
+
+
+def _root_spelling(token: str) -> str:
+    """The repository path a `./` span names: its first word, up to any `:`.
+
+    A command line and a compose mount both spell a root path so, and read as prose one stays green
+    through a rename.
+    """
+    return ROOT_LED_RE.split(token[2:], maxsplit=1)[0] if token.startswith("./") else token
+
+
 def _reads_as_path(token: str) -> bool:
-    """Whether `path` would judge this token, asked of one that check cannot see."""
+    """Whether `path` would judge this token, asked of one that check cannot see.
+
+    Never a `./` span: a command's wrap between two arguments renders as the space it needs.
+    """
     return token.startswith(repo_prefixes()) and LINE_CITATION_TEXT_RE.fullmatch(token) is None and not is_gitignored(token)
 
 
@@ -1910,10 +1926,11 @@ def _unplaced_paths(body: str) -> list[str]:
     `main` asks git about every file's set in one batch before the checks read them one at a time.
     """
     unplaced: list[str] = []
-    for token in sorted(set(code_spans(body))):
-        # Already reported by the citation check, and letting the path check fire too would give
-        # one defect two findings.
-        if " :: " in token or is_placeholder(token) or not token.startswith(repo_prefixes()):
+    # Already reported by the citation check, and letting the path check fire too would give one
+    # defect two findings.
+    spans = {_root_spelling(span) for span in code_spans(body) if " :: " not in span and not is_placeholder(span)}
+    for token in sorted(spans):
+        if not token.startswith(repo_prefixes()):
             continue
         if LINE_CITATION_TEXT_RE.fullmatch(token):
             continue
