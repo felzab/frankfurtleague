@@ -3,6 +3,9 @@
 import { refresh } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
+import { getTeamMemberships } from "@/features/teams/queries";
 import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -12,6 +15,7 @@ import { mapStaleBlockRefusal } from "./refusals";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
+import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type {
   FLKontaktErasureAnsichtResponse,
@@ -88,6 +92,10 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
+    // After the parse, where the application's check comes before it: only a parsed payload names
+    // the row whose stored block admits its labels.
+    if (!(await nenntZugelasseneFassungen(validated.data))) return { success: false, error: BEWERBUNG_VERALTET };
+
     // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
     // The refusal belongs on the page that asked, not on the error page.
     let saisonTeam;
@@ -139,5 +147,39 @@ export async function readKontaktErasureAnsichtAction(
     }
 
     return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
+  });
+}
+
+const SITZE = ["trainer", "ansprechperson", "stellvertretung"] as const;
+
+/**
+ * Admits the running label, or the one that seat already stores: the editor sends each stored seat
+ * back under its own, a confirmed one under the confirmation page's.
+ */
+async function nenntZugelasseneFassungen({ team_id, saison_id, kontakte }: FLPatchSaisonTeamKontaktePayload): Promise<boolean> {
+  const laufend = LIGA_KENNTNISNAHME.textVersion;
+  const gesendet = SITZE.flatMap((rolle) => {
+    const sitz = kontakte?.[rolle];
+    return sitz ? [{ rolle, einwilligung: sitz.einwilligung }] : [];
+  });
+
+  // No read where nothing needs one: a block of new seats is judged by the running label alone.
+  if (gesendet.every(({ einwilligung }) => nenntLaufendeFassung(einwilligung, laufend))) return true;
+
+  // The one read serving a stored block. A block moving between it and the write is refused there
+  // (`REQ-KONTAKT-001`), so the race costs a sentence rather than a stale label.
+  const { teams } = await getTeamMemberships();
+  const gespeichert: FLSaisonTeamKontakte | null =
+    teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
+
+  return gesendet.every(({ rolle, einwilligung }) => {
+    // A mirrored Trainer is the seat it copies, sent under that seat's label.
+    const quelle = rolle === "trainer" && kontakte?.trainer_ist_zugleich ? kontakte.trainer_ist_zugleich : rolle;
+    const gespeicherteFassung = gespeichert?.[quelle]?.einwilligung.text_version;
+
+    return (
+      nenntLaufendeFassung(einwilligung, laufend) ||
+      (gespeicherteFassung !== undefined && nenntLaufendeFassung(einwilligung, gespeicherteFassung))
+    );
   });
 }
