@@ -919,7 +919,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 }
 
 /* App-side overrides for the calendar, last so each beats the vendored rule it names at equal
-   specificity. Written against `@heroui/styles` 3.2.5, whose class names these are. */
+   specificity. Written against `@heroui/styles` 3.2.6, whose class names these are. */
 @layer components {
   /* `rounded-lg` is what every option row, tab and field here takes, so a day reads as the same
      control family as the form behind it. HeroUI ships a circle. */
