@@ -140,8 +140,8 @@ Run it for every agent, the fifteenth as much as the first.
    4), each paid for twice, in the agent's rediscovery and in the fix round that follows.
 5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer`, an auditor that
    must plant or run a suite as `driving-reauditor`, and research or an audit reading only committed
-   state as `researcher`**, whose shell writes nothing; `general-purpose` keeps a question that reads
-   no repository.
+   state as `researcher`**, whose shell writes no repository file; `general-purpose` keeps a
+   question that reads no repository.
 6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
 7. **Record the dispatch in the register before it runs. An agent that writes the repository or
