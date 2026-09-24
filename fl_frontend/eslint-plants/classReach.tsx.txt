@@ -4,6 +4,8 @@ declare const size: string;
 export const PLANT_STRING_CLASSES = "flex zz-unknown-string"; // expect: unknown-class
 export const PLANT_TEMPLATE_CLASSES = `flex ${size} zz-unknown-template`; // expect: unknown-class
 export const PLANT_MAP_CLASSES = { open: "zz-unknown-value" }; // expect: unknown-class
+// The fluid type scale is `@utility fluid-*`; spelled with Tailwind's `text-` prefix it styles nothing.
+export const PLANT_FLUID_TYPE_CLASSES = "text-fluid-sm"; // expect: unknown-class
 const BOX = "flex gap-2";
 export const COMPOSED_CLASSES = `${BOX} items-center`; // expect: class-constant-name
 
