@@ -867,3 +867,69 @@ image_created_display() {
   else printf 'unknown'
   fi
 }
+
+# --- What a successful build does not prove ------------------------------------------------------------
+
+# Asked of the image itself, by the gate's images scope and by `.github/workflows/publish.yml` before
+# it pushes. Each answers 0, 1 for what it found, and 3 for an image that would not run, which says
+# nothing about the image.
+
+# From the repo root `instrumentation.ts` compiles but is not traced into the standalone output,
+# which silently disables the startup env gate and onRequestError.
+image_has_instrumentation() { # $1 the frontend image
+  local rc=0
+  docker run --rm --entrypoint sh "$1" -c '[ -f .next/server/instrumentation.js ]' || rc=$?
+  case "$rc" in
+    0) ;;
+    # The test's own answer. Anything higher is docker's, and says nothing about the file.
+    1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
+    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
+    130) return 130 ;;
+    *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
+       return 3 ;;
+  esac
+}
+
+# A USER line lost in a refactor still builds.
+image_runs_unprivileged() { # $1.. the images
+  local image uid rc
+  for image in "$@"; do
+    rc=0
+    uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
+    # For `image_has_instrumentation`'s reason.
+    if (( rc == 130 )); then return 130; fi
+    if (( rc )); then
+      printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
+      return 3
+    fi
+    if [[ "$uid" == "0" ]]; then
+      printf '%s\n' "the ${image} image runs as uid 0, so no USER line takes effect in it"
+      return 1
+    fi
+  done
+}
+
+# The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
+# certificates of their own, and the check widens until it says nothing.
+
+# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
+# two lists together.
+IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
+# A context the dockerignore stopped covering still builds.
+image_context_clean() { # $1.. the images
+  local image found rc
+  for image in "$@"; do
+    rc=0
+    found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
+    # For `image_has_instrumentation`'s reason.
+    if (( rc == 130 )); then return 130; fi
+    if (( rc )); then
+      printf '%s\n' "the ${image} image would not run, so its context was never read"
+      return 3
+    fi
+    if [[ -n "$found" ]]; then
+      printf '%s\n' "the ${image} image carries what its dockerignore exists to keep out:" "$found"
+      return 1
+    fi
+  done
+}

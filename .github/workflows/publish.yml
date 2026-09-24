@@ -6,6 +6,8 @@
 # Invariants:
 # - Only `main`'s tip is built, and only where its own push run of `verify` passed, a run failed by
 #   its wall-clock budget step alone counting as passed.
+# - Nothing is pushed before both loaded builds pass the images scope's three assertions, and no
+#   `:latest` tag names a pushed image whose layers or user differ from the one they examined.
 # - Neither `:latest` tag moves until both packages hold the build under its `sha-` tag.
 name: publish
 
@@ -37,6 +39,9 @@ jobs:
       # `scripts/lib/_lib.sh :: REPO_FRONTEND` and `:: REPO_BACKEND`, which `deploy.sh` pulls.
       FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
       BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
+      # The runner's own tags for the loaded builds the assertions run against; never pushed.
+      FRONTEND_CHECKED: publish-check:frontend
+      BACKEND_CHECKED: publish-check:backend
     steps:
       # A dispatch may name any branch or tag, and GITHUB_SHA is that ref's tip, so the ref is
       # refused before anything reads it.
@@ -105,8 +110,38 @@ jobs:
           tags: type=sha
           flavor: latest=false
 
+      # Docker's "Test before push" (https://docs.docker.com/build/ci/github-actions/test-before-push/):
+      # this builder answers each push build from the layers its load build left, so the two keep
+      # identical inputs or the push builds something else.
+
       # No `cache-from`: every job on main can write the Actions cache, so a dependency compromised in
       # any verify run could plant a layer that this job would then publish.
+      - name: Build the frontend and load it for the checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_frontend
+          file: fl_frontend/Dockerfile
+          load: true
+          tags: ${{ env.FRONTEND_CHECKED }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+      - name: Build the backend and load it for the checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_backend
+          file: fl_backend/Dockerfile
+          load: true
+          tags: ${{ env.BACKEND_CHECKED }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+      # The images scope's own assertions (`scripts/lib/_lib.sh`), asked of the build about to be
+      # pushed rather than of the images job's build of the same commit. Each prints what it found.
+      - name: Check both images before either is pushed
+        run: |
+          source scripts/lib/_lib.sh
+          image_has_instrumentation "$FRONTEND_CHECKED" || exit $?
+          image_runs_unprivileged "$FRONTEND_CHECKED" "$BACKEND_CHECKED" || exit $?
+          image_context_clean "$FRONTEND_CHECKED" "$BACKEND_CHECKED" || exit $?
+
       - name: Build and push the frontend
         id: build-frontend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -125,6 +160,27 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+
+      # The push is a second build, so a base tag that moved between the two would put layers nothing
+      # checked under this build's `sha-` tag. The assertions read the filesystem and the user alone,
+      # so those are what must match.
+      - name: Refuse a pushed image other than the one checked
+        env:
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+        run: |
+          same_as_checked() { # $1 the loaded tag, $2 the pushed digest's reference
+            local checked pushed
+            checked="$(docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}user={{.Config.User}}' "$1")"
+            pushed="$(docker buildx imagetools inspect --format '{{range .Image.RootFS.DiffIDs}}{{println .}}{{end}}user={{.Image.Config.User}}' "$2")"
+            if [ "$checked" != "$pushed" ]; then
+              echo "::error title=Publish::$2 is not the image checked as $1, so neither latest tag moves. Dispatch again."
+              printf 'checked:\n%s\npushed:\n%s\n' "$checked" "$pushed"
+              return 1
+            fi
+          }
+          same_as_checked "$FRONTEND_CHECKED" "${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
+          same_as_checked "$BACKEND_CHECKED" "${BACKEND_IMAGE}@${BACKEND_DIGEST}"
 
       # Two manifest writes, so the registry names a mismatched pair for a moment at most. A failure
       # between them is what `deploy.sh`'s label comparison refuses; dispatching again repairs it.

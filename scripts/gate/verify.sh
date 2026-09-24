@@ -268,50 +268,6 @@ do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
 do_cache_frontend() { export_image_cache frontend fl_frontend/Dockerfile fl_frontend; }
 do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backend; }
 
-# Two promises a build keeps silently or not at all: a USER line lost in a refactor still builds,
-# and so does a context the dockerignore stopped covering.
-do_image_user() {
-  local name uid rc
-  for name in frontend backend; do
-    rc=0
-    uid="$(docker run --rm --entrypoint sh "${VERIFY_TAG}:${name}" -c 'id -u')" || rc=$?
-    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${name} image would not run, so its runtime user was never read"
-      return 3
-    fi
-    if [[ "$uid" == "0" ]]; then
-      printf '%s\n' "the ${name} image runs as uid 0, so no USER line takes effect in it"
-      return 1
-    fi
-  done
-}
-
-# The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
-# certificates of their own, and the check widens until it says nothing.
-
-# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
-# two lists together.
-IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
-do_image_context() {
-  local name found rc
-  for name in frontend backend; do
-    rc=0
-    found="$(docker run --rm --entrypoint sh "${VERIFY_TAG}:${name}" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # For `do_image_user`'s reason.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${name} image would not run, so its context was never read"
-      return 3
-    fi
-    if [[ -n "$found" ]]; then
-      printf '%s\n' "the ${name} image carries what its dockerignore exists to keep out:" "$found"
-      return 1
-    fi
-  done
-}
-
 # Each `cd`s in a subshell: in the serial form the body runs in this process, whose directory every
 # later step assumes.
 do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
@@ -1385,28 +1341,23 @@ this step in the job."
   ok "backend image builds"
 
   step "images · instrumentation.js is actually in the frontend image"
-  # From the repo root this file compiles but is not traced into the standalone output, which
-  # silently disables the startup env gate and onRequestError.
-
-  # 1 is the test's answer, higher is docker's and says nothing about the file: refused. 130 is
-  # neither, here or below.
+  # 3 is an image that never ran, so a `die` here and below would send the reader to a file that is fine.
   PROBE_RC=0
-  quietly docker run --rm --entrypoint sh "${VERIFY_TAG}:frontend" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
+  quietly image_has_instrumentation "${VERIFY_TAG}:frontend" || PROBE_RC=$?
   if (( PROBE_RC == 0 )); then
     ok "instrumentation.js present — env gate and error logging will run"
   elif (( PROBE_RC == 1 )); then
     die "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repo root."
   elif (( PROBE_RC == 130 )); then on_interrupt
   else
-    refuse "the probe container did not run (exit ${PROBE_RC}), so whether instrumentation.js reached
-the image is unknown. Ask the image directly:
+    refuse "the probe container did not run (the capture above names its exit), so whether
+instrumentation.js reached the image is unknown. Ask the image directly:
   docker run --rm --entrypoint sh ${VERIFY_TAG}:frontend -c 'ls .next/server'"
   fi
 
   step "images · neither image runs as root"
-  # Graded as the probe above: a `die` would send the reader to a USER line that is fine.
   IMAGE_USER_RC=0
-  quietly do_image_user || IMAGE_USER_RC=$?
+  quietly image_runs_unprivileged "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" || IMAGE_USER_RC=$?
   if (( IMAGE_USER_RC == 0 )); then
     ok "both images drop to an unprivileged user"
   elif (( IMAGE_USER_RC == 1 )); then
@@ -1420,10 +1371,8 @@ and nothing here judges either USER line. The capture above names the image. Ask
   fi
 
   step "images · the dockerignore kept its promise about the build context"
-  # Graded as the probes above: an image that would not run is a context never read, which is not
-  # a dockerignore that stopped covering it.
   IMAGE_CONTEXT_RC=0
-  quietly do_image_context || IMAGE_CONTEXT_RC=$?
+  quietly image_context_clean "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" || IMAGE_CONTEXT_RC=$?
   if (( IMAGE_CONTEXT_RC == 0 )); then
     ok "no environment file, key, certificate or npm configuration reached either image"
   elif (( IMAGE_CONTEXT_RC == 1 )); then

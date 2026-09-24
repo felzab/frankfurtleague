@@ -465,8 +465,13 @@ and image scopes alone, so nothing announces the shortfall before a `--scripts` 
 
 **Publishing is a CI run I start, with the workflow's own token** (`.github/workflows/publish.yml`,
 `gh workflow run publish.yml --ref main`): it refuses any ref but `main`, a commit `main` has moved
-past, and any commit whose own push run of `verify` did not pass, builds both images with no cache,
-pushes each under `sha-<commit>`, and only then moves both `:latest` tags (I353, I7). A merge
+past, and any commit whose own push run of `verify` did not pass. It builds both images with no
+cache from an earlier run and loads them, and **pushes nothing before the loaded pair passes the
+images scope's three assertions** (`scripts/lib/_lib.sh :: image_has_instrumentation`,
+`:: image_runs_unprivileged`, `:: image_context_clean`); the push rebuilds from the same builder's
+layers, under `sha-` and the commit's short hash (`docker/metadata-action`'s `type=sha`). A pushed
+image whose layers or user differ from the one checked is refused, and only then do both `:latest`
+tags move (I353, I7). A merge
 publishes nothing, and re-running an old publish run refuses rather than moving `:latest` backward.
 **A `verify` run failed on its wall-clock budget alone still counts as passed**: the budget judges
 how long the gate took, not the tree, so `scripts/checks/check_publish_verdict.py` reads that run's
