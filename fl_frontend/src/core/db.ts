@@ -27,28 +27,43 @@ const options = {
  * later operation would fail until a restart (`docs/frontend/spec.md :: I364`). The same client is
  * connected again: the adapter holds its `Db`.
  */
-function reconnectingAfterAFailedConnect(client: MongoClient): MongoClient {
-  let opened = false;
-  let reconnecting = false;
-  client.once("open", () => {
-    opened = true;
-  });
-  // Before the first open only a failed connect closes a topology: once open, the driver reconnects
-  // on its own, and nothing in production closes this client.
-  client.on("topologyClosed", () => {
-    if (opened || reconnecting) return;
-    reconnecting = true;
-    void (async () => {
-      while (!opened) {
-        // The driver's own least interval between two checks of one server, and unreferenced: a retry
-        // that never succeeds must not hold open a process that would otherwise exit.
-        await pause(client.options.minHeartbeatFrequencyMS, undefined, { ref: false });
-        // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
-        await client.connect().catch(() => undefined);
-      }
-    })();
-  });
-  return client;
+class SignInStoreClient extends MongoClient {
+  // The driver's `connect()` builds a topology for a client already closed, so the reconnect asks
+  // this before each attempt rather than the driver.
+  #closed = false;
+
+  constructor(url: string) {
+    super(url, options);
+    let opened = false;
+    let reconnecting = false;
+    this.once("open", () => {
+      opened = true;
+    });
+    // Before the first open only a failed connect or a close ends a topology: once open, the driver
+    // reconnects on its own.
+    this.on("topologyClosed", () => {
+      if (opened || reconnecting || this.#closed) return;
+      reconnecting = true;
+      void (async () => {
+        while (!opened && !this.#closed) {
+          // The driver's own least interval between two checks of one server, and unreferenced: a retry
+          // that never succeeds must not hold open a process that would otherwise exit.
+          await pause(this.options.minHeartbeatFrequencyMS, undefined, { ref: false });
+          if (this.#closed) return;
+          // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
+          await this.connect().catch(() => undefined);
+        }
+        // A close landing while an attempt resolves a `mongodb+srv` host finds none of that attempt's
+        // topology yet, which then opens.
+        if (this.#closed) await super.close();
+      })();
+    });
+  }
+
+  override async close(force?: boolean): Promise<void> {
+    this.#closed = true;
+    await super.close(force);
+  }
 }
 
 let client: MongoClient;
@@ -60,11 +75,11 @@ if (process.env.NODE_ENV === "development") {
   };
 
   if (!globalWithMongo._mongoClient) {
-    globalWithMongo._mongoClient = reconnectingAfterAFailedConnect(new MongoClient(frontend_config.MONGODB_URI, options));
+    globalWithMongo._mongoClient = new SignInStoreClient(frontend_config.MONGODB_URI);
   }
   client = globalWithMongo._mongoClient;
 } else {
-  client = reconnectingAfterAFailedConnect(new MongoClient(frontend_config.MONGODB_URI, options));
+  client = new SignInStoreClient(frontend_config.MONGODB_URI);
 }
 
 export { client };

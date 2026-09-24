@@ -5,7 +5,7 @@ import { after, describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
-import { MongoOperationTimeoutError, MongoServerSelectionError, MongoTransactionError } from "mongodb";
+import { MongoNotConnectedError, MongoOperationTimeoutError, MongoServerSelectionError, MongoTransactionError } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
 
@@ -15,25 +15,13 @@ import type { Socket } from "node:net";
 
 /* Each resource set as it opens, and the hook registered before the first await that can throw: a
    container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: { client: MongoClient; open: Promise<unknown> }[] } = {
-  clients: [],
-};
+const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
 
 after(async () => {
-  // A client whose connect failed reconnects until it opens, and would reconnect after a close that
-  // came first: each is given one attempt and the pause before it.
-  for (const { client, open } of opened.clients) {
-    await Promise.race([open, pause(client.options.serverSelectionTimeoutMS + client.options.minHeartbeatFrequencyMS)]);
-    await client.close();
-  }
+  for (const client of opened.clients) await client.close();
   await opened.relay?.close();
   await opened.mongod?.stop();
 });
-
-/** Holds `client` for the `after` hook, with the first open it will wait on. */
-function track(client: MongoClient): void {
-  opened.clients.push({ client, open: once(client, "open").catch(() => undefined) });
-}
 
 const mongod = await new MongoDBContainer("mongo:8").start();
 opened.mongod = mongod;
@@ -156,14 +144,16 @@ registerAuthDoubles({
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
-track(client);
+opened.clients.push(client);
 const { auth } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
 const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
-track(coldClient);
+opened.clients.push(coldClient);
 const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?recovery`)) as { client: MongoClient };
-track(recoveringClient);
+opened.clients.push(recoveringClient);
+const { client: closingClient } = (await import(`${import.meta.resolve("./db.ts")}?closing`)) as { client: MongoClient };
+opened.clients.push(closingClient);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -270,5 +260,27 @@ describe("the sign-in store's client recovers from a cold start it could not com
     // One attempt already under way, then the pause before the next.
     await settledWithin(OPERATION_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the reconnect", () => reopened);
     assert.equal(await settledWithin(OPERATION_BOUND, "the read after the store answered again", probe), null);
+  });
+
+  it("stays closed once closed, its first connect having been refused", async () => {
+    const read = () => closingClient.db("store_bound").collection("probe").findOne({});
+    let reopened = false;
+    closingClient.on("open", () => {
+      reopened = true;
+    });
+
+    const refused = await relay.refuse(async () => {
+      const outcome = await settledWithin(OPERATION_BOUND, "the refused read", read);
+      await settledWithin(OPERATION_BOUND, "the close", () => closingClient.close());
+      return outcome;
+    });
+    assert.ok(refused instanceof MongoServerSelectionError, `the refused read settled with ${String(refused)}`);
+
+    // The store answers again for as long as one attempt and the pause before it would take to open.
+    await pause(OPERATION_BOUND + closingClient.options.minHeartbeatFrequencyMS + LATENESS_MS);
+    const closedRead = await settledWithin(OPERATION_BOUND, "the read after the close", read);
+
+    assert.equal(reopened, false, "the client its owner closed opened again once the store answered");
+    assert.ok(closedRead instanceof MongoNotConnectedError, `the read after the close settled with ${String(closedRead)}`);
   });
 });
