@@ -4,11 +4,10 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries either context — `RowActionLink` reads the first and `withSaisonId` the
    second — and the list renders under both (`docs/frontend/spec.md` §1.9). */
-/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
-
-/* eslint-enable no-restricted-imports */
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";

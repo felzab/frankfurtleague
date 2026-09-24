@@ -7,11 +7,10 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries either context — the bar's `useUrlFilters` reads the first and every
    `useSearchParams` the second. A Next release that moves either module fails this file at import. */
-/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
-
-/* eslint-enable no-restricted-imports */
 
 import { render, screen } from "@testing-library/react";
 

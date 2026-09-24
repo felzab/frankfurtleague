@@ -4,10 +4,8 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries the router context, and every card's `Link` reads it. A Next release that
    moves the module fails this file at import rather than quietly. */
-/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-
-/* eslint-enable no-restricted-imports */
 
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
 import { nextRouter } from "@/shared/testing/nextContexts.ts";

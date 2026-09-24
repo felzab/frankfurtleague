@@ -6,10 +6,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 /* `useRouter` reads a context no `next/navigation` export carries, so the panel renders under the one Next keeps it on. */
-/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-
-/* eslint-enable no-restricted-imports */
 
 import { render } from "@testing-library/react";
 

@@ -7,10 +7,8 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 /* No public export carries the router context, and the club popover's links read it. A Next release that
    moves the module fails this file at import rather than quietly. */
-/* eslint-disable no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet */
+// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-
-/* eslint-enable no-restricted-imports */
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";

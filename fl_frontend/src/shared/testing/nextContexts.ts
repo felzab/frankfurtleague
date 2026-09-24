@@ -1,10 +1,11 @@
 import { createElement as h } from "react";
-/* eslint-disable no-restricted-imports -- the helper that mounts Next's contexts for every other test */
+// eslint-disable-next-line no-restricted-imports -- the helper that mounts Next's contexts for every other test
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+// eslint-disable-next-line no-restricted-imports -- the helper that mounts Next's contexts for every other test
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+// eslint-disable-next-line no-restricted-imports -- the helper that mounts Next's contexts for every other test
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-/* eslint-enable no-restricted-imports */
 import type { ReactNode } from "react";
 
 /** Where a component sent the reader, counted and collected so a case asserts over the navigation rather than over the router. */
