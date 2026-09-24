@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
+import { beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -23,11 +24,16 @@ export function doubleActions({
 }: {
   /** Each actions module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
-  /** What every replaced write answers, until `answerWith` names another. */
+  /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
 }): { calls: ActionCall[]; answerWith: (next: () => Promise<unknown>) => void } {
   const calls: ActionCall[] = [];
   let answering = answer;
+  // Back to `answer` before every case: a case that named another answer and never restored it
+  // would otherwise hand that answer to the next case's write, which then passes on it.
+  beforeEach(() => {
+    answering = answer;
+  });
   // Through the global rather than a closure: the replaced module is compiled from source and shares
   // nothing with this scope. One name per call, so two doubles in one process cannot overwrite each other.
   const bus = `__flActionDouble${String((registered += 1))}`;

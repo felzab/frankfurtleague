@@ -58,7 +58,15 @@ describe("the actions double", () => {
       success: false,
       error: "Der Spieltag ist gesperrt.",
     });
-    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+  });
+
+  /* After the case above, which names a refusal and leaves it standing: a write here meeting that
+     refusal would pass every case that expects one without the case ever naming it. */
+  it("answers the next case as landed again, whatever the case before it named", async () => {
+    assert.deepEqual(await spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" }), {
+      success: true,
+      message: "Gespeichert.",
+    });
   });
 });
 
