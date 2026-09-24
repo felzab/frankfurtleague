@@ -265,10 +265,11 @@ GLOSSARY_FIELDS: Final[tuple[str, ...]] = ("Is", "In code", "Trap", "See")
 # The one status that is a claim about another entry, which is why it is held to the column beside
 # it rather than to the vocabulary alone.
 ROADMAP_BLOCKED_STATUS: Final = "Blocked"
-# The two field columns read by name: a position would read the neighbouring field once an entry's
-# table adds a column.
 STATUS_COLUMN: Final = "Status"
 DEPENDS_COLUMN: Final = "Depends on"
+# An entry table's whole header, in this order. A further column is how a tag comes back, which
+# `PROTOCOL_PAGE` §1 refuses: a hand-written value no check reads and nobody keeps true.
+ROADMAP_FIELD_COLUMNS: Final[tuple[str, ...]] = (STATUS_COLUMN, DEPENDS_COLUMN)
 # What `Depends on` holds where nothing blocks the entry, by `ROADMAP_PAGE`'s field table.
 ROADMAP_NO_DEPENDENCY: Final = "—"
 # Which rows of `PROTOCOL_PAGE`'s status table carry a value: the derivation numbers its rules, and
@@ -435,7 +436,7 @@ def check_owner_voice(rel: str, body: str) -> list[Finding]:
 
 
 def check_roadmap() -> list[Finding]:
-    """The roadmap's entries: well-formed ids in one run, a named subject, a derived status, references that resolve."""
+    """The roadmap's entries: well-formed ids in one run, a named subject, a two-field table with a derived status, references that resolve."""
     found = _check_status_vocabulary()
     rel = ROADMAP_PAGE
     if (body := _tracked_text(rel)) is not None:
@@ -525,24 +526,25 @@ def _check_status_vocabulary() -> list[Finding]:
     return [Finding("fail", "roadmap-shape", rel, detail)]
 
 
-def _entry_table(section: str) -> dict[str, str]:
-    """One entry's field table, its columns mapped to the values row beneath them.
+def _entry_table(section: str) -> tuple[tuple[str, ...], dict[str, str]]:
+    """One entry's field table: its header, and each column mapped to the value beneath it.
 
-    Read by name, so a column added to the table never shifts the field a position would read.
+    Read by name, so a header the column arm refuses is still read field for field, and reported once.
     """
     rows = _table_rows(section)
     head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
     if head is None:
-        return {}
+        return (), {}
+    header = tuple(rows[head])
     for cells in rows[head + 1 :]:
         if cells and all(TABLE_DELIMITER_RE.match(cell) for cell in cells):
             continue
-        return dict(zip(rows[head], cells, strict=False))
-    return {}
+        return header, dict(zip(header, cells, strict=False))
+    return header, {}
 
 
 def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
-    """The file's entry ids and their order, and each entry's subject, batches, status and dependencies."""
+    """The file's entry ids and their order, and each entry's subject, batches and field table."""
     found: list[Finding] = []
     # One entry per id, the first: a malformed or repeated id is reported here and read no further.
     filed: dict[str, str] = {}
@@ -605,14 +607,19 @@ def _check_token_order(rel: str, tokens: list[str]) -> list[Finding]:
 
 
 def _check_status(rel: str, filed: dict[str, str]) -> list[Finding]:
-    """Each entry's status against `PROTOCOL_PAGE` §4's closed set, and its `Depends on` against the page.
+    """Each entry's field table: its columns, its status against `PROTOCOL_PAGE` §4's closed set, and its `Depends on` against the page.
 
     A dependency goes stale when the entry it names leaves, which no edit to this entry shows.
     """
     vocabulary = protocol_statuses()
     found: list[Finding] = []
+    expected = " | ".join(ROADMAP_FIELD_COLUMNS)
     for token, section in filed.items():
-        fields = _entry_table(section)
+        header, fields = _entry_table(section)
+        # A table with no `Status` column is the vocabulary arm's below, which reports no status.
+        if header and header != ROADMAP_FIELD_COLUMNS:
+            detail = f"entry {token}'s field table is headed `{' | '.join(header)}` -- an entry's fields are `{expected}` alone"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
         status = fields.get(STATUS_COLUMN, "")
         # `Closed` is outside the set as well: the closing commit deletes an entry rather than marking it.
         if vocabulary and status not in vocabulary:

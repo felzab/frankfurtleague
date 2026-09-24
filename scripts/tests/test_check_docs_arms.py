@@ -36,6 +36,7 @@ from test_check_docs import (
     PARAGRAPH_CELL,
     QUOTES,
     ROADMAP,
+    ROADMAP_FIELD_HEADER,
     SAMPLE,
     SCRIPTS_COPY,
     SHORT_FORM,
@@ -106,8 +107,20 @@ def test_an_entry_naming_no_path_is_reported() -> None:
 
 def test_a_blocked_entry_whose_only_dependency_left_is_reported_once() -> None:
     """The departed token is the finding; the `Blocked` arm reporting it too would give one defect two findings."""
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, BLOCKED_FIELDS, "| Blocked | XS | " + _tick(ORPHAN_ENTRY) + " |"))
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(ORPHAN_ENTRY) + " |"))
+    )
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a departed blocker was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_field_table_headed_out_of_order_is_reported_once() -> None:
+    """The column arm's finding alone: read by position, the status arm would take the em dash for a word outside the set."""
+    reordered = "| Depends on | Status |\n| --- | --- |"
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace(ROADMAP_FIELD_HEADER, reordered).replace("| Open | — |", "| — | Open |"))
+    )
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a reordered header was not reported exactly once: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -142,7 +155,9 @@ def test_a_batch_naming_its_own_entry_is_reported() -> None:
 
 def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
     """Its own token resolves against the page, so the arm reading the column finds an entry and passes."""
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, BLOCKED_FIELDS, "| Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |"))
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(BLOCKED_ENTRY) + " |"))
+    )
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
     _assert_corpus_restored()
 

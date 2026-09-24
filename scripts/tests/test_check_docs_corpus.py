@@ -246,7 +246,7 @@ def test_a_blocked_entry_naming_two_dependencies_is_read_token_by_token() -> Non
     Read as one token it names no entry, and a true claim about two other entries draws a finding.
     """
     _reset()
-    both = "| Blocked | XS | " + _tick(DOCS_ENTRY) + ", " + _tick(SLICE_ENTRY) + " |"
+    both = BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(DOCS_ENTRY) + ", " + _tick(SLICE_ENTRY) + " |")
     _replace(ROADMAP, BLOCKED_FIELDS, both)
     try:
         _, reported = _run()

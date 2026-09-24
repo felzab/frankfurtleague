@@ -332,11 +332,6 @@ DEPENDS_ITEM: Final = "Hold a dependency to the entries the page holds"
 VOCAB_ITEM: Final = "Hold a status to the vocabulary deriving it"
 BLOCKED_ITEM: Final = "Hold a blocked entry to the column beside it"
 ORDER_ITEM: Final = "File an entry below the run it belongs to"
-# One effort apiece, a value nothing reads, so a plant naming a field row reaches the entry it means.
-DEPENDS_FIELDS: Final = "| Open | L | — |"
-VOCAB_FIELDS: Final = "| Open | XL | — |"
-BLOCKED_FIELDS: Final = "| Open | XS | — |"
-ORDER_FIELDS: Final = "| Open | XXL | — |"
 # One line of prose apiece, each naming a repository path, which is what the subject arm asks of an entry.
 DEPENDS_PROSE: Final = "A dependency arm needs an entry beside `docs/notes.md` that a plant can make depend on a departed one."
 VOCAB_PROSE: Final = "A vocabulary arm needs an entry beside `docs/notes.md` carrying a word to put outside the set."
@@ -436,17 +431,28 @@ SWALLOWING_STANDARD: Final = _page(
 )
 
 
-def _roadmap_entry(token: str, item: str, fields: str, prose: str) -> str:
-    """One status arm's entry, in the shape the page's committed entries carry."""
-    return _page(
-        _heading(3, _tick(token) + " · " + item),
-        "",
-        "| Status | Effort | Depends on |",
-        "| --- | --- | --- |",
-        fields,
-        "",
-        prose,
-    ).rstrip("\n")
+ROADMAP_FIELD_HEADER: Final = "| Status | Depends on |\n| --- | --- |"
+
+
+def _field_table(token: str, item: str) -> str:
+    """An open entry's heading and field table, as the page's committed entries carry them.
+
+    The heading rides along because every open entry's cells read alike: it is what a plant naming a
+    table reaches.
+    """
+    return _page(_heading(3, _tick(token) + " · " + item), "", ROADMAP_FIELD_HEADER, "| Open | — |").rstrip("\n")
+
+
+DEPENDS_FIELDS: Final = _field_table(DEPENDS_ENTRY, DEPENDS_ITEM)
+VOCAB_FIELDS: Final = _field_table(VOCAB_ENTRY, VOCAB_ITEM)
+BLOCKED_FIELDS: Final = _field_table(BLOCKED_ENTRY, BLOCKED_ITEM)
+ORDER_FIELDS: Final = _field_table(ORDER_ENTRY, ORDER_ITEM)
+DOCS_FIELDS: Final = _field_table(DOCS_ENTRY, DOCS_ITEM)
+SLICE_FIELDS: Final = _field_table(SLICE_ENTRY, SLICE_ITEM)
+
+
+def _roadmap_entry(fields: str, prose: str) -> str:
+    return _page(fields, "", prose).rstrip("\n")
 
 
 def _scheme_page() -> str:
@@ -671,28 +677,20 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "**Purpose:** what is open, in one file.",
             "",
-            _roadmap_entry(DEPENDS_ENTRY, DEPENDS_ITEM, DEPENDS_FIELDS, DEPENDS_PROSE),
+            _roadmap_entry(DEPENDS_FIELDS, DEPENDS_PROSE),
             "",
-            _roadmap_entry(VOCAB_ENTRY, VOCAB_ITEM, VOCAB_FIELDS, VOCAB_PROSE),
+            _roadmap_entry(VOCAB_FIELDS, VOCAB_PROSE),
             "",
-            _roadmap_entry(BLOCKED_ENTRY, BLOCKED_ITEM, BLOCKED_FIELDS, BLOCKED_PROSE),
+            _roadmap_entry(BLOCKED_FIELDS, BLOCKED_PROSE),
             "",
-            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
-            "",
-            "| Status | Effort | Depends on |",
-            "| --- | --- | --- |",
-            "| Open | S | — |",
+            DOCS_FIELDS,
             "",
             "No check is driven against a planted violation. A check nobody drives red is one nobody",
             "proved. Done is a net beside `docs/notes.md` that plants one violation per check.",
             "",
-            _heading(3, _tick(SLICE_ENTRY) + " · " + SLICE_ITEM),
+            SLICE_FIELDS,
             "",
-            "| Status | Effort | Depends on |",
-            "| --- | --- | --- |",
-            "| Open | M | — |",
-            "",
-            "The slice answers no request. A reader filtering on it meets one half of the feature.",
+            "The slice answers no request. A reader searching for its paths finds half of the feature.",
             SLICE_DONE,
             "",
             _heading(2, ROADMAP_TAIL),
@@ -1377,7 +1375,7 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every shape the file can lose, one producer apiece."""
+    """Every shape the file can lose, one producer apiece, but an entry naming no path, which `scripts/tests/test_check_docs_arms.py` plants."""
     # A batch naming an id this file holds no entry for.
     _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + ORPHAN_ENTRY)
     # A second entry under an id already filed, and an id carrying a letter the alphabet excludes.
@@ -1387,18 +1385,19 @@ def _plant_roadmap() -> None:
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
         _page(
-            _roadmap_entry(DOCS_ENTRY, DOCS_ITEM, "| Open | XXS | — |", "A second entry under an id already filed, naming `docs/notes.md`."),
+            _roadmap_entry(DOCS_FIELDS, "A second entry under an id already filed, naming `docs/notes.md`."),
             "",
             _roadmap_entry(
-                MALFORMED_ENTRY,
-                "An id no alphabet admits",
-                "| Open | XXS | — |",
+                _field_table(MALFORMED_ENTRY, "An id no alphabet admits"),
                 "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
             ),
             "",
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
+    # A column the page's field table does not define, on the first entry under that id: the second,
+    # filed above, is reported as a repeat and read no further.
+    _replace(ROADMAP, DOCS_FIELDS, DOCS_FIELDS.replace(ROADMAP_FIELD_HEADER, "| Status | Depends on | Tags |\n| --- | --- | --- |"))
     _plant_roadmap_status()
 
 
@@ -1413,7 +1412,7 @@ def _plant_roadmap_status() -> None:
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
         _page(
-            _roadmap_entry(ORDER_ENTRY, ORDER_ITEM, ORDER_FIELDS, ORDER_PROSE),
+            _roadmap_entry(ORDER_FIELDS, ORDER_PROSE),
             "",
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
@@ -1422,7 +1421,7 @@ def _plant_roadmap_status() -> None:
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     # The same arm at its near miss: a value differing from one of the four in case alone, which a
     # comparison folding case would pass.
-    _replace(ROADMAP, "| Open | M | — |", "| open | M | — |")
+    _replace(ROADMAP, SLICE_FIELDS, SLICE_FIELDS.replace("| Open |", "| open |"))
     # An open entry depending on a token that left the page: stale whatever its status says.
     _replace(ROADMAP, DEPENDS_FIELDS, DEPENDS_FIELDS.replace("| — |", "| " + _tick(ORPHAN_ENTRY) + " |"))
     # Blocked with an em dash beside it, which names no entry at all.
@@ -1875,7 +1874,7 @@ CASES: Final[tuple[Case, ...]] = (
     # Prose lines, not table rows: OUT-3 counts the words a table does not hold, so a plant made of
     # rows would leave the bound unreached however long the page grew.
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line of README prose." for _ in range(160)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 9), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
