@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 /* The real route, called: the request it runs in and the write it replays are the doubles. */
 doubleActionRequest();
@@ -16,6 +16,7 @@ const { answerWith, calls } = doubleActions({
   answer: () => Promise.resolve({ acknowledged: 1 }),
 });
 const { POST } = await import("./route.ts");
+const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 
 /** What `fl_frontend/src/features/saisons/mutations.ts :: patchSaison` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /saisons/{saison_id}";
@@ -66,5 +67,18 @@ describe("the season save's undo", () => {
       assert.match(answer.error ?? "", /\S\. Die Änderung steht weiterhin\.$/, `${code} leaves the admin guessing what the season now holds`);
       assert.equal(answer.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
     }
+  });
+
+  /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
+     row here is: two spellings of one sentence, held together. */
+  it("words the duplicate key as the shared reader does, saying the change stands", async () => {
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, DUPLICATE_KEY)));
+
+    const answer = await undo(BODY);
+
+    assert.equal(
+      answer.error,
+      `${String(toActionErrorResult(refusedOn(REPLAY_OPERATION, DUPLICATE_KEY)).error)} Die Änderung steht weiterhin.`,
+    );
   });
 });
