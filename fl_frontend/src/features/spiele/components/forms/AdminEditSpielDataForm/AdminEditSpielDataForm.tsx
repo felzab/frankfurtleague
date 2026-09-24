@@ -18,8 +18,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { appToast } from "@/shared/utils/appToast";
-import { offerUndo, RUECKNAHME_UNKLAR } from "@/shared/utils/undoDispatch";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
@@ -58,12 +57,6 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
-
-/**
- * Long enough to transcribe the only copy of a diagnosis, not merely to read it. Deliberately not `UNDO_TIMEOUT_MS`: this stands over a
- * restore that never dispatched, so it must not follow the undo window wherever that is taken.
- */
-const DIAGNOSIS_TIMEOUT_MS = 15000;
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -396,13 +389,6 @@ export function AdminEditSpielDataForm({
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,
           router,
-          // The raw error follows the sentence, uniquely here: the dispatch failed in the browser,
-          // so no server log holds the diagnosis. One that reached the server stays generic.
-          reportRejection: (dispatchError) =>
-            appToast.danger("Rücknahme unklar", {
-              description: `${RUECKNAHME_UNKLAR} ${dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError)}`,
-              timeout: DIAGNOSIS_TIMEOUT_MS,
-            }),
         });
 
         resetDraftToStored();

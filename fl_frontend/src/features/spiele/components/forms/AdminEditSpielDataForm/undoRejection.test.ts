@@ -47,9 +47,9 @@ const SPIEL: FLSpielAdmin = {
 };
 
 describe("the match editor's undo whose dispatch never answered", () => {
-  /* The dispatch failed in the browser, so no server log holds the diagnosis and the toast carries it
-     after the sentence; the restore may still have landed on its way, so it is titled neither way. */
-  it("says nobody can tell whether the change was taken back, and names what the browser saw", async () => {
+  /* The restore may still have landed on its way, so it is titled neither way, and the browser's own
+     error, which names nothing the admin can act on, stays off the toast. */
+  it("says nobody can tell whether the change was taken back, and nothing of what the browser saw", async () => {
     const user = userEvent.setup();
     render(
       underNext(
@@ -91,7 +91,7 @@ describe("the match editor's undo whose dispatch never answered", () => {
 
     assert.deepEqual(
       raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
-      [["Rücknahme unklar", "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie. TypeError: Failed to fetch"]],
+      [["Rücknahme unklar", "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie."]],
     );
   });
 });
