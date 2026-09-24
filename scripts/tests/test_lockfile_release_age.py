@@ -8,6 +8,7 @@ so each case drives the real `scripts/gate/verify.sh` over a copy of `scripts/` 
 
 Invariants:
   pnpm's release-age stop refuses at `docs/ops/spec.md` §1.7's exit 2, never at 1.
+  A stop naming no code the step reads refuses at 2 too: nothing was judged.
   Each stop grades alike with and without `--verbose`.
 """
 
@@ -32,6 +33,7 @@ RELEASE_AGE: Final = "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION  stand-in@1.0.0 was
 # A drift is the one stop the change can be fixed to answer for, so it is the control: a step
 # grading everything at 2 fails here rather than passing every refusal case.
 DRIFT: Final = "ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with frozen-lockfile because pnpm-lock.yaml is not up to date"
+UNREAD: Final = "ERR_PNPM_META_FETCH_FAIL  GET https://registry.npmjs.org/stand-in: request failed"
 
 FINDINGS: Final = "finding(s) in this run"
 REFUSED: Final = "Refused after"
@@ -74,3 +76,14 @@ def test_a_lockfile_that_drifted_from_its_manifest_is_a_finding(flags: tuple[str
     assert status == 1, output
     assert "no longer answers its manifest" in output, output
     assert FINDINGS in output, output
+
+
+@pytest.mark.parametrize("flags", FORMS)
+def test_a_stop_the_step_does_not_read_refuses_rather_than_reporting_a_finding(flags: tuple[str, ...]) -> None:
+    """The step names no cause here, so it cannot say the change needs work."""
+    status, output = _lockfile_step(UNREAD, *flags)
+    assert status == 2, output
+    assert "for a reason this step does not read" in output, output
+    assert UNREAD in output, "the stop's own words were not shown, and the refusal points at them"
+    assert REFUSED in output, output
+    assert FINDINGS not in output, output

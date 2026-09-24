@@ -1036,8 +1036,9 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
         refuse "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
 them above, with its own remedy, and the manifest was never compared.
 Each passes unchanged once it is old enough." ;;
+      # `refuse`, not `die`: naming no cause, the step cannot say the change needs work.
       *)
-        die "pnpm stopped on fl_frontend's lockfile for a reason this step does not read — its own
+        refuse "pnpm stopped on fl_frontend's lockfile for a reason this step does not read — its own
 output is above." ;;
     esac
   fi
