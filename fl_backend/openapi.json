@@ -7172,7 +7172,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has\nnever run a season, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is\nrunning, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
