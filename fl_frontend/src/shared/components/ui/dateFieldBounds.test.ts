@@ -18,9 +18,6 @@ const JUDGING = new Set(["DatePicker", "DateField", "TimeField"]);
 /** Every control that draws segments, whose digits the locale pads unless the composition forces two. */
 const SEGMENTED = new Set([...JUDGING, "DateRangePicker"]);
 
-/** The one file composing a segmented control, so every date and time the app takes reads as the ones it prints. */
-const COMPOSITION = "shared/components/ui/DateTimeFields.tsx";
-
 /** The one that OFFERS dates. A bound here greys days out and reports nothing. */
 const OFFERING = "Calendar";
 
@@ -143,13 +140,6 @@ describe("where a date control's bounds live", () => {
         `no <${tag}> found, so what this file grades about it is unproven`,
       );
     }
-  });
-
-  it("finds every segmented control inside the one composition", () => {
-    // A field composed anywhere else shows the locale's own digits, `4.9.2016` beside every printed `04.09.2016`.
-    const elsewhere = sites.filter((site) => SEGMENTED.has(site.tag) && site.file !== COMPOSITION).map(idOf);
-
-    assert.deepEqual(elsewhere, [], `${elsewhere.join(", ")} composes a date or time field outside ${COMPOSITION}`);
   });
 
   it("keeps every bound off the control that judges", () => {

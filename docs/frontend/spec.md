@@ -1648,9 +1648,9 @@ holds whether a conditional block renders or not
 - **Every date and time field is
   `fl_frontend/src/shared/components/ui/DateTimeFields.tsx :: AppDatePicker` or `:: AppTimeField`**,
   which write two digits where the pinned locale writes one, so a date being entered reads as the
-  `04.09.2016` and a kick-off as the `09:00` every page prints. Swept by
-  `fl_frontend/src/shared/components/ui/dateFieldBounds.test.ts :: "finds every segmented control inside the one composition"`,
-  and the digits by `fl_frontend/src/shared/components/ui/DateTimeFields.test.ts`.
+  `04.09.2016` and a kick-off as the `09:00` every page prints. Held by
+  `fl_frontend/eslint.config.mjs :: SEGMENTED_DATE_CONTROLS`, and the digits by
+  `fl_frontend/src/shared/components/ui/DateTimeFields.test.ts`.
 - **Every dialog's footer puts the action first and the way back second** — left in a row, top in a
   stack — so the press a reader's hand has learned on one dialog sits in the same place on the next,
   and `fl_frontend/src/shared/components/ui/ConfirmActionRow.tsx :: ConfirmActionRow` keeps that order
