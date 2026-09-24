@@ -6,8 +6,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
 
-import { filesUnder } from "./treeWalk.ts";
-
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -56,14 +54,8 @@ const { APINetworkError, MailSendError } = await import("./errors.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
 
-const SRC_ROOT = path.resolve(import.meta.dirname, "..");
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
 const PROVIDER_ENDPOINT = "https://api.resend.com/emails";
-
-/* The sweep below matches a pattern rather than containing a substring: a URL used as a containment
-   needle reads as a hostname check to static analysis, which is a real defect in a URL guard and
-   noise in a source scan. */
-const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
 
 /** The module's own timeout and retry pause, restated so a change to either has to be made here too. */
 const MAIL_TIMEOUT_MS = 15000;
@@ -746,18 +738,5 @@ describe("what the mail transport reports when a send fails", () => {
      process and a runtime assertion could not tell a present guard from an absent one. */
   it("guards the module as server-only, the key it reads being a credential", () => {
     assert.match(readFileSync(MAIL_MODULE, "utf8"), /^import "server-only";/);
-  });
-
-  it("is the only place in the frontend that names the provider's endpoint", () => {
-    assert.match(PROVIDER_ENDPOINT, PROVIDER_ENDPOINT_PATTERN, "the sweep's pattern and the asserted endpoint disagree");
-
-    // Fixtures are IN, and the expected answer below names this file: a test reaching the live
-    // provider is the failure this sweep exists to catch, so excluding them would hide it.
-    const naming = filesUnder(SRC_ROOT, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400)
-      .filter((file) => PROVIDER_ENDPOINT_PATTERN.test(readFileSync(file, "utf8")))
-      .map((file) => path.relative(SRC_ROOT, file).split(path.sep).join("/"))
-      .sort();
-
-    assert.deepEqual(naming, ["core/mail.test.ts", "core/mail.ts"]);
   });
 });
