@@ -12,7 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas.ts";
@@ -29,6 +29,7 @@ const { raised } = doubleToasts();
 
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
 const SAISON_ID = "2627";
@@ -148,6 +149,31 @@ describe("the season's bulk invite send", () => {
     );
     assert.equal(sent("postEinladungVersandAction").length, 0, "a failed preview wrote");
     await screen.findByRole("button", { name: RESTING });
+  });
+
+  /* A send of unknown outcome may have mailed the links the list names, so a second press armed over
+     that list would re-mint them under a readout of what was true before the write. */
+  it("drops the list after a send of unknown outcome, so the next press reads it again", async () => {
+    const user = userEvent.setup();
+    const { router, seen } = recordingRouter();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(underNext(h(FormEinladungVersandSection, { saisonId: SAISON_ID, isFinishedSaison: false }), { router }));
+
+    await pressTwice(user, { resting: RESTING, armed: ARMED, whileArmed: () => answerWith(() => Promise.resolve(unansweredAction())) });
+    await screen.findByRole("button", { name: RESTING });
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Registrierungslinks nicht gesendet", error, outcome]],
+    );
+    assert.ok(screen.queryByText(LISTE) === null, "the list read before the write still stands");
+    assert.equal(seen.refresh, 1, "the page was not read again");
+
+    answerWith(vorschauAntwort(VORSCHAU));
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
+    assert.equal(sent("previewEinladungVersandAction").length, 2, "the next press armed over the list read before the write");
   });
 
   /* The read holds the press until its list lands, and the list arms it: a render showing the press

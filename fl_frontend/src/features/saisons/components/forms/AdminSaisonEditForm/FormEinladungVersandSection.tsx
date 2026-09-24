@@ -135,7 +135,16 @@ export function FormEinladungVersandSection({
     const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredAction);
 
     if (!res.success) {
-      appToast.failure("Registrierungslinks nicht gesendet", res);
+      // Wrapped again, as below: the press runs this inside its transition.
+      startTransition(() => {
+        // A send of unknown outcome may have mailed the links the list names, and a press armed over
+        // that list would mint them again under a readout of what was true before it.
+        if (res.outcome === "unknown") {
+          setVorschau(null);
+          router.refresh();
+        }
+        appToast.failure("Registrierungslinks nicht gesendet", res);
+      });
       return;
     }
 

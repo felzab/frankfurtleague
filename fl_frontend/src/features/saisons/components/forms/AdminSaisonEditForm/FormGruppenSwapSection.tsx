@@ -146,7 +146,17 @@ export function FormGruppenSwapSection({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id }).catch(unansweredAction);
 
       if (!res.success) {
-        appToast.failure("Gruppen nicht getauscht", res);
+        // Wrapped again, as below: the press runs this inside its transition.
+        startTransition(() => {
+          // The swap is its own inverse, so the same pair pressed again after a swap of unknown outcome
+          // would swap back one that landed.
+          if (res.outcome === "unknown") {
+            setFirst(null);
+            setSecond(null);
+            router.refresh();
+          }
+          appToast.failure("Gruppen nicht getauscht", res);
+        });
         return;
       }
 
