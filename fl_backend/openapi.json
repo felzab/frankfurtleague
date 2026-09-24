@@ -7307,7 +7307,7 @@
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
-        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window alone, never the season: `docs/backend/spec.md :: I47` withholds a\n`future` one from this tier (`READ-BEWERBUNG-001`).",
+        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window and whether its season has ended, never the season: `docs/backend/spec.md :: I47`\nwithholds a `future` one from this tier (`READ-BEWERBUNG-001`).",
         "operationId": "get_offenes_fenster_api_v0_bewerbungen_fenster_get",
         "responses": {
           "200": {
@@ -8855,7 +8855,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nstored as `müller.de` for `xn--mller-kva.de`. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains\nhere as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode,\nor in Unicode where the row predates that rule -- so both are read in two steps: the database narrows to the rows holding the\nidentifier in either spelling of its domain, whatever the case of its letters, and the fold decides on each candidate's own stored value.\n\nA row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII\nlocal part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it\nholds: a second copy on two collections has to be kept true by every writer that touches either.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nA row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII\nlocal part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it\nholds: a second copy on two collections has to be kept true by every writer that touches either.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -10378,6 +10378,10 @@
           "laeuft": {
             "type": "boolean",
             "title": "Laeuft"
+          },
+          "saison_beendet": {
+            "type": "boolean",
+            "title": "Saison Beendet"
           }
         },
         "type": "object",
@@ -10386,10 +10390,11 @@
           "offen",
           "von",
           "bis",
-          "laeuft"
+          "laeuft",
+          "saison_beendet"
         ],
         "title": "FLBewerbungFensterResponse",
-        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so\nthe window gets its own shape rather than widening a season read."
+        "description": "One season's application window and whether that season has ended, and NOTHING else about it.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so\nthe window gets its own shape rather than widening a season read."
       },
       "FLBewerbungKader": {
         "properties": {
