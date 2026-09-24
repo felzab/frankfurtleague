@@ -11,6 +11,7 @@ import type { LaufendDotStep } from "./laufendDot.ts";
  */
 const STEPS: readonly LaufendDotStep[] = ["xxs", "xs"];
 
+// The `dot` ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` spells the same pair: the grade changes in both.
 /* Matched as whole tokens: `bg-brand/20` is the page loader's halo and `bg-brand-solid` is a fill,
    and a substring reader grades both as this dot. */
 const GRADE = ["bg-brand", "animate-ping"];

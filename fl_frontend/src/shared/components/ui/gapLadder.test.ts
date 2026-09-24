@@ -362,7 +362,7 @@ describe("the distance between two siblings of a gapped box", () => {
   });
 
   /* A margin here composes with the gap, so the class list declares one rung while the reader sees
-     another — which is exactly what the rung sweep above cannot see. */
+     another — which is exactly what the `gap` ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` cannot see. */
   it("carries no margin of its own on the gap's axis", () => {
     assert.equal(marginFindings.size, 0, `a margin moves a gap off §1.20's ladder at the call site:\n${report(marginFindings)}`);
   });
