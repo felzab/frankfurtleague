@@ -1032,7 +1032,8 @@ if (( RUN_FRONTEND )); then
 what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
       *ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION*)
-        die "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
+        # `refuse`, not `die`: pnpm stopped before comparing, and time alone clears it.
+        refuse "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
 them above, with its own remedy, and the manifest was never compared.
 Each passes unchanged once it is old enough." ;;
       *)
