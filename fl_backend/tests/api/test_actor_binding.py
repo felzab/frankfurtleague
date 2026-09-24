@@ -1,7 +1,6 @@
 import asyncio
 import contextlib
 from collections import Counter
-from collections.abc import Iterator
 
 import pytest
 from fastapi.routing import APIRoute
@@ -20,7 +19,7 @@ from app.core.security import (
     bind_public_actor,
     bind_system_actor,
 )
-from app.main import create_app
+from app.main import api_routes, create_app
 from tests.config import ADMIN_AUTH, build_test_config
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
@@ -210,18 +209,7 @@ class TestWhatTheBindingLeavesBehind:
         assert asyncio.run(_two_requests()) is SYSTEM_ACTOR
 
 
-def api_routes() -> Iterator[APIRoute]:
-    """Every `APIRoute` the app serves, reached through the `_IncludedRouter` wrappers holding them."""
-    for entry in APP.routes:
-        original_router = getattr(entry, "original_router", None)
-        candidates = original_router.routes if original_router is not None else [entry]
-
-        for route in candidates:
-            if isinstance(route, APIRoute):
-                yield route
-
-
-MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes() for method in (route.methods or ())]
+MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes(APP) for method in (route.methods or ())]
 
 ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
 

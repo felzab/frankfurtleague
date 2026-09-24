@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from app.main import create_app
+from app.main import api_routes, create_app
 from tests.config import build_test_config
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
@@ -45,22 +45,11 @@ def strip_convertors(path: str) -> str:
     return CONVERTOR_IN_PATH.sub(r"{\1}", path)
 
 
-def api_routes() -> Iterator[APIRoute]:
-    """Every `APIRoute` the app serves, reached through the `_IncludedRouter` wrappers holding them."""
-    for entry in APP.routes:
-        original_router = getattr(entry, "original_router", None)
-        candidates = original_router.routes if original_router is not None else [entry]
-
-        for route in candidates:
-            if isinstance(route, APIRoute):
-                yield route
-
-
 # `route.methods or ()` because Starlette types it optional: the fallback is unreachable, and
 # writing it is cheaper than asserting a framework's internals.
 MOUNTED_OPERATIONS = [
     ((strip_convertors(route.path), method.lower()), route)
-    for route in api_routes()
+    for route in api_routes(APP)
     for method in (route.methods or ())
     if method.lower() in HTTP_METHODS
 ]

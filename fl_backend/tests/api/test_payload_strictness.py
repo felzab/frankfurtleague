@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Union, get_args, get_origin
 
 import pytest
-from fastapi.routing import APIRoute
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
@@ -13,7 +12,7 @@ from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
 from app.api.teams.schemas import FLPatchTeamPayload, FLTeam
-from app.main import create_app
+from app.main import api_routes, create_app
 from app.shared.schemas.addresses import FLAddressPayload
 from tests.config import build_test_config
 
@@ -28,17 +27,6 @@ UNDECLARED_KEY = "erfundenes_feld"
 FORBIDDEN = "extra_forbidden"
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
-
-
-def _api_routes(router: Any) -> Iterator[APIRoute]:
-    """Every endpoint reachable from `router`: FastAPI wraps an included router rather than splicing its endpoints into the parent's list."""
-
-    for route in router.routes:
-        included = getattr(route, "original_router", None)
-        if included is not None:
-            yield from _api_routes(included)
-        elif isinstance(route, APIRoute):
-            yield route
 
 
 def _models_in(annotation: Any) -> Iterator[type[BaseModel]]:
@@ -93,7 +81,7 @@ def _body_models() -> dict[type[BaseModel], str]:
     """
 
     bodies: dict[type[BaseModel], str] = {}
-    for route in _api_routes(create_app(build_test_config()).router):
+    for route in api_routes(create_app(build_test_config())):
         # `methods` is optional on the Starlette base a route inherits from.
         where = f"{min(route.methods or (), default='?')} {route.path}"
         for param in route.dependant.body_params:

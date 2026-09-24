@@ -1,30 +1,12 @@
-from collections.abc import Iterator
-from typing import Any
-
 import pytest
-from fastapi.routing import APIRoute
 
 from app.core.config import API_VERSION
-from app.main import create_app
+from app.main import api_routes, create_app
 from tests.config import build_test_config
 
-
-def _api_routes(router: Any) -> Iterator[APIRoute]:
-    """Every endpoint reachable from `router`, in the order a request is matched against them.
-
-    Depth-first: FastAPI wraps an included router rather than splicing its endpoints into the
-    parent's list, and matching descends into that wrapper in place.
-    """
-
-    for route in router.routes:
-        included = getattr(route, "original_router", None)
-        if included is not None:
-            yield from _api_routes(included)
-        elif isinstance(route, APIRoute):
-            yield route
-
-
-ROUTES = list(_api_routes(create_app(build_test_config()).router))
+# In the order a request is matched against them: `api_routes` opens each included router's wrapper
+# where it stands in `app.routes`, which is where matching descends into it.
+ROUTES = list(api_routes(create_app(build_test_config())))
 
 CURRENT_SAISON_PATH = f"/api/v{API_VERSION}/saisons/current"
 
