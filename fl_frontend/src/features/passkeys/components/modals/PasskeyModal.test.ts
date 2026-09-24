@@ -245,6 +245,35 @@ describe("the step-up both writes take", () => {
     );
   });
 
+  /* An enrolment refused where the cap may be the cause re-reads the list, and a cut re-read, uncaught,
+     leaves the add control on its pending label for good with nothing said. */
+  it("releases the add control when the re-read after a refused enrolment is cut, and says the list failed", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      reached.length === 1
+        ? Promise.resolve({ data: {}, error: null })
+        : Promise.resolve({ data: null, error: { message: "Not Found", status: 404, statusText: "NOT_FOUND" } });
+    answerWith(() =>
+      calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server.")),
+    );
+    open();
+    await screen.findByText("Windows Hello");
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    assert.ok(!controls().includes("Fügt hinzu..."), "the add control stayed on its pending label");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+        ["danger", "Passkey nicht hinzugefügt", "Versuche es noch einmal."],
+      ],
+    );
+  });
+
   /* A refused removal may answer a list another change moved, so the list is read again rather than
      left offering a row that is gone (`docs/frontend/spec.md :: I312`). */
   it("re-reads the list after the server refuses a removal", async (t) => {
@@ -272,6 +301,40 @@ describe("the step-up both writes take", () => {
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."]],
+    );
+  });
+
+  /* The re-read after a refusal runs inside the row's press transition, where a cut read, uncaught,
+     replaces the page with the error page and the refusal is never said. */
+  it("says both the refusal and the list it could not read when the re-read after a refused removal is cut", async (t) => {
+    const user = userEvent.setup();
+    answerWith(() => {
+      if (calls.at(-1)?.action === "removePasskeyAction") {
+        return Promise.resolve({
+          success: false,
+          error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu.",
+        });
+      }
+      // The opening read answers; the one after the refusal is cut.
+      return calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server."));
+    });
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+
+    assert.ok(await screen.findByText("Deine Passkeys ließen sich nicht laden."));
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+        ["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."],
+      ],
     );
   });
 
