@@ -56,7 +56,7 @@ describe("what a sign-out tells the reader", () => {
 
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
-      [{ variant: "danger", title: "Abmeldung unklar", description: "Lade die Seite neu, um zu sehen, ob du noch angemeldet bist." }],
+      [{ variant: "danger", title: "Abmeldung unklar", description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." }],
     );
     assert.deepEqual(seen.pushed, [], "a sign-out nobody can vouch for left the page");
   });

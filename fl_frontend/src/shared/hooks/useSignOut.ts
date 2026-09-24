@@ -54,7 +54,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         router.refresh();
       } catch {
         // A cut request may have ended the session or not, so neither answer above is true of it.
-        appToast.danger("Abmeldung unklar", { description: "Lade die Seite neu, um zu sehen, ob du noch angemeldet bist." });
+        appToast.danger("Abmeldung unklar", { description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." });
       }
     });
   };
