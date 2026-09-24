@@ -39,8 +39,8 @@ def refuse_server_fixtures(test: str, fixturenames: Iterable[str]) -> None:
 class _Phase:
     test: str
     marked: bool
-    # Sent since the last fixture finished tearing down: whose they are is known only once the next
-    # one does. Kept raw, a db test sending thousands that are never read.
+    # Sent since the last mark: the phase's own until a fixture's teardown starts, that fixture's
+    # until it finishes. Kept raw, a db test sending thousands that are never read.
     pending: list[tuple[str, str, int | None]] = field(default_factory=list)
     # Against the unmarked test each was sent for, which is not always the test whose phase this is.
     refused: list[tuple[str, str]] = field(default_factory=list)
@@ -84,8 +84,7 @@ class UnmarkedDatabaseUse(monitoring.CommandListener):
             yield
         finally:
             self._phase = outer
-            if not marked:
-                phase.refused += [(test, _named(sent)) for sent in phase.pending]
+            _settle_own(phase)
             # In the `finally`, so a test the database broke still names the database as the cause:
             # the test's own exception rides along as this one's context.
             if phase.refused:
@@ -100,16 +99,28 @@ class UnmarkedDatabaseUse(monitoring.CommandListener):
         else:
             self._built_for_unmarked.pop(fixturedef, None)
 
+    def tearing_down(self) -> None:
+        """A fixture's teardown starts: what was sent before it is the running phase's own."""
+
+        if self._phase is not None:
+            _settle_own(self._phase)
+
     def torn_down(self, fixturedef: object, name: str) -> None:
-        """What was sent since the last fixture finished is this one's teardown."""
+        """What was sent since that fixture's teardown started is its builder's."""
 
         phase = self._phase
+        owner = self._built_for_unmarked.pop(fixturedef, None)
         if phase is None:
             return
-        owner = self._built_for_unmarked.pop(fixturedef, None)
         if owner is not None:
             phase.refused += [(owner, f"{_named(sent)} as `{name}` tore down") for sent in phase.pending]
         phase.pending.clear()
+
+
+def _settle_own(phase: _Phase) -> None:
+    if not phase.marked:
+        phase.refused += [(phase.test, _named(sent)) for sent in phase.pending]
+    phase.pending.clear()
 
 
 def _refusal(refused: list[tuple[str, str]]) -> str:
@@ -154,9 +165,14 @@ class TierGuard:
 
     # Before the fixture's own code, so one whose setup raises is still attributed when it finishes.
     @pytest.hookimpl(wrapper=True)
-    def pytest_fixture_setup(self, fixturedef: pytest.FixtureDef[object]) -> Iterator[object]:
+    def pytest_fixture_setup(self, fixturedef: pytest.FixtureDef[object], request: pytest.FixtureRequest) -> Iterator[object]:
         UNMARKED_USE.building(fixturedef)
-        return (yield)
+        try:
+            return (yield)
+        finally:
+            # Finalizers run last-in first-out and pytest 9.1.1's call_fixture_func registers a
+            # generator fixture's own teardown inside the setup this wraps, so this runs just before it.
+            request.addfinalizer(UNMARKED_USE.tearing_down)
 
     def pytest_fixture_post_finalizer(self, fixturedef: pytest.FixtureDef[object]) -> None:
         UNMARKED_USE.torn_down(fixturedef, fixturedef.argname)

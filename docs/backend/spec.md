@@ -503,7 +503,10 @@ test as it runs, the way pytest-django blocks its database:
 
 **A command sent while a fixture tears down is charged to the test that fixture was built for**
 (`fl_backend/tests/tier.py :: UnmarkedDatabaseUse`), because a session fixture a db test opened
-finishes in the teardown of whichever test ends the session.
+finishes in the teardown of whichever test ends the session; every other command a test's phase
+sends, one from a finalizer the test registers itself included, is that test's. **A run stopped
+early** — `-x`, `--maxfail`, an interrupt — finishes its remaining fixtures after the last test's
+teardown, outside every phase, where no command is watched; such a run has already failed.
 
 **A client aimed where nothing answers sends no command and passes**, which is how a default-tier
 test proves a refusal lands before the database (`fl_backend/tests/config.py :: UNANSWERED_URI`).

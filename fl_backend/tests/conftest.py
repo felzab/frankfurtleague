@@ -19,6 +19,9 @@ from tests.worker import guard_every_database, release_every_database, worker_da
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
 logging.getLogger("urllib3").setLevel(logging.INFO)
 
+# pytest's own, so `tests/core/test_tier.py` can run a session through the guard's registration.
+pytest_plugins = ("pytester",)
+
 
 # Fixed rather than generated: a failing test points at the same value every run.
 TEAM_ID = "6890a1b2c3d4e5f607182930"

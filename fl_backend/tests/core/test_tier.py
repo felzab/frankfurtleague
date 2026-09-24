@@ -1,4 +1,6 @@
 import asyncio
+from pathlib import Path
+from typing import Final
 
 import pytest
 from pymongo import AsyncMongoClient
@@ -65,6 +67,7 @@ def test_a_fixture_built_for_an_unmarked_test_fails_the_teardown_it_finishes_in(
         UNMARKED_USE.building(fixture)
     with pytest.raises(pytest.fail.Exception, match="test_planted carries no .* `ping` at .* as `planted` tore down"):
         with UNMARKED_USE.watching(MARKED, marked=True):
+            UNMARKED_USE.tearing_down()
             mongo_database.command("ping")
             UNMARKED_USE.torn_down(fixture, "planted")
 
@@ -77,5 +80,99 @@ def test_a_fixture_built_for_a_marked_test_tears_down_freely_in_an_unmarked_one(
     with UNMARKED_USE.watching(MARKED, marked=True):
         UNMARKED_USE.building(fixture)
     with UNMARKED_USE.watching(PLANTED):
+        UNMARKED_USE.tearing_down()
         mongo_database.command("ping")
         UNMARKED_USE.torn_down(fixture, "planted")
+
+
+@pytest.mark.db
+def test_a_command_sent_before_a_fixture_s_teardown_starts_is_the_running_test_s(mongo_database: Database) -> None:
+    """The twin above with the command moved ahead of the teardown: a marked builder excuses its own teardown alone."""
+
+    fixture = object()
+    with UNMARKED_USE.watching(MARKED, marked=True):
+        UNMARKED_USE.building(fixture)
+    with pytest.raises(pytest.fail.Exception, match="test_planted carries no .* `ping` at "):
+        with UNMARKED_USE.watching(PLANTED):
+            mongo_database.command("ping")
+            UNMARKED_USE.tearing_down()
+            UNMARKED_USE.torn_down(fixture, "planted")
+
+
+# Run by pytest itself, so the hooks are reached as a session reaches them rather than called here.
+# A session fixture finishes at the root, where a conftest below it is never asked.
+PROBE_CONFTEST: Final = b"from tests.conftest import pytest_configure\n"
+
+PROBE_SUITE: Final = b"""import os
+from collections.abc import Iterator
+
+import pytest
+from pymongo import MongoClient
+
+
+def _ping() -> None:
+    client = MongoClient(os.environ["FL_TIER_PROBE_URL"])
+    try:
+        client.admin.command("ping")
+    finally:
+        client.close()
+
+
+@pytest.fixture(scope="session")
+def built_by_a_marked_test() -> Iterator[None]:
+    yield
+    _ping()
+
+
+@pytest.fixture(scope="session")
+def built_by_an_unmarked_test() -> Iterator[None]:
+    yield
+    _ping()
+
+
+@pytest.fixture(scope="module")
+def module_fixture_a_marked_test_built() -> Iterator[None]:
+    yield
+
+
+@pytest.mark.db
+def test_marked(built_by_a_marked_test: None, module_fixture_a_marked_test_built: None) -> None:
+    pass
+
+
+def test_unmarked(built_by_an_unmarked_test: None) -> None:
+    pass
+
+
+def test_unmarked_and_last(request: pytest.FixtureRequest) -> None:
+    request.addfinalizer(_ping)
+"""
+
+
+@pytest.mark.db
+def test_a_session_s_teardown_is_charged_to_the_test_each_command_belongs_to(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mongo_url: str
+) -> None:
+    """Every fixture finishes in the last test's teardown: a marked test's session fixture pings freely.
+
+    An unmarked test's is charged to that test, and the last test's own finalizer to itself though a
+    marked test's module fixture finishes next.
+    """
+
+    suite = pytester.path / "suite"
+    suite.mkdir()
+    (pytester.path / "pytest.ini").write_bytes(b"[pytest]\nmarkers =\n    db: a stand-in\n")
+    (suite / "conftest.py").write_bytes(PROBE_CONFTEST)
+    (suite / "test_probe.py").write_bytes(PROBE_SUITE)
+    monkeypatch.setenv("FL_TIER_PROBE_URL", mongo_url)
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
+    # The refusal cites a section sign, and pytester reads the child's stdout as UTF-8 while a
+    # Windows console encoding would write it as a byte no UTF-8 decoder takes.
+    monkeypatch.setenv("PYTHONIOENCODING", "utf-8")
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-p", "no:xdist", "-m", "", str(suite))
+    output = result.stdout.str()
+    result.assert_outcomes(passed=3, errors=1)
+    assert "test_unmarked carries no `@pytest.mark.db`" in output, output
+    assert "as `built_by_an_unmarked_test` tore down" in output, output
+    assert "test_unmarked_and_last carries no `@pytest.mark.db`" in output, output
+    assert "built_by_a_marked_test` tore down" not in output, output
