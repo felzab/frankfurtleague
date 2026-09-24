@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapEinladungRefusal } from "./refusals.ts";
+
+/* The real actions, called: the request they run in and the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/einladungen/mutations.ts"] });
+const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
+
+const KEY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026" };
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
@@ -12,7 +20,7 @@ const REVOKE_OPERATION = "DELETE /teams/{team_id}/saisons/{saison_id}/einladung"
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
 describe("the invite's refusals against the codes its endpoints publish", () => {
-  it("maps every code the mint publishes", () => {
+  it("answers every code the mint publishes through the mapper", async () => {
     const published = publishedRefusals(MINT_OPERATION);
 
     assert.deepEqual(
@@ -26,9 +34,16 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
         `${code} is published on the mint and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: MINT_OPERATION,
+      codes: publishedRefusals(MINT_OPERATION),
+      refuseWith: answerWith,
+      act: () => postEinladungAction(KEY),
+      mapped: mapEinladungRefusal,
+    });
   });
 
-  it("maps every code the season-wide send publishes", () => {
+  it("answers every code the season-wide send publishes through the mapper", async () => {
     const published = publishedRefusals(VERSAND_OPERATION);
 
     assert.deepEqual(
@@ -42,10 +57,17 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
         `${code} is published on the send and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: VERSAND_OPERATION,
+      codes: publishedRefusals(VERSAND_OPERATION),
+      refuseWith: answerWith,
+      act: () => postEinladungVersandAction({ id: KEY.saison_id, erneut: false }),
+      mapped: mapEinladungRefusal,
+    });
   });
 
   /* The revoke asks the same mapper, which leaves the unique index's code to the shared reader. */
-  it("maps every code the revoke publishes", () => {
+  it("answers every code the revoke publishes through the mapper", async () => {
     for (const code of publishedRefusals(REVOKE_OPERATION)) {
       assert.notEqual(
         answerShown(REVOKE_OPERATION, code, mapEinladungRefusal),
@@ -53,6 +75,13 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
         `${code} is published on the revoke and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: REVOKE_OPERATION,
+      codes: publishedRefusals(REVOKE_OPERATION),
+      refuseWith: answerWith,
+      act: () => deleteEinladungAction(KEY),
+      mapped: mapEinladungRefusal,
+    });
   });
 
   /* Mapped here it would be German nobody can reach: the code is raised on the registration

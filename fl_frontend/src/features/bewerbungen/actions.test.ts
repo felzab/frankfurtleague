@@ -5,7 +5,9 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
@@ -16,6 +18,30 @@ import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRef
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
 import type { TeamSaisonMembership } from "../teams/types.ts";
+
+const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+const PERSON = { vorname: "Anna", email: "anna@example.de" };
+
+/**
+ * The application the three contact repairs read before their write: a proposed school, whose name
+ * needs no club list, and a seat holding a person with an address, so each repair reaches its write.
+ */
+const GELESEN = {
+  bewerbung: { saison_id: "2026", schule: { team_name: "Gymnasium Beispiel" }, team_id: null, kontakte: { ansprechperson: PERSON } },
+};
+
+/* The real actions, called: the request they run in, the application three of them read first and
+   the writes they send are the doubles. */
+doubleActionRequest();
+const { answerWith } = doubleActions({ modules: ["/src/features/bewerbungen/mutations.ts"] });
+doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
+const {
+  ablehnenBewerbungAction,
+  annehmenBewerbungAction,
+  besetzeKontaktSitzAction,
+  einwilligungErneutSendenAction,
+  kontaktEmailKorrigierenAction,
+} = await import("./actions.ts");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -142,7 +168,7 @@ describe("the slices these assertions read", () => {
 });
 
 describe("the triage's refusals against the codes its endpoints publish", () => {
-  it("maps every code the acceptance publishes", () => {
+  it("answers every code the acceptance publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ANNEHMEN_OPERATION);
 
     // A floor rather than the exact set: the backend grows an operation onto a rule whenever an
@@ -157,9 +183,16 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
         `${code} is published on the acceptance and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: ANNEHMEN_OPERATION,
+      codes: publishedRefusals(ANNEHMEN_OPERATION),
+      refuseWith: answerWith,
+      act: () => annehmenBewerbungAction({ id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null }),
+      mapped: mapTriageRefusal,
+    });
   });
 
-  it("maps every code the decline publishes", () => {
+  it("answers every code the decline publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ABLEHNEN_OPERATION);
 
     assert.deepEqual(
@@ -173,6 +206,13 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
         `${code} is published on the decline and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: ABLEHNEN_OPERATION,
+      codes: publishedRefusals(ABLEHNEN_OPERATION),
+      refuseWith: answerWith,
+      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+      mapped: mapTriageRefusal,
+    });
   });
 
   /* Asked of the acceptance itself rather than of the entry endpoint: `annehmen_bewerbung` reaches the
@@ -655,7 +695,7 @@ describe("what each decision message is told", () => {
 });
 
 describe("the re-sent confirmation link", () => {
-  it("maps every code the re-send publishes", () => {
+  it("answers every code the re-send publishes through its own mapper", async () => {
     for (const code of publishedRefusals(ERNEUT_OPERATION)) {
       assert.notEqual(
         answerShown(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
@@ -663,6 +703,13 @@ describe("the re-sent confirmation link", () => {
         `${code} is published on the re-send and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: ERNEUT_OPERATION,
+      codes: publishedRefusals(ERNEUT_OPERATION),
+      refuseWith: answerWith,
+      act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
+      mapped: mapEinwilligungErneutRefusal,
+    });
   });
 
   it("maps no rule the re-send does not publish", () => {
@@ -813,7 +860,7 @@ describe("the re-sent confirmation link", () => {
 });
 
 describe("the corrected contact address", () => {
-  it("maps every code the correction publishes", () => {
+  it("answers every code the correction publishes through its own mapper", async () => {
     for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
       assert.notEqual(
         answerShown(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
@@ -821,6 +868,13 @@ describe("the corrected contact address", () => {
         `${code} is published on the correction and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: KORREKTUR_OPERATION,
+      codes: publishedRefusals(KORREKTUR_OPERATION),
+      refuseWith: answerWith,
+      act: () => kontaktEmailKorrigierenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" }),
+      mapped: mapKontaktEmailRefusal,
+    });
   });
 
   it("maps no rule the correction does not publish", () => {
@@ -899,7 +953,7 @@ describe("the person seated where one stepped out", () => {
     assert.ok(sitzCodes.length > 0, "no refusal code could be read out of the reseat's mapper at all");
   });
 
-  it("maps every code the reseat publishes", () => {
+  it("answers every code the reseat publishes through its own mapper", async () => {
     for (const code of publishedRefusals(SITZ_OPERATION)) {
       assert.notEqual(
         answerShown(SITZ_OPERATION, code, mapKontaktSitzRefusal),
@@ -907,6 +961,22 @@ describe("the person seated where one stepped out", () => {
         `${code} is published on the reseat and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: SITZ_OPERATION,
+      codes: publishedRefusals(SITZ_OPERATION),
+      refuseWith: answerWith,
+      act: () =>
+        besetzeKontaktSitzAction({
+          id: BEWERBUNG_ID,
+          rolle: "ansprechperson",
+          vorname: "Berta",
+          nachname: "Beispiel",
+          email: "berta@example.de",
+          telefon: "069 1234567",
+          text_version: LIGA_KENNTNISNAHME.textVersion,
+        }),
+      mapped: mapKontaktSitzRefusal,
+    });
   });
 
   it("maps no rule the reseat does not publish", () => {
