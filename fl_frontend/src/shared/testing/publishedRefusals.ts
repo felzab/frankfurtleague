@@ -127,13 +127,13 @@ export function answerShown(operation: string, code: string, mapper: (error: unk
 }
 
 /** A failure as the form reads it back, where a key left `undefined` and a key left out read alike. */
-export const asRead = (result: unknown): unknown => JSON.parse(JSON.stringify(result)) as unknown;
+const asRead = (result: unknown): unknown => JSON.parse(JSON.stringify(result)) as unknown;
 
 /**
  * What an action returns for `refusal` where its mapper answers `mapped`: a sentence as the failure, a
  * field map through `refusalResult`, or for `null` the shared reader's words a rethrow reaches.
  */
-export async function actionAnswer(
+async function actionAnswer(
   refusal: APIBadStatusError,
   mapped: string | { error?: string; fieldErrors?: FieldErrors } | null,
   readOnly = false,
