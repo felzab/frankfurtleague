@@ -120,6 +120,9 @@ ignore = ["B008"]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# Ruff matches the path an import spells rather than the function it binds, so the same function
+# imported from the module building the app would pass the entry above.
+"app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
 # A transport built beside the helper is a copy of it, and drifts from it. The one other permitted
 # construction serves apps carrying routes of their own, which the helper never exposes.
 "httpx2.ASGITransport".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
