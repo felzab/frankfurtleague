@@ -68,13 +68,18 @@ jobs:
           mkdir -p "$payloads"
           # Every request is made and none ends the step: what gh could not fetch is left absent or
           # empty, and the verdict refuses it by name rather than on gh's exit code.
-          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)" || tip=""
+
+          # The branch's ref, which no tag of the same name can answer for as `commits/main` could.
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)" || tip=""
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?head_sha=${GITHUB_SHA}&event=push&branch=main&per_page=100" \
             > "${payloads}/runs.json" || rm -f "${payloads}/runs.json"
-          for id in $(jq -r '.workflow_runs[]?.id' "${payloads}/runs.json" 2>/dev/null || true); do
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" \
-              > "${payloads}/jobs-${id}.json" || rm -f "${payloads}/jobs-${id}.json"
-          done
+          # The attempt the listing's conclusion describes, never whichever attempt is latest by the
+          # time its jobs are asked for.
+          jq -r '.workflow_runs[]? | "\(.id) \(.run_attempt)"' "${payloads}/runs.json" 2>/dev/null > "${payloads}/attempts" || true
+          while read -r id attempt; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100" \
+              > "${payloads}/jobs-${id}-${attempt}.json" || rm -f "${payloads}/jobs-${id}-${attempt}.json"
+          done < "${payloads}/attempts"
           python scripts/checks/check_publish_verdict.py --commit "$GITHUB_SHA" --tip "$tip" --payloads "$payloads"
 
       # The builder build-push-action's README recommends over the runner's default `docker` driver.

@@ -2,8 +2,9 @@
 
 Every refusal is a case, because a pass rule loosened by one comparison publishes over a failed
 `verify` and turns nothing red: the cases name the run-, job- and step-level states the rule reads.
-The two names it matches on are held to `.github/workflows/verify.yml`, and its call site to
-`.github/workflows/publish.yml`, each found there by what it does rather than by the name it carries.
+The names it matches on, and the budget step's condition, are held to `.github/workflows/verify.yml`,
+and its call site to `.github/workflows/publish.yml`, each found there by what it does rather than
+by the name it carries.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any, Final
 from unittest.mock import patch
 
 from conftest import import_scripts
+from test_check_gate_budget import JOB_NAME_RE, MATRIX_RE, job_bodies
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 WORKFLOWS: Final = REPO_ROOT / ".github" / "workflows"
@@ -29,12 +31,14 @@ COMMIT: Final = "0123456789abcdef0123456789abcdef01234567"
 OTHER: Final = "fedcba9876543210fedcba9876543210fedcba98"
 
 
-def run(run_id: int, conclusion: str | None, *, sha: str = COMMIT, event: str = "push", branch: str = "main") -> dict[str, Any]:
+def run(
+    run_id: int, conclusion: str | None, *, attempt: int = 1, sha: str = COMMIT, event: str = "push", branch: str = "main"
+) -> dict[str, Any]:
     """One entry of the runs listing, with the fields the verdict reads."""
-    return {"id": run_id, "conclusion": conclusion, "head_sha": sha, "event": event, "head_branch": branch}
+    return {"id": run_id, "run_attempt": attempt, "conclusion": conclusion, "head_sha": sha, "event": event, "head_branch": branch}
 
 
-def step(name: str, conclusion: str | None) -> dict[str, Any]:
+def step(name: str | None, conclusion: str | None) -> dict[str, Any]:
     return {"name": name, "conclusion": conclusion}
 
 
@@ -55,7 +59,7 @@ def aggregate(conclusion: str | None, budget_step: str = publish.BUDGET_STEP, **
     return {"name": publish.AGGREGATE_JOB, "conclusion": conclusion, "steps": [step(name, value) for name, value in steps.items()]}
 
 
-def job(name: str, conclusion: str | None, *steps: dict[str, Any]) -> dict[str, Any]:
+def job(name: str | None, conclusion: str | None, *steps: dict[str, Any]) -> dict[str, Any]:
     return {"name": name, "conclusion": conclusion, "steps": list(steps)}
 
 
@@ -78,13 +82,17 @@ A_SCOPE_FAILED: Final = jobs(
 
 @dataclass(frozen=True)
 class Case:
-    """One verdict: the runs the listing holds, each failed run's jobs by id, and the exit code owed."""
+    """A `jobs` key is a run id, filed under its listed attempt, or an `(id, attempt)` pair.
+
+    `listing` bytes replace the listing, and None leaves it unwritten.
+    """
 
     name: str
     runs: list[dict[str, Any]]
     code: int
-    jobs: dict[int, dict[str, Any]] = field(default_factory=dict)
+    jobs: dict[int | tuple[int, int], dict[str, Any]] = field(default_factory=dict)
     tip: str = COMMIT
+    listing: bytes | None | bool = True
 
 
 CASES: Final[tuple[Case, ...]] = (
@@ -118,11 +126,18 @@ CASES: Final[tuple[Case, ...]] = (
     Case("a run on another branch", [run(23, "success", branch="elsewhere")], 1),
     # The job level.
     Case("a job still running in a re-run attempt", [run(24, "failure")], 1, {24: jobs(job("scripts", None), *BUDGET_ONLY["jobs"])}),
+    Case("a scope job that timed out beside the budget", [run(42, "failure")], 1, {42: jobs(job("db", "timed_out"), *BUDGET_ONLY["jobs"])}),
     Case(
         "a scope job's continue-on-error step failed, the job succeeding",
         [run(25, "failure")],
         0,
         {25: jobs(job("db", "success", step("Pull the database image", "failure")), *BUDGET_ONLY["jobs"])},
+    ),
+    Case(
+        "a re-run's attempt failed in a scope where an earlier attempt failed by the budget alone",
+        [run(38, "failure", attempt=2)],
+        1,
+        {(38, 1): BUDGET_ONLY, (38, 2): A_SCOPE_FAILED},
     ),
     # The step level, inside the aggregate job.
     Case(
@@ -143,6 +158,7 @@ CASES: Final[tuple[Case, ...]] = (
         0,
         {28: jobs(*SCOPES, aggregate("cancelled", **{publish.BUDGET_STEP: "cancelled"}))},
     ),
+    # The budget step runs after either failure, and fails on the reference it cannot read.
     Case(
         "the aggregate job's checkout failed",
         [run(29, "failure")],
@@ -156,7 +172,7 @@ CASES: Final[tuple[Case, ...]] = (
                         "Read the wall-clock reference and the budget check": "failure",
                         "Run actions/setup-python": "skipped",
                         "Report the gate's wall clock": "skipped",
-                        publish.BUDGET_STEP: "skipped",
+                        publish.BUDGET_STEP: "failure",
                     },
                 ),
             )
@@ -171,7 +187,7 @@ CASES: Final[tuple[Case, ...]] = (
                 *SCOPES,
                 aggregate(
                     "failure",
-                    **{"Run actions/setup-python": "failure", "Report the gate's wall clock": "skipped", publish.BUDGET_STEP: "skipped"},
+                    **{"Run actions/setup-python": "failure", "Report the gate's wall clock": "skipped", publish.BUDGET_STEP: "failure"},
                 ),
             )
         },
@@ -181,19 +197,37 @@ CASES: Final[tuple[Case, ...]] = (
     Case("a commit main has moved past", [run(32, "success")], 1, tip=OTHER),
     Case("a tip nobody could read", [run(33, "success")], 2, tip=""),
     # Payloads that cannot be judged.
+    Case("a runs listing never fetched", [], 2, listing=None),
+    Case("a runs listing that is not JSON", [], 2, listing=b"<html>"),
+    Case("a runs listing with no list of runs", [], 2, listing=b'{"total_count": 0}'),
+    Case("a run with no attempt", [{**run(43, "success"), "run_attempt": None}], 2),
     Case("a failed run whose jobs were not fetched", [run(34, "failure")], 2),
+    Case("a failed run whose jobs are an earlier attempt's alone", [run(44, "failure", attempt=2)], 2, {(44, 1): BUDGET_ONLY}),
     Case("an unfetched failed run beside one that succeeded", [run(35, "failure"), run(36, "success")], 0),
+    Case("an unfetched failed run before one failed by the budget alone", [run(45, "failure"), run(46, "failure")], 0, {46: BUDGET_ONLY}),
     Case("a jobs page holding fewer than the run's jobs", [run(37, "failure")], 2, {37: {**BUDGET_ONLY, "total_count": 40}}),
+    Case("a job with no name", [run(47, "failure")], 2, {47: jobs(job(None, "failure"), *BUDGET_ONLY["jobs"])}),
+    Case(
+        "an aggregate step with no name",
+        [run(48, "failure")],
+        2,
+        {48: jobs(*SCOPES, {**aggregate("failure"), "steps": [step(None, "failure")]})},
+    ),
 )
 
 
 def filled(directory: Path, case: Case) -> Path:
-    """The directory as the workflow leaves it: the listing, and one jobs file per run it fetched."""
+    """The directory as the workflow leaves it: the listing, and one jobs file per run attempt it fetched."""
     directory.mkdir(parents=True)
-    listing = {"total_count": len(case.runs), "workflow_runs": case.runs}
-    (directory / publish.RUNS_FILE).write_bytes(json.dumps(listing).encode("utf-8"))
-    for run_id, payload in case.jobs.items():
-        (directory / publish.JOBS_FILE.format(run_id)).write_bytes(json.dumps(payload).encode("utf-8"))
+    if case.listing is True:
+        listing = json.dumps({"total_count": len(case.runs), "workflow_runs": case.runs}).encode("utf-8")
+        (directory / publish.RUNS_FILE).write_bytes(listing)
+    elif isinstance(case.listing, bytes):
+        (directory / publish.RUNS_FILE).write_bytes(case.listing)
+    attempts = {entry["id"]: entry["run_attempt"] for entry in case.runs}
+    for key, payload in case.jobs.items():
+        run_id, attempt = key if isinstance(key, tuple) else (key, attempts[key])
+        (directory / publish.JOBS_FILE.format(run_id, attempt)).write_bytes(json.dumps(payload).encode("utf-8"))
     return directory
 
 
@@ -237,7 +271,11 @@ def run_main(*argv: str, actions: bool = False) -> tuple[int, str, str]:
         contextlib.redirect_stdout(out),
         contextlib.redirect_stderr(err),
     ):
-        code = publish.main()
+        try:
+            code = publish.main()
+        except SystemExit as stopped:
+            # argparse's own refusal, which exits rather than returning.
+            code = stopped.code if isinstance(stopped.code, int) else 2
     return code, out.getvalue(), err.getvalue()
 
 
@@ -267,57 +305,74 @@ def test_main_grades_a_refusal_of_the_tree_as_a_finding_and_an_unread_payload_as
     assert "run 62" in unread_err
 
 
-# --- the names and the call site, held to the two workflows ----------------------------------------------
+def test_main_refuses_a_commit_that_is_no_full_sha(tmp_path: Path):
+    """A short or empty commit would match no run and read as "no run", a finding about a tree nobody named."""
+    directory = filled(tmp_path / "d", Case("", [run(63, "success")], 0))
 
-JOB_KEY_RE: Final = re.compile(r"^  ([a-z][a-z0-9-]*):$")
+    for commit in (COMMIT[:7], "", COMMIT.upper()):
+        code, _, err = run_main("--commit", commit, "--tip", COMMIT, "--payloads", str(directory))
+
+        assert code == 2, (commit, err)
+        assert "--commit takes a full 40-character commit" in err
+
+
+# --- the names, the condition and the call site, held to the two workflows ----------------------------
+
 STEP_START_RE: Final = re.compile(r"^      - ")
 STEP_NAME_RE: Final = re.compile(r"^      (?:- |  )name: (.+)$")
+STEP_IF_RE: Final = re.compile(r"^      (?:- |  )if: (.+)$")
 BUDGET_CALL: Final = "scripts/checks/check_gate_budget.py --jobs"
 
 
-def budget_step_of(workflow: str) -> list[tuple[str, str | None]]:
-    """Every step calling the budget check, as its job's key and the step's `name:`, found by the call."""
-    inside_jobs = False
-    job_key = ""
-    name: str | None = None
-    found: list[tuple[str, str | None]] = []
-    for line in workflow.splitlines():
-        if line == "jobs:":
-            inside_jobs = True
+def budget_step_of(workflow: str) -> list[tuple[str, str | None, str | None]]:
+    """Every step calling the budget check, found by the call: its job's name as the API reports it, the step's `name:` and its `if:`."""
+    found: list[tuple[str, str | None, str | None]] = []
+    for key, body in job_bodies(workflow).items():
+        if BUDGET_CALL not in body:
             continue
-        if not inside_jobs:
-            continue
-        key = JOB_KEY_RE.match(line)
-        if key is not None:
-            job_key, name = key[1], None
-            continue
-        if STEP_START_RE.match(line):
-            name = None
-        named = STEP_NAME_RE.match(line)
-        if named is not None:
-            name = named[1].strip()
-        if BUDGET_CALL in line:
-            found.append((job_key, name))
+        assert MATRIX_RE.search(body) is None, f"`{key}` runs the budget in a matrix, whose instance names no reader here expands"
+        template = JOB_NAME_RE.search(body)
+        job_name = template[1].strip() if template is not None else key
+        name: str | None = None
+        condition: str | None = None
+        for line in body.splitlines():
+            if STEP_START_RE.match(line):
+                name = condition = None
+            if (named := STEP_NAME_RE.match(line)) is not None:
+                name = named[1].strip()
+            if (guarded := STEP_IF_RE.match(line)) is not None:
+                condition = guarded[1].strip()
+            if BUDGET_CALL in line:
+                found.append((job_name, name, condition))
     return found
 
 
-def test_the_reader_finds_a_renamed_budget_step():
-    """`budget_step_of` over a step renamed: a reader answering the constant back would pass the tree whatever it holds."""
+def test_the_reader_finds_a_renamed_budget_step_under_its_jobs_api_name():
+    """`budget_step_of` over a renamed step in a named job: a reader answering the constants back would pass the tree whatever it holds."""
     workflow = (
-        "on: push\njobs:\n  verify:\n    runs-on: x\n    steps:\n      - name: Report\n        run: echo\n"
-        "      - name: Hold every job to its budget\n        run: |\n          python scripts/checks/check_gate_budget.py --jobs x\n"
+        "on: push\njobs:\n  verify:\n    name: verify (required)\n    runs-on: x\n    steps:\n      - name: Report\n        run: echo\n"
+        "      - name: Hold every job to its budget\n        if: always()\n        run: |\n"
+        "          python scripts/checks/check_gate_budget.py --jobs x\n"
     )
 
-    assert budget_step_of(workflow) == [("verify", "Hold every job to its budget")]
+    assert budget_step_of(workflow) == [("verify (required)", "Hold every job to its budget", "always()")]
 
 
-def test_the_budget_names_are_the_ones_verify_runs_under():
-    """A rename in `verify.yml` would refuse every budget-only run while no case here moved."""
+def test_the_budget_names_and_condition_are_the_ones_verify_runs_under():
+    """A rename in `verify.yml` would refuse every budget-only run while no case here moved.
+
+    Under the default `success()` a failed scope would hide an overrun until a re-run.
+    """
     found = budget_step_of((WORKFLOWS / "verify.yml").read_text(encoding="utf-8"))
 
-    assert found == [(publish.AGGREGATE_JOB, publish.BUDGET_STEP)], (
+    assert found == [(publish.AGGREGATE_JOB, publish.BUDGET_STEP, "${{ !cancelled() }}")], (
         f"verify.yml's budget step is {found}; check_publish_verdict.py matches {publish.AGGREGATE_JOB!r} / {publish.BUDGET_STEP!r}"
     )
+
+
+# The request main's tip is read from: a branch ref, which neither the commit being judged nor a tag
+# named `main` can stand in for.
+TIP_READ: Final = 'tip="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"'
 
 
 def test_the_publish_workflow_runs_the_verdict_over_the_files_it_names():
@@ -327,5 +382,10 @@ def test_the_publish_workflow_runs_the_verdict_over_the_files_it_names():
     assert re.search(r'scripts/checks/check_publish_verdict\.py --commit "\$GITHUB_SHA" --tip "\$tip" --payloads ', workflow), (
         "publish.yml does not run the verdict on the commit it builds"
     )
+    assignments = [line.strip() for line in workflow.splitlines() if line.strip().startswith("tip=")]
+    assert assignments == [f'{TIP_READ} || tip=""'], f"publish.yml assigns the tip as {assignments}, not from {TIP_READ}"
     assert f"/{publish.RUNS_FILE}" in workflow, f"publish.yml writes no {publish.RUNS_FILE}"
-    assert "/" + publish.JOBS_FILE.format("${id}") in workflow, f"publish.yml writes no {publish.JOBS_FILE.format('<id>')}"
+    assert "/" + publish.JOBS_FILE.format("${id}", "${attempt}") in workflow, (
+        f"publish.yml writes no {publish.JOBS_FILE.format('<id>', '<attempt>')}"
+    )
+    assert "/actions/runs/${id}/attempts/${attempt}/jobs" in workflow, "publish.yml does not ask for the listed attempt's jobs"

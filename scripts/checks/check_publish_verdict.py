@@ -33,9 +33,10 @@ from checker_kernel import EXIT_FINDINGS, EXIT_OK, EXIT_REFUSED, UNREADABLE, Fin
 AGGREGATE_JOB: Final = "verify"
 BUDGET_STEP: Final = "Hold every job to its wall-clock budget"
 
-# What the workflow writes, one jobs file per run the listing names.
+# What the workflow writes: the listing, and one jobs file per run it names, keyed by the attempt
+# the listing reports, so the jobs read are the ones that attempt's conclusion describes.
 RUNS_FILE: Final = "runs.json"
-JOBS_FILE: Final = "jobs-{}.json"
+JOBS_FILE: Final = "jobs-{}-{}.json"
 
 # A skipped job or step passed: on a push to main `commits` never runs and `format` is skipped
 # whenever `frontend` runs, exactly as `verify`'s own verdict step reads them.
@@ -53,6 +54,7 @@ class Run:
     """One `verify` run as the runs listing gives it."""
 
     id: int
+    attempt: int
     # None while the run is queued or in progress.
     conclusion: str | None
 
@@ -67,17 +69,17 @@ def runs_for(listing: object, commit: str) -> list[Run]:
         raise Unjudged("the runs listing carries no `workflow_runs` list")
     found: list[Run] = []
     for entry in listing["workflow_runs"]:
-        if not isinstance(entry, dict) or not isinstance(entry.get("id"), int):
-            raise Unjudged("a run in the listing has no numeric id")
+        if not isinstance(entry, dict) or not isinstance(entry.get("id"), int) or not isinstance(entry.get("run_attempt"), int):
+            raise Unjudged("a run in the listing has no numeric id or attempt")
         if (entry.get("head_sha"), entry.get("event"), entry.get("head_branch")) != (commit, "push", "main"):
             continue
         conclusion = entry.get("conclusion")
-        found.append(Run(entry["id"], conclusion if isinstance(conclusion, str) else None))
+        found.append(Run(entry["id"], entry["run_attempt"], conclusion if isinstance(conclusion, str) else None))
     return found
 
 
 def failed_in(payload: object) -> list[str]:
-    """Read at the endpoint's default `filter=latest`: the run's last attempt, which its conclusion describes.
+    """One attempt's jobs, each neither passed nor skipped named, the aggregate job by such steps instead.
 
     A null conclusion is a job still running, and it is named.
     """
@@ -132,8 +134,9 @@ def verdict(commit: str, tip: str, payloads: Path) -> Verdict:
             (
                 Finding(
                     "fail",
-                    f"{commit} is not main's tip ({tip}): main moved after this dispatch, or an old publish run was re-run, "
-                    "and building it would move :latest backward. Nothing was built. Dispatch again: gh workflow run publish.yml --ref main",
+                    f"{commit} is not main's tip ({tip}), and a publish builds the tip alone: main moved after this dispatch, "
+                    "or an old publish run was re-run, which would move :latest backward. Nothing was built. "
+                    "Dispatch again: gh workflow run publish.yml --ref main",
                 ),
             ),
         )
@@ -166,7 +169,7 @@ def verdict(commit: str, tip: str, payloads: Path) -> Verdict:
             seen.append(f"run {candidate.id} {candidate.conclusion or 'unfinished'}")
             continue
         try:
-            named = failed_in(_read(payloads / JOBS_FILE.format(candidate.id)))
+            named = failed_in(_read(payloads / JOBS_FILE.format(candidate.id, candidate.attempt)))
         except (*UNREADABLE, ValueError, Unjudged) as exc:
             unread.append(f"run {candidate.id} ({exc})")
             continue
@@ -214,7 +217,7 @@ def main() -> int:
         "--payloads",
         required=True,
         metavar="DIR",
-        help=f"the directory holding verify's runs for the commit ({RUNS_FILE}) and each run's jobs ({JOBS_FILE.format('<id>')})",
+        help=f"the directory holding verify's runs for the commit ({RUNS_FILE}) and each run's jobs ({JOBS_FILE.format('<id>', '<attempt>')})",
     )
     args = parser.parse_args()
     if not COMMIT_RE.match(args.commit):

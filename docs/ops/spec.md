@@ -452,14 +452,16 @@ scope passes; in CI the same shortfall is a finding. `require_docker` runs for t
 and image scopes alone, so nothing announces the shortfall before a `--scripts` run starts.
 
 **Publishing is a CI run I start, with the workflow's own token** (`.github/workflows/publish.yml`,
-`gh workflow run publish.yml --ref main`): it refuses any ref but `main` and any commit whose own
-push run of `verify` did not pass, builds both images with no cache, pushes each under
-`sha-<commit>`, and only then moves both `:latest` tags (I353, I7). A merge publishes nothing.
+`gh workflow run publish.yml --ref main`): it refuses any ref but `main`, a commit `main` has moved
+past, and any commit whose own push run of `verify` did not pass, builds both images with no cache,
+pushes each under `sha-<commit>`, and only then moves both `:latest` tags (I353, I7). A merge
+publishes nothing, and re-running an old publish run refuses rather than moving `:latest` backward.
 **A `verify` run failed on its wall-clock budget alone still counts as passed**: the budget judges
-how long the gate took, not the tree, so the workflow reads that run's jobs and accepts it when the
-aggregate job's budget step is the one step that failed. The token can push only because each
-package grants this repository's workflows write access — the package settings' **Manage Actions
-access** — so a package created or re-created by hand needs that grant first. The server needs no
+how long the gate took, not the tree, so `scripts/checks/check_publish_verdict.py` reads that run's
+jobs and accepts it when the aggregate job's budget step is the one step that failed. The token can
+push only because each package grants this repository's workflows write access — the package
+settings' **Manage Actions access** — so a package created or re-created by hand needs that grant
+first. The server needs no
 token, both packages pulling anonymously. **A publish that failed between the two `:latest` moves
 is repaired by dispatching again**, and `deploy.sh` refuses the mismatched pair meanwhile (I7).
 
@@ -1077,6 +1079,8 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `publish.yml` fails at the push with `denied` or `permission_denied`                              | The package does not grant this repository's workflows write access                                                                             | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job (§1.5)                                                                                                       |
 | `publish.yml` refuses: `verify has no push run on main`                                           | The run has not appeared yet, or never will: a skip instruction in the merge's message starts none, and `verify` has no manual trigger          | Nothing was built. Dispatch again once the run has finished; where none will come, publish the next commit to reach `main` (I353)                                                                                    |
 | `publish.yml` refuses: `verify on main ... did not pass`, naming each run                         | A job or step other than the budget failed in that run, or the run is unfinished or cancelled                                                   | Nothing was built. Fix what the named job reports, or re-run `verify` or let it finish; then dispatch again (I353)                                                                                                   |
+| `publish.yml` refuses: `... is not main's tip`                                                    | `main` moved after the dispatch, or an old publish run was re-run                                                                               | Nothing was built. Dispatch again: `gh workflow run publish.yml --ref main` (I353)                                                                                                                                   |
+| `publish.yml` refuses: `main's tip could not be read`                                             | The API request for `main`'s ref failed, so nothing judged the commit                                                                           | Nothing was built. Dispatch again once the API answers (I353)                                                                                                                                                        |
 | `EBUSY`, or `.next` locked during a build                                                         | A `pnpm dev` is still running, or the folder is open in an editor                                                                               | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                                                                                                                      |
 | `./scripts/ops/local.sh` reports `mongo` unhealthy                                                | The local database has not elected itself primary, so no transaction opens and no validator applies                                             | Read the log excerpt the script prints under `mongo`'s health step; it waits on `mongo` by name, so this reports as itself                                                                                           |
 | `./scripts/ops/local.sh --seed` dies during the copy from production                              | The production tier throttles past its operations-per-second cap, and anything else querying the cluster shares that budget                     | Nothing was written to the local database. Re-run with nothing else talking to production; the dump already takes one collection at a time (§1.5)                                                                    |
