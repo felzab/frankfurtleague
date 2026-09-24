@@ -10,7 +10,10 @@ import { classText } from "@/shared/testing/jsxReader.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** `docs/frontend/spec.md` §1.20's rungs, declared once so no reader here can hold a ninth. */
+/**
+ * `docs/frontend/spec.md` §1.20's rungs, declared once so no reader here can hold a ninth. The gap ban in
+ * `fl_frontend/eslint.config.mjs :: SOURCE_BANS` spells the same eight, and a rung changes in both.
+ */
 const RUNGS = [0.5, 1, 2, 3, 4, 6, 8, 12];
 
 /** Min-width order, which is what tells a responsive pair's two ends apart. */
@@ -137,15 +140,6 @@ describe("every gap the tree writes", () => {
 
     const recipes = [...filesWithAGap].filter((file) => file.endsWith(".ts"));
     assert.ok(recipes.length > 0, "no `.ts` recipe module was read, so every `tv` slot and class constant went unswept");
-  });
-
-  it("stands on one of the eight rungs, or is the absence of a gap", () => {
-    for (const { where, token, value } of gapTokens) {
-      assert.ok(
-        value === "0" || RUNGS.includes(Number(value)),
-        `${where}: \`${token}\` is off §1.20's ladder — a gap is one of ${RUNGS.join(" ")}, or \`0\` for no gap at all`,
-      );
-    }
   });
 });
 
