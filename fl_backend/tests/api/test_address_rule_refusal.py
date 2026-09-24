@@ -7,18 +7,17 @@ from typing import Annotated, Any
 
 import pymongo
 import pytest
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import Response
 from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
-from pymongo import AsyncMongoClient
 
 import app
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -81,22 +80,13 @@ def answered(route: str, email: str) -> Response:
 
 
 def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
-    """One request per client, the request and the close on ONE loop (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        served = create_app(build_test_config())
-        served.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                # The app's request deadline would hold each control against this unanswered server,
-                # and nested inside this one it cannot extend it. A refused body touches no driver
-                # call, so no deadline turns a 422 into the control's answer.
-                with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                    return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
-        finally:
-            await served.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            # The app's request deadline would hold each control against this unanswered server,
+            # and nested inside this one it cannot extend it. A refused body touches no driver
+            # call, so no deadline turns a 422 into the control's answer.
+            with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
 
     return asyncio.run(_answered())
 

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -27,13 +27,12 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.dependencies import get_germany_now
 from app.core.exceptions import DocumentConflictException
-from app.main import create_app
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 from tests import documents
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -682,17 +681,9 @@ class TestTheSubmissionKey:
 async def over_the_wire(url: str, *, schluessel: str | None) -> Response:
     """One registration as a request carries it, so the header is parsed as the route handler sends it; `None` sends none."""
 
-    app = create_app(WIRE_CONFIG)
-    app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-    app.dependency_overrides[get_germany_now] = lambda: NOW
-
-    try:
-        transport = ASGITransport(app=app, raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            sent = dict(BASE_AUTH) | ({} if schluessel is None else {"Idempotency-Key": schluessel})
-            return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
-    finally:
-        await app.state.db_client.close()
+    async with app_client(url, config=WIRE_CONFIG, now=NOW) as http:
+        sent = dict(BASE_AUTH) | ({} if schluessel is None else {"Idempotency-Key": schluessel})
+        return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
 
 
 class TestTheKeyOverTheWire:

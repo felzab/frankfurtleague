@@ -5,14 +5,14 @@ from typing import Any
 import pymongo
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
@@ -26,9 +26,6 @@ ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
 # the harness's own included.
 UNREACHED_DATABASE = "DB-FAIL-001"
 DOCUMENT_NOT_FOUND = "DB-COMMON-001"
-
-# Ample for a container already accepting connections.
-CONTAINER_SELECTION_MS = 10_000
 
 SAISON_ID = "2026"
 
@@ -75,19 +72,10 @@ def junction_row() -> dict[str, Any]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
-                    return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+                return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 

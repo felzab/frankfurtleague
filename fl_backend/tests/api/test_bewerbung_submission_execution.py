@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -31,13 +31,12 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import build_clearing_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.dependencies import get_germany_now
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
@@ -791,20 +790,12 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
         async def _submitted() -> Response:
-            app = create_app(build_test_config())
-            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-            app.dependency_overrides[get_germany_now] = lambda: NOW
-
-            try:
-                transport = ASGITransport(app=app, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    sent = dict(BASE_AUTH if headers is None else headers)
-                    # A fresh key unless the case names one, an empty one standing for none sent.
-                    if schluessel != "":
-                        sent["Idempotency-Key"] = schluessel or str(uuid4())
-                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
-            finally:
-                await app.state.db_client.close()
+            async with app_client(url, now=NOW) as http:
+                sent = dict(BASE_AUTH if headers is None else headers)
+                # A fresh key unless the case names one, an empty one standing for none sent.
+                if schluessel != "":
+                    sent["Idempotency-Key"] = schluessel or str(uuid4())
+                return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
         response = asyncio.run(_submitted())
 

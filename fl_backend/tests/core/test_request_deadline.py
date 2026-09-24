@@ -9,7 +9,6 @@ import pytest
 from bson import ObjectId
 from fastapi import Depends, Request
 from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import (
@@ -32,6 +31,7 @@ from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
 from app.main import STORES_NOTHING_EXTENSION, api_routes, create_app
+from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT
 from tests.database import a_clean_database, on_the_seed_loop
@@ -87,19 +87,10 @@ def _erasure_answered() -> tuple[Response, float]:
     """`POST /kontakte/erasure`, whose first database call is inside its transaction, against a server nothing answers."""
 
     async def _answered() -> tuple[Response, float]:
-        served = create_app(build_test_config())
-        served.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                started = time.monotonic()
-                response = await http.post(
-                    f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"}
-                )
-                return response, time.monotonic() - started
-        finally:
-            await served.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            started = time.monotonic()
+            response = await http.post(f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"})
+            return response, time.monotonic() - started
 
     return asyncio.run(_answered())
 

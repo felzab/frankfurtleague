@@ -6,21 +6,18 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.dependencies import get_germany_now
-from app.main import create_app
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database_sync
 from tests.documents import rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
-
-CONTAINER_SELECTION_MS = 30_000
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
@@ -195,19 +192,9 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: b
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH, *, database_name: str = CORPUS_DATABASE) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-        app.dependency_overrides[get_germany_now] = lambda: NOW
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri, config=config_for(database_name), now=NOW) as http:
+            return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 

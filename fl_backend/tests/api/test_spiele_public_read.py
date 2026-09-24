@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import Response
 from pydantic import BaseModel
-from pymongo import AsyncMongoClient, MongoClient
+from pymongo import MongoClient
 
 from app.api.spiele.schemas import (
     FLSpiel,
@@ -28,8 +28,8 @@ from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
 from tests.database import a_clean_database_sync
 from tests.documents import saison_team_document, spiel_document
 
@@ -75,10 +75,6 @@ LIST_PATH = f"/api/v{API_VERSION}/spiele"
 SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
 ADMIN_PATH = f"{SINGLE_PATH}/admin"
 ADMIN_LIST_PATH = f"{LIST_PATH}/list/admin?saison_id={SAISON_ID}"
-
-# Ample for a container already accepting connections. The short timeout belongs to the refusal
-# paths in `fl_backend/tests/api/test_spiele_admin_read.py`, which never reach a database.
-CONTAINER_SELECTION_MS = 10_000
 
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
@@ -173,18 +169,9 @@ def keys_under(payload: Any, field: str) -> set[str]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri) as http:
+            return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 

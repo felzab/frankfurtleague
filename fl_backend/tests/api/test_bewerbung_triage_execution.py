@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -52,17 +51,17 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import get_database, get_db_client
-from app.core.dependencies import get_germany_now
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
+
+from .conftest import config_for
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
 # reaches a real mongod, and a marker per test would be one a new test could be written without.
@@ -277,10 +276,6 @@ async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[
 # The clubs `on_a_league` seeds. Named, because "no club was created" is asserted as this number.
 SEEDED_CLUBS = 2
 
-# Module level, as `tests/api/test_actor_binding.py` builds it: one app, and the overrides below are
-# installed per call so no test inherits another's database handle.
-APP = create_app(build_test_config())
-
 
 async def through_the_app(
     url: str, bewerbung_id: ObjectId, endpoint: str, payload: Mapping[str, Any], *, actor: str | None = ADMIN_EMAIL
@@ -291,33 +286,13 @@ async def through_the_app(
     here would let a test claim to serve one while serving the other.
     """
 
-    # A client of its own rather than the seeding one: this helper closes what it injects, and the
-    # seeding client has to outlive the request -- every caller reads `database` afterwards to
-    # assert what the request wrote.
-    app_db_client = AsyncMongoClient(url)
-
-    async def _client() -> AsyncMongoClient:
-        return app_db_client
-
-    async def _database() -> AsyncDatabase:
-        return app_db_client[DATABASE_NAME]
-
-    APP.dependency_overrides[get_db_client] = _client
-    APP.dependency_overrides[get_database] = _database
-    APP.dependency_overrides[get_germany_now] = lambda: NOW
-
     headers = {**ADMIN_AUTH} if actor is None else {**ADMIN_AUTH, ACTOR_HEADER: actor}
     path = f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/{endpoint}"
 
-    try:
-        # Awaited on this loop rather than driven from a thread: the app, the client it reaches and
-        # the close below then all belong to the one loop the driver binds to.
-        transport = ASGITransport(app=APP)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            return await http.post(path, json=dict(payload), headers=headers)
-    finally:
-        APP.dependency_overrides.clear()
-        await app_db_client.close()
+    # A client of its own rather than the seeding one: the seeding client has to outlive the
+    # request, every caller reading `database` afterwards to assert what the request wrote.
+    async with app_client(url, config=config_for(DATABASE_NAME), now=NOW) as http:
+        return await http.post(path, json=dict(payload), headers=headers)
 
 
 class TestAnAcceptanceEntersTheSchool:

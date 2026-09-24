@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -18,10 +17,9 @@ from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_regis
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.dependencies import get_germany_now
 from app.core.recording import SYSTEM_ACTOR_EMAIL
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import rules_document, saison_document, team_document
 from tests.worker import worker_database
@@ -595,17 +593,9 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
         database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, bestaetigung=bestaetigung(EXPIRED_OID, frist=YESTERDAY)))
 
         async def _called() -> int:
-            app = create_app(build_test_config())
-            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-            app.dependency_overrides[get_germany_now] = lambda: NOW
-
-            try:
-                transport = ASGITransport(app=app, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
-                    return response.status_code
-            finally:
-                await app.state.db_client.close()
+            async with app_client(url, now=NOW) as http:
+                response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+                return response.status_code
 
         status = asyncio.run(_called())
 

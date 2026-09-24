@@ -5,9 +5,8 @@ from typing import Any, get_args
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import Response
 from pydantic import EmailStr, TypeAdapter
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
@@ -19,7 +18,8 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
-from tests.config import BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
@@ -29,10 +29,6 @@ from .conftest import config_for
 DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
-
-# The container is started for this tier and a laptop's own `mongod` is not what answers here, so the
-# driver's default would give up before the first handshake on a cold start.
-CONTAINER_SELECTION_MS = 30_000
 
 APP = create_app(build_test_config())
 
@@ -416,24 +412,13 @@ def test_the_base_key_draws_the_system_guard_s_own_code():
 
 
 def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
-    """The corpus seeded, then one request through the MOUNTED route.
-
-    No lifespan: it would open its own client at the settings' URI and apply the constraints there
-    (`fl_backend/tests/api/test_malformed_ids.py :: answered`).
-    """
+    """The corpus seeded, then one request through the MOUNTED route."""
 
     on_a_league(url, _no_body)
 
     async def _answered() -> Response:
-        app = create_app(config_for(DATABASE_NAME))
-        app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
-        finally:
-            await app.state.db_client.close()
+        async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
     return asyncio.run(_answered())
 

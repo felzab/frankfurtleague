@@ -4,22 +4,20 @@ from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.spiele.admin_router import get_spiele_action_required
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.main import create_app
 from tests import documents
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
-
-CONTAINER_SELECTION_MS = 10_000
 
 PATH = f"/api/v{API_VERSION}/spiele/action_required"
 
@@ -108,18 +106,9 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 
 def answered(uri: str, path: str) -> Response:
-    """One request per client, the request and the close on ONE loop, per `fl_backend/tests/api/test_malformed_ids.py :: answered`."""
-
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(ADMIN_AUTH))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri) as http:
+            return await http.get(path, headers=dict(ADMIN_AUTH))
 
     return asyncio.run(_answered())
 

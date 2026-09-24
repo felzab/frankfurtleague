@@ -4,11 +4,10 @@ from typing import Any
 
 import pymongo
 import pytest
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient
+from httpx2 import Response
 
-from app.main import create_app
-from tests.config import BASE_AUTH, TEST_BASE_URL, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
@@ -22,23 +21,12 @@ UNREACHED_DATABASE = "DB-FAIL-001"
 
 
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
-    """One request per client, the request and the close on ONE loop.
-
-    The driver binds a client to the loop it first ran on, so this returns the response, never the
-    client. No lifespan: it would open its own client and apply the constraints.
-    """
+    """The response, never the client: the driver binds a client to the loop it first ran on."""
 
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                    return await http.get(path, params=params, headers=BASE_AUTH)
-        finally:
-            await app.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                return await http.get(path, params=params, headers=BASE_AUTH)
 
     return asyncio.run(_answered())
 
