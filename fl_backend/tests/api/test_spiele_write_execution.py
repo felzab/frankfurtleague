@@ -8,7 +8,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
@@ -441,9 +440,6 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mu
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document())
             # Always, not per scenario: a `gruppe` slot seeds from the table these rows are ranked in.
             await database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])

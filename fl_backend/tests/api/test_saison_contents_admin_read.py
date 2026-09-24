@@ -6,7 +6,6 @@ from bson import ObjectId
 from fastapi.routing import APIRoute
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
 from app.api.spiele.router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
@@ -167,9 +166,6 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
 
 def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # Process-global and keyed by season id, so an entry another test left would answer here.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

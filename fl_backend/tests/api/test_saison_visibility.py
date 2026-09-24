@@ -5,7 +5,6 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_for_admin
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
@@ -85,9 +84,6 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
 
 def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # Process-global and keyed by season id, so an entry another test left would answer for this one.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

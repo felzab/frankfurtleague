@@ -6,7 +6,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
@@ -207,9 +206,6 @@ def on_a_database(
 ) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(), *(spieltage or [])])

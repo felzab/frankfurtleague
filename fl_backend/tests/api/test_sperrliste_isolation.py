@@ -16,7 +16,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
@@ -165,20 +164,15 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id alone, so a season another module left would answer here.
-            invalidate_saison_cache()
-            try:
-                # Already counted, as a running season is once anything anchored it: `$inc` on a missing
-                # field creates it, so an anchor that rewrites nothing would still conflict here without it.
-                running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}
-                await database[Collection.SAISONS].insert_many([running, saison_document(target, "future")])
-                await database[Collection.SPIELE].insert_one(a_targets_fixture(target))
-                if lapsing:
-                    await database[Collection.SPERRLISTE].insert_one(the_lapsing_ban())
+            # Already counted, as a running season is once anything anchored it: `$inc` on a missing
+            # field creates it, so an anchor that rewrites nothing would still conflict here without it.
+            running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}
+            await database[Collection.SAISONS].insert_many([running, saison_document(target, "future")])
+            await database[Collection.SPIELE].insert_one(a_targets_fixture(target))
+            if lapsing:
+                await database[Collection.SPERRLISTE].insert_one(the_lapsing_ban())
 
-                return await body(database, client)
-            finally:
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 

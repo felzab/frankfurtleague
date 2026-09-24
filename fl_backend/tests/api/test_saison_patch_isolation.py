@@ -8,7 +8,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, generate_spielplan, patch_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -196,9 +195,6 @@ def on_a_seeded_saison(url: str, body: Body, *, saisons: Sequence[dict[str, Any]
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
         # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             seeded = list(saisons) or [saison_document()]
             await database[Collection.SAISONS].insert_many(seeded)
             for season in seeded:

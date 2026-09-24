@@ -172,21 +172,13 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The season cache is PROCESS-WIDE and outlives a clean database, so a mint here would
-            # otherwise judge the ban list against a season a sibling left cached. Dropped on both
-            # sides: this case reads none of another's, and leaves none.
-            invalidate_saison_cache()
+            await database[Collection.SAISONS].insert_one(saison_document())
+            seeded = [referee_document()] if referees is None else referees
+            if seeded:
+                await database[Collection.SCHIEDSRICHTER].insert_many(seeded)
+                await database[Collection.SPIELE].insert_one(fixture_document())
 
-            try:
-                await database[Collection.SAISONS].insert_one(saison_document())
-                seeded = [referee_document()] if referees is None else referees
-                if seeded:
-                    await database[Collection.SCHIEDSRICHTER].insert_many(seeded)
-                    await database[Collection.SPIELE].insert_one(fixture_document())
-
-                return await body(database, client)
-            finally:
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 

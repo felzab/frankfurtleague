@@ -16,7 +16,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
@@ -332,9 +331,6 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]]) ->
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])
             await database[Collection.SAISON_TEAMS].insert_many([junction(team_id) for team_id in NAMES])

@@ -8,7 +8,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, generate_spielplan, undraw_spielplan
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLActivateSaisonResponse, FLGenerateSpielplanPayload
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST, ACTIVATE_TARGET_UNDRAWN
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
@@ -140,9 +139,6 @@ def on_a_league(
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
         # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_many(saisons)
             for saison_id in entered:
                 await database[Collection.SAISON_TEAMS].insert_many(entry_rows(saison_id))

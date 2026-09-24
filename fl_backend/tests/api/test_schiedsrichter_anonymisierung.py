@@ -10,7 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.bewerbungen.services import hash_token
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
@@ -453,25 +452,17 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # The season cache is PROCESS-WIDE and outlives a clean database, so the seeded save
-            # would otherwise judge the ban list against a season a sibling left cached. Dropped on
-            # both sides: this case reads none of another's, and leaves none.
-            invalidate_saison_cache()
+            # A referee save carrying an address reads the running season, the ban list being
+            # judged against it, so a league with none would 404 in the seed rather than in a case.
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+            await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
+            await database[Collection.SPIELE].insert_many(fixture_documents())
+            for oid in REFEREE_NAMES:
+                await a_referee_with_a_history(database, client, oid)
+            for spiel_id in (spiel_id for spiel_ids in SPIEL_OIDS.values() for spiel_id in spiel_ids):
+                await a_fixture_with_a_history(database, spiel_id)
 
-            try:
-                # A referee save carrying an address reads the running season, the ban list being
-                # judged against it, so a league with none would 404 in the seed rather than in a case.
-                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-                await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
-                await database[Collection.SPIELE].insert_many(fixture_documents())
-                for oid in REFEREE_NAMES:
-                    await a_referee_with_a_history(database, client, oid)
-                for spiel_id in (spiel_id for spiel_ids in SPIEL_OIDS.values() for spiel_id in spiel_ids):
-                    await a_fixture_with_a_history(database, spiel_id)
-
-                return await body(database, client)
-            finally:
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 

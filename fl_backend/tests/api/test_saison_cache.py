@@ -139,7 +139,6 @@ class TestTheCacheContract:
 
     def test_a_store_carrying_the_current_generation_lands(self):
         """The control: a guard that refused everything would pass the case above and cost every reader its round trip."""
-        invalidate_saison_cache()
 
         store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
 

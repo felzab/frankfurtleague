@@ -6,7 +6,6 @@ from bson import ObjectId
 from pydantic import BaseModel
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_for_admin
@@ -174,9 +173,6 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # Process-global and keyed by season id, so an entry another test left would answer here.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

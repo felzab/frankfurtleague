@@ -371,7 +371,6 @@ class _Players:
 def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[Mapping[str, Any]]:
     """The `$match` terms the read narrowed the squad rows on, as the handler itself built them."""
 
-    invalidate_saison_cache()
     players = _Players()
     asyncio.run(
         get_spieler(spieler_collection=cast(AsyncCollection, players), saisons_collection=cast(AsyncCollection, seasons), filters=filters)
@@ -404,7 +403,6 @@ class TestTheSeasonASquadIsReadFor:
 
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
-        invalidate_saison_cache()
 
         with pytest.raises(DocumentNotFoundException) as refused:
             asyncio.run(
@@ -651,7 +649,6 @@ class TestTheSquadReadNamingNoSeasonExecuted:
 
     def _vornamen(self, url: str, filters: FLSpielerFilterParams) -> list[str]:
         async def body(database: AsyncDatabase) -> Any:
-            invalidate_saison_cache()
             response = await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=filters)
 
             return [row.vorname for row in response.spieler]
@@ -1029,8 +1026,6 @@ def _on_a_sort_oracle_database(url: str, corpus: str, body: Body) -> Any:
 
 def _on_the_mask_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[MASK_DATABASE_NAME])
 
     return on_the_seed_loop(_run())
@@ -1038,10 +1033,6 @@ def _on_the_mask_database(url: str, body: Body) -> Any:
 
 def on_a_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
-        # behind it is process-global, and another test's entry under this id would answer here.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

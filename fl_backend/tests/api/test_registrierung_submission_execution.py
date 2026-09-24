@@ -192,9 +192,8 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The season cache is PROCESS-WIDE and outlives a clean database, so a case seeding a
-            # league of one status would otherwise be judged from the season its predecessor left
-            # cached.
+            # A case calling this twice reseeds the league inside one test, where the conftest's
+            # `uncached_saisons` drops nothing: the season the first call cached would judge the second.
             invalidate_saison_cache()
 
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
@@ -276,11 +275,7 @@ def on_a_league(
                     }
                 )
 
-            try:
-                return await body(database, client)
-            finally:
-                # `finally`, so a case that raises still leaves the cache empty for the next one.
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 
