@@ -16,7 +16,6 @@ import type { Socket } from "node:net";
 const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
 
 after(async () => {
-  opened.relay?.resume();
   for (const client of opened.clients) await client.close();
   await opened.relay?.close();
   await opened.mongod?.stop();
@@ -85,8 +84,7 @@ class Relay {
     }
   }
 
-  /** Also called before the client closes: a case timed out inside `hang` never reaches its `finally`. */
-  resume(): void {
+  private resume(): void {
     this.hung = false;
     this.trigger = null;
   }
@@ -139,32 +137,48 @@ opened.clients.push(coldClient);
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
 
-// Ends a case whose bound is gone, where a hung read never ends: the server's own heartbeats still
-// pass the relay, so the driver's monitor finds nothing wrong and nothing else gives up on it.
-const CASE_TIMEOUT = { timeout: 30_000 };
+const OPERATION_BOUND = client.timeoutMS ?? assert.fail("the sign-in store's client sets no `timeoutMS`");
 
-/** How long `run` took to settle, and what it settled with. */
-async function timed(run: () => Promise<unknown>): Promise<{ elapsed: number; outcome: unknown }> {
-  const started = performance.now();
-  const outcome = await run().catch((error: unknown) => error);
-  return { elapsed: performance.now() - started, outcome };
+/**
+ * The case fails at its bound rather than waiting on: an operation whose bound is gone never ends on
+ * its own, because the server's heartbeats still pass the relay and the driver's monitor finds nothing
+ * wrong.
+ */
+async function settledWithin(bound: number, what: string, run: () => Promise<unknown>): Promise<unknown> {
+  let deadline: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      run().catch((error: unknown) => error),
+      new Promise<never>((_, reject) => {
+        deadline = setTimeout(
+          () => reject(new assert.AssertionError({ message: `${what} had not settled ${bound + LATENESS_MS} ms in` })),
+          bound + LATENESS_MS,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(deadline);
+  }
 }
 
 describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md :: I362`)", () => {
   /* Only a client that has never connected takes the driver's automatic connect, which `timeoutMS`
      does not reach. */
-  it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", CASE_TIMEOUT, async () => {
-    const { elapsed, outcome } = await relay.hang(() => timed(() => coldClient.db("store_bound").collection("probe").findOne({})));
+  it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", async () => {
+    // Held to every operation's bound rather than read off the option: a removed option reads as the
+    // driver's thirty-second default, and the case would follow it there.
+    const outcome = await relay.hang(() =>
+      settledWithin(OPERATION_BOUND, "the cold read", () => coldClient.db("store_bound").collection("probe").findOne({})),
+    );
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
-    assert.ok(elapsed < coldClient.options.serverSelectionTimeoutMS + LATENESS_MS, `the cold read took ${Math.round(elapsed)} ms`);
   });
 });
 
 describe("the sign-in store's client bounds every operation it sends (`docs/frontend/spec.md :: I362`)", () => {
   /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. The
      library answers a failed read as no session and logs it, so the line is what names the bound. */
-  it("ends a session read the store never answers within its `timeoutMS`", CASE_TIMEOUT, async () => {
+  it("ends a session read the store never answers within its `timeoutMS`", async () => {
     await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
     const verified = await auth.api.magicLinkVerify({
       query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
@@ -178,25 +192,26 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.equal(answered?.user.email, ADMIN_EMAIL);
     logged.length = 0;
 
-    const { elapsed, outcome } = await relay.hang(() => timed(() => auth.api.getSession({ headers })));
+    const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => auth.api.getSession({ headers })));
 
     assert.deepEqual(
       { outcome, logged },
       { outcome: null, logged: [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }] },
     );
-    assert.ok(elapsed < (client.timeoutMS ?? 0) + LATENESS_MS, `the hung read took ${Math.round(elapsed)} ms`);
   });
 
   /* A magic link's sign-in runs the adapter's own transaction to consume its token. The timeout does
      not surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and
      that refusal replaces it, unlogged. */
-  it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", CASE_TIMEOUT, async () => {
+  it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", async () => {
     await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
     const token = lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`);
     logged.length = 0;
 
-    const { elapsed, outcome } = await relay.hangFrom("commitTransaction", () =>
-      timed(() => auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true })),
+    const outcome = await relay.hangFrom("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND, "the hung commit", () =>
+        auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      ),
     );
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
@@ -205,6 +220,5 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
       `the hung commit settled with ${String(outcome)}`,
     );
     assert.deepEqual(logged, []);
-    assert.ok(elapsed < (client.timeoutMS ?? 0) + LATENESS_MS, `the hung commit took ${Math.round(elapsed)} ms`);
   });
 });
