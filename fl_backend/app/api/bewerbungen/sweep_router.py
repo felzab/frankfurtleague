@@ -61,6 +61,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.responses import FLFailureBody
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
 # and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
@@ -146,7 +147,12 @@ async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbun
     )
 
 
-@router.post("/{saison_id}", response_model=FLBewerbungSweepResponse, summary="Run one season's retention clocks")
+@router.post(
+    "/{saison_id}",
+    response_model=FLBewerbungSweepResponse,
+    summary="Run one season's retention clocks",
+    responses={409: {"model": FLFailureBody}},
+)
 async def sweep_saison(
     saison_id: str,
     bewerbungen_collection: BewerbungenCollection,
@@ -470,7 +476,10 @@ async def sweep_saison(
 
 
 @router.post(
-    "/{saison_id}/angekuendigt", response_model=FLBewerbungSweepAngekuendigtResponse, summary="Stamp the candidates whose notice was delivered"
+    "/{saison_id}/angekuendigt",
+    response_model=FLBewerbungSweepAngekuendigtResponse,
+    summary="Stamp the candidates whose notice was delivered",
+    responses={409: {"model": FLFailureBody}},
 )
 async def angekuendigt_bewerbungen(
     saison_id: str,

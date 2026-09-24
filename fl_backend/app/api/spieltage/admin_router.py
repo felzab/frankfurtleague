@@ -34,6 +34,7 @@ from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection,
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieltage",
@@ -154,7 +155,9 @@ async def _refuse_an_out_of_order_beginn(
     )
 
 
-@router.patch(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Re-date a Spieltag")
+@router.patch(
+    by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Re-date a Spieltag", responses={409: {"model": FLFailureBody}}
+)
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],

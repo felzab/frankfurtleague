@@ -182,6 +182,11 @@ def publish_failure_bodies(app: FastAPI) -> None:
 
 REFUSAL_DESCRIPTION = "The current state refuses the write"
 
+# What `app/core/exception_handlers.py :: duplicate_key_exception_handler` answers a unique index's
+# refusal with. No rule declares it, so a route writing where one can refuse declares the 409 itself,
+# and `tests/core/test_duplicate_key_publication.py` holds each declaration to the route's writes.
+DUPLICATE_KEY = "DB-COMMON-002"
+
 
 def refusal_response(codes: set[str]) -> dict[str, Any]:
     # The component narrowed rather than restated, so the failure body keeps one published shape.
@@ -217,6 +222,9 @@ def publish_refusals(app: FastAPI) -> None:
         for path, operations in document["paths"].items():
             for method, operation in operations.items():
                 codes = declared.pop((path, method), set())
+                # Only a route's own declaration puts a 409 here before this runs.
+                if "409" in operation["responses"]:
+                    codes.add(DUPLICATE_KEY)
                 if codes:
                     operation["responses"]["409"] = refusal_response(codes)
 

@@ -30,6 +30,7 @@ from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/kontakte",
@@ -103,7 +104,9 @@ async def get_kontakt_erasure_ansicht(
     )
 
 
-@router.post("/erasure", response_model=FLKontaktErasureResponse, summary="Erase a Kontaktperson's records")
+@router.post(
+    "/erasure", response_model=FLKontaktErasureResponse, summary="Erase a Kontaktperson's records", responses={409: {"model": FLFailureBody}}
+)
 async def erase_kontaktperson(
     erasure_data: Annotated[FLKontaktErasurePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,

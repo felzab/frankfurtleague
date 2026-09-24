@@ -79,6 +79,7 @@ from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
@@ -466,7 +467,7 @@ async def previewing(
     return dry_run
 
 
-@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
+@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel", responses={409: {"model": FLFailureBody}})
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
@@ -507,7 +508,12 @@ async def patch_spiel_data(
 
 # A static segment under the collection rather than a mode on the patch above: the body names the
 # fixtures it restores, and a tagged body would make every existing caller send the tag.
-@router.patch("/paarungen", response_model=FLPatchSpielePaarungenResponse, summary="Restore the Paarungen one save moved")
+@router.patch(
+    "/paarungen",
+    response_model=FLPatchSpielePaarungenResponse,
+    summary="Restore the Paarungen one save moved",
+    responses={409: {"model": FLFailureBody}},
+)
 async def patch_spiele_paarungen(
     payload: Annotated[FLPatchSpielePaarungenPayload, Body()],
     db: DBClient,

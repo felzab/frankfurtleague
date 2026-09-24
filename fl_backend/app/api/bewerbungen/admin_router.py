@@ -56,6 +56,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
@@ -73,6 +74,7 @@ def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     f"{by_id('bewerbung_id')}/annehmen",
     response_model=FLAnnehmenBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
+    responses={409: {"model": FLFailureBody}},
 )
 async def annehmen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -224,7 +226,12 @@ async def annehmen_bewerbung(
     return accepted
 
 
-@router.post(f"{by_id('bewerbung_id')}/ablehnen", response_model=FLAblehnenBewerbungResponse, summary="Decline a Bewerbung")
+@router.post(
+    f"{by_id('bewerbung_id')}/ablehnen",
+    response_model=FLAblehnenBewerbungResponse,
+    summary="Decline a Bewerbung",
+    responses={409: {"model": FLFailureBody}},
+)
 async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
@@ -268,6 +275,7 @@ async def ablehnen_bewerbung(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
+    responses={409: {"model": FLFailureBody}},
 )
 async def erneut_einwilligung(
     bewerbung_id: CustomRouteObjectId,
@@ -348,6 +356,7 @@ async def erneut_einwilligung(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
+    responses={409: {"model": FLFailureBody}},
 )
 async def korrigiere_kontakt_email(
     bewerbung_id: CustomRouteObjectId,
@@ -426,6 +435,7 @@ async def korrigiere_kontakt_email(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
+    responses={409: {"model": FLFailureBody}},
 )
 async def besetze_kontakt_sitz(
     bewerbung_id: CustomRouteObjectId,

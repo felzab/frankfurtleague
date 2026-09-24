@@ -59,6 +59,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
@@ -326,7 +327,13 @@ async def erase_spieler(
         return await session.with_transaction(erase_the_person_and_their_record)
 
 
-@router.post(f"{by_id('spieler_id')}/saisons", response_model=FLSaisonSpielerResponse, status_code=201, summary="Add a Spieler to a squad")
+@router.post(
+    f"{by_id('spieler_id')}/saisons",
+    response_model=FLSaisonSpielerResponse,
+    status_code=201,
+    summary="Add a Spieler to a squad",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
@@ -405,7 +412,12 @@ async def post_saison_spieler(
     return _as_junction(entered)
 
 
-@router.patch(f"{by_id('spieler_id')}/saisons/{{saison_id}}", response_model=FLSaisonSpielerResponse, summary="Update a squad entry")
+@router.patch(
+    f"{by_id('spieler_id')}/saisons/{{saison_id}}",
+    response_model=FLSaisonSpielerResponse,
+    summary="Update a squad entry",
+    responses={409: {"model": FLFailureBody}},
+)
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
@@ -478,7 +490,12 @@ async def patch_saison_spieler(
     return _as_junction(moved)
 
 
-@router.delete(f"{by_id('spieler_id')}/saisons/{{saison_id}}", response_model=FLSaisonSpielerResponse, summary="Remove a Spieler from a squad")
+@router.delete(
+    f"{by_id('spieler_id')}/saisons/{{saison_id}}",
+    response_model=FLSaisonSpielerResponse,
+    summary="Remove a Spieler from a squad",
+    responses={409: {"model": FLFailureBody}},
+)
 async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
@@ -505,6 +522,7 @@ async def delete_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
     response_model=FLSaisonSpielerResponse,
     summary="Put a Spieler back in a squad they left",
+    responses={409: {"model": FLFailureBody}},
 )
 async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,

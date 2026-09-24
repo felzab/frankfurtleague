@@ -21,7 +21,7 @@ from app.core.exception_handlers import (
 )
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import create_app
+from app.main import DUPLICATE_KEY, api_routes, create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -235,19 +235,24 @@ def published_schema(response: dict[str, Any]) -> str:
     return response["content"]["application/json"]["schema"]["$ref"].removeprefix("#/components/schemas/")
 
 
-# The operations `RULES` named on the tree this was written against, so an equality over two maps
-# that both went empty still fails.
-REFUSING_OPERATIONS_FLOOR = 42
+# The operations publishing a 409 on the tree this was written against, so an equality over two
+# maps that both went empty still fails.
+REFUSING_OPERATIONS_FLOOR = 59
 
 
-def rule_codes_by_operation() -> dict[str, set[str]]:
-    """Read off `RULES` here rather than through the publisher, which is what this is compared against."""
+def refusal_codes_by_operation() -> dict[str, set[str]]:
+    """Read off `RULES` and the routes here rather than through the publisher, which is what this is compared against."""
 
     declared: dict[str, set[str]] = {}
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)
             declared.setdefault(f"{method} /api/v{API_VERSION}{route}", set()).add(rule.code)
+
+    for route in api_routes(APP):
+        if 409 in route.responses:
+            for method in route.methods or ():
+                declared.setdefault(f"{method} {route.path_format}", set()).add(DUPLICATE_KEY)
 
     return declared
 
@@ -258,6 +263,12 @@ def published_refusals() -> dict[str, dict[str, Any]]:
         for name, operation in published_operations()
         if "409" in operation["responses"]
     }
+
+
+def narrowed_codes(schema: dict[str, Any]) -> set[str]:
+    """Empty for a 409 left as a route declared it, so the comparison names that operation rather than raising."""
+
+    return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
 
 
 class TestThePublishedFailureBodies:
@@ -283,15 +294,17 @@ class TestThePublishedFailureBodies:
         assert takes_input and len(takes_input) < len(operations)
 
     def test_every_operation_publishes_on_its_409_exactly_the_codes_it_refuses_with(self):
-        """Both ways: an operation no rule names publishes no 409, and one a rule names publishes that code."""
+        """Both ways: an operation neither a rule nor its route names publishes no 409, and one either names publishes that code."""
 
-        published = {name: set(schema["allOf"][1]["properties"]["error_code"]["enum"]) for name, schema in published_refusals().items()}
+        published = {name: narrowed_codes(schema) for name, schema in published_refusals().items()}
 
-        assert published == rule_codes_by_operation()
+        assert published == refusal_codes_by_operation()
         assert len(published) >= REFUSING_OPERATIONS_FLOOR
 
     def test_every_409_narrows_the_one_failure_body(self):
-        assert {schema["allOf"][0]["$ref"] for schema in published_refusals().values()} == {"#/components/schemas/FLFailureBody"}
+        assert {schema.get("allOf", [schema])[0].get("$ref") for schema in published_refusals().values()} == {
+            "#/components/schemas/FLFailureBody"
+        }
 
     def test_the_schemas_are_published_in_the_order_fastapi_writes_its_own(self):
         """Sorted, so a rewrite of `fl_backend/openapi.json` never moves a schema it did not change."""

@@ -89,6 +89,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -588,7 +589,12 @@ async def activate_saison(
     return rolled_over
 
 
-@router.post("/{saison_id}/gruppen/swap", response_model=FLSwapGruppenResponse, summary="Exchange two teams' groups")
+@router.post(
+    "/{saison_id}/gruppen/swap",
+    response_model=FLSwapGruppenResponse,
+    summary="Exchange two teams' groups",
+    responses={409: {"model": FLFailureBody}},
+)
 async def swap_gruppen(
     saison_id: str,
     swap_data: Annotated[FLSwapGruppenPayload, Body()],
@@ -1209,7 +1215,12 @@ async def preview_einladungen_versand(
     return FLEinladungVersandVorschauResponse(saison_id=saison_id, zeilen=zeilen)
 
 
-@router.post("/{saison_id}/einladungen/versand", response_model=FLEinladungVersandResponse, summary="Mint every admitted team a link")
+@router.post(
+    "/{saison_id}/einladungen/versand",
+    response_model=FLEinladungVersandResponse,
+    summary="Mint every admitted team a link",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_einladungen_versand(
     saison_id: str,
     versand_data: Annotated[FLEinladungVersandPayload, Body()],

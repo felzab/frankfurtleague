@@ -40,6 +40,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.responses import FLFailureBody
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -94,7 +95,12 @@ async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any]
     return redacted.modified_count
 
 
-@router.post("/{saison_id}", response_model=FLRegistrierungSweepResponse, summary="Run one season's registration retention clocks")
+@router.post(
+    "/{saison_id}",
+    response_model=FLRegistrierungSweepResponse,
+    summary="Run one season's registration retention clocks",
+    responses={409: {"model": FLFailureBody}},
+)
 async def sweep_registrierungen(
     saison_id: str,
     registrierungen_collection: RegistrierungenCollection,

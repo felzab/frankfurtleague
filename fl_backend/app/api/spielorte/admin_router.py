@@ -21,6 +21,7 @@ from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
@@ -33,7 +34,7 @@ def _maps_link(name: str, address: FLAddress) -> str:
     return f"{name}, {address.to_string}, Deutschland"
 
 
-@router.post("", response_model=FLPostSpielortResponse, status_code=201, summary="Create a Spielort")
+@router.post("", response_model=FLPostSpielortResponse, status_code=201, summary="Create a Spielort", responses={409: {"model": FLFailureBody}})
 async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
@@ -54,7 +55,12 @@ async def post_spielort(
     )
 
 
-@router.patch(by_id("spielort_id"), response_model=FLPatchSpielortResponse, summary="Update a Spielort and fan the change out")
+@router.patch(
+    by_id("spielort_id"),
+    response_model=FLPatchSpielortResponse,
+    summary="Update a Spielort and fan the change out",
+    responses={409: {"model": FLFailureBody}},
+)
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
     spielort_data: Annotated[FLPatchSpielortPayload, Body()],
@@ -97,7 +103,12 @@ async def patch_spielort(
         return await session.with_transaction(rename_and_fan_out)
 
 
-@router.delete(by_id("spielort_id"), response_model=FLSpielortWriteResponse, summary="Deactivate a Spielort (soft delete)")
+@router.delete(
+    by_id("spielort_id"),
+    response_model=FLSpielortWriteResponse,
+    summary="Deactivate a Spielort (soft delete)",
+    responses={409: {"model": FLFailureBody}},
+)
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
@@ -134,7 +145,12 @@ async def delete_spielort(
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
 
 
-@router.post(f"{by_id('spielort_id')}/reactivate", response_model=FLSpielortWriteResponse, summary="Bring a deactivated Spielort back")
+@router.post(
+    f"{by_id('spielort_id')}/reactivate",
+    response_model=FLSpielortWriteResponse,
+    summary="Bring a deactivated Spielort back",
+    responses={409: {"model": FLFailureBody}},
+)
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,

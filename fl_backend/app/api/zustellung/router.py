@@ -21,6 +21,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
 from app.core.security import bind_system_actor, verify_access_system
+from app.shared.schemas.responses import FLFailureBody
 
 # Beside the application's own delivery router rather than replacing it: moving that one would
 # rewrite its tests for no behaviour. System tier and the system actor because no session stands
@@ -73,7 +74,12 @@ async def _apply(
         return FLZustellungResponse(angewendet=await session.with_transaction(write_the_state))
 
 
-@router.post("/angenommen", response_model=FLZustellungResponse, summary="Record the message the provider accepted for this record")
+@router.post(
+    "/angenommen",
+    response_model=FLZustellungResponse,
+    summary="Record the message the provider accepted for this record",
+    responses={409: {"model": FLFailureBody}},
+)
 async def angenommen_zustellung(
     angenommen_data: Annotated[FLZustellungAngenommenPayload, Body()],
     db: DB,
@@ -107,7 +113,12 @@ async def angenommen_zustellung(
     )
 
 
-@router.post("/abgewiesen", response_model=FLZustellungResponse, summary="Record the send the provider refused for this record")
+@router.post(
+    "/abgewiesen",
+    response_model=FLZustellungResponse,
+    summary="Record the send the provider refused for this record",
+    responses={409: {"model": FLFailureBody}},
+)
 async def abgewiesen_zustellung(
     abgewiesen_data: Annotated[FLZustellungAbgewiesenPayload, Body()],
     db: DB,
@@ -140,7 +151,12 @@ async def abgewiesen_zustellung(
     )
 
 
-@router.post("", response_model=FLZustellungResponse, summary="Apply one delivery event to the record its message was sent about")
+@router.post(
+    "",
+    response_model=FLZustellungResponse,
+    summary="Apply one delivery event to the record its message was sent about",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_zustellung(
     ereignis_data: Annotated[FLZustellungEreignisPayload, Body()],
     db: DB,

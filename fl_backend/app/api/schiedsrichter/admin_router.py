@@ -72,6 +72,7 @@ from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLFailureBody
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
@@ -79,7 +80,13 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=FLPostSchiedsrichterResponse, status_code=201, summary="Create a Schiedsrichter")
+@router.post(
+    "",
+    response_model=FLPostSchiedsrichterResponse,
+    status_code=201,
+    summary="Create a Schiedsrichter",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -150,6 +157,7 @@ async def post_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter and fan the change out",
+    responses={409: {"model": FLFailureBody}},
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -247,7 +255,12 @@ async def patch_schiedsrichter(
     return answer
 
 
-@router.delete(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterWriteResponse, summary="Deactivate a Schiedsrichter (soft delete)")
+@router.delete(
+    by_id("schiedsrichter_id"),
+    response_model=FLSchiedsrichterWriteResponse,
+    summary="Deactivate a Schiedsrichter (soft delete)",
+    responses={409: {"model": FLFailureBody}},
+)
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -299,6 +312,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
+    responses={409: {"model": FLFailureBody}},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -374,6 +388,7 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
+    responses={409: {"model": FLFailureBody}},
 )
 async def einladen_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -462,6 +477,7 @@ async def einladen_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/anonymisieren",
     response_model=FLSchiedsrichterWriteResponse,
     summary="Anonymise a Schiedsrichter",
+    responses={409: {"model": FLFailureBody}},
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,

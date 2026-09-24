@@ -50,6 +50,7 @@ from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.schemas.responses import FLFailureBody
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
 # every registration with `REQ-AUTH-005`. The write still passes `app/core/crud.py`, and an insert
@@ -206,7 +207,9 @@ async def _answer_as_the_first(
     )
 
 
-@router.post("", response_model=FLPostRegistrierungResponse, summary="Register through a team's link")
+@router.post(
+    "", response_model=FLPostRegistrierungResponse, summary="Register through a team's link", responses={409: {"model": FLFailureBody}}
+)
 async def post_registrierung(
     registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],
     teams_collection: TeamsCollection,

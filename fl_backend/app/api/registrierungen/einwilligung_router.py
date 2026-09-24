@@ -34,6 +34,7 @@ from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.responses import FLFailureBody
 
 # A router of its own beside the public submission and the administrator's read: the token is the
 # whole credential, so both endpoints are base-tier and bind the public actor rather than the
@@ -122,7 +123,12 @@ async def get_bestaetigung_ansicht(
     )
 
 
-@router.post("", response_model=FLRegistrierungBestaetigungResponse, summary="Confirm one registration and record the pupil's consent")
+@router.post(
+    "",
+    response_model=FLRegistrierungBestaetigungResponse,
+    summary="Confirm one registration and record the pupil's consent",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,

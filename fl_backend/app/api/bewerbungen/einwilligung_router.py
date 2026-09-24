@@ -38,6 +38,7 @@ from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBC
 from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
+from app.shared.schemas.responses import FLFailureBody
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
 # credential, as for a sign-in link, so both endpoints are base-tier and bound to the public actor
@@ -112,7 +113,12 @@ async def get_einwilligung_ansicht(
     )
 
 
-@router.post("", response_model=FLBewerbungEinwilligungAntwortResponse, summary="Confirm or decline one seat of a Bewerbung")
+@router.post(
+    "",
+    response_model=FLBewerbungEinwilligungAntwortResponse,
+    summary="Confirm or decline one seat of a Bewerbung",
+    responses={409: {"model": FLFailureBody}},
+)
 async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
