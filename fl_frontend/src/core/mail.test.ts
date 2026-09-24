@@ -581,6 +581,13 @@ describe("a refusal the mail transport tries again", () => {
 describe("what the mail transport reports when a send fails", () => {
   beforeEach(resetTransport);
 
+  /* Asserted at the tick rather than left to the await after it: on a mocked clock nothing else ends
+     a stalled body, so a timer that never aborts would hang the run instead of failing the case. */
+  function tickPastTheBudget(): void {
+    mock.timers.tick(MAIL_TIMEOUT_MS);
+    assert.equal((sends[0]!.init.signal as AbortSignal).aborted, true, "the budget ran out and nothing aborted the stalled body");
+  }
+
   it("says nothing at all when the provider accepts the message", async () => {
     await sentRequest();
 
@@ -676,7 +683,7 @@ describe("what the mail transport reports when a send fails", () => {
 
       const pending = sendMail(MESSAGE);
       await new Promise((resolve) => setImmediate(resolve));
-      mock.timers.tick(MAIL_TIMEOUT_MS);
+      tickPastTheBudget();
 
       const error = await pending.then(
         () => assert.fail("the stalled body resolved"),
@@ -709,7 +716,7 @@ describe("what the mail transport reports when a send fails", () => {
 
       const pending = sendMail(MESSAGE);
       await new Promise((resolve) => setImmediate(resolve));
-      mock.timers.tick(MAIL_TIMEOUT_MS);
+      tickPastTheBudget();
 
       const error = await pending.then(
         () => assert.fail("the stalled acceptance resolved as a message sent"),
