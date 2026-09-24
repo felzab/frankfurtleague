@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, connect as dial } from "node:net";
 import { after, describe, it } from "node:test";
@@ -186,6 +187,10 @@ opened.clients.push(closingClient);
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
 
+/** What a fresh process takes to load `db.ts` and its imports, generously: it only keeps a child that never reads from hanging the case. */
+const CHILD_LOAD_MS = 10_000;
+const CHILD_SETTLED = "settled";
+
 const OPERATION_BOUND = client.timeoutMS ?? assert.fail("the sign-in store's client sets no `timeoutMS`");
 
 /**
@@ -321,5 +326,45 @@ describe("the sign-in store's client recovers from a cold start it could not com
 
     assert.equal(reopened, false, "the client its owner closed opened again once the store answered");
     assert.ok(closedRead instanceof MongoNotConnectedError, `the read after the close settled with ${String(closedRead)}`);
+  });
+
+  /* Its own process, so nothing of this file's holds the event loop open: once the read has failed,
+     the reconnect's pause is all that is left. */
+  it("lets a process whose store refuses it exit once its read has failed", async () => {
+    const child = spawn(
+      process.execPath,
+      [
+        // `server-only` resolved to its own empty build, as a server bundle resolves it.
+        "--conditions=react-server",
+        "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+        "--import",
+        import.meta.resolve("../../tsconfig-alias-hook.mjs"),
+        "--input-type=module",
+        "--eval",
+        `const { client } = await import(${JSON.stringify(import.meta.resolve("./db.ts"))});
+await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
+process.stdout.write("${CHILD_SETTLED}");`,
+      ],
+      { env: { ...process.env, MONGODB_URI: RELAYED_URL }, stdio: ["ignore", "pipe", "inherit"] },
+    );
+    const exited = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
+    const settled = new Promise<void>((resolve) => child.stdout.on("data", (chunk) => String(chunk).includes(CHILD_SETTLED) && resolve()));
+
+    try {
+      await relay.refuse(async () => {
+        const first = await settledWithin(CHILD_LOAD_MS + OPERATION_BOUND, "the child's read", () =>
+          Promise.race([settled.then(() => CHILD_SETTLED), exited.then(() => "an exit")]),
+        );
+        assert.equal(first, CHILD_SETTLED, "the child exited before its read settled");
+        const [code] = (await settledWithin(
+          recoveringClient.options.minHeartbeatFrequencyMS,
+          "the child's exit once its read had failed",
+          () => exited,
+        )) as [number | null];
+        assert.equal(code, 0);
+      });
+    } finally {
+      child.kill();
+    }
   });
 });
