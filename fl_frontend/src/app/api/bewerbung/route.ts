@@ -1,6 +1,7 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
@@ -17,7 +18,6 @@ import { BEWERBUNG_VERALTET, bewerbungNenntLaufendeFassung, empfangsSitze, mapBe
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";

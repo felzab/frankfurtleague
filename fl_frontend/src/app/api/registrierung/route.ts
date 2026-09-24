@@ -1,4 +1,5 @@
 import { frontend_config } from "@/core/config";
+import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { buildRegistrierungBestaetigungEmail } from "@/core/registrierungEmail";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierung } from "@/features/registrierungen/mutations";
@@ -7,7 +8,7 @@ import { abgewiesenerVersand, mapRegistrierungSubmitRefusal } from "@/features/r
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { IDEMPOTENCY_KEY_HEADER, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
 
 import type { NextRequest } from "next/server";
 

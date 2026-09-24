@@ -1,3 +1,5 @@
+import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+
 import type { FieldErrors } from "./validation";
 
 /**
@@ -69,9 +71,6 @@ const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
  * nothing about the request: a challenge can answer a POST this application has already written.
  */
 const KEINE_ANTWORT_VON_UNS = "Die Antwort auf Deine Anfrage kam nicht von uns. Warte einen Moment und versuche es dann noch einmal.";
-
-/** The header a submission's replay key travels in, on both hops (`docs/backend/spec.md :: I346`). */
-export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and
