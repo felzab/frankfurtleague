@@ -93,11 +93,10 @@ CASES: Final[tuple[Case, ...]] = (
 def _run(case: Case) -> tuple[int, str]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     environment = base_env()
-    # Past `base_env`: `VERIFY_TAG` and its cache name another run's images, and `GITHUB_ACTIONS`
-    # skips the scope check, which reads the branch's diff.
+    # Past `base_env`: `VERIFY_TAG` and its cache name another run's images.
     for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE"):
         environment.pop(inherited, None)
-    environment.update({"GITHUB_ACTIONS": "true", CASE_VAR: case.name})
+    environment[CASE_VAR] = case.name
     with tempfile.TemporaryDirectory() as scratch:
         stub = write_shell(Path(scratch) / "docker", STUB)
         # The execute bit is what puts this ahead of a real daemon on PATH.

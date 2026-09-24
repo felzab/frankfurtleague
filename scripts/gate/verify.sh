@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · the pre-merge gate — everything, or exactly the surfaces a change touched.
+# SCRIPTS · the pre-merge gate — every scope, or the scopes a run names.
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
 # `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
-#   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
+#   ./scripts/gate/verify.sh                   every scope — the full gate a push rests on; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
 #   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
-#   ./scripts/gate/verify.sh --changed         exactly the scopes scope_map.sh maps the branch's diff to
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
@@ -17,7 +16,6 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND_UNITS=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
-RUN_CHANGED=0
 SERIAL=0
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
@@ -31,7 +29,6 @@ for arg in "$@"; do
     --ops)      RUN_OPS=1 ;;
     --db)       RUN_DB=1 ;;
     --images)   RUN_IMAGES=1 ;;
-    --changed)  RUN_CHANGED=1 ;;
     --quick)    RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1 ;;
     --verbose)  VERBOSE=1 ;;
     --serial)   SERIAL=1 ;;
@@ -42,49 +39,15 @@ for arg in "$@"; do
   esac
 done
 
-# The scopes `scripts/gate/scope_map.sh` maps the branch's diff to, one per line, `IFS` splitting on
-# newlines: CI's own mapping, so a local run and the pull request's jobs agree by construction.
-SCOPES_ASKED=""
-ask_the_mapping() {
-  SCOPES_ASKED="$(bash scripts/gate/scope_map.sh --branch | awk -F= '$2 == "true" { print $1 }')" \
-    || refuse "scripts/gate/scope_map.sh --branch could not map the branch's diff, so no scope was chosen
-from it. Its own reason is above."
-}
-
-# Here only for this mode, whose flags decide every prerequisite below; a named run asks at the scope
-# step, after the prerequisites, whose refusals would otherwise wait behind this one.
-if (( RUN_CHANGED )) && ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then
-  ask_the_mapping
-  if [[ -z "$SCOPES_ASKED" ]]; then
-    info "the branch changes nothing scripts/gate/scope_map.sh maps to a scope, so there is nothing to run"
-    exit 0
-  fi
-  for asked in $SCOPES_ASKED; do
-    case "$asked" in
-      scripts)  RUN_SCRIPTS=1 ;;
-      docs)     RUN_DOCS=1 ;;
-      backend)  RUN_BACKEND=1 ;;
-      format)   RUN_FORMAT=1 ;;
-      frontend) RUN_FRONTEND=1 ;;
-      ops)      RUN_OPS=1 ;;
-      db)       RUN_DB=1 ;;
-      images)   RUN_IMAGES=1 ;;
-      # Refused rather than skipped: a scope the mapping grows and this list does not would
-      # otherwise leave its surface unproven in silence.
-      *)        refuse "scripts/gate/scope_map.sh emits the scope '${asked}', which verify.sh has no flag for." ;;
-    esac
-  done
-fi
-
 if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# The implication `docs/ops/spec.md` §1.6 states, so the scope step never calls either scope
-# unproven. Never in a worker, which would run each twice.
+# The implication `docs/ops/spec.md` §1.6 states: the frontend scope owes the formatter and the unit
+# tests over the files it reads. Never in a worker, which would run each twice.
 if (( RUN_FRONTEND )) && ! worker; then
-  # Not on a runner, whose workflow runs each as a job of its own beside this one and no scope check.
-  # `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+  # Not on a runner, whose workflow runs each as a job of its own beside this one. `GITHUB_ACTIONS`
+  # rather than `CI`, which a developer's shell may export.
   if [[ -z "${GITHUB_ACTIONS:-}" ]]; then RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; fi
 fi
 
@@ -508,8 +471,7 @@ run_checker() {
     2) refuse "${label} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above." ;;
     130) on_interrupt ;;
-    # `skip` is right for the scope check below and wrong here: a named scope whose checker never
-    # ran has proved nothing.
+    # Never `skip`: a named scope whose checker never ran has proved nothing.
     *) on_error "$rc" "${BASH_LINENO[0]}" "$label" ;;
   esac
 }
@@ -660,13 +622,11 @@ unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy f
   esac
 }
 
-# --- scope -------------------------------------------------------------------------------------------
+# --- what the run covers -----------------------------------------------------------------------------
 
-# Before any scope runs: the same refusal after a `next build` has cost the minutes it exists to
-# save. Parent only — the parent asks for the whole run, and a worker asking again would put
-# another `scope` row in the table it replays into.
+# In no section: a line proving nothing would open one closing with no verdict, which `finish`
+# fails. Parent only — a worker would announce its own scope as the whole run.
 if ! worker; then
-  section scope
   info "this run covers: ${SCOPES_RAN% }"
 
   # Here, not where the pool would have started: by then the scopes are already running.
@@ -675,42 +635,11 @@ if ! worker; then
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
   fi
-
-  # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
-  # being typed: one job would fail for a scope another job is running. `GITHUB_ACTIONS` rather than
-  # `CI`, which a developer's shell may export.
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
-  elif (( RUN_CHANGED )); then
-    step "scope · the run is the branch's diff, mapped by scripts/gate/scope_map.sh"
-    ok "the scopes named cover the change"
-  else
-    step "scope · does this run cover what the branch changed?"
-    ask_the_mapping
-    UNRUN=""
-    for asked in $SCOPES_ASKED; do
-      if [[ " ${SCOPES_RAN} " != *" ${asked} "* ]]; then UNRUN+=" --${asked}"; fi
-    done
-    # The image build alone refuses a narrowed run, `.claude/CLAUDE.md` §7 **ci** keeping that
-    # refusal; every other scope left out is reported and left to the pull request's jobs.
-    if [[ " ${UNRUN} " == *" --images "* ]]; then
-      refuse "This run is not wide enough to merge on: the branch's diff asks for --images, which it
-leaves out. Re-run with:  ./scripts/gate/verify.sh --changed"
-    elif [[ -n "$UNRUN" ]]; then
-      ok "no file this branch changed refuses this run, and the diff also asks for${UNRUN}, which it
-leaves unproven"
-    else
-      ok "the scopes named cover the change"
-    fi
-  fi
 fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
 if (( PARALLEL )); then
-  # Closed before the pool, or the scope section's row reports the whole run's wall clock.
-  end_section
-
   # Never `FORCE_COLOR` or `NO_COLOR`: prettier, pnpm and eslint each read those as instructions.
   # Only here: a scope is replayed to the parent's terminal, where a step's capture is read back
   # by the same `quietly` the serial run uses.
@@ -761,9 +690,8 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # A later scope's own text, which rows count but never quote. A branch whose diff asks for the
-  # image build cannot re-run one scope alone (the scope step refuses it), so text left unread
-  # here costs a second full run.
+  # A later scope's own text, which rows count but never quote: left unread here, it costs a run of
+  # that scope to read.
 
   # Findings and a refusal both reach it, and the exit contract keeps those two apart
   # (`docs/ops/spec.md` §1.7), so the heading names neither.

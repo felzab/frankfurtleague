@@ -6,7 +6,6 @@ run against. Every case drives the real gate over a throwaway tree whose only to
 two-scope run costs a second rather than minutes.
 
 Invariants:
-  The fixture tree stays committed-clean: the scope check reads its own diff before a scope opens.
   A green run replays a tool's own output: `audit:prod`'s advisory is what puts it in both forms.
 """
 
@@ -23,7 +22,7 @@ from functools import cache
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, configure, copy_scripts, git, new_root, run_shell, write_shell
+from conftest import BASH, base_env, copy_scripts, new_root, run_shell, write_shell
 from test_gate_prerequisites import PAST_THE_GUARD
 
 # `--frontend` alone selects three scopes -- it implies `--format` and `--frontend-units` -- and
@@ -75,13 +74,10 @@ WHAT_IT_WROTE: Final = "the stub failed build"
 # cell is right-aligned.
 DURATION: Final = re.compile(r" +(?:\d+\.\d+s|\d+m \d{2}s|\d+s)")
 
-# A line `scripts/gate/verify.sh` prints in its scope section, whatever the scopes turn out to be.
-SCOPE_CHECK: Final = "scope · does this run cover what the branch changed?"
-
 
 @dataclass(frozen=True)
 class Fixture:
-    """A committed copy of `scripts/`, with the stubs that stand in for its tools."""
+    """A copy of `scripts/`, with the stubs that stand in for its tools."""
 
     verify: Path
     stubs: Path
@@ -96,11 +92,8 @@ def _fixture() -> Fixture:
     # `do_prettier` and every frontend body `cd` here before running their tool.
     (root / "fl_frontend").mkdir()
     # Empty: the gate's preflight refuses a frontend scope without it, and the stub reads nothing
-    # from it. Git tracks no empty directory, so the tree stays committed-clean.
+    # from it.
     (root / "fl_frontend" / "node_modules").mkdir()
-    configure(root, hooks=str(root / "hooks-none"))
-    git(root, "add", "-A")
-    git(root, "commit", "-m", "the gate, with nothing under it")
 
     stubs = new_root("fl-gate-stubs-")
     # The fixture has no virtualenv and no guaranteed `python3`: with no interpreter at the
@@ -137,9 +130,6 @@ def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = Fal
         environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
-    # Keeps the tree committed-clean: the scope check reads its diff, and a `__pycache__` an import
-    # leaves under `scripts/` is a change asking for a scope this run does not name.
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
     # and an interleaved append loses exactly the row that tells the two forms apart.
@@ -206,8 +196,7 @@ def test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte() -> N
 def test_a_developer_shell_exporting_ci_runs_the_local_gate() -> None:
     """Only `GITHUB_ACTIONS` names a runner, and many developer shells export `CI`.
 
-    A gate keyed on `CI` drops the implied scopes, the scope check and the pool locally and still
-    ends green.
+    A gate keyed on `CI` drops the implied scopes and the pool locally and still ends green.
     """
     bare, bare_started = _run(FLAGS)
     exported, exported_started = _run(FLAGS, ci=True)
@@ -217,7 +206,6 @@ def test_a_developer_shell_exporting_ci_runs_the_local_gate() -> None:
     assert any(PAST_THE_GUARD in line for line in bare.stdout.splitlines()), (
         f"the bare run announced no scopes, so nothing here compares them:\n{bare.stdout}"
     )
-    assert SCOPE_CHECK in exported.stdout, f"exporting CI skipped the scope check:\n{exported.stdout}"
     assert any(row.startswith("worker=1") for row in bare_started), "the bare run started no pool to compare"
     assert any(row.startswith("worker=1") for row in exported_started), "exporting CI turned the scope pool off"
     for stream, one, two in (("stdout", bare.stdout, exported.stdout), ("stderr", bare.stderr, exported.stderr)):

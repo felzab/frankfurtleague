@@ -2,17 +2,17 @@
 
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
-| Section                                                | Answers                                                                    |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order            |
-| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                               |
-| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one               |
-| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry              |
-| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and when a partial run is not enough |
-| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it                |
-| [2. Invariants](#2-invariants)                         | The properties that must hold                                              |
-| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                              |
-| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                            |
+| Section                                                | Answers                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order     |
+| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                        |
+| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one        |
+| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry       |
+| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and which run a push rests on |
+| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it         |
+| [2. Invariants](#2-invariants)                         | The properties that must hold                                       |
+| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                       |
+| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                     |
 
 ---
 
@@ -190,9 +190,9 @@ at anything under it from a body.
 ./scripts/gate/verify.sh
 ```
 
-A bare invocation runs everything; scope flags name surfaces and combine. The scope table, what each
-scope runs and what it needs, the `--serial` oracle that its ordering is measured against, the diff
-check that refuses an undersized scope and the CI job mapping are all in
+A bare invocation runs everything, and it is the run a push rests on; scope flags name surfaces and
+combine, for iterating. The scope table, what each scope runs and what it needs, the `--serial`
+oracle that its ordering is measured against and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
 > **Verify formatting with a gate run whose scope includes the formatter —
@@ -316,7 +316,6 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | I3  | Every pull request a person opens is opened as a draft          | convention; a draft cannot be merged                  |
 | I4  | Every commit on a branch carries a body                         | `scripts/checks/check_commits.py`                     |
 | I5  | No commit is signed as AI-generated                             | `scripts/checks/check_commits.py :: BANNED`           |
-| I6  | The gate's scope is checked against the diff before it runs     | `scripts/gate/verify.sh :: ask_the_mapping`           |
 | I7  | Required status checks are added by hand in the ruleset panel   | the ruleset                                           |
 | I8  | Every action is pinned to a full commit SHA                     | review of `.github/workflows/` and `.github/actions/` |
 | I9  | Every workflow a pull request starts triggers on `pull_request` | `.github/workflows/`                                  |

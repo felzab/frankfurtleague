@@ -1,8 +1,8 @@
 """SCRIPTS · the scope mapping's decisions: which scopes a path selects, and what a branch is read from.
 
-`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping, and `verify.sh --changed`
-runs exactly what it emits, so a wrong arm is a scope no run proves. Stdlib only, the type checker
-reading scripts/ with no environment.
+`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping, and a pull request's CI
+jobs run exactly what it emits, so a wrong arm is a scope no job proves. Stdlib only, the type
+checker reading scripts/ with no environment.
 """
 
 from __future__ import annotations
@@ -19,26 +19,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, REPO_ROOT, base_env, configure, copy_scripts, git, new_root, run_shell, write, write_shell
+from conftest import BASH, REPO_ROOT, configure, copy_scripts, git, new_root, run_shell, write, write_shell
 
 MAPPING: Final = REPO_ROOT / "scripts" / "gate" / "scope_map.sh"
 VERIFY: Final = REPO_ROOT / "scripts" / "gate" / "verify.sh"
 
-DOCKERFILE: Final = "fl_frontend/Dockerfile"
 CONFIG_TS: Final = "fl_frontend/src/core/config.ts"
 PYPROJECT: Final = "fl_backend/pyproject.toml"
 PYTHON_VERSION: Final = "fl_backend/.python-version"
-SAMPLE: Final = "fl_backend/app/sample.py"
-
-CORPUS: Final[dict[str, str]] = {
-    DOCKERFILE: "FROM node:26-slim\n",
-    CONFIG_TS: "export const total = 3;\n",
-    SAMPLE: "TOTAL = 3\n",
-    # `node_modules/` because the named runs below stand in an empty install, which would otherwise be
-    # an untracked change selecting the frontend scope.
-    ".gitignore": ".tmp-*/\n__pycache__/\nnode_modules/\n",
-    "docs/x.md": "# A page\n\nProse.\n",
-}
 
 
 def _mapped(paths: list[str]) -> dict[str, bool]:
@@ -57,137 +45,6 @@ def _mapped(paths: list[str]) -> dict[str, bool]:
 
 def _on(answered: dict[str, bool]) -> set[str]:
     return {name for name, selected in answered.items() if selected}
-
-
-# --- the listing a branch is read from -----------------------------------------------------------------
-
-
-@functools.cache
-def _branch_root() -> Path:
-    """A repository on `main` holding a copy of scripts/ and the corpus, committed and clean."""
-    root = new_root("scope-branch-")
-    copy_scripts(root / "scripts")
-    for rel, text in CORPUS.items():
-        write(root, rel, text)
-    configure(root, str(root / ".no-hooks"))
-    git(root, "add", "-A")
-    git(root, "commit", "--no-verify", "-m", "Corpus: a branch that changed nothing")
-    git(root, "checkout", "-q", "-b", "topic")
-    return root
-
-
-def _reset() -> Path:
-    """The corpus as committed, in the index and the working tree, with nothing left over.
-
-    Every case opens with this rather than closing with it: a case failing part way through would
-    otherwise hand its leftovers to the next.
-    """
-    root = _branch_root()
-    git(root, "reset", "-q", "HEAD", "--", ".")
-    git(root, "checkout", "-f", "HEAD", "--", ".")
-    git(root, "clean", "-fdq")
-    return root
-
-
-def _branch(root: Path) -> dict[str, bool]:
-    """`scope_map.sh --branch`, the mode `verify.sh --changed` runs, against the fixture's own diff."""
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    done = run_shell(BASH, root / "scripts" / "gate" / "scope_map.sh", "--branch", cwd=root)
-    assert done.returncode == 0, "scope_map.sh --branch refused the fixture: " + done.stderr
-    return {name: value == "true" for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
-
-
-def test_an_unchanged_branch_selects_no_scope() -> None:
-    """Without this every case below could pass for a listing that turns everything on."""
-    assert _on(_branch(_reset())) == set()
-
-
-def test_a_change_held_in_the_index_alone_is_seen() -> None:
-    """`git diff <base>` never reads the index, and the index is what `git commit` commits."""
-    root = _reset()
-    write(root, SAMPLE, "TOTAL = 4\n")
-    git(root, "add", "--", SAMPLE)
-    # --worktree alone: `git checkout HEAD -- <path>` would restore the index too and unstage it.
-    git(root, "restore", "--source=HEAD", "--worktree", "--", SAMPLE)
-    assert "backend" in _on(_branch(root))
-
-
-def test_an_untracked_file_is_seen() -> None:
-    """The gate runs before the commit, so a new module is part of the change before it is added."""
-    root = _reset()
-    write(root, "fl_frontend/src/fresh.ts", "export const fresh = 1;\n")
-    assert "frontend" in _on(_branch(root))
-
-
-def test_a_rename_keeps_the_scopes_its_source_path_selected() -> None:
-    """Rename detection prints the destination alone, and the image build would go with the old name."""
-    root = _reset()
-    git(root, "mv", DOCKERFILE, DOCKERFILE + ".old")
-    assert "images" in _on(_branch(root))
-
-
-def test_a_file_named_like_a_throwaway_directory_still_selects_a_scope() -> None:
-    """`.gitignore` skips `.tmp-*/`; a path the mapping skips selects nothing at all."""
-    root = _reset()
-    write(root, ".tmp-config.py", "SETTING = 1\n")
-    assert "images" in _on(_branch(root)), "an untracked .tmp- FILE asked for no scope"
-
-
-def test_a_throwaway_directory_is_still_skipped() -> None:
-    """The other half of that arm: a leftover from an interrupted run is litter, not a change."""
-    root = _reset()
-    write(root, ".tmp-gate/x.py", "X = 1\n")
-    assert _on(_branch(root)) == set()
-
-
-# --- a named run against the same mapping ------------------------------------------------------------
-
-# The one scope whose prerequisite is a directory's existence alone, so the fixture reaches the scope
-# step with an empty stand-in for the install.
-NAMED_SCOPE: Final = "--format"
-
-
-def _named_run(root: Path, flag: str = NAMED_SCOPE) -> subprocess.CompletedProcess[str]:
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    (root / "fl_frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
-    return run_shell(BASH, root / "scripts" / "gate" / "verify.sh", flag, env=base_env(), cwd=root)
-
-
-def test_the_changed_mode_runs_the_scopes_the_mapping_asks_for_and_no_other() -> None:
-    """A prettier configuration selects the format scope alone, so a run covering anything more took a scope unasked."""
-    root = _reset()
-    write(root, ".prettierrc.json", "{}\n")
-    done = _named_run(root, "--changed")
-    output = done.stdout + done.stderr
-    assert "this run covers: format\n" in output, output
-
-
-def test_the_changed_mode_on_a_branch_mapping_to_nothing_runs_nothing() -> None:
-    done = _named_run(_reset(), "--changed")
-    output = done.stdout + done.stderr
-    assert done.returncode == 0, output
-    assert "there is nothing to run" in output, output
-
-
-def test_a_named_run_leaving_out_the_image_build_the_diff_asks_for_is_refused() -> None:
-    """The one hard refusal, which `.claude/CLAUDE.md` §7 **ci** keeps: exit 2, before any scope runs."""
-    root = _reset()
-    write(root, DOCKERFILE, "FROM node:26\n")
-    done = _named_run(root)
-    output = done.stdout + done.stderr
-    assert done.returncode == 2, output
-    assert "the branch's diff asks for --images" in output, output
-
-
-def test_a_named_run_leaving_out_another_scope_is_reported_rather_than_refused() -> None:
-    """The other direction, so a refusal of every narrowed run fails here rather than passing the case above."""
-    root = _reset()
-    write(root, "docs/x.md", "# A page\n\nOther prose.\n")
-    done = _named_run(root)
-    output = done.stdout + done.stderr
-    # Whitespace folded: the gate wraps a long verdict onto an indented second line.
-    assert "the diff also asks for --docs, which it leaves unproven" in " ".join(output.split()), output
-    assert "asks for --images" not in output, output
 
 
 # --- the mapping itself --------------------------------------------------------------------------------
@@ -268,8 +125,8 @@ def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
 def test_a_module_the_other_package_reads_selects_that_package_s_scopes() -> None:
     """A set comparison rather than a `SELECTED` row, whose scopes are read as a subset.
 
-    An arm widened to `images` would refuse every later run naming no image build; one below its
-    own package's arm is shadowed.
+    An arm widened to `images` would build both images for every pull request touching it; one
+    below its own package's arm is shadowed.
     """
     read_by_a_frontend_suite = {"backend", "db", "frontend", "docs"}
     for path, expected in (
@@ -303,21 +160,20 @@ def test_the_base_ref_mode_reads_a_rename_by_both_of_its_paths() -> None:
     `config.ts` selects the image build and `settings.ts` does not, so without `--no-renames` the
     recipe moves and CI proves nothing about it.
     """
-    root = _reset()
+    root = new_root("scope-base-ref-")
+    copy_scripts(root / "scripts")
+    write(root, CONFIG_TS, "export const total = 3;\n")
+    configure(root, str(root / ".no-hooks"))
+    git(root, "add", "-A")
+    git(root, "commit", "--no-verify", "-m", "Frontend: the environment module")
     git(root, "mv", CONFIG_TS, "fl_frontend/src/core/settings.ts")
     git(root, "commit", "--no-verify", "-m", "Frontend: the environment module is renamed")
-    try:
-        answered = _mapping_for_base(root, "HEAD~1")
-    finally:
-        # The commit alone comes off; the rename stays in the tree for `_reset` to clear, so no
-        # case below is measured against a corpus this one moved.
-        git(root, "reset", "--soft", "HEAD~1")
-        _reset()
+    answered = _mapping_for_base(root, "HEAD~1")
     assert answered.get("images"), "a renamed image path asked for no image build: " + repr(answered)
 
 
 def test_the_two_lists_of_scope_names_agree() -> None:
-    """A scope the mapping emits and verify.sh declares no flag for is one `--changed` refuses mid-run."""
+    """A scope the mapping emits and verify.sh declares no flag for is a CI job with nothing to run."""
     declared = set(re.findall(r"^add_scope\s+([a-z]+)", VERIFY.read_text(encoding="utf-8"), flags=re.MULTILINE))
     assert declared, "no add_scope line was read out of scripts/gate/verify.sh: that reader went inert"
     assert set(_mapped([])) == declared

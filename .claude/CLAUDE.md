@@ -77,7 +77,8 @@ owner's.
 
 ### The gate
 
-Before pushing, run `./scripts/gate/verify.sh --changed`; never choose the scope by hand.
+Before every push, run `./scripts/gate/verify.sh` with no flags, which runs every scope; a run
+naming its scopes is for iterating, and no push rests on one.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never
@@ -214,7 +215,7 @@ only in a session started after it.
 
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
-- **ci** — Let anything but `scripts/gate/scope_map.sh`'s path mapping shrink a CI job; suppress the images refusal
+- **ci** — Let anything but `scripts/gate/scope_map.sh`'s path mapping shrink a CI job; run a push to `main` on fewer than every scope
 - **format** — Let the gate write a formatted file; commit a partly-staged file's unstaged half; stash, hide or reset the working tree to format a commit
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`

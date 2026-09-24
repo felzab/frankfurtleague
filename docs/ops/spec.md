@@ -418,9 +418,8 @@ prints nothing compose itself said: the filter in §1.7 reaches a container's lo
 error quotes the line it could not read.
 
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
-maps paths reads it, and so does `scripts/gate/verify.sh` through its `--branch` mode; every other
-statement of which paths select which scope — the packaging list included — cites that file rather
-than repeating it.
+maps paths reads it; every other statement of which paths select which scope — the packaging list
+included — cites that file rather than repeating it.
 
 **The checkers are python, and one kernel is what makes their answers comparable** —
 `scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
@@ -506,9 +505,9 @@ adopted — and, where that later scope failed or was refused itself, its own ca
 after those rows under a heading naming it
 (`scripts/gate/verify.sh :: LATER_VERDICT_HEADING`). The closing table then tells a passing scope
 from one that never ran, a session fixing the failure knows what it need not pay for again, and a
-second failure's own words are on screen rather than behind another full run:
-the scope step names every scope a partial re-run leaves out, and refuses one leaving out an image
-build the branch's diff asks for, so none passes for the whole run.
+second failure's own words are on screen rather than behind another run. A re-run naming its scopes
+is for iterating, and its ending withholds "Safe to merge." (`scripts/gate/verify.sh :: wrap_up`),
+so none passes for the whole run.
 Byte-identity with the serial run holds wherever both forms ran the same work — every green run, and
 a failing one whose failure is in the last unit either form would reach, a failure earlier than that
 stopping the serial run where the parallel one carried on — and `--serial` is what that comparison is
@@ -702,14 +701,10 @@ frontend scope resolves the lockfile against `package.json` and the backend scop
 `uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
 expensive.
 
-**`--changed` runs exactly the scopes `scripts/gate/scope_map.sh` maps the branch to in its
-`--branch` mode** — the commits, the index, the working tree and the untracked files against the
-merge base with `origin/main` — so a local run and the pull request's jobs agree by construction.
-**A run naming its scopes is compared against that same mapping before any of them runs**: it is
-refused where the diff asks for the image build and the run leaves it out, and every other scope it
-leaves out is reported (`scripts/gate/verify.sh :: ask_the_mapping`). Any edit to a path an arm maps
-asks for that arm's scopes, a comment included. The step is skipped in CI, which maps its own scopes
-from the paths.
+**Nothing local reads the diff**, so only the bare run is sure to cover a change, and it is the run a
+push rests on ([`docs/_git/spec.md`](../_git/spec.md) §1.5). The mapping is CI's, choosing each pull
+request's jobs from its paths, where any edit to a path an arm maps asks for that arm's scopes, a
+comment included.
 
 **The scripts scope lints and type-checks its own python**, through configs that sit at the top of
 `scripts/` rather than at the repository root or inside one of its five directories: a root config
@@ -886,9 +881,9 @@ before pytest, so the download is attributed in the log rather than hidden insid
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.
 
-`--quick` is every scope that needs no Docker, and is **not sufficient** before a merge touching a
-packaging path: `scripts/gate/scope_map.sh` holds the list, and CI builds both images on any pull
-request touching one.
+`--quick` is every scope that needs no Docker, a run for iterating like any named one: it builds no
+image, and CI builds both on any pull request touching a packaging path `scripts/gate/scope_map.sh`
+lists.
 
 ### 1.7 Script conventions
 

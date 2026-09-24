@@ -425,7 +425,7 @@ def _shell_constant(name: str) -> tuple[str, str]:
 
 
 def test_a_later_failing_scope_is_replayed_after_the_first_failures_own_output() -> None:
-    """Rows count a later verdict without quoting it, and no partial re-run reaches the text.
+    """Rows count a later verdict without quoting it, and its text is otherwise another run away.
 
     The scope that passed is the twin: an arm replaying every later one would head a green scope too.
     """
