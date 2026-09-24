@@ -536,8 +536,10 @@ const SOURCE_BANS = [
     message: "`font-numeric` and `tabular-nums` go together: the page face has no tabular figures.",
   })),
   {
-    selector: inLiteral(String.raw`(?<![a-z-])\d+vh\b|\bvh-screen\b`),
-    message: "Size a viewport box in dvh: vh is the chrome-hidden height and overshoots on a phone.",
+    // Tailwind's `screen` height is 100vh, and lvh is by definition the chrome-hidden height; svh and
+    // dvh stay free.
+    selector: inLiteral(String.raw`(?<![a-z-])\d+l?vh\b|\bvh-screen\b|${TOKEN_START}(?:(?:min-|max-)?h-screen|[a-z-]+-lvh)${TOKEN_END}`),
+    message: "Size a viewport box in dvh: vh and lvh, `h-screen`'s included, are the chrome-hidden height and overshoot on a phone.",
   },
   {
     selector:

@@ -23,6 +23,7 @@ export const OVERRIDDEN_GRADE = "fluid-sm text-foreground-muted font-medium lead
 export const LOADER_HALO = "bg-brand/20 absolute size-16 animate-ping rounded-full";
 export const HOVER_FILL = "bg-brand-solid-hover size-10 rounded-xl";
 export const DYNAMIC_HEIGHT = "h-[100dvh]";
+export const VIEWPORT_UNITS = "w-screen h-dvh min-h-svh max-h-dvh size-svh min-h-[100svh]";
 export const HOVER_TOKEN = "hover:bg-hover data-hovered:text-brand";
 export const NEUTRAL_OUTSIDE_A_PILL = "bg-muted text-foreground-muted";
 export const CONFIRMATION = "/bestaetigung/kontakt/token";
