@@ -7,7 +7,7 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
 from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
@@ -35,6 +35,7 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
+from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import trace_id_var
 from tests import documents
@@ -730,6 +731,30 @@ class TestAFailedDrawLeavesNothingBehind:
         # Dropped however the draw ended: from here a refusal and a commit whose answer was lost look
         # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
         assert aborted.cached is None
+
+
+# Planted beside the shipped indexes: two matchdays of one phase share this key, so the draw's own
+# batch collides with itself, which no seed can make the shipped indexes do.
+PLANTED_INDEX = "planted_one_matchday_per_phase"
+
+
+class TestADrawAUniqueIndexRefusesIsTheDuplicateKey:
+    def test_the_draw_raises_the_refusal_one_insert_would_and_leaves_nothing(self, mongo_replica_set_url: str):
+        """Against a real batch report inside the draw's transaction, which is where the report's shape is the server's rather than a copy."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELTAGE].create_index([("saison_id", 1), ("saison_phase", 1)], unique=True, name=PLANTED_INDEX)
+
+            with pytest.raises(DuplicateKeyError) as refused:
+                await call_draw(database, client)
+
+            return refused_index_of(refused.value), await counts_now(database), await database[Collection.AKTIONEN].count_documents({})
+
+        index, counts, log = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert index == PLANTED_INDEX
+        assert counts == (0, 0)
+        assert log == 0
 
 
 class TestTheActionLogRecordsOneRowPerCollection:

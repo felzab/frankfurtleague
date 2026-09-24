@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import pytest
@@ -9,10 +9,12 @@ from bson import ObjectId
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
 
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort, literal_pattern, patch_one_in_db, pull_one_from_db
+from app.core.crud import DUPLICATE_KEY_ERROR, build_query, build_sort, literal_pattern, patch_one_in_db, post_many_to_db, pull_one_from_db
+from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
 
@@ -226,3 +228,86 @@ class TestPullOneFromDb:
         assert excinfo.value.status_code == 404
         assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
         assert excinfo.value.filter == FILTER
+
+
+def refused_batch(error: Mapping[str, Any], *, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
+    """The server's report of a batch refused on its third document, the first two having landed."""
+
+    return BulkWriteError(
+        {
+            "writeErrors": [error],
+            "writeConcernErrors": list(write_concern),
+            "nInserted": 2,
+            "nUpserted": 0,
+            "nMatched": 0,
+            "nModified": 0,
+            "nRemoved": 0,
+            "upserted": [],
+        }
+    )
+
+
+REFUSED_INDEX = "uniq_shorthand"
+DUPLICATE_ERROR: Mapping[str, Any] = {
+    "index": 2,
+    "code": DUPLICATE_KEY_ERROR,
+    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "C2" }}',
+    "keyPattern": {"shorthand": 1},
+    "keyValue": {"shorthand": "C2"},
+    "op": {"name": "Club 2", "shorthand": "C2"},
+}
+VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
+WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
+
+
+class _RefusedBatchCollection:
+    """Refuses every batch with `failure`, and keeps the log rows a write appends."""
+
+    def __init__(self, failure: BulkWriteError) -> None:
+        self.failure = failure
+        self.recorded: list[Mapping[str, Any]] = []
+        self.name = Collection.TEAMS
+        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded)}
+
+    async def insert_many(self, *, documents: Any, session: Any) -> None:
+        raise self.failure
+
+
+def batch_raised(failure: BulkWriteError) -> tuple[BaseException, list[Mapping[str, Any]]]:
+    stub = _RefusedBatchCollection(failure)
+
+    with pytest.raises((BulkWriteError, DuplicateKeyError)) as raised:
+        asyncio.run(post_many_to_db(collection=cast(AsyncCollection, stub), documents=[{"name": "Club 0"}]))
+
+    return raised.value, stub.recorded
+
+
+class TestPostManyToDb:
+    def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self):
+        """`DuplicateKeyError`, which the handler answers 409 `DB-COMMON-002`, still naming the index it logs."""
+
+        failure = refused_batch(DUPLICATE_ERROR)
+        raised, _ = batch_raised(failure)
+
+        assert isinstance(raised, DuplicateKeyError)
+        assert refused_index_of(raised) == REFUSED_INDEX
+        assert raised.__cause__ is failure
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            pytest.param(refused_batch(VALIDATION_ERROR), id="a validator's refusal"),
+            pytest.param(refused_batch(DUPLICATE_ERROR, write_concern=[WRITE_CONCERN_ERROR]), id="a duplicate beside a write-concern error"),
+        ],
+    )
+    def test_any_other_failure_stays_the_batchs_own(self, failure: BulkWriteError):
+        raised, _ = batch_raised(failure)
+
+        assert raised is failure
+
+    def test_what_landed_before_the_refusal_is_still_recorded(self):
+        """Outside a session nothing takes the first two back, so the refusal raised in their place must not cost their row."""
+
+        _, recorded = batch_raised(refused_batch(DUPLICATE_ERROR))
+
+        assert [(row["operation"], row["modified_count"]) for row in recorded] == [("insert_many", 2)]

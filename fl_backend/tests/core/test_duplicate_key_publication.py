@@ -69,11 +69,8 @@ DRIVER_WRITES = frozenset(
     }
 )
 
-# Any insert or update except a batch's: `insert_many` and `bulk_write` report a duplicate as
-# `BulkWriteError`, which is no `DuplicateKeyError`, so the draw answers it 500 `DB-FAIL-001`
-# (`fl_backend/tests/api/test_error_responses.py :: test_a_bulk_writes_refused_document_never_reaches_the_line`).
 BULK_INSERT = "post_many_to_db"
-KEY_WRITES = (WRITE_HELPERS - {BULK_INSERT}) | {
+KEY_WRITES = WRITE_HELPERS | {
     "find_one_and_replace",
     "find_one_and_update",
     "insert_one",
@@ -354,12 +351,13 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
     assert sorted(made - reached) == [], "writes no route's trace reaches, so a route making them publishes nothing about their unique indexes"
 
 
-def test_the_bulk_insert_is_traced_and_left_out():
-    """The draw's bulk insert reaches unique indexes and answers `DB-FAIL-001`, so a trace counting it would publish the code there."""
+def test_the_draws_bulk_inserts_reach_a_unique_index_on_their_own():
+    """Without the watermark's write, which reaches `saisons`' index and would declare the draw's 409 whether or not a batch counts."""
 
-    bulk = [write for _, writes in _write_operations().values() for write in writes if write.helper == BULK_INSERT]
+    _, writes = _write_operations()[f"POST /api/v{API_VERSION}/saisons/{{saison_id}}/spielplan"]
+    bulk = tuple(write for write in writes if write.helper == BULK_INSERT)
 
-    assert any(UNIQUE_COLLECTIONS.intersection(write.collections) for write in bulk)
+    assert bulk and _reaches_a_unique_index(bulk)
 
 
 def test_an_insert_naming_its_own_id_reaches_the_id_index():

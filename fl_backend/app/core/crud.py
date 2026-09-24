@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import BulkWriteError
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
@@ -176,6 +176,9 @@ async def post_many_to_db(
         landed = int((failure.details or {}).get("nInserted", 0))
         if session is None and landed:
             await record_write(collection=collection, operation="insert_many", modified_count=landed)
+
+        if (refusal := _duplicate_key_of(failure)) is not None:
+            raise refusal from failure
         raise
 
     # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
@@ -183,6 +186,28 @@ async def post_many_to_db(
     await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
 
     return result
+
+
+# The server's code for a unique index's refusal: the driver exports no name for it and compares the number itself.
+DUPLICATE_KEY_ERROR = 11000
+
+
+def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
+    """So a batch answers 409 `DB-COMMON-002` as every other write does, a single insert's refusal being this error.
+
+    A write-concern error beside the refusals keeps the batch's own failure, which then says more than a refusal would.
+    """
+
+    report = failure.details or {}
+    errors = report.get("writeErrors") or []
+    if not errors or report.get("writeConcernErrors") or any(error.get("code") != DUPLICATE_KEY_ERROR for error in errors):
+        return None
+
+    # Built as the driver builds a single write's, so the handler finds the index name in `errmsg`
+    # where it looks for one.
+    first = errors[0]
+
+    return DuplicateKeyError(first.get("errmsg", ""), DUPLICATE_KEY_ERROR, first)
 
 
 async def delete_many_from_db(
