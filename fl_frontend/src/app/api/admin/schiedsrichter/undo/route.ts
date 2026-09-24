@@ -10,11 +10,16 @@ import type { NextRequest } from "next/server";
 /** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
 const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-SCHIEDSRICHTER-007":
-    "Die Änderung steht weiterhin. Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr " +
-    "einen neuen Bestätigungslink schicken.",
-  // The shared reader's sentence, opened like every row here with what became of the change.
-  "DB-COMMON-002": "Die Änderung steht weiterhin. Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
+    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
+  // The unique index's refusal in the shared reader's own sentence, which alone says nothing of the change.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt.",
 };
+
+/**
+ * The second half of every refusal above, after the cause as on every other undo route: a cause alone
+ * leaves the admin unsure what the referee's row now holds.
+ */
+const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -28,7 +33,7 @@ export async function POST(request: NextRequest) {
         const refusal = replayRefusal(error, REPLAY_REFUSALS);
         if (refusal === undefined) throw error;
 
-        return { refusal };
+        return { refusal: `${refusal} ${CHANGE_STANDS}` };
       }
 
       if (!operation.acknowledged) {

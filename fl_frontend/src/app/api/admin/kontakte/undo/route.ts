@@ -9,6 +9,9 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-KONTAKT-001":
     "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, meistens durch das Löschen einer Kontaktperson. " +
     "Die Rücknahme wurde nicht ausgeführt, damit die gelöschten Angaben nicht wieder eingetragen werden.",
+  // The shared reader's sentence, then the outcome as on every undo route. Spelled in this row rather
+  // than appended to each: the row above already says the undo did not run.
+  "DB-COMMON-002": "Der Eintrag steht im Konflikt mit einem, den es schon gibt. Die Änderung steht weiterhin.",
 };
 
 export async function POST(request: NextRequest) {

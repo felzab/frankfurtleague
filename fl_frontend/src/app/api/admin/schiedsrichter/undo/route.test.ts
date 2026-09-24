@@ -169,7 +169,7 @@ describe("the referee save's undo", () => {
 
   /* Three sites per refusal: a code the route's table leaves unmapped falls through to the shared 409
      sentence about an equivalent entry, which says nothing of what became of the change. */
-  it("words every refusal the replayed endpoint publishes", async () => {
+  it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     for (const code of publishedRefusals(REPLAY_OPERATION)) {
       recorders.__flUndoRefAnswer = () => {
         throw aRefusal(code);
@@ -177,7 +177,9 @@ describe("the referee save's undo", () => {
 
       const answer = await bodyOf(aRequest(BODY));
 
-      assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, `${code} reaches the admin as an unhandled conflict`);
+      assert.equal(answer.success, false, `${code} resolved as a restore`);
+      assert.match(answer.error ?? "", /\S\. Die Änderung steht weiterhin\.$/, `${code} reaches the admin as an unhandled conflict`);
+      assert.equal(answer.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
     }
   });
 
@@ -190,12 +192,12 @@ describe("the referee save's undo", () => {
       const answer = await bodyOf(aRequest(BODY));
 
       assert.equal(answer.success, false);
-      assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, `${code} leaves the admin guessing what the row now holds`);
+      assert.match(answer.error ?? "", /\S\. Die Änderung steht weiterhin\.$/, `${code} leaves the admin guessing what the row now holds`);
       assert.match(answer.error ?? "", fragment);
     });
   }
 
-  /* The unique index's refusal keeps the shared reader's own sentence, opened with the outcome as every
+  /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
      row here is: two spellings of one sentence, held together. */
   it("words the duplicate key as the shared reader does, saying the change stands", async () => {
     recorders.__flUndoRefAnswer = () => {
@@ -204,7 +206,7 @@ describe("the referee save's undo", () => {
 
     const answer = await bodyOf(aRequest(BODY));
 
-    assert.equal(answer.error, `Die Änderung steht weiterhin. ${String(toActionErrorResult(aRefusal(DUPLICATE_KEY)).error)}`);
+    assert.equal(answer.error, `${String(toActionErrorResult(aRefusal(DUPLICATE_KEY)).error)} Die Änderung steht weiterhin.`);
   });
 
   it("says the change stands where the replay committed nothing", async () => {

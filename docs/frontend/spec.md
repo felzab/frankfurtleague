@@ -308,7 +308,7 @@ admin role answers 403 and leaves for `/`. The dispatch reads both ahead of that
 change still stands before leaving, a new sign-in landing on `/admin` rather than back on the change;
 the 403 counts only where it carries the route's envelope, an edge challenge answering 403 in markup.
 
-**Seven of the eight undo replays can be refused on the way back**, and each answers in German out of
+**Every undo replay can be refused on the way back**, and each answers in German out of
 its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
 standing only where the replay is one write**: a replay that commits in parts words the half that
