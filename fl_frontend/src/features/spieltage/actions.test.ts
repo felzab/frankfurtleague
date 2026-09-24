@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
@@ -27,7 +27,6 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm");
 
-const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieltage", "undo", "route.ts"), "utf8");
 const EDIT_FORM = readFileSync(path.resolve(EDITOR_DIR, "AdminSpieltagEditForm.tsx"), "utf8");
 /** The span validator the pickers feed, which is the backend's and not the Zod mirror's. */
 const BACKEND_CUSTOM_SCHEMAS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "custom.py"), "utf8");
@@ -66,41 +65,18 @@ function spanWarningBody(): string {
   return banners.find((banner) => banner.id === "spieltag.zeitraum-changed")?.body ?? "";
 }
 
-/** One row of the undo route's replay table, which is a literal keyed by code. */
-function replayRow(code: string): string {
-  return new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-}
-
 describe("the Spieltag refusals against the codes the matchday PATCH publishes", () => {
   it("publishes the ordering rule on the matchday PATCH", () => {
     assert.ok(publishedRefusals(PATCH_OPERATION).includes(ORDERING_CODE), `${ORDERING_CODE} is no longer the ordering rule's code`);
   });
 
-  /* Hoisted rather than spelled per row: a row keeping its own copy would reach the admin twice in
-     the toast the route joins the two into. */
-  it("adds the outcome sentence once, outside the rows", () => {
-    assert.ok(
-      UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'),
-      "the replay no longer tells the admin what became of the change",
-    );
-    assert.ok(UNDO_ROUTE.includes("`${refusal} ${CHANGE_STANDS}`"), "a refused replay answers the cause with no outcome beside it");
-  });
-
   for (const code of publishedRefusals(PATCH_OPERATION)) {
-    it(`${code} reaches the admin in German on both write paths`, () => {
+    it(`${code} reaches the admin in German when the edit is saved`, () => {
       assert.notEqual(
         answerShown(PATCH_OPERATION, code, mapSpieltagRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
-      // The shared reader's own sentence, which the replay reaches as the save does.
-      if (code === DUPLICATE_KEY) return;
-
-      const row = replayRow(code);
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 
@@ -121,7 +97,6 @@ describe("the German the ordering refusal renders", () => {
      all three share, and one wording keeps it so. */
   it("claims the ordering itself rather than the direction one admin happened to meet", () => {
     assert.match(refusalMessage(ORDERING_CODE), /in die Reihenfolge der Spieltage seiner Phase passen/);
-    assert.match(replayRow(ORDERING_CODE), /in die Reihenfolge der Spieltage seiner Phase/);
     assert.match(spanWarningBody(), /in die Reihenfolge der Spieltage seiner Phase passen/);
   });
 
@@ -130,7 +105,6 @@ describe("the German the ordering refusal renders", () => {
      "Noch kein Zeitraum", which states nothing they can act on. */
   it("keeps the admin off the undated matchdays the endpoint steps over", () => {
     assert.match(refusalMessage(ORDERING_CODE), /schon einen Zeitraum haben/);
-    assert.match(replayRow(ORDERING_CODE), /schon einen Zeitraum haben/);
     assert.match(spanWarningBody(), /schon einen Zeitraum haben/);
   });
 

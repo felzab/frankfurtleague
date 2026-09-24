@@ -134,6 +134,9 @@ describe("the undo route's replay refusals against the endpoint it replays", () 
         `${code} leaves the admin guessing what the fixtures now hold`,
       );
       assert.equal(answered.error?.split("Die Änderung steht weiterhin.").length, 2, `${code} states the outcome twice`);
+      // One replay carries several fixtures, so an answer pointing at one of them is wrong on the rest;
+      // case-insensitive for the capital a sentence opens with.
+      assert.doesNotMatch(answered.error ?? "", /\b(?:dieses|diesem|das)\s+Spiels?\b/i, `${code} points at a single fixture`);
     }
   });
 

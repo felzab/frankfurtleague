@@ -733,14 +733,9 @@ describe("REQ-SQUAD-003 before the press", () => {
   });
 });
 
-describe("the squad edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieler", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  /* `PATCH /spieler/{spieler_id}` is a prefix of it and refuses on no rule, which is why the route
-     catches nothing around the person half. */
+describe("the squad edit's refusals", () => {
+  /* `PATCH /spieler/{spieler_id}` is a prefix of it and refuses on no rule, which is why the undo
+     route catches nothing around the person half. */
   it("reads the squad patch's own rules", () => {
     assert.deepEqual(
       publishedRefusals(SQUAD_PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
@@ -748,32 +743,13 @@ describe("the squad edit's refusals when the undo replays it", () => {
     );
   });
 
-  /* Two outcomes and not one: the person half goes back before the squad row is replayed, so a
-     refusal after it may not tell the admin the change stands whole. */
-  it("carries both outcome sentences, outside the rows", () => {
-    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(
-      UNDO_ROUTE.includes('const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";'),
-      "the half-restore outcome is gone",
-    );
-    assert.ok(UNDO_ROUTE.includes("person === undefined ? CHANGE_STANDS : PERSON_HALF_RESTORED"), "one outcome now answers both halves");
-  });
-
   for (const code of publishedRefusals(SQUAD_PATCH_OPERATION)) {
-    it(`${code} reaches the admin in German on both write paths`, () => {
+    it(`${code} reaches the admin in German when the edit is saved`, () => {
       assert.notEqual(
         answerShown(SQUAD_PATCH_OPERATION, code, mapSquadRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
-      // The shared reader's own sentence, which the replay reaches as the save does.
-      if (code === DUPLICATE_KEY) return;
-
-      const row = replayRow(code);
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 });

@@ -57,6 +57,17 @@ describe("the matchday save's undo", () => {
     }
   });
 
+  /* One code carries the refusal on either side of this matchday, so the replay claims the ordering
+     among the dated matchdays as the save and its warning do (`fl_frontend/src/features/spieltage/actions.test.ts`). */
+  it("words the ordering refusal as the ordering among the dated matchdays", async () => {
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-DATE-008")));
+
+    const answer = await undo(BODY);
+
+    assert.match(answer.error ?? "", /in die Reihenfolge der Spieltage seiner Phase/);
+    assert.match(answer.error ?? "", /schon einen Zeitraum haben/);
+  });
+
   /* The unique index's refusal keeps the shared reader's own sentence, followed by the outcome as every
      row here is: two spellings of one sentence, held together. */
   it("words the duplicate key as the shared reader does, saying the change stands", async () => {

@@ -204,9 +204,6 @@ const seatCards = (html: string): { header: string; body: string }[] => {
     });
 };
 
-/* What is asserted of the undo is which site carries a step — where the payload is judged, which
-   mutation restores it — and a call reports an outcome rather than the site. */
-const UNDO_ROUTE = readFileSync(path.resolve(SRC, "app", "api", "admin", "kontakte", "undo", "route.ts"), "utf8");
 /** The shared dispatch the editor rides, whose own copy is `undoDispatch.test.ts`'s to hold. */
 const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch.ts"), "utf8");
 /** The shared way out the editor rides. The cases below are where its shape is held, for all eight editors. */
@@ -265,10 +262,10 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     assert.notEqual(PAGE_CONTENT, "", "the page's data component is no longer where the cut looks for it");
   });
 
-  /* The two are worded apart: the save's sentence sends the admin to a form the undo toast has not
-     got. A code either path leaves unmapped falls through to the shared 409 fallback, which reports
-     a duplicate entry. */
-  it("words the one refusal its endpoint publishes, at the save and at the undo", () => {
+  /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
+     (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
+     falls through to the shared 409 fallback, which reports a duplicate entry. */
+  it("words the one refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 
     assert.deepEqual(
@@ -280,7 +277,6 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     }
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
     assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
-    assert.ok(UNDO_ROUTE.includes(`"${STALE_BLOCK}":`), "the undo route leaves its replay's refusal to the 409 fallback");
   });
 
   /* The house shape, in order: the session first, because `runAdminMutation` seeds the scope the
@@ -560,17 +556,6 @@ describe("the editor's shape", () => {
     // the whole of why the eight undos are route handlers at all.
     assert.match(DISPATCH, /await fetch\(endpoint, \{/, "the shared dispatch no longer posts over fetch");
     assert.ok(!DISPATCH.includes('"use server"'), "the undo went back to a server action while E592 still reproduces");
-  });
-
-  /* The eighth handler, on the spine the others share, replaying the save's own mutation rather than
-     a second write path. It clears nothing: no cached read holds a contact person. */
-  it("stands the undo on the shared spine and clears no cached read", () => {
-    assert.match(UNDO_ROUTE, /handleUndoRequest\(request, \{/, "the route no longer runs on the shared undo spine");
-    assert.match(UNDO_ROUTE, /schema: FLPatchSaisonTeamKontaktePayloadSchema,/, "the route parses something other than the save's payload");
-    assert.match(UNDO_ROUTE, /await patchSaisonTeamKontakte\(payload\)/, "the restore calls something other than the save's own mutation");
-    assert.ok(!UNDO_ROUTE.includes("revalidateTag"), "the undo clears a cached read its endpoint does not move");
-    assert.match(UNDO_ROUTE, /invalidate: \(\) => undefined,/, "the undo grew an invalidation");
-    assert.match(UNDO_ROUTE, /Nothing to clear/, "the absent invalidation is left unexplained");
   });
 
   /* The STORED block and both ids, which is the payload's restorable half — so the restore is the

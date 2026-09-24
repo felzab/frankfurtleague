@@ -272,14 +272,9 @@ describe("the German each replacement refusal renders", () => {
   });
 });
 
-describe("the junction edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "teams", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule, which is why the
-     route catches nothing around it: its duplicate shorthand is the shared reader's sentence. */
+describe("the junction edit's refusals", () => {
+  /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule: its one refusal,
+     the duplicate shorthand, the undo route words with the junction's table. */
   it("reads the junction patch's own rules, and none on the club patch", () => {
     assert.deepEqual(
       publishedRefusals(JUNCTION_OPERATION).filter((code) => code !== DUPLICATE_KEY),
@@ -290,17 +285,6 @@ describe("the junction edit's refusals when the undo replays it", () => {
       [],
       "the club patch now publishes a rule the replay does not answer",
     );
-  });
-
-  /* Two outcomes and not one: the club half goes back before the junction is replayed, so a refusal
-     after it may not tell the admin the change stands whole. */
-  it("carries both outcome sentences, outside the rows", () => {
-    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(
-      UNDO_ROUTE.includes('const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";'),
-      "the half-restore outcome is gone",
-    );
-    assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
   });
 
   it("answers every refusal the junction patch publishes with the entry's mapper", async () => {
@@ -314,20 +298,12 @@ describe("the junction edit's refusals when the undo replays it", () => {
   });
 
   for (const code of publishedRefusals(JUNCTION_OPERATION)) {
-    it(`${code} reaches the admin in German on both write paths`, () => {
+    it(`${code} reaches the admin in German when the edit is saved`, () => {
       assert.notEqual(
         answerShown(JUNCTION_OPERATION, code, mapEntryRefusal),
         null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
-      // The shared reader's own sentence, which the replay reaches as the save does.
-      if (code === DUPLICATE_KEY) return;
-
-      const row = replayRow(code);
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 });
