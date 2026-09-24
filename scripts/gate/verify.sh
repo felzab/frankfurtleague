@@ -1032,7 +1032,8 @@ if (( RUN_FRONTEND )); then
 what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
       *ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION*)
-        # `refuse`, not `die`: pnpm stopped before comparing, and time alone clears it.
+        # `refuse`, not `die`: pnpm stopped before comparing, so the step declined to judge the
+        # lockfile (`docs/ops/spec.md` §1.7's `refused`).
         refuse "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
 them above, with its own remedy, and the manifest was never compared.
 Each passes unchanged once it is old enough." ;;
@@ -1361,7 +1362,8 @@ if (( RUN_IMAGES )); then
   # unable to export a cache. The export runs after every layer, so an unauthenticated backend
   # costs the whole build before naming what is missing.
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" && -z "${ACTIONS_RUNTIME_TOKEN:-}" ]]; then
-    # `refuse`, not `die`: a job missing a step is nothing the change could be fixed to answer for.
+    # `refuse`, not `die`: the scope stops before building, so it declined to judge the images
+    # (`docs/ops/spec.md` §1.7's `refused`).
     refuse "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
 cannot authenticate and buildx would fail the cache export after building everything.
 The credential comes from .github/actions/actions-runtime-env, which must run before

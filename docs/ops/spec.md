@@ -793,7 +793,7 @@ module and every path under one is spared — which is why a change anywhere in 
 still reach a backend assertion no arm carries.
 
 **In CI the images scope caches layers through the Actions cache service**
-(`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the
+(`VERIFY_IMAGES_CACHE=gha`), and **refuses at 2 before building where the variable is set and the
 credential `.github/actions/actions-runtime-env` re-exports is missing** — buildx would fail too,
 but only after every layer has been built, naming a missing token rather than the missing step.
 Locally the variable is unset and the build runs against the daemon's own cache. **The export is a
