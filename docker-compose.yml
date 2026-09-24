@@ -156,7 +156,7 @@ services:
     # Pinned, against the vendor's own `:latest --pull always` example, for the nginx service's
     # reason above: the component holding the site's one route in would otherwise drift per host,
     # silently.
-    image: cloudflare/cloudflared:2026.8.3
+    image: cloudflare/cloudflared:2026.9.1
     restart: unless-stopped
     # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
     # own binary is the unpinned tag again, arrived at from inside the container.
