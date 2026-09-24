@@ -360,7 +360,7 @@ them: `fl_frontend/src/features/saisons/recordedFactMirror.test.ts`,
 
 **Done when** each class's verdict is recorded at COR-14's rung — the header of
 `fl_backend/tests/core/app_source.py`, the readers in `scripts/checks/docs_gate/kernel.py`, and
-`fl_frontend/src/shared/testing/sourceText.ts` for the cross-language reads — and each of the three
+`fl_frontend/src/shared/schemas.test.ts` for the cross-language reads — and each of the two
 spellings is either read correctly, its parser arriving as a pin in `fl_frontend/package.json` or
 `fl_backend/pyproject.toml` that states which gate scope and which job in
 `.github/workflows/verify.yml` runs it, or accepted as a loud false red by my ruling, the acceptance
