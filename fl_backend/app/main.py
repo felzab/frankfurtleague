@@ -39,7 +39,7 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
-from app.core.config import API_VERSION, BackendConfig, get_config
+from app.core.config import API_VERSION, BackendConfig
 from app.core.db import lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
@@ -242,6 +242,10 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
     is passed.
     """
+    # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import
+    # past the ruff ban, which names `app.core.config.get_config` alone.
+    from app.core.config import get_config  # noqa: TID251
+
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.

@@ -1542,7 +1542,7 @@ def diagnose_failure(failure: OperationFailure) -> str:
 async def _run(check: bool) -> int:
     # Imported here, not at module scope: `app.core.config` refuses on import without a complete
     # environment, and the tests import this module with none.
-    from app.core.config import get_config
+    from app.core.config import get_config  # noqa: TID251
 
     client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),
