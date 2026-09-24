@@ -61,7 +61,9 @@ dev = [
     # comes through the lockfile like every other checker.
     "zizmor>=1.30.0",
     # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
-    # decides what a page shows as code, rather than patterns this repository keeps by hand.
+    # decides which blocks and spans a page shows as code, rather than patterns kept by hand.
+    # Run by the docs and scripts scopes: the `docs` and `scripts` jobs of
+    # `.github/workflows/verify.yml`.
     "markdown-it-py>=4.2.0",
     # Holds `dependencies` to what `app/` imports: an import reaching a package only through
     # another's requirements, or a package there nothing imports, fails the backend scope. This group

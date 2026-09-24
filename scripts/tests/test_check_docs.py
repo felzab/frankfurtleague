@@ -2150,6 +2150,33 @@ def test_an_indented_code_block_is_code_rather_than_prose() -> None:
     _assert_corpus_restored()
 
 
+# Four spaces after a blank line, where a page would open an indented code block.
+NOTICE_INDENT: Final = "    "
+# Over the duplicate check's floor, and naming nothing another check reads.
+ECHOED_PARAGRAPH: Final = (
+    "A sentence written twice on purpose, long enough for the duplicate check to count it, once in the notice and once on the notes page."
+)
+
+
+def test_a_prose_file_that_is_no_page_is_read_whole_by_every_reader() -> None:
+    """Parsed as Markdown, the indented lines would be a code block and blanked, the dead path and the paragraph with them.
+
+    Two readers take the file: the per-file checks read the path, the duplicate check the paragraph.
+    """
+    _reset()
+    _append(NOTICE_FILE, "", NOTICE_INDENT + "docs/gone-indented-in-the-notice.md", "", NOTICE_INDENT + ECHOED_PARAGRAPH)
+    _append(NOTES, "", ECHOED_PARAGRAPH)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "bare-path", NOTICE_FILE)] == 1, "the indented path was read as code: " + _shape(reported)
+    # Either page is the home, by the platform's path order; one of the two is the finding.
+    echoes = reported[("fail", "echo", NOTICE_FILE)] + reported[("fail", "echo", NOTES)]
+    assert echoes == 1, "the indented paragraph was read as code: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_a_comment_marker_inside_a_string_literal_opens_no_comment() -> None:
     """Three shapes at once, because each fails alone on a reader tracking one quote and not another.
 

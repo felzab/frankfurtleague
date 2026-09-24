@@ -42,7 +42,6 @@ from .copy_rules import check_copy_rules
 from .error_codes import ERROR_CODES_PAGE, check_error_codes
 from .kernel import (
     CHECKS,
-    CODE_SPAN_RE,
     CSTYLE_SUFFIXES,
     DIRECTIVE_RE,
     DOCS_DIR,
@@ -67,6 +66,7 @@ from .kernel import (
     SWEEP_PAGE,
     TEMPLATES_PAGE,
     Check,
+    CodeSpan,
     Finding,
     _header_line,
     _module_header,
@@ -94,13 +94,15 @@ from .kernel import (
     is_placeholder,
     is_prose,
     line_of,
+    located_code_spans,
     navigable_anchors_of,
     python_tree,
     repo_path,
     repo_prefixes,
     scanned_files,
     section_numbers_of,
-    strip_fences,
+    strip_code_blocks,
+    strip_code_spans,
     table_cells,
     tracked_glob,
     tracked_page,
@@ -285,7 +287,7 @@ TABLE_DELIMITER_RE: Final = re.compile(r"^:?-+:?$")
 # the line are resolved.
 BATCH_LINE_RE: Final = re.compile(r"^[ \t]*Lands with:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 
-# Read with `QUOTED_SPAN_RE`'s spans taken out, for that pattern's reason.
+# Read with the code spans and then `QUOTED_SPAN_RE`'s quoted runs taken out, for that pattern's reason.
 OWNER_PHRASE_RE: Final = re.compile(r"\bthe owner\b", re.IGNORECASE)
 OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
@@ -330,12 +332,11 @@ def rule_prefixes() -> frozenset[str]:
     if text is None:
         # The disk where the index declines the page: an untracked standard's ids still have to be
         # recognised, or every citation of one passes in silence instead of failing.
-        raw = _read_text(REPO_ROOT / STANDARD_PAGE)[0]
-        text = None if raw is None else strip_fences(raw)
+        text = _readable(REPO_ROOT / STANDARD_PAGE)
     # The fork's copy too: a family gone from this tree matches no pattern, so every citation of
     # one drops out of `rule-id`'s listing rather than failing it (PRE-4).
     earlier = fork_page(STANDARD_PAGE)
-    return _families(text or "") | _families("" if earlier is None else strip_fences(earlier))
+    return _families(text or "") | _families("" if earlier is None else strip_code_blocks(earlier))
 
 
 def rule_family() -> str:
@@ -397,10 +398,10 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
             if match := METADATA_LINE_RE.match(lines[index]):
                 names.append(match.group(1))
                 ends.append(index)
-                # Backticked spans come out first: a rule quoting a label to name it is a mention,
+                # Code spans come out first: a rule quoting a label to name it is a mention,
                 # not a second entry. Re-matched on the scrubbed line, removing a span having
                 # moved every offset after it.
-                scrubbed = CODE_SPAN_RE.sub("", lines[index])
+                scrubbed = strip_code_spans(lines[index])
                 opening = METADATA_LINE_RE.match(scrubbed)
                 if opening and (joined := METADATA_JOIN_RE.search(scrubbed, opening.end())):
                     written = "the characters \\n" if joined.group(1) else "nothing at all"
@@ -425,7 +426,9 @@ def check_owner_voice(rel: str, body: str) -> list[Finding]:
     """COR-11: no tracked file outside `.claude/` names its author in the third person."""
     if rel.startswith(OWNER_EXEMPT_PREFIX):
         return []
-    mentions_removed = QUOTED_SPAN_RE.sub("", body)
+    # Code spans first, CommonMark's order: a span binds before any quote around it, so a quote
+    # opening before a span closes past it.
+    mentions_removed = QUOTED_SPAN_RE.sub("", strip_code_spans(body))
     if OWNER_PHRASE_RE.search(mentions_removed) is None:
         return []
     return [Finding("fail", "owner-voice", rel, "names “the owner” -- write it in the first person or as a neutral imperative (COR-11)")]
@@ -1271,8 +1274,8 @@ LINK_RE: Final = re.compile(r"""(?<!!)\[[^\]]*\]\(([^)\s#]*)(#[^)\s]*)?(?:[ \t]+
 
 
 # A citation is a code span whose whole text carries " :: " (COR-6). Read it through `unwrapped`,
-# never off the raw body: a code span may wrap, and `kernel.py :: CODE_SPAN_RE` stops at the
-# newline.
+# never off the raw body: a code span may wrap, and `kernel.py :: located_code_spans` reads one
+# line at a time.
 CITATION_TEXT_RE: Final = re.compile(r"[^`\n]+? :: [^`\n]+?")
 # The continuation form: a page names a file once, then cites its symbols with the separator and
 # the anchor alone. `CITATION_TEXT_RE` needs a left half, so without this the form matches nothing
@@ -1280,13 +1283,13 @@ CITATION_TEXT_RE: Final = re.compile(r"[^`\n]+? :: [^`\n]+?")
 CONTINUATION_TEXT_RE: Final = re.compile(r":: ([^`\n]+?)")
 
 
-def spans_reading(text: str, pattern: re.Pattern[str]) -> list[tuple[re.Match[str], re.Match[str]]]:
+def spans_reading(text: str, pattern: re.Pattern[str]) -> list[tuple[CodeSpan, re.Match[str]]]:
     """Every code span whose whole text the pattern matches.
 
     Run over spans rather than as a pattern of its own, which pairs ticks one at a time and reads a
     run inside a longer span.
     """
-    return [(span, read) for span in CODE_SPAN_RE.finditer(text) if (read := pattern.fullmatch(span["code"])) is not None]
+    return [(span, read) for span in located_code_spans(text) if (read := pattern.fullmatch(span.code)) is not None]
 
 
 # One line break inside a paragraph, which a renderer joins to a space. The blank line is excluded
@@ -1308,15 +1311,14 @@ def continuation_markers(style: str) -> tuple[str, ...]:
     return ("//", "*") if style in CSTYLE_SUFFIXES or style == ".json" else ("#",)
 
 
-# Ticks paired in order, as a renderer pairs them: a whole span on one line is consumed unread, so
-# a wrapped one never opens on the closing tick before it. One break, never a blank line, for
-# `_wrap_re`'s reason.
-@cache
-def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
-    """A backticked span whole on its line, or one parted by a wrap, with the continuation's marker off."""
-    tail = "(?:(?:" + "|".join(re.escape(m) for m in markers) + ")+[ \t]*)?" if markers else ""
-    wrapped = r"(?<!`)(?<!(?<!\\)\\)`(?P<head>[^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"(?P<tail>[^`\n]*)`(?!`)"
-    return re.compile(CODE_SPAN_RE.pattern + "|" + wrapped)
+def _joins(body: str, markers: tuple[str, ...]) -> list[int]:
+    """Where each wrap sits in the `unwrapped` body: the one space the join leaves in its place."""
+    offsets: list[int] = []
+    shift = 0
+    for match in _wrap_re(markers).finditer(body):
+        offsets.append(match.start() - shift)
+        shift += match.end() - match.start() - 1
+    return offsets
 
 
 def _reads_as_path(token: str) -> bool:
@@ -1331,22 +1333,31 @@ def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[F
     or nowhere.
     """
     found: list[Finding] = []
-    for match in _span_re(markers).finditer(body):
-        head = (match["head"] or "").rstrip()
-        # Inside the path alone: a citation parted at its separator still names its file whole.
-        if match["head"] is None or not head or "::" in head:
+    # Paired over the joined paragraph, as a renderer pairs its ticks, and parted at the first wrap
+    # inside the span.
+    joined = unwrapped(body, markers)
+    joins = _joins(body, markers)
+    source_line = _source_line(body, markers)
+    for span in located_code_spans(joined):
+        at = bisect_right(joins, span.code_start - 1)
+        if at == len(joins) or joins[at] >= span.code_end:
             continue
-        token = (head + match["tail"].lstrip()).partition(" :: ")[0]
+        head = joined[span.code_start : joins[at]].rstrip()
+        tail = joined[joins[at] + 1 : span.code_end].lstrip()
+        # Inside the path alone: a citation parted at its separator still names its file whole.
+        if not head or "::" in head:
+            continue
+        token = (head + tail).partition(" :: ")[0]
         if is_placeholder(token):
             continue
-        rendered = head + " " + match["tail"].lstrip()
+        rendered = head + " " + tail
         if repo_path(token) is not None:
             detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
         elif _reads_as_path(token):
             detail = f"`{rendered}` wraps inside the path, and the join names no file -- keep a path on one line, and repoint it (COR-6)"
         else:
             continue
-        found.append(Finding("fail", "wrapped-path", rel, detail, line_of(body, match.start())))
+        found.append(Finding("fail", "wrapped-path", rel, detail, source_line(span.start)))
     return found
 
 
@@ -1375,8 +1386,8 @@ def _linked_page(rel: str, raw_target: str) -> Path | None:
 
 
 def _ending_span(text: str) -> str | None:
-    spans = list(CODE_SPAN_RE.finditer(text))
-    return spans[-1]["code"] if spans and not text[spans[-1].end() :].strip() else None
+    spans = located_code_spans(text)
+    return spans[-1].code if spans and not text[spans[-1].end :].strip() else None
 
 
 def _names_a_page(line: str) -> bool:
@@ -1471,9 +1482,8 @@ README_WORD_CAP: Final = 600
 README_PAGE: Final = "README.md"
 
 
-def _readme_words(raw: str) -> int:
-    """A README's prose words: everything outside its fenced blocks and its table rows (OUT-3)."""
-    body = strip_fences(raw)
+def _readme_words(body: str) -> int:
+    """A README's prose words: everything outside its code blocks, which `_readable` blanks, and its table rows (OUT-3)."""
     return sum(word_count(line) for line in body.split("\n") if not TABLE_LINE_RE.match(line))
 
 
@@ -1580,7 +1590,7 @@ def _uncited_lines(path: Path) -> tuple[str, ...]:
     kept = list(raw)
     for pattern in (CITATION_TEXT_RE, CONTINUATION_TEXT_RE):
         for match, _ in spans_reading(joined, pattern):
-            for offset in range(at(match.start()), at(match.end() - 1) + 1):
+            for offset in range(at(match.start), at(match.end - 1) + 1):
                 if kept[offset] != "\n":
                     kept[offset] = " "
     return tuple("".join(kept).split("\n"))
@@ -1721,11 +1731,10 @@ def _files_named(joined: str) -> list[tuple[int, str]]:
     corpus one displaces the file the sentence is about.
     """
     cited = spans_reading(joined, CITATION_TEXT_RE)
-    named: list[tuple[int, str]] = [(span.start(), span["code"].partition(" :: ")[0].strip()) for span, _ in cited]
-    for match in CODE_SPAN_RE.finditer(joined):
-        token = match["code"]
-        if " :: " not in token and (resolved := repo_path(token)) is not None:
-            named.append((match.start(), resolved))
+    named: list[tuple[int, str]] = [(span.start, span.code.partition(" :: ")[0].strip()) for span, _ in cited]
+    for span in located_code_spans(joined):
+        if " :: " not in span.code and (resolved := repo_path(span.code)) is not None:
+            named.append((span.start, resolved))
     return sorted(named)
 
 
@@ -1736,7 +1745,7 @@ def _continuations(joined: str, rel: str, invariants: dict[str, list[str]], sour
     which is how a table cell lists two modules of one folder.
     """
     carried = [
-        (span.start("code") + read.start(1), span.end("code"), read.group(1).strip())
+        (span.code_start + read.start(1), span.code_end, read.group(1).strip())
         for span, read in spans_reading(joined, CONTINUATION_TEXT_RE)
         if not is_placeholder(read.group(1))
     ]
@@ -1790,7 +1799,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     if not prose and _header_scoped(style):
         found.extend(check_module_header(rel, raw, style))
 
-    if is_markdown and has_name(path.name, (README_PAGE,)) and (words := _readme_words(raw)) > README_WORD_CAP:
+    if is_markdown and has_name(path.name, (README_PAGE,)) and (words := _readme_words(body)) > README_WORD_CAP:
         detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
         found.append(Finding("fail", "readme-cap", rel, detail))
 
@@ -1830,9 +1839,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             source_line = _source_line(body, markers)
             citing: dict[str, set[int]] = {}
             for span, _ in spans_reading(joined, CITATION_TEXT_RE):
-                if not is_placeholder(span["code"]):
-                    lines = range(source_line(span.start("code")), source_line(span.end("code") - 1) + 1)
-                    citing.setdefault(span["code"], set()).update(lines)
+                if not is_placeholder(span.code):
+                    lines = range(source_line(span.code_start), source_line(span.code_end - 1) + 1)
+                    citing.setdefault(span.code, set()).update(lines)
             for citation in sorted(citing):
                 found.extend(_check_citation(citation, rel, invariants, frozenset(citing[citation])))
             found.extend(_continuations(joined, rel, invariants, source_line))
@@ -1840,7 +1849,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
         # it names, so it has to be caught at the form.
         if cites_lines:
-            ticked = {span["code"] for span, _ in spans_reading(joined, LINE_CITATION_TEXT_RE)}
+            ticked = {span.code for span, _ in spans_reading(joined, LINE_CITATION_TEXT_RE)}
             cited_lines = ticked | set(BARE_LINE_CITATION_RE.findall(joined))
             for citation in sorted(cited_lines):
                 if is_placeholder(citation):
@@ -1909,9 +1918,9 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     """
     found: list[Finding] = []
     prefixes = ["", *(f"{parent.as_posix()}/" for parent in Path(rel).parents if parent.as_posix() != ".")]
-    # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
-    # span holds no newline, so removing one moves an offset along its line and never off it.
-    scrubbed = CODE_SPAN_RE.sub("", body)
+    # Code spans out first, or one dead path yields a `path` finding and a `bare-path` one. A span
+    # holds no newline, so removing one moves an offset along its line and never off it.
+    scrubbed = strip_code_spans(body)
     first_seen: dict[str, int] = {}
     for match in bare_path_re().finditer(scrubbed):
         first_seen.setdefault(match.group(0), match.start())
@@ -1999,7 +2008,7 @@ def check_cell_prose() -> list[Finding]:
             if (match := TABLE_LINE_RE.match(line)) is None:
                 continue
             for cell in table_cells(match.group(1)):
-                bare = QUOTED_SPAN_RE.sub("", CODE_SPAN_RE.sub("", cell))
+                bare = QUOTED_SPAN_RE.sub("", strip_code_spans(cell))
                 if word_count(bare) <= VERBATIM_REMAINDER:
                     continue
                 if (words := word_count(cell)) > CELL_PROSE_WORD_CAP:

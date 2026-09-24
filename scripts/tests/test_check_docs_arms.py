@@ -442,6 +442,48 @@ def test_a_prose_sha_is_read_off_the_spans_the_page_draws() -> None:
     _assert_corpus_restored()
 
 
+def test_a_quote_opening_before_a_code_span_closes_past_it() -> None:
+    """CommonMark binds the span first, so the quote around it closes on the quote after it and the phrase is a mention.
+
+    The unquoted line is the second run, so a reader blanking the page fails it.
+    """
+    _reset()
+    try:
+        _append(NOTES, 'Quoted whole, "a `b"c` the owner d" names nobody.')
+        _, quoted = _run()
+        _reset()
+        _append(NOTES, "Unquoted, the owner is named.")
+        _, said = _run()
+    finally:
+        _reset()
+    assert quoted[("fail", "owner-voice", NOTES)] == 0, "a quote was closed inside a code span: " + _shape(quoted)
+    assert said[("fail", "owner-voice", NOTES)] == 1, "the page was read by nothing: " + _shape(said)
+    _assert_corpus_restored()
+
+
+def test_a_path_a_double_run_wraps_is_reported() -> None:
+    """A renderer joins the wrap and pairs the two double runs across it, so the span renders with a space inside the path."""
+    _reset()
+    _append(NOTES, "A path a double run wraps: ``docs/gloss", "ary.md`` renders with a space.")
+    try:
+        _, output = _output()
+    finally:
+        _reset()
+    assert output.count("wraps inside the path, which a code span renders with a space in it") == 1, output
+    _assert_corpus_restored()
+
+
+def test_a_span_s_offsets_index_the_line_it_sits_on_an_image_s_alt_text_included() -> None:
+    """The parser reads an image's alt text as a source of its own, so an offset counted there lands elsewhere on the line."""
+    kernel = _module("docs_gate.kernel")
+    line = "A [link `in` text](u), an ![alt `z`](i.png) and ``a`b`` last."
+    spans = kernel.located_code_spans(line)
+    assert [span.code for span in spans] == ["in", "z", "a`b"], spans
+    for span in spans:
+        assert line[span.code_start : span.code_end] == span.code, span
+        assert line[span.start] == line[span.end - 1] == "`", span
+
+
 # A module the comment reader lexes: a regex literal's quotes and slashes are not a string or a comment.
 LEXED_MODULE: Final = "fl_frontend/src/lexed.ts"
 

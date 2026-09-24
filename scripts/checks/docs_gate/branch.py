@@ -16,6 +16,7 @@ from .kernel import (
     INVARIANT_ID_RE,
     OPS_FILENAMES,
     PROSE_FILENAMES,
+    QUOTED_SPAN_RE,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
@@ -23,6 +24,7 @@ from .kernel import (
     UNPARSEABLE,
     Finding,
     _read_text,
+    _readable,
     _scan_body,
     _skipped,
     code_spans,
@@ -32,7 +34,7 @@ from .kernel import (
     has_suffix,
     invariant_rows,
     roadmap_ids,
-    strip_fences,
+    strip_code_blocks,
     unlisted,
     unmarked_line,
     untracked_files,
@@ -352,13 +354,9 @@ def _locates(before: str) -> bool:
     return "://" in run or has_suffix(run, LOCATION_SUFFIXES)
 
 
-# Taken off before `SPOKEN_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
-# them, so the whole of it reads as quoted and nothing inside it is ever seen.
+# Taken off before `kernel.py :: QUOTED_SPAN_RE`'s runs: a one-line docstring opens and closes on
+# a pair of them, so the whole of it reads as quoted and nothing inside it is ever seen.
 TRIPLE_QUOTE_RE: Final = re.compile(r"\"{3}|'{3}")
-
-# The runs a mention sits in, which is `kernel.py :: QUOTED_SPAN_RE` without its backtick arm: a
-# number marked up as code is being cited rather than named, so backticks spare nothing here.
-SPOKEN_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
 
 
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
@@ -380,9 +378,10 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             found.append(
                 Finding("fail", "comment-citation", rel, f"roadmap id {roadmap_id} in an added comment -- state the constraint (INC-6)")
             )
-        # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
-        # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
-        mentions = SPOKEN_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
+        # This pattern alone reads the body with its quoted runs out, naming the shape to ban it
+        # being a mention rather than a use; its code spans stay, a number marked up as code being
+        # cited rather than named.
+        mentions = QUOTED_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
         pattern = STYLESHEET_ISSUE_REF_RE if has_suffix(rel, (".css",)) else ISSUE_REF_RE
         issues = {hit.group(0) for hit in pattern.finditer(mentions) if not _locates(mentions[: hit.start()])}
         for issue in sorted(issues):
@@ -461,7 +460,7 @@ def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
             return None
         # Sectioned as the corpus reader sections it: a row of this shape outside `## 2. Invariants`
         # defines nothing a citation resolves against, so it allocates nothing either.
-        sheets[rel] = frozenset(invariant_rows(strip_fences(text)))
+        sheets[rel] = frozenset(invariant_rows(strip_code_blocks(text)))
     return sheets
 
 
@@ -476,8 +475,8 @@ def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[st
         if not _spec_sheet(rel):
             continue
         numbers = frozenset(match.group(1) for line in lines if (match := INVARIANT_ID_RE.match(line)))
-        raw = _read_text(REPO_ROOT / rel)[0]
-        tabled = frozenset() if raw is None else frozenset(invariant_rows(strip_fences(raw)))
+        body = _readable(REPO_ROOT / rel)
+        tabled = frozenset() if body is None else frozenset(invariant_rows(body))
         if allocated := numbers & tabled:
             declared[rel] = allocated
     return declared

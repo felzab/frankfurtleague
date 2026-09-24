@@ -28,6 +28,8 @@ from typing import Final, Literal
 # the reading errors from its own drifts into its own behaviour, the principle that file states.
 from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
 from markdown_it import MarkdownIt
+from markdown_it.rules_inline import StateInline, backtick, image
+from markdown_it.token import Token
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -87,18 +89,9 @@ def has_name(path: str, names: tuple[str, ...]) -> bool:
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
-# A run opens only where no plain tick stands before it: a longer run is one opener, and read again
-# from its second tick it would pair with a run it never closes on.
-SPAN_AFTER_A_RUN: Final = r"(?<!(?<!\\)`)"
-# A backslash makes the tick after it text, as CommonMark escapes it, so that tick opens nothing and
-# the run after it opens as any other would.
-SPAN_UNESCAPED: Final = r"(?<!(?<!\\)\\)"
-# CommonMark's pairing: a span closes only on a run as long as its opener, so paired one tick at a
-# time, a span holding a tick inverts every span after it on its line.
-CODE_SPAN_RE: Final = re.compile(SPAN_AFTER_A_RUN + SPAN_UNESCAPED + r"(?P<run>`+)(?!`)(?P<code>[^\n]*?[^`\n])(?P=run)(?!`)")
 # What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
 # rule itself does, is a mention rather than a use.
-QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|" + CODE_SPAN_RE.pattern + r"|“[^”\n]*”")
+QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
 # Both bands (OUT-4): a citation crosses surfaces, and an allocation reads whichever band its row
 # is in. Section-blind, for a reader of diff lines; `invariant_rows` is what confines a match to
 # the table.
@@ -108,25 +101,129 @@ INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.
 SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 
 
-# CommonMark's block rules end a nested fence, a listed one and an indented block where a renderer
-# does. No `table` rule: it pads every row to its header's width, and `table_cells` counts the cells
-# a row was written with.
-MARKDOWN: Final = MarkdownIt("commonmark")
+# No `table` rule: with it, a line indented four spaces under a row ends the table as a code block,
+# where GitHub keeps it as a row. Asked for block tokens alone, so the inline pass stays off.
+MARKDOWN: Final = MarkdownIt("commonmark").disable(["inline", "text_join"])
 # The block tokens a renderer shows as code rather than prose.
 CODE_BLOCKS: Final[frozenset[str]] = frozenset({"fence", "code_block"})
 # The closing run of hashes is dropped as a renderer drops it. Read through `atx_heading`, so one
 # definition decides what counts as a heading.
 ATX_HEADING_RE: Final = re.compile(r"^ {0,3}(#{1,6}) +(.*?)(?:[ \t]+#+)?[ \t]*$")
 
+# Where the located backtick rule leaves a span's offsets on its token, `Token.meta` being the
+# field markdown-it-py keeps for a plugin's own data.
+SPAN_META: Final = "span"
+# The offset each source being parsed opens at in the line, innermost last: an image's alt text is
+# parsed as a source of its own, so a span inside it is counted from the alt text's first character.
+SOURCE_BASES: Final = "source bases"
+
+
+def _located_backtick(state: StateInline, silent: bool) -> bool:
+    """markdown-it-py's own backtick rule, leaving where each span it takes sits on the token it pushes."""
+    start, count = state.pos, len(state.tokens)
+    if not backtick(state, silent):
+        return False
+    # A span pushes its token, and an unclosed run pushes none: its ticks are text.
+    if len(state.tokens) > count and state.tokens[-1].type == "code_inline":
+        base = state.env[SOURCE_BASES][-1]
+        state.tokens[-1].meta[SPAN_META] = (base + start, base + state.pos)
+    return True
+
+
+def _located_image(state: StateInline, silent: bool) -> bool:
+    """markdown-it-py's own image rule, with the alt text's opening offset held while it is parsed."""
+    bases = state.env[SOURCE_BASES]
+    # Past the `![`, which is where the rule cuts the alt text it parses from.
+    bases.append(bases[-1] + state.pos + 2)
+    try:
+        return image(state, silent)
+    finally:
+        bases.pop()
+
+
+# Two of markdown-it-py's inline rules replaced through their documented route (`Ruler.at`), so each
+# span reports where it sits: a token carries a line map and never an offset.
+INLINE: Final = MarkdownIt("commonmark")
+INLINE.inline.ruler.at("backticks", _located_backtick)
+INLINE.inline.ruler.at("image", _located_image)
+
+
+@dataclass(frozen=True, slots=True)
+class CodeSpan:
+    """One code span: the offsets of its whole run, ticks included, and of the code it renders."""
+
+    start: int
+    end: int
+    code_start: int
+    code_end: int
+    code: str
+
+
+def _located(tokens: Iterable[Token]) -> Iterator[Token]:
+    """Every code span token under these, an image's alt text included."""
+    for token in tokens:
+        if token.type == "code_inline" and SPAN_META in token.meta:
+            yield token
+        if token.children:
+            yield from _located(token.children)
+
+
+# markdown-it-py leaves a span as text where a `[` stands before it and a backtick run of another
+# length stays unclosed after it: the link label's look-ahead fills the backtick rule's cache first.
+@cache
+def _line_spans(line: str) -> tuple[CodeSpan, ...]:
+    """One line's code spans, offsets into the line, in its order."""
+    if "`" not in line:
+        return ()
+    found: list[CodeSpan] = []
+    for token in _located(INLINE.parseInline(line, {SOURCE_BASES: [0]})):
+        start, end = token.meta[SPAN_META]
+        run = len(token.markup)
+        # CommonMark takes one space off each end where both carry one; the token's own content
+        # is shorter by exactly that.
+        pad = (end - start - 2 * run - len(token.content)) // 2
+        code_start, code_end = start + run + pad, end - run - pad
+        found.append(CodeSpan(start, end, code_start, code_end, line[code_start:code_end]))
+    return tuple(sorted(found, key=lambda span: span.start))
+
+
+def located_code_spans(text: str) -> list[CodeSpan]:
+    """Every code span in a text, with offsets into it.
+
+    One line at a time: across lines, a comment image would pair ticks through the code blanked
+    between two comments; a wrapped span is found in what `unwrapped` joins.
+    """
+    spans: list[CodeSpan] = []
+    offset = 0
+    for line in text.split("\n"):
+        spans.extend(
+            CodeSpan(span.start + offset, span.end + offset, span.code_start + offset, span.code_end + offset, span.code)
+            for span in _line_spans(line)
+        )
+        offset += len(line) + 1
+    return spans
+
+
+def code_spans(text: str) -> list[str]:
+    """What each code span in a text renders."""
+    return [span.code for span in located_code_spans(text)]
+
+
+def strip_code_spans(text: str) -> str:
+    """A text with each code span taken out whole, ticks and all, on the line it sat on."""
+    kept: list[str] = []
+    at = 0
+    for span in located_code_spans(text):
+        kept.append(text[at : span.start])
+        at = span.end
+    kept.append(text[at:])
+    return "".join(kept)
+
 
 # What GitHub's slugger keeps: a link renders as its text alone, and anything but a word
 # character, a space or a hyphen is dropped.
 INLINE_LINK_RE: Final = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 SLUG_DROP_RE: Final = re.compile(r"[^\w\- ]")
-
-
-def code_spans(text: str) -> list[str]:
-    return [match["code"] for match in CODE_SPAN_RE.finditer(text)]
 
 
 def table_cells(inner: str) -> list[str]:
@@ -314,9 +411,10 @@ def is_placeholder(text: str) -> bool:
     return bool(set("<>{}*?") & set(text)) or "NNNN" in text or "…" in text
 
 
-# Whether a line sits in a page's fenced block. Every reader that cares takes it from `fenced_lines`:
-# two of them disagreeing about where a block ends is worse than both being wrong the same way.
-def fenced_lines(text: str) -> Iterator[tuple[str, bool]]:
+# Whether a line sits in a page's code block, fenced or indented. Every reader that cares takes it
+# from `code_block_lines`: two of them disagreeing about where a block ends is worse than both being
+# wrong the same way.
+def code_block_lines(text: str) -> Iterator[tuple[str, bool]]:
     """Each line beside whether a code block holds it, its fence lines included; `line_of` rests on one yield per line."""
     code: set[int] = set()
     for token in MARKDOWN.parse(text):
@@ -326,9 +424,9 @@ def fenced_lines(text: str) -> Iterator[tuple[str, bool]]:
         yield line, number in code
 
 
-def strip_fences(text: str) -> str:
-    """Blank out fenced blocks, preserving line count so reported context stays meaningful."""
-    return "\n".join("" if fenced else line for line, fenced in fenced_lines(text))
+def strip_code_blocks(text: str) -> str:
+    """Blank out a page's code blocks, preserving line count so reported context stays meaningful."""
+    return "\n".join("" if code else line for line, code in code_block_lines(text))
 
 
 def word_count(text: str) -> int:
@@ -357,7 +455,7 @@ def unlisted(lines: Iterable[str]) -> str:
 def line_of(body: str, offset: int) -> int:
     """The 1-based line an offset sits on.
 
-    Every reader here keeps a file's line count -- `strip_fences` and `comments_only` blank a line
+    Every reader here keeps a file's line count -- `strip_code_blocks` and `comments_only` blank a line
     rather than dropping it -- so an offset into a scanned body numbers the line the file holds.
     """
     return body.count("\n", 0, offset) + 1
@@ -1112,6 +1210,10 @@ def invariant_rows(body: str) -> list[str]:
     return INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))
 
 
+# The three heading readers below take `_readable`'s body, whose code blocks are already blank:
+# parsed again, blanked text is not the page a renderer shows, and each page is parsed once a run.
+
+
 def heading_anchors(body: str) -> set[str]:
     """The fragment ids GitHub derives from this file's headings.
 
@@ -1120,10 +1222,8 @@ def heading_anchors(body: str) -> set[str]:
     """
     anchors: set[str] = set()
     occurrences: dict[str, int] = {}
-    # `fenced_lines` rather than a second definition of what opens a block: a heading a renderer
-    # shows and this reader hides is a link target the `anchor` check calls dead.
-    for line, fenced in fenced_lines(body):
-        if fenced or (text := atx_heading(line)) is None:
+    for line in body.split("\n"):
+        if (text := atx_heading(line)) is None:
             continue
         slug = SLUG_DROP_RE.sub("", INLINE_LINK_RE.sub(r"\1", text).lower()).replace(" ", "-")
         if not slug:
@@ -1139,9 +1239,9 @@ def heading_anchors(body: str) -> set[str]:
     return anchors
 
 
-# A heading's label: the backticked span or the numbered run it opens with. A label and never an
-# arbitrary prefix, which would readmit the truncated citation this reader exists to fail.
-LEADING_LABEL_RE: Final = re.compile(r"^(?:`([^`\n]+)`|(\d+(?:\.\d+)*))")
+# A heading's label is the code span or the numbered run it opens with (`_leading_label`). A label
+# and never an arbitrary prefix, which would readmit the truncated citation this reader exists to fail.
+LEADING_NUMBER_RE: Final = re.compile(r"^\d+(?:\.\d+)*")
 TABLE_FIRST_CELL_RE: Final = re.compile(r"^[ \t]*\|([^|\n]*)\|", re.MULTILINE)
 # A bold key opening a line or a list item, which is the shape `.claude/CLAUDE.md` and this
 # standard's own rules give a clause worth citing.
@@ -1156,6 +1256,14 @@ def _spellings(run: str) -> set[str]:
     return written | {form.rstrip(":.") for form in written}
 
 
+def _leading_label(heading: str) -> str | None:
+    """The code span or the numbered run a heading opens with, or None where it opens on neither."""
+    text = heading.strip()
+    if (spans := located_code_spans(text)) and spans[0].start == 0:
+        return spans[0].code
+    return None if (number := LEADING_NUMBER_RE.match(text)) is None else number.group()
+
+
 def navigable_anchors(body: str) -> frozenset[str]:
     """Every run a reader can navigate to on one page.
 
@@ -1163,13 +1271,11 @@ def navigable_anchors(body: str) -> frozenset[str]:
     contents row -- the one edit a section citation exists to catch.
     """
     found: set[str] = set(heading_anchors(body))
-    for line, fenced in fenced_lines(body):
-        if fenced:
-            continue
+    for line in body.split("\n"):
         if (heading := atx_heading(line)) is not None:
             found |= _spellings(heading)
-            if (label := LEADING_LABEL_RE.match(heading.strip())) is not None:
-                found |= _spellings(label.group(1) or label.group(2))
+            if (label := _leading_label(heading)) is not None:
+                found |= _spellings(label)
         for pattern in (TABLE_FIRST_CELL_RE, BOLD_KEY_RE):
             for run in pattern.findall(line):
                 found |= _spellings(run)
@@ -1190,11 +1296,9 @@ def section_numbers(body: str) -> frozenset[str]:
     resolves against a number and never against a term.
     """
     found: set[str] = set()
-    for line, fenced in fenced_lines(body):
-        if fenced or (heading := atx_heading(line)) is None:
-            continue
-        if (label := LEADING_LABEL_RE.match(heading.strip())) is not None and label.group(2):
-            found.add(label.group(2))
+    for line in body.split("\n"):
+        if (heading := atx_heading(line)) is not None and (number := LEADING_NUMBER_RE.match(heading.strip())) is not None:
+            found.add(number.group())
     return frozenset(found)
 
 
@@ -1410,22 +1514,24 @@ def declared_cases(path: Path) -> Mapping[str, int]:
 
 @cache
 def _readable(path: Path) -> str | None:
-    """A page's fence-stripped body, or None where it cannot be read."""
+    """A prose file's text as the checks read it, or None where it cannot be read.
+
+    A page with its code blocks blank; any other prose file whole, being no Markdown for CommonMark
+    to find a code block in.
+    """
     raw = _read_text(path)[0]
-    return None if raw is None else strip_fences(raw)  # None is reported where the file is scanned
+    if raw is None:
+        return None  # reported where the file is scanned
+    return strip_code_blocks(raw) if has_suffix(path.name, (".md",)) else raw
 
 
 @cache
 def _scan_body(path: Path) -> str:
-    """The half of one file the checks read: a page's prose, a source file's comments.
+    """The half of one file the checks read: a prose file's `_readable` text, a source file's comments.
 
     Empty where the file cannot be read, that failure being `unreadable`'s.
     """
+    if is_prose(path):
+        return _readable(path) or ""
     raw = _read_text(path)[0]
-    if raw is None:
-        return ""
-    if not is_prose(path):
-        return comments_only(raw, comment_style(path))
-    # A prose file that is not a page is read whole: CommonMark would take its indented lines for
-    # code, and those are the paths `NOTICE` lists.
-    return strip_fences(raw) if has_suffix(path.name, (".md",)) else raw
+    return "" if raw is None else comments_only(raw, comment_style(path))

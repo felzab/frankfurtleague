@@ -158,7 +158,7 @@ These bind every written artifact. A comment is documentation and carries every 
   subject is a passage on each side of a cut. _Enforced by_ gate check `history` for a fixed phrase
   list over a branch's added lines, **which implements no exemption**: it spares
   `docs/_standard/worked-examples.md` only as far as that page's narration stays inside a fence, which
-  `scripts/checks/docs_gate/kernel.py :: strip_fences` blanks, so an exempt sentence written as
+  `scripts/checks/docs_gate/kernel.py :: strip_code_blocks` blanks, so an exempt sentence written as
   prose there fails a branch that is obeying this rule; both banned shapes past those phrases, and
   the exemptions, are `/docs:audit`'s.
 - **COR-4:** **the test is derivability, never a list of banned words**: a value this repository
