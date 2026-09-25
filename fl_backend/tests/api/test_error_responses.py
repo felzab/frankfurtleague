@@ -280,6 +280,30 @@ class TestTheRouterAnswersInTheEnvelope:
         assert (response.status_code, response.json()["error_code"]) == (405, METHOD_NOT_SERVED)
         assert response.headers["allow"] == "GET"
 
+    def test_every_documented_paths_allow_names_every_method_the_document_serves_there(self):
+        """RFC 9110 section 15.5.6: a 405 lists every method the target serves, whichever router serves it.
+
+        Read off the document, each template matched as its parameters allow, so a second template
+        reaching the path adds its methods.
+        """
+
+        document = build_document()
+        short = {}
+        for template in document["paths"]:
+            url = PATH_PARAMETER.sub(lambda match, template=template: sample_segment(document, template, match[1]), template)
+            expected = {
+                method.upper()
+                for other, operations in document["paths"].items()
+                if re.fullmatch(template_pattern(document, other), url)
+                for method in operations
+            }
+            response = client().put(url)
+            answered = set(response.headers.get("allow", "").split(", "))
+            if response.status_code != 405 or answered != expected:
+                short[url] = (response.status_code, sorted(answered), sorted(expected))
+
+        assert short == {}
+
     def test_the_frameworks_unreadable_body_is_the_undecodable_bodys_code(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/400")
 
@@ -313,6 +337,36 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
 
         with pytest.raises(ValueError, match=PLANTED_REFUSAL):
             WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, message="planted", fields=(JUDGED_PATH,))
+
+
+PATH_PARAMETER = re.compile(r"\{(\w+)\}")
+A_SEGMENT = "[^/]+"
+
+
+def parameter_pattern(document: dict[str, Any], template: str, name: str) -> str | None:
+    """The pattern a template's path parameter is published with, unanchored, or `None` for any segment."""
+
+    for operation in document["paths"][template].values():
+        for parameter in operation.get("parameters", []):
+            if parameter["in"] == "path" and parameter["name"] == name and "pattern" in parameter["schema"]:
+                return parameter["schema"]["pattern"].removeprefix("^").removesuffix("$")
+    return None
+
+
+def template_pattern(document: dict[str, Any], template: str) -> str:
+    """The URLs a documented template serves, as a pattern."""
+
+    literal = re.split(r"\{\w+\}", template)
+    names = PATH_PARAMETER.findall(template)
+    parameters = [f"(?:{parameter_pattern(document, template, name) or A_SEGMENT})" for name in names]
+
+    return "".join(re.escape(part) + (parameters[index] if index < len(parameters) else "") for index, part in enumerate(literal))
+
+
+def sample_segment(document: dict[str, Any], template: str, name: str) -> str:
+    """A value the parameter takes: an id where the parameter is patterned, a word otherwise."""
+
+    return "0" * 23 + "1" if parameter_pattern(document, template, name) else "x"
 
 
 def published_operations() -> list[tuple[str, dict[str, Any]]]:

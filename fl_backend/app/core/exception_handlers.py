@@ -7,9 +7,11 @@ from typing import Any, Final
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.routing import iter_route_contexts
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
@@ -65,15 +67,31 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
 
 
 async def routing_exception_handler(request: Request, exc: StarletteHTTPException):
-    """Starlette's refusal in the envelope every other failure answers with, its status and headers kept.
-
-    A 405's `Allow` header travels, being what tells the caller which methods the path does serve.
-    """
+    """Starlette's refusal in the envelope every other failure answers with, its status and headers kept."""
 
     error_code = ROUTING_CODES.get(exc.status_code, ROUTING_REFUSED)
     fl_logger.warning(f"Routing refusal ({exc.status_code}): {exc.detail or NO_DATA_TEXT}", extra={"error_code": error_code})
+    headers = exc.headers
+    if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
+        headers = {**(headers or {}), "Allow": ", ".join(served_methods(request))}
 
-    return error_response(exc.status_code, error_code, headers=exc.headers)
+    return error_response(exc.status_code, error_code, headers=headers)
+
+
+def served_methods(request: Request) -> list[str]:
+    """Every method some route serving this path accepts, as RFC 9110 section 15.5.6 asks of `Allow`.
+
+    FastAPI names the first matching route's alone, and a read and a write router split one path.
+    """
+
+    return sorted(
+        {
+            method
+            for context in iter_route_contexts(request.app.routes)
+            if context.route.matches(request.scope)[0] is Match.PARTIAL
+            for method in context.methods or ()
+        }
+    )
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
