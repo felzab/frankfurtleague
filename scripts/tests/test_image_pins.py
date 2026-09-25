@@ -20,6 +20,9 @@ COMPOSE_FILES: Final = (REPO_ROOT / "docker-compose.yml", REPO_ROOT / "docker-co
 FROM_RE: Final = re.compile(r"^[ \t]*FROM(?:[ \t]+--\S+)*[ \t]+(\S+)(?:[ \t]+AS[ \t]+(\S+))?[ \t]*$", re.MULTILINE | re.IGNORECASE)
 FROM_LINE_RE: Final = re.compile(r"^[ \t]*FROM[ \t]", re.MULTILINE | re.IGNORECASE)
 IMAGE_RE: Final = re.compile(r"^ +image: (.+)$", re.MULTILINE)
+# The two other instructions naming a source by `from`: a stage, or any image, which Docker pulls.
+COPY_FROM_RE: Final = re.compile(r"^[ \t]*COPY(?:[ \t]+--\S+)*?[ \t]+--from=(\S+)", re.MULTILINE | re.IGNORECASE)
+RUN_MOUNT_RE: Final = re.compile(r"^[ \t]*RUN((?:[ \t]+--\S+)+)", re.MULTILINE | re.IGNORECASE)
 # A name, a tag, and the registry's digest for it: the tag for the bot to compare, the digest for the pull.
 PINNED_RE: Final = re.compile(r"^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$")
 # This repository's own images, which `publish.yml` re-tags and `deploy.sh` pulls by `:latest`.
@@ -28,19 +31,35 @@ OWN_IMAGE_RE: Final = re.compile(r"^ghcr\.io/felzab/frankfurtleague-(?:frontend|
 CLEARED: Final = "!reset null"
 
 
+def dockerfile_images(text: str, name: str) -> list[str]:
+    """Every image one Dockerfile takes from: a FROM, a `COPY --from=` or a RUN mount's `from=`, stages apart."""
+    parsed = FROM_RE.findall(text)
+    assert len(parsed) == len(FROM_LINE_RE.findall(text)), f"{name}: a FROM line this reader does not parse"
+    images: list[str] = []
+    stages: set[str] = set()
+    for image, stage in parsed:
+        if image.lower() not in stages:
+            images.append(image)
+        if stage:
+            stages.add(stage.lower())
+    mounted = [
+        option.removeprefix("from=")
+        for flags in RUN_MOUNT_RE.findall(text)
+        for mount in re.findall(r"--mount=(\S+)", flags)
+        for option in mount.split(",")
+        if option.startswith("from=")
+    ]
+    # A number names a stage by its position, and so does a name a FROM gave.
+    images += [source for source in (*COPY_FROM_RE.findall(text), *mounted) if source.lower() not in stages and not source.isdigit()]
+    return images
+
+
 def external_references() -> list[tuple[str, str]]:
     """Every image a Dockerfile builds from or a compose file names, its file beside it, stages and own images apart."""
     found: list[tuple[str, str]] = []
     for dockerfile in DOCKERFILES:
-        text = dockerfile.read_text(encoding="utf-8")
-        parsed = FROM_RE.findall(text)
-        assert len(parsed) == len(FROM_LINE_RE.findall(text)), f"{dockerfile.name}: a FROM line this reader does not parse"
-        stages: set[str] = set()
-        for image, stage in parsed:
-            if image.lower() not in stages:
-                found.append((dockerfile.relative_to(REPO_ROOT).as_posix(), image))
-            if stage:
-                stages.add(stage.lower())
+        relative = dockerfile.relative_to(REPO_ROOT).as_posix()
+        found += [(relative, image) for image in dockerfile_images(dockerfile.read_text(encoding="utf-8"), dockerfile.name)]
     for compose in COMPOSE_FILES:
         for image in IMAGE_RE.findall(compose.read_text(encoding="utf-8")):
             if image.strip() != CLEARED and not OWN_IMAGE_RE.match(image.strip()):
@@ -93,3 +112,20 @@ def test_the_copy_of_the_local_database_runs_the_local_stack_s_mongo() -> None:
 
     assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
     assert dump == stack[0], f"scripts/ops/local.sh copies with {dump}, and the local stack runs {stack[0]}"
+
+
+# Each instruction naming a source by `from`, against a stage and against an image: the two
+# Dockerfiles take from stages alone, so the image arms are driven here.
+PLANTED_DOCKERFILE: Final = """FROM node:26@sha256:{digest} AS base
+FROM base AS builder
+COPY --from=builder /app /app
+COPY --chown=1:1 --from=busybox:1.36 /bin/sh /bin/sh
+RUN --mount=type=cache,target=/cache true
+RUN --mount=type=bind,from=alpine:3.22,target=/x --mount=type=cache,from=base,target=/y true
+COPY --from=0 /a /a
+""".format(digest="0" * 64)
+
+
+def test_an_image_a_copy_or_a_mount_takes_from_is_read_beside_a_stage() -> None:
+    """A stage is the file's own, and any other source is an image Docker pulls."""
+    assert dockerfile_images(PLANTED_DOCKERFILE, "planted") == [f"node:26@sha256:{'0' * 64}", "busybox:1.36", "alpine:3.22"]
