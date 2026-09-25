@@ -33,6 +33,7 @@ import { appToast } from "@/shared/utils/appToast";
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
@@ -330,7 +331,7 @@ export function FormSaisonSection({
           <>
             {gruppeLock.locked ? (
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="gruppe">Gruppe</FieldLabel>
+                <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
                   <LockFill
                     aria-hidden="true"
@@ -343,7 +344,7 @@ export function FormSaisonSection({
               <>
                 <div className={FIELD_PAIR_CLASSES}>
                   <div className="flex w-full flex-col gap-y-1">
-                    <FieldLabel path="gruppe">Gruppe</FieldLabel>
+                    <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
                     <GruppeSelect
                       isRequired
                       value={gruppe}
@@ -366,7 +367,7 @@ export function FormSaisonSection({
 
             <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="trikot_farbe">Trikotfarbe</FieldLabel>
+                <FieldLabel<TeamFieldPath> path="trikot_farbe">Trikotfarbe</FieldLabel>
                 <TrikotFarbeSelect
                   value={trikotFarbe}
                   onChange={(next) => {

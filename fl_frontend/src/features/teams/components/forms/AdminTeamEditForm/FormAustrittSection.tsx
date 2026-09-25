@@ -18,6 +18,7 @@ import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
@@ -99,7 +100,7 @@ export function FormAustrittSection({
               {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
                   `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
                   the changed-field marker out of the group's name. */}
-              <FieldLabel path="austritt">
+              <FieldLabel<TeamFieldPath> path="austritt">
                 <span id={ART_LABEL_ID}>Art</span>
               </FieldLabel>
               {/* Named from the heading rather than by a wrapper: react-aria already renders
@@ -141,7 +142,7 @@ export function FormAustrittSection({
                 value={grund}
                 onChange={onGrundChange}
                 onBlur={() => onValidateFields(["austritt.grund"])}>
-                <FieldLabel path="austritt">Grund</FieldLabel>
+                <FieldLabel<TeamFieldPath> path="austritt">Grund</FieldLabel>
                 <Input className={FIELD_INPUT_CLASSES} />
                 <FieldError className={FIELD_ERROR_CLASSES} />
                 {/* Under the field rather than in the panel's hint, which opens on a press, or the
@@ -158,7 +159,7 @@ export function FormAustrittSection({
               <AppDatePicker
                 isRequired
                 name="austritt.datum"
-                label={<FieldLabel path="austritt">Wirksam ab</FieldLabel>}
+                label={<FieldLabel<TeamFieldPath> path="austritt">Wirksam ab</FieldLabel>}
                 calendarLabel="Wirksamkeitsdatum auswählen"
                 value={datum}
                 onChange={onDatumChange}

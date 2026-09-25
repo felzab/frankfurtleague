@@ -14,6 +14,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
 /** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
@@ -125,7 +126,7 @@ export function FormSchiedsrichterSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path="schiedsrichter.payment"
           extraMarker={<ExpectedMarker path="schiedsrichter.payment" />}>
           Honorar

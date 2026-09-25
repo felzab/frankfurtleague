@@ -158,8 +158,8 @@ export type FLSpielDraftStatus = {
  * whose emptiness depends on more than its own value. `errorPaths` widens where a schema reports one
  * field's failures under several keys.
  */
-type FieldDescriptor<TValue> = {
-  path: string;
+type FieldDescriptor<TValue, TPath extends string> = {
+  path: TPath;
   label: string;
   group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
@@ -174,8 +174,8 @@ type FieldDescriptor<TValue> = {
  * Erased so rows over many value types share one array. `FieldDescriptor<any>` would need a lint
  * suppression and stop checking each row's `read`, `equals` and `format` against each other.
  */
-type ErasedFieldDescriptor = {
-  path: string;
+type ErasedFieldDescriptor<TPath extends string = string> = {
+  path: TPath;
   label: string;
   group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
@@ -185,7 +185,7 @@ type ErasedFieldDescriptor = {
   errorPaths?: readonly string[];
 };
 
-const describeField = <TValue>(descriptor: FieldDescriptor<TValue>): ErasedFieldDescriptor => {
+const describeField = <TValue, TPath extends string>(descriptor: FieldDescriptor<TValue, TPath>): ErasedFieldDescriptor<TPath> => {
   const equals = descriptor.equals ?? Object.is;
 
   return {
@@ -228,7 +228,7 @@ const sameCount = (a: number | null, b: number | null): boolean => {
  * occupant**, which is why `isEmpty` exists: a knockout side with a source and no team yet is
  * correct, so marking `teamN.team_id` would nag on every unplayed match.
  */
-const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
+const FIELD_DESCRIPTORS = [
   describeField({
     path: "datum",
     group: "Ansetzung",
@@ -382,6 +382,8 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     format: (value: FLSonderereignis | null) => (value === null ? SONDEREREIGNIS_NONE_LABEL : SONDEREREIGNIS_LABELS[value]),
   }),
 ];
+
+export type SpielFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 /**
  * `expectedCategories` is passed in rather than derived here, keeping one copy of that rule and this

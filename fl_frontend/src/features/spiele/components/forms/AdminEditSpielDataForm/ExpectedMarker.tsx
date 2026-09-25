@@ -7,12 +7,14 @@ import { Hint } from "@/shared/components/ui/Hint";
 
 import { useSpielExpectedField } from "./SpielExpectedContext";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
+
 /**
  * The match editor's field marker, handed to `FieldLabel` as its `extraMarker`. **Which fields can
  * carry one is `FIELD_DESCRIPTORS`' answer alone** — every label passes this, and a path no
  * `expectedWhen` names renders nothing.
  */
-export function ExpectedMarker({ path }: { path: string }) {
+export function ExpectedMarker({ path }: { path: SpielFieldPath }) {
   const field = useSpielExpectedField(path);
   if (field === undefined) return null;
 

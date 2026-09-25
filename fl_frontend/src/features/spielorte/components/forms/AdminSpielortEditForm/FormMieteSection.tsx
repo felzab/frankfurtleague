@@ -9,6 +9,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { NumberField } from "@/shared/components/ui/NumberField";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
+
 /**
  * A default and never a stored copy: what a match cost is its own `mietpreis`, and the backend's
  * fan-out excludes this. 0 € is legitimate, so the field is required rather than nullable and is
@@ -54,7 +56,7 @@ export function FormMieteSection({
           }}
           formatOptions={{ style: "currency", currency: "EUR" }}
           className="w-full sm:max-w-xs">
-          <FieldLabel path="default_mietpreis">Standard-Mietpreis</FieldLabel>
+          <FieldLabel<SpielortFieldPath> path="default_mietpreis">Standard-Mietpreis</FieldLabel>
           <NumberField.Group className={FIELD_GROUP_CLASSES}>
             <NumberField.DecrementButton />
             <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />

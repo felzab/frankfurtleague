@@ -10,6 +10,8 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
+
 /**
  * The name fans out: the patch rewrites the embedded `ort.name` on every Spiel at this venue, and
  * the derived `ort.maps_link` with it.
@@ -46,7 +48,7 @@ export function FormSpielortSection({
           value={name}
           onChange={onNameChange}
           onBlur={() => onFieldLeft(["name"])}>
-          <FieldLabel path="name">Name</FieldLabel>
+          <FieldLabel<SpielortFieldPath> path="name">Name</FieldLabel>
           <Input
             placeholder="z.B. Sportpark Nord"
             className={FIELD_INPUT_CLASSES}

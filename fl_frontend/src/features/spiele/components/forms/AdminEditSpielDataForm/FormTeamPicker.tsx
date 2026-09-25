@@ -34,6 +34,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
@@ -280,7 +281,7 @@ export function FormTeamPicker({
       value={teamPayload?.team_id ?? null}
       onChange={handleTeamSelection}
       disabledKeys={disabledTeamKeys}>
-      <FieldLabel
+      <FieldLabel<SpielFieldPath>
         path={`${fieldName}.team_id`}
         extraMarker={<ExpectedMarker path={`${fieldName}.team_id`} />}>
         {label}
@@ -390,7 +391,7 @@ export function FormTeamPicker({
         selectionMode="single"
         value={choice}
         onChange={handleChoiceSelection}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path={`${fieldName}_quelle`}
           extraMarker={<ExpectedMarker path={`${fieldName}_quelle`} />}>
           {label}: Herkunft

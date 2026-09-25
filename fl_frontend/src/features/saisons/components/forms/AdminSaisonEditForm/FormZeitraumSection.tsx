@@ -10,6 +10,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { SaisonSpieltagBound } from "@/features/saisons/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
@@ -66,7 +67,7 @@ export function FormZeitraumSection({
             isRequired
             name="start_date"
             calendarLabel="Beginn auswählen"
-            label={<FieldLabel path="start_date">Beginn</FieldLabel>}
+            label={<FieldLabel<SaisonFieldPath> path="start_date">Beginn</FieldLabel>}
             value={startDate}
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
@@ -76,7 +77,7 @@ export function FormZeitraumSection({
             isRequired
             name="end_date"
             calendarLabel="Ende auswählen"
-            label={<FieldLabel path="end_date">Ende</FieldLabel>}
+            label={<FieldLabel<SaisonFieldPath> path="end_date">Ende</FieldLabel>}
             value={endDate}
             onChange={onEndDateChange}
             onBlur={() => onFieldLeft(["end_date"])}

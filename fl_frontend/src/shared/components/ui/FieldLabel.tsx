@@ -8,23 +8,25 @@ import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FIELD_LABEL_CLASSES, FIELD_MARKER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
+import type { FieldPath } from "@/shared/components/ui/DraftStatusContext";
 import type { ReactNode } from "react";
 
 /**
  * The Geändert marker is a hover hint, and **it is where the previous value lives**: as a line under
  * the label it arrived on the first keystroke, shifting the layout while somebody typed.
  */
-export function FieldLabel({
+export function FieldLabel<P extends string = never>({
   path,
   children,
   extraMarker,
 }: {
-  path: string;
+  /** Named as `<FieldLabel<EditorPath> path=…>`, `useFieldStatus`'s `FieldPath` rule. */
+  path: FieldPath<P>;
   children: ReactNode;
   /** A marker only one editor has — the match editor's Fehlt/Offen disc, which needs a status the shared one does not carry. */
   extraMarker?: ReactNode;
 }) {
-  const status = useFieldStatus(path);
+  const status = useFieldStatus<P>(path);
 
   return (
     <div

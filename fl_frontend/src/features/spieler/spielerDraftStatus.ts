@@ -29,7 +29,7 @@ type FLSpielerFieldGroup = "Person" | "Kader";
 
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   { path: "vorname", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.vorname) },
   { path: "nachname", label: "Nachname", group: "Person", read: (source) => emptyAsNull(source.nachname) },
   {
@@ -40,10 +40,10 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpie
     // and a change row quoting the stored ISO string is one nobody can check against the control.
     read: (source) => (source.geburtsdatum === null ? null : formatSpielDatum(source.geburtsdatum)),
   },
-];
+] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
 
 /** Built per call: `team_id` needs the season's team list, since a change row showing an id is one nobody can check. */
-function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] {
+function squadDescriptors(teams: readonly SpielerTeamOption[]) {
   const nameById = new Map(teams.map((team) => [team.teamId, team.name]));
 
   return [
@@ -89,8 +89,10 @@ function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FLField
       // German comes from `ROLLE_OPTIONS`, which is what the control beside it reads.
       read: (source) => (source.membership?.rolle == null ? null : rolleLabel(source.membership.rolle)),
     },
-  ];
+  ] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
 }
+
+export type SpielerFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"] | ReturnType<typeof squadDescriptors>[number]["path"];
 
 export function deriveSpielerDraftStatus({
   stored,

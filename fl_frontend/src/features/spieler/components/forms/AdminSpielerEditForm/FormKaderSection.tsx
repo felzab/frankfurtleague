@@ -27,6 +27,7 @@ import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react/rac";
 import type { SpielerBanner } from "./banners";
@@ -146,7 +147,7 @@ export function FormKaderSection({
           <>
             <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="team_id">Team</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="team_id">Team</FieldLabel>
                 <TeamSelect
                   isRequired
                   value={teamId}
@@ -160,7 +161,7 @@ export function FormKaderSection({
               </div>
 
               <NummerField
-                label={<FieldLabel path="nummer">Nummer</FieldLabel>}
+                label={<FieldLabel<SpielerFieldPath> path="nummer">Nummer</FieldLabel>}
                 value={nummer}
                 onChange={onNummerChange}
                 onBlur={() => onValidateFields(["nummer"])}
@@ -179,7 +180,7 @@ export function FormKaderSection({
               {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
                   `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
                   the changed-field marker out of the group's name. */}
-              <FieldLabel path="rolle">
+              <FieldLabel<SpielerFieldPath> path="rolle">
                 <span id={ROLLE_LABEL_ID}>Rolle</span>
               </FieldLabel>
               {/* Named from the heading rather than by a wrapper: react-aria already renders
@@ -222,7 +223,7 @@ export function FormKaderSection({
 
             <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="position">Position</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="position">Position</FieldLabel>
                 <ClosedSetSelect
                   value={position}
                   onChange={onPositionChange}
@@ -235,7 +236,7 @@ export function FormKaderSection({
               </div>
 
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="stufe">Stufe</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="stufe">Stufe</FieldLabel>
                 <ClosedSetSelect
                   value={stufe}
                   onChange={onStufeChange}

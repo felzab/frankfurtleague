@@ -10,6 +10,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { FLAddress } from "@/shared/schemas";
 
 /**
@@ -78,7 +79,7 @@ export function FormAdresseSection({
           value={address}
           onChange={onChange}
           onFieldLeft={onFieldLeft}
-          renderLabel={(path, text) => <FieldLabel path={path}>{text}</FieldLabel>}
+          renderLabel={(field, text) => <FieldLabel<TeamFieldPath> path={`address.${field}`}>{text}</FieldLabel>}
         />
       </div>
     </section>

@@ -7,6 +7,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
 import type { FLAddress } from "@/shared/schemas";
 import type { SpielortBanner } from "./banners";
 
@@ -55,7 +56,7 @@ export function FormAdresseSection({
           value={address}
           onChange={onChange}
           onFieldLeft={onFieldLeft}
-          renderLabel={(path, text) => <FieldLabel path={path}>{text}</FieldLabel>}
+          renderLabel={(field, text) => <FieldLabel<SpielortFieldPath> path={`address.${field}`}>{text}</FieldLabel>}
         />
       </div>
     </section>

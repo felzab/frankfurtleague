@@ -18,6 +18,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
@@ -39,7 +40,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
 }: {
   label: string;
   /** The dotted payload path: also its `name`, its error key and its anchor. */
-  fieldPath: string;
+  fieldPath: SpielFieldPath;
   placeholder: string;
   items: TItem[];
   selectedId: string | null;
@@ -94,7 +95,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path={fieldPath}
           extraMarker={<ExpectedMarker path={fieldPath} />}>
           {label}

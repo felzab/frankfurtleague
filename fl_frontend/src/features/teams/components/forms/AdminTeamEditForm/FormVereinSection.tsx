@@ -29,6 +29,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { Key } from "@heroui/react/rac";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
@@ -89,7 +90,7 @@ export function FormVereinSection({
             onChange={(next) => onChange({ ...draft, name: next })}
             onBlur={() => onFieldLeft(["name"])}
             maxLength={TEAM_NAME_MAX_LENGTH}>
-            <FieldLabel path="name">Name</FieldLabel>
+            <FieldLabel<TeamFieldPath> path="name">Name</FieldLabel>
             <Input
               placeholder="z.B. Goethe-Gymnasium"
               className={FIELD_INPUT_CLASSES}
@@ -104,7 +105,7 @@ export function FormVereinSection({
             onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
             onBlur={() => onFieldLeft(["shorthand"])}
             maxLength={2}>
-            <FieldLabel path="shorthand">Kürzel</FieldLabel>
+            <FieldLabel<TeamFieldPath> path="shorthand">Kürzel</FieldLabel>
             <Input className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-widest uppercase`} />
             <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
@@ -117,7 +118,7 @@ export function FormVereinSection({
           onChange={(next) => onChange({ ...draft, full_name: next })}
           onBlur={() => onFieldLeft(["full_name"])}
           maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
-          <FieldLabel path="full_name">Vollständiger Name</FieldLabel>
+          <FieldLabel<TeamFieldPath> path="full_name">Vollständiger Name</FieldLabel>
           <Input
             placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
             className={FIELD_INPUT_CLASSES}
@@ -126,7 +127,7 @@ export function FormVereinSection({
         </TextField>
 
         <div className="flex w-full flex-col gap-y-1 sm:max-w-96">
-          <FieldLabel path="schulform">Schulform</FieldLabel>
+          <FieldLabel<TeamFieldPath> path="schulform">Schulform</FieldLabel>
           {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
               the moment it is made. */}
           <Select
@@ -170,14 +171,14 @@ export function FormVereinSection({
           value={draft.website_url}
           onChange={(nextUrl) => onChange({ ...draft, website_url: nextUrl })}
           onFieldLeft={() => onFieldLeft(["website_url"])}
-          labelSlot={<FieldLabel path="website_url">Website</FieldLabel>}
+          labelSlot={<FieldLabel<TeamFieldPath> path="website_url">Website</FieldLabel>}
           // The box holds the URL without the scheme, which the group renders as furniture, so the
           // payload's ceiling is composed rather than passed whole.
           maxLength={TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
         />
 
         <div className="flex w-full flex-col gap-y-1">
-          <FieldLabel path="description">Beschreibung</FieldLabel>
+          <FieldLabel<TeamFieldPath> path="description">Beschreibung</FieldLabel>
           {/* A preview, deliberately not an input: a description is a paragraph. Pressing it opens
               the modal, as the pencil does, so the block is one target for one action. */}
           <button

@@ -25,16 +25,16 @@ const readDatum = (value: string): string | null => (emptyAsNull(value) === null
  * Every field the matchday editor can change where it dates both ends. **`ende` carries the span
  * refinement's message**, which `FLPatchSpieltagPayloadSchema` puts there deliberately.
  */
-const SPAN_DESCRIPTORS: readonly FLSpieltagFieldDescriptor[] = [
+const SPAN_DESCRIPTORS = [
   { path: "beginn", label: "Beginn", group: "Zeitraum", read: (source) => readDatum(source.beginn) },
   { path: "ende", label: "Ende", group: "Zeitraum", read: (source) => readDatum(source.ende) },
-];
+] as const satisfies readonly FLSpieltagFieldDescriptor[];
 
 /**
  * One row where one picker dates the matchday: a second would name a control that is not on screen.
  * `errorPaths` still lands the span refinement's message, which the schema reports on `ende`.
  */
-const SINGLE_DAY_DESCRIPTORS: readonly FLSpieltagFieldDescriptor[] = [
+const SINGLE_DAY_DESCRIPTORS = [
   {
     path: "beginn",
     label: "Datum",
@@ -42,7 +42,9 @@ const SINGLE_DAY_DESCRIPTORS: readonly FLSpieltagFieldDescriptor[] = [
     errorPaths: ["beginn", "ende"],
     read: (source) => readDatum(source.beginn),
   },
-];
+] as const satisfies readonly FLSpieltagFieldDescriptor[];
+
+export type SpieltagFieldPath = (typeof SPAN_DESCRIPTORS | typeof SINGLE_DAY_DESCRIPTORS)[number]["path"];
 
 export function deriveSpieltagDraftStatus({
   stored,

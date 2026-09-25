@@ -10,6 +10,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpieltagFieldPath } from "@/features/spieltage/spieltagDraftStatus";
 import type { SpieltagBanner } from "./banners";
 
 /**
@@ -85,7 +86,7 @@ export function FormZeitraumSection({
               minValue={spanStart}
               maxValue={spanEnd}
               calendarLabel="Datum auswählen"
-              label={<FieldLabel path="beginn">Datum</FieldLabel>}
+              label={<FieldLabel<SpieltagFieldPath> path="beginn">Datum</FieldLabel>}
               value={asCalendarDate(beginn)}
               onChange={(next) => onBeginnChange(next?.toString() ?? "")}
             />
@@ -97,7 +98,7 @@ export function FormZeitraumSection({
                 minValue={spanStart}
                 maxValue={spanEnd}
                 calendarLabel="Beginn auswählen"
-                label={<FieldLabel path="beginn">Beginn</FieldLabel>}
+                label={<FieldLabel<SpieltagFieldPath> path="beginn">Beginn</FieldLabel>}
                 value={asCalendarDate(beginn)}
                 onChange={(next) => onBeginnChange(next?.toString() ?? "")}
               />
@@ -107,7 +108,7 @@ export function FormZeitraumSection({
                 minValue={spanStart}
                 maxValue={spanEnd}
                 calendarLabel="Ende auswählen"
-                label={<FieldLabel path="ende">Ende</FieldLabel>}
+                label={<FieldLabel<SpieltagFieldPath> path="ende">Ende</FieldLabel>}
                 value={asCalendarDate(ende)}
                 onChange={(next) => onEndeChange(next?.toString() ?? "")}
               />

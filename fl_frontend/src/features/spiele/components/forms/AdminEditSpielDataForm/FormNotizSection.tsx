@@ -16,6 +16,8 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
+
 /** The id the durability sentence publishes, carried by the note's own field in `aria-describedby`. */
 const NOTIZ_HINT_ID = "notiz-dauerhaft-hinweis";
 
@@ -35,7 +37,7 @@ export function FormNotizSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel();
-  const status = useFieldStatus("notiz");
+  const status = useFieldStatus<SpielFieldPath>("notiz");
   const notizRef = useRef<HTMLTextAreaElement>(null);
 
   // Whitespace is empty, as `fl_frontend/src/features/spiele/draftStatus.ts`'s `notiz` descriptor reads it, or the
@@ -69,7 +71,7 @@ export function FormNotizSection({
           onBlur={() => onValidateFields(["notiz"])}
           maxLength={NOTIZ_MAX_LENGTH}
           isInvalid={status?.error ? true : undefined}>
-          <FieldLabel
+          <FieldLabel<SpielFieldPath>
             path="notiz"
             extraMarker={<ExpectedMarker path="notiz" />}>
             Notiz zum Spiel

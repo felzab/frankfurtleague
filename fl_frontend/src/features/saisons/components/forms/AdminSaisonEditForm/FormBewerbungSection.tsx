@@ -12,6 +12,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonBewerbung } from "@/features/saisons/schemas";
 
 /**
@@ -87,7 +88,7 @@ export function FormBewerbungSection({
               {/* One label over the pair, mirroring its one row in the change list: a window is one
                   decision about when, so neither end is a decision on its own. `FieldLabel` renders
                   the row's anchor id, so exactly one of the two ends may carry it. */}
-              <FieldLabel path="bewerbung">
+              <FieldLabel<SaisonFieldPath> path="bewerbung">
                 {/* The heading recipe on the text rather than on the `Label`, as the forfeit pair
                     does it: it governs the pair below rather than either field beside it. */}
                 <span

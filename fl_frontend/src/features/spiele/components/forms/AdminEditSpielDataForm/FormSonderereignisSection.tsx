@@ -14,6 +14,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
@@ -39,7 +40,7 @@ export function FormSonderereignisSection({
   banners: readonly SpielBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
-  const status = useFieldStatus("sonderereignis");
+  const status = useFieldStatus<SpielFieldPath>("sonderereignis");
   const item = listboxRow();
 
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
@@ -101,7 +102,7 @@ export function FormSonderereignisSection({
             onChange={handleChange}
             isInvalid={status?.error ? true : undefined}
             className="w-full">
-            <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
+            <FieldLabel<SpielFieldPath> path="sonderereignis">Sonderereignis</FieldLabel>
 
             <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
               {/* From the prop rather than `Select.Value`, which resolves its label out of the

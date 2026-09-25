@@ -18,6 +18,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonRulesDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
@@ -131,7 +132,7 @@ export function FormRegelnSection({
               <SaisonRuleNumberField
                 name="rules.win_points"
                 isReadOnly={isFinishedSaison}
-                label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
+                label={<FieldLabel<SaisonFieldPath> path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
                 minValue={1}
                 value={rules.win_points}
                 onChange={(win_points) => onRulesChange({ ...rules, win_points })}
@@ -140,7 +141,7 @@ export function FormRegelnSection({
               <SaisonRuleNumberField
                 name="rules.draw_points"
                 isReadOnly={isFinishedSaison}
-                label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
+                label={<FieldLabel<SaisonFieldPath> path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
                 minValue={0}
                 value={rules.draw_points}
                 onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
@@ -153,7 +154,7 @@ export function FormRegelnSection({
             {/* One label over the pair, mirroring its one row in the change list: the season regulates
                 both sides' goals together, so neither number is a decision on its own. Still a
                 `FieldLabel`, which is what carries the Geändert marker and the row's anchor. */}
-            <FieldLabel path="rules.forfeit_ergebnis">
+            <FieldLabel<SaisonFieldPath> path="rules.forfeit_ergebnis">
               {/* The heading recipe on the text rather than on the `Label`: it governs the pair below it,
                   and at `FIELD_LABEL_CLASSES` it wore the same weight as the two field labels it governs. */}
               <span
@@ -195,7 +196,7 @@ export function FormRegelnSection({
           <SaisonTiebreakSelect
             name="rules.tiebreak_order"
             isDisabled={isFinishedSaison || isKnockoutStarted}
-            label={<FieldLabel path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
+            label={<FieldLabel<SaisonFieldPath> path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
             value={rules.tiebreak_order}
             onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
           />
@@ -222,7 +223,7 @@ export function FormRegelnSection({
               name="rules.number_of_groups"
               isDisabled={isDrawnSaison}
               ariaLabel="Gruppen"
-              label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
+              label={<FieldLabel<SaisonFieldPath> path="rules.number_of_groups">Gruppen</FieldLabel>}
               value={rules.number_of_groups}
               options={groupCountOptions({
                 groups: rules.number_of_groups,
@@ -234,7 +235,7 @@ export function FormRegelnSection({
             <SaisonRuleNumberField
               name="rules.teams_per_group"
               isReadOnly={isDrawnSaison}
-              label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
+              label={<FieldLabel<SaisonFieldPath> path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
               minValue={teamsPerGroupFloor({
                 qualifiers: rules.qualifiers_per_group,
                 held: rules.teams_per_group,
@@ -251,7 +252,7 @@ export function FormRegelnSection({
               name="rules.qualifiers_per_group"
               isDisabled={isFinishedSaison || isDrawnSaison}
               ariaLabel="Qualifikanten pro Gruppe"
-              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
+              label={<FieldLabel<SaisonFieldPath> path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
               value={rules.qualifiers_per_group}
               options={qualifierCountOptions({
                 groups: rules.number_of_groups,
@@ -279,13 +280,13 @@ export function FormRegelnSection({
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Kader</h3>
           <SaisonRuleNumberField
             name="rules.max_kadergroesse"
-            label={<FieldLabel path="rules.max_kadergroesse">Maximale Kadergröße</FieldLabel>}
+            label={<FieldLabel<SaisonFieldPath> path="rules.max_kadergroesse">Maximale Kadergröße</FieldLabel>}
             minValue={1}
             value={rules.max_kadergroesse}
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-          <FieldLabel path="rules.erlaubte_stufen">
+          <FieldLabel<SaisonFieldPath> path="rules.erlaubte_stufen">
             <span id={STUFEN_LABEL_ID}>Welche Stufen diese Saison spielen</span>
           </FieldLabel>
           <StufenPicker

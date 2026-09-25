@@ -14,6 +14,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields } from "@/features/spieler/types";
 
 /**
@@ -54,7 +55,7 @@ export function FormPersonSection({
             onChange={(next) => onChange({ ...draft, vorname: next })}
             onBlur={() => onFieldLeft(["vorname"])}
             maxLength={KONTAKT_NAME_MAX_LENGTH}>
-            <FieldLabel path="vorname">Vorname</FieldLabel>
+            <FieldLabel<SpielerFieldPath> path="vorname">Vorname</FieldLabel>
             <Input
               placeholder="z.B. Lena"
               className={FIELD_INPUT_CLASSES}
@@ -69,7 +70,7 @@ export function FormPersonSection({
             onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
             onBlur={() => onFieldLeft(["nachname"])}
             maxLength={KONTAKT_NAME_MAX_LENGTH}>
-            <FieldLabel path="nachname">Nachname</FieldLabel>
+            <FieldLabel<SpielerFieldPath> path="nachname">Nachname</FieldLabel>
             <Input
               placeholder="z.B. Meier"
               className={FIELD_INPUT_CLASSES}
@@ -84,7 +85,7 @@ export function FormPersonSection({
               (`fl_backend/app/core/domain.py :: UNENFORCED`). */}
           <AppDatePicker
             name="geburtsdatum"
-            label={<FieldLabel path="geburtsdatum">Geburtsdatum</FieldLabel>}
+            label={<FieldLabel<SpielerFieldPath> path="geburtsdatum">Geburtsdatum</FieldLabel>}
             calendarLabel="Geburtsdatum auswählen"
             value={draft.geburtsdatum === null ? null : parseDate(draft.geburtsdatum)}
             // A cleared picker is `null`, which is what the payload stores: no date was given.

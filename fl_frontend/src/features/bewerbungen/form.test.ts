@@ -400,11 +400,11 @@ describe("the public application form", () => {
     assert.ok(switchSays().includes(refusedSentence), "switching the confirmation off again says nothing until something else happens");
   });
 
-  /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and `fieldLabelPaths.test.ts`
-     would then hold these paths against a descriptor table the slice does not keep for them. */
+  /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and names its path by a
+     descriptor table the slice does not keep. */
   it("labels its fields plainly, holding no draft status it cannot carry", () => {
     assert.throws(
-      () => renderMarkup(FieldLabel, { path: "schule.team_name", children: "Teamname" }),
+      () => renderMarkup(FieldLabel<"schule.team_name">, { path: "schule.team_name", children: "Teamname" }),
       // The control: without it a `FieldLabel` that had stopped reading the provider would render
       // here quietly, and the two assertions below would pass over a page carrying draft markers.
       /DraftStatusProvider/,

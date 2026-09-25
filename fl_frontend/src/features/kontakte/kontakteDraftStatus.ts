@@ -73,12 +73,12 @@ export const kontaktSeatPaths = (rolle: KontaktRolle): readonly string[] => [
 /** Every seat's paths at once: what a change touching the whole block has to re-judge. */
 export const ALL_SEAT_PATHS: readonly string[] = KONTAKT_ROLLEN.flatMap(({ value }) => kontaktSeatPaths(value));
 
-// Each path is spelled here rather than composed from the seat's key: `fieldLabelPaths.test.ts`
-// reads a literal, and a composed one would leave the Geändert marker silently unwired.
+// Each path is spelled here rather than composed from the seat's key: a label's path type is this
+// table's literals, and a composed one widens it to `string`, which no label then accepts.
 
 // The SEQUENCE is `KONTAKT_ROLLEN`'s: the rail and the editor's panels both map it, so a reader
 // meets the three seats in one order.
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKontakteFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   {
     path: "kontakte.ansprechperson",
     // The seat names the section, so the row inside it says which half of the seat moved.
@@ -135,7 +135,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
       return kontakte === null || holdsNobody(kontakte) ? null : trainerZugleichLabel(kontakte.trainer_ist_zugleich);
     },
   },
-];
+] as const satisfies readonly FLFieldDescriptor<FLKontakteDraftFields, FLKontakteFieldGroup>[];
+
+export type KontakteFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 export function deriveKontakteDraftStatus({
   stored,

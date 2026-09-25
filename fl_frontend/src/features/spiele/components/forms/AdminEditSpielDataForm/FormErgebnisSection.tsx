@@ -20,6 +20,7 @@ import { formatQuelle } from "../../../utils";
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSonderereignis, FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 
 /** The goal fields' paths, refreshed together because the outcome is a pair. */
@@ -188,7 +189,7 @@ export function FormErgebnisSection({
               onChange={handleToreChange(slot)}
               onBlur={() => onValidateFields(TORE_PATHS)}>
               {/* The team's name alone: the panel title already says these are goals. */}
-              <FieldLabel
+              <FieldLabel<SpielFieldPath>
                 path={`${slot}.tore`}
                 extraMarker={<ExpectedMarker path={`${slot}.tore`} />}>
                 {name}
@@ -233,7 +234,7 @@ export function FormErgebnisSection({
                     value={value}
                     onChange={handleElfmeterChange(slot)}
                     onBlur={() => onValidateFields(ELFMETER_PATHS)}>
-                    <FieldLabel
+                    <FieldLabel<SpielFieldPath>
                       path={`elfmeterschiessen.${slot}`}
                       extraMarker={<ExpectedMarker path={`elfmeterschiessen.${slot}`} />}>
                       {name}: Treffer

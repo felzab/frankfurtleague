@@ -11,6 +11,8 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
+
 /**
  * The name fans out and the school does not: the patch rewrites the embedded `schiedsrichter.name`
  * on every Spiel naming this referee. `schule` submits `null` when emptied — an empty string would
@@ -55,7 +57,7 @@ export function FormPersonSection({
             onChange={onNameChange}
             onBlur={() => onFieldLeft(["name"])}
             maxLength={KONTAKT_NAME_MAX_LENGTH}>
-            <FieldLabel path="name">Name</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="name">Name</FieldLabel>
             <Input
               placeholder="z.B. Pierluigi Collina"
               className={FIELD_INPUT_CLASSES}
@@ -69,7 +71,7 @@ export function FormPersonSection({
             // Emptied means absent, not an empty school — the boundary where `""` becomes `null`.
             onChange={(next) => onSchuleChange(next.trim() === "" ? null : next)}
             onBlur={() => onFieldLeft(["schule"])}>
-            <FieldLabel path="schule">Schule / Verein</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="schule">Schule / Verein</FieldLabel>
             <Input
               placeholder="z.B. Goethe-Gymnasium"
               className={FIELD_INPUT_CLASSES}

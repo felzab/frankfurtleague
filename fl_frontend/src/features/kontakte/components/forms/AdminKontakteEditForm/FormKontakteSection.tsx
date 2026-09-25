@@ -32,6 +32,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { FormKontaktErasure } from "./FormKontaktErasure";
 
+import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
@@ -171,7 +172,7 @@ export function FormKontakteSection({
                 <TrainerZugleichPicker
                   value={basis.trainer_ist_zugleich}
                   onPick={pickSharedSeat}
-                  labelSlot={<FieldLabel path="kontakte.trainer_ist_zugleich">{TRAINER_ZUGLEICH_FRAGE}</FieldLabel>}
+                  labelSlot={<FieldLabel<KontakteFieldPath> path="kontakte.trainer_ist_zugleich">{TRAINER_ZUGLEICH_FRAGE}</FieldLabel>}
                 />
               ) : null
             }
@@ -329,7 +330,7 @@ function KontaktpersonInputs({
           onChange={(next) => onChange({ ...person, vorname: next })}
           onBlur={() => onFieldLeft([`kontakte.${rolle}.vorname`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
-          <FieldLabel path={`kontakte.${rolle}`}>Vorname</FieldLabel>
+          <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Vorname</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
@@ -342,7 +343,7 @@ function KontaktpersonInputs({
           onChange={(next) => onChange({ ...person, nachname: next })}
           onBlur={() => onFieldLeft([`kontakte.${rolle}.nachname`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
-          <FieldLabel path={`kontakte.${rolle}`}>Nachname</FieldLabel>
+          <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Nachname</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
@@ -357,7 +358,7 @@ function KontaktpersonInputs({
           value={person.email}
           onChange={(next) => onChange({ ...person, email: next })}
           onBlur={() => onFieldLeft([`kontakte.${rolle}.email`])}>
-          <FieldLabel path={`kontakte.${rolle}`}>E-Mail</FieldLabel>
+          <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>E-Mail</FieldLabel>
           <Input
             placeholder="z.B. name@beispiel.de"
             className={FIELD_INPUT_CLASSES}
@@ -373,7 +374,7 @@ function KontaktpersonInputs({
           value={person.telefon}
           onChange={(next) => onChange({ ...person, telefon: next })}
           onBlur={() => onFieldLeft([`kontakte.${rolle}.telefon`])}>
-          <FieldLabel path={`kontakte.${rolle}`}>Telefon</FieldLabel>
+          <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Telefon</FieldLabel>
           <Input
             placeholder="z.B. 069 1234567"
             className={FIELD_INPUT_CLASSES}
@@ -389,7 +390,7 @@ function KontaktpersonInputs({
           isReadOnly
           value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
           onChange={() => undefined}>
-          <FieldLabel path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
+          <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
         </TextField>
       </div>
@@ -404,7 +405,7 @@ function KontaktpersonInputs({
             isReadOnly
             value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
             onChange={() => undefined}>
-            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
             <Input className={FIELD_INPUT_CLASSES} />
           </TextField>
 
@@ -412,7 +413,7 @@ function KontaktpersonInputs({
             isReadOnly
             value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
             onChange={() => undefined}>
-            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
             <Input className={FIELD_INPUT_CLASSES} />
           </TextField>
         </div>
@@ -424,7 +425,7 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>
-            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
             {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
                 and a stored one keeps the version it was given, or the record would cite a text this
                 person never saw. */}
@@ -436,7 +437,7 @@ function KontaktpersonInputs({
             isReadOnly={isMirrored}
             name={`kontakte.${rolle}.einwilligung.datum`}
             // The record's path rather than the field's: the changed marker belongs to the record's row.
-            label={<FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erfasst am</FieldLabel>}
+            label={<FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst am</FieldLabel>}
             calendarLabel={`${label}: Datum der Kenntnisnahme auswählen`}
             value={toCalendarDate(person.einwilligung.datum)}
             // `""` for a cleared date is what the schema rejects with its own German message, so a

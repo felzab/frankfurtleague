@@ -10,6 +10,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLKontakt } from "@/shared/schemas";
 
 /**
@@ -60,7 +61,7 @@ export function FormKontaktSection({
             value={kontakt.email ?? ""}
             onChange={(next) => onChange({ ...kontakt, email: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.email"])}>
-            <FieldLabel path="kontakt.email">E-Mail</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="kontakt.email">E-Mail</FieldLabel>
             <Input
               placeholder="z.B. ref@beispiel.de"
               className={FIELD_INPUT_CLASSES}
@@ -74,7 +75,7 @@ export function FormKontaktSection({
             value={kontakt.telefon ?? ""}
             onChange={(next) => onChange({ ...kontakt, telefon: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.telefon"])}>
-            <FieldLabel path="kontakt.telefon">Telefon</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="kontakt.telefon">Telefon</FieldLabel>
             <Input
               placeholder="z.B. 0151 12345678"
               className={FIELD_INPUT_CLASSES}

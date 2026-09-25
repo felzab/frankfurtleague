@@ -11,6 +11,7 @@ import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
@@ -124,7 +125,7 @@ export function FormSpielortSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path="ort.mietpreis"
           extraMarker={<ExpectedMarker path="ort.mietpreis" />}>
           Mietpreis
