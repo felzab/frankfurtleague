@@ -293,6 +293,8 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     );
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
+    // Pinned to `@better-auth/mongo-adapter`'s masking, an upstream defect: a release that stops
+    // aborting after a failed commit turns this red, and the case then asserts the commit's own error.
     assert.ok(
       outcome instanceof MongoTransactionError && outcome.message === "Cannot call abortTransaction after calling commitTransaction",
       `the hung commit settled with ${String(outcome)}`,
