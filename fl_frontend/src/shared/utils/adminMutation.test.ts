@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+
 /** What the guard resolves, set per case; and every refresh the spine asked Next for. */
 const SESSION = "__flSpineSession";
 const REFRESHED = "__flSpineRefreshed";
@@ -12,7 +14,7 @@ const ADMIN = { user: { email: "vorstand@example.org" } };
    the trace seed, the refresh, the session and the framework's control-flow rethrow are the
    framework's, and the spine between them and the action is what is driven. */
 const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
   "next/cache": `export const refresh = () => { globalThis.${REFRESHED}.push(1); };`,
 };
