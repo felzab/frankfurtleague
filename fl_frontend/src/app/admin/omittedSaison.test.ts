@@ -475,13 +475,13 @@ describe("the season every admin page reads", () => {
     });
 
     /* Floors: a page throwing before its first read passes the cases above having shown nothing, as
-       `visit` records what it read and swallows the throw; and a page resolving a season it then neither
-       sends nor picks by would pass them unjudged. */
+       `visit` records what it read and swallows the throw. */
     it(`reached the backend from the pages it swept where ${name}`, () => {
       const silent = [...visits]
         .filter(([page, entry]) => entry.reads.length === 0 && READS_NOTHING[label(page)] === undefined)
         .map(([page]) => label(page));
       const seasonReading = [...visits.values()].filter((entry) => entry.reads.some(({ endpoint }) => routeOf(endpoint)?.takesSaison === true));
+      // A page resolving a season it then neither sends nor picks by would pass the cases above unjudged.
       const unjudged = [...visits]
         .filter(
           ([, entry]) =>
