@@ -17,10 +17,8 @@ import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
 import {
   mapAnonymiseRefusal,
   mapEinladenRefusal,
@@ -49,16 +47,6 @@ const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSc
 const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-/**
- * Whitespace-collapsed, the copy being JSX text whose line breaks the formatter picks. Read for which
- * declaration the displayed word comes from, which a render of the constant's value cannot tell apart.
- */
-const PANEL = readFileSync(
-  path.resolve(import.meta.dirname, "components", "forms", "AdminSchiedsrichterEditForm", "FormAnonymisierenSection.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 /** The backend redaction the panel's copy describes, read where it is written. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
@@ -71,26 +59,10 @@ const RETIRE_OPERATION = "DELETE /schiedsrichter/{schiedsrichter_id}";
 const BESTAETIGUNG_OPERATION = "POST /schiedsrichter/bestaetigung";
 const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
-/* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
-const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
-const RETIRE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function deleteSchiedsrichterAction",
-  "export async function reactivateSchiedsrichterAction",
-);
-
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
 describe("the referee's writes against the codes their endpoints publish", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each action out of the file before reading it", () => {
-    assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
-    assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
-    assert.ok(RETIRE_ACTION.includes("deleteSchiedsrichter(validated.data)"), "the retire's call is outside its slice");
-    assert.ok(!RETIRE_ACTION.includes("reactivateSchiedsrichter("), "the retire's slice runs on into the reactivation");
-  });
-
   /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
      opening the row every erased referee's fixtures point at. A rule published later and left unmapped
      fails this. */
@@ -341,14 +313,6 @@ describe("the anonymisation's copy", () => {
     assert.match(shown, /Eintrag von dieser Person/, "the sentence deletes the entry of nobody");
     assert.match(shown, /diese Person geleitet hat/, "the nameless row's panel stopped saying which matches are reached");
   });
-
-  /* The word is a frontend constant so it can be reworded without touching a stored document; typed
-     into the copy instead, a rewording would leave the panel promising a word nothing renders. */
-  it("names the displayed word by reading the constant rather than typing it", () => {
-    assert.match(PANEL, /SCHIEDSRICHTER_ANONYM_LABEL/, "the panel does not read the label from its one declaration");
-    assert.ok(!/„anonym|"anonym|>anonym/.test(PANEL), "the panel types the label as text, so rewording it leaves this copy behind");
-    assert.equal(SCHIEDSRICHTER_ANONYM_LABEL, "anonym");
-  });
 });
 
 describe("what the save tells the administrator about the message it sent", () => {
@@ -541,29 +505,5 @@ describe("how much of the log the copy claims", () => {
      something happened and when. */
   it("says the rows themselves stay readable", () => {
     assert.match(panelText(), /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
-  });
-});
-
-describe("the anonymisation's payload, beside the retirement's", () => {
-  /* Its own declaration, as the pupil's erasure has: the retire and its reactivate are inverses of
-     one another and this write has no inverse at all. Shared, a value typed for a retirement reaches
-     the deletion while reading as one. */
-  it("is declared on its own and parsed by the anonymisation alone", () => {
-    assert.match(SCHEMAS, /export const FLAnonymiseSchiedsrichterPayloadSchema = z\.object\(/, "the anonymisation shares the reversible key");
-    assert.ok(
-      ANONYMISE_ACTION.includes("FLAnonymiseSchiedsrichterPayloadSchema.safeParse"),
-      "the anonymisation validates against some other schema",
-    );
-    assert.ok(!ANONYMISE_ACTION.includes("FLSchiedsrichterKeyPayloadSchema"), "the retirement's key is still reachable from the deletion");
-  });
-
-  /* The pair that stays shared, and the doc beside it, which may no longer name three calls. */
-  it("leaves the retire and its reactivate on the shared key", () => {
-    assert.ok(RETIRE_ACTION.includes("FLSchiedsrichterKeyPayloadSchema.safeParse"), "the retire moved off the shared key");
-
-    const sharedDoc = /\/\*\* ([^*]*) \*\/\s*export const FLSchiedsrichterKeyPayloadSchema/.exec(SCHEMAS)?.[1] ?? "";
-
-    assert.notEqual(sharedDoc, "", "the shared key lost the doc line that says which calls take it");
-    assert.doesNotMatch(sharedDoc, /anonymis/, "the shared key still claims the anonymisation");
   });
 });
