@@ -898,6 +898,21 @@ Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
   fi
 }
 
+pull_latest_pair() {
+  LATEST_BEFORE_FE="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
+  LATEST_BEFORE_BE="$(docker image ls --quiet --no-trunc "$IMAGE_BACKEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
+  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
+The packages are public, so this server needs no login. An authentication or
+'not found' error almost always means the package was left PRIVATE after a
+first push — check https://github.com/felzab?tab=packages"
+  if ! docker pull "$IMAGE_BACKEND"; then
+    # A new frontend beside an old backend is a pair no build names.
+    put_latest_back
+    die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
+  fi
+  ok "both packages pulled"
+}
+
 section "pull"
 
 step "The edge's images, before anything the application runs moves"
@@ -924,18 +939,7 @@ The frontend tag has already moved, so this host's pair is mismatched: re-run th
   ok "both :latest tags now point at ${PIN} locally"
 else
   step "Pulling the current published images"
-  LATEST_BEFORE_FE="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
-  LATEST_BEFORE_BE="$(docker image ls --quiet --no-trunc "$IMAGE_BACKEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
-  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
-The packages are public, so this server needs no login. An authentication or
-'not found' error almost always means the package was left PRIVATE after a
-first push — check https://github.com/felzab?tab=packages"
-  if ! docker pull "$IMAGE_BACKEND"; then
-    # A new frontend beside an old backend is a pair no build names.
-    put_latest_back
-    die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
-  fi
-  ok "both packages pulled"
+  pull_latest_pair
   compare_pulled_pair "$IMAGE_FRONTEND" "$IMAGE_BACKEND"
 fi
 

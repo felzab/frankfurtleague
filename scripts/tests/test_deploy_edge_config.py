@@ -315,5 +315,5 @@ def test_the_edge_images_are_fetched_before_either_application_image_or_the_recr
     fetched = text.index("\nfetch_edge_images\n")
 
     assert text.index("\ncheck_compose_config\n") < fetched, "the edge's images are fetched before compose's configuration is read"
-    for later in ('docker pull "${REPO_FRONTEND}:${PIN}"', 'docker pull "$IMAGE_FRONTEND"', 'step "Recreating the application containers"'):
+    for later in ('docker pull "${REPO_FRONTEND}:${PIN}"', "\n  pull_latest_pair\n", 'step "Recreating the application containers"'):
         assert fetched < text.index(later), f"scripts/ops/deploy.sh fetches the edge's images after {later}"

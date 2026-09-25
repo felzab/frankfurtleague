@@ -28,6 +28,14 @@ if [[ "${1:-}" == "tag" ]]; then
   printf '%s %s\\n' "$2" "$3" >> "${FL_PAIR_TAGS}"
   exit "${FL_PAIR_TAG_RC:-0}"
 fi
+if [[ "${1:-} ${2:-}" == "image ls" ]]; then
+  case "$*" in *frontend*) echo id-frontend-before ;; *) echo id-backend-before ;; esac
+  exit 0
+fi
+if [[ "${1:-}" == "pull" ]]; then
+  case ":${FL_PAIR_PULL_FAILS:-}:" in *":${2:-}:"*) echo "stand-in docker: manifest unknown" >&2; exit 1 ;; esac
+  exit 0
+fi
 [[ "${1:-} ${2:-}" == "image inspect" ]] || { echo "stand-in docker: unexpected $*" >&2; exit 9; }
 last=""
 for arg in "$@"; do last="$arg"; done
@@ -42,9 +50,16 @@ PUT_BACK: Final = ["id-frontend-before ghcr.io/x/frontend:latest", "id-backend-b
 
 
 def _run(
-    frontend: str, backend: str, pin: str = "", fails: str = "", before: dict[str, str] | None = None, tag_rc: str = "0"
+    frontend: str,
+    backend: str,
+    pin: str = "",
+    fails: str = "",
+    before: dict[str, str] | None = None,
+    tag_rc: str = "0",
+    body: str = "compare_pulled_pair fe be",
+    pull_fails: str = "",
 ) -> tuple[int, str, list[str]]:
-    """The lifted comparison over two images labelled `frontend` and `backend` ('' for none), and the re-tags it made."""
+    """The lifted functions over two images labelled `frontend` and `backend` ('' for none), and the re-tags they made."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     before = before or {}
     root = new_root("fl-deploy-pair-")
@@ -61,6 +76,7 @@ def _run(
         environment["FL_PAIR_LABEL_be"] = backend
     environment["FL_PAIR_INSPECT_FAILS"] = fails
     environment["FL_PAIR_TAG_RC"] = tag_rc
+    environment["FL_PAIR_PULL_FAILS"] = pull_fails
     lines = (
         "#!/usr/bin/env bash",
         f'source "{LIB.as_posix()}"',
@@ -72,7 +88,8 @@ def _run(
         lift_function(DEPLOY, "published_tag"),
         lift_function(DEPLOY, "put_latest_back"),
         lift_function(DEPLOY, "compare_pulled_pair"),
-        "compare_pulled_pair fe be",
+        lift_function(DEPLOY, "pull_latest_pair"),
+        body,
         'echo "the pair was accepted"',
         "",
     )
@@ -169,3 +186,34 @@ def test_a_pinned_run_judges_the_pair_before_it_moves_either_tag() -> None:
     assert judged < text.index('quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND"'), (
         "a pinned run moves :latest before judging the pair"
     )
+
+
+# --- a bare run's pull ------------------------------------------------------------------------------
+
+PULL: Final = "pull_latest_pair"
+
+
+def test_a_backend_pull_that_fails_puts_both_tags_back() -> None:
+    """The frontend's `:latest` has already moved by then, and a new frontend beside the old backend is a pair no build names."""
+    code, output, retagged = _run("", "", body=PULL, pull_fails="ghcr.io/x/backend:latest")
+
+    assert code == 1, output
+    assert "pull failed for ghcr.io/x/backend:latest" in output, output
+    assert "the pair was accepted" not in output, output
+    assert retagged == PUT_BACK, retagged
+
+
+def test_a_frontend_pull_that_fails_moves_no_tag() -> None:
+    code, output, retagged = _run("", "", body=PULL, pull_fails="ghcr.io/x/frontend:latest")
+
+    assert code == 1, output
+    assert "pull failed for ghcr.io/x/frontend:latest" in output, output
+    assert retagged == [], retagged
+
+
+def test_both_pulls_passing_move_no_tag_back() -> None:
+    code, output, retagged = _run("", "", body=PULL)
+
+    assert code == 0, output
+    assert "the pair was accepted" in output, output
+    assert retagged == [], retagged
