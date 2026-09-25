@@ -126,11 +126,14 @@ REPLACED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing-Gymna
 class _RecordingCollection:
     """The log the write helpers append to, so a crud test can see what was recorded."""
 
-    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
+    def __init__(self, rows: list[Mapping[str, Any]], sessions: list[Any] | None = None) -> None:
         self.rows = rows
+        # The session each row was written under, which decides whether an abort takes the row back.
+        self.sessions: list[Any] = [] if sessions is None else sessions
 
     async def insert_one(self, row: Mapping[str, Any], session: Any = None) -> None:
         self.rows.append(row)
+        self.sessions.append(session)
 
 
 class _OneDocumentCollection:
@@ -279,20 +282,21 @@ class _RefusedBatchCollection:
     def __init__(self, failure: BulkWriteError) -> None:
         self.failure = failure
         self.recorded: list[Mapping[str, Any]] = []
+        self.recorded_under: list[Any] = []
         self.name = Collection.TEAMS
-        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded)}
+        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded, self.recorded_under)}
 
     async def insert_many(self, *, documents: Any, session: Any) -> None:
         raise self.failure
 
 
-def batch_raised(failure: BulkWriteError, *, session: AsyncClientSession | None = None) -> tuple[BaseException, list[Mapping[str, Any]]]:
+def batch_raised(failure: BulkWriteError, *, session: AsyncClientSession | None = None) -> tuple[BaseException, _RefusedBatchCollection]:
     stub = _RefusedBatchCollection(failure)
 
     with pytest.raises((BulkWriteError, DuplicateKeyError)) as raised:
         asyncio.run(post_many_to_db(collection=cast(AsyncCollection, stub), documents=[{"name": "Club 0"}], session=session))
 
-    return raised.value, stub.recorded
+    return raised.value, stub
 
 
 class TestPostManyToDb:
@@ -332,7 +336,9 @@ class TestPostManyToDb:
         """Outside a transaction nothing takes the first two back: a 409 would say nothing was written while they stand."""
 
         failure = refused_batch(DUPLICATE_ERROR, landed=2)
-        raised, recorded = batch_raised(failure, session=session)
+        raised, stub = batch_raised(failure, session=session)
 
         assert raised is failure
-        assert [(row["operation"], row["modified_count"]) for row in recorded] == [("insert_many", 2)]
+        assert [(row["operation"], row["modified_count"]) for row in stub.recorded] == [("insert_many", 2)]
+        # Under the batch's own session, as every other log row a write files is.
+        assert stub.recorded_under == [session]
