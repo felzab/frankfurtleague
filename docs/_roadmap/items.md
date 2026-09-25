@@ -958,7 +958,7 @@ entity — and which of those it is decides whether this is a page change or a c
 already says what it needs through its required fields and the rail's Hinweise. What it waits on is
 a product ruling per entity, and that cost does not grow while it waits.
 
-### `qw6j-scru` · Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship
+### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and a library stylesheet, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -970,6 +970,11 @@ and my ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place*
 wherever a block sets a header of its own, because `add_header` in a location replaces the
 inherited set ([`docs/ops/spec.md`](../ops/spec.md) §1.4).
 
+**My ruling of 2026-09-25 on `script-src`, "Keep it, narrow it":** the one enforced policy keeps
+`'unsafe-inline'` there, for the reason and until the trigger
+[`docs/ops/spec.md`](../ops/spec.md) §1.4 records, and the rollout this entry carries narrows the
+policy around it — `script-src-attr 'none'`, and `img-src` cut to what is used.
+
 **The population that directive governs is narrower than the application.** CSP judges a `style`
 attribute in served HTML and a `<style>` element; a property written on an element's `style` object
 is a CSSOM write and is governed by neither (MDN's `style-src` page, read 2026-09-07 — that source
@@ -979,14 +984,14 @@ same prop through the CSSOM on the client, so
 `fl_frontend/src/core/providers/AppToaster.tsx`'s timer duration, and every overlay position
 react-aria resolves are outside the policy once hydration has run.
 
-**Inside it are two attributes this repository writes and one the library writes.** Both swatches
-render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
+**Inside it are two attributes this repository writes, one the library writes, and one stylesheet
+the library injects.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
 `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` for the wish and
 `fl_frontend/src/features/teams/components/forms/TrikotFarbeSelect.tsx` for the assignment — and
 `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` closes the colour set with its
 hex, so a class per colour or a data attribute the stylesheet keys on carries the fill with no
-attribute at all. The library's is `--scroll-shadow-size`, which
-`@heroui/react`'s `ScrollShadow` sets through a style prop.
+attribute at all. The library's attribute is `--scroll-shadow-size`, which `@heroui/react`'s
+`ScrollShadow` sets through a style prop.
 
 **`ScrollShadow` is reached two ways, and the second is why the prerender's count understates the
 work.** `fl_frontend/src/shared/components/ui/FilterLeiste.tsx` renders it directly, and HeroUI's
@@ -1000,6 +1005,18 @@ that streams one of those five components server-renders the attribute too, and 
 directive does not keep a component off the server render. So this is a restyle of one component
 rather than of one page, and the count to trust is the source's rather than the build's.
 
+**react-aria's `usePress` stylesheet is not a residue: refusing it is the touch regression of
+2026-08-31.** `usePress` prepends `<style id="react-aria-pressable-style">`, giving every element
+carrying `data-react-aria-pressable` `touch-action: pan-x pan-y pinch-zoom`, and stamps a nonce on
+it only where the document offers one (the installed `react-aria`'s
+`dist/private/interactions/usePress.mjs`, read 2026-09-25 and moving without us). Under
+`style-src 'self'` the element stays in the DOM with no sheet, nothing renders differently and
+nothing goes red, while on a touch device every pressable falls back to `touch-action: auto` —
+nineteen elements on the home page, measured on the local stack 2026-08-31. A hash of the rule is
+invalidated by the library's next release and `style-src-attr` cannot reach an element, so neither
+repairs it; how the rule reaches every pressable once the element is refused is what the fix answers
+before `style-src 'self'` is served at all.
+
 **Two residues stay, and each is accepted rather than covered.** Next's own `_global-error` carries
 both an attribute and a `<style>` element, and renders unstyled under the strict policy — on a page
 that is already the failure of everything above it. react-aria's `usePreventScroll` prepends a
@@ -1007,22 +1024,38 @@ that is already the failure of everything above it. react-aria's `usePreventScro
 refuses while the `touchmove` guard beside it still runs; `style-src-elem` and `style-src-attr` are
 the directives that would speak to that element alone, and neither is in the ruling.
 
+**`script-src-attr 'none'` refuses the payload an injection keeps.** An `innerHTML` write runs no
+`<script>` it inserts but does run an `onerror=` attribute (MDN's `innerHTML` page, read 2026-09-25,
+moving without us), and on a page holding a token that handler is what would read it. The
+directive refuses every inline event handler and leaves inline `<script>` elements, Next's
+hydration scripts among them, to `script-src`. React attaches its handlers as listeners and renders
+none as an attribute; what the week of reports watches for is markup Cloudflare injects, which no
+file here shows.
+
+**`img-src 'self' data: https:` is the policy's widest exfiltration channel, and nothing here uses
+two of its three sources.** A source search on 2026-09-25 finds no `<img>` and no `next/image` in
+`fl_frontend/src`, HeroUI's `Avatar` rendering its fallback alone, and no `data:` image in this
+repository's stylesheets or HeroUI's; an image request is how an injected payload carries a token
+off a page. The Report-Only header therefore carries `img-src 'self'`, and the reports say whether
+anything the search cannot see needs `data:` back.
+
 **A component-library switch was studied for this and declined.** Every candidate positions its
 overlays by writing to an element's `style` object — Floating UI under Base UI, Radix and Mantine,
 Zag's positioner under Ark and Chakra, react-aria's own `useOverlayPosition` under HeroUI — so the
 route CSP does not govern is the route all of them take, while what a strict policy refuses is two
 attributes written here and one library attribute a restyle removes anyway. A switch moves none of
-the three, and one candidate moves the policy backwards. `6m3r-xpcu` holds the switch on its own
+the three attributes, and one candidate moves the policy backwards. `6m3r-xpcu` holds the switch on its own
 criteria, and the one CSP fact it carries is Mantine's, stated there. (Read 2026-09-07 from MDN,
 from react-dom's `setValueForStyle` and from each project's own documentation; all of that moves
 without us.)
 
-**Done when** the swatches and the `ScrollShadow` attribute are gone;
-`Content-Security-Policy-Report-Only: style-src 'self'` has been served from
-`nginx/shared/security_headers.conf` beside the enforcing header for a week, its `report-to`
-naming an ingest route of this application that writes each violation report as one line under the
-envelope, and the reports read; and the enforcing policy has then been switched there, with the
-edge's header check green on every location.
+**Done when** the swatches and the `ScrollShadow` attribute are gone and the `usePress` rule reaches
+every pressable element with the injected element refused; a `Content-Security-Policy-Report-Only`
+header carrying `style-src 'self'`, `script-src-attr 'none'` and `img-src 'self'` has been served
+from `nginx/shared/security_headers.conf` beside the enforcing header, its `report-to` and its
+`report-uri` both naming an ingest route of this application that writes each violation report as
+one line under the envelope; and each directive has moved into the enforcing policy after its own
+week of reports, read, with the edge's header check green on every location.
 
 **The Report-Only phase is the rollout a tightened policy gets everywhere, and my ruling of
 2026-09-07 clears its two obstacles here.**
@@ -1033,20 +1066,25 @@ name and value, so the Report-Only header is written into that file in the commi
 or no location is held to sending it. The ingest route takes the shape of
 `fl_frontend/src/app/api/client-error/route.ts`: public and unauthenticated, since a browser posts a
 report with no session, and metered at the edge by an exact-match location of its own, which
-`scripts/checks/check_public_routes.py` fails until that location exists.
+`scripts/checks/check_public_routes.py` fails until that location exists. **`report-uri` stands
+beside `report-to`** because Firefox reads `report-to` only from release 149 (MDN's
+browser-compat-data, read 2026-09-25, moving without us), and `fl_frontend/package.json`'s
+`browserslist` reaches further back than that.
 
 **What the change makes untrue.** [`docs/ops/spec.md`](../ops/spec.md) §1.4 states that several
 components set a runtime-computed inline `style` attribute, and offers the `style-src-attr` pair as
 the narrowing with `_global-error` as its whole cost. The same section states that the policy is
-written once, which the Report-Only phase makes two policies in one file. The policy row, that
-paragraph and that sentence move in the same commit (CUR-2), the code being the higher source
+written once, which the Report-Only phase makes two policies in one file, and names what the rest of
+the policy blocks, which each directive reaching enforcement widens. The policy row, those
+paragraphs and that sentence move in the same commit (CUR-2), the code being the higher source
 (PRE-1).
 
 **Not verified.** No Report-Only header has been served and no page opened in a browser, so nothing
-here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, or that
-every overlay still positions under the strict policy; both are read off the react-dom and react-aria
-sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
-each page actually streams.
+here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, that
+every overlay still positions under the strict policy, or that nothing sets an inline handler or
+loads a `data:` image at runtime; the first two are read off the react-dom and react-aria sources,
+the `usePress` element off the installed module. The five `ScrollShadow` call sites and the image
+consumers are a source search rather than a measurement of what each page actually streams.
 
 ### `scfh-f6gw` · Every privacy decision the sign-up programme took is reviewed once, and a German brief puts the open questions to a Datenschutzexperte
 
