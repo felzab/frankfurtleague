@@ -2,30 +2,32 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 
+/* The real route and the mutation it replays through, called: the request it runs in, the backend client and
+   the mailer below are the doubles. */
 doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers(() =>
+  Promise.resolve({ acknowledged: 1, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null }),
+);
 
-const MUTATIONS = `export const patchSchiedsrichter = async (payload) => { globalThis.__flUndoRefCalls.push(payload); return globalThis.__flUndoRefAnswer(); };`;
 const NOTIFICATIONS = `export const mailSchiedsrichterLink = async (args) => { globalThis.__flUndoRefMails.push(args); return globalThis.__flUndoRefDelivered; };
 export const describeLinkMail = (email, delivered) => (delivered ? \`Der Bestätigungslink ging an \${email}.\` : \`Der Bestätigungslink konnte nicht an \${email} zugestellt werden.\`);`;
 
 type MailArgs = { email: string; schiedsrichterId: string };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-const calls: { id: string }[] = [];
 const mails: MailArgs[] = [];
-recorders.__flUndoRefCalls = calls;
 recorders.__flUndoRefMails = mails;
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/features/schiedsrichter/mutations.ts")) return { format: "module", source: MUTATIONS, shortCircuit: true };
     if (url.endsWith("/src/features/schiedsrichter/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -69,7 +71,6 @@ beforeEach(() => {
   calls.length = 0;
   mails.length = 0;
   recorders.__flUndoRefDelivered = true;
-  recorders.__flUndoRefAnswer = () => ({ acknowledged: 1, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });
 });
 
 describe("the referee save's undo", () => {
@@ -77,19 +78,22 @@ describe("the referee save's undo", () => {
     const answer = await bodyOf(aRequest(BODY));
 
     assert.equal(answer.success, true);
-    assert.deepEqual(calls, [BODY]);
+    const { id, ...stored } = BODY;
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/schiedsrichter/${id}`, method: "PATCH", body: stored }]);
     assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
   });
 
   /* The replay puts the earlier address back, which the endpoint reads as a correction and mints
      for: unmailed, that token exists in the database alone and the referee's own link is dead. */
   it("mails the link the replay minted, to the address it restored", async () => {
-    recorders.__flUndoRefAnswer = () => ({
-      acknowledged: 1,
-      updated_document: null,
-      fanned_out_to_spiele: 0,
-      bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
-    });
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        updated_document: null,
+        fanned_out_to_spiele: 0,
+        bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
+      }),
+    );
 
     const answer = await bodyOf(aRequest(BODY));
 
@@ -104,12 +108,14 @@ describe("the referee save's undo", () => {
   /* The replay reads the row before it writes, so an administrator who corrected the address again
      in between moved the mailbox this mint was made for; only the answer knows which one it is. */
   it("mails the address the MINT names where it is not the one the replay sent", async () => {
-    recorders.__flUndoRefAnswer = () => ({
-      acknowledged: 1,
-      updated_document: null,
-      fanned_out_to_spiele: 0,
-      bestaetigung: { token: "abc", frist: "2026-10-05", email: "inzwischen@example.de" },
-    });
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        updated_document: null,
+        fanned_out_to_spiele: 0,
+        bestaetigung: { token: "abc", frist: "2026-10-05", email: "inzwischen@example.de" },
+      }),
+    );
 
     const answer = await bodyOf(aRequest(BODY));
 
@@ -124,12 +130,14 @@ describe("the referee save's undo", () => {
      graded a warning so a replay with collateral does not read as a clean undo. */
   it("reports a failed send as a cost rather than as a failure", async () => {
     recorders.__flUndoRefDelivered = false;
-    recorders.__flUndoRefAnswer = () => ({
-      acknowledged: 1,
-      updated_document: null,
-      fanned_out_to_spiele: 0,
-      bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
-    });
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        updated_document: null,
+        fanned_out_to_spiele: 0,
+        bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
+      }),
+    );
 
     const answer = await bodyOf(aRequest(BODY));
 
@@ -147,11 +155,7 @@ describe("the referee save's undo", () => {
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
-      refuse: (code) => {
-        recorders.__flUndoRefAnswer = () => {
-          throw aRefusal(code);
-        };
-      },
+      refuse: (code) => answerWith(() => Promise.reject(aRefusal(code))),
       press: () => bodyOf(aRequest(BODY)),
     });
 
@@ -160,7 +164,7 @@ describe("the referee save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the referee", async () => {
-    recorders.__flUndoRefAnswer = () => ({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });
+    answerWith(() => Promise.resolve({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null }));
 
     const answer = await bodyOf(aRequest(BODY));
 
