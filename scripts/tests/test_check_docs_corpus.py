@@ -378,10 +378,18 @@ def test_a_rule_a_comment_holds_in_the_register_is_owed_a_row() -> None:
     _assert_corpus_restored()
 
 
-def test_a_register_wrapping_a_rule_is_read_as_no_declaration() -> None:
-    """A wrapper decides what reaches the tuple while the `code=` inside it stays literal, so the form is refused whole."""
+@pytest.mark.parametrize(
+    "spelled",
+    [
+        pytest.param('    _retired(Rule(code="' + RULE_CODE + '")),', id="wrapped"),
+        pytest.param('    Retired(code="' + RULE_CODE + '"),', id="another-call"),
+        pytest.param('    Rule("sample", code="' + RULE_CODE + '"),', id="positional"),
+    ],
+)
+def test_a_register_spelling_a_rule_other_than_bare_is_read_as_no_declaration(spelled: str) -> None:
+    """Each keeps its `code=` literal while no `Rule(code=...)` reaches the tuple as spelled, so the form is refused whole."""
     _reset()
-    _replace(DOMAIN_REGISTER, RULE_LINE, '    _retired(Rule(code="' + RULE_CODE + '")),')
+    _replace(DOMAIN_REGISTER, RULE_LINE, spelled)
     try:
         _, output = _output()
         reported = _reported(output)
