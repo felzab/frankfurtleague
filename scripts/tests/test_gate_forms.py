@@ -433,6 +433,9 @@ def test_a_crashed_run_keeps_its_pool_captures_and_names_each_one() -> None:
     assert not KEPT.search(failed.stdout + failed.stderr), failed.stdout + failed.stderr
 
 
+CRASHED_ROW: Final = re.compile(r"^ +frontend +\S*crashed", re.MULTILINE)
+
+
 def test_a_scope_crashing_past_an_earlier_failure_still_names_what_it_kept() -> None:
     """The run ends at the format scope's failure, and the frontend scope's crash is read after it.
 
@@ -447,3 +450,7 @@ def test_a_scope_crashing_past_an_earlier_failure_still_names_what_it_kept() -> 
     assert done.returncode == 1, output
     assert "the frontend scope crashed with status 3" in output, output
     assert any(read.returncode == 0 and "typecheck" in read.stdout for read in manifests), output
+    # Its row says what it did, and costs no finding of its own: the format scope's is the one.
+    assert CRASHED_ROW.search(done.stdout), output
+    assert "closed with no verdict" not in output, output
+    assert "1 finding(s) in this run" in output, output

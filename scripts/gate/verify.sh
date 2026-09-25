@@ -691,12 +691,18 @@ if (( PARALLEL )); then
           if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
         fi
         ;;
-      # Rank 0, for `adopt_rows`' reason: no row at all drops the scope out of the table.
+      # A number here is a process that ended, and one ending past 2 and short of an interrupt
+      # crashed; anything else never ran. Rank 0 for that, for `adopt_rows`' reason: no row at all
+      # drops the scope out of the table.
       *)
-        adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0
+        if [[ ! "$status" =~ ^[0-9]+$ ]] || (( status == 130 )); then
+          adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0
+          return 0
+        fi
+        adopt_section "$scope" "$RANK_CRASHED" "${UNIT_MS[$scope]:-0}" 0 0
         # A crash's own text holds the pool directories its worker kept, and named nowhere else they
         # outlive the run unread.
-        if [[ "$status" =~ ^[0-9]+$ ]] && [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
+        if [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
           info "the ${scope} scope crashed with status ${status}, and the run ended at the failure above rather than at this one — its own output follows"
           if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
           if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi

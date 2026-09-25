@@ -91,7 +91,10 @@ if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
 # the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed")
+_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed" "crashed")
+# Adopted alone, for a scope that crashed after the run's ending was set: the row reports it, and
+# `finish` reads no verdict from it.
+RANK_CRASHED=6
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -445,7 +448,7 @@ _summary_table() {
     case "$rank" in
       2) colour="$C_GREEN" ;;
       3) colour="$C_YELLOW" ;;
-      4|5) colour="$C_RED" ;;
+      4|5|6) colour="$C_RED" ;;
       *) colour="$C_DIM" ;;
     esac
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
@@ -509,6 +512,7 @@ finish() {
   # A section closing with no verdict is a caller defect: green would print "no findings" beside a
   # row reading `no verdict`. `fail`, not `warn` — a section proving nothing must not pass.
   for (( i = 0; i < count; i++ )); do
+    if (( _SECTION_RANKS[i] == RANK_CRASHED )); then continue; fi
     if (( _SECTION_RANKS[i] == 0 )); then
       fail "section '${_SECTION_NAMES[i]}' closed with no verdict — nothing in it proves anything"
     fi
@@ -584,7 +588,7 @@ adopt_section() {
     [[ "$value" =~ ^[0-9]+$ ]] \
       || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]."
   done
-  (( rank <= 5 )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-5."
+  (( rank <= RANK_CRASHED )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-${RANK_CRASHED}."
   # A row appended under an open section sorts before the section still running, and the fixed
   # order is the point of adopting rather than printing.
   (( _SECTION_OPEN < 0 )) \

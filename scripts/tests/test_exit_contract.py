@@ -83,7 +83,7 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     ),
     # A mangled row is the gate's own handoff, so all three of `adopt_section`'s validations crash:
     # nothing in the tree under test could be edited to answer for one, which is what a 1 would say.
-    Ending("an adopted rank outside the label table", ("adopt_section scope 6 10 0 0",), 3, "is outside 0-5"),
+    Ending("an adopted rank outside the label table", ("adopt_section scope 7 10 0 0",), 3, "is outside 0-6"),
     Ending("an adopted count that is not a number", ("adopt_section scope 4 ten 0 0",), 3, "is not a count"),
     Ending("an adopted row while a section is still open", ("section demo", "adopt_section scope 2 10 0 0"), 3, "a section is still open"),
     # Rank 1 is the one verdict below `pass` that no ending owns: a run of nothing but skips has
