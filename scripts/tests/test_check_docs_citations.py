@@ -57,6 +57,7 @@ from test_check_docs import (
     SECOND_PYTHON_CASE,
     SELF_CLAIMED_CHECK,
     SHAPE_CLASSIFIER,
+    SHAPE_READ,
     SHARED_BASENAME,
     SPIELER_PANEL,
     STANDARD,
@@ -382,6 +383,27 @@ def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str
     _assert_corpus_restored()
 
 
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param("shape.match(token)", "shape.match(token.upper())", id="transformed-token"),
+        pytest.param(SHAPE_READ, SHAPE_READ + "\n\n\nOTHERS = _GATE_SHAPES", id="second-read"),
+    ],
+)
+def test_a_handed_over_shape_matched_other_than_the_token_as_spelled_is_named(old: str, new: str) -> None:
+    """The list is the gate's, and the classifier still reads a token the reason does not spell."""
+    _reset()
+    _replace(SHAPE_CLASSIFIER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 1, _shape(reported)
+    assert "is read other than once as `any(shape.match(<parameter>) ...)`" in output, output
+    _assert_corpus_restored()
+
+
 # The registry's own opening, as `docs_gate/kernel.py` spells it.
 REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
 
@@ -390,7 +412,7 @@ REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
     ("rel", "rebinding", "check", "name"),
     [
         pytest.param(DOMAIN_REGISTER, "UNENFORCED = UNENFORCED + ()", "citation", "UNENFORCED", id="reasons"),
-        pytest.param(SHAPE_CLASSIFIER, "_GATE_SHAPES = _GATE_SHAPES[:-1]", "citation", "_GATE_SHAPES", id="handed-over-shapes"),
+        pytest.param(SHAPE_CLASSIFIER, "_GATE_SHAPES = ()", "citation", "_GATE_SHAPES", id="handed-over-shapes"),
         pytest.param(DOMAIN_REGISTER, "RULES += ()", "error-codes", "RULES", id="rule-register"),
         pytest.param(KERNEL, "CHECKS = dict(CHECKS)", "enforced-by", "CHECKS", id="check-registry"),
     ],

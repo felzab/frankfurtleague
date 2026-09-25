@@ -280,6 +280,8 @@ LIVE_REASON: Final = (
 # The backend classifier that hands those shapes over, holding the gate's own five, so the clean corpus
 # agrees and a plant swapping one disagrees.
 SHAPE_CLASSIFIER: Final = "fl_backend/tests/core/test_domain.py"
+# The classifier's one read of them, which matches the token a reason spells as it stands.
+SHAPE_READ: Final = "return any(shape.match(token) for shape in _GATE_SHAPES)"
 HANDED_OVER_SHAPES: Final = (
     r"^(?:REQ|READ)-[A-Z]+-\d+$",
     r"^((?:REQ|READ)-[A-Z]+-)\*$",
@@ -887,6 +889,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "_GATE_SHAPES = tuple(re.compile(pattern) for pattern in (",
             *[f'    r"{pattern}",' for pattern in HANDED_OVER_SHAPES],
             "))",
+            "",
+            "",
+            "def _classify(token):",
+            f"    {SHAPE_READ}",
         ),
         DOMAIN_REGISTER: _page(
             QUOTES + "BACKEND · the rule register whose codes the refusal register gives no row." + QUOTES,

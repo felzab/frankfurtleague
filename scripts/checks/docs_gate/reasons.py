@@ -144,6 +144,41 @@ def handed_over_patterns(value: ast.expr) -> list[str] | None:
     return _literals(loop.iter.elts)
 
 
+def _bare_match(node: ast.AST, parameters: set[str]) -> ast.expr | None:
+    """The shapes read by `any(shape.match(<a parameter>) for shape in _GATE_SHAPES)`, None for any other node."""
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "any" and len(node.args) == 1):
+        return None
+    built = node.args[0]
+    if node.keywords or not (isinstance(built, ast.GeneratorExp) and len(built.generators) == 1):
+        return None
+    loop, match = built.generators[0], built.elt
+    if loop.ifs or loop.is_async or not (isinstance(loop.iter, ast.Name) and loop.iter.id == HANDED_OVER):
+        return None
+    if not (isinstance(match, ast.Call) and isinstance(match.func, ast.Attribute) and match.func.attr == "match") or match.keywords:
+        return None
+    shape, token = match.func.value, match.args[0] if len(match.args) == 1 else None
+    matched = isinstance(shape, ast.Name) and isinstance(loop.target, ast.Name) and shape.id == loop.target.id
+    return loop.iter if matched and isinstance(token, ast.Name) and token.id in parameters else None
+
+
+def _handed_over_use(tree: ast.Module | None) -> list[Finding]:
+    """The one read of the shapes, required to match the token a reason spells, untransformed."""
+    reads = [node for node in ([] if tree is None else ast.walk(tree)) if isinstance(node, ast.Name) and node.id == HANDED_OVER]
+    reads = [node for node in reads if isinstance(node.ctx, ast.Load)]
+    functions = [node for node in ([] if tree is None else ast.walk(tree)) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)]
+    bare = {
+        found
+        for function in functions
+        for node in ast.walk(function)
+        if (found := _bare_match(node, {argument.arg for argument in (*function.args.posonlyargs, *function.args.args)})) is not None
+    }
+    if len(reads) == 1 and set(reads) == bare:
+        return []
+    line = next((node.lineno for node in reads if node not in bare), reads[0].lineno if reads else None)
+    detail = f"`{HANDED_OVER}` is read other than once as `any(shape.match(<parameter>) ...)`, so it may match a token no reason spells"
+    return [Finding("fail", "citation", CLASSIFIER, detail, line)]
+
+
 def check_handed_over_shapes() -> list[Finding]:
     """The two lists of the shapes this package owns, required to be one list spelled twice."""
     value = handed_over_value()
@@ -155,7 +190,7 @@ def check_handed_over_shapes() -> list[Finding]:
         return [Finding("fail", "citation", CLASSIFIER, detail, value.lineno)]
     handed = set(patterns)
     owned = {shape.pattern for shape in OWNED_SHAPES}
-    found = rebound(_tree(CLASSIFIER), HANDED_OVER, "citation", CLASSIFIER)
+    found = rebound(_tree(CLASSIFIER), HANDED_OVER, "citation", CLASSIFIER) + _handed_over_use(_tree(CLASSIFIER))
     found += [
         Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` hands over `{one}`, a shape the gate does not read")
         for one in sorted(handed - owned)
