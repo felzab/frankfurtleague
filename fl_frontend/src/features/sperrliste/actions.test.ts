@@ -1,11 +1,15 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
 import { assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -75,6 +79,9 @@ registerHooks({
   },
 });
 
+/* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
+const { raised: toasts } = doubleToasts();
+
 /** The bound the WRITE answers. Deliberately not the five-season arithmetic's, so a mail stating it could have come from nowhere else. */
 const ANSWERED_BOUND = "2044";
 
@@ -93,6 +100,7 @@ globals[ANSWER] = { acknowledged: 1, created_id: "6890a1b2c3d4e5f607190001", ges
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/page.tsx");
 const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
+const { AdminCreateSperreForm } = await import("./components/forms/AdminCreateSperreForm.tsx");
 
 /** The one ban the list read answers, every other read the emptiest body its schema takes. */
 const EINTRAG = {
@@ -206,10 +214,23 @@ describe("the message the barred person is sent", () => {
     const result = await anAddressIsBanned();
 
     assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
-    assert.ok(
-      readFileSync(path.resolve(import.meta.dirname, "components", "forms", "AdminCreateSperreForm.tsx"), "utf8").includes(
-        `successMessage="${SPERRE_ERFOLG}"`,
-      ),
+
+    // The form over this same action, pressed as an administrator presses it.
+    toasts.length = 0;
+    const user = userEvent.setup();
+    const { unmount } = render(h(AdminCreateSperreForm, { onClose: () => undefined }));
+    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), BARRED);
+    await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    // The write runs inside a transition, so the press returns before its toast is raised.
+    await waitFor(() => {
+      assert.ok(toasts.length > 0, "the save raised no toast at all");
+    });
+    unmount();
+
+    assert.deepEqual(
+      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      [["success", SPERRE_ERFOLG, undefined]],
       "the form raises a title the action never answers, so a clean save shows it twice",
     );
   });
