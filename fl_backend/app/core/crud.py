@@ -347,7 +347,7 @@ def literal_pattern(value: str) -> str:
     return re.escape(value).replace("\x00", r"\x00")
 
 
-# Section 3, what a write does beyond the driver call: a refusal becomes the 409 it means, and a
+# Section 3, what a write does beyond the driver call: a refusal becomes the status its check chose, and a
 # retirement is a date on `inactive_since` rather than a state of its own (`docs/backend/spec.md :: I12`).
 
 

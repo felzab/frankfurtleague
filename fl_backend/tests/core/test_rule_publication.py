@@ -2,7 +2,7 @@
 TESTS · where a rule's code can be raised, traced from each route's own source
 
 `app/main.py :: declared_refusals` publishes a rule's code on the operations `RULES` names and on no
-other, so a route reaching a rule's check without being named raises a code its 409 never lists.
+other, so a route reaching a rule's check without being named raises a code its responses never list.
 Traced as `tests/core/test_duplicate_key_publication.py` traces writes: each handler is followed
 through the application's own functions, nested callbacks read with the function declaring them.
 """
@@ -171,7 +171,7 @@ def test_an_operation_reaching_a_rules_check_is_one_rules_names():
     unnamed = _unnamed_reaches()
 
     assert sorted(unnamed - DISARMED.keys()) == [], (
-        "these reach a rule's check that `RULES` does not name them for, so their 409 omits its code"
+        "these reach a rule's check that `RULES` does not name them for, so their responses omit its code"
     )
     assert sorted(DISARMED.keys() - unnamed) == [], "these entries name a reach the trace no longer finds"
 

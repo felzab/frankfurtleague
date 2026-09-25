@@ -781,7 +781,8 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     token: CustomBewerbungToken
     antwort: Literal["erteilt", "abgelehnt"]
     # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
-    # person at all. Unbounded here -- the age is a 409 with its own German, never a 422.
+    # person at all. Unbounded here -- the age is its own code with its own German at 422, never a
+    # `REQ-VAL-001`.
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
     # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label

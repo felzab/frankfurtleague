@@ -262,8 +262,8 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomRegistrierungToken
-    # Unbounded here -- the age is a 409 carrying its own code, never a 422, so the page marks its
-    # one field and keeps the date the pupil typed.
+    # Unbounded here -- the age is a 422 carrying its own code, never a `REQ-VAL-001`, so the page
+    # marks its one field and keeps the date the pupil typed.
     geburtsdatum: CustomDateString
     umfang: FLRegistrierungUmfang
     # Required rather than defaulted: a page omitting it would store this model's answer in place of
