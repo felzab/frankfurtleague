@@ -277,6 +277,36 @@ def test_a_citation_of_a_case_name_the_source_escapes_is_refused_before_any_coun
     _assert_corpus_restored()
 
 
+# A module whose code holds a tick in a string, on the line of a comment citing it.
+TICKED_MODULE: Final = "fl_frontend/src/ticked.ts"
+TICKED_ANCHOR: Final = "a phrase only citations spell"
+
+
+def test_a_citation_beside_a_tick_in_code_proves_nothing_of_its_own_anchor() -> None:
+    """Over the raw text the string's tick pairs with the comment's, and the continuation it parts proves the first.
+
+    Two findings, each citation being spelled only by a citation; one means the continuation
+    answered for its neighbour.
+    """
+    _reset()
+    write(
+        _gate().root,
+        TICKED_MODULE,
+        _page(
+            "// See `" + TICKED_MODULE + " :: " + TICKED_ANCHOR + "`.",
+            # A paragraph apart, so no tick above can pair the line's odd one away.
+            "",
+            'export const again = "`"; // and `:: ' + TICKED_ANCHOR + "`",
+        ),
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", TICKED_MODULE)] == 2, _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fragment_do() -> None:
     """Read as a substring, a name resolves inside any longer one, and a symbol renamed by a suffix certifies.
 

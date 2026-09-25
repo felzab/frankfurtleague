@@ -81,6 +81,7 @@ from .kernel import (
     code_spans,
     comment_runs,
     comment_style,
+    comments_only,
     declared_cases,
     defined_symbols,
     gitignored,
@@ -1607,15 +1608,27 @@ def _uncited_lines(path: Path) -> tuple[str, ...]:
     raw = _read_text(path)[0]
     if raw is None:
         return ()
-    markers = () if is_prose(path) else continuation_markers(comment_style(path))
+    prose = is_prose(path)
+    markers = () if prose else continuation_markers(comment_style(path))
+    # A source file's citations are found in its comments, as `check_file` finds them: over the raw
+    # text a tick in a string pairs with a comment's, and the citation it parts proves its anchor.
+    body = raw if prose else comments_only(raw, comment_style(path))
     # Found over the JOINED body and blanked back on the source line: a wrap parts a citation, and
     # neither of its lines then holds a whole span for a per-line strip to take.
-    at = _source_offset(raw, markers)
-    joined = unwrapped(raw, markers)
+    at = _source_offset(body, markers)
+    joined = unwrapped(body, markers)
+    # The comment reader blanks code in place, so a body offset keeps its line and its column.
+    body_lines = [0, *(index + 1 for index, char in enumerate(body) if char == "\n")]
+    raw_lines = [0, *(index + 1 for index, char in enumerate(raw) if char == "\n")]
+
+    def in_raw(offset: int) -> int:
+        line = bisect_right(body_lines, offset) - 1
+        return raw_lines[line] + offset - body_lines[line]
+
     kept = list(raw)
     for pattern in (CITATION_TEXT_RE, CONTINUATION_TEXT_RE):
         for match, _ in spans_reading(joined, pattern):
-            for offset in range(at(match.start), at(match.end - 1) + 1):
+            for offset in range(in_raw(at(match.start)), in_raw(at(match.end - 1)) + 1):
                 if kept[offset] != "\n":
                     kept[offset] = " "
     return tuple("".join(kept).split("\n"))
