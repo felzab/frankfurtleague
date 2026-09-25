@@ -171,8 +171,12 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
 # Pinned so new checks arrive by a named bump, never as drift. By hand (`.github/dependabot.yml`'s
-# invariant on shell strings); a bump replaces the digest below.
+# invariant on shell strings); a bump replaces both digests below.
 SHELLCHECK_VERSION="0.11.0"
+
+# The registry's digest for that version's image tag, which the Docker fallback runs
+# (`docs/ops/spec.md` §1.1).
+SHELLCHECK_IMAGE_DIGEST="sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
 
 # GitHub's digest for the release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so an
 # asset replaced under an unmoved tag is caught rather than trusted.
@@ -198,7 +202,7 @@ run_shellcheck() {
   # No local binary: the pinned official image, which is how shellcheck is reachable on a Windows
   # box. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
-    "koalaman/shellcheck:v${SHELLCHECK_VERSION}" -e SC1091 "$@"
+    "koalaman/shellcheck:v${SHELLCHECK_VERSION}@${SHELLCHECK_IMAGE_DIGEST}" -e SC1091 "$@"
 }
 
 run_actionlint() {
@@ -207,8 +211,10 @@ run_actionlint() {
     return
   fi
   # 1.7.8 is the floor: earlier versions reject `using: node24`, which GitHub documents and
-  # supports. Nothing bumps this either, for the reason the shellcheck pin above records.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo rhysd/actionlint:1.7.12
+  # supports. Nothing bumps this either, for the reason the shellcheck pin above records, and its
+  # digest moves with its tag (`docs/ops/spec.md` §1.1).
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo \
+    rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
 }
 
 # Each reads files this run never writes and is the slowest thing in its step, so each starts here

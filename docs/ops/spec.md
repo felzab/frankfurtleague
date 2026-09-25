@@ -35,12 +35,20 @@ settings are dashboard state (§1.8).
 Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
 `image:`, its `deploy.resources` and its `healthcheck:`.
 
-**Every base image in a Dockerfile's `FROM` and every image either compose file names is pinned by
-tag and digest** (`name:tag@sha256:<digest>`), this repository's two own images alone excepted: a
-build or a pull fetches the digest, the registry's multi-platform index, so a tag rebuilt or
-repointed upstream changes nothing here until a pull request moves it, while the tag is what
-`.github/dependabot.yml`'s `docker` and `docker-compose` ecosystems compare to propose the next pair.
-`scripts/tests/test_image_pins.py` holds every such reference to that form.
+**Every base image in a Dockerfile's `FROM`, every image either compose file names, and every image
+`scripts/gate/selfcheck.sh` and `scripts/ops/local.sh` run is pinned by tag and digest**
+(`name:tag@sha256:<digest>`), this repository's two own images excepted: a build or a pull fetches
+the digest, the registry's multi-platform index, so a tag rebuilt or repointed upstream changes
+nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
+`docker` and `docker-compose` ecosystems compare to propose the next pair; the two scripts' pins
+move by hand, no ecosystem reading a shell string. `local.sh`'s copy runs the local stack's own
+mongo, digest included. `scripts/tests/test_image_pins.py` holds every such reference to that form
+and the copy to the stack.
+
+**The database test tier's `mongo:8` stays a bare tag**, in `fl_backend/tests/conftest.py` and the
+frontend's `*.db.test.ts` files alike: `@testcontainers/mongodb` reads the server's version off the
+tag, and a digest reference hands it the digest instead, so its health check falls back to the
+`mongo` shell a MongoDB 8 image does not carry and the container never reports healthy.
 
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address

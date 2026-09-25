@@ -78,10 +78,13 @@ take_dump() {
   # Into a gitignored file, never a terminal and never partly filtered: a failed mongodump quotes
   # the connection string back in shapes no pattern could be trusted to cover. --env-file keeps it
   # out of the process list too.
+
+  # The local stack's mongo to the digest (`docker-compose.local.yml`, `docs/ops/spec.md` §1.1), so the
+  # copy and the server it restores into are one build.
   MSYS_NO_PATHCONV=1 docker run --rm -i \
     --env-file fl_backend/.env \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
-    mongo:8 sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
+    mongo:8@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
 # docker --env-file strips neither the quotes a dotenv value may carry nor the CR a Windows editor
 # leaves on it, and mongodump answers a URI holding either with a parse error.
