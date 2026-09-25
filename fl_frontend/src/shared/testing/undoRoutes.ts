@@ -4,7 +4,7 @@ import { afterEach } from "node:test";
 
 import { AENDERUNG_STEHT_WEITERHIN, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError.ts";
 
-import { ACTION_ONLY_INVALIDATIONS, cacheCalls, doubleActionRequest, doubleActions, ROUTE_NEXT_CACHE_DOUBLE } from "./actionDoubles.ts";
+import { ACTION_ONLY_INVALIDATIONS, cacheCalls, doubleActionRequest, ROUTE_NEXT_CACHE_DOUBLE } from "./actionDoubles.ts";
 import { DUPLICATE_KEY } from "./publishedRefusals.ts";
 
 import type { NextRequest } from "next/server";
@@ -34,12 +34,6 @@ export function doubleRouteRequest(): ReturnType<typeof doubleActionRequest> {
   });
 
   return request;
-}
-
-/** The route's request, and the slice's `mutations.ts` its replay writes through, every write acknowledged until a case names another answer. */
-export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleActions> {
-  doubleRouteRequest();
-  return doubleActions({ modules: [mutations], answer: () => Promise.resolve({ acknowledged: 1 }) });
 }
 
 /** Every tag the route cleared, and the profile each was cleared with, in the order it cleared them. */
