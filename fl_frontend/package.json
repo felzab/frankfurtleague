@@ -40,6 +40,7 @@
     "@internationalized/date": "^3.12.4",
     "@t3-oss/env-nextjs": "^0.13.11",
     "better-auth": "^1.7.5",
+    "client-only": "^0.0.1",
     "fuse.js": "^7.5.0",
     "mongodb": "^7.6.0",
     "next": "^16.3.6",
