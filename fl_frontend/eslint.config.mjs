@@ -235,6 +235,17 @@ const HEROUI_FORM = {
 };
 
 /**
+ * The published origin, for what a crawler reads: a message built on it sends a reader of any other
+ * stack to production (`docs/frontend/spec.md :: I186`).
+ */
+const SITE_ORIGIN = {
+  group: ["**/brand", "**/brand.ts"],
+  importNames: ["SITE_URL"],
+  message:
+    "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL (docs/frontend/spec.md :: I186).",
+};
+
+/**
  * The popover and panel both hint tags open, whose own `{children}` `hintCap.test.ts` cannot count:
  * rendered from anywhere but `Hint.tsx`, which the block exempting it below allows, a hint escapes the cap.
  */
@@ -490,6 +501,11 @@ const DATE_MODULES = String.raw`/^@heroui\x2Freact(?:\x2F(?:date-picker|date-fie
 
 const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
 const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
+
+/** The bans a named module is the one importer of, which reach tests and the harness too. */
+const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS];
+
+const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -787,59 +803,47 @@ const eslintConfig = defineConfig([
 
   // Every file first, so the Next, date-control and form bans reach tests and the slices neither boundary
   // names; each later block restates them for `restrictImports`'s reason.
-  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS) },
+  { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(...HOMED_IMPORTS) },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, LAYER_BOUNDARY.core),
+    rules: restrictImports(...HOMED_IMPORTS, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, LAYER_BOUNDARY.shared),
+    rules: restrictImports(...HOMED_IMPORTS, LAYER_BOUNDARY.shared),
   },
 
-  // The test-only ban, which a `*.test.ts(x)` file and the suite's harness escape. Each block restates
+  // The production bans, which a `*.test.ts(x)` file and the suite's harness escape. Each block restates
   // the boundary above it for `restrictImports`'s reason.
-  {
-    files: ["src/**/*.{ts,tsx}"],
-    ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...SUITE_IMPORTS),
-  },
+  { files: ["src/**/*.{ts,tsx}"], ignores: [...TEST_FILES, ...TEST_SUPPORT], rules: restrictImports(...PRODUCTION_IMPORTS) },
   {
     files: ["src/core/**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...SUITE_IMPORTS, LAYER_BOUNDARY.core),
+    rules: restrictImports(...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(
-      NEXT_PRIVATE_CONTEXTS,
-      SEGMENTED_DATE_CONTROLS,
-      HEROUI_FORM,
-      HINT_INTERNALS,
-      ...SUITE_IMPORTS,
-      LAYER_BOUNDARY.shared,
-    ),
+    rules: restrictImports(...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared),
   },
-  // Each ban's one importer, last among the blocks reaching it for `restrictImports`'s reason, and left
+  // Each ban's importers, last among the blocks reaching them for `restrictImports`'s reason, and left
   // out of that ban alone: a disable comment would excuse every import ban on its line.
   ...[
-    [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, SUITE_IMPORTS],
-    [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, SUITE_IMPORTS],
-    [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, SUITE_IMPORTS],
-    // The harness and its own test, which the suite's bans leave out.
-    [["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"], NEXT_PRIVATE_CONTEXTS, []],
-  ].map(([files, allowed, suiteBans]) => ({
-    files,
-    rules: restrictImports(
-      ...[NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS].filter((ban) => ban !== allowed),
-      ...suiteBans,
-      LAYER_BOUNDARY.shared,
-    ),
-  })),
+    [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    // What a crawler reads, which stands on the published origin.
+    [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
+    // The harness and its own test, which the production bans leave out.
+    [
+      ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],
+      NEXT_PRIVATE_CONTEXTS,
+      [...HOMED_IMPORTS, LAYER_BOUNDARY.shared],
+    ],
+  ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => ban !== allowed)) })),
 
   {
     files: ["src/**/*.{ts,tsx}"],

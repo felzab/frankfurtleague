@@ -33,6 +33,7 @@ declare const id: string;
 declare const extra: string;
 declare const bounds: object;
 import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { SITE_URL } from "@/core/brand"; // expect: site-origin
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -143,3 +144,4 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
 }
 export const NODE_MODULE_USED = [loadVia];
 export const HARNESS_USED = [underNext];
+export const ORIGIN_USED = SITE_URL;

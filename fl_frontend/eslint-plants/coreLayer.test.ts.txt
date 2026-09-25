@@ -14,4 +14,7 @@ export const LOADED_SLICE = await import("@/features/teams/facets");
 export const LOADED_CAPTURE = await import("./stdoutCapture.ts");
 // A test may take the loader's hooks, a `createRequire` held in a name among them.
 import { createRequire } from "node:module";
+import { SITE_URL } from "./brand";
 export const REQUIRE_HERE = createRequire(import.meta.url);
+// A test may name the published origin, to assert a link stands on another.
+export const ORIGIN_USED = SITE_URL;

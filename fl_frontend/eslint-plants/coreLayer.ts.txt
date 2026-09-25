@@ -38,6 +38,8 @@ import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/f
 import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { registerHooks as hookVia } from "module"; // expect: node-module
+import { SITE_URL } from "./brand"; // expect: site-origin
+import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
@@ -49,3 +51,4 @@ export const LOADED_SHARED = import(`../shared/components/ui/formFieldStyles`); 
 export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only-load
 export const NODE_MODULE_USED = [loadVia, hookVia];
 export const LOADED_LOADER = import("node:module"); // expect: test-only-load
+export const ORIGIN_USED = [SITE_URL, SITE_URL_TYPED];

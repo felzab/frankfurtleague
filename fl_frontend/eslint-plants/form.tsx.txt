@@ -9,6 +9,8 @@ import { HintPopover } from "./InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { SITE_URL } from "@/core/brand"; // expect: site-origin
 
 export const USED = [HeroUIForm, RootForm, AppRouterContext, DateField, HintPopover, captureStdout, TEAM_FACETS];
 export const NODE_MODULE_USED = [loadVia];
+export const ORIGIN_USED = SITE_URL;
