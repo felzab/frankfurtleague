@@ -757,6 +757,9 @@ for (const [event, entry] of registered) {
   # owes the same slice, and one that answered the first alone would serve nobody after it.
   expect_emission "standard hook: repo .md write"      "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
   expect_emission "standard hook: the same file again" "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  # Spelled in neither case: the gate's prose register folds case, and a hook comparing the name
+  # exactly goes silent for every other spelling while the gate still reads the file.
+  expect_emission "standard hook: a NOTICE of any case" "$(probe_standard "$(standard_md_payload "${standard_root}/Notice")")"
   expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${standard_root}/fl_frontend/src/probe.ts")")"
   expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${standard_root}/../outside.md")")"
 
