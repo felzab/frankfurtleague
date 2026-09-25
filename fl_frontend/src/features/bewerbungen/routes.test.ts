@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import {
+  answer,
   answerReadsWith,
   backendNotFound,
   callPage,
@@ -13,10 +14,11 @@ import {
   EMPTIEST_ANSWER,
   pageBody,
   readsOf,
+  saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
 
-import type { PageProps } from "@/shared/testing/pageHarness.ts";
+import type { AnswerSchema, PageProps } from "@/shared/testing/pageHarness.ts";
 import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import type { FLBewerbungFensterResponse } from "./schemas";
@@ -65,6 +67,7 @@ const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
 const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);
 const { default: AdminBewerbungenPage } = await import("@/app/admin/bewerbungen/page.tsx");
 const { default: AdminBewerbungPage } = await import("@/app/admin/bewerbungen/[bewerbung_id]/page.tsx");
+const { FLBewerbungSchema } = await import("./schemas.ts");
 
 /** The public page's one dynamic segment, named as its directory names it, which is the key Next hands it under. */
 const SEGMENT = /\[(\w+)\]/.exec(PUBLIC_PAGE)![1]!;
@@ -72,14 +75,20 @@ const SEGMENT = /\[(\w+)\]/.exec(PUBLIC_PAGE)![1]!;
 /** What the window read answers in a case: a season's window, no window, no season at all, or a read that failed. */
 type WindowRead = { fenster: FLBewerbungFensterResponse | null } | null | Error;
 
-/** What each read answers in the running case, by the endpoint it asks; an `Error` is thrown. */
+/** An answer carrying `fields`, built against the schema its read hands over so the client's check takes it. */
+const built =
+  (endpoint: string, fields: Record<string, unknown>) =>
+  (schema: AnswerSchema): unknown =>
+    answer(schema, endpoint, fields);
+
+/** What each read answers in the running case, by the endpoint it asks; an `Error` is thrown, a function built. */
 let answers = new Map<string, unknown>();
 
 answerReadsWith((endpoint, schema, params) => {
   if (!answers.has(endpoint)) return EMPTIEST_ANSWER(endpoint, schema, params);
   const answered = answers.get(endpoint);
   if (answered instanceof Error) throw answered;
-  return answered;
+  return typeof answered === "function" ? (answered as ReturnType<typeof built>)(schema) : answered;
 });
 
 /** The backend's answer for one season's window, as `window` describes it. */
@@ -104,15 +113,15 @@ const ABGELAUFEN: FLBewerbungFensterResponse = {
 };
 const LAEUFT: FLBewerbungFensterResponse = { ...ABGELAUFEN, laeuft: true };
 
+/** The fields the club list and the colours answer with, or the `Error` each read throws. */
+type PublicReads = { schulen?: Record<string, unknown> | Error; farben?: Record<string, unknown> | Error };
+
 /** Season 2026's reads: its window, the club list and the assigned colours. */
-function answerPublic(
-  window: WindowRead,
-  { schulen = { schulen: [] }, farben = { vergeben: [] } }: { schulen?: unknown; farben?: unknown } = {},
-): void {
+function answerPublic(window: WindowRead, { schulen = { schulen: [] }, farben = { vergeben: [] } }: PublicReads = {}): void {
   answers = new Map<string, unknown>([
     ["/bewerbungen/fenster/2026", windowAnswer("2026", window)],
-    ["/bewerbungen/schulen", schulen],
-    ["/bewerbungen/trikotfarben/2026", farben],
+    ["/bewerbungen/schulen", schulen instanceof Error ? schulen : built("/bewerbungen/schulen", schulen)],
+    ["/bewerbungen/trikotfarben/2026", farben instanceof Error ? farben : built("/bewerbungen/trikotfarben/2026", farben)],
   ]);
 }
 
@@ -132,7 +141,7 @@ type BewerbungViewProps = {
 };
 
 /** The public page's body for 2026, and the endpoints it read on the way. */
-async function publicBody(window: WindowRead, reads: { schulen?: unknown; farben?: unknown } = {}): Promise<BewerbungViewProps> {
+async function publicBody(window: WindowRead, reads: PublicReads = {}): Promise<BewerbungViewProps> {
   answerPublic(window, reads);
   clearSteps();
 
@@ -172,26 +181,26 @@ describe("where each page opts out of prerendering", () => {
 });
 
 describe("how the list page reads the header's season", () => {
-  const LEAGUE = [
-    { id: "2026", status: "active", rules: {} },
-    { id: "2027", status: "future", rules: {} },
-  ];
-  const row = (id: string, saison_id: string) => ({ id, saison_id, schule: null, team_id: null });
+  const saison = (id: string, status: "active" | "future") => ({
+    ...saisonFields(id, status),
+    start_date: `${id}-03-07`,
+    end_date: `${id}-10-31`,
+    schedule: [],
+    spielplan: null,
+    bewerbung: null,
+    registrierung: null,
+  });
+  const LEAGUE = [saison("2026", "active"), saison("2027", "future")];
+  /** Shaped as the backend's ids, as the row schema demands; the last four digits name the row's season. */
+  const rowId = (saison_id: string) => `6890a1b2c3d4e5f60718${saison_id}`;
+  const row = (saison_id: string) =>
+    answer(FLBewerbungSchema, "/bewerbungen", { id: rowId(saison_id), saison_id, schule: null, team_id: null });
 
   /** The list page's body where the address names 2027 and the queue answers one application per season. */
   async function listBody(): Promise<ReactElement<{ bewerbungen: { id: string; inSelectedSaison: boolean }[] }>> {
     answers = new Map<string, unknown>([
-      ["/saisons/list/admin", { saisons: LEAGUE }],
-      [
-        "/bewerbungen",
-        {
-          bewerbungen: [row("b2026", "2026"), row("b2027", "2027")],
-          anzahl_je_status: {},
-          anzahl_je_saisonbezug: {},
-          dubletten_schluessel: [],
-          vollstaendig: true,
-        },
-      ],
+      ["/saisons/list/admin", built("/saisons/list/admin", { saisons: LEAGUE })],
+      ["/bewerbungen", built("/bewerbungen", { bewerbungen: [row("2026"), row("2027")], vollstaendig: true })],
     ]);
     clearSteps();
 
@@ -224,8 +233,8 @@ describe("how the list page reads the header's season", () => {
     assert.deepEqual(
       rows.map(({ id, inSelectedSaison }) => [id, inSelectedSaison]),
       [
-        ["b2026", false],
-        ["b2027", true],
+        [rowId("2026"), false],
+        [rowId("2027"), true],
       ],
     );
   });
