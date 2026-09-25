@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -28,23 +25,10 @@ registerHooks({
 const { default: RootLayout } = await import("./layout.tsx");
 const { AppDatePicker } = await import("@/shared/components/ui/DateTimeFields.tsx");
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..");
-
-/** Every component the tree ships that mounts react-aria's locale provider. */
-const mounts = filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200)
-  .filter((file) => readFileSync(file, "utf8").includes("<I18nProvider"))
-  .map((file) => path.relative(SRC_DIR, file).split(path.sep).join("/"));
-
 /** A day whose two numbers differ, so a field ordering them by another calendar reads otherwise. */
 const DAY = "2016-09-04";
 
 describe("the document's locale", () => {
-  // react-aria reads the NEAREST provider, so a second mount is a subtree formatting dates by
-  // whatever it pins, under the language the document declares, in whichever component holds it.
-  it("is pinned exactly once", () => {
-    assert.equal(mounts.length, 1, `expected one <I18nProvider> mount, found ${String(mounts.length)}: ${mounts.join(", ")}`);
-  });
-
   /* What fails a visitor is the two DISAGREEING — a de-DE pin under lang="en" is as wrong as an
      unpinned field under lang="de" — so the field is held to the document's language, not a literal. */
   it("formats a date field under the root layout in the language the document declares", () => {

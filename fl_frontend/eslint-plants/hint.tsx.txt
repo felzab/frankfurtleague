@@ -1,4 +1,5 @@
 // Linted as src/shared/components/ui/Hint.tsx.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
@@ -15,3 +16,4 @@ export const USED = [Button, AppRouterContext, DateField, HeroForm, captureStdou
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;

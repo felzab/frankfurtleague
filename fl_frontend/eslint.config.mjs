@@ -252,6 +252,16 @@ const SITE_ORIGIN = {
 };
 
 /**
+ * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
+ * formats a subtree's dates by whatever it pins (`docs/frontend/spec.md :: I75`). Tests mount their own.
+ */
+const LOCALE_PROVIDER = {
+  group: ["@heroui/react/rac"],
+  importNames: ["I18nProvider"],
+  message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
+};
+
+/**
  * The popover and panel both hint tags open, each dressed by its caller: rendered from anywhere but
  * `Hint.tsx`, which the block exempting it below allows, a hint's panel looks like no other hint's.
  */
@@ -465,6 +475,11 @@ const DYNAMIC_LOADS = [
       "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
   },
   {
+    // A loaded module's I18nProvider reaches a tag the locale ban never reads.
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2Frac$`),
+    message: "Import react-aria's primitives statically: the locale provider's one-mount ban reads the import.",
+  },
+  {
     // A loaded module's Calendar reaches a tag under whatever name it is destructured to.
     selector: loadOf(String.raw`^@heroui\x2Freact\x2Fcalendar$`),
     message: "Import the Calendar statically, under its own name: the spread ban reads the tag.",
@@ -529,7 +544,7 @@ const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN];
+const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -913,6 +928,7 @@ const eslintConfig = defineConfig([
     [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
     [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
+    [["src/core/providers/RootProviders.tsx"], LOCALE_PROVIDER, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     // The harness and its own test, which the production bans leave out.
     [
       ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],

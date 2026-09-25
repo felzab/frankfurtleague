@@ -1,4 +1,5 @@
 // Linted as src/shared/components/ui/DateTimeFields.tsx.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The composition may import the segmented controls, and still only under their own names.
 import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: date-alias
 // A namespace import of any HeroUI subpath is read as taking its form as well.
@@ -29,3 +30,4 @@ export function AppDatePicker() {
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;

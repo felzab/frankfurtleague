@@ -1,4 +1,5 @@
 // Linted as src/shared/components/ui/Form.tsx.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The wrapper may import HeroUI's form from its own subpath, and from nowhere else.
 import { Form as HeroUIForm } from "@heroui/react/form";
 import { Form as RootForm } from "@heroui/react"; // expect: vendor-root
@@ -16,3 +17,4 @@ export const USED = [HeroUIForm, RootForm, AppRouterContext, DateField, HintPopo
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;

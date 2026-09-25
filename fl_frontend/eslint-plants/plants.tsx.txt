@@ -1,6 +1,7 @@
 // Linted as src/features/zzplant/plants.tsx.
 "use client";
 
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
 import { Calendar } from "@heroui/react/calendar";
@@ -135,3 +136,5 @@ export const NODE_MODULE_USED = [loadVia];
 export const HARNESS_USED = [underNext];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load

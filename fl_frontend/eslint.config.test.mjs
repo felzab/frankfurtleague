@@ -63,6 +63,8 @@ const BANS = [
   ["layer-core", /core is infrastructure/],
   ["layer-shared", /shared must not import features/],
   ["site-origin", /SITE_URL is the published origin/],
+  ["locale-provider", /The locale is pinned once/],
+  ["locale-load", /Import react-aria.s primitives statically/],
   ["node-module", /a `createRequire` function held in a name/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["test-only-load", /loaded at run time stays the suite's/],

@@ -1,4 +1,5 @@
 // Linted as src/shared/components/ui/NumberField.tsx.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The wrapper may import HeroUI's number field from its own subpath, and from nowhere else.
 import { NumberField as HeroUINumberField } from "@heroui/react/number-field";
 import { NumberField as RootNumberField } from "@heroui/react"; // expect: vendor-root
@@ -15,3 +16,4 @@ import { SITE_URL } from "@/core/brand"; // expect: site-origin
 export const USED = [HeroUINumberField, RootNumberField, AppRouterContext, DateField, HeroForm, HintPopover, captureStdout, TEAM_FACETS];
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
+export const LOCALE_USED = PinnedLocale;

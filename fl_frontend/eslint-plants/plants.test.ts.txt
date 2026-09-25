@@ -57,3 +57,4 @@ export const HOLDS_IT_CLOSED = "deletePasskey";
 export function plantedBack(): void {
   router.back(); // expect: history-back
 }
+export const RAC_LOADED = import(`@heroui/react/rac`); // expect: locale-load

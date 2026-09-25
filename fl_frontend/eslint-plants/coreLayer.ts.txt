@@ -1,4 +1,5 @@
 // Linted as src/core/zzPlant.ts.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; // expect: layer-core
 import { captureStdout } from "./stdoutCapture"; // expect: test-only
@@ -54,3 +55,4 @@ export const NODE_MODULE_USED = [loadVia, hookVia];
 export const LOADED_LOADER = import("node:module"); // expect: test-only-load
 export const ORIGIN_USED = [SITE_URL, SITE_URL_TYPED];
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
