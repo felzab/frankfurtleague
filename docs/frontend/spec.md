@@ -804,8 +804,9 @@ restored the first, which half went back
 A slice's mapper answers it itself on the box holding the refused value, and as a banner in three
 places where no box does:
 
-- `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal`, whose refused shorthand
-  the school typed onto the application and the club's page repairs
+- `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal`, by what an acceptance
+  enters: a new school's refused shorthand, which the school typed onto the application and the
+  club's page repairs, or a picked club already in the season, in the words of the entry below
 - `fl_frontend/src/features/teams/refusals.ts :: mapAlreadyEnteredRefusal` and
   `fl_frontend/src/features/spieler/refusals.ts :: mapAlreadyInSaisonRefusal`, whose refused pair is
   the page's own record and the season, so the page is stale and a reload is the repair
