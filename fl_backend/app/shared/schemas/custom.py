@@ -123,16 +123,9 @@ PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
-# NUL, LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR, in code-point order so the class
-# reads left to right. A name is a name and none belongs in one -- cheaper than reasoning about what
-# each renderer downstream does with them.
-
-# `fl_frontend/src/features/bewerbungen/schemas.ts :: NICHT_EINZEILIG` carries this negated. One
-# asymmetry survives: `str.strip` removes U+0085 where JavaScript's `trim` does not, so a value
-# merely PADDED with it is accepted here and refused there.
-
-# Paired with `strip_whitespace`, which runs FIRST, so padding is repaired and only an interior
-# character is refused. NUL is the exception both ends agree on: it is not whitespace either side.
+# Why the class is this wide, and where the form's copy parts from it, are
+# `docs/frontend/spec.md :: I87` and `:: I88`. Paired with `strip_whitespace`, which runs first and
+# takes no NUL, so padding is repaired and an interior character refused.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
@@ -186,9 +179,6 @@ def validate_external_url(value: str) -> str:
     Scheme-restricted: a bare "is this a URL" check accepts `javascript:`, an XSS sink once React
     renders it into an href. Not `AnyHttpUrl`, which normalises and would rewrite a stored value.
     """
-    # Every C0 control, removed BEFORE parsing so what this returns is what the checks ran on.
-    # `geturl()` would also lowercase the scheme.
-
     # SURROUNDING whitespace is not among them and is the caller's to strip: `urlsplit` ignores it
     # internally, so a leading space would pass every check and be returned on the value.
     parsed = value.translate(URL_STRIPPED_CHARACTERS)
@@ -235,6 +225,7 @@ def validate_external_url(value: str) -> str:
     if not DOMAIN_REGEX.match(host):
         raise ValueError("URL must point at a domain name")
 
+    # What the checks ran on, and never `parts.geturl()`, which would also lowercase the scheme.
     return parsed
 
 
