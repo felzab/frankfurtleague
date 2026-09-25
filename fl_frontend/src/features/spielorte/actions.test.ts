@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers();
 const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivateSpielortAction } = await import("./actions.ts");
 
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
@@ -25,6 +27,33 @@ const VENUE = {
   default_mietpreis: 40,
   address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
 };
+
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  if (endpoint === "/spielorte") return { acknowledged: 1, created_id: SPIELORT_ID };
+  const stored = { id: SPIELORT_ID, ...VENUE, maps_link: "https://maps.example/sportpark-nord", inactive_since: null };
+  return method === "PATCH"
+    ? { acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0 }
+    : { acknowledged: 1, updated_document: stored };
+}
+
+describe("the venue's writes", () => {
+  it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
+
+    await postSpielortAction(VENUE);
+    await patchSpielortAction({ id: SPIELORT_ID, ...VENUE });
+    await deleteSpielortAction({ id: SPIELORT_ID });
+    await reactivateSpielortAction({ id: SPIELORT_ID });
+
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/spielorte", method: "POST", body: VENUE },
+      { endpoint: `/spielorte/${SPIELORT_ID}`, method: "PATCH", body: VENUE },
+      { endpoint: `/spielorte/${SPIELORT_ID}`, method: "DELETE", body: undefined },
+      { endpoint: `/spielorte/${SPIELORT_ID}/reactivate`, method: "POST", body: undefined },
+    ]);
+  });
+});
 
 describe("the venue retirement against the codes its endpoint publishes", () => {
   /* A missed code reaches the shared reader's sentence about an existing entry, false for fixtures

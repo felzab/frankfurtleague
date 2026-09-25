@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
@@ -15,9 +15,11 @@ import {
   SHORTHAND_TAKEN_ON_EDIT,
 } from "./refusals.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers();
 const {
   deleteTeamAction,
   patchSaisonTeamAction,
@@ -79,6 +81,56 @@ const replacementMessage = (code: string, statusCode = 409): string =>
 
 /** The entry's own answer, as the action asks: the rules first, then the unique index on the junction's key. */
 const entryAnswer = (error: unknown) => mapEntryRefusal(error) ?? mapAlreadyEnteredRefusal(error);
+
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  const record = { id: TEAM_ID, ...CLUB, inactive_since: null };
+  if (endpoint === "/teams") return { acknowledged: 1, created_id: TEAM_ID };
+  if (endpoint.endsWith("/replace")) return REPLACED;
+  if (endpoint.includes("/saisons")) {
+    return {
+      acknowledged: 1,
+      saison_id: SAISON_ID,
+      team_id: TEAM_ID,
+      gruppe: "A",
+      austritt: null,
+      trikot_farbe: null,
+      kontakte: null,
+      name: CLUB.name,
+      shorthand: CLUB.shorthand,
+    };
+  }
+  return method === "PATCH"
+    ? { acknowledged: 1, updated_document: record, fanned_out_to_spiele: 0, fanned_out_to_saison_teams: 0 }
+    : { acknowledged: 1, updated_document: record };
+}
+
+describe("the club's writes", () => {
+  it("reach each published path and method, the ids in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
+    const junction = { gruppe: "B", austritt: null, trikot_farbe: null } as const;
+
+    await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+    await patchTeamAction({ id: TEAM_ID, ...CLUB });
+    await deleteTeamAction({ id: TEAM_ID });
+    await reactivateTeamAction({ id: TEAM_ID });
+    await postSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" });
+    await patchSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, ...junction });
+    await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
+
+    const club = `/teams/${TEAM_ID}`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/teams", method: "POST", body: CLUB },
+      { endpoint: `${club}/saisons`, method: "POST", body: { saison_id: SAISON_ID, gruppe: "A" } },
+      { endpoint: club, method: "PATCH", body: CLUB },
+      { endpoint: club, method: "DELETE", body: undefined },
+      { endpoint: `${club}/reactivate`, method: "POST", body: undefined },
+      { endpoint: `${club}/saisons`, method: "POST", body: { saison_id: SAISON_ID, gruppe: "A" } },
+      { endpoint: `${club}/saisons/${SAISON_ID}`, method: "PATCH", body: junction },
+      { endpoint: `${club}/saisons/${SAISON_ID}/replace`, method: "POST", body: { incoming_team_id: INCOMING_ID } },
+    ]);
+  });
+});
 
 describe("the team actions against the codes their endpoints publish", () => {
   /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's

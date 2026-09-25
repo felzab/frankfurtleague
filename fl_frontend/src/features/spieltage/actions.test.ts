@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -18,7 +18,7 @@ import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
 
 /* The real action and its mutation, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers();
 const { patchSpieltagAction } = await import("./actions.ts");
 
 const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx");
@@ -60,6 +60,24 @@ function spanWarningBody(): string {
 
   return banners.find((banner) => banner.id === "spieltag.zeitraum-changed")?.body ?? "";
 }
+
+describe("the matchday's write", () => {
+  it("reaches its published path and method, the id in the path and the span alone in the body", async () => {
+    const span = { beginn: "2026-03-12", ende: "2026-03-13" };
+    const id = "6890a1b2c3d4e5f607182931";
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        spieltag_id: id,
+        updated_document: { id, ...span, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
+      }),
+    );
+
+    await patchSpieltagAction({ id, ...span });
+
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/spieltage/${id}`, method: "PATCH", body: span }]);
+  });
+});
 
 describe("the Spieltag refusals against the codes the matchday PATCH publishes", () => {
   it("publishes the ordering rule on the matchday PATCH", () => {

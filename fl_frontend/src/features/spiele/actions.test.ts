@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapSpielRefusal } from "./refusals.ts";
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers();
 const { patchAdminSpielDataAction, previewAdminSpielDataAction } = await import("./actions.ts");
 
 /** The one endpoint both write paths send, the dry run included, so one operation carries every refusal either can draw. */
@@ -47,6 +47,34 @@ const EDIT = {
   spiel_id: "6890a1b2c3d4e5f607182930",
   sonderereignis: null,
 };
+
+/*
+ * The dry run shares the save's endpoint, payload and answer, so its flag and its read mark are all
+ * that keep it from committing the edit and from refreshing the page under an editor's draft.
+ */
+describe("the match's writes", () => {
+  it("send the dry run with its flag and marked a read, and the save without either", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [] }));
+    const edit = { ...EDIT, notiz: "Platz 2" };
+    const { spiel_id, ...fields } = edit;
+
+    assert.equal((await previewAdminSpielDataAction(edit)).success, true, "the dry run never landed, so what it moves is judged on nothing");
+    assert.deepEqual(cacheCalls, [], "a dry run moved a cached read or refreshed the page under the editor's draft");
+    assert.equal((await patchAdminSpielDataAction(edit, "2026")).success, true, "the save never landed, so what it moves is judged on nothing");
+
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/spiele/${spiel_id}?dry_run=true`, method: "PATCH", body: fields, readOnly: true },
+      { endpoint: `/spiele/${spiel_id}`, method: "PATCH", body: fields },
+    ]);
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: ["spiele:saison_id:2026"] },
+      { name: "updateTag", args: ["teams:saison_id:2026"] },
+      { name: "refresh", args: [] },
+    ]);
+  });
+});
 
 describe("the match editor's refusals against the codes its endpoint publishes", () => {
   it("finds every rule the match endpoint publishes", () => {

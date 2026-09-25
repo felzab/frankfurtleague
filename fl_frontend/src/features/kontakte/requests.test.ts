@@ -12,9 +12,13 @@ import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from 
 const VORSTAND = { user: { email: "vorstand@example.org" } };
 const { setSession } = doubleActionRequest({ session: VORSTAND });
 
-const { calls: sent } = doubleApiAnswers(async ({ endpoint }) => (endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
+const { calls: sent } = doubleApiAnswers(async ({ endpoint }) => {
+  if (endpoint === "/kontakte/erasure") return ERASURE;
+  if (endpoint === "/kontakte/erasure/ansicht") return { acknowledged: 1, saison_teams: [], bewerbungen: [] };
+  return blockAnswer;
+});
 
-const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction } = await import("./actions.ts");
+const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction, readKontaktErasureAnsichtAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
 const { describeKontaktErasureUmfang } = await import("./utils.ts");
 
@@ -39,6 +43,20 @@ const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id:
 
 beforeEach(() => {
   blockAnswer = { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "a1b2" };
+});
+
+describe("the contacts' writes", () => {
+  it("reach each published path and method, the confirmation read marked a read", async () => {
+    await readKontaktErasureAnsichtAction({ email: ADDRESS });
+    await eraseKontaktpersonAction({ email: ADDRESS });
+    await patchSaisonTeamKontakteAction(CLEARED);
+
+    assert.deepEqual(requestsOf(sent), [
+      { endpoint: "/kontakte/erasure/ansicht", method: "POST", body: { email: ADDRESS }, readOnly: true },
+      { endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS } },
+      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`, method: "PATCH", body: { kontakte: null, kontakte_stand: "9f2c" } },
+    ]);
+  });
 });
 
 describe("what the person's erasure sends", () => {

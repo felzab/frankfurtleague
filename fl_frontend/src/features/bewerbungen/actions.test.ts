@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
@@ -410,6 +410,47 @@ const answerOf = (result: { success: boolean; message?: string; error?: string }
 
 /** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
 const REFRESH_ALONE = [{ name: "refresh", args: [] }];
+
+describe("the application's writes", () => {
+  it("reach each published path and method, the id and the seat in the path and the fields alone in the body", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    for (const { press, landed } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+      await press();
+    }
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    await einwilligungErneutSendenAction(ERNEUT);
+    answerWith(() => Promise.resolve(korrigiert()));
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+    answerWith(() => Promise.resolve(besetzt()));
+    await besetzeKontaktSitzAction(SITZ);
+
+    // A delivery report's `am` is the moment the provider took the message, so it is held to its form alone.
+    const sent = requestsOf(writes).map((request) => {
+      if (request.body === undefined) return request;
+      const { am, ...body } = request.body as { am?: unknown };
+      if (am !== undefined) assert.match(String(am), /^\d{4}-\d\d-\d\dT[\d:.]+Z$/, "a delivery report dated in another form");
+      return { ...request, body };
+    });
+    const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
+    const report = {
+      endpoint: "/bewerbungen/zustellung/angenommen",
+      method: "POST",
+      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: "msg-1", rollen: ["ansprechperson"] },
+    };
+    const { id: _id, rolle: _rolle, ...person } = SITZ;
+    assert.deepEqual(sent, [
+      { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
+      { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
+      { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
+      report,
+      { endpoint: `${bewerbung}/kontakte/ansprechperson/email`, method: "POST", body: { email: KORREKTUR.email } },
+      report,
+      { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
+      report,
+    ]);
+  });
+});
 
 describe("what each decision moves", () => {
   /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags

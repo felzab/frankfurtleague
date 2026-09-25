@@ -49,19 +49,20 @@ export const apiClient = async (endpoint, schema, options = {}) => {
   return calls;
 }
 
-/** One request as the backend reads it. */
-export type SentApiRequest = { endpoint: string; method: string | undefined; body: unknown; params?: unknown };
+/** One request as the backend reads it, and whether the caller declared it a read. */
+export type SentApiRequest = { endpoint: string; method: string | undefined; body: unknown; params?: unknown; readOnly?: true };
 
 /**
- * Each request as the backend reads it: the path, the method, and the body parsed. The query appears
- * only on a call that carried one, so a comparison naming none fails on a value that leaked into it.
+ * The query and the read-only mark appear only where a call carried them, so a comparison naming
+ * neither fails on a value leaked into a query, and on a write marked a read, which records no write.
  */
 export const requestsOf = (calls: readonly ApiCall[]): SentApiRequest[] =>
-  calls.map(({ endpoint, method, body, params }) => ({
+  calls.map(({ endpoint, method, body, params, readOnly }) => ({
     endpoint,
     method,
     body: body === undefined ? undefined : (JSON.parse(body) as unknown),
     ...(params === undefined ? {} : { params }),
+    ...(readOnly === true ? { readOnly } : {}),
   }));
 
 /** What the backend answers one call with, handed the call so an answer can tell the requests apart. */

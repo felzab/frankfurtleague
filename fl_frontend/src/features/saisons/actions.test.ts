@@ -11,6 +11,7 @@ import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refu
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { FLSaisonRules } from "./schemas.ts";
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
@@ -75,6 +76,57 @@ const GERMAN_OF: Record<string, string> = {
  * meaning something else, so „Gruppenphase“ satisfies a substring search for the group COUNT.
  */
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
+
+const TEAM1_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+const TEAM2_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
+
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  const stored = { ...SAISON, status: "future", schedule: [], spielplan: null };
+  if (endpoint === "/saisons") return { acknowledged: 1, created_id: SAISON_ID };
+  if (endpoint.endsWith("/activate")) return { acknowledged: 1, updated_document: stored, deactivated: 1 };
+  if (endpoint.endsWith("/gruppen/swap")) {
+    return {
+      acknowledged: 1,
+      saison_id: SAISON_ID,
+      team1_id: TEAM1_ID,
+      team1_gruppe: "B",
+      team2_id: TEAM2_ID,
+      team2_gruppe: "A",
+      rewritten_spiele: 0,
+    };
+  }
+  if (endpoint.endsWith("/spielplan")) {
+    const counts = { acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12 };
+    return method === "DELETE"
+      ? { ...counts, watermark_cleared: true }
+      : { ...counts, generiert_am: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
+  }
+  return { acknowledged: 1, updated_document: stored };
+}
+
+describe("the season's writes", () => {
+  it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
+
+    await postSaisonAction(SAISON);
+    await patchSaisonAction(SAISON);
+    await activateSaisonAction({ id: SAISON_ID });
+    await generateSpielplanAction({ id: SAISON_ID, replace: true });
+    await undrawSpielplanAction({ id: SAISON_ID });
+    await swapGruppenAction({ saison_id: SAISON_ID, team1_id: TEAM1_ID, team2_id: TEAM2_ID });
+
+    const { id, ...fields } = SAISON;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/saisons", method: "POST", body: SAISON },
+      { endpoint: `/saisons/${id}`, method: "PATCH", body: fields },
+      { endpoint: `/saisons/${id}/activate`, method: "POST", body: undefined },
+      { endpoint: `/saisons/${id}/spielplan`, method: "POST", body: { replace: true } },
+      { endpoint: `/saisons/${id}/spielplan`, method: "DELETE", body: undefined },
+      { endpoint: `/saisons/${id}/gruppen/swap`, method: "POST", body: { team1_id: TEAM1_ID, team2_id: TEAM2_ID } },
+    ]);
+  });
+});
 
 describe("the saison actions against the codes their endpoints publish", () => {
   /* The create answers its own set alone, though `POST /saisons` prefixes two other operations. The
