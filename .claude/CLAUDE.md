@@ -189,6 +189,9 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
 - **Never let a Windows text-mode stream write a file, a scratch file included**:
   `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout each turn every `\n`
   into `\r\n`. Write bytes, or pass `newline=""`.
+- **Never hand a native program an argument opening with `/` from Git Bash without
+  `MSYS_NO_PATHCONV=1`**: MSYS rewrites it as a Windows path, so `git grep -F '/src/core/api.ts'`
+  answers a confident zero with no error. A regex or a URL path is the same argument.
 
 ## 7. Ratified decisions — never "fix" one
 
