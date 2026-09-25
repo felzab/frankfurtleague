@@ -246,13 +246,13 @@ const SITE_ORIGIN = {
 };
 
 /**
- * The popover and panel both hint tags open, whose own `{children}` `hintCap.test.ts` cannot count:
- * rendered from anywhere but `Hint.tsx`, which the block exempting it below allows, a hint escapes the cap.
+ * The popover and panel both hint tags open, each dressed by its caller: rendered from anywhere but
+ * `Hint.tsx`, which the block exempting it below allows, a hint's panel looks like no other hint's.
  */
 const HINT_INTERNALS = {
   group: ["**/InfoHint", "**/InfoHint.tsx"],
   importNames: ["HintPopover", "HintPanel"],
-  message: "Render a hint through Hint or InfoHint, the two tags fl_frontend/src/shared/components/ui/hintCap.test.ts caps.",
+  message: "Render a hint through Hint or InfoHint, which dress the panel every hint shares.",
 };
 
 /**

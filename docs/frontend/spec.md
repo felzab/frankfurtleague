@@ -664,7 +664,7 @@ stack mail links back into itself. The published origin is the module constant
 | `no-restricted-imports` of `SITE_URL` in production outside `fl_frontend/eslint.config.mjs :: SITE_ORIGIN`'s three crawler files                                             | A link a message carries stands on the configured origin, never the published one (I186)                                                                                                                                                         |
 | `no-restricted-imports`, and `fl_frontend/eslint.config.mjs :: DYNAMIC_LOADS` for an `import()`, of Next's private contexts, the segmented date controls and HeroUI's `Form` | Each has one home: `fl_frontend/src/shared/testing/nextContexts.ts`, `fl_frontend/src/shared/components/ui/DateTimeFields.tsx` and `fl_frontend/src/shared/components/ui/Form.tsx`, each left out of that ban alone by a config block of its own |
 | `fl_frontend/eslint.config.mjs :: DYNAMIC_LOADS` for a `createRequire` load, and a ban on any string naming Next's private contexts                                          | A module double spelled as a string, or a required path, reaches the contexts as an import does                                                                                                                                                  |
-| `no-restricted-imports` of `HintPopover` and `HintPanel` outside `Hint.tsx`, and their taking from an `import()`                                                             | A hint opened through either escapes the cap `fl_frontend/src/shared/components/ui/hintCap.test.ts` measures on `Hint` and `InfoHint` alone                                                                                                      |
+| `no-restricted-imports` of `HintPopover` and `HintPanel` outside `Hint.tsx`, and their taking from an `import()`                                                             | A hint opened through either dresses its own panel, where `Hint` and `InfoHint` dress every hint's alike                                                                                                                                         |
 | `reportUnusedDisableDirectives: "error"`                                                                                                                                     | An exemption is a disable comment carrying its reason, and one whose line has gone fails rather than excusing the next                                                                                                                           |
 | `@typescript-eslint/consistent-type-imports`                                                                                                                                 | Type-only imports are erased; mixing them risks pulling runtime modules across the RSC boundary                                                                                                                                                  |
 
@@ -1173,11 +1173,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 surface cannot show them** (my rule, 2026-08-27), said in the league's own words.
 
 **The cap is a ceiling and never a target** (my rule, 2026-08-27): a lead and at most four
-single-sentence bullets, together about 350 characters, refused past that by
-`fl_frontend/src/shared/components/ui/hintCap.test.ts`. **A closing note counts against those four**
-(my rule, 2026-08-26). **What a hint renders from a label table is not counted**, the sweep reading
-literals only, so a legend is written out by hand rather than mapped over its set. **The ordinary
-hint is a lead alone, or a lead and one sentence.** **Meeting the cap means cutting, never
+single-sentence bullets, together about 350 characters, held by review.
+**A closing note counts against those four** (my rule, 2026-08-26). **The ordinary hint is a lead
+alone, or a lead and one sentence.** **Meeting the cap means cutting, never
 compressing** (my rule, 2026-08-26): where a sentence cannot be shortened without becoming untrue,
 that is the sentence to delete, not the one to squeeze.
 
