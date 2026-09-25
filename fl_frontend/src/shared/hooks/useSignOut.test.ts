@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
@@ -37,8 +38,7 @@ async function signOut(onSignOut: () => Promise<FormState>) {
   const { router, seen } = recordingRouter();
   render(underNext(h(Probe, { onSignOut }), { router }));
 
-  await user.click(screen.getByRole("button", { name: "Abmelden" }));
-  await user.click(screen.getByRole("button", { name: "Wirklich abmelden" }));
+  await pressTwice(user, { resting: "Abmelden", armed: "Wirklich abmelden" });
   await waitFor(() => assert.equal(raised.length, 1));
 
   return seen;
@@ -69,6 +69,29 @@ describe("what a sign-out tells the reader", () => {
       [{ variant: "danger", title: "Nicht abgemeldet", description: "Versuche es erneut." }],
     );
     assert.deepEqual(seen.pushed, []);
+  });
+
+  /* One motor action rather than two read decisions: the second click lands on the armed control before
+     anybody could have read it. */
+  it("arms on a double-click and ends no session", async () => {
+    const user = userEvent.setup();
+    let asked = 0;
+    render(
+      underNext(
+        h(Probe, {
+          onSignOut: async () => {
+            asked += 1;
+            return { success: true, message: "Abgemeldet" };
+          },
+        }),
+        { router: recordingRouter().router },
+      ),
+    );
+
+    await user.dblClick(screen.getByRole("button", { name: "Abmelden" }));
+
+    assert.equal(asked, 0, "a double-click ended the session unread");
+    assert.ok(screen.getByRole("button", { name: "Wirklich abmelden" }));
   });
 
   it("leaves for the start page once the session has ended", async () => {

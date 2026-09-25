@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { startTransition, useEffect } from "react";
 
 import TrashBin from "@gravity-ui/icons/TrashBin";
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
 import { Button } from "@heroui/react/button";
 
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -63,24 +64,20 @@ export function ConfirmDeleteModal({
    */
   failureMessage: string;
 }) {
-  const [isPending, startRetiring] = useTransition();
-  const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
+  // The panels' own two-press control, whose double-press window keeps a double-click on „Stilllegen“
+  // from retiring the row before step 2 was read (`docs/frontend/spec.md :: I37`).
+  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
 
-  // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
+  // Disarmed after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
     if (!isOpen) {
-      const timer = setTimeout(() => setConfirmStep(1), 300);
+      const timer = setTimeout(cancel, 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, cancel]);
 
   const handleDelete = () => {
-    if (confirmStep === 1) {
-      setConfirmStep(2);
-      return;
-    }
-
-    startRetiring(async () => {
+    press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await onConfirm().catch(unansweredAction);
 
@@ -94,7 +91,7 @@ export function ConfirmDeleteModal({
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
-      startRetiring(() => {
+      startTransition(() => {
         onClose();
       });
     });
@@ -120,7 +117,7 @@ export function ConfirmDeleteModal({
           to take the band's distance as a gap rather than a margin (`docs/frontend/spec.md :: I240`). */}
       <div className="flex flex-col gap-y-6">
         <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
-          {confirmStep === 1 ? (
+          {!isConfirming ? (
             <p className="fluid-sm text-foreground-muted leading-relaxed">
               Möchtest Du {entityLabel}
               <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
@@ -158,7 +155,7 @@ export function ConfirmDeleteModal({
             className={formButton({ intent: "destructive" })}
             onPress={handleDelete}>
             {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-            {isPending ? RETIRE_RUNNING : confirmStep === 1 ? RETIRE_CAPITALISED : `Ja, ${RETIRE_INFINITIVE}`}
+            {isPending ? RETIRE_RUNNING : isConfirming ? `Ja, ${RETIRE_INFINITIVE}` : RETIRE_CAPITALISED}
           </Button>
           <Button
             type="button"

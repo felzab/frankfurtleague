@@ -9,6 +9,8 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { pressTwice } from "@/shared/testing/twoPress.ts";
+
 import type { ActionResult } from "@/shared/types/types.ts";
 import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -38,8 +40,7 @@ describe("a control whose write is running", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "Stilllegen" }));
-    await user.click(screen.getByRole("button", { name: "Ja, stilllegen" }));
+    await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     const running = screen.getByRole("button", { name: "Legt still..." });
     await user.click(running);
 
