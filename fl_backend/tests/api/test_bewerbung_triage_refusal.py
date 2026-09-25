@@ -31,7 +31,7 @@ from app.api.bewerbungen.services import (
     seat_awaits_a_replacement,
 )
 from app.core.exception_handlers import base_api_exception_handler
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from tests.documents import ADDRESS, kontaktperson_document
 
@@ -612,7 +612,7 @@ class TestTheRefusalWithholdsWhatTheSchoolSubmitted:
         assert refusal is not None
 
         with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
-            asyncio.run(base_api_exception_handler(cast(Any, None), DocumentConflictException.from_refusal(refusal)))
+            asyncio.run(base_api_exception_handler(cast(Any, None), WriteRefusalException(refusal)))
 
         records = [record for record in caplog.records if getattr(record, "error_code", None) is not None]
         assert len(records) == 1, records

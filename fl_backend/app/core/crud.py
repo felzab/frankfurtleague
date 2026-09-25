@@ -23,7 +23,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal, WriteRefusalException
 from app.core.recording import record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -359,7 +359,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
+        raise WriteRefusalException(refusal)
 
 
 async def set_inactive_since(

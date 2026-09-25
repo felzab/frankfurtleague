@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches
@@ -99,6 +100,7 @@ def find_spieltag_span_refusal(
     if beginn < saison_start or ende > saison_end:
         return WriteRefusal(
             error_code=SPIELTAG_OUTSIDE_SAISON,
+            status=HTTPStatus.CONFLICT,
             message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
             "a matchday is a block of that season's fixtures",
         )
@@ -107,6 +109,7 @@ def find_spieltag_span_refusal(
     if outside:
         return WriteRefusal(
             error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
+            status=HTTPStatus.CONFLICT,
             message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
             "widen the span or move those fixtures",
         )
@@ -181,6 +184,7 @@ def find_spieltag_order_refusal(
 
         return WriteRefusal(
             error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            status=HTTPStatus.CONFLICT,
             # Below the floor the goal is reachable at fixture level alone: the predecessor's own
             # matches move into the later days, and no `beginn` moves at all.
             message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
@@ -199,6 +203,7 @@ def find_spieltag_order_refusal(
 
         return WriteRefusal(
             error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            status=HTTPStatus.CONFLICT,
             message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
             f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
             "then re-date its fixtures inside that span",

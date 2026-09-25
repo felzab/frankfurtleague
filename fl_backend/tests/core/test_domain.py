@@ -3,8 +3,9 @@ import functools
 import importlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -32,7 +33,9 @@ from app.core.domain import (
     Editability,
 )
 from app.core.exception_handlers import MALFORMED_OBJECT_ID, PAYLOAD_REFUSED
+from app.core.exceptions import WriteRefusal
 from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
+from tests.core.app_source import Declaration, declared, module_of, parsed, resolve_callee, scoped_calls
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -231,13 +234,6 @@ def _resolves(collection: Collection, path: str) -> bool:
 
 
 @functools.cache
-def _parsed(file: Path) -> ast.Module:
-    """Cached across the declarations citing one file; every walk below starts here."""
-
-    return ast.parse(file.read_text(encoding="utf-8"))
-
-
-@functools.cache
 def _declared_classes(file: Path) -> frozenset[str]:
     """Every class the file declares, at any nesting depth.
 
@@ -245,14 +241,7 @@ def _declared_classes(file: Path) -> frozenset[str]:
     otherwise report as missing.
     """
 
-    return frozenset(node.name for node in ast.walk(_parsed(file)) if isinstance(node, ast.ClassDef))
-
-
-@functools.cache
-def _declared_functions(file: Path) -> Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    """Every function the file declares, by name. A shadowed name resolves to the last one, as the module itself would."""
-
-    return {node.name: node for node in ast.walk(_parsed(file)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    return frozenset(node.name for node in ast.walk(parsed(file)) if isinstance(node, ast.ClassDef))
 
 
 def _names_referenced(node: ast.AST) -> frozenset[str]:
@@ -268,7 +257,7 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
     """Each `from x import y` name in the file, as `(module, symbol)`, so a value resolves without importing the file."""
 
     origins: dict[str, tuple[str, str]] = {}
-    for node in ast.walk(_parsed(file)):
+    for node in ast.walk(parsed(file)):
         if isinstance(node, ast.ImportFrom) and node.module:
             for alias in node.names:
                 origins[alias.asname or alias.name] = (node.module, alias.name)
@@ -282,7 +271,7 @@ def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[s
     # A module's package and an `__init__.py`'s package are both the path without its last part.
     package = file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1]
     found: set[str] = set()
-    for node in ast.walk(tree or _parsed(file)):
+    for node in ast.walk(tree or parsed(file)):
         if isinstance(node, ast.Import):
             found.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
@@ -293,34 +282,57 @@ def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[s
     return frozenset(found)
 
 
-def _module_file(dotted: str) -> Path:
-    return Path(importlib.import_module(dotted).__file__ or "")
+def _module_of(file: Path) -> ModuleType:
+    return importlib.import_module(".".join(file.relative_to(BACKEND_ROOT).with_suffix("").parts))
+
+
+def _reached_functions(dotted: str) -> list[tuple[ModuleType, Declaration]]:
+    """The callable at `dotted` and every application function it calls, each with the module its names resolve in.
+
+    Calls are followed because a shared builder is where a code several messages carry ends up
+    (`app/api/spiele/services.py :: _wiring_refusal`).
+    """
+
+    function = _import_symbol(dotted)
+    pending = [(declared(function), module_of(function))]
+    reached: dict[tuple[Path, int], tuple[ModuleType, Declaration]] = {}
+    while pending:
+        declaration, path = pending.pop()
+        if (path, declaration.lineno) in reached:
+            continue
+        reached[(path, declaration.lineno)] = (_module_of(path), declaration)
+        pending.extend(found for chain, call in scoped_calls(declaration, (declaration,)) if (found := resolve_callee(call, chain, path)))
+
+    return list(reached.values())
 
 
 def _reaches_code(dotted: str, code: str) -> bool:
-    """Whether the callable at `dotted` reaches the constant holding `code`.
+    """Whether the callable at `dotted` reaches the constant holding `code`."""
 
-    Same-module helpers are followed, because a shared refusal builder is exactly where a code that
-    several messages carry ends up (`app/api/spiele/services.py :: _wiring_refusal`).
-    """
+    return any(
+        getattr(module, referenced, None) == code
+        for module, function in _reached_functions(dotted)
+        for referenced in _names_referenced(function)
+    )
 
-    module_path, _, symbol = dotted.rpartition(".")
-    module = importlib.import_module(module_path)
-    functions = _declared_functions(_module_file(module_path))
 
-    seen: set[str] = set()
-    pending = [symbol]
-    while pending:
-        name = pending.pop()
-        if name in seen or name not in functions:
-            continue
-        seen.add(name)
-        for referenced in _names_referenced(functions[name]):
-            if getattr(module, referenced, None) == code:
-                return True
-            pending.append(referenced)
+def _resolved(node: ast.expr, module: ModuleType) -> Any:
+    """The value a bare name or an attribute chain spells in `module`, which is how every refusal spells its code and its status."""
 
-    return False
+    if isinstance(node, ast.Name):
+        return getattr(module, node.id)
+    if isinstance(node, ast.Attribute):
+        return getattr(_resolved(node.value, module), node.attr)
+    raise TypeError(f"line {node.lineno} spells a value the trace cannot resolve: {ast.unparse(node)}")
+
+
+def _refusals_built(module: ModuleType, node: ast.AST) -> Iterator[tuple[str, Any]]:
+    """Each `WriteRefusal` constructed under `node`, as the code and the status it spells."""
+
+    for call in ast.walk(node):
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == WriteRefusal.__name__:
+            spelled = {keyword.arg: keyword.value for keyword in call.keywords}
+            yield _resolved(spelled["error_code"], module), _resolved(spelled["status"], module)
 
 
 def _test_class_asserts_code(tested_by: str, code: str) -> bool:
@@ -332,7 +344,7 @@ def _test_class_asserts_code(tested_by: str, code: str) -> bool:
 
     path, _, class_name = tested_by.partition("::")
     file = BACKEND_ROOT / path
-    node = next((entry for entry in ast.walk(_parsed(file)) if isinstance(entry, ast.ClassDef) and entry.name == class_name), None)
+    node = next((entry for entry in ast.walk(parsed(file)) if isinstance(entry, ast.ClassDef) and entry.name == class_name), None)
     if node is None:
         return False
 
@@ -483,6 +495,35 @@ def test_every_rule_is_implemented_where_it_says(rule):
 
     assert callable(_import_symbol(rule.implemented_by))
     assert _reaches_code(rule.implemented_by, rule.code), f"{rule.implemented_by} reaches no constant holding {rule.code}"
+
+
+@pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
+def test_every_rule_is_answered_at_the_status_it_declares(rule):
+    """The row publishes the status and the check answers it, so a disagreement is a response the document never names."""
+
+    built = {
+        status
+        for module, function in _reached_functions(rule.implemented_by)
+        for code, status in _refusals_built(module, function)
+        if code == rule.code
+    }
+
+    assert built == {rule.status}, f"{rule.code} declares {rule.status!r} and {rule.implemented_by} builds {built}"
+
+
+def test_every_refusal_the_application_builds_is_answered_at_its_rules_status():
+    """Over every construction under `app/`, a code's second implementer included, which no `implemented_by` names."""
+
+    statuses = {rule.code: rule.status for rule in RULES}
+    built = [
+        (path.relative_to(BACKEND_ROOT).as_posix(), code, status)
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        if f"{WriteRefusal.__name__}(" in path.read_text(encoding="utf-8")
+        for code, status in _refusals_built(_module_of(path), parsed(path))
+    ]
+
+    assert len(built) >= len(RULES), "fewer refusals were found than rules declared, so the walk reads less than the tree holds"
+    assert [entry for entry in built if statuses.get(entry[1]) != entry[2]] == []
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)

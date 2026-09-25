@@ -52,19 +52,19 @@ The exception types carrying them are declared in `fl_backend/app/core/exception
 `fl_backend/app/core/exception_handlers.py`.
 
 **A code raised under `app/api/` is a domain rule, stated in full at
-`fl_backend/app/core/domain.py :: RULES` and published on its operations' 409s in
+`fl_backend/app/core/domain.py :: RULES` and published at its status on its operations in
 `fl_backend/openapi.json`, and it takes no row here; the protocol codes in `app/core/` describe who you
 are, whether the body parses, and whether an id is an ObjectId.**
 `fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
 that correspondence in both directions, excusing the protocol codes by name, and
 `:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set.
 
-Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
-would have succeeded against a different state of the database
-(`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
+A domain refusal answers the status its check chose ([`docs/backend/spec.md`](../backend/spec.md)
+§1.4 holds the test), and a 409 wherever the same request would have succeeded against a different
+state of the database.
 
-**That reason holds where the caller is a stranger, so the public application form's refusals are 409s
-too and a shut window is not a 403.** The endpoint is open to everyone
+**That holds where the caller is a stranger, so a shut window on the public application form is a 409
+and not a 403.** The endpoint is open to everyone
 ([`docs/backend/spec.md`](../backend/spec.md) §1.1) and what refuses is the season's own state: the
 same submission would have been stored a week earlier, or before another school took the Kürzel.
 `REQ-*` still names a rule the request broke, and on this form the one who acts on it is a member of

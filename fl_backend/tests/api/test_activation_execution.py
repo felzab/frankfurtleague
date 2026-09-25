@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_SPIELTAGE_UNDATED, ACTIVATE_TARGET_PAST
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
@@ -159,7 +159,7 @@ class TestARefusedRolloverWritesNothing:
         """The outgoing season's fixture has no result and is not cancelled, which is what `unplayed_spiel_nrs` counts."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_activate(database, client, TARGET)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -235,7 +235,7 @@ class TestTheRolloverRefusesAFinishedTarget:
         """Nothing holds `active`, so `REQ-ACTIVATE-001` has an empty list and only the target can be the reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -249,7 +249,7 @@ class TestTheRolloverRefusesAFinishedTarget:
         """The incumbent is finished, so the rollover would otherwise land: the demotion is what a missed refusal costs."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -276,7 +276,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_activate(database, client, TARGET)
 
             return refusal.value.error_code, await statuses_now(database)

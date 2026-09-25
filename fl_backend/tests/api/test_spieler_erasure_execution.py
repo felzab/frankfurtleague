@@ -20,7 +20,7 @@ from app.api.spieler.admin_router import (
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
 from tests.worker import worker_database
@@ -434,10 +434,10 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
     def test_a_pupil_still_in_the_league_is_refused(self, mongo_replica_set_url: str):
         """Catches dropping the precondition, which would put an unrecoverable write one click from the squad list."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> DocumentConflictException:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> WriteRefusalException:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await call_erasure(database, client, spieler_id)
 
             return excinfo.value
@@ -450,7 +450,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_erasure(database, client, spieler_id)
 
             return (

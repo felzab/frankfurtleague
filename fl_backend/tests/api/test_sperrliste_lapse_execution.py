@@ -22,7 +22,7 @@ from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -252,7 +252,7 @@ class TestALeagueWithNoSeasonRunning:
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == SPERRLISTE_KEINE_SAISON

@@ -3,6 +3,7 @@ import logging
 import re
 import subprocess
 import sys
+from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -13,6 +14,7 @@ from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
 
 from app.core.config import API_VERSION
+from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
     DATABASE_FAILED,
@@ -27,7 +29,7 @@ from app.core.exception_handlers import (
     refused_codes,
     register_exception_handlers,
 )
-from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthorizationException
+from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthorizationException, WriteRefusal
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
@@ -95,6 +97,19 @@ async def refuse_a_nested_field(payload: NestedPayload, limit: int = 0) -> dict[
     """Never reached: every case posts a body or a query the route refuses."""
 
     return {"ok": True}
+
+
+# A code no rule declares, so only this case's own route can answer it.
+PLANTED_REFUSAL = "REQ-PLANTED-002"
+JUDGED_PATH = ("kontakt", "email")
+
+
+@VALIDATION_APP.post("/refused/{status}")
+async def refuse_at(status: int) -> None:
+    """Refuses at the status its path names, a 422 naming the body path it judged."""
+
+    judged = (JUDGED_PATH,) if status == HTTPStatus.UNPROCESSABLE_CONTENT else ()
+    refuse(WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus(status), message="planted", fields=judged))
 
 
 def rejected_name_error() -> ValidationError:
@@ -240,6 +255,29 @@ class TestTheRefusedFieldsReachTheCaller:
         assert "String should match pattern" not in str(body)
 
 
+class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
+    @pytest.mark.parametrize("status", [HTTPStatus.CONFLICT, HTTPStatus.NOT_FOUND, HTTPStatus.GONE, HTTPStatus.FORBIDDEN])
+    def test_a_refusal_off_422_answers_the_failure_body(self, status: HTTPStatus):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(status)}")
+
+        assert response.status_code == status
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+        assert response.json()["error_code"] == PLANTED_REFUSAL
+
+    def test_a_422_answers_the_refused_payload_naming_what_its_rule_judged(self):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.UNPROCESSABLE_CONTENT)}")
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
+        assert FLRefusedPayloadBody.model_validate(response.json()).model_dump(by_alias=True) == response.json()
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL}]
+
+    def test_fields_off_a_422_are_refused_where_the_check_builds_them(self):
+        """They would reach no body: only a 422's publishes `fields`."""
+
+        with pytest.raises(ValueError, match=PLANTED_REFUSAL):
+            WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, message="planted", fields=(JUDGED_PATH,))
+
+
 def published_operations() -> list[tuple[str, dict[str, Any]]]:
     return [
         (f"{method.upper()} {path}", operation) for path, methods in build_document()["paths"].items() for method, operation in methods.items()
@@ -250,41 +288,54 @@ def published_schema(response: dict[str, Any]) -> str:
     return response["content"][JSON_MEDIA_TYPE]["schema"]["$ref"].removeprefix("#/components/schemas/")
 
 
-# The operations publishing a 409 on the tree this was written against, so an equality over two
+# The operations publishing a refusal on the tree this was written against, so an equality over two
 # maps that both went empty still fails.
 REFUSING_OPERATIONS_FLOOR = 59
 
 
-def refusal_codes_by_operation() -> dict[str, set[str]]:
+def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
     """Read off `RULES` and the routes here rather than through the publisher, which is what this is compared against."""
 
-    declared: dict[str, set[str]] = {}
+    declared: dict[str, dict[str, set[str]]] = {}
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)
-            declared.setdefault(f"{method} /api/v{API_VERSION}{route}", set()).add(rule.code)
+            declared.setdefault(f"{method} /api/v{API_VERSION}{route}", {}).setdefault(str(int(rule.status)), set()).add(rule.code)
 
     for route in api_routes(APP):
         for status, response in route.responses.items():
-            if str(status) == "409":
-                for method in route.methods or ():
-                    declared.setdefault(f"{method} {route.path_format}", set()).update(
-                        narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])
-                    )
+            for method in route.methods or ():
+                declared.setdefault(f"{method} {route.path_format}", {}).setdefault(str(status), set()).update(
+                    narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])
+                )
 
     return declared
 
 
-def published_refusals() -> dict[str, dict[str, Any]]:
+def published_schemas() -> dict[str, dict[str, dict[str, Any]]]:
+    """Each operation's failure schemas by status, `default` aside, which narrows to no code."""
+
     return {
-        name: operation["responses"]["409"]["content"][JSON_MEDIA_TYPE]["schema"]
+        name: {
+            status: response["content"][JSON_MEDIA_TYPE]["schema"] for status, response in operation["responses"].items() if status[0] in "45"
+        }
         for name, operation in published_operations()
-        if "409" in operation["responses"]
     }
 
 
+def published_refusals() -> dict[str, dict[str, set[str]]]:
+    """Each operation's statuses publishing codes, and the codes each names; one publishing none is left out."""
+
+    published: dict[str, dict[str, set[str]]] = {}
+    for name, schemas in published_schemas().items():
+        if narrowed := {status: codes for status, schema in schemas.items() if (codes := narrowed_codes(schema))}:
+            published[name] = narrowed
+
+    return published
+
+
 def narrowed_codes(schema: dict[str, Any]) -> set[str]:
-    """Empty for a 409 left as a route declared it, so the comparison names that operation rather than raising."""
+    """Empty for a response left as FastAPI wrote it, so the comparison names that operation rather than raising."""
 
     return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
 
@@ -311,18 +362,26 @@ class TestThePublishedFailureBodies:
         # Both sides at once, so the equality above cannot hold over two empty sets.
         assert takes_input and len(takes_input) < len(operations)
 
-    def test_every_operation_publishes_on_its_409_exactly_the_codes_it_refuses_with(self):
-        """Both ways: an operation neither a rule nor its route names publishes no 409, and one either names publishes that code."""
+    def test_every_operation_publishes_at_each_status_exactly_the_codes_it_refuses_with(self):
+        """Both ways: a status neither a rule nor its route names publishes no code, and one either names publishes that code there."""
 
-        published = {name: narrowed_codes(schema) for name, schema in published_refusals().items()}
+        published = published_refusals()
 
         assert published == refusal_codes_by_operation()
         assert len(published) >= REFUSING_OPERATIONS_FLOOR
 
-    def test_every_409_narrows_the_one_failure_body(self):
-        assert {schema.get("allOf", [schema])[0].get("$ref") for schema in published_refusals().values()} == {
-            "#/components/schemas/FLFailureBody"
+    def test_a_422_narrows_the_refused_payload_and_every_other_status_the_failure_body(self):
+        """The body is the status's own: `fields` travel on a 422 and on nothing else."""
+
+        narrowed = {
+            (status == "422", schema["allOf"][0]["$ref"])
+            for schemas in published_schemas().values()
+            for status, schema in schemas.items()
+            if narrowed_codes(schema)
         }
+
+        assert narrowed <= {(True, "#/components/schemas/FLRefusedPayloadBody"), (False, "#/components/schemas/FLFailureBody")}
+        assert (False, "#/components/schemas/FLFailureBody") in narrowed
 
     def test_the_schemas_are_published_in_the_order_fastapi_writes_its_own(self):
         """Sorted, so a rewrite of `fl_backend/openapi.json` never moves a schema it did not change."""
@@ -370,7 +429,7 @@ class TestTheDeclared409:
         and relabelled `DB-COMMON-002`.
         """
 
-        app = planted_app(refusal_response({A_SECOND_REASON}))
+        app = planted_app(refusal_response(HTTPStatus.CONFLICT, {A_SECOND_REASON}))
         published = with_refusals(app.openapi(), refusal_codes(app))["paths"][PLANTED_PATH]["post"]["responses"]["409"]
 
         assert refused_codes(published) == {A_SECOND_REASON}
@@ -406,7 +465,7 @@ class TestTheDeclared409:
     def test_the_operations_read_are_the_operations_the_document_publishes(self):
         """A hidden route beside a shown one: read as served, a rule naming it would pass the build and publish nothing."""
 
-        app = planted_app(refusal_response({A_SECOND_REASON}))
+        app = planted_app(refusal_response(HTTPStatus.CONFLICT, {A_SECOND_REASON}))
 
         @app.get(HIDDEN_PATH, include_in_schema=False)
         def hidden() -> None: ...

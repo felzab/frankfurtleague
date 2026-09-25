@@ -19,7 +19,7 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, team_document
 from tests.worker import worker_database
@@ -151,7 +151,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await enter(database, RETIRED_OID)
 
             return conflict.value.error_code, await junction_rows(database)
@@ -166,7 +166,7 @@ class TestEnteringAClubThroughTheEndpoint:
         """A group the season does not run would refuse too; naming it sends an admin to fix the wrong thing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await enter(database, RETIRED_OID, gruppe="D")
 
             return conflict.value.error_code
@@ -204,7 +204,7 @@ class TestEnteringAClubThroughTheEndpoint:
         """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await enter(database, LIVE_OID)
 
             return conflict.value.error_code

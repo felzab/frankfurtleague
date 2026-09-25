@@ -12,7 +12,7 @@ from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, kontaktperson_document
 from tests.worker import worker_database
@@ -170,7 +170,7 @@ class TestTheFloorIsThePersons:
         paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)

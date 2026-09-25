@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterator, Mapping
 from collections.abc import Set as AbstractSet
+from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from fastapi import FastAPI
@@ -234,45 +235,44 @@ def publish_failure_bodies(app: FastAPI) -> None:
     app.openapi = openapi
 
 
-CONFLICT = "409"
+# Each operation's refusal codes, keyed by the status each is answered at.
+Refusals = dict[HTTPStatus, set[str]]
 
 
-def declared_refusals() -> dict[tuple[str, str], set[str]]:
-    """Each operation's rule codes, keyed as the document keys an operation: its path, then its lower-case method."""
+def declared_refusals() -> dict[Operation, Refusals]:
+    """Each operation's rule codes by status, keyed as the document keys an operation: its path, then its lower-case method."""
 
-    declared: dict[tuple[str, str], set[str]] = {}
+    declared: dict[Operation, Refusals] = {}
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)
-            declared.setdefault((f"/api/v{API_VERSION}{route}", method.lower()), set()).add(rule.code)
+            declared.setdefault((f"/api/v{API_VERSION}{route}", method.lower()), {}).setdefault(rule.status, set()).add(rule.code)
 
     return declared
 
 
-def refusal_codes(app: FastAPI) -> dict[tuple[str, str], set[str]]:
-    """Each operation's 409 codes: its rules', merged with the codes its route's own 409 declaration names."""
+def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
+    """Each operation's refusal codes by status: its rules', merged with the codes its route's own declarations name."""
 
     codes = declared_refusals()
     unnamed: list[str] = []
     for route in document_routes(app):
         for status_code, response in route.responses.items():
-            if str(status_code) != CONFLICT:
-                continue
-            # Read off the declaration and never assumed from it, so a route conflicting for a
-            # second reason publishes that reason's code rather than the duplicate key's.
+            # Read off the declaration and never assumed from it, so a route refusing for a second
+            # reason publishes that reason's code rather than the duplicate key's.
             if not (named := refused_codes(response)):
-                unnamed.extend(f"{method} {route.path_format}" for method in sorted(route.methods or ()))
+                unnamed.extend(f"{status_code} on {method} {route.path_format}" for method in sorted(route.methods or ()))
             for operation in route.operations:
-                codes.setdefault(operation, set()).update(named)
+                codes.setdefault(operation, {}).setdefault(HTTPStatus(int(status_code)), set()).update(named)
 
     if unnamed:
-        raise ValueError(f"these declare a 409 naming no code, so the document would publish none: {sorted(unnamed)}")
+        raise ValueError(f"these declare a response naming no code, so the document would publish none: {sorted(unnamed)}")
 
     return codes
 
 
 def publish_refusals(app: FastAPI) -> None:
-    """Each operation's refusals as its 409, derived rather than listed, so the document cannot drift from `RULES` or a route's declaration."""
+    """Each operation's refusals at their statuses, derived rather than listed, so the document cannot drift from `RULES` or a declaration."""
 
     # At build rather than when the document is asked for: FastAPI caches what it generated before
     # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
@@ -296,16 +296,20 @@ def publish_refusals(app: FastAPI) -> None:
     app.openapi = openapi
 
 
-def with_refusals(document: Mapping[str, Any], codes: Mapping[tuple[str, str], AbstractSet[str]]) -> dict[str, Any]:
-    """`document` with each operation's 409 replaced by one publishing exactly its `codes`, whatever 409 it carried."""
+def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping[HTTPStatus, AbstractSet[str]]]) -> dict[str, Any]:
+    """`document` with each status an operation refuses at replaced by one publishing exactly its codes, whatever it carried."""
 
     return {
         **document,
         "paths": {
             path: {
-                method: {**operation, "responses": {**operation["responses"], CONFLICT: refusal_response(found)}}
-                if (found := codes.get((path, method)))
-                else operation
+                method: {
+                    **operation,
+                    "responses": {
+                        **operation["responses"],
+                        **{str(status): refusal_response(status, found) for status, found in sorted(codes.get((path, method), {}).items())},
+                    },
+                }
                 for method, operation in operations.items()
             }
             for path, operations in document["paths"].items()

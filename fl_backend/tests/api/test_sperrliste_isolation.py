@@ -20,7 +20,7 @@ from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -117,7 +117,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
             erstellt_von=ADMIN,
             today=TODAY,
         )
-    except DocumentConflictException as refusal:
+    except WriteRefusalException as refusal:
         return str(refusal.error_code)
     except DuplicateKeyError:
         return DUPLICATE

@@ -36,7 +36,7 @@ from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exception_handlers import refused_index_of
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
@@ -631,7 +631,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
     )
     def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedDraw:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client)
 
             spieltage, spiele = await counts_now(database)
@@ -781,7 +781,7 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client)
 
             return first, refused.value, await counts_now(database)
@@ -815,7 +815,7 @@ class TestTheSeasonCacheIsDroppedHoweverTheDrawEnds:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_draw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -1112,7 +1112,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             return drawn, standing, refused.value, await document_ids(database), await watermark_now(database)
@@ -1132,7 +1132,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             return refused.value, standing, await document_ids(database)
@@ -1157,7 +1157,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refused.value, await stored_rules(database)
@@ -1176,7 +1176,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
             await call_draw(database, client)
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refused.value, await stored_rules(database)
@@ -1388,7 +1388,7 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
             await call_draw(database, client)
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=shape)
 
             return RefusedReshape(
@@ -1445,7 +1445,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
         """Drop the span call and this fails: six matchdays land in a four-day season, and no two may share a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, shape=the_tight_shape(qualifiers=WIDENED_QUALIFIERS))
 
             return refused.value, await stored_rules(database), await counts_now(database), await watermark_now(database)

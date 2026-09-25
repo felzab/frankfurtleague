@@ -34,7 +34,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import build_clearing_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
@@ -492,7 +492,7 @@ class TestTheSubmissionKey:
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await submit(database, schluessel=SCHLUESSEL, stufengroesse=91)
 
             return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
@@ -551,7 +551,7 @@ class TestTheSubmissionKey:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
             stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return stored, refused.value.error_code
@@ -634,11 +634,11 @@ class TestTheSubmissionKey:
         assert (len(ids), stored) == (1, 1)
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> DocumentConflictException:
+def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> WriteRefusalException:
     """One submission expected to be refused, with the exception it raised."""
 
-    async def body(database: AsyncDatabase) -> DocumentConflictException:
-        with pytest.raises(DocumentConflictException) as failure:
+    async def body(database: AsyncDatabase) -> WriteRefusalException:
+        with pytest.raises(WriteRefusalException) as failure:
             await submit(database, **overrides)
 
         # Nothing was written: a refusal that stored the row anyway would be a 409 the applicant

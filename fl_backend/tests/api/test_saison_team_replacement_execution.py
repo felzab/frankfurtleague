@@ -17,7 +17,7 @@ from app.api.teams.services import (
     REPLACE_SAISON_FINISHED,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_spieler_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
@@ -334,7 +334,7 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(DocumentConflictException) as refusal:
+    with pytest.raises(WriteRefusalException) as refusal:
         await call_replace(database, client, incoming_team_id=incoming)
 
     return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)

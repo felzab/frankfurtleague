@@ -28,7 +28,7 @@ from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusalException
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -351,7 +351,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=add_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, max_kadergroesse=SEEDED_SQUAD)
 
             return refusal.value, seasons.season_reads, await season_now(database), await live_squad_now(database)
@@ -401,7 +401,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=draw_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, teams_per_group=WIDER_PER_GROUP)
 
             return refusal.value, drawn[0], seasons.season_reads, await season_now(database), await counts_now(database)
@@ -448,7 +448,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=abandon_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, seasons.season_reads, await season_now(database), await abandoned_knockouts_now(database)
@@ -505,7 +505,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], after_the_first_read=roll_over_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, promoted[0], seasons.season_reads, await season_now(database), await statuses_now(database)

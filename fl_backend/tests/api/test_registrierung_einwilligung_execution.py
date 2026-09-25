@@ -18,7 +18,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -301,7 +301,7 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
@@ -432,7 +432,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
 
             return conflict.value.error_code, await stored(database), await ansicht(database, RAW)
@@ -447,7 +447,7 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field, and a link voided by one has no remedy but registering again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code, await ansicht(database, RAW), await stored(database), await log_rows(database)
@@ -470,7 +470,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code, await stored(database)
@@ -487,7 +487,7 @@ class TestTheLinkIsSpentByTheStamp:
         declined = registrierung_document(status="abgelehnt", entscheidung=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code
@@ -500,7 +500,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -513,7 +513,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -522,7 +522,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, "a-stranger's-guess")
 
             return conflict.value.error_code, await stored(database)
@@ -546,7 +546,7 @@ class TestTheMediaAge:
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)

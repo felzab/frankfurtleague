@@ -1,6 +1,7 @@
 import re
 from collections.abc import Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
+from http import HTTPStatus
 from typing import Any, Final
 
 from bson.errors import InvalidId
@@ -13,7 +14,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from app.core.exceptions import DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
 from app.core.security import SAFE_METHODS
-from app.shared.schemas.responses import FLFailureBody
+from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
@@ -48,7 +49,7 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
         extra={"error_code": exc.error_code},
     )
 
-    return error_response(exc.status_code, exc.error_code, headers=exc.headers)
+    return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=exc.fields)
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
@@ -134,18 +135,20 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
 
 
 COMPONENT_REF = "#/components/schemas/{model}"
-REFUSAL_DESCRIPTION = "The current state refuses the write"
 JSON_MEDIA_TYPE = "application/json"
 
 
-def refusal_response(codes: AbstractSet[str]) -> dict[str, Any]:
-    """A 409 as an OpenAPI Response Object: the failure body, its `error_code` narrowed to `codes`."""
+def refusal_response(status: HTTPStatus, codes: AbstractSet[str]) -> dict[str, Any]:
+    """A failure status as an OpenAPI Response Object: the body it answers, its `error_code` narrowed to `codes`."""
 
-    # The component narrowed rather than restated, so the failure body keeps one published shape.
+    # A 422 alone carries `fields` (`error_response`'s callers), so it alone publishes that body.
+    body = FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody
+    # The component narrowed rather than restated, so each failure body keeps one published shape.
     narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
-    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=FLFailureBody.__name__)}, narrowed]}
+    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=body.__name__)}, narrowed]}
 
-    return {"description": REFUSAL_DESCRIPTION, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
+    # The reason phrase, FastAPI's own default for a declared response, being true of every code the status carries.
+    return {"description": status.phrase, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
 
 
 def refused_codes(response: Mapping[str, Any]) -> set[str]:
@@ -159,7 +162,7 @@ def refused_codes(response: Mapping[str, Any]) -> set[str]:
 # A Response Object and never a status-keyed dict: two such dicts unpacked into one `responses` keep
 # the second 409 alone, so a second reason joins this code in one `refusal_response`
 # (`docs/backend/spec.md :: I358`).
-DUPLICATE_KEY_RESPONSE: Final = refusal_response({DUPLICATE_KEY})
+DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE_KEY})
 
 
 def stores_nothing(request: Request) -> None:

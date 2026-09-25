@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
@@ -1006,6 +1007,7 @@ def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRe
 
     return WriteRefusal(
         error_code=KONTAKTE_MOVED_UNDER_THE_SAVE,
+        status=HTTPStatus.CONFLICT,
         message="the stored contacts have moved since this save was composed; re-read the row and send the change again",
     )
 
@@ -1027,6 +1029,7 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
     if inactive_since is not None:
         return WriteRefusal(
             error_code=CLUB_RETIRED,
+            status=HTTPStatus.CONFLICT,
             message=f"this club left the league on {inactive_since}; reactivate it before entering it into a season",
         )
 
@@ -1051,6 +1054,7 @@ def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=ENTRY_GRUPPE_LOCKED,
+        status=HTTPStatus.CONFLICT,
         message=f"the team already has {fixtures_drawn} {noun} drawn in this season; "
         "a group change would leave them played against the group it left, and the group swap is what rewrites both",
     )
@@ -1065,16 +1069,24 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
 
     if saison_status != "future":
         return WriteRefusal(
-            error_code=ENTRY_SAISON_NOT_FUTURE, message=f"season is {saison_status}; a team enters a season only while it is future"
+            error_code=ENTRY_SAISON_NOT_FUTURE,
+            status=HTTPStatus.CONFLICT,
+            message=f"season is {saison_status}; a team enters a season only while it is future",
         )
 
     if gruppe not in offered_gruppen(rules.number_of_groups):
         return WriteRefusal(
-            error_code=ENTRY_GRUPPE_NOT_OFFERED, message=f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)"
+            error_code=ENTRY_GRUPPE_NOT_OFFERED,
+            status=HTTPStatus.CONFLICT,
+            message=f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)",
         )
 
     if occupied >= rules.teams_per_group:
-        return WriteRefusal(error_code=ENTRY_GRUPPE_FULL, message=f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)")
+        return WriteRefusal(
+            error_code=ENTRY_GRUPPE_FULL,
+            status=HTTPStatus.CONFLICT,
+            message=f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)",
+        )
 
     return None
 
@@ -1149,23 +1161,29 @@ def find_gruppe_swap_refusal(
     """
 
     if is_same_team:
-        return WriteRefusal(error_code=SWAP_NOT_A_SWAP, message="both ids name one club; a swap exchanges two of them")
+        return WriteRefusal(
+            error_code=SWAP_NOT_A_SWAP, status=HTTPStatus.CONFLICT, message="both ids name one club; a swap exchanges two of them"
+        )
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
     if missing:
         return WriteRefusal(
             error_code=SWAP_NOT_A_SWAP,
+            status=HTTPStatus.CONFLICT,
             message=f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
         )
 
     if team1_gruppe == team2_gruppe:
         return WriteRefusal(
-            error_code=SWAP_NOT_A_SWAP, message=f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups"
+            error_code=SWAP_NOT_A_SWAP,
+            status=HTTPStatus.CONFLICT,
+            message=f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups",
         )
 
     if saison_status == "past":
         return WriteRefusal(
             error_code=SWAP_SAISON_FINISHED,
+            status=HTTPStatus.CONFLICT,
             message="season is past; its groups are frozen because the league table is derived from them on every read",
         )
 
@@ -1175,6 +1193,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_KNOCKOUT_STARTED,
+            status=HTTPStatus.CONFLICT,
             message=(f"{played_knockout_fixtures} knockout {noun} already left a record; the bracket has been seeded from these groups"),
         )
 
@@ -1184,6 +1203,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_GRUPPENPHASE_PLAYED,
+            status=HTTPStatus.CONFLICT,
             message=f"{played_gruppenphase_fixtures} gruppenphase {noun} already left a record for these two clubs; "
             "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
         )
@@ -1193,6 +1213,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_SPIELTAG_CLASH,
+            status=HTTPStatus.CONFLICT,
             message=f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
             "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
         )
@@ -1202,6 +1223,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_FIELDS_DISQUALIFIED,
+            status=HTTPStatus.CONFLICT,
             message=f"the exchange would field a club that has left the season in {departed_fixtures} {noun} dated on or "
             "after its exit; lift the austritt, swap, then re-apply it",
         )
@@ -1249,6 +1271,7 @@ def find_replacement_refusal(
     if saison_status == "past":
         return WriteRefusal(
             error_code=REPLACE_SAISON_FINISHED,
+            status=HTTPStatus.CONFLICT,
             message="season is past; its fixtures and the table derived from them are the record of who played, and a replacement rewrites it",
         )
 
@@ -1259,6 +1282,7 @@ def find_replacement_refusal(
 
         return WriteRefusal(
             error_code=REPLACE_OUTGOING_HAS_A_RECORD,
+            status=HTTPStatus.CONFLICT,
             message=f"{fixtures_with_a_record} {noun} already left a record for the outgoing club; "
             "a replacement carries its fixtures over, and a played one cannot change hands",
         )
@@ -1272,6 +1296,7 @@ def find_replacement_refusal(
     if incoming_already_entered:
         return WriteRefusal(
             error_code=REPLACE_INCOMING_ALREADY_ENTERED,
+            status=HTTPStatus.CONFLICT,
             # Also the arm that catches one club named on both ends: the row being replaced is
             # itself a row the incoming club holds, so replacing a club by itself lands here.
             message="the incoming club already holds a row in this season; a replacement brings in a club that is not entered yet",
@@ -1292,5 +1317,6 @@ def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=RETIRE_BLOCKED,
+        status=HTTPStatus.CONFLICT,
         message=f"club is entered in a season with status {'/'.join(blocking)}; only a club whose seasons are all past may be retired",
     )

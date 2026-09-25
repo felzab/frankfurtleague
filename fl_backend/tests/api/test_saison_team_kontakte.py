@@ -26,7 +26,7 @@ from app.api.teams.services import (
     kontakte_stand_of,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document
 from tests.worker import worker_database
@@ -498,7 +498,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
                 erased.append(await erase_the_seats_person(database))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
 
             return erased[0], refused.value, await row_now(database)
@@ -530,7 +530,7 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         """A refusal has to stop the write rather than accompany it: the pre-image is the only copy of the block."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await write_kontakte(database, NEW_KONTAKTE, stand=kontakte_stand_of(PARTLY_CONFIRMED))
 
             return refused.value, await row_now(database), await junction_log(database)

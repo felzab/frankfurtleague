@@ -39,7 +39,7 @@ from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zu
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -374,7 +374,7 @@ class TestTheReminderClock:
             # own copy -- the one a re-send writing a single entry leaves open.
             tot = []
             for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(DocumentConflictException) as conflict:
+                with pytest.raises(WriteRefusalException) as conflict:
                     await ansicht(database, gone)
                 tot.append(conflict.value.error_code)
 

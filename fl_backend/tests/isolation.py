@@ -1,7 +1,7 @@
 from collections.abc import Awaitable
 from typing import Any
 
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 
 # What a case reports where nothing refused at all. Reported rather than raised, so a write that
 # lands names the state it left instead of an exception that failed to arrive.
@@ -17,7 +17,7 @@ async def outcome_of(call: Awaitable[Any]) -> str:
 
     try:
         await call
-    except DocumentConflictException as refusal:
+    except WriteRefusalException as refusal:
         return str(refusal.error_code)
 
     return COMMITTED

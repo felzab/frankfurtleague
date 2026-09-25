@@ -30,7 +30,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -475,7 +475,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
 
             try:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-            except DocumentConflictException as conflict:
+            except WriteRefusalException as conflict:
                 return conflict.error_code
 
             return None
@@ -502,7 +502,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code, await spiele_now(database)
@@ -520,7 +520,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code
@@ -541,7 +541,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)
 
             return refused.value.error_code, await spiele_now(database)
@@ -620,7 +620,7 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, VIERTELFINALE, spiel_data)
 
             return refused.value, await spiele_now(database)
@@ -665,7 +665,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value, await spiele_now(database)
@@ -685,7 +685,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             )
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=GAMMA_DEPARTED_FROM)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value

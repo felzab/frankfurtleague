@@ -6,6 +6,7 @@ of one rule is how a preview starts telling an administrator something the press
 """
 
 from collections.abc import Mapping
+from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import KONTAKT_SEATS, seat_named
@@ -39,6 +40,7 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=EINLADUNG_TEAM_NICHT_EINGETRAGEN,
+        status=HTTPStatus.CONFLICT,
         message="this team is not entered in that season, so there is nothing for a registration link to open",
     )
 
@@ -55,6 +57,7 @@ def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=EINLADUNG_SAISON_VORBEI,
+        status=HTTPStatus.CONFLICT,
         message="this season has ended, and a registration link for it would open nothing",
     )
 
@@ -71,6 +74,7 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
 
     return WriteRefusal(
         error_code=EINLADUNG_UNBEKANNT,
+        status=HTTPStatus.CONFLICT,
         message="this registration link opens nothing: no invitation matches it, or the one it was minted for has been replaced",
     )
 

@@ -26,7 +26,7 @@ from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSaisonTeamResponse
 from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -570,7 +570,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
         if record is not None:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             await call_undraw(database, client)
 
         spieltage, spiele = await counts_now(database)
@@ -689,7 +689,7 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
 
         await call_patch_spiel(database, client, spiel_id=slot["_id"], payload=seeding_payload(slot, entered["team_id"]))
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             await call_undraw(database, client)
 
         stored = await database[Collection.SPIELE].find_one({"_id": slot["_id"]})
@@ -799,7 +799,7 @@ class TestTheSeasonCacheIsDroppedHoweverTheUndrawEnds:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_undraw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -831,10 +831,10 @@ class TestWhatAnUndrawReopens:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReopenedSeason:
             await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused_patch:
+            with pytest.raises(WriteRefusalException) as refused_patch:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
-            with pytest.raises(DocumentConflictException) as refused_entry:
+            with pytest.raises(WriteRefusalException) as refused_entry:
                 await call_entry(database)
 
             await call_undraw(database, client)

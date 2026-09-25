@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
@@ -257,6 +258,7 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     if not team_in_saison:
         return WriteRefusal(
             error_code=SQUAD_TEAM_NOT_IN_SAISON,
+            status=HTTPStatus.CONFLICT,
             message="the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
 
@@ -275,6 +277,7 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
 
         return WriteRefusal(
             error_code=SQUAD_FULL,
+            status=HTTPStatus.CONFLICT,
             message=f"the squad is full ({squad_size}/{max_kadergroesse} {noun}); a season's rules cap how many players a team may field in it",
         )
 
@@ -313,6 +316,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
 
     return WriteRefusal(
         error_code=SQUAD_ROLLE_TAKEN,
+        status=HTTPStatus.CONFLICT,
         message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
     )
 
@@ -327,6 +331,7 @@ def find_erasure_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     if inactive_since is None:
         return WriteRefusal(
             error_code=ERASURE_NOT_RETIRED,
+            status=HTTPStatus.CONFLICT,
             message="the player is still in the league; retire them first, because an erasure removes every trace and cannot be undone",
         )
 

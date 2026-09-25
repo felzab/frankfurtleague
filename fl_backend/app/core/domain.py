@@ -9,6 +9,7 @@ each operation's refusals. Enforcement stays at the write endpoints, and
 
 from dataclasses import dataclass
 from enum import StrEnum
+from http import HTTPStatus
 
 from app.core.collections import Collection
 
@@ -108,6 +109,9 @@ class Rule:
     """One refusal a write path performs."""
 
     code: str
+    #: What it answers, with no default, so no rule takes a status by omission; the status its check
+    #: builds is held equal to it by `fl_backend/tests/core/test_domain.py`.
+    status: HTTPStatus
     #: The endpoints that perform it, each `<METHOD> <path>` below the API prefix, joined by
     #: `OPERATION_SEPARATOR`.
     operation: str
@@ -1150,6 +1154,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
 RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-RULES-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`number_of_groups` x `qualifiers_per_group` must be a power of two the phase set can hold",
@@ -1158,6 +1163,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-007",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`qualifiers_per_group` may not exceed `teams_per_group`",
@@ -1166,6 +1172,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-008",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a draw may not be worth more than a win",
@@ -1174,6 +1181,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-010",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season whose rules produce a knockout round may not award a no-show a draw",
@@ -1182,6 +1190,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-011",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`number_of_groups`, `teams_per_group` and `qualifiers_per_group` move only with a redraw once the season holds fixtures",
@@ -1190,6 +1199,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-009",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`max_kadergroesse` may not drop below the largest squad the season already holds",
@@ -1198,6 +1208,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`number_of_groups` may not drop below a group that still holds teams",
@@ -1206,6 +1217,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-003",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`teams_per_group` may not drop below the fullest group's occupancy",
@@ -1214,6 +1226,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-004",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`qualifiers_per_group` may not drop below a placing a bracket slot already names",
@@ -1222,6 +1235,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-005",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="a finished season's points and qualifier count are frozen, because the table is derived from them",
@@ -1230,6 +1244,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-012",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played, abandoned, forfeited, "
@@ -1239,6 +1254,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-013",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="the whole fixture list these rules imply must fit inside one season-scoped read",
@@ -1247,6 +1263,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-006",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="a narrowing may not leave a matchday holding more fixtures than its phase accounts for",
@@ -1255,6 +1272,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-004",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="a season's span may not shrink below a matchday's own",
@@ -1263,6 +1281,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season shorter than the matchdays its own rules imply is refused",
@@ -1271,6 +1290,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ACTIVATE-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",
         summary="the outgoing season's fixtures must all be played or cancelled before it is closed",
@@ -1279,6 +1299,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ACTIVATE-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",
         summary="a season already `past` is never made active again",
@@ -1287,6 +1308,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ACTIVATE-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",
         summary="a season holding no fixtures is never made active",
@@ -1295,6 +1317,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ACTIVATE-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",
         summary="every matchday of the season carries a date before it is made active",
@@ -1303,6 +1326,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="a team enters a season only while that season is `future`",
@@ -1311,6 +1335,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id} · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="the group must be one the season runs",
@@ -1319,6 +1344,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id} · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="the group must have space; the caller counts a departed club's row in, a team never leaving a season",
@@ -1327,6 +1353,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-004",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /teams/{team_id}/saisons/{saison_id}",
         aggregate="Saison",
         summary="a group change is refused once the team's fixtures are drawn, whatever the season's status",
@@ -1335,6 +1362,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-005",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /teams/{team_id}/saisons · POST /teams/{team_id}/saisons/{saison_id}/replace · POST /bewerbungen/{bewerbung_id}/annehmen"
         ),
@@ -1345,6 +1373,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season already holding fixtures is not drawn again, whoever wrote them",
@@ -1353,6 +1382,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season already holding matchdays is not drawn, the draw writing the whole list at once",
@@ -1361,6 +1391,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a Spielplan is never drawn into a season already past",
@@ -1369,6 +1400,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season with an offered group off `teams_per_group`, or a club outside the offered groups, is not drawn",
@@ -1377,6 +1409,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a confirmed replace reaches no season but a `future` one that holds nothing already played",
@@ -1385,6 +1418,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELPLAN-006",
+        status=HTTPStatus.CONFLICT,
         operation="DELETE /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="an undraw reaches no season but a `future` one that holds nothing recorded against a fixture",
@@ -1393,6 +1427,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary="a swap names two clubs of this season standing in different groups, or it is not a swap",
@@ -1401,6 +1436,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary="no group swap once a knockout fixture has been played, abandoned, forfeited, given a goal count or a stored shoot-out",
@@ -1409,6 +1445,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary="no group swap in a `past` season, whose table is derived from these groups and is the record of what happened",
@@ -1417,6 +1454,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary="no group swap once either club's gruppenphase fixture has been played, abandoned, forfeited, given a goal count "
@@ -1426,6 +1464,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary="no group swap that would BREAK a Spieltag, leaving a club in two of its matches; one already broken is left alone",
@@ -1434,6 +1473,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SWAP-006",
+        status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
         summary=(
@@ -1445,6 +1485,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REPLACE-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
         aggregate="Saison",
         summary="no replacement in a `past` season, whose fixtures and the table derived from them are the record of who played",
@@ -1453,6 +1494,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REPLACE-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
         aggregate="Saison",
         summary="no replacement once the outgoing club's fixture has been played, abandoned, forfeited, given a goal count "
@@ -1462,6 +1504,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REPLACE-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
         aggregate="Saison",
         summary="no replacement by a club already holding a row in the season, one club named on both ends included",
@@ -1470,6 +1513,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-KONTAKT-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
         aggregate="Saison",
         summary="the contact block must still answer the token this save was composed against, or the whole save is refused rather than merged",
@@ -1478,6 +1522,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RETIRE-001",
+        status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",
         aggregate="Team",
         summary="a club entered in a running or planned season may not be retired",
@@ -1486,6 +1531,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
         summary="a matchday's span must fall inside its season's",
@@ -1494,6 +1540,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-003",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
         summary="a matchday's span may not shrink below a date one of its own fixtures holds",
@@ -1502,6 +1549,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-008",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
         summary=(
@@ -1513,6 +1561,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a fixture's date must fall inside the span of the matchday it belongs to",
@@ -1521,6 +1570,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BOOKING-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary=(
@@ -1532,6 +1582,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-CLASH-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a venue OR a referee needs four hours between two fixtures it serves; either alone refuses the write",
@@ -1540,6 +1591,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary=(
@@ -1552,6 +1604,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary=(
@@ -1563,6 +1616,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-003",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary=(
@@ -1574,6 +1628,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a fixture whose event awards nothing may not carry goals",
@@ -1582,6 +1637,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-003",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a no-show may not be recorded on a fixture with an unresolved side",
@@ -1590,6 +1646,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ELIGIBILITY-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary=(
@@ -1602,6 +1659,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ELIGIBILITY-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a newly fielded team must hold a junction row for the fixture's season",
@@ -1610,6 +1668,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RESULT-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a side carrying goals on a played fixture may be switched but not emptied",
@@ -1618,6 +1677,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELTAG-001",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a team plays once per Spieltag; a clash moves a manual side and is refused against a maintained one",
@@ -1626,6 +1686,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELTAG-002",
+        status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="the bracket resolution may not create a Spieltag on which one club stands twice; a standing one is left to be repaired",
@@ -1634,6 +1695,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RETIRE-003",
+        status=HTTPStatus.CONFLICT,
         operation="DELETE /spielorte/{spielort_id}",
         aggregate="Spielort",
         summary="a venue still booked for an unplayed fixture may not be retired",
@@ -1642,6 +1704,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RETIRE-004",
+        status=HTTPStatus.CONFLICT,
         operation="DELETE /schiedsrichter/{schiedsrichter_id}",
         aggregate="Schiedsrichter",
         summary="a referee still assigned to an unplayed fixture may not be retired",
@@ -1650,6 +1713,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ANONYMISE-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
         aggregate="Schiedsrichter",
         summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
@@ -1658,6 +1722,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
         aggregate="Schiedsrichter",
         summary="a retired referee is sent no confirmation link, there being no role left to collect a consent for",
@@ -1666,6 +1731,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
@@ -1674,6 +1740,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a link whose deadline has passed records no consent",
@@ -1682,6 +1749,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
         aggregate="Schiedsrichter",
         summary="an entry whose person has already answered takes no second answer and is sent no further link",
@@ -1690,6 +1758,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a birthdate putting the person outside the age span this consent asks records nothing",
@@ -1698,6 +1767,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-006",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
         aggregate="Schiedsrichter",
         summary="a referee carrying no usable email address is sent no link, and no send is stamped on their entry",
@@ -1706,6 +1776,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-007",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
             " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
@@ -1717,6 +1788,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-008",
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a consent to publishing photographs, video and interviews is taken only from a referee of the media age",
@@ -1725,6 +1797,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-001",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
             "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
@@ -1736,6 +1809,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-003",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
             "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
@@ -1747,6 +1821,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-004",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
             "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
@@ -1758,6 +1833,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-001",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
             " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
@@ -1771,6 +1847,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
         summary="acceptance needs exactly one of an existing club and a new school to enter",
@@ -1779,6 +1856,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
         summary="a new school whose own details make no valid club is not accepted",
@@ -1787,6 +1865,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="an application is submitted only while the season's application window is open, and never once the season has ended",
@@ -1795,6 +1874,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a submission needs exactly one of an existing club and a new school to say who is applying",
@@ -1803,6 +1883,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-006",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a club the public list does not offer is not one an application may be submitted as",
@@ -1811,6 +1892,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-007",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a club already playing the season does not apply to play it",
@@ -1819,6 +1901,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-008",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a new school does not propose a Kürzel a club already holds",
@@ -1827,6 +1910,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-009",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
@@ -1835,6 +1919,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-010",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a seat is not answered once the application's confirmation deadline has passed or the application has been decided",
@@ -1843,6 +1928,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-011",
+        status=HTTPStatus.CONFLICT,
         operation=(
             "POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
             " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
@@ -1858,6 +1944,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-012",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a contact person confirms with a date of birth inside the span the seats they hold ask for, judged before anything is written",
@@ -1866,6 +1953,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-013",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
         summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
@@ -1874,6 +1962,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-014",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
         aggregate="Bewerbung",
         summary="a contact address an administrator writes is not one another contact person on the same application is already reached at",
@@ -1882,6 +1971,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-015",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a submission key already stored is replayed only over the details it was first sent with",
@@ -1890,6 +1980,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-016",
+        status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a new submission names on every seat the consent wording the form now shows, a stored key being replayed whatever it names",
@@ -1898,6 +1989,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-PURGE-001",
+        status=HTTPStatus.CONFLICT,
         operation="DELETE /spieler/{spieler_id}/erasure",
         aggregate="Spieler",
         summary="a player still in the league is not erased, retirement being the step that comes first",
@@ -1906,6 +1998,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPERRLISTE-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /sperrliste",
         aggregate="Sperrliste",
         summary="an address the list already holds takes no second ban",
@@ -1914,6 +2007,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPERRLISTE-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /sperrliste",
         aggregate="Sperrliste",
         summary="no ban is entered while no season is running, the five seasons it lapses after having nothing to count from",
@@ -1922,6 +2016,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-EINLADUNG-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons/{saison_id}/einladung",
         aggregate="Einladung",
         summary="a link is minted only for a team the season already holds a junction row for",
@@ -1930,6 +2025,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-EINLADUNG-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /teams/{team_id}/saisons/{saison_id}/einladung · POST /saisons/{saison_id}/einladungen/versand",
         aggregate="Einladung",
         summary="a season that has ended mints no link, its registration window being over for good",
@@ -1938,6 +2034,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-EINLADUNG-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/einladung/ansicht · POST /registrierungen",
         aggregate="Einladung",
         summary="a registration link opens nothing unless it is live: unknown and revoked answer alike, neither told from the other",
@@ -1946,6 +2043,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-001",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a registration is taken only while the season's registration window is running, and never once the season has ended",
@@ -1954,6 +2052,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-002",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a registration is taken only for a team the season already holds a junction row for",
@@ -1962,6 +2061,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-003",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a registration names a Stufe the season's `erlaubte_stufen` offers, or none at all",
@@ -1970,6 +2070,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-004",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/bestaetigung/ansicht · POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a confirmation link that opens no registration is refused, unknown and replaced alike",
@@ -1978,6 +2079,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-005",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a confirmation past its deadline, or on a registration already decided, is refused",
@@ -1986,6 +2088,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-006",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a registration whose consent record carries its stamp takes no second confirmation",
@@ -1994,6 +2097,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-007",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a birthdate putting the pupil outside the age span this consent asks is refused before anything is written",
@@ -2002,6 +2106,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-008",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a registration is refused where the team's squad already stands at the season's `max_kadergroesse`",
@@ -2010,6 +2115,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-009",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="an address the ban list holds registers nobody",
@@ -2018,6 +2124,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-010",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a consent to publishing photographs, video and interviews is taken only from a pupil of the media age",
@@ -2026,6 +2133,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-011",
+        status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a submission key already stored is replayed only over the details it was first sent with",

@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from http import HTTPStatus
 from typing import Any
 
 from app.api.spiele.schemas import unplayed_filter
@@ -33,6 +34,7 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
 
     return WriteRefusal(
         error_code=VENUE_STILL_BOOKED,
+        status=HTTPStatus.CONFLICT,
         message=f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are booked here (spiel_nr {named}{rest}); "
         "move them to another venue or cancel them first",
     )

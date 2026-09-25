@@ -25,7 +25,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, kontaktperson_document, team_document
 from tests.worker import worker_database
@@ -298,7 +298,7 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_seat_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
@@ -420,7 +420,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["trainer"])
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum="1990-01-01")
 
             return (
@@ -439,7 +439,7 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field; a link voided by one has no remedy but a re-send."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_CHILDS_BIRTHDATE)
 
             return conflict.value.error_code, await ansicht(database, RAW["trainer"]), await stored(database), await log_rows(database)
@@ -455,7 +455,7 @@ class TestTheLinkIsSpentByTheStamp:
         """The same date the Trainer's link takes: a floor judged for the application rather than the seat admits this person."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["ansprechperson"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, conflict.value.error_detail["message"], await stored(database), await log_rows(database)
@@ -485,7 +485,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"])
 
             return conflict.value.error_code
@@ -527,7 +527,7 @@ class TestADecline:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["stellvertretung"])
 
             return conflict.value.error_code
@@ -617,7 +617,7 @@ class TestAResend:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "trainer")
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, RAW["trainer"])
 
             return response, conflict.value.error_code, await ansicht(database, response.token), await stored(database)
@@ -641,7 +641,7 @@ class TestAResend:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW["trainer"])
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code
@@ -652,7 +652,7 @@ class TestAResend:
         decided = bewerbung_document(status="abgelehnt", entscheidung={"getroffen_am": YESTERDAY, "von": "admin", "grund": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code
@@ -665,7 +665,7 @@ class TestAResend:
         del before_the_flow["bestaetigungsfrist"]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code

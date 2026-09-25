@@ -13,7 +13,7 @@ from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -201,7 +201,7 @@ async def rollover_under(database: AsyncDatabase, client: AsyncMongoClient, hook
     try:
         await call_activate(database, client, TARGET, saisons_collection=seasons)
         outcome = COMMITTED
-    except DocumentConflictException as refusal:
+    except WriteRefusalException as refusal:
         outcome = refusal.error_code
 
     return outcome, seasons.season_reads

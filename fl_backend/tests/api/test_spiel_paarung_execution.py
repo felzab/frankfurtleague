@@ -25,7 +25,7 @@ from app.api.spiele.schemas import (
     FLPatchSpielPaarungPayload,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
@@ -558,7 +558,7 @@ class TestAChainOfRoundsGoesBackWholeOrNotAtAll:
                 await call_replay(
                     database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in reversed(saved.prior_paarungen)]
                 )
-            except DocumentConflictException as conflict:
+            except WriteRefusalException as conflict:
                 refused = conflict.error_code
 
             return refused, after_the_save, await self._chain(database)
@@ -586,7 +586,7 @@ class TestAChainOfRoundsGoesBackWholeOrNotAtAll:
             refused: str | None = None
             try:
                 await call_replay(database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in order])
-            except DocumentConflictException as conflict:
+            except WriteRefusalException as conflict:
                 refused = conflict.error_code
 
             return refused, after_the_save, await self._chain(database)

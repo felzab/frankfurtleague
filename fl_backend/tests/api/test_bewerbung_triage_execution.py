@@ -51,7 +51,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DUPLICATE_KEY, DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
@@ -390,7 +390,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
             return (
@@ -419,7 +419,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """`REQ-ENTER-005`: a club that left the league is reactivated first, and the season's row is not the route to it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG)
 
             return conflict.value.error_code, await junction_rows(database), (await stored_bewerbung(database, RETIRED_BEWERBUNG))["status"]
@@ -439,7 +439,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """A group fault refuses too, and naming it sends an administrator to fix the wrong thing: no group repairs a retirement."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG, gruppe=gruppe)
 
             return conflict.value.error_code
@@ -454,7 +454,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, CLASHING_BEWERBUNG)
 
             return conflict.value.error_code
@@ -466,7 +466,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """`REQ-ENTER-001`, read in-session: `activate_saison` moves `status` in a transaction of its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
             return (
@@ -504,7 +504,7 @@ class TestAnApplicationResolvingToNoOneClub:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(bewerbung_id, team_id=team_id, schule=schule))
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, bewerbung_id)
 
             return (
@@ -559,7 +559,7 @@ class TestAcceptanceWaitsForEverySeat:
                 )
             )
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, UNCONFIRMED_BEWERBUNG)
 
             return (
@@ -626,7 +626,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = await seed_the_unusable_school(database)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, UNUSABLE_BEWERBUNG)
 
             return (
@@ -649,7 +649,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_unusable_school(database)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await accept(database, client, UNUSABLE_BEWERBUNG)
 
             return conflict.value.error_code
@@ -919,7 +919,7 @@ class TestADecisionIsNotTakenTwice:
             await take_decision(first, database, client, PICKED_BEWERBUNG)
             after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await take_decision(second, database, client, PICKED_BEWERBUNG)
 
             return conflict.value.error_code, after_first, await stored_bewerbung(database, PICKED_BEWERBUNG), await junction_rows(database)
@@ -980,7 +980,7 @@ class TestTwoDeclinesAtOnce:
             await decline(database, PICKED_BEWERBUNG)
             after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ablehnen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     ablehnung_data=FLAblehnenBewerbungPayload(grund=OTHER_GRUND),
@@ -1398,7 +1398,7 @@ class TestCorrectingOneContactAddress:
             await seed_a_bounced_application(database, client)
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
 
             return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
@@ -1414,7 +1414,7 @@ class TestCorrectingOneContactAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await correct(database, client, "trainer")
 
             return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
@@ -1429,7 +1429,7 @@ class TestCorrectingOneContactAddress:
             await seed_a_bounced_application(database, client)
             await decline(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await correct(database, client, "ansprechperson")
 
             return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
@@ -1457,7 +1457,7 @@ class TestCorrectingOneContactAddress:
             await seed_a_pair_whose_seats_diverge(database, CORRECTION_BEWERBUNG, open_seat="ansprechperson")
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await correct(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
@@ -1567,7 +1567,7 @@ class TestAResendRacingAnAnswer:
             await landing(database, client)
             landed = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, "ansprechperson", as_read=as_read)
 
             return refused.value.error_code, as_read, landed, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
@@ -1637,7 +1637,7 @@ class TestAResendRacingAnAnswer:
             await seed_a_pair_whose_seats_diverge(database, ERNEUT_BEWERBUNG, open_seat="ansprechperson")
             before = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
@@ -1764,7 +1764,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             await reseat(database, client, "ansprechperson")
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await answer_for(database, client, "ansprechperson")
 
             return refused.value.error_code
@@ -1796,7 +1796,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "stellvertretung")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -1821,7 +1821,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             )
             erased = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "stellvertretung")
 
             return refused.value.error_code, erased, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -1839,7 +1839,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "ansprechperson", email=before["kontakte"]["trainer"]["email"])
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -1857,7 +1857,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await decline(database, RESEAT_BEWERBUNG)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -1885,7 +1885,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_a_pair_whose_seats_diverge(database, RESEAT_BEWERBUNG, open_seat="ansprechperson", stepped_out=True)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)

@@ -46,7 +46,7 @@ from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, BookedReferee, Res
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
@@ -649,7 +649,7 @@ def test_erasing_the_ghost_is_refused_at_the_endpoint(mongo_replica_set_url: str
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await call_anonymisation(database, client)
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             await call_anonymisation(database, client, GHOST_SCHIEDSRICHTER_ID)
 
         return refused.value.error_code, await stored_referees(database)

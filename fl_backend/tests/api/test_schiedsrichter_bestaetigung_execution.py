@@ -47,7 +47,7 @@ from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.zustellung.router import angenommen_zustellung
 from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
@@ -283,7 +283,7 @@ class TestTheCreateIsTheInvitation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await create(database, client, email=BANNED_EMAIL)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
@@ -312,7 +312,7 @@ class TestTheCreateIsTheInvitation:
             # The ban's own write cached the season it counted from, which would answer the create.
             invalidate_saison_cache()
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await create(database, client, email=BANNED_EMAIL)
 
             return refused.value
@@ -366,7 +366,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             first = await resend(database, client)
             await correct(database, client, email=CORRECTED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, first.bestaetigung.token)
 
             return refused.value
@@ -409,7 +409,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": "2026-01-01"}})
             saved = await correct(database, client, email=CORRECTED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as old_link:
+            with pytest.raises(WriteRefusalException) as old_link:
                 await ansicht(database, first.bestaetigung.token)
 
             return saved, await stored(database), old_link.value
@@ -442,7 +442,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await correct(database, client, email=BANNED_EMAIL)
 
             return refused.value, await stored(database), await stored_fixture(database)
@@ -488,7 +488,7 @@ class TestTheReSend:
             first = await resend(database, client)
             await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, first.bestaetigung.token)
 
             return refused.value
@@ -550,7 +550,7 @@ class TestTheReSend:
                 today=TODAY,
             )
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -567,7 +567,7 @@ class TestTheReSend:
             first = await resend(database, client)
             await confirm(database, client, first.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return first, refused.value, await stored(database)
@@ -579,7 +579,7 @@ class TestTheReSend:
 
     def test_a_referee_with_no_address_is_refused_and_no_send_is_stamped(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -596,7 +596,7 @@ class TestTheReSend:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -610,7 +610,7 @@ class TestTheReSend:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -709,7 +709,7 @@ class TestTheReactivation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reactivate(database, client)
 
             return refused.value, await stored(database)
@@ -747,7 +747,7 @@ class TestTheConfirmation:
             minted = await resend(database, client)
             await confirm(database, client, minted.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, umfang="intern")
 
             return refused.value, await stored(database)
@@ -762,7 +762,7 @@ class TestTheConfirmation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, today=AFTER_THE_DEADLINE)
 
             return refused.value, await stored(database)
@@ -784,7 +784,7 @@ class TestTheConfirmation:
             minted = await resend(database, client)
             await confirm(database, client, minted.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, today=AFTER_THE_DEADLINE)
 
             return refused.value
@@ -795,7 +795,7 @@ class TestTheConfirmation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_CHILDS_BIRTHDATE)
 
             return refused.value, await stored(database)
@@ -807,7 +807,7 @@ class TestTheConfirmation:
 
     def test_a_token_no_referee_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, "a-token-nobody-minted")
 
             return refused.value
@@ -828,7 +828,7 @@ class TestTheConfirmation:
                 germany_now=NOW,
             )
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, minted.bestaetigung.token)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
@@ -892,7 +892,7 @@ class TestTheMediaAge:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return refused.value, await stored(database)

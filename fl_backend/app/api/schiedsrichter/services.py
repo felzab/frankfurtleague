@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
@@ -125,6 +126,7 @@ def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=GHOST_ERASED,
+        status=HTTPStatus.CONFLICT,
         message=(
             "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
             "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"
@@ -146,6 +148,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 
     return WriteRefusal(
         error_code=REFEREE_STILL_ASSIGNED,
+        status=HTTPStatus.CONFLICT,
         message=(
             f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are assigned to them (spiel_nr {named}{rest}); "
             "reassign or cancel those fixtures first"
@@ -293,6 +296,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_UNKNOWN,
+        status=HTTPStatus.CONFLICT,
         message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 
@@ -305,6 +309,7 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
+        status=HTTPStatus.CONFLICT,
         message="this link has expired; the administration can send a fresh one",
     )
 
@@ -317,6 +322,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
+        status=HTTPStatus.CONFLICT,
         message="this entry has already been confirmed; an answer is given once",
     )
 
@@ -329,12 +335,14 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
+            status=HTTPStatus.CONFLICT,
             message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
+            status=HTTPStatus.CONFLICT,
             message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
@@ -353,6 +361,7 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
+        status=HTTPStatus.CONFLICT,
         message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
@@ -369,6 +378,7 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_RETIRED,
+        status=HTTPStatus.CONFLICT,
         message="this referee is retired and takes no new fixtures, so there is nothing left to collect a consent for; reactivate them first",
     )
 
@@ -392,6 +402,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_KEINE_ADRESSE,
+        status=HTTPStatus.CONFLICT,
         message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
@@ -404,6 +415,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_ADRESSE_GESPERRT,
+        status=HTTPStatus.CONFLICT,
         message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
 

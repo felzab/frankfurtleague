@@ -16,7 +16,7 @@ from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document
@@ -163,7 +163,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
 
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == SPERRLISTE_ADRESSE_GESPERRT
@@ -176,7 +176,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await ban(database, client)
 
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client, email=BANNED_RETYPED)
 
             assert raised.value.error_code == SPERRLISTE_ADRESSE_GESPERRT

@@ -9,7 +9,7 @@ from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -218,8 +218,8 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
-            with pytest.raises(DocumentConflictException) as refusal:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await patch_the_rules(database, max_kadergroesse=REFUSED_KADER)
 
             return refusal.value
@@ -237,8 +237,8 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
         """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
-            with pytest.raises(DocumentConflictException) as refusal:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refusal.value
@@ -269,8 +269,8 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
     def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
         """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
-            with pytest.raises(DocumentConflictException) as refusal:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
             return refusal.value
@@ -291,8 +291,8 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
 
         decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
-            with pytest.raises(DocumentConflictException) as refusal:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
             return refusal.value

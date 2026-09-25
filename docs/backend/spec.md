@@ -339,6 +339,15 @@ The invariant the tests pin here: the code on the wire and in the log is the **e
 (I345), so a client generated from it reads the envelope rather than FastAPI's default
 `HTTPValidationError`, a body this API never sends.
 
+**A domain refusal answers the status its check chose by
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#section-15.5)'s meanings**
+(`fl_backend/app/core/exceptions.py :: WriteRefusal`), and its rule declares the same one
+(`fl_backend/tests/core/test_domain.py :: test_every_rule_is_answered_at_the_status_it_declares`), so
+the document publishes each code at the status a client meets it at:
+
+- **409** where some change to stored state would let the identical request through, the conflict
+  being one the caller can resolve before resubmitting
+
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never
 pydantic's English message. Three shapes name no control, and
@@ -626,8 +635,8 @@ and cannot suffer same-basename collisions.
 
 ### 1.7 Tier rules
 
-A `REQ-*` rule raised under `app/api/` refuses a write and answers 409, so it has a row in
-`fl_backend/app/core/domain.py :: RULES` and is published on its operations' 409s in
+A `REQ-*` rule raised under `app/api/` refuses a write at the status its check chose, so it has a row
+in `fl_backend/app/core/domain.py :: RULES` and is published at that status on its operations in
 `fl_backend/openapi.json`, while the protocol codes set apart from it take theirs in
 [`docs/logging/error-codes.md`](../logging/error-codes.md). A `READ-*` rule refuses nothing.
 It decides which tier a field reaches, and the enforcement is the shape of a response model or the guard on
@@ -896,7 +905,7 @@ rather than by the handler remembering to conceal one.
 | I350 | The `Idempotency-Key` value is a bare UUID v4, Stripe's form and not the IETF draft's quoted structured-field string, which answers 422                                                                                                                                         | The `idempotency_key` header parameter of `fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung` and `fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`; `test_a_key_that_is_not_version_4_is_a_422_storing_nothing` in `fl_backend/tests/api/test_bewerbung_submission_execution.py` and in `fl_backend/tests/api/test_registrierung_submission_execution.py :: TestTheKeyOverTheWire`                                                                                                |
 | I327 | An operation storing nothing whatever its method publishes `x-fl-stores-nothing`: `true`, or the boolean query flag under which it stores nothing                                                                                                                               | `fl_backend/app/main.py :: publish_stores_nothing`, from `fl_backend/app/core/exception_handlers.py :: stores_nothing` and `:: stores_nothing_when`; `fl_backend/tests/core/test_request_deadline.py :: TestTheDeclarationIsPublished`                                                                                                                                                                                                                                                                                       |
 | I328 | A mailing's team row whose commit the driver labels of unknown outcome says `erzeugung_ungewiss`                                                                                                                                                                                | `fl_backend/app/api/saisons/admin_router.py :: _mail_one_team`; `fl_backend/tests/core/test_request_deadline.py :: TestTheSendPastItsDeadline`                                                                                                                                                                                                                                                                                                                                                                               |
-| I357 | A 409 is published where `RULES` names the operation or its route declares one: its enum holds those rule codes and the declaration's own                                                                                                                                       | `fl_backend/app/main.py :: publish_refusals`; `fl_backend/tests/api/test_error_responses.py :: TestThePublishedFailureBodies` and `:: TestTheDeclared409`                                                                                                                                                                                                                                                                                                                                                                    |
+| I357 | A status is published where a rule or the route's declaration names it, its enum holding exactly the codes those name                                                                                                                                                           | `fl_backend/app/main.py :: publish_refusals`; `fl_backend/tests/api/test_error_responses.py :: TestThePublishedFailureBodies` and `:: TestTheDeclared409`; each rule's status held to its check's by `fl_backend/tests/core/test_domain.py :: test_every_rule_is_answered_at_the_status_it_declares`                                                                                                                                                                                                                         |
 | I358 | A route's 409 declares `DB-COMMON-002` exactly where it reaches an insert or update on a collection `UNIQUE_INDEXES` covers or naming its `_id`                                                                                                                                 | `fl_backend/tests/core/test_duplicate_key_publication.py`, tracing each route to the writes it makes; a batch's refusal by `fl_backend/tests/core/test_crud.py :: TestPostManyToDb`                                                                                                                                                                                                                                                                                                                                          |
 
 ## 3. Violation → remedy
