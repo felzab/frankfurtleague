@@ -448,7 +448,7 @@ product; major and minor versions, since any change of words is a new label here
   (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
   keeps that admission.
 - A new refusal code meets the previous frontend for the moment between the two containers'
-  recreation and falls to the 409 fallback there.
+  recreation and falls to the shared fallback there.
 - How long an erased person's acceptance events may stand is EDPB paragraph 107's question (legal
   claims), for `scfh-f6gw`'s brief; where a returning pupil's renewed consent lands is `8wd7-ff49`'s
   ruling, and an appended history is one of its answers.
@@ -826,7 +826,7 @@ What no consumer can read is the class: whether a caller's precondition failed, 
 invalid, the caller was unauthenticated, nothing was found, the service was unavailable or the
 server broke. The frontend therefore words every backend code by hand at three sites per refusal
 (`.claude/rules/cross-surface.md`'s trap), and a code either site forgets falls through to
-`fl_frontend/src/shared/utils/actionError.ts`'s 409 fallback, which names no reason and sends the
+`fl_frontend/src/shared/utils/actionError.ts`'s shared fallback, which names no reason and sends the
 admin to a retry the same rule refuses again. Mature registers carry both: Google's API error model pairs
 a canonical status from a closed list with an open `reason`, Stripe pairs a `type` from five with
 an open `code`, and RFC 9457 carries `status` beside a `type` that resolves to documentation.
@@ -842,7 +842,7 @@ landed first.
 body and on every failure line, declared once per surface and compared by the logging suites the
 way L2's key order is; the register carries a kind column the docs gate enforces (a response row
 owes a status, a log-only row a severity and the operator's action); the frontend's refusal
-registers fall back by class rather than to one 409 message, the hand-written sentences staying
+registers fall back by class rather than to one fallback message, the hand-written sentences staying
 for the codes that deserve one; and `docs/logging/spec.md` L2 records the envelope's new key,
 which is an order change on both surfaces and lands in one commit with both suites.
 
