@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -76,10 +75,6 @@ export async function postSaisonAction(
   rawPayload: SaisonCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSaisonAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPostSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -105,7 +100,6 @@ export async function postSaisonAction(
 
     // A create lands `future`, so nothing resolving the current season moves. Only the list does.
     updateTag("saisons");
-    refresh();
 
     return {
       success: true,
@@ -121,10 +115,6 @@ export async function patchSaisonAction(
   rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft },
 ): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
   return runAdminMutation("patchSaisonAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -147,7 +137,6 @@ export async function patchSaisonAction(
     }
 
     invalidateSaisonAndTable();
-    refresh();
 
     return {
       success: true,
@@ -167,10 +156,6 @@ export async function patchSaisonAction(
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
   return runAdminMutation("activateSaisonAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLActivateSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -191,7 +176,6 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     invalidateRollover();
-    refresh();
 
     // Any count but 1 is worth naming: 0 is a no-op, and more than one means the database had drifted
     // into a state nothing can express and this call repaired it.
@@ -214,10 +198,6 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
   return runAdminMutation("swapGruppenAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -243,7 +223,6 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 
     updateTag("spiele");
     updateTag(`spiele:saison_id:${validated.data.saison_id}`);
-    refresh();
 
     const umgeschrieben =
       swapOperation.rewritten_spiele === 0
@@ -269,10 +248,6 @@ export async function generateSpielplanAction(
   rawPayload: FLGenerateSpielplanPayload,
 ): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
   return runAdminMutation("generateSpielplanAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLGenerateSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -295,7 +270,6 @@ export async function generateSpielplanAction(
     }
 
     invalidateSpielplan(validated.data.id);
-    refresh();
 
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
@@ -324,10 +298,6 @@ export async function undrawSpielplanAction(
   rawPayload: FLUndrawSpielplanPayload,
 ): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
   return runAdminMutation("undrawSpielplanAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLUndrawSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -349,7 +319,6 @@ export async function undrawSpielplanAction(
 
     // The draw's tag set, this removing exactly what that write created.
     invalidateSpielplan(validated.data.id);
-    refresh();
 
     // A season can carry the watermark with neither collection behind it, so a zero pair does not by
     // itself mean nothing was removed. Hence three messages rather than one sentence over the counts.

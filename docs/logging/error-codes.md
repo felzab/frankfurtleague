@@ -121,7 +121,7 @@ declaration a test holds it against, so a code added at a call site reaches this
 environment gate's in [section 3](#3-startup-codes), and the console shim's in
 [section 4](#4-forwarded-codes).
 
-**None of them reaches the error page from an admin write.** `runAdminMutation` wraps both entry points — the
+**None of them reaches the error page from an admin write.** `runAdminMutation` and `runAdminRouteWrite` wrap the two entry points — the
 admin server actions and the page-owned editors' undo route handlers — logging the failure with its codes and
 returning the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
 crash ([`spec.md`](spec.md#2-invariants) L6).

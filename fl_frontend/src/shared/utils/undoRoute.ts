@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getAdminSession, getSignInDestination } from "@/core/auth";
+import { getSignInDestination } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
+import { ADMIN_FORBIDDEN, runAdminRouteWrite } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
 import type { NextRequest } from "next/server";
@@ -85,20 +85,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
-  // 200 for every outcome but a turned-away caller, the body carrying it: the dispatch reads any other
-  // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
-  let status: 200 | 401 | 403 = 200;
-
-  const result = await runAdminMutation(route.mutationName, { readOnly: false }, async () => {
-    // Asked only once refused, so an admin's undo pays one session read.
-    if (!(await getAdminSession())) {
-      // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
-      // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
-      // somewhere they can get back in.
-      status = (await getSignInDestination()) === "/" ? 403 : 401;
-      return { success: false as const, error: ADMIN_FORBIDDEN };
-    }
-
+  const result = await runAdminRouteWrite(route.mutationName, async () => {
     const body: unknown = await request.json().catch(() => null);
     const parsed = route.schema.safeParse(body);
     if (!parsed.success) {
@@ -124,10 +111,19 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   });
 
   if (!result.success) {
+    // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
+    // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3). Only the spine's guard answers `ADMIN_FORBIDDEN`.
+    if (result.error === ADMIN_FORBIDDEN) {
+      // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
+      // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
+      // somewhere they can get back in.
+      return NextResponse.json(result, { status: (await getSignInDestination()) === "/" ? 403 : 401 });
+    }
+
     // Only a throw answers an unknown outcome here, in the shared reader's sentence for an unclear
     // save, where this write took a change back.
     const unclear = "outcome" in result && result.outcome === "unknown";
-    return NextResponse.json(unclear ? { ...result, error: RUECKNAHME_UNKLAR } : result, { status });
+    return NextResponse.json(unclear ? { ...result, error: RUECKNAHME_UNKLAR } : result);
   }
 
   const { refusal, unclear, cost } = result.report;

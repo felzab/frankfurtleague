@@ -1,12 +1,11 @@
 "use server";
 
-import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
 import { getAuthenticatorName } from "@better-auth/passkey";
 
-import { auth, getAdminSession, isRecentlyAsserted, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { auth, isRecentlyAsserted, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -39,10 +38,6 @@ const GLEICHZEITIG_GEAENDERT = buildRefusal({
 
 export async function readPasskeysAction(): Promise<QueryResult<{ passkeys: PasskeyEintrag[]; kannHinzufuegen: boolean }>> {
   return runAdminMutation("readPasskeysAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const held = await auth.api.listPasskeys({ headers: await headers() });
 
     return {
@@ -62,18 +57,7 @@ export async function readPasskeysAction(): Promise<QueryResult<{ passkeys: Pass
 }
 
 export async function removePasskeyAction(id: string): Promise<ActionResult> {
-  return runAdminMutation("removePasskeyAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
-    // Resolved a second time rather than kept from the line above, which
-    // `fl_frontend/src/core/adminSessionGuard.test.ts` sweeps for as the literal opener it is.
-    const served = await getAdminSession();
-    if (!served) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("removePasskeyAction", { readOnly: false }, async (served) => {
     // A server action's argument is whatever a caller posted, and this one reaches a store query.
     if (typeof id !== "string" || id === "") {
       return { success: false, error: VALIDATION_FAILED };
@@ -111,8 +95,6 @@ export async function removePasskeyAction(id: string): Promise<ActionResult> {
     if (removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
     await notifyPasskeyRemoved(served.user.email);
-
-    refresh();
 
     return { success: true, message: "Passkey gelöscht" };
   });

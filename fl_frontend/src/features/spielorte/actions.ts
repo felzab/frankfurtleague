@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -20,10 +19,6 @@ export async function postSpielortAction(
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSpielortAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPostSpielortPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -48,8 +43,6 @@ export async function postSpielortAction(
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
 }
@@ -59,10 +52,6 @@ export async function patchSpielortAction(
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
 ): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("patchSpielortAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -89,7 +78,6 @@ export async function patchSpielortAction(
 
     // A rename fans into every match embedding this venue, which is the one cached read it reaches.
     updateTag("spiele");
-    refresh();
 
     return {
       success: true,
@@ -101,10 +89,6 @@ export async function patchSpielortAction(
 
 export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("deleteSpielortAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -129,8 +113,6 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     return {
       success: true,
       updated_document: patchOperation.updated_document,
@@ -140,16 +122,12 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
 }
 
 /**
- * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
+ * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The spine's refresh is for
  * the admin's own list, which is uncached. The endpoint refuses nothing — a venue coming back takes
  * no fixtures with it.
  */
 export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("reactivateSpielortAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -164,8 +142,6 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     return {
       success: true,

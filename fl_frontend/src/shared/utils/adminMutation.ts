@@ -1,5 +1,7 @@
+import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
+import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown } from "@/core/requestScope";
@@ -18,6 +20,9 @@ import type { FieldErrors } from "./validation";
  */
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
+/** The administrator a guarded body runs for, as the guard resolved them. */
+export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
+
 /**
  * A slice's mapped refusal as the failure an action returns.
  *
@@ -32,17 +37,18 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
  * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
  */
-export async function runAdminMutation<T extends { success: boolean }>(
+async function runGuarded<T extends { success: boolean }>(
   mutationName: string,
-  // Required at every call: a throw after a write may leave its row standing, a read's changed nothing,
-  // and a default would answer one of them wrongly.
   { readOnly }: Pick<SentRequest, "readOnly">,
-  fn: () => Promise<T>,
+  fn: (session: AdminSession) => Promise<T>,
 ): Promise<T | ActionFailure> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
-      answer = await fn();
+      // Ahead of the body rather than inside each one, so no admin write reaches its payload or the
+      // backend unguarded: the proxy's matcher is the first layer, and this the second (`docs/frontend/spec.md :: I7`).
+      const session = await getAdminSession();
+      answer = session === null ? { success: false, error: ADMIN_FORBIDDEN } : await fn(session);
     } catch (error) {
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
@@ -68,4 +74,34 @@ export async function runAdminMutation<T extends { success: boolean }>(
 
     return answer;
   });
+}
+
+/** A server action's spine; a route handler's write takes `runAdminRouteWrite`. */
+export async function runAdminMutation<T extends { success: boolean }>(
+  mutationName: string,
+  // Required at every call: a throw after a write may leave its row standing, a read's changed nothing,
+  // and a default would answer one of them wrongly. A write's success refreshes the page; a read's moves nothing.
+  { readOnly }: Pick<SentRequest, "readOnly">,
+  fn: (session: AdminSession) => Promise<T>,
+): Promise<T | ActionFailure> {
+  return runGuarded(mutationName, { readOnly: readOnly }, async (session) => {
+    const answer = await fn(session);
+    // Here rather than in each action, whatever tags it also moves: an action that forgets it leaves the admin's
+    // page standing (`docs/frontend/spec.md :: I233`). An action whose failure stands behind a landed write
+    // refreshes on that path itself.
+    if (!readOnly && answer.success) refresh();
+
+    return answer;
+  });
+}
+
+/**
+ * `runAdminMutation` for a route handler's write, which Next refuses `refresh()` in: the caller invalidates its own
+ * tags, and the browser's dispatch refreshes the page.
+ */
+export async function runAdminRouteWrite<T extends { success: boolean }>(
+  mutationName: string,
+  fn: (session: AdminSession) => Promise<T>,
+): Promise<T | ActionFailure> {
+  return runGuarded(mutationName, { readOnly: false }, fn);
 }

@@ -2,7 +2,6 @@
 
 import { refresh, updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
@@ -10,7 +9,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -132,10 +131,6 @@ export async function annehmenBewerbungAction(
   rawPayload: FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
   return runAdminMutation("annehmenBewerbungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -165,7 +160,6 @@ export async function annehmenBewerbungAction(
     // (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
-    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -213,10 +207,6 @@ export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
   return runAdminMutation("ablehnenBewerbungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -241,9 +231,8 @@ export async function ablehnenBewerbungAction(
     }
 
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
-    // `entscheidung`, and no cached read holds an application. The refresh is what brings the
-    // uncached triage reads back.
-    refresh();
+    // `entscheidung`, and no cached read holds an application. The spine's refresh is what brings
+    // the uncached triage reads back.
 
     const zustellung = await notifyBewerbung({
       operation: "ablehnenBewerbungAction",
@@ -362,10 +351,6 @@ async function sendeBestaetigungErneut({
  */
 export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
   return runAdminMutation("einwilligungErneutSendenAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -403,7 +388,6 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
-    refresh();
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
@@ -415,6 +399,10 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       sitze: erneutOperation.rollen,
       token: erneutOperation.token,
     });
+
+    // The spine refreshes a success alone, and a refused send leaves the mint standing: the seat's old
+    // link is spent and its deadline moved.
+    if (!zustellung.verschickt) refresh();
 
     return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
   });
@@ -429,10 +417,6 @@ export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ verschickt?: boolean }>> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -469,7 +453,6 @@ export async function kontaktEmailKorrigierenAction(
 
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    refresh();
 
     let zustellung;
     try {
@@ -508,10 +491,6 @@ export async function kontaktEmailKorrigierenAction(
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
     // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
     if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
@@ -547,7 +526,6 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    refresh();
 
     let zustellung;
     try {

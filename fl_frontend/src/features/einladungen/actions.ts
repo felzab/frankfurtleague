@@ -2,12 +2,11 @@
 
 import { refresh } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { sendZielMail } from "@/features/zustellung/notifications";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -36,10 +35,6 @@ export async function postEinladungAction(
   rawPayload: FLEinladungKeyPayload,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
   return runAdminMutation("postEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -54,8 +49,6 @@ export async function postEinladungAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    refresh();
 
     return {
       success: true,
@@ -75,10 +68,6 @@ export async function postEinladungAction(
  */
 export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
   return runAdminMutation("mailEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -160,14 +149,14 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         }),
     });
 
-    // BELOW the send, alone among this slice's actions: the delivery record is the only thing this
-    // press writes, so a refresh above it would show the panel the state before the send.
-    refresh();
-
     // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
     // reads it: outside production every address is withheld, and a refusal here would offer a
     // retry that cannot succeed.
     if (outcome.delivered.length === 0 && outcome.withheld.length === 0) {
+      // The spine refreshes a success alone, and a refused address is written to the delivery record
+      // this panel shows, which is the only thing this press writes.
+      refresh();
+
       return {
         success: false,
         error: buildRefusal({ reason: "Die E-Mail konnte nicht gesendet werden", repair: "Versuche es erneut" }),
@@ -184,10 +173,6 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
 export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -195,8 +180,6 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
     }
 
     await deleteEinladung(validated.data);
-
-    refresh();
 
     return { success: true, message: "Der Link öffnet ab sofort nichts mehr." };
   });
@@ -211,10 +194,6 @@ export async function previewEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
   return runAdminMutation("previewEinladungVersandAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -238,10 +217,6 @@ export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
   return runAdminMutation("postEinladungVersandAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -256,8 +231,6 @@ export async function postEinladungVersandAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    refresh();
 
     const origin = new URL(frontend_config.AUTH_URL).origin;
     const zeilen: EinladungVersandErgebnis[] = [];

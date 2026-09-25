@@ -1,12 +1,9 @@
 "use server";
 
-import { refresh } from "next/cache";
-
-import { getAdminSession } from "@/core/auth";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -31,10 +28,6 @@ import type {
  */
 export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
   return runAdminMutation("eraseKontaktpersonAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -52,10 +45,8 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
 
     // No tag moves: no cached read holds a contact person.
     // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
-    // and not across requests, and no public team read carries `kontakte`.
-
-    // The admin's own list is uncached, so no tag reaches it.
-    refresh();
+    // and not across requests, and no public team read carries `kontakte`. The admin's own list is
+    // uncached, so no tag reaches it.
 
     return {
       success: true,
@@ -78,10 +69,6 @@ export async function patchSaisonTeamKontakteAction(
   rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -112,7 +99,6 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
-    refresh();
 
     return {
       success: true,
@@ -132,10 +118,6 @@ export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
 ): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
   return runAdminMutation("readKontaktErasureAnsichtAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

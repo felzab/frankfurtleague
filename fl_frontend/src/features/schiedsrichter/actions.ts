@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -52,10 +51,6 @@ export async function postSchiedsrichterAction(
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -79,8 +74,6 @@ export async function postSchiedsrichterAction(
     if (!postOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     const mint = postOperation.bestaetigung;
     // The address the MINT names, never the one this caller sent: only the mint's own transaction
@@ -109,10 +102,6 @@ export async function patchSchiedsrichterAction(
   // a warning on it, and the save landed either way.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("patchSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -142,7 +131,6 @@ export async function patchSchiedsrichterAction(
 
     // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
     updateTag("spiele");
-    refresh();
 
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
@@ -179,10 +167,6 @@ export async function patchSchiedsrichterAction(
  */
 export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
   return runAdminMutation("einladeSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -218,8 +202,6 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     // The address the MINT read in its own transaction, never `email` above: this read is the older
     // of the two, and a save landing between them moved the mailbox the credential was made for.
     const mint = mintOperation.bestaetigung;
@@ -245,10 +227,6 @@ export async function deleteSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("deleteSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -273,8 +251,6 @@ export async function deleteSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     return {
       success: true,
       updated_document: postOperation.updated_document,
@@ -284,7 +260,7 @@ export async function deleteSchiedsrichterAction(
 }
 
 /**
- * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
+ * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The spine's refresh is for
  * the admin's own list, which is uncached.
  */
 export async function reactivateSchiedsrichterAction(
@@ -293,10 +269,6 @@ export async function reactivateSchiedsrichterAction(
   // its toast a warning where the link it minted did not leave.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("reactivateSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -320,8 +292,6 @@ export async function reactivateSchiedsrichterAction(
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
     // coming back is what asks them. The address is the one the mint read.
@@ -356,10 +326,6 @@ export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("anonymiseSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -387,7 +353,6 @@ export async function anonymiseSchiedsrichterAction(
     // The repointed booking fans into every match as a rename does, so the same one cached read is
     // stale here. The referee list and the log are uncached.
     updateTag("spiele");
-    refresh();
 
     return {
       success: true,

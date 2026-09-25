@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -20,10 +19,6 @@ function invalidateSpieltage(): void {
 
 export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
   return runAdminMutation("patchSpieltagAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -46,7 +41,6 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     invalidateSpieltage();
-    refresh();
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
   });

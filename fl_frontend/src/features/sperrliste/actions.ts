@@ -1,13 +1,10 @@
 "use server";
 
-import { refresh } from "next/cache";
-
-import { getAdminSession } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -52,10 +49,6 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
 
 export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSperreAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -84,23 +77,17 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // failed, and on the response's own bound rather than a second read the sweep could beat.
     const benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
 
-    refresh();
-
     return { success: true, created_id: postOperation.created_id, message: benachrichtigt ? SPERRE_ERFOLG : NICHT_BENACHRICHTIGT };
   });
 }
 
 /**
- * No tag moves: the ban list reaches no cached read, and the refresh below is for the admin's own
+ * No tag moves: the ban list reaches no cached read, and the spine's refresh is for the admin's own
  * uncached list. A row another administrator has already lifted answers 404, which
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteSperreAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -116,8 +103,6 @@ export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Pr
     if (!deleteOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Sperre wurde nicht aufgehoben", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     return { success: true, message: "Diese Adresse wird nicht mehr abgewiesen." };
   });

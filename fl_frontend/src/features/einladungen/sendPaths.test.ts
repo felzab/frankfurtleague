@@ -166,6 +166,18 @@ describe("what the single invite press answers", () => {
     assert.match(sentence(res), /Die E-Mail konnte nicht gesendet werden/);
   });
 
+  /* The spine refreshes a success alone, and a refused address is still written to the delivery record
+     the panel shows. */
+  it("refreshes the panel after a fan-out that delivered to nobody", async () => {
+    const teamId = "e".repeat(24);
+    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    recorders.__flSendOutcome = outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []);
+
+    await press(teamId);
+
+    assert.equal(log.at(-1), "refresh", "the panel keeps a delivery record from before the refused send");
+  });
+
   /* A panel left open while somebody replaced the link would otherwise mail a value a newer mint
      already revoked, and file the delivery record against the closed row. */
   it("refuses where the live row is not the one the caller named, and composes nothing", async () => {

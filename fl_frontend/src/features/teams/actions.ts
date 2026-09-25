@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -52,10 +51,6 @@ export async function postTeamAction(
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -96,7 +91,6 @@ export async function postTeamAction(
     }
 
     invalidateSeasonScoped("teams", saison_id);
-    refresh();
 
     return {
       success: true,
@@ -116,10 +110,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
   }>
 > {
   return runAdminMutation("patchTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -144,7 +134,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
     // entries, and no granular tag names them all.
     updateTag("teams");
     updateTag("spiele");
-    refresh();
 
     return {
       success: true,
@@ -158,10 +147,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
 
 export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("deleteTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLDeleteTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -185,7 +170,6 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
     // Base tag only: every list and by-id read of the club serves its `inactive_since`, whichever season
     // it names. `spiele` is untouched — a match keeps its embedded copies.
     updateTag("teams");
-    refresh();
 
     return {
       success: true,
@@ -197,10 +181,6 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
 
 export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("reactivateTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLReactivateTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -213,7 +193,6 @@ export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload):
     }
 
     updateTag("teams");
-    refresh();
 
     return {
       success: true,
@@ -228,10 +207,6 @@ export async function postSaisonTeamAction(
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
   return runAdminMutation("postSaisonTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPostSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -256,7 +231,6 @@ export async function postSaisonTeamAction(
     // The `teams` pair only: the row is seeded with `austritt: null` and the match join reads
     // nothing else from it (backend spec I32), so no match changes.
     invalidateSeasonScoped("teams", validated.data.saison_id);
-    refresh();
 
     return {
       success: true,
@@ -272,10 +246,6 @@ export async function patchSaisonTeamAction(
   rawPayload: SaisonTeamMembershipDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
   return runAdminMutation("patchSaisonTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -299,7 +269,6 @@ export async function patchSaisonTeamAction(
     // so `teams` alone leaves a card showing a badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
-    refresh();
 
     return {
       success: true,
@@ -318,10 +287,6 @@ export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
   return runAdminMutation("replaceSaisonTeamAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -353,7 +318,6 @@ export async function replaceSaisonTeamAction(
     // the public squad read matches on `inactive_since`. Base tag only, for the reason
     // `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives.
     updateTag("spieler");
-    refresh();
 
     // Both halves said at zero too: the squad is the half of this write that reaches no page the
     // admin is looking at, so "none were" is as much the answer as a number is.

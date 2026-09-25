@@ -1,9 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -34,10 +33,6 @@ type SavedFixtures = MovedFixtures & {
 
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -75,7 +70,6 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       updateTag(`spiele:saison_id:${saisonId.data}`);
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
-    refresh();
 
     // The faults the resolution walked past ride along: the save that introduces one is when its
     // cause is known.
@@ -100,10 +94,6 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
   return runAdminMutation("previewAdminSpielDataAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
     if (!validated.success) {
       // Silent by design: a toast about an incomplete payload would fire mid-keystroke, and the
