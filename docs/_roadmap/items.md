@@ -433,7 +433,10 @@ cannot say which labels exist, which one a page runs, or what words a stored lab
 applicant's label and provenance with its own
 (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`), so once a seat
 confirms, the application-form label the applicant ticked for that person is in the database
-nowhere. `datum` and `bestaetigt_am` hold a day rather than a time. The action log keeps the replaced
+nowhere. A seat an admin gives to a different person keeps its stored label: the provenance is
+composed again for the new person (`fl_backend/app/api/teams/services.py :: compose_kontakte_herkunft`)
+but the label is not, so the new person's record names the wording the previous one was given.
+`datum` and `bestaetigt_am` hold a day rather than a time. The action log keeps the replaced
 image (`fl_backend/app/core/recording.py`) until its retention or an erasure takes it. No route
 changes a consent yet; the withdrawal control is ruled to come with the account tiers
 ([`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision)), and an overwrite would
