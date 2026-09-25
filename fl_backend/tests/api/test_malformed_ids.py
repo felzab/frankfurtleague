@@ -6,7 +6,7 @@ import pymongo
 import pytest
 from httpx2 import Response
 
-from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED
+from app.core.exception_handlers import DATABASE_FAILED, NO_ROUTE, PAYLOAD_REFUSED
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
@@ -38,7 +38,9 @@ MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
-    assert answered(f"/api/v0/spiele/{spiel_id}").status_code == 404
+    response = answered(f"/api/v0/spiele/{spiel_id}")
+
+    assert (response.status_code, response.json()["error_code"]) == (404, NO_ROUTE)
 
 
 def test_a_well_formed_path_id_reaches_the_database():

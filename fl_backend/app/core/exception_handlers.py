@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
@@ -26,6 +27,17 @@ UNDECODABLE_BODY = "json_invalid"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
 UNKNOWN_OUTCOME = "DB-FAIL-002"
+
+# The routing layer's own refusals, raised before any handler runs.
+NO_ROUTE = "REQ-ROUTE-001"
+METHOD_NOT_SERVED = "REQ-ROUTE-002"
+ROUTING_REFUSED = "REQ-ROUTE-003"
+# FastAPI's one 400 is a body it could not read, which `REQ-VAL-001` already names at 400.
+ROUTING_CODES: Final[Mapping[int, str]] = {
+    HTTPStatus.BAD_REQUEST: PAYLOAD_REFUSED,
+    HTTPStatus.NOT_FOUND: NO_ROUTE,
+    HTTPStatus.METHOD_NOT_ALLOWED: METHOD_NOT_SERVED,
+}
 
 
 def error_response(
@@ -50,6 +62,18 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
     )
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=exc.fields)
+
+
+async def routing_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Starlette's refusal in the envelope every other failure answers with, its status and headers kept.
+
+    A 405's `Allow` header travels, being what tells the caller which methods the path does serve.
+    """
+
+    error_code = ROUTING_CODES.get(exc.status_code, ROUTING_REFUSED)
+    fl_logger.warning(f"Routing refusal ({exc.status_code}): {exc.detail or NO_DATA_TEXT}", extra={"error_code": error_code})
+
+    return error_response(exc.status_code, error_code, headers=exc.headers)
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
@@ -267,6 +291,9 @@ async def global_catch_all_exception_handler(request: Request, exc: Exception):
 
 def register_exception_handlers(app: FastAPI):
     app.add_exception_handler(BaseAPIException, base_api_exception_handler)  # type: ignore
+    # The base `BaseAPIException` extends: the most specific class in a raise's MRO wins, so this takes
+    # only Starlette's own, which the router raises before any route runs.
+    app.add_exception_handler(StarletteHTTPException, routing_exception_handler)  # type: ignore
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)  # type: ignore
     # Starlette resolves a handler by walking `type(exc).__mro__`, so this subclass wins over the

@@ -12,6 +12,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import API_VERSION
 from app.core.crud import refuse
@@ -19,8 +20,11 @@ from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
     DATABASE_FAILED,
     JSON_MEDIA_TYPE,
+    METHOD_NOT_SERVED,
     NO_DATA_TEXT,
+    NO_ROUTE,
     PAYLOAD_REFUSED,
+    ROUTING_REFUSED,
     STORED_DATA_INVALID,
     db_exception_handler,
     duplicate_key_exception_handler,
@@ -110,6 +114,13 @@ async def refuse_at(status: int) -> None:
 
     judged = (JUDGED_PATH,) if status == HTTPStatus.UNPROCESSABLE_CONTENT else ()
     refuse(WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus(status), message="planted", fields=judged))
+
+
+@VALIDATION_APP.get("/starlette/{status}")
+async def raise_starlettes_own(status: int) -> None:
+    """Raises the base class the router raises, at the status its path names."""
+
+    raise StarletteHTTPException(status_code=status)
 
 
 def rejected_name_error() -> ValidationError:
@@ -252,6 +263,33 @@ class TestTheRefusedFieldsReachTheCaller:
         assert [set(field) for field in body["fields"]] == [{"in", "path", "kind"}]
         assert REJECTED_NAME not in str(body)
         assert "String should match pattern" not in str(body)
+
+
+class TestTheRouterAnswersInTheEnvelope:
+    """`docs/backend/spec.md` §1.4: every failure answers `{error_code, trace_id}`, one no route serves included."""
+
+    def test_a_path_no_route_serves_is_a_404_naming_its_own_code(self):
+        response = client().get("/api/v0/nowhere")
+
+        assert (response.status_code, response.json()["error_code"]) == (404, NO_ROUTE)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_a_method_the_path_does_not_serve_is_a_405_keeping_its_allow_header(self):
+        response = client().delete("/api/v0/spiele")
+
+        assert (response.status_code, response.json()["error_code"]) == (405, METHOD_NOT_SERVED)
+        assert response.headers["allow"] == "GET"
+
+    def test_the_frameworks_unreadable_body_is_the_undecodable_bodys_code(self):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/400")
+
+        assert (response.status_code, response.json()["error_code"]) == (400, PAYLOAD_REFUSED)
+
+    def test_any_other_status_passes_through_under_the_routing_code(self):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/418")
+
+        assert (response.status_code, response.json()["error_code"]) == (418, ROUTING_REFUSED)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
 
 
 class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
