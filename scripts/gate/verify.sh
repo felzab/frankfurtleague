@@ -281,8 +281,6 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # `app/` alone, deptry's default: `tests/` imports the dev group by design, and `scripts/` would
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
-# The db scope's two suites. `quietly` wraps the body rather than running inside its subshell, where
-# a refusal would end the subshell alone and the gate would then read its 2 as a crash.
 do_backend_db() {
   ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" )
 }
@@ -493,7 +491,7 @@ STEP_JOBS=1
 if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
 # Every scope whose section calls `start_steps`, and no other: a run holding none of them has no
 # step pool to lose, so the fallback notice below would describe a slowdown it does not have.
-if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES) )); then STEP_JOBS=0; fi
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES || RUN_DB) )); then STEP_JOBS=0; fi
 
 # Replayed in written order, so a parallel run reads as the serial one it must match.
 PARALLEL=1
@@ -1334,17 +1332,22 @@ if (( RUN_DB )); then
   # little as the red (`docs/ops/spec.md` §1.6).
   claim_db_run
 
+  # Started together: the frontend's files spend their time waiting on the bounds they assert,
+  # which costs the backend's workers nothing, so the scope costs its longer suite rather than both.
+  start_steps --db backend_db frontend_db
+
   # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
   # isolates, so `--dist load` would hold too.
 
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
+  unit_join backend_db
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  quietly do_backend_db || DB_RC=$?
+  quietly unit_replay backend_db || DB_RC=$?
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
@@ -1358,10 +1361,11 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # Each file starts its own replica set through `@testcontainers/mongodb`
   # (`docs/frontend/spec.md` §1.9), so the claim above covers them and no shared server is touched.
   step "db · the frontend's *.db.test.ts files"
+  unit_join frontend_db
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  quietly do_frontend_db || FRONTEND_DB_RC=$?
+  quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.

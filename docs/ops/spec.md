@@ -610,7 +610,7 @@ says: the fault is in this gate's own handoff, and nothing in the tree under tes
 answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
-slowest check rather than the sum; the format, frontend-units, ops and database scopes run theirs
+slowest check rather than the sum; the format, frontend-units and ops scopes run theirs
 in place. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
 argument at the line it guards.
 
@@ -752,7 +752,7 @@ every job's version; the reason is at that workflow's `verify` job.
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                 |
 | `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                                           | pnpm install                                                                                                                                 |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
-| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6), then `pnpm run test:db` (`docs/frontend/spec.md` §1.9)                                                                            | venv + pnpm install + Docker                                                                                                                 |
+| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), started together                                                            | venv + pnpm install + Docker                                                                                                                 |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                    | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
