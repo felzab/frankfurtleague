@@ -1,0 +1,8 @@
+// Linted as src/shared/hooks/useSignOut.ts.
+// The sign-out's failure is Better Auth's, titled here, and every other ban still reaches it, shared's own included.
+declare const appToast: { danger: (title: string, options?: { description?: string }) => string };
+declare const result: { error: string };
+
+export const SIGNED_OUT = () => appToast.danger("Nicht abgemeldet", { description: result.error });
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

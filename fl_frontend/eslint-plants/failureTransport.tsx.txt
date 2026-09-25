@@ -1,0 +1,12 @@
+// Linted as src/features/zzplant/failureTransport.tsx.
+// A public form's transport answer is no action's failure, in a module posting one.
+import { postPublicForm } from "@/shared/utils/publicSubmit";
+
+declare const appToast: { danger: (title: string, options?: { description?: string }) => string };
+declare const res: { error: string };
+
+export async function plantedTransport(): Promise<void> {
+  const gesendet = await postPublicForm<{ ok: true }>("/api/bewerbung", {});
+  appToast.danger("Antwort nicht gespeichert", { description: gesendet.error });
+  appToast.danger("Antwort nicht gespeichert", { description: res.error }); // expect: toast-failure
+}

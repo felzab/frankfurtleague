@@ -322,6 +322,27 @@ const queryOperand = (index) =>
  * A failed equality serialises both operands, and a query's DOM node reaches the whole React tree: one
  * failing case exhausted the machine's memory. Literal shapes only: a node held in a variable passes.
  */
+/** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
+const handedOnError = (object) =>
+  [
+    `Property[key.name="description"] > MemberExpression.value[object.type="Identifier"][property.name="error"]${object}`,
+    `Property[key.name="description"] > LogicalExpression.value[operator="??"] > MemberExpression.left[object.type="Identifier"][property.name="error"]${object}`,
+  ].map((handed) => `CallExpression[callee.object.name="appToast"][callee.property.name="danger"] > ObjectExpression.arguments > ${handed}`);
+
+/**
+ * `appToast.failure` titles a write of unknown outcome neutrally, where a danger titled at the site says
+ * it did not happen. `gesendet` is a public form's transport answer, whose `error` is no action's, in a
+ * module posting one.
+ */
+const FAILURE_BY_HAND = {
+  selector: [
+    ...handedOnError(':not([object.name="gesendet"])'),
+    ...handedOnError('[object.name="gesendet"]').map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
+  ].join(", "),
+  message:
+    "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there (docs/frontend/spec.md :: I325).",
+};
+
 const QUERY_IN_EQUALITY = {
   selector: [...queryOperand(0), ...queryOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
   message:
@@ -623,6 +644,18 @@ const SOURCE_BANS = [
     message: "A `request` handed to an `auth.api` call carries that call onto the browser's paths.",
   },
   TRANSITION_REWRAP,
+  {
+    ...FAILURE_BY_HAND,
+    exempt: [
+      // Failures no FastAPI write words, so none carries an unknown outcome: the passkey list reads
+      // the sign-in store, and Better Auth answers the sign-out and mints the sign-in link.
+      "src/features/passkeys/components/modals/PasskeyModal.tsx",
+      "src/shared/hooks/useSignOut.ts",
+      "src/features/auth/components/forms/SignInForm.tsx",
+      // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
+      "src/shared/utils/undoDispatch.ts",
+    ],
+  },
   {
     selector: inLiteral(String.raw`api\.resend\.com\x2Femails`),
     message: "The provider's endpoint is named in fl_frontend/src/core/mail.ts alone.",

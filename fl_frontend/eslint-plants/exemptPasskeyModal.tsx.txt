@@ -1,0 +1,7 @@
+// Linted as src/features/passkeys/components/modals/PasskeyModal.tsx.
+// The passkey list titles the sign-in store's failure itself, and every other ban still reaches it.
+declare const appToast: { danger: (title: string, options?: { description?: string }) => string };
+declare const result: { error: string };
+
+export const LOADED = () => appToast.danger("Passkeys nicht geladen", { description: result.error });
+export const GAP = "flex gap-5"; // expect: gap

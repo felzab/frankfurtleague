@@ -1,0 +1,23 @@
+// Linted as src/features/zzplant/failureByHand.tsx.
+declare const appToast: {
+  danger: (title: string, options?: { description?: string; timeout?: number }) => string;
+  failure: (title: string, failure: { error: string }) => string;
+};
+declare const res: { success: false; error: string };
+declare const gesendet: { error: string };
+declare const grund: string;
+
+export function plantedFailures(): void {
+  appToast.danger("Team nicht gespeichert", { description: res.error }); // expect: toast-failure
+  appToast.danger("Team nicht gespeichert", { description: res.error ?? "Nicht gespeichert." }); // expect: toast-failure
+  appToast.danger("Team nicht gespeichert", {
+    // The reason stands above the key, and the key is still read.
+    description: res.error, // expect: toast-failure
+    timeout: 0,
+  });
+  // A transport answer's name, in a module posting no public form.
+  appToast.danger("Antwort nicht gespeichert", { description: gesendet.error }); // expect: toast-failure
+  appToast.failure("Team nicht gespeichert", res);
+  appToast.danger("Erst speichern", { description: grund });
+  appToast.danger("Team nicht gespeichert", { description: res.error.trim() });
+}

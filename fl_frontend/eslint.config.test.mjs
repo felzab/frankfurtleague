@@ -70,6 +70,7 @@ const BANS = [
   ["layer-shared-load", /An `import\(\)` in shared is an import/],
   ["class-constant-name", /is named `\*_CLASSES`/],
   ["transition-rewrap", /wrap it in another `startTransition`/],
+  ["toast-failure", /Hand an action's failure to `appToast\.failure`/],
   ["unknown-class", /^Unknown class detected/],
   ["unused-disable", /^Unused eslint-disable directive/],
 ];
