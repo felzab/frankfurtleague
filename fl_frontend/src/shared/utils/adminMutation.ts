@@ -2,7 +2,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestDeadlineCut } from "@/core/requestScope";
+import { requestOutcomeUnknown } from "@/core/requestScope";
 
 import { toActionErrorResult, unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
@@ -58,10 +58,10 @@ export async function runAdminMutation<T extends { success: boolean }>(
       answer = toActionErrorResult(error, { method: "POST", readOnly: readOnly });
     }
 
-    // Whatever the action made of the cut, a fan-out settling it among them: part of the write may
-    // stand, as the backend answers a write its own deadline cuts (`docs/frontend/spec.md :: I366`).
-    if (!readOnly && requestDeadlineCut()) {
-      logger.error(`Admin mutation cut by the request deadline: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
+    // Whatever the action made of a deadline's cut or of a mail that may have gone, a fan-out settling
+    // either among its refusals: part of the write may stand (`docs/frontend/spec.md :: I366`).
+    if (!readOnly && requestOutcomeUnknown()) {
+      logger.error(`Admin mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
       return unansweredAction();
     }

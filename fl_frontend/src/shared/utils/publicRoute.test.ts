@@ -26,6 +26,7 @@ registerHooks({
 
 const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
 const { toActionErrorResult } = await import("./actionError.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope");
 const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
@@ -141,5 +142,29 @@ describe("a throw of the route's own code", () => {
 
     assert.equal(body.outcome, undefined);
     assert.equal(body.error, "Lade die Seite neu und versuche es erneut.");
+  });
+});
+
+describe("a public route whose request left a call's outcome unknown", () => {
+  /** A route settling such a call among its own answers, as a mail fan-out settles a broken send. */
+  const settledBy = async (method: string) =>
+    (
+      (await handlePublicRequest(request("same-origin", { body: 0 }, method), {
+        routeName: "publicRouteTest",
+        run: async () => {
+          markOutcomeUnknown();
+          return { success: true, message: "Deine Bewerbung ist eingegangen." };
+        },
+      })) as unknown as { body: { success: boolean; message?: string; outcome?: string } }
+    ).body;
+
+  /* The application route stores its row and then mails: a confirmation that may have gone, answered
+     as a clean success or a clean failure, tells the visitor something nobody knows. */
+  it("answers a POST as of unknown outcome, whatever the route answered itself", async () => {
+    assert.equal((await settledBy("POST")).outcome, "unknown");
+  });
+
+  it("answers a GET, which wrote nothing, with what it answered itself", async () => {
+    assert.deepEqual(await settledBy("GET"), { success: true, message: "Deine Bewerbung ist eingegangen." });
   });
 });

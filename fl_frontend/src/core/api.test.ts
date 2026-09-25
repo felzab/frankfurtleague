@@ -34,7 +34,7 @@ registerHooks({
 
 const { apiClient } = await import("./api.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
-const { REQUEST_DEADLINE_MS, requestDeadlineCut, runWithRequestScope } = await import("./requestScope.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
@@ -346,7 +346,7 @@ describe("the request's deadline over a chain of calls", () => {
       advance(1);
       assert.equal(signal.aborted, true, "the deadline passed and the third call ran on to its own bound");
 
-      return [await third, requestDeadlineCut()];
+      return [await third, requestOutcomeUnknown()];
     });
 
     assert.ok(thrown instanceof APINetworkError, "the cut call was not thrown as a network error");

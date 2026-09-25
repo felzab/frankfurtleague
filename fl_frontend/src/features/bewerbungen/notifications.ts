@@ -1,9 +1,11 @@
 import "server-only";
 
 import { mailboxKey } from "@/core/emailAddress";
+import { APINetworkError } from "@/core/errors";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
+import { markOutcomeUnknown } from "@/core/requestScope";
 
 import { BEWERBUNG_SEATS } from "./constants";
 import { meldeZustellungAngenommen } from "./mutations";
@@ -52,6 +54,12 @@ export type BewerbungMailAuftrag = {
 export type BewerbungMailOutcome = {
   delivered: readonly string[];
   unreachable: readonly string[];
+  /**
+   * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
+   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
+   * (`docs/frontend/spec.md :: I366`).
+   */
+  ungewiss: readonly string[];
 };
 
 /**
@@ -313,6 +321,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
 
   const delivered: string[] = [];
   const unreachable: string[] = [];
+  const ungewiss: string[] = [];
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -327,7 +336,10 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       return;
     }
 
-    unreachable.push(address);
+    if (result.reason instanceof APINetworkError) {
+      ungewiss.push(address);
+      markOutcomeUnknown();
+    } else unreachable.push(address);
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
     // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
@@ -341,7 +353,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
   // visitor waits on, and each is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable };
+  return { delivered: delivered, unreachable: unreachable, ungewiss: ungewiss };
 }
 
 /**
@@ -350,7 +362,10 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
  * `betreff` is the bare noun, each arm supplying its own article: „die Zusage“ mid-sentence and
  * „Die Zusage“ at the start are one noun in two positions, not two strings.
  */
-export function describeBewerbungMail(betreff: BewerbungBetreff, { delivered, unreachable }: BewerbungMailOutcome): string {
+export function describeBewerbungMail(
+  betreff: BewerbungBetreff,
+  { delivered, unreachable }: Pick<BewerbungMailOutcome, "delivered" | "unreachable">,
+): string {
   if (delivered.length === 0 && unreachable.length === 0) {
     return `Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die ${betreff} an niemanden raus.`;
   }

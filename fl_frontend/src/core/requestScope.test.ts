@@ -9,7 +9,7 @@ import {
   getRequestSpanId,
   getRequestTraceId,
   REQUEST_DEADLINE_MS,
-  requestDeadlineCut,
+  requestOutcomeUnknown,
   runWithRequestScope,
   setRequestActor,
 } from "./requestScope.ts";
@@ -88,6 +88,18 @@ describe("the one actor a request is attributed to", () => {
     assert.deepEqual(answers, [undefined, PERSON]);
   });
 
+  /* A slice's read opens a scope inside the action awaiting it: a scope of its own there would send
+     that read's admin call, and any write made inside it, with no actor. */
+  it("keeps the recorded actor in a scope opened inside the one the guard ran in", async () => {
+    const actor = await runWithRequestScope(scope(), async () => {
+      setRequestActor(ADMIN);
+
+      return runWithRequestScope({ traceId: `${"0".repeat(31)}2`, spanId: `${"0".repeat(15)}2` }, () => Promise.resolve(getRequestActor()));
+    });
+
+    assert.equal(actor, ADMIN, "the nested scope dropped the actor");
+  });
+
   it("records nothing outside a scope, where a cache fill and a build-time render run", () => {
     setRequestActor(PERSON);
 
@@ -125,7 +137,7 @@ describe("the one deadline a request runs under", () => {
       const early = signal.aborted;
       advance(1);
 
-      return Promise.resolve([early, signal.aborted, requestDeadlineCut()]);
+      return Promise.resolve([early, signal.aborted, requestOutcomeUnknown()]);
     });
 
     assert.equal(abortedEarly, false, "the call was aborted before the deadline");
@@ -138,7 +150,7 @@ describe("the one deadline a request runs under", () => {
       advance(REQUEST_DEADLINE_MS);
       const { signal } = boundCall(OWN_BOUND_MS);
 
-      return Promise.resolve([signal.aborted, requestDeadlineCut()]);
+      return Promise.resolve([signal.aborted, requestOutcomeUnknown()]);
     });
 
     assert.equal(aborted, true, "a call was given a live signal after the deadline had passed");
@@ -157,7 +169,7 @@ describe("the one deadline a request runs under", () => {
         return Promise.resolve(signal.aborted);
       });
 
-      return [aborted, requestDeadlineCut()];
+      return [aborted, requestOutcomeUnknown()];
     });
 
     assert.equal(aborted, true, "the nested scope started a deadline of its own");
@@ -171,7 +183,7 @@ describe("the one deadline a request runs under", () => {
       const { signal } = boundCall(OWN_BOUND_MS);
       advance(OWN_BOUND_MS);
 
-      return Promise.resolve([signal.aborted, requestDeadlineCut()]);
+      return Promise.resolve([signal.aborted, requestOutcomeUnknown()]);
     });
 
     assert.equal(aborted, true);

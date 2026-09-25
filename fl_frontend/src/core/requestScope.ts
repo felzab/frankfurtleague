@@ -1,16 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { cache } from "react";
+
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by what the same response spends outside this
 // scope: the proxy's session read before it opens, and the page's re-render after it closes, whose
 // reads keep their own bounds (`docs/frontend/spec.md :: I366`).
 export const REQUEST_DEADLINE_MS = 30000;
-
-interface RequestDeadline {
-  // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
-  at: number;
-  // Shared by reference with every scope opened inside this one, so the spine reads a cut made there.
-  cut: boolean;
-}
 
 interface RequestScope {
   traceId: string;
@@ -19,17 +14,28 @@ interface RequestScope {
   spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: string;
-  deadline: RequestDeadline;
+  // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
+  deadlineAt: number;
+  // Set where a call may have landed unanswered, which the spines read once the request's work is done.
+  outcomeUnknown: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
 
-export function runWithRequestScope<T>(scope: Omit<RequestScope, "deadline">, fn: () => Promise<T>): Promise<T> {
-  // A scope opened inside another keeps its deadline: a slice's read opens one inside the action
-  // awaiting it, and a fresh deadline there would let the chain outlast the edge.
-  const deadline = storage.getStore()?.deadline ?? { at: performance.now() + REQUEST_DEADLINE_MS, cut: false };
+// React's per-request memo, a page's reads each opening a scope with no render-wide entry to anchor
+// on. Outside a render it memoizes nothing, so an action's or route handler's outermost scope starts
+// its request (`docs/frontend/spec.md :: I366`).
+const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-  return storage.run({ ...scope, deadline: deadline }, fn);
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "spanId" | "actor">, fn: () => Promise<T>): Promise<T> {
+  // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
+  // own there would restart the deadline and drop the actor the guard recorded.
+  if (storage.getStore() !== undefined) return fn();
+
+  const render = scopeOfThisRender();
+  render.scope ??= { ...scope, deadlineAt: performance.now() + REQUEST_DEADLINE_MS, outcomeUnknown: false };
+
+  return storage.run(render.scope, fn);
 }
 
 /**
@@ -38,21 +44,21 @@ export function runWithRequestScope<T>(scope: Omit<RequestScope, "deadline">, fn
  */
 export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController();
-  const deadline = storage.getStore()?.deadline;
-  const left = deadline === undefined ? Infinity : deadline.at - performance.now();
+  const store = storage.getStore();
+  const left = store === undefined ? Infinity : store.deadlineAt - performance.now();
 
-  if (deadline !== undefined && left <= 0) {
-    deadline.cut = true;
+  if (store !== undefined && left <= 0) {
+    store.outcomeUnknown = true;
     controller.abort();
 
     return { signal: controller.signal, clear: () => {} };
   }
 
-  // Marked only where the deadline fired: a call its own bound ended says nothing about the request.
+  // Marked only where the deadline fired: a call its own bound ended is answered by its own error.
   const byDeadline = left < ownBoundMs;
   const handle = setTimeout(
     () => {
-      if (deadline !== undefined && byDeadline) deadline.cut = true;
+      if (store !== undefined && byDeadline) store.outcomeUnknown = true;
       controller.abort();
     },
     Math.min(ownBoundMs, left),
@@ -61,9 +67,18 @@ export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () 
   return { signal: controller.signal, clear: () => clearTimeout(handle) };
 }
 
-/** Whether the request's deadline refused or aborted any call it bounded. `false` outside a scope. */
-export function requestDeadlineCut(): boolean {
-  return storage.getStore()?.deadline.cut === true;
+/**
+ * For a call whose failure a caller settles rather than throws, where it may still have landed: a mail
+ * the provider may have accepted before the connection broke. A no-op outside a scope.
+ */
+export function markOutcomeUnknown(): void {
+  const store = storage.getStore();
+  if (store !== undefined) store.outcomeUnknown = true;
+}
+
+/** Whether the deadline cut a call of this request, or a settled call may have landed. `false` outside a scope. */
+export function requestOutcomeUnknown(): boolean {
+  return storage.getStore()?.outcomeUnknown === true;
 }
 
 export function getRequestTraceId(): string | undefined {

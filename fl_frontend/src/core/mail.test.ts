@@ -51,7 +51,7 @@ const logs: RecordedLine[] = [];
 
 const { sendMail, MailRecipientError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
-const { REQUEST_DEADLINE_MS, requestDeadlineCut, runWithRequestScope } = await import("./requestScope.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, runWithRequestScope } = await import("./requestScope.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
 
@@ -788,7 +788,7 @@ describe("a send inside a request whose deadline runs out", () => {
       advance(1);
       assert.equal(signal.aborted, true, "the deadline passed and the send ran on to its own bound");
 
-      return [await pending, requestDeadlineCut()];
+      return [await pending, requestOutcomeUnknown()];
     });
 
     assert.ok(thrown instanceof APINetworkError, "the cut send was not thrown as a network error");

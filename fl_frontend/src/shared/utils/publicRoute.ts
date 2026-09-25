@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { requestOutcomeUnknown } from "@/core/requestScope";
 
-import { toActionErrorResult } from "./actionError";
+import { toActionErrorResult, unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 
 import type { FormState } from "@/shared/types/types";
@@ -47,8 +48,9 @@ export async function handlePublicRequest<T extends { success: boolean }>(
   }
 
   const result = await runWithIncomingTrace(async (): Promise<T | NonNullable<FormState>> => {
+    let answer: T | NonNullable<FormState>;
     try {
-      return await run();
+      answer = await run();
     } catch (error) {
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
       logger.error(`Public route failed: ${routeName}`, error, {
@@ -63,8 +65,18 @@ export async function handlePublicRequest<T extends { success: boolean }>(
 
       // The request this route answers, for a throw carrying none of its own: code after a POST's
       // write can throw with the row already stored.
-      return toActionErrorResult(error, { method: request.method, readOnly: false });
+      answer = toActionErrorResult(error, { method: request.method, readOnly: false });
     }
+
+    // The admin spine's rule, for the reason it gives there (`docs/frontend/spec.md :: I366`); a GET
+    // changed nothing, so it keeps the answer it built.
+    if (mayHaveWritten({ method: request.method, readOnly: false }) && requestOutcomeUnknown()) {
+      logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
+
+      return unansweredAction();
+    }
+
+    return answer;
   });
 
   // Always 200: the body carries the outcome, and every other status is `postPublicForm`'s to report

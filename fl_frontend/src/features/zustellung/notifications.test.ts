@@ -23,6 +23,8 @@ const refused = new Set<string>();
 const withheld = new Set<string>();
 /** Addresses whose domain has no ASCII form: that recipient fails and the rest of the fan-out does not. */
 const unconvertible = new Set<string>();
+/** Addresses whose send breaks off unanswered, which the provider may have accepted. */
+const broken = new Set<string>();
 /** Per address the provider itself turned away: its own token, and the status that says whether a retry could land. */
 const tokenRefused = new Map<string, { token?: string; status: number }>();
 const gemeldet: Record<string, unknown>[] = [];
@@ -33,6 +35,7 @@ recorders.__flZielMailLogs = logged;
 recorders.__flZielRefusedMail = refused;
 recorders.__flZielWithheldMail = withheld;
 recorders.__flZielUnconvertibleMail = unconvertible;
+recorders.__flZielBrokenMail = broken;
 recorders.__flZielTokenRefusedMail = tokenRefused;
 recorders.__flZielGemeldet = gemeldet;
 recorders.__flZielAbgewiesen = abgewiesen;
@@ -50,7 +53,7 @@ const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./ma
 import { MailRecipientError, MailWithheldError } from "./mail.ts?real";
 // The real class here too: the refusal arm reads the provider's token off it, which a look-alike
 // carrying the same field would not prove.
-import { MailSendError } from "./errors.ts";
+import { APINetworkError, MailSendError } from "./errors.ts";
 
 export const sendMail = async (mail) => {
   globalThis.__flZielSentMail.push({ to: mail.to, subject: mail.subject, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
@@ -63,6 +66,16 @@ export const sendMail = async (mail) => {
       url: "https://api.example.invalid/emails",
       statusCode: abweisung.status,
       providerErrorName: abweisung.token,
+      traceId: "0123456789abcdef0123456789abcdef",
+    });
+  }
+  if (globalThis.__flZielBrokenMail.has(mail.to)) {
+    throw new APINetworkError({
+      message: "Mail request failed.",
+      isTimeout: true,
+      url: "https://api.example.invalid/emails",
+      method: "POST",
+      readOnly: false,
       traceId: "0123456789abcdef0123456789abcdef",
     });
   }
@@ -116,6 +129,7 @@ registerHooks({
 
 const { sendZielMail, zielIdempotenzSchluessel, zielZustellungTags } = await import("./notifications.ts");
 const { FLZustellungZielSchema } = await import("./schemas.ts");
+const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 const ZIEL_ID = `${"c".repeat(23)}3`;
 const ADDRESS = "bramblewick@example.com";
@@ -137,6 +151,7 @@ beforeEach(() => {
   refused.clear();
   withheld.clear();
   unconvertible.clear();
+  broken.clear();
   tokenRefused.clear();
   recorders.__flZielAbweisungFails = false;
   recorders.__flZielMeldungFails = false;
@@ -278,6 +293,27 @@ describe("one fan-out about a record", () => {
 
     assert.deepEqual([delivered, unreachable], [[SECOND_ADDRESS], [ADDRESS]]);
     assert.equal(gemeldet.length, 1, "a refused message was recorded as accepted");
+  });
+
+  /* The provider may have accepted a send whose connection broke: reported unreachable, the action
+     says the mail could not be sent while it may be in the inbox, and the admin sends it again. */
+  it("counts a send that broke off unanswered as of unknown outcome, never unreachable, and marks the request", async () => {
+    broken.add(ADDRESS);
+
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      const outcome = await sendZielMail({
+        operation: "schiedsrichter.einladung",
+        auftrag: auftrag,
+        recipients: [ADDRESS, SECOND_ADDRESS],
+        buildMail,
+      });
+
+      return [outcome, requestOutcomeUnknown()] as const;
+    });
+
+    assert.deepEqual([settled.delivered, settled.unreachable, settled.ungewiss], [[SECOND_ADDRESS], [], [ADDRESS]]);
+    assert.equal(markedUnknown, true, "the request was not told a send may have landed");
+    assert.equal(abgewiesen.length, 0, "a send that may have landed was recorded as refused");
   });
 
   /* Outside production every address is withheld, and a caller reading that as a refusal reports one

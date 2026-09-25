@@ -1,8 +1,9 @@
 import "server-only";
 
-import { MailSendError } from "@/core/errors";
+import { APINetworkError, MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { markOutcomeUnknown } from "@/core/requestScope";
 
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
@@ -37,6 +38,12 @@ export type ZielMailOutcome = {
    * every address lands in `unreachable`.
    */
   withheld: readonly string[];
+  /**
+   * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
+   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
+   * (`docs/frontend/spec.md :: I366`).
+   */
+  ungewiss: readonly string[];
 };
 
 /** One message, without the envelope the fan-out fills in. */
@@ -164,6 +171,7 @@ export async function sendZielMail({
   const delivered: string[] = [];
   const unreachable: string[] = [];
   const withheld: string[] = [];
+  const ungewiss: string[] = [];
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -178,7 +186,10 @@ export async function sendZielMail({
       return;
     }
 
-    unreachable.push(address);
+    if (result.reason instanceof APINetworkError) {
+      ungewiss.push(address);
+      markOutcomeUnknown();
+    } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
     if (result.reason instanceof MailWithheldError) withheld.push(address);
     // The submit is where a refused address is learnt at all: no message was minted, so no delivery
@@ -196,5 +207,5 @@ export async function sendZielMail({
   // Together rather than one after another: each round trip is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable, withheld: withheld };
+  return { delivered: delivered, unreachable: unreachable, withheld: withheld, ungewiss: ungewiss };
 }
