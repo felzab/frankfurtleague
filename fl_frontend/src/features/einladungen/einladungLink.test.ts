@@ -1,20 +1,43 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
+import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 
 import { einladungsLink } from "./einladungLink.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-/** Every module that mints an invite link, read as source: which variable a call site reads is nothing a render shows. */
-const MINTER = ["actions.ts"].map((relativ) => ({
-  name: relativ,
-  source: readFileSync(path.resolve(import.meta.dirname, relativ), "utf8"),
-}));
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/config.ts")) {
+      return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
+
+/* The real actions, called: the request they run in, the reads and writes they send, and the
+   fan-out they hand each message to are the doubles. */
+doubleActionRequest();
+const mint = doubleActions({ modules: ["/src/features/einladungen/mutations.ts"] });
+const invite = doubleActions({ modules: ["/src/features/einladungen/queries.ts"] });
+const teams = doubleActions({ modules: ["/src/features/teams/queries.ts"] });
+const fanOut = doubleActions({ modules: ["/src/features/zustellung/notifications.ts"] });
+const { mailEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
+
+const TEAM_ID = "6890a1b2c3d4e5f607182932";
+const SAISON_ID = "2627";
+const EINLADUNG_ID = "b".repeat(24);
+const ADDRESS = "erika@beispiel.de";
+
+/** The text of every message the fan-out was handed since the case began, composed as it would be sent. */
+function mailedTexts(): string[] {
+  return fanOut.calls.map(({ payload }) => (payload as { buildMail: (address: string) => { text: string } }).buildMail(ADDRESS).text);
+}
 
 describe("the invite link the mail carries", () => {
   it("puts the token on the origin it was handed, under the registration page's path", () => {
@@ -36,16 +59,81 @@ describe("the invite link the mail carries", () => {
     assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
     assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
   });
+});
 
-  /* A link built on the published origin sends a reader of the local stack into production, and the
-     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
-  it("is minted on the configured origin by every module that mints one, and on the published one by none", () => {
-    for (const { name, source } of MINTER) {
-      assert.match(source, /einladungsLink\(origin/, `${name} mints its link on something other than the origin it read`);
-      assert.match(source, /frontend_config\.AUTH_URL/, `${name} takes its origin from somewhere other than the configuration`);
-      // The import rather than the identifier: a comment naming the published origin to refuse it is
-      // not a use of it.
-      assert.doesNotMatch(source, /^import \{[^}]*\bSITE_URL\b/m, `${name} imports the published origin`);
-    }
+/* A link built on the published origin sends a reader of the local stack into production, and the
+   two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
+describe("the origin each press mints its invite link on", () => {
+  it("is the configured one on the link the mint hands the panel", async () => {
+    mint.answerWith(() => Promise.resolve({ acknowledged: 1, einladung_id: EINLADUNG_ID, token: "token-mint" }));
+
+    const result = await postEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID });
+
+    assert.equal(result.success ? result.link : result.error, `${ORIGIN}/registrierung?token=token-mint`);
+  });
+
+  it("is the configured one in the message the single press mails", async () => {
+    fanOut.calls.length = 0;
+    fanOut.answerWith(() => Promise.resolve({ delivered: [ADDRESS], unreachable: [], withheld: [] }));
+    invite.answerWith(() => Promise.resolve({ einladung: { id: EINLADUNG_ID } }));
+    teams.answerWith(() =>
+      Promise.resolve({
+        teams: [
+          {
+            id: TEAM_ID,
+            name: "Ernst-Reuter-Schule",
+            memberships: [
+              {
+                saison_id: SAISON_ID,
+                kontakte: {
+                  trainer: null,
+                  ansprechperson: { vorname: "Erika", email: ADDRESS, einwilligung: { bestaetigt_am: "2026-08-20" } },
+                  stellvertretung: null,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
+
+    assert.equal(result.success, true, "the press mailed nothing, so the origin below is judged on nothing");
+    assert.ok(
+      mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-mail`)),
+      "the mailed link is minted on an origin this run was not configured with",
+    );
+  });
+
+  it("is the configured one in the message the season-wide press mails", async () => {
+    fanOut.calls.length = 0;
+    fanOut.answerWith(() => Promise.resolve({ delivered: [ADDRESS], unreachable: [], withheld: [] }));
+    mint.answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        saison_id: SAISON_ID,
+        zeilen: [
+          {
+            team_id: TEAM_ID,
+            team_name: "Ernst-Reuter-Schule",
+            uebersprungen: null,
+            einladung_id: EINLADUNG_ID,
+            token: "token-versand",
+            ersetzt_link: false,
+            hatte_link: false,
+            empfaenger: [{ rolle: "ansprechperson", vorname: "Erika", email: ADDRESS }],
+          },
+        ],
+      }),
+    );
+
+    const result = await postEinladungVersandAction({ id: SAISON_ID, erneut: false });
+
+    assert.equal(result.success, true, "the press mailed nothing, so the origin below is judged on nothing");
+    assert.ok(
+      mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-versand`)),
+      "the mailed link is minted on an origin this run was not configured with",
+    );
   });
 });
