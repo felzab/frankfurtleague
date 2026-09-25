@@ -179,8 +179,8 @@ def validate_external_url(value: str) -> str:
     Scheme-restricted: a bare "is this a URL" check accepts `javascript:`, an XSS sink once React
     renders it into an href. Not `AnyHttpUrl`, which normalises and would rewrite a stored value.
     """
-    # SURROUNDING whitespace is not among them and is the caller's to strip: `urlsplit` ignores it
-    # internally, so a leading space would pass every check and be returned on the value.
+    # The space is not among `URL_STRIPPED_CHARACTERS`, so surrounding spaces are the caller's to strip:
+    # `urlsplit` ignores them internally, so a leading space would pass every check and be returned.
     parsed = value.translate(URL_STRIPPED_CHARACTERS)
 
     try:
