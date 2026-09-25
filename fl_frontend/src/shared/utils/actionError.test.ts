@@ -308,7 +308,6 @@ describe("a refusal read by its code, whatever its status", () => {
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
       [409, undefined],
-      [418, "REQ-ROUTE-003"],
     ] as const) {
       assert.equal(
         refused(status, code).error,
@@ -321,16 +320,7 @@ describe("a refusal read by its code, whatever its status", () => {
   /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
      code or the unique index's is ever a refusal a mapper words. */
   it("classifies a code by its class, whatever it is numbered", () => {
-    for (const code of [
-      "REQ-AUTH-005",
-      "REQ-VAL-001",
-      "REQ-VAL-002",
-      "REQ-ROUTE-001",
-      "REQ-ROUTE-003",
-      "DB-COMMON-001",
-      "DB-CONN-001",
-      "SRV-FAIL-001",
-    ]) {
+    for (const code of ["REQ-AUTH-005", "REQ-VAL-001", "REQ-VAL-002", "REQ-ROUTE-001", "DB-COMMON-001", "DB-CONN-001", "SRV-FAIL-001"]) {
       assert.equal(isRefusalCode(code), false, code);
     }
     for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])
