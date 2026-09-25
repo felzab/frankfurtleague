@@ -166,9 +166,6 @@ def test_a_session_s_teardown_is_charged_to_the_test_each_command_belongs_to(
     (suite / "test_probe.py").write_bytes(PROBE_SUITE)
     monkeypatch.setenv("FL_TIER_PROBE_URL", mongo_url)
     monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
-    # The refusal cites a section sign, and pytester reads the child's stdout as UTF-8 while a
-    # Windows console encoding would write it as a byte no UTF-8 decoder takes.
-    monkeypatch.setenv("PYTHONIOENCODING", "utf-8")
     result = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-p", "no:xdist", "-m", "", str(suite))
     output = result.stdout.str()
     result.assert_outcomes(passed=3, errors=1)
