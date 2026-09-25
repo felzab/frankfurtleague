@@ -59,22 +59,24 @@ describe("the create form's field errors", () => {
     const user = userEvent.setup();
     const onSubmit = mock.fn(async (_payload: Draft): Promise<ActionResult> => ({ success: true, message: "Angelegt" }));
     const { container } = render(
-      h(EntityForm<Draft, Draft>, {
-        initialDraft: { name: "" },
-        renderFields: (draft, setDraft) =>
-          h(
-            TextField,
-            { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
-            h(Label, null, "Name"),
-            h(Input),
-            h(FieldError),
-          ),
-        schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
-        toPayload: (draft) => ({ name: draft.name.trim() }),
-        onSubmit,
-        successMessage: "Angelegt",
-        onClose: () => undefined,
-      }),
+      underNext(
+        h(EntityForm<Draft, Draft>, {
+          initialDraft: { name: "" },
+          renderFields: (draft, setDraft) =>
+            h(
+              TextField,
+              { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
+              h(Label, null, "Name"),
+              h(Input),
+              h(FieldError),
+            ),
+          schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
+          toPayload: (draft) => ({ name: draft.name.trim() }),
+          onSubmit,
+          successMessage: "Angelegt",
+          onClose: () => undefined,
+        }),
+      ),
     );
 
     await user.click(screen.getByRole("button", { name: "Speichern" }));

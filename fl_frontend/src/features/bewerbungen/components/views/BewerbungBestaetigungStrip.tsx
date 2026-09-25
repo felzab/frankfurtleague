@@ -39,7 +39,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
-import { rejectedWrite } from "@/shared/utils/actionError";
+import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -428,7 +428,8 @@ function AdresseKorrigieren({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await kontaktEmailKorrigierenAction(payload).catch(rejectedWrite(router, KORREKTUR_OHNE_ANTWORT));
+    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -589,7 +590,8 @@ function SitzNeuBesetzen({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await besetzeKontaktSitzAction(payload).catch(rejectedWrite(router, BESETZUNG_OHNE_ANTWORT));
+    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.

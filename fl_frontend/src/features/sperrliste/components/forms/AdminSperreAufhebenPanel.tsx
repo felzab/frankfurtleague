@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { deleteSperreAction } from "@/features/sperrliste/actions";
@@ -8,7 +10,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 /**
@@ -18,12 +20,13 @@ import { appToast } from "@/shared/utils/appToast";
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
   const twoPress = useTwoPressConfirm();
+  const router = useRouter();
   const { isConfirming, press } = twoPress;
 
   const handleAufheben = () => {
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await deleteSperreAction({ id: sperreId }).catch(unansweredAction);
+      const res = await deleteSperreAction({ id: sperreId }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Sperre nicht aufgehoben", res);

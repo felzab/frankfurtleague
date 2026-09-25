@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
@@ -12,7 +14,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
@@ -43,6 +45,7 @@ export function FormKontakteLoeschenSection({
   isDirty: boolean;
 }) {
   const twoPress = useTwoPressConfirm();
+  const router = useRouter();
   const { isConfirming, press } = twoPress;
 
   // Graded only where there is something to take: a red panel over an empty row spends the grade on
@@ -55,7 +58,7 @@ export function FormKontakteLoeschenSection({
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand }).catch(
-        unansweredAction,
+        rejectedWrite(router),
       );
 
       if (!res.success) {

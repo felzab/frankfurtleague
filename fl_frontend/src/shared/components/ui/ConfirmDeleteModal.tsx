@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import TrashBin from "@gravity-ui/icons/TrashBin";
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
@@ -8,7 +9,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { Button } from "@heroui/react/button";
 
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
@@ -67,6 +68,7 @@ export function ConfirmDeleteModal({
   // The panels' own two-press control, whose double-press window keeps a double-click on „Stilllegen“
   // from retiring the row before step 2 was read (`docs/frontend/spec.md :: I37`).
   const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const router = useRouter();
 
   // Disarmed after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
@@ -79,7 +81,7 @@ export function ConfirmDeleteModal({
   const handleDelete = () => {
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await onConfirm().catch(unansweredAction);
+      const res = await onConfirm().catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure(failureMessage, res);

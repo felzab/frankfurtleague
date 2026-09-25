@@ -501,15 +501,19 @@ describe("an editor's write whose action rejected", () => {
   for (const [file, editor] of Object.entries(EDITORS)) {
     /* A dropped connection rejects the action after the POST may have reached the server: uncaught
        inside the transition, it replaces the editor with the error page and says nothing. */
-    it(`${file} stays on its page and raises one toast of unknown outcome`, async () => {
+    it(`${file} stays on its page, reads nothing again and raises one toast of unknown outcome`, async () => {
       answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
       try {
         const user = userEvent.setup();
         const container = await editor.render();
         await editor.change(user, container);
         raised.length = 0;
+        seen.refresh = 0;
 
         await saveThrough(user);
+
+        // A reload would re-key the editor over its draft (`docs/frontend/spec.md` §1.3).
+        assert.equal(seen.refresh, 0, "a rejected save read the page again over the editor's draft");
 
         assert.deepEqual(
           raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
@@ -596,6 +600,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
     /* The first half's action rejecting may have written, and uncaught it takes the editor down before
        the second half runs. */
     it(`${file} carries a first half's rejected action as of unknown outcome, beside the half that saved`, async () => {
+      seen.refresh = 0;
       const danger = await pressBothHalves(file, change, [
         () => Promise.reject(new TypeError("Failed to fetch")),
         () => Promise.resolve({ success: true, message: "Gespeichert." }),
@@ -606,6 +611,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
         [["Nur teilweise gespeichert", "unknown"]],
       );
       assert.ok(screen.queryByRole("button", { name: "Speichern" }) !== null, "the rejection took the editor off the page");
+      assert.equal(seen.refresh, 0, "a rejected half read the page again over the draft of the half not written");
     });
 
     /* The first half's refusal is marked on its box, which speaks for that half alone: the second half's

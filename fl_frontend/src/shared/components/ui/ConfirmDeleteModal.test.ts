@@ -10,6 +10,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { unansweredAction } from "@/shared/utils/actionError.ts";
 
@@ -40,7 +41,7 @@ describe("the retirement dialog", () => {
      rejection left to the dialog's transition replaces the page with the error page. */
   it("stays open over a rejected retirement, and says nobody can tell whether the row went", async () => {
     const user = userEvent.setup();
-    render(dialog(() => Promise.reject<ActionResult>(new Error("An unexpected response was received from the server."))));
+    render(underNext(dialog(() => Promise.reject<ActionResult>(new Error("An unexpected response was received from the server.")))));
 
     await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     // Found rather than got: the press lets go, disarmed as every two-press control is, once the rejection has been answered.
@@ -59,10 +60,12 @@ describe("the retirement dialog", () => {
     const user = userEvent.setup();
     let asked = 0;
     render(
-      dialog(() => {
-        asked += 1;
-        return Promise.resolve({ success: true, message: "Spielort stillgelegt" });
-      }),
+      underNext(
+        dialog(() => {
+          asked += 1;
+          return Promise.resolve({ success: true, message: "Spielort stillgelegt" });
+        }),
+      ),
     );
 
     await user.dblClick(screen.getByRole("button", { name: "Stilllegen" }));

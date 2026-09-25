@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
@@ -17,7 +18,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
@@ -50,6 +51,7 @@ export function FormTeamErsatzSection({
   const incoming = ersatz.candidates.find((candidate) => candidate.id === incomingId) ?? null;
 
   const twoPress = useTwoPressConfirm();
+  const router = useRouter();
   const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 
   // `REQ-REPLACE-002` in the form: a fixture carrying a record would be credited to the arriving
@@ -83,7 +85,7 @@ export function FormTeamErsatzSection({
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id }).catch(
-        unansweredAction,
+        rejectedWrite(router),
       );
 
       if (!res.success) {

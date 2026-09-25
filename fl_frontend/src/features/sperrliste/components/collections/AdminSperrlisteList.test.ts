@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSperrlisteEintrag } from "@/features/sperrliste/schemas.ts";
@@ -39,7 +40,7 @@ const SPERREN: FLSperrlisteEintrag[] = [
 ];
 
 const listMarkup = (sperren: FLSperrlisteEintrag[], emptiness: CrudEmptiness = "none"): string =>
-  renderTree(h(AdminSperrlisteList, { filteredSperren: sperren, emptiness }));
+  renderTree(underNext(h(AdminSperrlisteList, { filteredSperren: sperren, emptiness })));
 
 /** Every address the markup carries, which is what „serves no address“ is checked against. */
 const addressesIn = (html: string): string[] => [...html.matchAll(/[\w.+-]+@[\w.-]+\.\w+/g)].map((found) => found[0]);

@@ -9,6 +9,8 @@ import { createElement as h } from "react";
 import { render, within } from "@testing-library/react";
 import { z } from "zod";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
+
 import { formButton, MODAL_FOOTER_CLASSES } from "./formButtons.ts";
 
 import type { ReactNode } from "react";
@@ -79,7 +81,7 @@ describe("every dialog footer", () => {
      puts its action sends the reader who moves between them to the wrong button. */
   for (const [file, open] of Object.entries(OPEN)) {
     it(`puts the action first and the way back second: ${file}`, () => {
-      const { unmount } = render(open);
+      const { unmount } = render(underNext(open));
       // The band carries no role of its own, so the recipe it wears is what finds it; its buttons are
       // then read the way a reader meets them.
       const band =

@@ -495,7 +495,7 @@ const ROW_REACTIVATE = "Kadereintrag reaktivieren";
 
 describe("the reactivate's gate on the editor", () => {
   const panel = (rowReturn: "open" | "clubLeft" | "squadFull", rowInactiveSince: string | null = RETIRED_ON): string =>
-    renderTree(h(FormAustragenSection, { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowInactiveSince, rowReturn, banners: [] }));
+    renderTree(underNext(h(FormAustragenSection, { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowInactiveSince, rowReturn, banners: [] })));
 
   /* Each refused return names the repair where the editor's reader stands; `judgeRowReturn` decides which. */
   it("says each refused return on the control, and closes none it takes", () => {
@@ -536,12 +536,12 @@ describe("the reactivate's gate on the editor", () => {
      is gone and a keyboard reader would be left on the page. */
   it("hands focus to the control that replaces the one a landed write pressed", async () => {
     const props = { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowReturn: "open", banners: [] } as const;
-    const { rerender } = render(h(FormAustragenSection, { ...props, key: "aktiv", rowInactiveSince: null }));
+    const { rerender } = render(underNext(h(FormAustragenSection, { ...props, key: "aktiv", rowInactiveSince: null })));
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
     assert.ok(document.activeElement === document.body, "a mount with no write behind it takes focus");
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
-    rerender(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON }));
+    rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
 
     assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page");
   });

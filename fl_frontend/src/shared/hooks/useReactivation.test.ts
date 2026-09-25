@@ -9,6 +9,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
 
@@ -28,7 +29,7 @@ function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<
 
 const press = async (answer: () => Promise<ActionResult>): Promise<void> => {
   const user = userEvent.setup();
-  render(h(Probe, { answer }));
+  render(underNext(h(Probe, { answer })));
   await user.click(screen.getByRole("button", { name: "Reaktivieren" }));
 };
 

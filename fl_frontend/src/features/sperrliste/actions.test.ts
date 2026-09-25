@@ -235,7 +235,7 @@ describe("the message the barred person is sent", () => {
     // The form over this same action, pressed as an administrator presses it.
     toasts.length = 0;
     const user = userEvent.setup();
-    const { unmount } = render(h(AdminCreateSperreForm, { onClose: () => undefined }));
+    const { unmount } = render(underNext(h(AdminCreateSperreForm, { onClose: () => undefined })));
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), BARRED);
     await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
     await user.click(screen.getByRole("button", { name: "Speichern" }));

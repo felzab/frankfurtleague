@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
@@ -18,7 +19,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -58,6 +59,7 @@ export function FormRolloverSection({
   // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
   const twoPress = useTwoPressConfirm(onBeforeActivate);
+  const router = useRouter();
   const { isConfirming, press } = twoPress;
 
   const isAlreadyActive = saisonStatus === "active";
@@ -75,7 +77,7 @@ export function FormRolloverSection({
   const handleActivate = () => {
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await activateSaisonAction({ id: saisonId }).catch(unansweredAction);
+      const res = await activateSaisonAction({ id: saisonId }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Saison nicht umgestellt", res);

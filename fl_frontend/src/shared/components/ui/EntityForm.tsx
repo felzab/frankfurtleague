@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react/button";
 
 import { Form } from "@/shared/components/ui/Form";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
@@ -59,6 +60,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   marksRequired?: boolean;
 }) {
   const [isPending, startSaving] = useTransition();
+  const router = useRouter();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { entity: schema },
@@ -79,7 +81,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   const writeAfterBlock = (payload: TPayload) => {
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await onSubmit(payload).catch(unansweredAction);
+      const res = await onSubmit(payload).catch(rejectedWrite(router));
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.

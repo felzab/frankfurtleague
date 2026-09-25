@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
 import Copy from "@gravity-ui/icons/Copy";
@@ -26,7 +27,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -83,6 +84,7 @@ export function FormEinladungSection({
   const [isMailing, startMailing] = useTransition();
 
   const twoPress = useTwoPressConfirm();
+  const router = useRouter();
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   const panel = formPanel();
@@ -90,7 +92,7 @@ export function FormEinladungSection({
 
   const mint = async () => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
-    const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(unansweredAction);
+    const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
       appToast.failure("Registrierungslink nicht angelegt", res.outcome === "unknown" ? { ...res, error: MINT_UNKLAR } : res);
@@ -107,7 +109,7 @@ export function FormEinladungSection({
 
   const widerrufen = async () => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
-    const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(unansweredAction);
+    const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
       appToast.failure("Link nicht zurückgezogen", res);
@@ -146,7 +148,7 @@ export function FormEinladungSection({
         saison_id: saisonId,
         einladung_id: offen.einladungId,
         token: offen.token,
-      }).catch(unansweredAction);
+      }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Registrierungslink nicht gesendet", res);

@@ -27,7 +27,7 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
@@ -260,6 +260,7 @@ export function FormSaisonSection({
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
+  const router = useRouter();
 
   /**
    * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
@@ -276,7 +277,7 @@ export function FormSaisonSection({
   const handleEnterSaison = () => {
     startEntering(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(unansweredAction);
+      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.

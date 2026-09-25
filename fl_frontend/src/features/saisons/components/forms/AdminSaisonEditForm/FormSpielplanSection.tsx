@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import Calendar from "@gravity-ui/icons/Calendar";
 import CalendarXmark from "@gravity-ui/icons/CalendarXmark";
@@ -45,7 +46,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RequiredSchemas } from "@/shared/components/ui/RequiredMarks";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -103,6 +104,7 @@ export function FormSpielplanSection({
   onBeforeWrite: () => boolean;
 } & SaisonSpielplanContext) {
   const twoPress = useTwoPressConfirm(onBeforeWrite);
+  const router = useRouter();
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   // The season's stored three, which a first draw keeps and a replace may move. Re-initialised by
@@ -180,7 +182,7 @@ export function FormSpielplanSection({
 
         appToast.success(replacesDraw ? "Spielplan neu angelegt" : "Spielplan angelegt", { description: res.message });
       } else {
-        const res = await undrawSpielplanAction({ id: saisonId }).catch(unansweredAction);
+        const res = await undrawSpielplanAction({ id: saisonId }).catch(rejectedWrite(router));
 
         if (!res.success) {
           appToast.failure("Spielplan nicht zurückgenommen", res);

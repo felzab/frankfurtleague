@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
@@ -31,22 +32,24 @@ type Draft = { name: string };
 /** A caller whose payload step trims: the padded value as typed is one the schema below refuses. */
 function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult>) {
   render(
-    h(EntityForm<Draft, Draft>, {
-      initialDraft: { name: "" },
-      renderFields: (draft, setDraft) =>
-        h(
-          TextField,
-          { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
-          h(Label, null, "Name"),
-          h(Input),
-          h(FieldError),
-        ),
-      schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
-      toPayload: (draft) => ({ name: draft.name.trim() }),
-      onSubmit,
-      successMessage: "Angelegt",
-      onClose: () => undefined,
-    }),
+    underNext(
+      h(EntityForm<Draft, Draft>, {
+        initialDraft: { name: "" },
+        renderFields: (draft, setDraft) =>
+          h(
+            TextField,
+            { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
+            h(Label, null, "Name"),
+            h(Input),
+            h(FieldError),
+          ),
+        schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
+        toPayload: (draft) => ({ name: draft.name.trim() }),
+        onSubmit,
+        successMessage: "Angelegt",
+        onClose: () => undefined,
+      }),
+    ),
   );
 }
 

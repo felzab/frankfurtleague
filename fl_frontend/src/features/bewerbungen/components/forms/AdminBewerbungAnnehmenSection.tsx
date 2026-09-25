@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import SealCheck from "@gravity-ui/icons/SealCheck";
 
@@ -18,7 +19,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
@@ -59,6 +60,7 @@ export function AdminBewerbungAnnehmenSection({
   hindernis: string | null;
 }) {
   const twoPress = useTwoPressConfirm();
+  const router = useRouter();
   const { isConfirming, press, cancel } = twoPress;
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(null);
@@ -82,7 +84,7 @@ export function AdminBewerbungAnnehmenSection({
 
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(unansweredAction);
+      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(rejectedWrite(router));
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.

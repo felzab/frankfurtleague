@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
@@ -27,17 +28,19 @@ describe("a control whose write is running", () => {
     const user = userEvent.setup();
     const onConfirm = mock.fn(() => new Promise<ActionResult>(() => {}));
     render(
-      h(ConfirmDeleteModal, {
-        isOpen: true,
-        onClose: () => undefined,
-        heading: "Spielort stilllegen",
-        entityLabel: "den Spielort",
-        entityName: "Halle West",
-        consequence: "Er fehlt dann in der Auswahl.",
-        successMessage: "Spielort stillgelegt",
-        failureMessage: "Spielort nicht stillgelegt",
-        onConfirm,
-      }),
+      underNext(
+        h(ConfirmDeleteModal, {
+          isOpen: true,
+          onClose: () => undefined,
+          heading: "Spielort stilllegen",
+          entityLabel: "den Spielort",
+          entityName: "Halle West",
+          consequence: "Er fehlt dann in der Auswahl.",
+          successMessage: "Spielort stillgelegt",
+          failureMessage: "Spielort nicht stillgelegt",
+          onConfirm,
+        }),
+      ),
     );
 
     await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
