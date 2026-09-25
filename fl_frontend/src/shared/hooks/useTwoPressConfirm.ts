@@ -22,10 +22,18 @@ export function useTwoPressConfirm(guard?: () => boolean): {
   const [isPending, startWriting] = useTransition();
   // A ref, not state: the timestamp decides inside the handler and renders nothing.
   const armedAt = useRef(0);
+  // Set in the handler that starts the write, so a press landing before the render that reports
+  // `isPending` is refused as surely as one landing after it.
+  const isWritingRef = useRef(false);
+  const isInFlight = () => isPending || isWritingRef.current;
 
   // `write` runs inside this hook's transition, so an update it makes after its own `await` takes
   // React's standalone `startTransition` at that site, or it commits before the press lets go.
   const press = (write: () => Promise<void>) => {
+    // Nothing while the write flies, whatever the panel hands its control: a press would send it
+    // twice. Ahead of the guard, whose refusal would disarm the alert over a write already sent.
+    if (isInFlight()) return;
+
     // Run on BOTH presses, not just the arming one: an editor's fields stay live between arming and
     // confirming, so a draft typed in that window would go with the revalidation the write ends on.
     if (guard !== undefined && !guard()) {
@@ -46,8 +54,14 @@ export function useTwoPressConfirm(guard?: () => boolean): {
     // alert stands and a press taken after reading it still confirms.
     if (Date.now() - armedAt.current < DOUBLE_PRESS_MS) return;
 
+    isWritingRef.current = true;
     startWriting(async () => {
-      await write();
+      try {
+        await write();
+      } finally {
+        // Cleared under the transition's own `isPending`, which holds the press until the refresh lands.
+        isWritingRef.current = false;
+      }
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so a bare clear commits while the write's refresh still holds the press.
       startWriting(() => {
@@ -58,5 +72,10 @@ export function useTwoPressConfirm(guard?: () => boolean): {
     });
   };
 
-  return { isConfirming, isPending, press, cancel: () => setIsConfirming(false) };
+  // Refused in flight for the reason `press` is: disarming would drop the alert over a write already sent.
+  const cancel = () => {
+    if (!isInFlight()) setIsConfirming(false);
+  };
+
+  return { isConfirming, isPending, press, cancel };
 }

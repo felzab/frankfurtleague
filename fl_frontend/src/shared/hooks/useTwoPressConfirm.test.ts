@@ -9,9 +9,11 @@ import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
 let cell: unknown;
 let cellFilled = false;
 let inFlight = false;
-/** The one `useRef` box, held across renders the same way. */
-let refBox: { current: unknown };
-let refFilled = false;
+/** The `useRef` boxes, by call order, held across renders the same way. */
+let refBoxes: { current: unknown }[] = [];
+let refCalls = 0;
+/** A refresh the write started, which React holds the transition pending for after the write answers. */
+let refreshHeld: Promise<void> | undefined;
 
 /**
  * The renderer, in the two hooks `press` actually needs. It is DRIVEN rather than read here because a
@@ -28,11 +30,9 @@ export function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
 }
 
 export function useRef<T>(initial: T): { current: T } {
-  if (!refFilled) {
-    refBox = { current: initial };
-    refFilled = true;
-  }
-  return refBox as { current: T };
+  const box = (refBoxes[refCalls] ??= { current: initial });
+  refCalls += 1;
+  return box as { current: T };
 }
 
 export function useTransition(): [boolean, (scope: () => void) => void] {
@@ -40,7 +40,9 @@ export function useTransition(): [boolean, (scope: () => void) => void] {
     inFlight,
     (scope) => {
       inFlight = true;
-      void Promise.resolve(scope() as unknown).finally(() => (inFlight = false));
+      void Promise.resolve(scope() as unknown)
+        .then(() => refreshHeld)
+        .finally(() => (inFlight = false));
     },
   ];
 }
@@ -76,7 +78,10 @@ after(() => {
 });
 
 /** One render pass. React reads the cell fresh on each, and so does the stub above. */
-const render = (guard?: () => boolean): Control => twoPressConfirm(guard);
+const render = (guard?: () => boolean): Control => {
+  refCalls = 0;
+  return twoPressConfirm(guard);
+};
 
 /** One turn of the loop — long enough for a settled write's continuation to have run. */
 const settled = (): Promise<void> => new Promise<void>((resolve) => void setTimeout(resolve, 0));
@@ -109,7 +114,8 @@ describe("the two-press confirm", () => {
   beforeEach(() => {
     cellFilled = false;
     inFlight = false;
-    refFilled = false;
+    refBoxes = [];
+    refreshHeld = undefined;
     now = 0;
   });
 
@@ -216,6 +222,62 @@ describe("the two-press confirm", () => {
     const after = render();
     assert.equal(after.isConfirming, false, "the answered write left the control armed");
     assert.equal(after.isPending, false, "the answered write left the control reporting a request");
+  });
+
+  /* A press in the same render that confirmed, before React has reported the write: the one the
+     transition's own flag cannot see yet. */
+  it("sends no second write for a press landing before the write is reported", async () => {
+    const gate = gated();
+
+    render().press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    const confirming = render();
+    confirming.press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    confirming.press(gate.write);
+    gate.finish();
+    await settled();
+
+    assert.equal(gate.calls(), 1, "a second press before the next render sent the write again");
+  });
+
+  /* The write has answered while the refresh it started holds the transition: React defers the
+     disarming with it, so every render in that window reads armed and pending, and this press is
+     made from one. */
+  it("sends no second write for a press while the write's refresh still holds the control", async () => {
+    const gate = gated();
+    let landRefresh = (): void => {};
+    refreshHeld = new Promise<void>((resolve) => (landRefresh = resolve));
+
+    render().press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    render().press(gate.write);
+    const holding = render();
+    assert.ok(holding.isConfirming && holding.isPending, "the sample never reached an armed render with the write in flight");
+    gate.finish();
+    await settled();
+
+    wait(DOUBLE_PRESS_MS);
+    holding.press(gate.write);
+    landRefresh();
+    await settled();
+
+    assert.equal(gate.calls(), 1, "a press during the refresh sent the write again");
+  });
+
+  /* The cancel stands beside a running write, and disarming there drops the alert over a write
+     already sent. */
+  it("stays armed on a cancel while the write is in flight", async () => {
+    const gate = gated();
+
+    render().press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    render().press(gate.write);
+    render().cancel();
+
+    assert.equal(render().isConfirming, true, "a cancel mid-write disarmed the control");
+    gate.finish();
+    await settled();
   });
 
   /* „Abbrechen“ is offered only while armed, so what it has to do is put the control back where the

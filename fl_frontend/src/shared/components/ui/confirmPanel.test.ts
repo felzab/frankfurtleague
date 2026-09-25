@@ -571,20 +571,6 @@ describe("the readout row", () => {
   });
 });
 
-/** The panels a second discriminator finds, for comparison against the sweep above. */
-/* Renamed OR taken by shorthand: requiring `isPending: x` made the guard unreadable for a panel that
-   destructures plainly, which is a spelling most panels do not use. */
-// `const {` and no `;` inside: a bare `\{` matched from an earlier statement's brace and read a span
-// of unrelated code as the destructuring.
-function pendingFlag(source: string): string | null {
-  const destructured = /const \{([^};]*)\}\s*=\s*useTwoPressConfirm\(/.exec(source);
-
-  if (destructured === null) return null;
-  const names = destructured[1]!;
-  const renamed = /isPending:\s*(\w+)/.exec(names);
-  return renamed !== null ? renamed[1]! : names.includes("isPending") ? "isPending" : null;
-}
-
 /** The shared control as a panel writes it, which is self-closing: every branch inside it is the component's. */
 function armedControl(source: string): string {
   const opens = source.indexOf(`<${CONTROL}`);
@@ -641,33 +627,6 @@ describe("every panel that escalates a press", () => {
 
       assert.equal(source.match(/<ConfirmReveal>/g)?.length, 1, `${file}: does not hold exactly one armed reveal`);
       assert.equal(source.match(/<ConfirmActionRow/g)?.length, 1, `${file}: does not hold exactly one action row`);
-    }
-  });
-
-  /* Per panel, because the gap was: a primary control left open during its request sends the write
-     twice. What a panel owes is telling the row and the control that its own write is running. */
-  it("hand the flight of their own write to the shared row and the shared control", () => {
-    for (const file of PANELS) {
-      const source = read(file);
-      const flag = pendingFlag(source);
-
-      assert.ok(flag !== null, `${file}: takes no pending flag from the shared hook`);
-
-      const row = openingTag(source, source.indexOf("<ConfirmActionRow"));
-      assert.ok(row.includes(`isPending={${flag}}`), `${file}: the shared row never learns the write is in flight`);
-
-      const tag = armedControl(source);
-
-      assert.ok(tag.length > 0, `${file}: no opening tag around the armed control`);
-      // Split on the non-word runs so a flag never matches inside a longer name.
-      const held = attributeValue(tag, "isPending", file).split(/[^A-Za-z0-9_]+/);
-
-      assert.ok(held.includes(flag), `${file}: a second press during the request sends a second write`);
-      assert.ok(
-        attributeValue(tag, "isDisabled", file) === "",
-        `${file}: closes the shared control from outside, which is the one thing the component decides`,
-      );
-      assert.ok(attributeValue(tag, "isConfirming", file).includes("isConfirming"), `${file}: the control never learns it is armed`);
     }
   });
 
