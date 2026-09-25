@@ -301,7 +301,7 @@ rather than dispatching an action, the editor being unmounted by the time the pr
 `runAdminMutation` are reached — each of the eight `route.ts` files supplies a name, a schema and
 the replay, and nothing else. **Both answer 200 with the outcome in the body for every reportable
 case but a caller with no admin session**, a non-2xx landing in the dispatch's rejection arm, which
-blames the transport and sends the admin to check a connection that is fine. **That caller is turned
+calls the undo unclear where the route has already said what became of it. **That caller is turned
 away where `fl_frontend/src/proxy.ts` would send it**, `/api/admin/*` being outside the proxy's
 matcher: a lapsed session answers 401 and leaves for `/signin` (I251), and a session without the
 admin role answers 403 and leaves for `/`. The dispatch reads both ahead of that arm and says the
@@ -315,7 +315,10 @@ standing only where the replay is one write**: a replay that commits in parts wo
 went back instead. **`fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` therefore
 clears the caches wherever its restore ran, never only where it committed** — a refusal and a throw
 each leave rows written behind them, and a cached read would go on serving what the undo took back.
-The dispatch re-reads the screen on a refusal for that same reason. The contacts undo reaches
+**A replay whose write comes back unacknowledged is no refusal**: it may have landed, so the route
+answers it as of unknown outcome (`fl_frontend/src/shared/utils/undoRoute.ts :: UndoReport`) and the
+dispatch titles it „Rücknahme unklar“ over the route's sentence. The dispatch re-reads the screen on
+a refusal and on every outcome it cannot tell, for that same reason. The contacts undo reaches
 `revalidateTag` not at all — the one place the eight differ (I14).
 
 **Where a page-owned editor's write has no undo, the absence is never an omission.** The rollover
@@ -694,8 +697,9 @@ stands in for. The toast module is doubled the same way by its sibling `:: doubl
 its members from `appToast.ts`'s own source and records what was raised. A callback the component
 already takes is handed a `mock.fn()` from `node:test`.
 
-**A source-text assertion is for what no rendering can show** — a convention spanning files, a
-directive, a wiring between two of them. Held against a component's own output, a regex over the
+**A source-text assertion is for what neither a rendering nor a call can show** — a convention
+spanning files, a directive, a wiring between two of them that no answer carries, such as the tags a
+write clears. Held against a component's own output, a regex over the
 source passes on markup that says the opposite and on a component nothing renders at all.
 
 **The `test:base` script both tiers run stands `fl_frontend/src/core/config.ts`'s gate down and
@@ -778,7 +782,7 @@ never by its source naming the mapper.
 
 **A citation to this section never stands as that reason.** The shapes above decide whether a
 source-text assertion is available at all; what a test writes is the subject its own assertion has —
-the armed form of a two-press control, the wiring between two modules — and a pointer to this
+the armed form of a two-press control, the tags a write clears — and a pointer to this
 section in place of one is the excuse that decision refuses.
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
