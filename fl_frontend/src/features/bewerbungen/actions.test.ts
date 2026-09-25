@@ -2,19 +2,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
-import { describe, it } from "node:test";
-
-import ts from "typescript";
+import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
@@ -50,7 +50,11 @@ const errorOf = (result: { success: boolean; error?: string }): string => result
 /** The origin this run is configured with, which no published address shares. */
 const ORIGIN = "http://localhost:3000";
 const mailed: { to: string; text: string }[] = [];
-Reflect.set(globalThis, "__flBewerbungMailed", mailed);
+/** Every argument each logger call was handed, whatever its level. */
+const logged: unknown[][] = [];
+const recorders = globalThis as unknown as Record<string, unknown>;
+recorders.__flBewerbungMailed = mailed;
+recorders.__flBewerbungLogged = logged;
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
@@ -58,20 +62,47 @@ registerHooks({
       return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
     }
     if (url.endsWith("/src/core/mail.ts")) {
+      // A mailbox refusing the message is what a case sets `__flBewerbungMailRefused` for.
       const source = `export class MailWithheldError extends Error {}
 export class MailRecipientError extends Error {}
-export const sendMail = async (mail) => (globalThis.__flBewerbungMailed.push({ to: mail.to, text: mail.text }), { id: "msg-1" });`;
+export const sendMail = async (mail) => {
+  if (globalThis.__flBewerbungMailRefused) throw new MailRecipientError("the mailbox refused the message");
+  globalThis.__flBewerbungMailed.push({ to: mail.to, text: mail.text });
+  return { id: "msg-1" };
+};`;
       return { format: "module", source, shortCircuit: true };
     }
     return nextLoad(url, context);
   },
 });
 
-/* The real actions, called: the request they run in, the application three of them read first and
-   the writes they send are the doubles. */
+/* The real actions, called: the request they run in, the application three of them read first,
+   the club list and the writes they send are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/bewerbungen/mutations.ts"] });
+// After the request's own doubles, whose silent logger this one stands in front of: the stream is
+// where a token must never reach.
+registerHooks({
+  load(url, context, nextLoad) {
+    if (!url.endsWith("/src/core/logging.ts")) return nextLoad(url, context);
+    const source = `const record = (...args) => void globalThis.__flBewerbungLogged.push(args);
+export const logger = { debug: record, info: record, warn: record, error: record };`;
+    return { format: "module", source, shortCircuit: true };
+  },
+});
+const { answerWith, calls: writes } = doubleActions({ modules: ["/src/features/bewerbungen/mutations.ts"] });
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
+const { answerWith: clubsWith } = doubleActions({
+  modules: ["/src/features/teams/queries.ts"],
+  answer: () => Promise.resolve({ teams: [{ id: GEWAEHLT.bewerbung.team_id, name: "Helmholtz" }] }),
+});
+
+/* Each case starts with nothing mailed, logged or written, and with every mailbox taking the message. */
+beforeEach(() => {
+  mailed.length = 0;
+  logged.length = 0;
+  writes.length = 0;
+  recorders.__flBewerbungMailRefused = false;
+});
 const {
   ablehnenBewerbungAction,
   annehmenBewerbungAction,
@@ -79,6 +110,8 @@ const {
   einwilligungErneutSendenAction,
   kontaktEmailKorrigierenAction,
 } = await import("./actions.ts");
+/* After the doubles, as the actions are: a static import would load the real mail module first. */
+const { rollenText } = await import("./notifications.ts");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -105,14 +138,8 @@ const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "
 const MAPPER = sliceBetween(REFUSALS, "export function mapTriageRefusal", "export function mapEinwilligungErneutRefusal");
 const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
 const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "const BEWERBUNG_WEG");
-/** Everything both decisions run AFTER their write has committed. */
-const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export async function annehmenBewerbungAction");
 
 const ERNEUT_MAPPER = sliceBetween(REFUSALS, "export function mapEinwilligungErneutRefusal", "const ANGABEN_STEHEN_FEST");
-/** Every sentence the re-send answers with instead of a link, read as its declaration writes it. */
-const resendSentence = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
-/** What the re-send runs after its own write, which is where the minted token is spent. */
-const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
 const ERNEUT_ACTION = sliceBetween(
   ACTIONS,
   "export async function einwilligungErneutSendenAction",
@@ -143,28 +170,6 @@ const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)
 /** Every code the reseat answers, read off its own switch rather than the correction's. */
 const sitzCodes = [...SITZ_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
-/**
- * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
- * the multi-line one — a one-line call then reaches the stream unread by anything below.
- */
-function loggerCalls(): { level: string; argument: string }[] {
-  const source = ts.createSourceFile(path.resolve(import.meta.dirname, "actions.ts"), ACTIONS, ts.ScriptTarget.Latest, true);
-  const found: { level: string; argument: string }[] = [];
-
-  source.forEachChild(function walk(node: ts.Node): void {
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
-      const callee = node.expression;
-
-      if (ts.isIdentifier(callee.expression) && callee.expression.text === "logger") {
-        for (const argument of node.arguments) found.push({ level: callee.name.text, argument: argument.getText(source) });
-      }
-    }
-    node.forEachChild(walk);
-  });
-
-  return found;
-}
-
 /** Every code the re-send answers, read off its own switch rather than the triage's. */
 const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
@@ -183,19 +188,12 @@ describe("the slices these assertions read", () => {
     assert.ok(ABLEHNEN_ACTION.includes("ablehnenBewerbung(validated.data)"), "the decline's call is outside its slice");
     assert.ok(!ABLEHNEN_ACTION.includes("annehmenBewerbung("), "the decline's slice reaches the acceptance");
 
-    assert.ok(NOTIFY.includes("await resolveBewerbungTeamName("), "the club-name read is outside the notification's slice");
-    assert.ok(!NOTIFY.includes("annehmenBewerbung("), "the notification's slice reaches the acceptance");
-
     assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
   });
 
-  it("cuts the re-send's mapper, its send and its action apart", () => {
+  it("cuts the re-send's mapper and its action apart", () => {
     assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
     assert.ok(!ERNEUT_MAPPER.includes("REQ-BEWERBUNG-014"), "the re-send mapper's slice reaches the correction's");
-    assert.ok(resendSentence("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
-
-    assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
-    assert.ok(!ERNEUT_SENDER.includes("erneutSendenEinwilligung("), "the send's slice reaches the write it reports");
 
     assert.ok(ERNEUT_ACTION.includes("erneutSendenEinwilligung(validated.data)"), "the re-send's call is outside its slice");
     assert.ok(!ERNEUT_ACTION.includes("ablehnenBewerbung("), "the re-send's slice reaches the decline");
@@ -355,33 +353,143 @@ describe("what each decision moves", () => {
   });
 });
 
+/** The application a decision's write answers with: a proposed school, one seat holding a mailbox. */
+const ENTSCHIEDEN = {
+  saison_id: "2026",
+  schule: { team_name: "Gymnasium Beispiel" },
+  team_id: null,
+  wunschgegner: null,
+  kontakte: { trainer: null, ansprechperson: PERSON, stellvertretung: null },
+};
+
+/** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
+const DECISIONS = [
+  {
+    where: "the acceptance",
+    betreff: "Zusage",
+    operation: ANNEHMEN_OPERATION,
+    landed: (document: object) => ({
+      acknowledged: 1,
+      saison_id: "2026",
+      gruppe: "A",
+      trikot_farbe: null,
+      created_team: true,
+      team_id: GEWAEHLT.bewerbung.team_id,
+      updated_document: document,
+    }),
+    press: () => annehmenBewerbungAction(ANNAHME),
+  },
+  {
+    where: "the decline",
+    betreff: "Absage",
+    operation: ABLEHNEN_OPERATION,
+    landed: (document: object) => ({ acknowledged: 1, updated_document: document }),
+    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+  },
+] as const;
+
+/** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
+const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" } as const;
+const SITZ = {
+  id: BEWERBUNG_ID,
+  rolle: "ansprechperson",
+  vorname: "Berta",
+  nachname: "Beispiel",
+  email: "berta@example.de",
+  telefon: "069 1234567",
+  text_version: LIGA_KENNTNISNAHME.textVersion,
+} as const;
+
+/** The writes that mint a seat's link, and so spend the one it held. */
+const MINTS = ["erneutSendenEinwilligung", "korrigierenKontaktEmail", "besetzenKontaktSitz"];
+
+/** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
+const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
+
+/**
+ * The application read, answering `before` until a repair's write has landed and `after` from then
+ * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
+ */
+function readAcrossTheWrite(before: unknown, after: unknown): void {
+  readWith(() => {
+    const answer = writes.some(({ action }) => MINTS.includes(action)) ? after : before;
+    return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+  });
+}
+
+/** The re-send's answer to each state it cannot compose a message from. */
+async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
+  const pressOn = async (gelesen: unknown): Promise<string> => {
+    readWith(() => Promise.resolve(gelesen));
+    return errorOf(await einwilligungErneutSendenAction(ERNEUT));
+  };
+
+  return {
+    weg: await pressOn(null),
+    leer: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: null } } }),
+    ohneAdresse: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: { ...PERSON, email: "" } } } }),
+    ohneTeam: await pressOn({ bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: null } }),
+  };
+}
+
+/** What the re-send's write answers where it lands, minting `token-neu` for the seat and mailbox it matched. */
+const erneutGeschrieben = (overrides: object = {}) => ({
+  acknowledged: 1,
+  token: "token-neu",
+  rolle: "ansprechperson",
+  email: PERSON.email,
+  rollen: ["ansprechperson"],
+  bestaetigungsfrist: "2026-09-18",
+  ...overrides,
+});
+
+/** What the correction's write answers where it lands. */
+const korrigiert = () => ({
+  acknowledged: 1,
+  email: KORREKTUR.email,
+  rollen: ["ansprechperson"],
+  token: "token-korrektur",
+  bestaetigungsfrist: "2026-09-18",
+});
+
+/** What the reseat's write answers where it lands, for the seats it filled. */
+const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
+  acknowledged: 1,
+  rollen: rollen,
+  token: "token-sitz",
+  bestaetigungsfrist: "2026-09-18",
+});
+
+/** A success's report, or the refusal's sentence where the action failed. */
+const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
+
 describe("the message that follows a decision", () => {
   /* After the write in both, and the write is what the report is about: a message sent first would
      tell a school it was accepted over a request the backend went on to refuse. */
-  it("mails only after the API write has answered", () => {
-    for (const [slice, call, where] of [
-      [ANNEHMEN_ACTION, "annehmenBewerbung(validated.data)", "the acceptance"],
-      [ABLEHNEN_ACTION, "ablehnenBewerbung(validated.data)", "the decline"],
-    ] as const) {
-      const wrote = slice.indexOf(call);
-      const notified = slice.indexOf("await notifyBewerbung(");
+  it("mails nothing where the API write is refused", async () => {
+    for (const { where, operation, press } of DECISIONS) {
+      answerWith(() => Promise.reject(refusedOn(operation, "REQ-BEWERBUNG-001")));
 
-      assert.notEqual(notified, -1, `${where} sends no message at all`);
-      assert.ok(wrote < notified, `${where} sends its message before the write it reports`);
+      const result = await press();
+
+      assert.equal(result.success, false, `${where} was not refused, so the mail below is judged on nothing`);
+      assert.deepEqual(mailed, [], `${where} told the school of a decision the backend refused`);
     }
   });
 
   /* The decision is committed and no endpoint takes it back, so nothing after the send may report a
      failure — the addresses that were not reached travel in the success message instead. */
-  it("reports the decision as taken whatever the mail did", () => {
-    for (const [slice, where] of [
-      [ANNEHMEN_ACTION, "the acceptance"],
-      [ABLEHNEN_ACTION, "the decline"],
-    ] as const) {
-      const notified = slice.indexOf("await notifyBewerbung(");
+  it("reports the decision as taken whatever the mail did", async () => {
+    recorders.__flBewerbungMailRefused = true;
 
-      assert.ok(!slice.slice(notified).includes("success: false"), `${where} fails the whole decision over a message it could not send`);
-      assert.match(slice.slice(notified), /message: /, `${where} drops the delivery report out of what it returns`);
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
+      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
     }
   });
 });
@@ -409,9 +517,6 @@ describe("how each endpoint is addressed", () => {
     assert.ok(!MUTATIONS.includes("JSON.stringify(validated.data)"), "a mutation sends the whole payload, id included");
   });
 });
-
-/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
-const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
 
 /** Where one surface's German comes from: what it rendered, split into its sentences. */
 type RenderingSource = { where: string; rendered: readonly string[] };
@@ -662,57 +767,42 @@ describe("a message that cannot be sent", () => {
   /* Thrown out of a decision, a read AFTER its write turns one that stands into a reported failure,
      and the retry it invites is refused as already taken (`REQ-BEWERBUNG-001`). Thrown BEFORE the
      re-send's mint, the same read has cost nothing. */
-  it("guards the club-name read that follows a write, and lets the one preceding a mint throw", () => {
-    const file = path.resolve(import.meta.dirname, "actions.ts");
-    const source = ts.createSourceFile(file, ACTIONS, ts.ScriptTarget.Latest, true);
-    const reads: { holder: string; guarded: boolean; at: number }[] = [];
+  it("reports a decision whose club read failed as taken, and tells the administrator to write to the contacts", async () => {
+    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
 
-    source.forEachChild(function walk(node: ts.Node): void {
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "resolveBewerbungTeamName") {
-        let guarded = false;
-        let holder = "";
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      // A picked club, whose name only the club list answers.
+      answerWith(() => Promise.resolve(landed({ ...ENTSCHIEDEN, schule: null, team_id: GEWAEHLT.bewerbung.team_id })));
 
-        for (let ancestor: ts.Node | undefined = node; ancestor?.parent; ancestor = ancestor.parent) {
-          const parent: ts.Node = ancestor.parent;
+      const result = await press();
 
-          // The TRY block specifically: the same call standing in the catch would be unguarded again.
-          if (ts.isTryStatement(parent) && parent.tryBlock === ancestor && parent.catchClause) guarded = true;
-          if (holder === "" && ts.isFunctionDeclaration(parent) && parent.name !== undefined) holder = parent.name.text;
-        }
-        reads.push({ holder: holder, guarded: guarded, at: node.getStart(source) });
-      }
-      node.forEachChild(walk);
-    });
-
-    // The exact count rather than a floor: each reader is judged by its own rule below, and a
-    // further one is a path whose side of the write nobody has decided.
-    assert.equal(reads.length, 4, `expected four club-name readers, found ${String(reads.length)}`);
-
-    const afterTheWrite = reads.find((read) => read.holder === "notifyBewerbung");
-    assert.ok(afterTheWrite?.guarded, "a failed club read reports a committed decision as one that did not happen");
-
-    // Each of the three that mint: each reads before its own write, where a throw has cost nothing.
-    for (const [holder, schreiben] of [
-      ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
-      ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
-      ["besetzeKontaktSitzAction", "await besetzenKontaktSitz("],
-    ] as const) {
-      const beforeTheMint = reads.find((read) => read.holder === holder);
-
-      assert.ok(beforeTheMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
-      assert.ok(
-        beforeTheMint.at < ACTIONS.indexOf(schreiben),
-        `${holder} reads the club's name after spending the seat's link on a message it may not be able to compose`,
+      assert.equal(result.success, true, `${where} reports a committed decision as one that did not happen`);
+      assert.match(
+        answerOf(result),
+        new RegExp(`Die ${betreff} konnte nicht verschickt werden\\. Melde Dich selbst bei den Kontaktpersonen der Bewerbung\\.`),
+        `${where} leaves the administrator no remedy for the message nobody received`,
       );
     }
   });
 
-  /* What the administrator is left with: the decision is taken, nobody was written to, and the only
-     remedy is theirs. */
-  it("tells the administrator to write to the contacts itself", () => {
-    assert.match(NOTIFY, /konnte nicht verschickt werden/, "the caught failure reports nothing to the administrator");
-    assert.match(NOTIFY, /Melde Dich selbst bei den Kontaktpersonen der Bewerbung\./, "the report names no remedy");
-    assert.ok(!NOTIFY.includes("throw"), "the notification throws again, so the committed decision still reports a failure");
+  it("lets the club read that precedes a mint throw, before any link is spent", async () => {
+    readWith(() => Promise.resolve(GEWAEHLT));
+    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
+
+    for (const [where, press, mint] of [
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), "erneutSendenEinwilligung"],
+      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), "korrigierenKontaktEmail"],
+      ["the reseat", () => besetzeKontaktSitzAction(SITZ), "besetzenKontaktSitz"],
+    ] as const) {
+      const result = await press();
+
+      assert.equal(result.success, false, `${where} answered as though the club read had not failed`);
+      assert.deepEqual(
+        writes.filter(({ action }) => action === mint),
+        [],
+        `${where} spent the seat's link before a club read that could not compose its message`,
+      );
+    }
   });
 });
 
@@ -804,131 +894,157 @@ describe("the re-sent confirmation link", () => {
 
   /* The token is minted and the deadline moved by the time the message is composed, so the read that
      carries the new deadline has to come after the write rather than from the page's own copy. */
-  it("mails only after the API write has answered", () => {
-    const wrote = ERNEUT_ACTION.indexOf("erneutSendenEinwilligung(validated.data)");
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("mails nothing where the write is refused, and states the deadline the write set", async () => {
+    answerWith(() => Promise.reject(refusedOn(ERNEUT_OPERATION, publishedRefusals(ERNEUT_OPERATION)[0] ?? "")));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.ok(wrote < notified, "the re-send sends its message before the write that mints the token");
-    assert.ok(ERNEUT_SENDER.includes("await getBewerbungById("), "the message is composed without re-reading the deadline the write moved");
+    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, false, "the re-send was not refused, so nothing is judged");
+    assert.equal(mailed.length, 0, "the re-send mailed a link the backend refused to mint");
+
+    // The refused write is recorded too, and the read below tells before from after by the writes.
+    writes.length = 0;
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-18" } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.equal(
+      (await einwilligungErneutSendenAction(ERNEUT)).success,
+      true,
+      "the re-send mailed nothing, so the deadline is judged on nothing",
+    );
+    assert.ok(
+      mailed[0]?.text.includes(formatSpielDatum("2026-09-18")),
+      "the message states the deadline the page held, not the one the write set",
+    );
   });
 
   /* Judged before the mint, because `compose_erneut_update` replaces the seat's entry whole: a press
      that could never compose a message would otherwise void the link that seat is holding. */
-  it("refuses what it could not send before it spends the seat's link", () => {
-    const mint = ERNEUT_ACTION.indexOf("await erneutSendenEinwilligung(");
+  it("refuses what it could not send before it spends the seat's link", async () => {
+    const answers = await unsendableAnswers();
 
-    assert.notEqual(mint, -1, "the re-send no longer calls the write these cases are about");
-
-    for (const [pruefung, satz] of [
-      ["gelesen === null", "BEWERBUNG_WEG"],
-      ["person === null", "SITZ_LEER"],
-      ['person.email === ""', "ERNEUT_OHNE_ADRESSE"],
-      ["benanntesTeam === null", "KEIN_TEAM"],
-    ] as const) {
-      const at = ERNEUT_ACTION.indexOf(pruefung);
-
-      assert.notEqual(at, -1, `the re-send no longer judges \`${pruefung}\``);
-      assert.ok(at < mint, `the re-send judges \`${pruefung}\` after a mint that has already voided the seat's link`);
-      assert.ok(ERNEUT_ACTION.slice(at, mint).includes(`error: ${satz}`), `\`${pruefung}\` no longer answers with ${satz}`);
-    }
+    assert.match(answers.weg, /Diese Bewerbung gibt es nicht mehr/);
+    assert.match(answers.leer, /Für diese Rolle steht niemand mehr in der Bewerbung/);
+    assert.equal(answers.ohneAdresse, ERNEUT_OHNE_ADRESSE);
+    assert.match(answers.ohneTeam, /Diese Bewerbung nennt kein Team/);
+    assert.deepEqual(writes, [], "the re-send spent the seat's link on a press that could never compose its message");
   });
 
   /* One sentence for four states told an administrator the seat had no address where the application
      named no club at all, and the repair each of them offers is a different one. */
-  it("gives each of those states a sentence of its own", () => {
+  it("gives each of those states a sentence of its own", async () => {
     // Punctuation dropped: a refusal built from a reason and a repair carries the stops `buildRefusal`
     // writes, and comparing them would call two identical answers different.
-    const comparable = (germanSentences: string[]): string =>
-      germanSentences
-        .join(" ")
+    const comparable = (satz: string): string =>
+      satz
         .toLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, " ")
         .trim();
-    const readBack = (name: string): string => comparable(sentencesOf(resendSentence(name)));
 
-    // The empty address's sentence is the one the strip shares, so it is read off the constant both import.
-    const germanSentences = [
-      ...["BEWERBUNG_WEG", "SITZ_LEER"].map(readBack),
-      comparable([ERNEUT_OHNE_ADRESSE]),
-      ...["KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(readBack),
-    ];
+    const unsendable = Object.values(await unsendableAnswers());
+    recorders.__flBewerbungMailRefused = true;
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    const unsent = errorOf(await einwilligungErneutSendenAction(ERNEUT));
+
+    const saetze = [...unsendable, unsent].map(comparable);
 
     assert.ok(
-      germanSentences.every((satz) => satz !== ""),
-      `a re-send sentence reaches no literal at all: ${germanSentences.join(" | ")}`,
+      saetze.every((satz) => satz !== ""),
+      `a re-send answered with no sentence at all: ${saetze.join(" | ")}`,
     );
-    assert.equal(new Set(germanSentences).size, germanSentences.length, "two of the re-send's answers say the same thing");
+    assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
   });
 
   /* A success title over a message that never went out leaves an administrator waiting on an answer
      to a link that reached nobody, while the seat's previous one is spent. */
-  it("answers a message that did not go out as a failure, naming what the press cost", () => {
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("answers a message that did not go out as a failure, naming what the press cost", async () => {
+    recorders.__flBewerbungMailRefused = true;
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.match(
-      ERNEUT_ACTION.slice(notified),
-      /zustellung\.verschickt \? \{ success: true/,
-      "the send's own verdict no longer decides the answer",
-    );
-    assert.match(
-      ERNEUT_ACTION.slice(notified),
-      /success: false, error: zustellung\.error/,
-      "a refused send is still reported as a link on its way",
-    );
-    assert.match(ERNEUT_ACTION.slice(notified), /message: /, "the re-send drops the delivery report out of what it returns");
+    const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    const costs = resendSentence("KEIN_LINK_VERSCHICKT");
-
-    assert.match(costs, /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(costs, /Versuche es noch einmal/, "the failure names no way out");
+    assert.equal(result.success, false, "a refused send is still reported as a link on its way");
+    assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
+    assert.match(errorOf(result), /Versuche es noch einmal/, "the failure names no way out");
   });
 
   /* The endpoint writes the deadline in the same update that mints the token, so an application
      answering none afterwards is a contract broken rather than a state to word for an administrator. */
-  it("throws where the write it has just made answers no deadline", () => {
-    const at = ERNEUT_SENDER.indexOf("frist === null");
+  it("throws where the write it has just made answers no deadline", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.notEqual(at, -1, "the send no longer judges the deadline the write moved");
-    assert.match(
-      ERNEUT_SENDER.slice(at),
-      /^frist === null\) throw new Error\(/,
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+    const thrown = logged.find(([line]) => line === "Admin mutation failed: einwilligungErneutSendenAction")?.[1];
+
+    assert.equal(result.success, false);
+    assert.ok(
+      thrown instanceof Error && /Bestätigungsfrist/.test(thrown.message),
       "a missing deadline is worded for an administrator rather than thrown",
     );
+    assert.deepEqual(mailed, [], "a message went out stating no deadline");
   });
 
   /* A correction landing between the page's read and this write moves the mailbox, and only the
      write's own image knows it: the read would mail the address the correction replaced. */
-  it("mails the address and the seats the write itself answered", () => {
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("mails the address and the seats the write itself answered", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben({ email: "anna.neu@example.de", rollen: ["trainer", "ansprechperson"] })));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.match(ERNEUT_ACTION.slice(notified), /email: erneutOperation\.email/, "the re-send mails the address its own read held");
-    assert.match(ERNEUT_ACTION.slice(notified), /sitze: erneutOperation\.rollen/, "the re-send names seats its own read paired");
-    assert.ok(!ERNEUT_ACTION.includes("gepaarteSitze("), "the re-send recomputes the pair off the page it was drawn from");
-    assert.match(SCHEMAS, /FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema\.extend\(\{[^}]*email: z\.string\(\)/);
+    await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      ["anna.neu@example.de"],
+      "the re-send mails the address its own read held",
+    );
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
   });
 
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
-  it("spells the minted token into the link and into nothing else", () => {
-    const link = "bestaetigungsLink(origin, token)";
+  it("spells the minted token into the link and into nothing else", async () => {
+    const token = "token-geheim";
+    const results: unknown[] = [];
 
-    assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
-    assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
+    // Every path a minted token is in scope on that answers or logs: a landed send, a refused one,
+    // a failed read after the write, and each repair's caught throw.
+    readAcrossTheWrite(VOR_DER_REPARATUR, VOR_DER_REPARATUR);
+    answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
+    assert.ok(
+      mailed.some(({ text }) => text.includes(bestaetigungsLink(ORIGIN, token))),
+      "the landed send mailed no link, so the token is judged on nothing",
+    );
 
-    const loggedLine = loggerCalls();
+    recorders.__flBewerbungMailRefused = true;
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
+    recorders.__flBewerbungMailRefused = false;
 
-    // The module logs, so a walk that found nothing is this sweep broken rather than a clean module.
-    assert.ok(loggedLine.length > 0, "no logger call was found at all, so nothing below was judged");
+    writes.length = 0;
+    readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
 
-    for (const { level, argument } of loggedLine) {
-      // Every call in the module and every argument of it, never the re-send's slice: a line moved
-      // one function along is the same credential on the same stream.
-      assert.doesNotMatch(argument, /\btoken\b/, `logger.${level} names the token in \`${argument}\``);
-      assert.ok(!argument.includes(link), `logger.${level} names the confirmation link in \`${argument}\``);
+    for (const [press, answer] of [
+      [() => kontaktEmailKorrigierenAction(KORREKTUR), { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"] }],
+      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
+    ] as const) {
+      writes.length = 0;
+      readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+      answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
+      results.push(await press());
     }
+
+    // The module logs on these paths, so a stream that recorded nothing is this case broken rather
+    // than a clean module.
+    assert.ok(logged.length > 0, "no logger call was recorded at all, so nothing below was judged");
+
+    const spelled = (value: unknown): string =>
+      JSON.stringify(value, (_key, inner: unknown) =>
+        inner instanceof Error ? `${inner.name}: ${inner.message} ${inner.stack ?? ""}` : inner,
+      );
+    for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
+    for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
   });
 
   /* This moves the application's own confirmation block and its deadline, and no cached read holds an
@@ -972,45 +1088,64 @@ describe("the corrected contact address", () => {
 
   /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
      address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
-  it("mails the address the write stored, never the one the read still holds", () => {
-    assert.match(
-      KORREKTUR_ACTION,
-      /email: validated\.data\.email/,
+  it("mails the address the write stored, never the one the read still holds", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email],
       "the correction composes its message against the address the application held before the write",
     );
   });
 
   /* The address IS corrected whatever the message did, so a failure arm here would tell the
      administrator to try a correction that has already happened. */
-  it("reports a corrected address whose message did not go as a correction that stands", () => {
-    assert.match(KORREKTUR_ACTION, /success: true, verschickt: false/, "a refused send reports the correction as one that did not happen");
-    assert.ok(!KORREKTUR_ACTION.includes("success: false, error: zustellung.error"), "the correction takes the re-send's failure arm");
+  it("reports a corrected address whose message did not go as a correction that stands", async () => {
+    recorders.__flBewerbungMailRefused = true;
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.equal(result.success, true, "a refused send reports the correction as one that did not happen");
+    assert.equal(result.success ? result.verschickt : undefined, false, "a refused send reports a link on its way");
+    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
   });
 
   /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
      throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
      written, with the seat's previous link already dead. */
-  it("catches a message that threw, the address being stored before it is composed", () => {
-    const sentMail = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
-    const caught = KORREKTUR_ACTION.indexOf("} catch (error) {", sentMail);
+  it("catches a message that threw, the address being stored before it is composed", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(korrigiert()));
 
-    assert.notEqual(sentMail, -1, "the correction sends no message at all");
-    assert.notEqual(caught, -1, "a throw from the send escapes the correction as a write that did not happen");
-    assert.match(
-      KORREKTUR_ACTION.slice(caught),
-      /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/,
-      "the caught throw answers with something other than the correction standing and no link sent",
-    );
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.equal(result.success, true, "a throw from the send escapes the correction as a write that did not happen");
+    assert.equal(result.success ? result.verschickt : undefined, false);
+    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the caught throw answers with something other than no link sent");
   });
 
   /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
      the message names both or a reader goes looking for a second link that will never come. */
-  it("names every seat of a mirrored pair in the message it sends", () => {
-    assert.match(
-      KORREKTUR_ACTION,
-      /sitze: gepaarteSitze\(bewerbung, validated\.data\.rolle\)/,
-      "the correction names one seat of a mirrored pair",
+  it("names every seat of a mirrored pair in the message it sends", async () => {
+    readWith(() =>
+      Promise.resolve({
+        bewerbung: {
+          ...VOR_DER_REPARATUR.bewerbung,
+          kontakte: { trainer: PERSON, ansprechperson: PERSON, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" },
+          bestaetigungen: { trainer: { bestaetigt_am: null }, ansprechperson: { bestaetigt_am: null }, stellvertretung: null },
+        },
+      }),
     );
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names one seat of a mirrored pair");
   });
 
   it("moves no tag, and says why", () => {
@@ -1074,28 +1209,60 @@ describe("the person seated where one stepped out", () => {
 
   /* `SITZ_LEER` is the correction's guard on an empty slot, and an empty slot is what this write runs
      ON: copied here it would refuse every press the control is offered for. */
-  it("judges no empty seat of its own, that being its entry condition", () => {
-    assert.ok(!SITZ_ACTION.includes("SITZ_LEER"), "the reseat refuses the seat state it exists to repair");
-    assert.ok(SITZ_ACTION.includes("BEWERBUNG_WEG") && SITZ_ACTION.includes("KEIN_TEAM"), "the reseat stopped judging what it cannot compose");
+  it("judges no empty seat of its own, that being its entry condition", async () => {
+    readWith(() => Promise.resolve({ bewerbung: { ...VOR_DER_REPARATUR.bewerbung, kontakte: { ansprechperson: null } } }));
+    answerWith(() => Promise.resolve(besetzt()));
+
+    const result = await besetzeKontaktSitzAction(SITZ);
+
+    assert.equal(result.success, true, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`);
+    assert.ok(
+      writes.some(({ action }) => action === "besetzenKontaktSitz"),
+      "the reseat never reached its write",
+    );
+  });
+
+  it("still refuses what it cannot compose a message from, before it seats anybody", async () => {
+    readWith(() => Promise.resolve(null));
+    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung gibt es nicht mehr/);
+
+    readWith(() => Promise.resolve({ bewerbung: { ...VOR_DER_REPARATUR.bewerbung, schule: null, team_id: null } }));
+    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung nennt kein Team/);
+
+    assert.deepEqual(writes, [], "the reseat seated a person behind a message nobody could compose");
   });
 
   /* `gepaarteSitze` mirrors `paired_seat`, which drops a seat missing either half — and every seat
      this write fills was emptied, so a message composed from it names one seat of a pair. */
-  it("names the seats the write itself answered rather than recomputing the pair", () => {
-    assert.match(SITZ_ACTION, /sitze: sitzOperation\.rollen/, "the reseat recomputes a pair the emptied slots hide");
-    assert.ok(!SITZ_ACTION.includes("gepaarteSitze("), "the reseat reads the pair off the page it was drawn from");
+  it("names the seats the write itself answered rather than recomputing the pair", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
+
+    await besetzeKontaktSitzAction(SITZ);
+
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the reseat recomputes a pair the emptied slots hide");
   });
 
   /* The person IS seated whatever the message did, so a failure arm here would tell the
      administrator to seat somebody who is already in the application. */
-  it("reports a filled seat whose message did not go as a seat that stands", () => {
-    const sentMail = SITZ_ACTION.indexOf("sendeBestaetigungErneut({");
-    const caught = SITZ_ACTION.indexOf("} catch (error) {", sentMail);
+  it("reports a filled seat whose message did not go as a seat that stands", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(besetzt()));
+    const thrown = await besetzeKontaktSitzAction(SITZ);
 
-    assert.notEqual(sentMail, -1, "the reseat sends no message at all");
-    assert.notEqual(caught, -1, "a throw from the send escapes the reseat as a write that did not happen");
-    assert.match(SITZ_ACTION.slice(caught), /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/);
-    assert.ok(!SITZ_ACTION.includes("success: false, error: zustellung.error"), "the reseat takes the re-send's failure arm");
+    writes.length = 0;
+    recorders.__flBewerbungMailRefused = true;
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    const refused = await besetzeKontaktSitzAction(SITZ);
+
+    for (const [how, result] of [
+      ["a throw from the send", thrown],
+      ["a refused send", refused],
+    ] as const) {
+      assert.equal(result.success, true, `${how} reports the seat as one that was never filled`);
+      assert.equal(result.success ? result.verschickt : undefined, false, `${how} reports a link on its way`);
+      assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, `${how} is reported as something other than no link sent`);
+    }
   });
 
   it("moves no tag, and says why", () => {
