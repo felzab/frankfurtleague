@@ -19,7 +19,7 @@ from typing import Final
 
 from conftest import base_env, import_scripts, lift_function, new_root, run_shell, write_shell
 
-[exposure] = import_scripts("check_compose_exposure")
+[checker] = import_scripts("check_compose_model")
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
@@ -297,7 +297,7 @@ def test_every_image_the_application_pair_does_not_run_is_fetched_where_missing(
     assert argv[:4] == ["compose", "-f", "docker-compose.yml", "pull"], argv
     assert argv[argv.index("--policy") + 1] == "missing", argv
     assert "--include-deps" not in argv, argv
-    assert set(argv[argv.index("--policy") + 2 :]) == exposure.PRODUCTION_SERVICES - {"frontend", "backend"}, argv
+    assert set(argv[argv.index("--policy") + 2 :]) == checker.PRODUCTION_SERVICES - {"frontend", "backend"}, argv
 
 
 def test_a_fetch_that_fails_refuses_before_any_application_image_is_pulled() -> None:

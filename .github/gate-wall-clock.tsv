@@ -286,7 +286,7 @@
 # `nginx/edge_test.sh`, its header block now asking every location, took 3.21-3.33 s against
 # 2.85-3.08 s for the redaction test alone, three interleaved rounds each, measured locally on
 # 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both ends are upper
-# bounds; `check_compose_exposure.py` is a standard-library read of two JSON files. Both sit inside
+# bounds; `check_compose_model.py` is a standard-library read of two JSON files. Both sit inside
 # the floor the `ops` row carries, and no row moves.
 #
 # `scripts` gained a module: `scripts/tests/test_pre_commit_format.py` commits through

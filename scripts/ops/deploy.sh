@@ -36,17 +36,17 @@ LOG_DIR="/var/log/frankfurtleague"
 LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
 
 # Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it; the
-# two lists move together (`scripts/checks/check_compose_exposure.py :: edge_mounts`). Every file in
+# two lists move together (`scripts/checks/check_compose_model.py :: edge_mounts`). Every file in
 # them must be one nginx loads: any other, a README included, fails every deploy as absent.
 EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
 # Where `docker-compose.yml :: nginx` starts its Control API, the one address that answers whether a
 # reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
-# the two spellings move together (`scripts/checks/check_compose_exposure.py :: control_socket`).
+# the two spellings move together (`scripts/checks/check_compose_model.py :: control_socket`).
 EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
 # How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
 EDGE_START_POLLS=50
 # Every production service `.github/workflows/publish.yml` does not build, held to
-# `scripts/checks/check_compose_exposure.py :: PRODUCTION_SERVICES` by
+# `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES` by
 # `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
 EDGE_IMAGE_SERVICES=(nginx cloudflared)
 

@@ -1,4 +1,4 @@
-"""SCRIPTS · what each stack exposes, and how its edge mounts its configuration, read off the model Compose renders.
+"""SCRIPTS · the models Compose renders, against each stack's rules and the files that must agree.
 
 `docker compose config` merges the files, applies the profiles and expands every short-syntax port
 and volume into its long form, so this reads the model the engine is handed rather than parsing
