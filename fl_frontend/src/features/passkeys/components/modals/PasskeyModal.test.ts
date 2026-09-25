@@ -54,7 +54,7 @@ let listed = { passkeys: EINTRAEGE, kannHinzufuegen: true };
 /** What the plugin's client hands back for the loser of two changes at once. */
 const CONFLICT = { code: "PASSKEY_ENROLMENT_CONFLICT", message: "x", status: 409, statusText: "CONFLICT" };
 
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: [/\/features\/passkeys\/actions\.ts$/],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
 });
@@ -142,6 +142,7 @@ describe("what the dialog puts in front of the administrator", () => {
 
     assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null);
     assert.ok(screen.queryByText("Windows Hello") === null, "the list resolved, so this case proves nothing");
+    await act(async () => answerPending({ success: true, message: "Gespeichert.", ...listed }));
   });
 
   /* A read the edge cut wrote nothing, so it is the failed read it is: uncaught, the opening's

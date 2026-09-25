@@ -14,7 +14,7 @@ const { raised } = doubleToasts();
 
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
+const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
@@ -67,6 +67,23 @@ describe("the actions double", () => {
       success: true,
       message: "Gespeichert.",
     });
+  });
+
+  /* A case holding a write open asserts the running state, then answers it, or the check after it fails. */
+  it("answers a write still running with what the case names", async () => {
+    answerWith(() => new Promise(() => undefined));
+    const running = spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" });
+
+    answerPending({ success: false, error: "Der Spieltag ist gesperrt." });
+
+    assert.deepEqual(await running, { success: false, error: "Der Spieltag ist gesperrt." });
+  });
+
+  it("lets a case that names why leave a write running", () => {
+    answerWith(() => new Promise(() => undefined));
+    void spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" });
+
+    leavePending("the opt-out's own case, which nothing renders a transition for");
   });
 });
 

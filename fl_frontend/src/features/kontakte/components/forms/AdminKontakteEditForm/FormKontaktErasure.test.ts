@@ -18,7 +18,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /** The panel's read and its write alike: a real one needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/kontakte/actions.ts"],
   answer: () => new Promise(() => undefined),
 });
@@ -144,6 +144,7 @@ describe("the person's erasure over its arming read", () => {
     await user.click(confirm);
 
     assert.equal(erasures(), 1, "the press stays held over the names it is confirmed over");
+    await act(async () => answerPending({ success: true, cleared: 1, message: "" }));
   });
 });
 

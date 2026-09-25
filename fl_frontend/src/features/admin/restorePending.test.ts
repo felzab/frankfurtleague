@@ -22,7 +22,7 @@ import type { AdminTeamRow } from "@/features/teams/types.ts";
 import type { ReactNode } from "react";
 
 /** A reactivation nobody has answered: the list stays in the state its running write holds it in. */
-const { calls } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
+const { calls, answerPending } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
 
 const APP_TOAST = 'const raise = () => () => "0";\nexport const appToast = { success: raise(), danger: raise() };';
 
@@ -166,6 +166,7 @@ describe("a restore on an admin list while a reactivation runs", () => {
         await user.click(restore(name));
         assert.equal(calls.length, 1, `${list}: „${name}“ took a second press and wrote again`);
         cleanup();
+        answerPending({ success: true, message: "Reaktiviert." });
       }
     }
   });

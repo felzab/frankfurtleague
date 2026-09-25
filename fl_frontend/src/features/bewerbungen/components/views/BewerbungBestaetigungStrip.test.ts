@@ -23,7 +23,7 @@ import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
 
 /** The strip's two writes, replaced at the module boundary: a real one needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/bewerbungen/actions.ts"],
   answer: () => new Promise(() => undefined),
 });
@@ -274,6 +274,7 @@ describe("the address correction", () => {
       ["anna.neu@schule.example"],
       "the mirror's address is refused as another person's",
     );
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an anna.neu@schule.example." }));
   });
 
   /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
@@ -285,6 +286,7 @@ describe("the address correction", () => {
     await correctClara(user, "clara@schule.example{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara@schule.example." }));
   });
 
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,
@@ -297,6 +299,7 @@ describe("the address correction", () => {
     await user.type(addressBox(), "{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara.neu@schule.example." }));
   });
 
   it("reports a refusal, a sent link and an address corrected behind a message that did not go", async () => {
@@ -353,6 +356,7 @@ describe("two re-sends running at once", () => {
     await settle({ success: true, message: "Der neue Link ging an bernd@schule.example." });
     assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held");
     assert.equal(send("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
+    await settle({ success: true, message: "Der neue Link ging an clara@schule.example." });
   });
 });
 
@@ -573,6 +577,7 @@ describe("seating another person where one stepped out", () => {
       telefon: "069 7654321",
       text_version: LIGA_KENNTNISNAHME.textVersion,
     });
+    await act(async () => answerPending({ success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." }));
   });
 
   /* The seat stands filled whatever the message did, so the arm reporting a refused send must not read

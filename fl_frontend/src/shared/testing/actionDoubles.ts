@@ -1,7 +1,8 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
-import { beforeEach } from "node:test";
+import { afterEach, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -9,7 +10,7 @@ import { blankComments } from "@/core/blankComments.ts";
 /** One write a component sent: the action's exported name, and the payload it was handed. */
 export type ActionCall = { action: string; payload: unknown };
 
-type Recorder = { push: (call: ActionCall) => void; answer: () => Promise<unknown> };
+type Recorder = { push: (call: ActionCall) => void; answer: (action: string) => Promise<unknown> };
 
 let registered = 0;
 
@@ -25,18 +26,47 @@ export function doubleActions({
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
-}): { calls: ActionCall[]; answerWith: (next: () => Promise<unknown>) => void } {
+}): {
+  calls: ActionCall[];
+  answerWith: (next: () => Promise<unknown>) => void;
+  answerPending: (answer: unknown) => void;
+  leavePending: (reason: string) => void;
+} {
   const calls: ActionCall[] = [];
   let answering = answer;
+  const pending = new Set<{ action: string; release: (answer: unknown) => void }>();
+  let mayLeavePending = false;
   // Back to `answer` before every case: a case that named another answer and never restored it
   // would otherwise hand that answer to the next case's write, which then passes on it.
   beforeEach(() => {
     answering = answer;
+    mayLeavePending = false;
+  });
+  // A call left unanswered holds its transition past the case, where React can hold a later case's
+  // transition behind it, so it fails the case that left it rather than the one it next reaches.
+  afterEach(() => {
+    const left = [...pending].map(({ action }) => action);
+    pending.clear();
+    if (!mayLeavePending) {
+      assert.deepEqual(left, [], "the case left these actions pending: answer them with `answerPending`, or name why with `leavePending`");
+    }
   });
   // Through the global rather than a closure: the replaced module is compiled from source and shares
   // nothing with this scope. One name per call, so two doubles in one process cannot overwrite each other.
   const bus = `__flActionDouble${String((registered += 1))}`;
-  const recorder: Recorder = { push: (call) => calls.push(call), answer: () => answering() };
+  const recorder: Recorder = {
+    push: (call) => calls.push(call),
+    answer: (action) => {
+      let release: (answer: unknown) => void = () => undefined;
+      // Raced rather than replaced, so a case's own held answer still decides until the case answers it.
+      const answered = Promise.race([answering(), new Promise((resolve) => (release = resolve))]);
+      const entry = { action, release };
+      pending.add(entry);
+      const settle = (): void => void pending.delete(entry);
+      answered.then(settle, settle);
+      return answered;
+    },
+  };
   Reflect.set(globalThis, bus, recorder);
 
   // Registered as this call evaluates, so it stands above the caller's own `await import` of the component,
@@ -48,7 +78,7 @@ export function doubleActions({
       const source = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
         .map(
           ([, name]) =>
-            `export const ${name ?? ""} = async (payload) => { const bus = globalThis.${bus}; bus.push({ action: "${name ?? ""}", payload }); return bus.answer(); };`,
+            `export const ${name ?? ""} = async (payload) => { const bus = globalThis.${bus}; bus.push({ action: "${name ?? ""}", payload }); return bus.answer("${name ?? ""}"); };`,
         )
         .join("\n");
 
@@ -56,7 +86,18 @@ export function doubleActions({
     },
   });
 
-  return { calls, answerWith: (next) => void (answering = next) };
+  return {
+    calls,
+    answerWith: (next) => void (answering = next),
+    answerPending: (answer) => {
+      for (const { release } of pending) release(answer);
+    },
+    // A reason rather than a flag, so the case that holds a write open says at its call why it may.
+    leavePending: (reason) => {
+      assert.ok(reason.trim() !== "", "name why the case may leave its actions pending");
+      mayLeavePending = true;
+    },
+  };
 }
 
 /**

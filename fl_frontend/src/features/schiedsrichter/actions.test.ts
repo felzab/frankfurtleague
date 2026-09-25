@@ -9,7 +9,7 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
@@ -33,7 +33,7 @@ import {
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -495,6 +495,7 @@ describe("the erasure on the referee's editor", () => {
       assert.match(alarm() ?? "", /^Bist Du Dir sicher\?/, "the escalation replaces the copy in place with no announcement");
     });
     assert.deepEqual(calls, [{ action: "anonymiseSchiedsrichterAction", payload: { id: RECORD.id } }], "the second press writes nothing");
+    await act(async () => answerPending({ success: true, message: "Die Daten sind gelöscht." }));
   });
 
   /* The refresh remounts the form onto the cleared record, so an unsaved draft goes with it, and the warning

@@ -6,7 +6,7 @@ import { beforeEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { GRUPPEN_OFF_RULES } from "@/features/saisons/constants.ts";
@@ -26,7 +26,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
+const { calls, answerWith, answerPending } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
 
 /** The payloads one action was sent, in the order the panel sent them. */
 const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
@@ -114,6 +114,7 @@ describe("the Spielplan panel's first draw", () => {
     });
 
     assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: false, shape: undefined }]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   /* An open press answers `REQ-SPIELPLAN-004`, which the page has every number for. */
@@ -180,6 +181,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     });
 
     assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: true, shape: MOVED_SHAPE }]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   /* The draw judges occupancy ahead of the bracket where the rules patch judges the other way round, so
@@ -243,6 +245,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     assert.deepEqual(sent("generateSpielplanAction"), [
       { id: "2026-27", replace: true, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 1 } },
     ]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   it("sends the undraw once picked, after reading out what it deletes, and disarms when the pick moves", async () => {
@@ -265,6 +268,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
 
     await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
     assert.deepEqual(sent("undrawSpielplanAction"), [{ id: "2026-27" }]);
+    await act(async () => answerPending({ success: true, message: "", undraw: { spieltage: 0, spiele: 0, watermark_cleared: false } }));
   });
 
   /* A second DELETE during the first would report a season that held nothing. A write in flight ends by
@@ -289,6 +293,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
       mock.timers.reset();
     }
     assert.equal(sent("undrawSpielplanAction").length, 1, "a press during the request sends the write again");
+    await act(async () => answerPending({ success: true, message: "", undraw: { spieltage: 0, spiele: 0, watermark_cleared: false } }));
   });
 
   /* „zurückgenommen“ over a season that held nothing claims work nobody did; the watermark alone is work. */
