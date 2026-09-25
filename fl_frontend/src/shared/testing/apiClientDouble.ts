@@ -1,0 +1,36 @@
+import { registerHooks } from "node:module";
+
+/** One request a module handed the backend client: the path, and what it went with. */
+export type ApiCall = { endpoint: string; method: string | undefined; body: string | undefined; headers: Headers };
+
+/** The response schema the caller handed the client, which an answer is parsed through where the case wants its shape held. */
+export type ApiSchema = { parse: (value: unknown) => unknown };
+
+let registered = 0;
+
+/**
+ * Replaces `fl_frontend/src/core/api.ts` at the module boundary, recording every call and answering
+ * each with what `answer` returns or throws. Registered before the caller's `await import`, whose
+ * graph reaches the real client.
+ */
+export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => unknown): ApiCall[] {
+  const calls: ApiCall[] = [];
+  // Through a global: the replaced module is compiled from source and shares nothing with this scope.
+  const bus = `__flApiClientDouble${String((registered += 1))}`;
+  Reflect.set(globalThis, bus, { calls, answer });
+
+  const source = `export const apiClient = async (endpoint, schema, options = {}) => {
+  const call = { endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) };
+  globalThis.${bus}.calls.push(call);
+  return globalThis.${bus}.answer(call, schema);
+};`;
+
+  registerHooks({
+    load(url, context, nextLoad) {
+      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+      return url.endsWith("/src/core/api.ts") ? { format: "module", source, shortCircuit: true } : nextLoad(url, context);
+    },
+  });
+
+  return calls;
+}

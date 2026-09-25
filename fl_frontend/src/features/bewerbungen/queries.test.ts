@@ -3,38 +3,23 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { APIBadStatusError } from "@/core/errors";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
 
-/** What the doubled client was asked for. */
-type RecordedCall = { endpoint: string };
-
-const calls: RecordedCall[] = [];
-const RECORDER = "__flBewerbungReadCalls";
-(globalThis as unknown as Record<string, RecordedCall[]>)[RECORDER] = calls;
-
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
-const THROWER = "__flBewerbungReadFailure";
+let failure: unknown;
 
-// Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
-// client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint) => {
-  globalThis.${RECORDER}.push({ endpoint });
-  const failure = globalThis.${THROWER};
-  if (failure) throw failure;
+const calls = doubleApiClient(() => {
+  if (failure !== undefined) throw failure;
   return {};
-};`;
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
   },
 });
 
@@ -47,12 +32,12 @@ const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerz
  */
 async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
   const before = calls.length;
-  (globalThis as unknown as Record<string, unknown>)[THROWER] = error;
+  failure = error;
 
   try {
     return await read();
   } finally {
-    (globalThis as unknown as Record<string, unknown>)[THROWER] = undefined;
+    failure = undefined;
     calls.length = before;
   }
 }

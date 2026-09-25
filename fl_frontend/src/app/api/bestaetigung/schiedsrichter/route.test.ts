@@ -2,26 +2,22 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flRefTags.push([tag, profile]); };
 export const updateTag = (tag) => { globalThis.__flRefTags.push(["updateTag", tag]); throw new Error("updateTag in a route handler"); };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flRefCalls.push({ endpoint, method: options.method, body: options.body });
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-  // from the shape the route is written against.
-  return schema.parse(globalThis.__flRefAnswer(endpoint));
-};`;
 
-type ApiCall = { endpoint: string; method?: string; body?: string };
+// Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
+// from the shape the route is written against.
+const calls = doubleApiClient(({ endpoint }, schema) => schema.parse(antwortFuer(endpoint)));
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 const tags: [string, unknown][] = [];
-const calls: ApiCall[] = [];
 recorders.__flRefTags = tags;
-recorders.__flRefCalls = calls;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -42,7 +38,6 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -110,7 +105,7 @@ let leseAntwort: () => unknown = () => ANSICHT;
 
 let gelesen = 0;
 
-recorders.__flRefAnswer = (endpoint: string) => {
+function antwortFuer(endpoint: string): unknown {
   if (endpoint === "/schiedsrichter/bestaetigung/ansicht") {
     gelesen += 1;
     const antwort = leseAntwort();
@@ -120,7 +115,7 @@ recorders.__flRefAnswer = (endpoint: string) => {
   const antwort = schreibAntwort();
   if (antwort instanceof Error) throw antwort;
   return antwort;
-};
+}
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
   (await POST(request)) as unknown as Record<string, unknown>;

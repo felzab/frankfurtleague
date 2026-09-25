@@ -1,32 +1,16 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import { describeErasureUmfang } from "./utils.ts";
 
-/** One request the erasure handed the API client: the path, and the method it went with. */
-type Sent = { endpoint: string; method: string | undefined };
-
-const sent: Sent[] = [];
-Reflect.set(globalThis, "__flErasureSent", sent);
-
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 
-/* The client replaced at the module boundary rather than the mutation, so the real one is called and
-   what it asks for is read: the erasure and the soft retire differ by the path's suffix alone. */
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (!url.endsWith("/src/core/api.ts")) return nextLoad(url, context);
-    const source = `export const apiClient = async (endpoint, _schema, options = {}) => {
-  globalThis.__flErasureSent.push({ endpoint, method: options.method });
-  return { acknowledged: 1, spieler_id: "${SPIELER_ID}", erased_saison_spieler: 3, redacted_aktionen: 7 };
-};`;
-    return { format: "module", source, shortCircuit: true };
-  },
-});
+/* The client doubled rather than the mutation, so the real one is called and what it asks for is
+   read: the erasure and the soft retire differ by the path's suffix alone. */
+const sent = doubleApiClient(() => ({ acknowledged: 1, spieler_id: SPIELER_ID, erased_saison_spieler: 3, redacted_aktionen: 7 }));
 
 /* A file of its own: `actions.test.ts` replaces this slice's actions module for the components it
    renders, and `refusals.test.ts` doubles the mutations a request here has to reach. */
@@ -42,7 +26,10 @@ describe("what the erasure moves", () => {
   it("calls the erasure endpoint and not the retire", async () => {
     await eraseSpielerAction({ id: SPIELER_ID });
 
-    assert.deepEqual(sent, [{ endpoint: `/spieler/${SPIELER_ID}/erasure`, method: "DELETE" }]);
+    assert.deepEqual(
+      sent.map(({ endpoint, method }) => ({ endpoint, method })),
+      [{ endpoint: `/spieler/${SPIELER_ID}/erasure`, method: "DELETE" }],
+    );
   });
 
   /* The base tag and nothing beside it: the person and their squad rows are what the cached public

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
@@ -9,10 +11,10 @@ const LOGGING = `const line = (...args) => void globalThis.__flBewLogs.push(JSON
 export const logger = { info: line, warn: line, error: line };`;
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flBewCalls.push({ endpoint, method: options.method, headers: new Headers(options.headers) });
-  return schema.parse(globalThis.__flBewAnswer(endpoint));
-};`;
+const calls = doubleApiClient(({ endpoint }, schema) =>
+  // The accepted-send record every mail reports back; its answer is read by nothing here.
+  schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),
+);
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
 const MAIL = `export const sendMail = async (mail) => {
@@ -23,15 +25,12 @@ export class MailWithheldError extends Error {}
 export class MailRecipientError extends Error {}`;
 const QUERIES = `export const getBewerbungSchulen = async () => ({ acknowledged: 1, schulen: [] });`;
 
-type ApiCall = { endpoint: string; method?: string; headers: Headers };
 type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-const calls: ApiCall[] = [];
 const mails: Mail[] = [];
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
-recorders.__flBewCalls = calls;
 recorders.__flBewMails = mails;
 recorders.__flBewLogs = logs;
 
@@ -54,7 +53,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     if (url.endsWith("/src/features/bewerbungen/queries.ts")) return { format: "module", source: QUERIES, shortCircuit: true };
     return nextLoad(url, context);
@@ -109,10 +107,6 @@ const GESCHRIEBEN = {
 };
 
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
-
-recorders.__flBewAnswer = (endpoint: string) =>
-  // The accepted-send record every mail reports back; its answer is read by nothing here.
-  endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] };
 
 function aRequest(headers: Record<string, string> = {}, body: unknown = BODY) {
   return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];

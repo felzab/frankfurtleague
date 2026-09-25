@@ -1,26 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-/** One request a mutation handed the API client: the path, and the options it went with. */
-type Sent = { endpoint: string; options: { method?: string; body?: string } };
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
-const sent: Sent[] = [];
-Reflect.set(globalThis, "__flBewerbungSent", sent);
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
-/* The client replaced at the module boundary: the real one reaches a backend no test process runs,
-   and what these cases read is what each mutation asks it for. */
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (!url.endsWith("/src/core/api.ts")) return nextLoad(url, context);
-    const source = `export const apiClient = async (endpoint, _schema, options = {}) => {
-  globalThis.__flBewerbungSent.push({ endpoint, options });
-  return { acknowledged: 1 };
-};`;
-    return { format: "module", source, shortCircuit: true };
-  },
-});
+/* What these cases read is what each mutation asks the client for, never what it answers. */
+const sent = doubleApiClient(() => ({ acknowledged: 1 }));
 
 const { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } =
   await import("./mutations.ts");
@@ -30,9 +16,9 @@ const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 /** The one request the last mutation sent, its body parsed. */
 function lastSent(): { endpoint: string; method: string | undefined; body: unknown } {
   assert.equal(sent.length, 1, `the mutation sent ${String(sent.length)} requests rather than one`);
-  const [{ endpoint, options }] = sent as [Sent];
+  const [{ endpoint, method, body }] = sent as [ApiCall];
 
-  return { endpoint, method: options.method, body: options.body === undefined ? undefined : JSON.parse(options.body) };
+  return { endpoint, method, body: body === undefined ? undefined : JSON.parse(body) };
 }
 
 beforeEach(() => {

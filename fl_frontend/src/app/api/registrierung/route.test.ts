@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
@@ -11,10 +13,11 @@ const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: 
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flRegCalls.push({ endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) });
-  return schema.parse(globalThis.__flRegAnswer(endpoint));
-};`;
+const calls = doubleApiClient((_call, schema) => {
+  const antwort = schreibAntwort();
+  if (antwort instanceof Error) throw antwort;
+  return schema.parse(antwort);
+});
 /* The fan-out rather than `core/mail.ts`: what this handler is judged on is how it READS the
    outcome, and the three outcomes are what the real fan-out spends a provider to tell apart. */
 const NOTIFICATIONS = `export const sendZielMail = async (args) => {
@@ -22,13 +25,10 @@ const NOTIFICATIONS = `export const sendZielMail = async (args) => {
   return globalThis.__flRegOutcome();
 };`;
 
-type ApiCall = { endpoint: string; method?: string; body?: string; headers: Headers };
 type SentMail = { operation: string; auftrag: Record<string, unknown>; recipients: string[]; mail: { subject: string; text: string } };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-const calls: ApiCall[] = [];
 const mails: SentMail[] = [];
-recorders.__flRegCalls = calls;
 recorders.__flRegMails = mails;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -50,7 +50,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -106,11 +105,6 @@ let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 /** What the fan-out answers: accepted, refused by the provider, or withheld by this deployment. */
 let versand: () => unknown = () => ({ delivered: [ADRESSE], unreachable: [], withheld: [] });
 
-recorders.__flRegAnswer = () => {
-  const antwort = schreibAntwort();
-  if (antwort instanceof Error) throw antwort;
-  return antwort;
-};
 recorders.__flRegOutcome = () => versand();
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
