@@ -5,15 +5,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` reads a context no `next/navigation` export carries, so the panel renders under the one Next keeps it on. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 doubleEveryAction();
@@ -26,9 +23,7 @@ const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, 
 
 const panel = (teamId: string | null) =>
   render(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
+    underNext(
       h(DraftStatusProvider, {
         status: STATUS,
         children: h(FormKaderSection, {
