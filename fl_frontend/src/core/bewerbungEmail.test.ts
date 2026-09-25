@@ -339,9 +339,8 @@ describe("buildBewerbungZusageEmail", () => {
     );
     assert.ok(!/<p [^>]*>\s*<\/p>/.test(without.html), "the absent sentence left an empty paragraph");
 
-    /* An absent key, an explicit null and a blank are one case. Which of the three reaches this module
-       is the payload's business, and a renderer that told them apart would state a wish per shape. */
-    assert.equal(buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: undefined }).text, without.text);
+    /* A null and a blank are one case. Which of the two reaches this module is the payload's business,
+       and a renderer that told them apart would state a wish per shape. */
     assert.equal(buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: "  \n " }).text, without.text);
   });
 

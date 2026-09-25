@@ -145,8 +145,11 @@ export interface BewerbungZusageData {
   gruppe: string;
   /** Absent while no kit colour has been assigned; the message then states that rather than guessing one. */
   trikotFarbeLabel: string | null;
-  /** Absent where the school named none, and the message then says nothing: a draw that has not run can promise nothing. */
-  wunschgegner?: string | null;
+  /**
+   * `null` where the school named none, and the message then says nothing: a draw that has not run can promise nothing.
+   * Required: an optional key a call site leaves out compiles, and mails the message without its sentence.
+   */
+  wunschgegner: string | null;
 }
 
 /** What a declined application is told. `grund` is the administrator's own wording, carried verbatim. */

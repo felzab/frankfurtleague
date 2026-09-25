@@ -121,6 +121,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       gruppe: "B",
       trikotFarbeLabel: "Hellgrün",
+      wunschgegner: null,
     }),
   buildBewerbungAbsageEmail: (origin) =>
     buildBewerbungAbsageEmail({

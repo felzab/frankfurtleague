@@ -116,9 +116,6 @@ const { rollenText } = await import("./notifications.ts");
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
-/** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
-const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
-
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
 const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut";
@@ -719,38 +716,6 @@ describe("a message that cannot be sent", () => {
         `${where} spent the seat's link before a club read that could not compose its message`,
       );
     }
-  });
-});
-
-describe("what each decision message is told", () => {
-  /* An OPTIONAL field the call site never fills compiles, lints and builds, and mails the message
-     with the sentence it feeds silently missing. Read off the message rather than listed here. */
-  it("fills every field the message declares", () => {
-    const fields = (block: string) => [...block.matchAll(/^ {2}(\w+)\??:/gm)].map((treffer) => treffer[1]!);
-    const acceptMail = fields(sliceBetween(EMAIL, "export interface BewerbungZusageData", "\n}"));
-    const declineMail = fields(sliceBetween(EMAIL, "export interface BewerbungAbsageData", "\n}"));
-
-    // Anti-vacuity: a moved interface would leave both lists empty and this assertion true of nothing.
-    assert.ok(acceptMail.length > 0 && declineMail.length > 0, "neither message's field list was found, so nothing was compared");
-
-    // The BUILDER's own argument, never the whole action: `gruppe` is also a key of the sentence
-    // `describeAufnahme` composes, so a search over the action passes a mail that dropped it.
-    const acceptCall = sliceBetween(ACTIONS, "buildBewerbungZusageEmail({", "})");
-    const declineCall = sliceBetween(ACTIONS, "buildBewerbungAbsageEmail({", "})");
-
-    assert.ok(acceptCall !== "" && declineCall !== "", "one of the two mail builders is no longer called with an object literal");
-
-    // Collected rather than asserted one at a time: a per-field assertion stops at the first gap, so
-    // a second one is invisible until the first is closed.
-    const unfilled = [
-      ...acceptMail.map((feld) => [feld, acceptCall, "annehmen"] as const),
-      ...declineMail.map((feld) => [feld, declineCall, "ablehnen"] as const),
-    ]
-      .filter(([feld, aufruf]) => !new RegExp(`\\b${feld}:`).test(aufruf))
-      .map(([feld, , wo]) => `${wo}/${feld}`)
-      .sort();
-
-    assert.deepEqual(unfilled, [], `these declared message fields reach no call site: ${unfilled.join(", ")}`);
   });
 });
 
