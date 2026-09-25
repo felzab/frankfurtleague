@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
 import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
@@ -12,8 +12,7 @@ import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from 
 const VORSTAND = { user: { email: "vorstand@example.org" } };
 const { setSession } = doubleActionRequest({ session: VORSTAND });
 
-/** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
-const sent = doubleApiClient(({ endpoint }, schema) => schema.parse(endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
+const { calls: sent } = doubleApiAnswers(async ({ endpoint }) => (endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
 
 const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
@@ -39,7 +38,6 @@ let blockAnswer: Record<string, unknown> = {};
 const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
 
 beforeEach(() => {
-  sent.length = 0;
   blockAnswer = { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "a1b2" };
 });
 

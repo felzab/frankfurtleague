@@ -15,8 +15,9 @@ import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
-import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
+import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -90,7 +91,16 @@ export const logger = { debug: record, info: record, warn: record, error: record
     return { format: "module", source, shortCircuit: true };
   },
 });
-const { answerWith, calls: writes } = doubleApiAnswers();
+/** Whether `call` is the delivery report a sent message files, after the write the case is about. */
+const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
+/** The report's answer as the endpoint sends it: every seat the message named, applied. */
+const deliveryApplied = ({ body }: ApiCall) => ({ acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
+
+const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : { acknowledged: 1 }));
+const writes = client.calls;
+/** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
+const answerWith = (next: () => Promise<unknown>): void =>
+  client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
   modules: ["/src/features/teams/queries.ts"],
@@ -248,14 +258,50 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 });
 
-/** The application a decision's write answers with: a proposed school, one seat holding a mailbox. */
-const ENTSCHIEDEN = {
+/**
+ * The application a decision's write answers with: a proposed school, one seat holding a mailbox.
+ * Parsed at construction, so a field the read model gains fails here rather than in the answer.
+ */
+const ENTSCHIEDEN = FLBewerbungSchema.parse({
+  id: BEWERBUNG_ID,
   saison_id: "2026",
-  schule: { team_name: "Gymnasium Beispiel" },
+  eingereicht_am: "2026-09-01",
+  status: "eingereicht",
   team_id: null,
+  schule: {
+    team_name: "Gymnasium Beispiel",
+    full_name: "Gymnasium Beispiel Frankfurt",
+    shorthand: "GB",
+    schulform: null,
+    address: { strasse: "Schulweg", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+    website_url: null,
+  },
+  kontakte: {
+    trainer: null,
+    ansprechperson: {
+      ...PERSON,
+      nachname: "Meier",
+      telefon: "069 1234567",
+      geburtsdatum: null,
+      einwilligung: {
+        umfang: "kontaktdaten",
+        erfasst_von: "person",
+        text_version: LIGA_KENNTNISNAHME.textVersion,
+        datum: "2026-09-01",
+        bestaetigt_am: null,
+      },
+    },
+    stellvertretung: null,
+    trainer_ist_zugleich: null,
+  },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  stufengroesse: null,
   wunschgegner: null,
-  kontakte: { trainer: null, ansprechperson: PERSON, stellvertretung: null },
-};
+  entscheidung: null,
+  bestaetigungen: null,
+  bestaetigungsfrist: null,
+});
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
 const DECISIONS = [

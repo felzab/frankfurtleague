@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
@@ -12,9 +12,7 @@ const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.
 export const updateTag = (tag) => { globalThis.__flRefTags.push(["updateTag", tag]); throw new Error("updateTag in a route handler"); };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
-// Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-// from the shape the route is written against.
-const calls = doubleApiClient(({ endpoint }, schema) => schema.parse(antwortFuer(endpoint)));
+const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 const tags: [string, unknown][] = [];
@@ -123,7 +121,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   tags.length = 0;
-  calls.length = 0;
   gelesen = 0;
   schreibAntwort = () => GESCHRIEBEN;
   leseAntwort = () => ANSICHT;

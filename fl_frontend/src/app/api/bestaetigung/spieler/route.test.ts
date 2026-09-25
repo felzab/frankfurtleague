@@ -3,16 +3,14 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
-// Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-// from the shape the route is written against.
-const calls = doubleApiClient(({ endpoint }, schema) => schema.parse(antwortFuer(endpoint)));
+const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -114,7 +112,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 const ansichten = () => calls.filter((call) => call.endpoint === "/registrierungen/bestaetigung/ansicht").length;
 
 beforeEach(() => {
-  calls.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });

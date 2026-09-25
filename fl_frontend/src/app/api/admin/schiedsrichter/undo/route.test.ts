@@ -13,7 +13,7 @@ const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
    the mailer below are the doubles. */
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() =>
-  Promise.resolve({ acknowledged: 1, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null }),
+  Promise.resolve({ acknowledged: 1, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null }),
 );
 
 const NOTIFICATIONS = `export const mailSchiedsrichterLink = async (args) => { globalThis.__flUndoRefMails.push(args); return globalThis.__flUndoRefDelivered; };
@@ -46,6 +46,9 @@ const BODY = {
   kontakt: { email: "alt@example.de", telefon: null },
   default_payment: 20,
 };
+
+/** The referee as the replay stored it, which every answer below echoes. */
+const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null };
 
 const aRefusal = (serverErrorCode: string) =>
   new APIBadStatusError({
@@ -88,7 +91,7 @@ describe("the referee save's undo", () => {
     answerWith(() =>
       Promise.resolve({
         acknowledged: 1,
-        updated_document: null,
+        updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
       }),
@@ -110,7 +113,7 @@ describe("the referee save's undo", () => {
     answerWith(() =>
       Promise.resolve({
         acknowledged: 1,
-        updated_document: null,
+        updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "inzwischen@example.de" },
       }),
@@ -132,7 +135,7 @@ describe("the referee save's undo", () => {
     answerWith(() =>
       Promise.resolve({
         acknowledged: 1,
-        updated_document: null,
+        updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
       }),
@@ -163,7 +166,7 @@ describe("the referee save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the referee", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null }));
+    answerWith(() => Promise.resolve({ acknowledged: 0, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null }));
 
     const answer = await bodyOf(aRequest(BODY));
 

@@ -7,7 +7,7 @@ import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } fro
 
 /* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/saisons/mutations.ts :: patchSaison` sends, as the backend's own routes spell it. */
@@ -28,6 +28,12 @@ const RULES = {
 /** The pre-save season the press replays, as the editor builds it. */
 const BODY = { id: "2026", start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
 
+/** The replay's answer as the backend sends it, the season restored. */
+const replayed = (acknowledged: 0 | 1) => ({
+  acknowledged,
+  updated_document: { ...BODY, status: "future", schedule: [], spielplan: null },
+});
+
 describe("the season save's undo", () => {
   it("replays the stored season", async () => {
     const answer = await undo(POST, BODY);
@@ -47,7 +53,7 @@ describe("the season save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the season", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+    answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten."));
   });

@@ -9,7 +9,7 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(replayed(call, 1)));
 const { POST } = await import("./route.ts");
 
 /**
@@ -36,9 +36,15 @@ const SQUAD_PATH = `/spieler/${SPIELER_ID}/saisons/${SAISON.saison_id}`;
 /** Whether `call` is the squad half's request. */
 const isTheSquadHalf = (call: ApiCall): boolean => call.endpoint === SQUAD_PATH;
 
+/** Either half's answer as the backend sends it, the row restored. */
+const replayed = (call: ApiCall, acknowledged: 0 | 1) =>
+  isTheSquadHalf(call)
+    ? { acknowledged, ...SAISON, ist_nachnominiert: false, inactive_since: null }
+    : { acknowledged, spieler_id: SPIELER_ID, vorname: PERSON.vorname, nachname: PERSON.nachname, inactive_since: null };
+
 /** The person half restored, and the squad half refused with `code`. */
 function refuseTheSquadHalf(code: string): void {
-  answerWith((call) => (isTheSquadHalf(call) ? Promise.reject(refusedOn(SQUAD_OPERATION, code)) : Promise.resolve({ acknowledged: 1 })));
+  answerWith((call) => (isTheSquadHalf(call) ? Promise.reject(refusedOn(SQUAD_OPERATION, code)) : Promise.resolve(replayed(call, 1))));
 }
 
 describe("the player save's undo", () => {
@@ -75,7 +81,7 @@ describe("the player save's undo", () => {
   /* Unacknowledged, a write may still have landed, so each arm is titled unclear and never says the
      change stands; the second half's sentence says whether the first went back. */
   it("answers an unacknowledged person half as of unknown outcome, replaying nothing after it", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+    answerWith((call) => Promise.resolve(replayed(call, 0)));
 
     assert.deepEqual(
       await undo(POST, { person: PERSON, saison: SAISON }),
@@ -88,7 +94,7 @@ describe("the player save's undo", () => {
   });
 
   it("answers an unacknowledged squad half as of unknown outcome, alone or after the person half", async () => {
-    answerWith((call) => Promise.resolve({ acknowledged: isTheSquadHalf(call) ? 0 : 1 }));
+    answerWith((call) => Promise.resolve(replayed(call, isTheSquadHalf(call) ? 0 : 1)));
 
     assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."));
     assert.deepEqual(

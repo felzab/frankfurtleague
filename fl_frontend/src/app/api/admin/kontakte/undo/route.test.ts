@@ -6,16 +6,25 @@ import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.t
 import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
+/** The stored block the press replays, and the token the save left, as the editor builds them. */
+const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
+
+/** The replay's answer as the backend sends it: the row's block, and the token the replay left. */
+const replayed = (acknowledged: 0 | 1) => ({
+  acknowledged,
+  team_id: BODY.team_id,
+  saison_id: BODY.saison_id,
+  kontakte: null,
+  kontakte_stand: "a1b2",
+});
+
 /* The real route and the save's own mutation, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
-
-/** The stored block the press replays, and the token the save left, as the editor builds them. */
-const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
 
 /** The request the save's own write sends for `payload`: the block to the junction row's contacts path. */
 const saveOf = ({ team_id, saison_id, ...block }: { team_id: string; saison_id: string; [field: string]: unknown }) => ({
@@ -96,7 +105,7 @@ describe("the contacts save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the contacts", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+    answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
   });

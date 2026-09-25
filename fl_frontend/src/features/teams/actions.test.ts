@@ -56,6 +56,23 @@ const CLUB = {
   schulform: null,
 };
 
+const INCOMING_ID = "6890a1b2c3d4e5f607182933";
+
+/** The replacement's answer as the backend sends it, the incoming club seated in group A. */
+const REPLACED = {
+  acknowledged: 1,
+  saison_id: SAISON_ID,
+  outgoing_team_id: TEAM_ID,
+  incoming_team_id: INCOMING_ID,
+  gruppe: "A",
+  trikot_farbe: null,
+  kontakte: null,
+  name: "SG Beta",
+  shorthand: "SB",
+  fanned_out_to_spiele: 0,
+  ausgetragene_squad_rows: 0,
+};
+
 /** The German the replacement shows for one code, or "" where its mapper leaves the code. */
 const replacementMessage = (code: string, statusCode = 409): string =>
   mapReplacementRefusal(refusedOn(REPLACEMENT_OPERATION, code, statusCode)) ?? "";
@@ -86,7 +103,7 @@ describe("the team actions against the codes their endpoints publish", () => {
     await assertEachAnswered({
       operation: REPLACEMENT_OPERATION,
       refuseWith: answerWith,
-      act: () => replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" }),
+      act: () => replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID }),
       mapped: mapReplacementRefusal,
     });
   });
@@ -172,9 +189,9 @@ describe("the team actions against the codes their endpoints publish", () => {
   /* Three resources, because one write moves all three: the junction row, the fixtures' sides, and
      the outgoing club's squad rows, which the same transaction retires. */
   it("invalidates the clubs, the fixtures and the squads — the three reads the write moves", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, name: "SG Beta", gruppe: "A", fanned_out_to_spiele: 0, ausgetragene_squad_rows: 0 }));
+    answerWith(() => Promise.resolve(REPLACED));
 
-    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" });
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
 
     assert.equal(result.success, true, "the replacement never landed, so its tags are judged on nothing");
     // The league table and the schedule read the season-scoped pair, every unscoped read the base
@@ -262,9 +279,9 @@ describe("the German each replacement refusal renders", () => {
   /* The response carries no `austritt` — a replacement always clears it — so the action cannot know
      whether one stood there, and reports the state rather than an event it did not observe. */
   it("reports the cleared austritt as state, never as something it saw happen", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, name: "SG Beta", gruppe: "A", fanned_out_to_spiele: 0, ausgetragene_squad_rows: 0 }));
+    answerWith(() => Promise.resolve(REPLACED));
 
-    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" });
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
     const message = result.success ? (result.message ?? "") : result.error;
 
     assert.match(message, /Für SG Beta ist in dieser Saison kein Austritt eingetragen\./);

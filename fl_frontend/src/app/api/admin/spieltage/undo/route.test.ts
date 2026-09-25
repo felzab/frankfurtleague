@@ -5,16 +5,23 @@ import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.t
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
+/** The pre-save span the press replays, as the editor builds it. */
+const BODY = { id: "6890a1b2c3d4e5f607a20001", beginn: "2026-04-01", ende: "2026-04-05" };
+
+/** The replay's answer as the backend sends it, the span restored. */
+const replayed = (acknowledged: 0 | 1) => ({
+  acknowledged,
+  spieltag_id: BODY.id,
+  updated_document: { ...BODY, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
+});
+
 /* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/spieltage/mutations.ts :: patchSpieltag` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spieltage/{spieltag_id}";
-
-/** The pre-save span the press replays, as the editor builds it. */
-const BODY = { id: "6890a1b2c3d4e5f607a20001", beginn: "2026-04-01", ende: "2026-04-05" };
 
 describe("the matchday save's undo", () => {
   it("replays the stored span", async () => {
@@ -46,7 +53,7 @@ describe("the matchday save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the matchday", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+    answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Spieltag."));
   });

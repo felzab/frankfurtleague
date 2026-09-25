@@ -7,12 +7,22 @@ import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refu
 
 import { mapEinladungRefusal } from "./refusals.ts";
 
-/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
-doubleActionRequest();
-const { answerWith, calls } = doubleApiAnswers();
-const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 const KEY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026" };
+const EINLADUNG_ID = "b".repeat(24);
+
+/** Each write's answer as the backend sends it where the write landed: the season-wide send mailing nobody. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  if (endpoint.endsWith("/versand")) return { acknowledged: 1, saison_id: KEY.saison_id, zeilen: [] };
+  if (method === "DELETE") return { acknowledged: 1, ...KEY, einladung_id: EINLADUNG_ID };
+  return { acknowledged: 1, ...KEY, einladung_id: EINLADUNG_ID, token: "t", erstellt_am: "2026-09-01", erstellt_von: "vorstand@example.org" };
+}
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(landed(call)));
+const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
@@ -22,8 +32,6 @@ const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
 describe("the invite's writes", () => {
   it("address the mint and the revoke by both ids in the path, and the send by its season", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: KEY.saison_id, zeilen: [] }));
-
     await postEinladungAction(KEY);
     await deleteEinladungAction(KEY);
     await postEinladungVersandAction({ id: KEY.saison_id, erneut: true });

@@ -18,7 +18,13 @@ registerHooks({
   },
 });
 
-const { calls } = doubleApiAnswers(() => Promise.resolve({ acknowledged: 1, zeilen: [] }));
+const { calls } = doubleApiAnswers(({ endpoint }) =>
+  Promise.resolve(
+    endpoint.includes("/vorschau")
+      ? { acknowledged: 1, saison_id: SAISON_ID, zeilen: [] }
+      : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
+  ),
+);
 
 /** The path of every read, which for this module carries the question each one asks. */
 const paths = (): string[] => calls.map(({ endpoint }) => endpoint);

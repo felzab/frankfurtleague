@@ -120,7 +120,17 @@ describe("the invite link the mail carries", () => {
    two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
 describe("the origin each press mints its invite link on", () => {
   it("is the configured one on the link the mint hands the panel", async () => {
-    mint.answerWith(() => Promise.resolve({ acknowledged: 1, einladung_id: EINLADUNG_ID, token: "token-mint" }));
+    mint.answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        saison_id: SAISON_ID,
+        team_id: TEAM_ID,
+        einladung_id: EINLADUNG_ID,
+        token: "token-mint",
+        erstellt_am: "2026-09-01",
+        erstellt_von: "vorstand@example.org",
+      }),
+    );
 
     const result = await postEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID });
 

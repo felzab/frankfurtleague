@@ -247,7 +247,15 @@ describe("the undraw action", () => {
     const cleared = (): typeof cacheCalls => cacheCalls.splice(0);
 
     answerWith(() =>
-      Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, removed_spieltage: 0, removed_spiele: 0 }),
+      Promise.resolve({
+        acknowledged: 1,
+        saison_id: SAISON_ID,
+        spieltage: 3,
+        spiele: 12,
+        generiert_am: "2026-03-01",
+        removed_spieltage: 0,
+        removed_spiele: 0,
+      }),
     );
     assert.equal((await generateSpielplanAction({ id: SAISON_ID })).success, true, "the draw never landed, so its tags are judged on nothing");
     const drawn = cleared();

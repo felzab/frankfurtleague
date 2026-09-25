@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
@@ -12,11 +12,7 @@ const REPLAY_OPERATION = "PATCH /spiele/paarungen";
    handler, its mutation and the spine are the real ones, driven. */
 const { setSession } = doubleRouteRequest();
 
-/** What the replay's write answers in this case, returned or thrown. */
-let antwort: () => unknown = () => undefined;
-// Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-// from the shape the route is written against.
-const calls = doubleApiClient((_call, schema) => schema.parse(antwort()));
+const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(RESTORED));
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -69,20 +65,12 @@ async function post(body: unknown): Promise<Outcome & { status: number }> {
 
 const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
 
-beforeEach(() => {
-  calls.length = 0;
-
-  antwort = () => RESTORED;
-});
-
 describe("the undo route's replay refusals against the endpoint it replays", () => {
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => {
-        antwort = () => {
-          throw aRefusal(409, code);
-        };
+        answerWith(() => Promise.reject(aRefusal(409, code)));
       },
       press: () => post(aReplayOf(SPIEL_ID)),
     });
@@ -139,9 +127,7 @@ describe("the undo route, driven", () => {
   });
 
   it("reports a mapped refusal as the change still standing", async () => {
-    antwort = () => {
-      throw aRefusal(409, "REQ-WIRING-001");
-    };
+    answerWith(() => Promise.reject(aRefusal(409, "REQ-WIRING-001")));
 
     const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
@@ -156,9 +142,7 @@ describe("the undo route, driven", () => {
   // A row retired before the save being undone meets this refusal too, so a sentence dating the
   // retirement after that save would tell the admin something the record contradicts.
   it("words a retired or deleted booking without saying when it retired", async () => {
-    antwort = () => {
-      throw aRefusal(409, "REQ-BOOKING-001");
-    };
+    answerWith(() => Promise.reject(aRefusal(409, "REQ-BOOKING-001")));
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
@@ -169,9 +153,7 @@ describe("the undo route, driven", () => {
 
   it("does not resolve a rejection it cannot word as a success", async () => {
     for (const rejection of [aRefusal(409, "REQ-INVENTED-001"), aRefusal(500, "REQ-WIRING-001"), new Error("socket")]) {
-      antwort = () => {
-        throw rejection;
-      };
+      answerWith(() => Promise.reject(rejection));
 
       const answered = await post(aReplayOf(SPIEL_ID));
 
@@ -184,7 +166,7 @@ describe("the undo route, driven", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged write as of unknown outcome, sending the admin to the fixtures", async () => {
-    antwort = () => ({ ...RESTORED, acknowledged: 0 });
+    answerWith(() => Promise.resolve({ ...RESTORED, acknowledged: 0 }));
 
     const { status, ...answered } = await post(aReplayOf(SPIEL_ID));
 
@@ -201,18 +183,20 @@ describe("the undo route, driven", () => {
   });
 
   it("names what the replay destroyed and raises it as a warning", async () => {
-    antwort = () => ({
-      ...RESTORED,
-      advanced_to: [
-        {
-          spiel_id: OTHER_SPIEL_ID,
-          spiel_nr: 23,
-          voided_ergebnis: "2:0",
-          voided_elfmeterschiessen: null,
-          voided_sonderereignis: null,
-        },
-      ],
-    });
+    answerWith(() =>
+      Promise.resolve({
+        ...RESTORED,
+        advanced_to: [
+          {
+            spiel_id: OTHER_SPIEL_ID,
+            spiel_nr: 23,
+            voided_ergebnis: "2:0",
+            voided_elfmeterschiessen: null,
+            voided_sonderereignis: null,
+          },
+        ],
+      }),
+    );
 
     const answered = await post(aReplayOf(SPIEL_ID));
 

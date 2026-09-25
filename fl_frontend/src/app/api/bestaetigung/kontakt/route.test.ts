@@ -3,7 +3,9 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
@@ -20,9 +22,7 @@ const MAIL = `export const sendMail = async (mail) => {
 };
 export class MailWithheldError extends Error {}
 export class MailRecipientError extends Error {}`;
-// Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-// from the shape the route is written against.
-const calls = doubleApiClient(({ endpoint }, schema) => schema.parse(antwortFuer(endpoint)));
+const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 
 type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
@@ -132,7 +132,10 @@ function aRequest(body: unknown) {
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 let ansichtAntwort: () => unknown = () => ANSICHT;
 
-function antwortFuer(endpoint: string): unknown {
+function antwortFuer({ endpoint, body }: ApiCall): unknown {
+  // The delivery report the sent message files, applied to every seat it names as the endpoint applies it.
+  if (endpoint.startsWith("/bewerbungen/zustellung"))
+    return { acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen };
   const antwort = endpoint === ANSICHT_ENDPOINT ? ansichtAntwort() : schreibAntwort();
   if (antwort instanceof Error) throw antwort;
   return antwort;
@@ -142,7 +145,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
-  calls.length = 0;
   mails.length = 0;
   logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;

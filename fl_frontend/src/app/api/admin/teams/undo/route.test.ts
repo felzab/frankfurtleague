@@ -7,7 +7,7 @@ import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } fro
 
 /* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers(({ endpoint }) => Promise.resolve(replayed(endpoint, 1)));
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/teams/mutations.ts :: patchTeam` sends, as the backend's own routes spell it. */
@@ -31,9 +31,15 @@ const SAISON = { team_id: TEAM_ID, saison_id: "2026", gruppe: "A", austritt: nul
 const CLUB_PATH = `/teams/${TEAM_ID}`;
 const JUNCTION_PATH = `/teams/${TEAM_ID}/saisons/${SAISON.saison_id}`;
 
+/** Either half's answer as the backend sends it, the row restored. */
+const replayed = (endpoint: string, acknowledged: 0 | 1) =>
+  endpoint === JUNCTION_PATH
+    ? { acknowledged, ...SAISON, kontakte: null, name: CLUB.name, shorthand: CLUB.shorthand }
+    : { acknowledged, updated_document: { ...CLUB, inactive_since: null }, fanned_out_to_spiele: 0, fanned_out_to_saison_teams: 0 };
+
 /** The write to `path` refused with `code` as `operation` raises it, every other write restored. */
 function refuse(path: string, operation: string, code: string): void {
-  answerWith(({ endpoint }) => (endpoint === path ? Promise.reject(refusedOn(operation, code)) : Promise.resolve({ acknowledged: 1 })));
+  answerWith(({ endpoint }) => (endpoint === path ? Promise.reject(refusedOn(operation, code)) : Promise.resolve(replayed(endpoint, 1))));
 }
 
 describe("the team save's undo", () => {
@@ -78,7 +84,7 @@ describe("the team save's undo", () => {
   /* Unacknowledged, a write may still have landed, so each arm is titled unclear and never says the
      change stands; the junction's sentence says whether the club half went back. */
   it("answers an unacknowledged club half as of unknown outcome, replaying nothing after it", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+    answerWith(({ endpoint }) => Promise.resolve(replayed(endpoint, 0)));
 
     assert.deepEqual(await undo(POST, { club: CLUB, saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten."));
     assert.deepEqual(
@@ -88,7 +94,7 @@ describe("the team save's undo", () => {
   });
 
   it("answers an unacknowledged junction as of unknown outcome, alone or after the club half", async () => {
-    answerWith(({ endpoint }) => Promise.resolve({ acknowledged: endpoint === JUNCTION_PATH ? 0 : 1 }));
+    answerWith(({ endpoint }) => Promise.resolve(replayed(endpoint, endpoint === JUNCTION_PATH ? 0 : 1)));
 
     assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."));
     assert.deepEqual(
