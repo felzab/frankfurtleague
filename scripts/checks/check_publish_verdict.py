@@ -203,14 +203,27 @@ def verdict(commit: str, tip: str, payloads: Path) -> Verdict:
     )
 
 
+# A message's escapes as the runner decodes them (`escapeData` in
+# https://github.com/actions/toolkit/blob/ed3ea3b5ba8cf9cc0232e157f2080a9864305bd5/packages/core/src/command.ts):
+# unescaped, a newline ends the annotation at its first line. `%` goes first, or it would escape the
+# codes the others write.
+MESSAGE_ESCAPES: Final = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+
+
+def _message(text: str) -> str:
+    for char, code in MESSAGE_ESCAPES:
+        text = text.replace(char, code)
+    return text
+
+
 def annotate(outcome: Verdict) -> None:
     """One workflow command per outcome, so the run's summary names the refusal or the exception."""
     if not os.environ.get("GITHUB_ACTIONS"):
         return
     for finding in outcome.findings:
-        print(f"::error title=Publish::{finding.detail}")
+        print(f"::error title=Publish::{_message(finding.detail)}")
     if outcome.notice:
-        print(f"::notice title=Publish::{outcome.passed}")
+        print(f"::notice title=Publish::{_message(outcome.passed)}")
 
 
 def main() -> int:

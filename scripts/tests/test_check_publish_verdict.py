@@ -305,6 +305,19 @@ def test_main_grades_a_refusal_of_the_tree_as_a_finding_and_an_unread_payload_as
     assert "run 62" in unread_err
 
 
+def test_an_annotation_carries_its_whole_message_as_one_command():
+    """An exception's text can hold a newline, which unescaped ends the annotation at its first line."""
+    outcome = publish.Verdict(2, (publish.Finding("fail", "unread (line 1\nline 2) at 100%0A"),), "passed\r\n", notice=True)
+    out = io.StringIO()
+    with patch.dict(publish.os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(out):
+        publish.annotate(outcome)
+
+    assert out.getvalue().splitlines() == [
+        "::error title=Publish::unread (line 1%0Aline 2) at 100%250A",
+        "::notice title=Publish::passed%0D%0A",
+    ]
+
+
 def test_main_refuses_a_commit_that_is_no_full_sha(tmp_path: Path):
     """A short or empty commit would match no run and read as "no run", a finding about a tree nobody named."""
     directory = filled(tmp_path / "d", Case("", [run(63, "success")], 0))
