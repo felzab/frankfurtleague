@@ -571,7 +571,7 @@ function boundKey(moduleFile: string, identifier: string): string | null {
 
   const named = new Set<string>();
   const mentions = new RegExp(String.raw`\b` + identifier + String.raw`\b`);
-  for (const declaration of blankComments(SOURCES.get(moduleFile) ?? "").split(/^export (?:const|(?:async )?function) /m)) {
+  for (const declaration of blankComments(SOURCES.get(moduleFile) ?? "", moduleFile).split(/^export (?:const|(?:async )?function) /m)) {
     if (!mentions.test(declaration)) continue;
     for (const match of declaration.matchAll(/\bFL\w+PayloadSchema\b/g)) {
       if (Object.hasOwn(BOUND, `${moduleFile} :: ${match[0]}`)) named.add(match[0]);
@@ -585,7 +585,7 @@ function boundKey(moduleFile: string, identifier: string): string | null {
 
 /** One form, the schemas its own block judges, and any schema import in that slot this reader could not place. */
 function formIn(file: string, text: string): { schemas: string[]; unresolved: string[] } {
-  const source = blankComments(text);
+  const source = blankComments(text, file);
   const origin = importedFrom(source);
   const schemas = new Set<string>();
   const unresolved: string[] = [];

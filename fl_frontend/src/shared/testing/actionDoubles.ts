@@ -241,7 +241,8 @@ const TOAST_MODULE = "/src/shared/utils/appToast.ts";
  * `undefined` where a component raises it, and fails on the call rather than on its subject.
  */
 function toastMembers(): string[] {
-  const source = blankComments(readFileSync(path.resolve(import.meta.dirname, "..", "utils", "appToast.ts"), "utf8"));
+  const file = path.resolve(import.meta.dirname, "..", "utils", "appToast.ts");
+  const source = blankComments(readFileSync(file, "utf8"), file);
   const from = source.indexOf("export const appToast = {");
   if (from === -1) throw new Error("appToast.ts declares no appToast object for the double to mirror");
 
