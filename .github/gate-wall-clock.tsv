@@ -407,13 +407,11 @@
 # derivation's crossing cases, 3.45-3.54 s alone and 5.1 s inside one `--backend` run, measured
 # locally on 2026-09-25 on the same machine, so upper bounds.
 #
-# `docs` gained, on a pull request alone, the two steps of the dropped `commits` job that read the
-# branch against its base: the budget check, 0.24-0.26 s over three runs, and the line delta,
-# 0.94-2.70 s over three runs of a 788-commit branch, measured locally on 2026-09-25 on the same
-# machine, so upper bounds. Its commit-message step is gone with the local one, the commit-msg
-# hook being the only reader of a commit message. The row is cut from main runs, where neither
-# step runs, so it moves nothing; whether they move a pull request's `docs` past its budget is for
-# the first pull-request runs to show.
+# `docs` gained, on a pull request alone, two steps reading the branch against its base: the
+# budget check, 0.24-0.26 s over three runs, and the line delta, 0.94-2.70 s over three runs of a
+# 788-commit branch, measured locally on 2026-09-25 on the same machine, so upper bounds. The row
+# is cut from main runs, where neither step runs, so it moves nothing; whether they move a pull
+# request's `docs` past its budget is for the first pull-request runs to show.
 #
 # `scripts` and `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list
 # names. `ruff check --no-cache` took 185-842 ms with it against 187-1762 ms without over

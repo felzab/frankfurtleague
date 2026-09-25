@@ -73,8 +73,8 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    **A claim about the code is checked against that commit**, never against where the branch ends —
    the tooling claims being the ones nobody re-reads. Qualify every blanket negative to what
    you checked — "nothing else is shared" missed a process-global two frames down.
-4. **Only the branch's final state passes the gate and CI**; a commit is held to its hooks and the
-   range check, never probed or reordered to be green alone. Land a branch once
+4. **Only the branch's final state passes the gate and CI**; a commit is held to its hooks,
+   never probed or reordered to be green alone. Land a branch once
    `git -C <worktree> status --porcelain` is empty: the agent's checks read files its commits lack.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
