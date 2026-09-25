@@ -47,8 +47,8 @@ export function FormSpielortSection({
             id: ortPayload.spielort_id,
             name: ortPayload.name,
             maps_link: ortPayload.maps_link,
-            // The fixture's own agreed rent, never a default this list has no row to read one from:
-            // re-picking the held venue must not silently reprice the fixture.
+            // Fills the type alone, never a draft: react-stately drops a re-pick of the selected key, and
+            // this entry leaves the list once the pick moves, so no pick ever reads it.
             default_mietpreis: ortPayload.mietpreis ?? 0,
           },
         ];

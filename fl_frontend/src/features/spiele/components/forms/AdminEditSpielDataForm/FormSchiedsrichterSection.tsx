@@ -47,8 +47,8 @@ export function FormSchiedsrichterSection({
           {
             id: schiedsrichterPayload.schiedsrichter_id,
             name: bookedSchiedsrichterName(schiedsrichterPayload),
-            // The fixture's own agreed fee, never a default this list has no row to read one from:
-            // re-picking the held referee must not silently reprice the fixture.
+            // Fills the type alone, never a draft: react-stately drops a re-pick of the selected key, and
+            // this entry leaves the list once the pick moves, so no pick ever reads it.
             default_payment: schiedsrichterPayload.payment ?? 0,
             schule: null,
             kontakt: { email: null, telefon: null },
