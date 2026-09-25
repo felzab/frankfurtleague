@@ -1130,8 +1130,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
         "with the day the confirmation lands and fills `erteilt_von` with `volljaehrig`, nobody else being permitted to "
-        "answer for a pupil. `text_version` arrives on the payload and is stamped over whatever a browser sent by the route "
-        "handler `fl_frontend/src/app/api/bestaetigung/spieler/route.ts`, before the parse",
+        "answer for a pupil. `text_version` arrives on the payload, and the route handler "
+        "`fl_frontend/src/app/api/bestaetigung/spieler/route.ts` refuses any label but the running one, before the parse",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
