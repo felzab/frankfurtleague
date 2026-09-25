@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import {
@@ -30,6 +31,10 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
+
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
@@ -625,11 +630,22 @@ describe("the squad question asks for one level in both halves", () => {
      of membership rather than from level, so either half losing the qualifier puts the wrong reading
      back — and each half survives being reverted on its own. */
   it("names the same level in the label and in the refusal", () => {
-    const TEAM_SECTION = readFileSync(
-      path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "FormTeamSection.tsx"),
-      "utf8",
-    );
-    const label = /<Label className=\{FIELD_LABEL_CLASSES\}>(Davon[^<]*)<\/Label>/.exec(TEAM_SECTION)?.[1] ?? "";
+    const section = renderMarkup(FormTeamSection, {
+      trikot: { vorhandener_satz: "", wunschfarbe: null },
+      kader: { voraussichtliche_groesse: 14, gute_spieler: null },
+      wunschgegner: "",
+      schulen: [],
+      vergebeneFarben: [],
+      onTrikotChange: () => undefined,
+      onKaderChange: () => undefined,
+      onWunschgegnerChange: () => undefined,
+      onFieldLeft: () => undefined,
+      onFarbePicked: () => undefined,
+    });
+    // The label of the field whose box writes the strong count, which stands before that box.
+    const box = section.indexOf('name="kader.gute_spieler"');
+    const opening = section.lastIndexOf('data-slot="label"', box);
+    const label = box < 0 || opening < 0 ? "" : textOf(section.slice(section.indexOf(">", opening) + 1, section.indexOf("</label>", opening)));
     const refusal =
       FLPostBewerbungPayloadSchema.safeParse(
         bewerbungPayload(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } })),
