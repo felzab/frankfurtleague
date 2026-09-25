@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
@@ -26,7 +27,7 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/server": NEXT_SERVER,
   "next/cache": NEXT_CACHE,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
 };
 

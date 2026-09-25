@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
@@ -34,7 +35,7 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/server": NEXT_SERVER,
   "next/cache": NEXT_CACHE,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
 };
 

@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 
 import z from "zod";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+
 import type { UndoReport } from "./undoRoute.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`
@@ -11,7 +13,7 @@ import type { UndoReport } from "./undoRoute.ts";
 const PACKAGE_DOUBLES: Record<string, string> = {
   "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
   "next/navigation": `export const unstable_rethrow = () => {};`,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   // Throws as Next does outside a server action, so a route that reached it fails here.
   "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
 };

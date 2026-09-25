@@ -3,13 +3,14 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The saison modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** Endpoints the doubled client was asked for, cumulative across every pass in this file. */
 const reads: string[] = [];

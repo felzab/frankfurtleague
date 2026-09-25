@@ -3,10 +3,11 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { APIBadStatusError } from "@/core/errors";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
 let failure: unknown;

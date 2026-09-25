@@ -154,6 +154,9 @@ export const ROUTE_NEXT_CACHE_DOUBLE = [
   INERT_DECLARATIONS,
 ].join("\n");
 
+/** `next/headers` for a request that carries none, for a harness that doubles its packages itself. */
+export const NEXT_HEADERS_DOUBLE = "export const headers = async () => new Headers();";
+
 /**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
  * throw outside one, and `server-only` throws outside a server build.
@@ -161,7 +164,7 @@ export const ROUTE_NEXT_CACHE_DOUBLE = [
 export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "server-only": "export {};",
   "next/cache": NEXT_CACHE_DOUBLE,
-  "next/headers": "export const headers = async () => new Headers();",
+  "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
 /** Every refusal an action logs would otherwise reach the run's output as an error line. */

@@ -4,13 +4,14 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The two membership modules under test, whose `react` imports the server build must answer. */
 const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** Endpoints the doubled client was asked for, cumulative across every pass in this file. */
 const reads: string[] = [];

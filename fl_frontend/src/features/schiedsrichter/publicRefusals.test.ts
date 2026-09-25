@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 /** Every package these modules reach that this process cannot load, doubled at resolve time. */
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/cache": `export const revalidateTag = () => {}; export const updateTag = () => {};`,
 };
 

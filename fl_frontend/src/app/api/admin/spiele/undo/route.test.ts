@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
@@ -15,7 +16,6 @@ const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body
 const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
 const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };
 export const refresh = () => { throw new Error("refresh() outside a server action"); };`;
-const NEXT_HEADERS = `export const headers = async () => new Headers();`;
 const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
 export const getSignInDestination = async () => globalThis.__flUndoDestination;`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
@@ -38,7 +38,7 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "next/server": NEXT_SERVER,
   "next/navigation": NEXT_NAVIGATION,
   "next/cache": NEXT_CACHE,
-  "next/headers": NEXT_HEADERS,
+  "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
 registerHooks({

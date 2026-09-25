@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActions, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 /**
  * `next/headers` resolves only inside a Next build. Answering no traceparent leaves each read
  * minting its own, which is the branch a request without one already takes.
  */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
