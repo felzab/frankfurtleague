@@ -231,10 +231,6 @@ const RESPONSE_SCHEMA = sliceBetween(
 const SUBMIT = sliceBetween(FORM_SOURCE, "const requestSave", "return (");
 const REQUEST_LEAVE = sliceBetween(EXIT_HOOK, "const requestLeave", "const discardAndLeave");
 const OFFER_UNDO = sliceBetween(FORM_SOURCE, "offerUndo({", "});");
-/* Cut at the signature's closing brace rather than at the declaration: the parameter list spans
-   several lines, and each would otherwise read as a statement of the body. */
-const PAGE_CONTENT = sliceBetween(PAGE_SOURCE, "}) {", null);
-
 /**
  * One function body's statements, comments and blank lines dropped. What the text tests below can
  * assert is the SHAPE of a handler; that it behaves is not reachable from here.
@@ -259,7 +255,6 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     assert.ok(REQUEST_LEAVE.includes("leavePage()"), "the leave request's slice does not reach the navigation it guards");
     assert.ok(!REQUEST_LEAVE.includes("resetDraftToStored"), "the leave request's slice reaches forward over the reset");
     assert.ok(OFFER_UNDO.includes("body: undoPayload,"), "the undo offer's slice does not reach the payload it hands on");
-    assert.notEqual(PAGE_CONTENT, "", "the page's data component is no longer where the cut looks for it");
   });
 
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
@@ -375,18 +370,10 @@ describe("the editor's shape", () => {
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The page's chrome may never wait on the row, and the fetch below the boundary may never run in
-     the image build. `params` is awaited INSIDE the boundary for the same reason. */
+  /* The page's chrome may never wait on the row. `params` is awaited INSIDE the boundary for the same
+     reason. */
   it("leaves the page's shape intact", () => {
     assert.match(PAGE, /export default function AdminKontakteEditPage/, "the page's default export became async");
-    // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch
-    // ordered above this call runs at build time.
-    assert.equal(
-      // Index 1: index 0 is the signature's closing line, which the cut opens on.
-      statementsOf(PAGE_CONTENT)[1],
-      "await connection();",
-      "the data component no longer opens with await connection()",
-    );
     assert.match(PAGE, /await resolveTeamId\(params\)/, "the route's own id is resolved outside the boundary");
     assert.match(PAGE, /resolveAdminSaison\(searchParams\)/, "the season is resolved at the wrong tier, or not at all");
   });

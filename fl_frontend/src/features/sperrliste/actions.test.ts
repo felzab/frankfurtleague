@@ -9,7 +9,6 @@ import { createElement as h } from "react";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { mapAdresseRefusal } from "./refusals.ts";
@@ -105,17 +104,6 @@ const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/pa
 
 /** The page's own return. Its rows sit behind the boundary, whose fallback stands here. */
 const PAGE_MARKUP = renderTree(underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" }));
-
-/**
- * One function body's statements, comments and blank lines dropped, so an index counts statements and
- * never the comment above one.
- */
-function statementsOf(slice: string): string[] {
-  return slice
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
-}
 
 const CREATE_OPERATION = "POST /sperrliste";
 
@@ -279,17 +267,8 @@ describe("the page the ban list stands on", () => {
     assert.match(PAGE, /<AdminCrudShell[^>]*\bprivateQuery\b/, "the bar writes the typed address into a request line nginx logs");
   });
 
-  /* The page's chrome may never wait on the list, and the fetch below the boundary may never run in
-     the image build (`.claude/rules/frontend.md`). */
+  /* The page's chrome may never wait on the list. */
   it("leaves the page's shape intact", () => {
     assert.match(PAGE, /export default function AdminSperrlistePage/, "the page's default export became async");
-    // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch
-    // ordered above this call runs at build time. `[\s\S]*?` would have admitted one in between.
-    assert.equal(
-      // Index 1: index 0 is the function's own signature, which the cut opens on.
-      statementsOf(sliceBetween(PAGE_SOURCE, "async function Sperrliste", null))[1],
-      "await connection();",
-      "the data component no longer opens with await connection()",
-    );
   });
 });

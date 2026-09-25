@@ -110,18 +110,6 @@ const ACTION_HEADER = sliceBetween(ACTIONS, '"use server"', "export async functi
 const ERASE_MUTATION = sliceBetween(MUTATIONS, "export async function eraseKontaktperson", "// Both ids go in the PATH");
 const RESPONSE_SCHEMA = sliceBetween(SCHEMAS, "export const FLKontaktErasureResponseSchema", null);
 
-/**
- * One function body's statements, comments and blank lines dropped. What the text tests below can
- * assert is the SHAPE of a handler; that it behaves is not reachable from here, and is said so at
- * each case rather than dressed up in a longer regex.
- */
-function statementsOf(slice: string): string[] {
-  return slice
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
-}
-
 /** One response, spelled once so a report case names only the figures it is about. */
 function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
   return {
@@ -320,18 +308,9 @@ describe("where the control stands", () => {
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The page's chrome may never wait on the list, and the fetch below the boundary may never run in
-     the image build. */
+  /* The page's chrome may never wait on the list. */
   it("leaves the page's shape intact", () => {
     assert.match(PAGE, /export default function AdminKontaktePage/, "the page's default export became async");
-    // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch
-    // ordered above this call runs at build time. `[\s\S]*?` would have admitted one in between.
-    assert.equal(
-      // Index 1: index 0 is the function's own signature, which the cut opens on.
-      statementsOf(sliceBetween(PAGE_SOURCE, "async function KontakteTable", null))[1],
-      "await connection();",
-      "the data component no longer opens with await connection()",
-    );
   });
 });
 

@@ -48,21 +48,12 @@ describe("the route the sidemenu names", () => {
 });
 
 describe("where each page opts out of prerendering", () => {
-  /* `docs/frontend/spec.md :: I22`: awaited INSIDE the boundary, so the chrome renders while the
-     read runs. Dropped, only ESLint's unused-import rule stands between it and a prerender. */
+  /* `docs/frontend/spec.md :: I22`: the chrome renders while the read runs, which awaits
+     `connection()` first (`fl_frontend/src/app/admin/omittedSaison.test.ts`). */
   for (const [page, where] of [
     [LIST_PAGE, "the list page"],
     [DETAIL_PAGE, "the detail page"],
   ] as const) {
-    it(`${where} awaits connection() inside the boundary`, () => {
-      assert.match(page, /import \{ connection \} from "next\/server";/, `${where} no longer imports connection`);
-      assert.match(page, /await connection\(\);/, `${where} no longer awaits connection`);
-
-      const [chrome, boundary] = page.split("<Suspense");
-      assert.ok(boundary !== undefined, `${where} renders no Suspense boundary`);
-      assert.ok(!chrome!.includes("await connection()"), `${where} awaits connection above its own boundary`);
-    });
-
     it(`${where} exports a synchronous default`, () => {
       assert.match(page, /^export default function /m, `${where} awaits its data before the chrome renders`);
       assert.doesNotMatch(page, /^export default async /m, `${where} awaits its data before the chrome renders`);

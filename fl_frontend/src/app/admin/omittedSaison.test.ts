@@ -18,6 +18,7 @@ import {
   callPage,
   clearSteps,
   EMPTIEST_ANSWER,
+  isNavigation,
   OBJECT_ID,
   readsOf,
   redirectTarget,
@@ -464,5 +465,32 @@ describe("the season every admin page reads", () => {
       redirects.filter((entry) => !entry.endsWith(" -> /admin/saisons")),
       [],
     );
+  });
+});
+
+/** Every visit the leagues above made: a page's reads and throws move with the seasons it is handed. */
+const EVERY_VISIT = [...LEAGUES, EMPTY_LEAGUE].flatMap(({ visits }) => [...visits]);
+
+/** Each entry once, however many leagues met it. */
+const distinct = (entries: string[]): string[] => [...new Set(entries)];
+
+describe("what every admin page does in every league", () => {
+  /* `.claude/rules/frontend.md` **pages**: the image build reaches no backend, so a read made before
+     `connection()` runs where there is none. */
+  it("awaits connection() before its first read", () => {
+    const found = EVERY_VISIT.flatMap(([page, { unconnected }]) => unconnected.map((entry) => `${label(page)} :: ${entry}`));
+
+    assert.deepEqual(distinct(found), []);
+  });
+
+  /* A page that crashes drops out of every case above, each judging only what it read before the throw. */
+  it("throws nothing but a redirect or a not-found", () => {
+    const found = EVERY_VISIT.flatMap(([page, { thrown }]) =>
+      thrown
+        .filter((error) => !isNavigation(error))
+        .map((error) => `${label(page)} :: ${error instanceof Error ? error.message : String(error)}`),
+    );
+
+    assert.deepEqual(distinct(found), []);
   });
 });
