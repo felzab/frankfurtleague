@@ -33,7 +33,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -41,8 +41,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spiele_write_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 

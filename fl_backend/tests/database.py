@@ -12,6 +12,10 @@ from pymongo.mongo_client import MongoClient
 
 from app.core.constraints import apply_constraints
 
+# MongoDB's code for a document its `$jsonSchema` refused, which the driver names nowhere. Asserted on
+# rather than caught broadly, so an unrelated failure cannot pass as the refusal a case drives.
+DOCUMENT_VALIDATION_FAILED = 121
+
 # One collection's enforcement: its validator, both validation modes, and every index it carries.
 Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]

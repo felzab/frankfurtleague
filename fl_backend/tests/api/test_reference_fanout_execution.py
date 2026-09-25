@@ -15,7 +15,7 @@ from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
@@ -27,8 +27,6 @@ CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 # Fixed rather than generated, so a failure names the same row every run.
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607400001")

@@ -20,7 +20,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
@@ -28,8 +28,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_swap_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 # Fixed rather than generated, so a failure names the same club every run.

@@ -26,13 +26,11 @@ from app.core.constraints import (
     report_relations,
     report_violations,
 )
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
-DOCUMENT_VALIDATION_FAILED = 121
 
 # The throwaway: every body under it breaks the schema it applies, so `on_a_database` rebuilds it per
 # call.

@@ -17,7 +17,7 @@ from app.api.spieler.admin_router import (
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
@@ -44,8 +44,6 @@ TODAY = "2026-04-01"
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 GEBURTSDATUM = "2008-05-17"
 
-# MongoDB's own code for a document its `$jsonSchema` refused.
-DOCUMENT_VALIDATION_FAILED = 121
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 

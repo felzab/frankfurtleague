@@ -13,15 +13,13 @@ from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_aktionen_validator_test")
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
-DOCUMENT_VALIDATION_FAILED = 121
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")
 # A second id, so a removal's images are the distinct documents a filter matched rather than one twice.

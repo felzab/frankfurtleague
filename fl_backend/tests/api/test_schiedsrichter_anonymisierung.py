@@ -51,7 +51,7 @@ from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -60,8 +60,6 @@ DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
 CONFIG = build_test_config()
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
-DOCUMENT_VALIDATION_FAILED = 121
 
 # Fixed rather than generated, so a failure names the same row every run.
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607800001")

@@ -22,7 +22,7 @@ from app.api.saisons.admin_router import post_einladungen_versand, preview_einla
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
@@ -440,9 +440,7 @@ class TestTheRuleOfOneLiveInvitation:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        # 121 is `DocumentValidationFailure`, so the insert was refused by the schema rather than by
-        # an unrelated write error.
-        assert code == 121
+        assert code == DOCUMENT_VALIDATION_FAILED
         assert stored == 0
 
     def test_two_teams_hold_a_live_invitation_each(self, mongo_replica_set_url: str):

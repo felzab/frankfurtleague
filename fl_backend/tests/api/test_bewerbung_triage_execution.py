@@ -57,7 +57,7 @@ from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
@@ -69,8 +69,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as the rollback.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 

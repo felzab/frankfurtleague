@@ -21,13 +21,11 @@ from app.core.crud import patch_one_in_db
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
-DOCUMENT_VALIDATION_FAILED = 121
 
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607810001")

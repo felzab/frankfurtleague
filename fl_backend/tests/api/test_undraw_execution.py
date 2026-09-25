@@ -29,15 +29,13 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import trace_id_var
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_undraw_write_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 

@@ -25,7 +25,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests import documents
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -311,9 +311,7 @@ class TestTheBoundaryTheCheckReads:
 
         code, stored = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
-        # 121 is `DocumentValidationFailure`, so the schema refused it rather than an unrelated
-        # write error.
-        assert code == 121
+        assert code == DOCUMENT_VALIDATION_FAILED
         assert stored == 2
 
 
