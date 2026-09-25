@@ -723,10 +723,14 @@ stands in for. The toast module is doubled the same way by its sibling `:: doubl
 its members from `appToast.ts`'s own source and records what was raised. A callback the component
 already takes is handed a `mock.fn()` from `node:test`.
 
-**A source-text assertion is for what neither a rendering nor a call can show** — a convention
-spanning files, a directive, a wiring between two of them that no answer carries, such as the tags a
-write clears. Held against a component's own output, a regex over the
-source passes on markup that says the opposite and on a component nothing renders at all.
+**A source-text assertion is for what neither a rendering, a call nor a lint selector can show, and
+only where breaking it is a defect someone meets** — a mirror of a file no tool reads, such as a
+backend rule or an edge configuration, or a sweep for such a defect. The tags a write clears are a
+call's, `fl_frontend/src/shared/testing/actionDoubles.ts :: cacheCalls` recording them, and a
+directive a module must not carry is a lint ban's. A convention whose breach renders the same, such as
+a recipe's classes copied rather than read, takes no test. Held against a component's own output, a
+regex over the source passes on markup that says the opposite and on a component nothing renders at
+all.
 
 **The `test:base` script both tiers run stands `fl_frontend/src/core/config.ts`'s gate down and
 supplies the database URI a module reads past it** (`fl_frontend/package.json`), so a component whose
