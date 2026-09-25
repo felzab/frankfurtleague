@@ -12,6 +12,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
+from starlette.convertors import Convertor
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
@@ -60,6 +61,7 @@ from app.core.exception_handlers import (
 from app.core.exceptions import NO_DATABASE_CLIENT
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
+from app.core.routing import ObjectIdConvertor
 from app.core.security import (
     MISSING_ACTOR,
     MISSING_TOKEN,
@@ -160,6 +162,7 @@ class DocumentedRoute(NamedTuple):
     methods: set[str]
     responses: Mapping[int | str, Any]
     dependant: Dependant
+    convertors: Mapping[str, Convertor[Any]]
 
     @property
     def operations(self) -> list[Operation]:
@@ -181,7 +184,9 @@ def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
         # The routes `fastapi.openapi.utils.get_openapi` documents an operation for, whose path is never
         # `None`; a hidden one read here would pass a rule naming it as served while publishing nothing.
         if isinstance(context.original_route, APIRoute) and context.path_format is not None and context.include_in_schema:
-            yield DocumentedRoute(context.path_format, context.methods or set(), context.responses, context.dependant)
+            yield DocumentedRoute(
+                context.path_format, context.methods or set(), context.responses, context.dependant, context.original_route.param_convertors
+            )
 
 
 Document = dict[str, Any]
@@ -224,6 +229,32 @@ def with_operations_edited(document: Mapping[str, Any], edit: Callable[[Operatio
 
 def with_extension(document: Mapping[str, Any], extension: str, values: Mapping[Operation, Any]) -> Document:
     return with_operations_edited(document, lambda key, operation: {**operation, extension: values[key]} if key in values else operation)
+
+
+def publish_path_patterns(app: FastAPI) -> DocumentPass:
+    """Each `objectid` path parameter published with the pattern its convertor matches.
+
+    FastAPI publishes the parameter's type alone, and a path whose id misses the pattern is no path
+    this operation serves: the router answers it before any handler (`docs/backend/spec.md` §1.4).
+    """
+
+    patterns: dict[Operation, set[str]] = {}
+    for route in document_routes(app):
+        named = {name for name, convertor in route.convertors.items() if isinstance(convertor, ObjectIdConvertor)}
+        if named:
+            patterns.update(dict.fromkeys(route.operations, named))
+
+    def edit(key: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
+        parameters = [
+            {**parameter, "schema": {**parameter["schema"], "pattern": f"^{ObjectIdConvertor.regex}$"}}
+            if parameter["in"] == "path" and parameter["name"] in patterns.get(key, set())
+            else parameter
+            for parameter in operation.get("parameters", [])
+        ]
+
+        return {**operation, "parameters": parameters} if parameters else operation
+
+    return functools.partial(with_operations_edited, edit=edit)
 
 
 def publish_key_tiers(app: FastAPI) -> DocumentPass:
@@ -413,6 +444,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so an edit made afterwards never reaches a reader.
-    publish_document(app, (publish_key_tiers(app), publish_stores_nothing(app), with_failure_bodies, publish_refusals(app)))
+    publish_document(
+        app, (publish_key_tiers(app), publish_stores_nothing(app), publish_path_patterns(app), with_failure_bodies, publish_refusals(app))
+    )
 
     return app

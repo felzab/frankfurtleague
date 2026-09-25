@@ -424,7 +424,10 @@ left the season" are one failure mode, which is what the code table's own rule k
 **A malformed id: 404 in a path, 422 in a query — a deliberate split.** The `objectid` convertor
 (`fl_backend/app/core/routing.py :: by_id`) means `/spiele/not-an-id` matches no route at all and
 answers the router's 404, `REQ-ROUTE-001`, in the same envelope as every other failure
-(`fl_backend/app/core/exception_handlers.py :: routing_exception_handler`); a season id — a four-character string, never an ObjectId — reaches the lookup and 404s there instead. A
+(`fl_backend/app/core/exception_handlers.py :: routing_exception_handler`). Every such parameter is
+published with the convertor's pattern (`fl_backend/app/main.py :: publish_path_patterns`), so a
+malformed id is visibly no id the operation serves, and its 404 is the router's rather than the
+operation's. A season id — a four-character string, never an ObjectId — reaches the lookup and 404s there instead. A
 query parameter carries input, so malformed input fails validation like any other: `REQ-VAL-001`, 422.
 No handler maps bson's `InvalidId`: `fl_backend/app/shared/schemas/custom.py :: parse_object_id` is the
 one place a value becomes an ObjectId and it catches the error, so one raised anywhere else is a server
