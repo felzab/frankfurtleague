@@ -9,6 +9,7 @@ import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -41,6 +42,8 @@ import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
+/** Read for the codes each mapper's own switch names. */
+const UTILS = readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8");
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -390,6 +393,7 @@ describe("which paths one judgement covers in the public form", () => {
 /** The public write, spelled as the backend's own routes spell it. */
 const SUBMIT_OPERATION = "POST /bewerbungen";
 const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
+const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
 
 /** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
 const badStatus = (statusCode: number, serverErrorCode: string) =>
@@ -404,10 +408,54 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     traceId: "0123456789abcdef",
   });
 
-const refusalFor = (code: string) => badStatus(409, code);
+/** Each operation's published codes, asked with a constant the coverage sweep can read. */
+const PUBLISHED = {
+  [SUBMIT_OPERATION]: publishedRefusals(SUBMIT_OPERATION),
+  [CONFIRM_OPERATION]: publishedRefusals(CONFIRM_OPERATION),
+  [ANSICHT_OPERATION]: publishedRefusals(ANSICHT_OPERATION),
+};
+
+/**
+ * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
+ * backend stopped publishing fails here rather than passing on a refusal nothing sends.
+ */
+function publishedOn(operation: keyof typeof PUBLISHED, code: string) {
+  assert.ok(PUBLISHED[operation].includes(code), `${code} is no longer published on ${operation}`);
+
+  return refusedOn(operation, code);
+}
+
+const SUBMIT_MAPPER = sliceBetween(UTILS, "export function mapBewerbungSubmitRefusal", "export function nenntLaufendeFassung");
+const CONFIRM_MAPPER = sliceBetween(UTILS, "export function mapEinwilligungRefusal", "export function mapEinwilligungAnsichtRefusal");
+
+/** Every code a mapper's switch answers, read off it: no call enumerates the arms a mapper holds. */
+const armsOf = (mapper: string): string[] => [...mapper.matchAll(/case "([A-Z]+-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
+
+describe("the codes the two mappers answer", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
+  it("cuts each mapper out of its file and finds its arms", () => {
+    assert.ok(SUBMIT_MAPPER.includes("REQ-BEWERBUNG-015"), "the submission mapper's switch is outside its slice");
+    assert.ok(!SUBMIT_MAPPER.includes("REQ-BEWERBUNG-011"), "the submission mapper's slice reaches the confirmation's");
+    assert.ok(CONFIRM_MAPPER.includes("REQ-BEWERBUNG-012"), "the confirmation mapper's switch is outside its slice");
+    assert.ok(armsOf(SUBMIT_MAPPER).length > 0 && armsOf(CONFIRM_MAPPER).length > 0, "no arm could be read out of a mapper");
+  });
+
+  /* The half the every-code cases below cannot see: an arm for a code its endpoint stopped
+     publishing is German nobody reaches, and it hides that the backend moved. */
+  it("answers no code its endpoint does not publish", () => {
+    for (const [operation, mapper] of [
+      [SUBMIT_OPERATION, SUBMIT_MAPPER],
+      [CONFIRM_OPERATION, CONFIRM_MAPPER],
+    ] as const) {
+      for (const code of armsOf(mapper)) {
+        assert.ok(PUBLISHED[operation].includes(code), `${code} is mapped here and not published on ${operation}`);
+      }
+    }
+  });
+});
 
 describe("what a submission's refusal is shown as", () => {
-  const refusal = (code: string) => mapBewerbungSubmitRefusal(refusalFor(code));
+  const refusal = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code));
 
   /* Asserted before the arms below: a mapper that stopped recognising a 409 at all would return
      `null` everywhere, and every "names no field" assertion would pass over nothing. */
@@ -449,7 +497,7 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    assert.equal(refusal("REQ-BEWERBUNG-999"), null);
+    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999")), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
     assert.equal(mapBewerbungSubmitRefusal(badStatus(404, "REQ-BEWERBUNG-005")), null);
   });
@@ -478,8 +526,9 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      „spielt schon mit“ are two readings a German sentence separates and no structural check does —
      and only one is what the backend refuses. */
   it("says of each code what the backend constant it answers refuses", () => {
-    const fieldOf = (code: string) => Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
-    const banner = (code: string) => mapBewerbungSubmitRefusal(refusalFor(code))?.error ?? "";
+    const fieldOf = (code: string) =>
+      Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
+    const banner = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.error ?? "";
 
     // The season stopped taking applications; nothing about the school is at fault.
     assert.match(banner("REQ-BEWERBUNG-004"), /keine Bewerbungen/);
@@ -502,7 +551,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
 
     // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
     // sentence the form's own parse gives such a page, and no box, none of them being at fault.
-    assert.deepEqual(mapBewerbungSubmitRefusal(refusalFor("REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
+    assert.deepEqual(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
@@ -518,7 +567,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
 
     for (const code of ["REQ-BEWERBUNG-006", "REQ-BEWERBUNG-008"]) {
-      const refusalText = Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
+      const refusalText = Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
 
       for (const numberWord of telltale) {
         assert.ok(!refusalText.toLowerCase().includes(numberWord.toLowerCase()), `${code} discloses roster state with „${numberWord}“`);
@@ -600,8 +649,8 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
-    for (const code of publishedRefusals("POST /bewerbungen/einwilligung/ansicht")) {
-      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn("POST /bewerbungen/einwilligung/ansicht", code)), "ungueltig", code);
+    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
+      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), "ungueltig", code);
     }
   });
 
@@ -618,7 +667,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("asks its caller to read the already-answered link rather than naming a state", () => {
-    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
+    const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
 
     assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
     assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
@@ -629,7 +678,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field, naming the floor it was given and never a state", () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"), floor);
+      const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), floor);
       const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
       assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
@@ -687,8 +736,8 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-BEWERBUNG-009")), "ungueltig");
-    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-SOMETHING-NEW")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW")), "ungueltig");
   });
 
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
