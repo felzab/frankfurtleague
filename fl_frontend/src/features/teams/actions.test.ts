@@ -76,11 +76,11 @@ describe("the team actions against the codes their endpoints publish", () => {
     );
   });
 
-  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 with the
-     message about an entry that already exists — confidently wrong for three of these four. */
+  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 it does not
+     word with no reason, which a retry meets again. */
   it("answers every refusal the replacement publishes with the replacement's own mapper", async () => {
     for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
-      assert.notEqual(answerShown(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin with no reason`);
     }
     await assertEachAnswered({
       operation: REPLACEMENT_OPERATION,
