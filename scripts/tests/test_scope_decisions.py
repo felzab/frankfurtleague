@@ -51,7 +51,7 @@ def _on(answered: dict[str, bool]) -> set[str]:
 
 SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # Every scope running the virtualenv this file pins, and COPY . . carries it to where the image's
-    # uv sync --frozen reads it. A job handing it to the step pool alone is held out.
+    # uv sync --locked reads it. A job handing it to the step pool alone is held out.
     (PYTHON_VERSION, ("scripts", "docs", "backend", "ops", "db", "images")),
     # scripts/ruff.toml extends this file, and the gate's own ruff and the ops scope's zizmor come out
     # of the venv it pins.
