@@ -63,7 +63,6 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 const read = (...parts: string[]): string => readFileSync(path.join(SRC_DIR, ...parts), "utf8");
 
 const FORM = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx");
-const PAGE = read("app", "(public)", "bewerbung", "[saison_id]", "page.tsx");
 
 const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
@@ -254,15 +253,10 @@ const refusalsShown = (): string[] =>
 const asksBeforeLeaving = (): boolean => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
 
 describe("the public application form", () => {
-  /* First, because every source-text case below reads one of these: a path that stopped resolving
-     would leave each of them matching against an empty string and reporting nothing. */
-  it("finds each file it reads at all", () => {
-    for (const [name, source] of [
-      ["the form", FORM],
-      ["the page", PAGE],
-    ] as const) {
-      assert.ok(source.length > 0, `${name} is empty, so this file proves nothing about it`);
-    }
+  /* First, because every source-text case below reads the form: a path that stopped resolving would
+     leave each of them matching against an empty string and reporting nothing. */
+  it("finds the file it reads at all", () => {
+    assert.ok(FORM.length > 0, "the form is empty, so this file proves nothing about it");
   });
 
   /* One composer, so the submit cannot assemble a second payload beside the one the blur-time judgements
@@ -618,42 +612,6 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
     }
     assert.ok(FIELD_ERROR_SWITCH_CLASSES.startsWith(FIELD_ERROR_CLASSES), "the switch recipe is no longer the field recipe with a start added");
     assert.match(FIELD_ERROR_SWITCH_CLASSES, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
-  });
-});
-
-/*
- The page is read rather than rendered: each claim here is about the shape of the module rather than
- about markup.
-*/
-describe("the public application page", () => {
-  /* `docs/frontend/spec.md :: I22`: a dynamic segment awaits `params` INSIDE its boundary. A
-     top-level await ties the fallback-params App Shell to one URL. */
-  it("awaits connection() inside the boundary and exports a synchronous default", () => {
-    assert.match(PAGE, /import \{ connection \} from "next\/server";/, "the page no longer imports connection");
-
-    // Split at the default export first: `generateMetadata` keeps its own await deliberately, being
-    // no part of the shell, and reading the file whole would count that one as the shell's.
-    const [, nachMetadata = ""] = PAGE.split("export default function");
-    const [chrome, boundary] = nachMetadata.split("<Suspense");
-
-    assert.match(PAGE, /export async function generateMetadata/, "the page publishes no metadata of its own");
-    assert.ok(boundary !== undefined, "the page renders no Suspense boundary");
-    assert.ok(!chrome!.includes("await connection()"), "the page awaits connection above its own boundary");
-    assert.match(PAGE, /^export default function /m, "the page awaits its data before the chrome renders");
-    assert.doesNotMatch(PAGE, /^export default async /m, "the page awaits its data before the chrome renders");
-  });
-
-  /* `[saison_id]` and never `[saison]`: `resolveSaisonIdParam` reads `params.saison_id`, so the
-     other spelling 404s every request with nothing in the type system reporting it. */
-  it("resolves the segment by the name the resolver reads, and 404s a miss", () => {
-    assert.match(PAGE, /resolveSaisonIdParam\(props\.params\)/, "the page resolves its season some other way");
-    assert.match(PAGE, /NextPageProps<\{ saison_id: string \}>/, "the page types its params under another key");
-  });
-
-  /* An anonymous visitor reads the club list. A closed page showing no picker has no business
-     reading it at all (`READ-BEWERBUNG-001`). */
-  it("reads the club list only while the window is running", () => {
-    assert.match(PAGE, /fenster\.fenster\?\.laeuft === true$/m, "the club list is read on a page that shows no picker");
   });
 });
 

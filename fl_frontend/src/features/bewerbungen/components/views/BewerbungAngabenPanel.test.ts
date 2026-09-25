@@ -117,10 +117,17 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(factLine(markup(), "Größe der Stufe")), "96");
   });
 
-  /* The floor under the sink assertion in `fl_frontend/src/features/bewerbungen/routes.test.ts`: a
-     panel that had stopped rendering the applicant's words would satisfy that one by rendering none. */
-  it("renders the wished opponent as element content", () => {
-    assert.equal(textOf(factLine(markup(), "Wunschgegner")), "Helmholtzschule");
+  /* Applicant-controlled and read by an administrator. As element CONTENT React escapes it; in an
+     attribute it is an `href` or a `srcDoc` away from executing, and as raw markup it runs. */
+  it("renders the wished opponent as escaped element content, in no attribute", () => {
+    const html = markup({ wunschgegner: "Zorbanax <b>Schule</b>" });
+
+    assert.equal(textOf(factLine(html, "Wunschgegner")), "Zorbanax &lt;b&gt;Schule&lt;/b&gt;", "the applicant's markup is rendered raw");
+    assert.deepEqual(
+      [...html.matchAll(/<[^>]*>/g)].filter(([tag]) => tag.includes("Zorbanax")),
+      [],
+      "the wished opponent reaches an attribute",
+    );
   });
 });
 
