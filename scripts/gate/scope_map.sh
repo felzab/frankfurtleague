@@ -179,6 +179,9 @@ else
       # this module's fetch ceiling, so a raised or lowered ceiling would otherwise reach that
       # comparison no earlier than the push to main.
       fl_frontend/src/core/api.ts) frontend=true; backend=true; db=true; docs=true ;;
+      # `fl_backend/tests/shared/test_frontend_mirrors.py` reads the test-only modules this config's
+      # `TEST_ONLY` keeps out of production, and skips them in its mirror walk.
+      fl_frontend/eslint.config.mjs) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       # The db tier's image is named here, and `fl_frontend/src/core/mongoImage.test.ts` holds the
       # frontend's db-tier files to it, so a bump here owes the frontend scope too.
