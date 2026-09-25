@@ -342,8 +342,8 @@ The invariant the tests pin here: the code on the wire and in the log is the **e
 **Every failure an operation can answer is published at its status with the codes it carries** — a
 dependency's 400, 401 and 503 (I370), a route's 404 for `DB-COMMON-001` (I369) and 409 for
 `DB-COMMON-002` (I358), each rule's code (I357), and `REQ-VAL-001` on the 422 of every operation
-taking input — so `default` is left to the 500s, whose codes name a server fault rather than the
-request.
+taking input and on the 400 of every one taking a body — so `default` is left to the 500s, whose
+codes name a server fault rather than the request.
 
 **A domain refusal answers the status its check chose by
 [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#section-15.5)'s meanings**
@@ -369,13 +369,15 @@ the document publishes each code at the status a client meets it at:
 
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never
-pydantic's English message. Three shapes name no control, and
+pydantic's English message. Two shapes name no control, and
 the form answers each with the public slice's own sentence, or the generic one where it has none
 (`docs/frontend/spec.md :: I344`):
 
 - a refusal inside a union carries pydantic's member tag in its path, which no payload key spells
 - a whole-record rule carries the path of the model that holds it — empty for the body itself
-- an undecodable body carries an empty path, where FastAPI's own report holds a character offset
+
+**A body that is not JSON at all answers 400 `REQ-VAL-001` with no `fields`**: malformed syntax is
+RFC 9110's 400 rather than a refused payload, and nothing inside it was read to be named.
 
 **A `DuplicateKeyError` maps to a 409 through a dedicated handler**: a natural-key collision on a
 create is an ordinary outcome rather than a server fault.

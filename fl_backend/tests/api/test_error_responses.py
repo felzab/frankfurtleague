@@ -195,14 +195,10 @@ class TestFailureBodies:
         assert RequestAuthorizationException(MISSING_TOKEN).error_detail["message"] not in " ".join(response.headers.values())
 
 
-def refused(body: object | None = None, *, content: bytes | None = None, query: str = "") -> dict[str, Any]:
+def refused(body: object | None = None, *, query: str = "") -> dict[str, Any]:
     """The 422 a payload earns at `/nested`, asserted to BE one, so no case reads fields off a success."""
 
-    validation_client = TestClient(VALIDATION_APP, raise_server_exceptions=False)
-    if content is None:
-        response = validation_client.post(f"/nested{query}", json=body)
-    else:
-        response = validation_client.post("/nested", content=content, headers={"content-type": "application/json"})
+    response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/nested{query}", json=body)
 
     assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
     return response.json()
@@ -238,12 +234,15 @@ class TestTheRefusedFieldsReachTheCaller:
 
         assert body["fields"] == [{"in": "query", "path": ["limit"], "kind": "int_parsing"}]
 
-    def test_an_undecodable_body_names_no_path(self):
-        """FastAPI reports the character offset parsing stopped at, which a form would read as a list index."""
+    def test_an_undecodable_body_is_malformed_syntax_naming_no_field(self):
+        """400 and no `fields`: nothing inside the body was read, so no field is at fault."""
 
-        body = refused(content=b'{"kontakt": ')
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/nested", content=b'{"kontakt": ', headers={"content-type": "application/json"}
+        )
 
-        assert body["fields"] == [{"in": "body", "path": [], "kind": "json_invalid"}]
+        assert (response.status_code, response.json()["error_code"]) == (400, PAYLOAD_REFUSED)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
@@ -308,10 +307,13 @@ def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
     for (path, method), refusals in dependency_refusals(APP).items():
         for status, codes in refusals.items():
             declared.setdefault(f"{method.upper()} {path}", {}).setdefault(str(int(status)), set()).update(codes)
-    # Every operation taking input can refuse it, read off its own `parameters` and `requestBody`.
+    # Every operation taking input can refuse it, read off its own `parameters` and `requestBody`, and
+    # one taking a body can be sent one that is not JSON at all.
     for name, operation in published_operations():
         if operation.get("parameters") or "requestBody" in operation:
             declared.setdefault(name, {}).setdefault("422", set()).add(PAYLOAD_REFUSED)
+        if "requestBody" in operation:
+            declared.setdefault(name, {}).setdefault("400", set()).add(PAYLOAD_REFUSED)
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)

@@ -355,6 +355,9 @@ def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping
         # FastAPI's own placement of its 422, on every operation taking input, is where a payload can be refused.
         if str(int(HTTPStatus.UNPROCESSABLE_CONTENT)) in operation["responses"]:
             statuses.setdefault(HTTPStatus.UNPROCESSABLE_CONTENT, set()).add(PAYLOAD_REFUSED)
+        # A body arrives only where the operation takes one, and only a body can be undecodable.
+        if "requestBody" in operation:
+            statuses.setdefault(HTTPStatus.BAD_REQUEST, set()).add(PAYLOAD_REFUSED)
         refused = {str(status): refusal_response(status, found) for status, found in sorted(statuses.items())}
 
         return {**operation, "responses": {**operation["responses"], **refused}}

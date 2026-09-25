@@ -23,6 +23,8 @@ MALFORMED_OBJECT_ID = "REQ-OID-001"
 STORED_DATA_INVALID = "SRV-VAL-001"
 UNHANDLED_CRASH = "SRV-FAIL-001"
 DATABASE_FAILED = "DB-FAIL-001"
+# FastAPI's error type for a body that is not JSON at all, reported before any field is read.
+UNDECODABLE_BODY = "json_invalid"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
 UNKNOWN_OUTCOME = "DB-FAIL-002"
@@ -70,6 +72,10 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
         extra={"error_code": PAYLOAD_REFUSED},
     )
 
+    # Malformed syntax, RFC 9110's 400 rather than a refused payload: no field was read, so none is named.
+    if any(error["type"] == UNDECODABLE_BODY for error in errors):
+        return error_response(status.HTTP_400_BAD_REQUEST, PAYLOAD_REFUSED)
+
     return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 
 
@@ -86,10 +92,6 @@ def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
 def _refused_field(error: Any) -> dict[str, Any]:
     # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
     location, *path = error["loc"]
-    # FastAPI's undecodable body reports the character offset parsing stopped at, which a caller
-    # would read as a list index.
-    if error["type"] == "json_invalid":
-        path = []
 
     return {"in": str(location), "path": path, "kind": error["type"]}
 
