@@ -11,6 +11,8 @@ export async function plantedReads(): Promise<void> {
   cacheLife("hours"); // expect: uncached-read
   nextCache.cacheTag("sperrliste"); // expect: uncached-read
   nextCache.cacheLife("hours"); // expect: uncached-read
+  nextCache["cacheTag"]("sperrliste"); // expect: uncached-read
+  nextCache["cacheLife"]("hours"); // expect: uncached-read
 }
 
 export async function plantedPrivate(): Promise<void> {

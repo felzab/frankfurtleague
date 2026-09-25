@@ -821,7 +821,7 @@ const SCOPED_BANS = [
         (slice) => `src/features/${slice}/queries.ts`,
       ),
       selector:
-        "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/]",
+        "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
       message:
         'This module caches no read: `"use cache"` keys on the arguments, not the caller, so an admin read would become a shared slot (docs/frontend/spec.md §1.2).',
     },
