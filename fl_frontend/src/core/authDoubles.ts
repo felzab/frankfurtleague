@@ -94,32 +94,48 @@ export class Barrier {
   private expected = 0;
   private arrived = 0;
   private waiters: (() => void)[] = [];
+  private fill: (filled: boolean) => void = () => undefined;
+
+  /**
+   * Whether every write `arm` expected arrived before any was released. A case asserts it before
+   * judging what the requests answered: one that skipped the held write ran no race.
+   */
+  filled: Promise<boolean> = Promise.resolve(false);
 
   arm(expected: number): void {
     this.expected = expected;
     this.arrived = 0;
     this.waiters = [];
+    this.filled = new Promise((resolve) => {
+      this.fill = resolve;
+    });
   }
 
   disarm(): void {
     this.expected = 0;
     for (const release of this.waiters) release();
     this.waiters = [];
+    this.fill(false);
   }
 
   async arrive(): Promise<void> {
     if (this.expected === 0 || this.arrived >= this.expected) return;
     this.arrived += 1;
     if (this.arrived === this.expected) {
+      this.fill(true);
       this.disarm();
       return;
     }
 
-    // Bounded, so a request that never reaches a held write fails its own assertion rather than
-    // hanging the run.
+    // Bounded, so a request that never reaches a held write ends the hold rather than hanging the
+    // run. Taken now: the timer outlives this arming, and must not answer the next one's.
+    const fill = this.fill;
     await new Promise<void>((resolve) => {
       this.waiters.push(resolve);
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
+      setTimeout(() => {
+        fill(false);
+        resolve();
+      }, BARRIER_TIMEOUT_MS);
     });
   }
 }

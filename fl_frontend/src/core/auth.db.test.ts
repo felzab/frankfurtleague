@@ -252,6 +252,7 @@ async function atOnce(
   barrier.arm(pairs.length);
   const responses = await Promise.all(pairs.map(([offered, rawId]) => verify(offered, rawId)));
   barrier.disarm();
+  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne` or `user.findOneAndUpdate`, so no race was run");
 
   const refused = responses.filter((response) => response.status !== 200);
   const codes = await Promise.all(refused.map(async (response) => ((await response.json()) as { code?: unknown }).code));
