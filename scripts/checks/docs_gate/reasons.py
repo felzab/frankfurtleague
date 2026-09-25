@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _read_text, _readable, is_gitignored, python_tree, repo_path, tracked_glob, tracked_page
+from .kernel import REPO_ROOT, Finding, _readable, code_body, is_gitignored, python_tree, repo_path, tracked_glob, tracked_page
 
 DOMAIN_MODULE: Final = "fl_backend/app/core/domain.py"
 # The one sheet holding the read rules, which refuse nothing and so reach no module's source.
@@ -50,14 +50,14 @@ Cite = Callable[[str, str, dict[str, list[str]]], list[Finding]]
 
 @cache
 def resolvable_codes() -> frozenset[str]:
-    """A rule code a reason may argue from: one a module raises, or a read-rules row declares.
+    """A rule code a reason may argue from: one a module's code spells, or a read-rules row declares.
 
     The declaration is left out: it spells every code it declares, and a reason's own text among them.
     """
     codes: set[str] = set()
     for path in tracked_glob(APP_GLOB):
-        if path.relative_to(REPO_ROOT).as_posix() != DOMAIN_MODULE and (text := _read_text(path)[0]) is not None:
-            codes.update(RAISED_CODE_RE.findall(text))
+        if path.relative_to(REPO_ROOT).as_posix() != DOMAIN_MODULE:
+            codes.update(RAISED_CODE_RE.findall(code_body(path)))
     if (sheet := tracked_page(READ_RULES_SHEET)) is not None and (text := _readable(sheet)) is not None:
         codes.update(READ_ROW_RE.findall(text))
     return frozenset(codes)
@@ -154,12 +154,11 @@ def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite
     """What one token fails, as a check's name beside its detail; nothing for a shape the backend reads."""
     said = f"'{subject}' argues from `{token}`"
     if RULE_CODE_RE.match(token):
-        return (
-            [] if token in resolvable_codes() else [("citation", f"{said}, which only the declaration spells and no read-rules row declares")]
-        )
+        known = token in resolvable_codes()
+        return [] if known else [("citation", f"{said}, which no module's code spells outside the declaration and no read-rules row declares")]
     if family := CODE_FAMILY_RE.match(token):
         known = any(code.startswith(family.group(1)) for code in resolvable_codes())
-        return [] if known else [("citation", f"{said}, a family no raised code or read-rules row belongs to")]
+        return [] if known else [("citation", f"{said}, a family no code in a module's code or read-rules row belongs to")]
     if citation := CITATION_RE.match(token):
         if repo_path(citation.group(1)) == DOMAIN_MODULE:
             return [("citation", f"{said}, which cites the declaration itself, answering for nothing")]
@@ -178,7 +177,9 @@ def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> li
     if not entries:
         return [*found, Finding("fail", "citation", DOMAIN_MODULE, "yielded no `UNENFORCED` reason, so no reason's addresses were read")]
     if not resolvable_codes():
-        detail = f"no module under `{APP_GLOB}` raises a code and no read-rules row declares one, so codes were read against nothing"
+        detail = (
+            f"no module under `{APP_GLOB}` spells a code in its code and no read-rules row declares one, so codes were read against nothing"
+        )
         return [*found, Finding("fail", "citation", DOMAIN_MODULE, detail)]
     for subject, reason, line in entries:
         if reason is None:

@@ -382,6 +382,22 @@ def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str
     _assert_corpus_restored()
 
 
+def test_a_code_only_a_comment_spells_is_no_code_a_reason_may_argue_from() -> None:
+    """The sample's one raise commented out, so the reason citing its code argues from a module that talks about it."""
+    _reset()
+    _replace(SAMPLE, BACKEND_RAISE, HASH + " " + BACKEND_RAISE)
+    # Another of the family kept: the reason argues from the family too, and it still resolves.
+    _append(SAMPLE, 'KEPT = "REQ-SAMPLE-005"')
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "which no module's code spells outside the declaration" in output, output
+    _assert_corpus_restored()
+
+
 # A module whose code holds a tick in a string, on the line of a comment citing it.
 TICKED_MODULE: Final = "fl_frontend/src/ticked.ts"
 TICKED_ANCHOR: Final = "a phrase only citations spell"

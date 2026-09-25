@@ -1535,3 +1535,23 @@ def _scan_body(path: Path) -> str:
         return _readable(path) or ""
     raw = _read_text(path)[0]
     return "" if raw is None else comments_only(raw, comment_style(path))
+
+
+@cache
+def code_body(path: Path) -> str:
+    """A source file's code alone, every column `_scan_body` keeps blanked.
+
+    A comment or a docstring naming a token outlives the value it names, so a reader asking what
+    the code spells never takes it from there.
+    """
+    raw = _read_text(path)[0]
+    if raw is None or is_prose(path):
+        return ""
+    comments = _scan_body(path).split("\n")
+    kept: list[str] = []
+    for number, line in enumerate(raw.split("\n")):
+        # `comments_only` keeps each line's columns and trims its tail, so a column past a comment
+        # line's end is code.
+        said = comments[number] if number < len(comments) else ""
+        kept.append("".join(" " if column < len(said) and not said[column].isspace() else char for column, char in enumerate(line)))
+    return "\n".join(kept)

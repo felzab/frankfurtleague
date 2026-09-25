@@ -16,14 +16,19 @@ A planted violation never shares a line of THIS file with a hash or a triple quo
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
+from typing import Final
 
+import pytest
 from conftest import git, write
 from test_check_docs import (
     ADDED_STATUS_RULE,
     APP_GLOBALS,
     BLOCKED_FIELDS,
     DOCS_ENTRY,
+    DOMAIN_REGISTER,
     ERROR_CODES,
+    FRONTEND_RAISE,
     FRONTEND_ROW,
     GITATTRIBUTES,
     GLOSSARY,
@@ -39,10 +44,13 @@ from test_check_docs import (
     PROTOCOL,
     QUOTES,
     ROADMAP,
+    RULE_CODE,
+    SAMPLE,
     SKIPPED_MODULE,
     SLICE_ENTRY,
     STANDARD,
     STATUS_COLUMN_ROW,
+    TSX_SAMPLE,
     UNDECODABLE,
     UNDECODABLE_BYTES,
     UNSTAGED_BLOCK,
@@ -50,6 +58,7 @@ from test_check_docs import (
     VOCAB_FIELDS,
     _append,
     _assert_corpus_restored,
+    _code_row,
     _gate,
     _heading,
     _module,
@@ -58,6 +67,7 @@ from test_check_docs import (
     _page,
     _read,
     _replace,
+    _reported,
     _reset,
     _run,
     _shape,
@@ -307,6 +317,78 @@ def test_a_row_under_an_area_no_pattern_spelled_is_held_to_the_trees() -> None:
     finally:
         _reset()
     assert reported[("fail", "error-codes", ERROR_CODES)] == 1, "a row under a fifth area was read by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def _comment_out_the_frontend_raise() -> None:
+    _replace(TSX_SAMPLE, FRONTEND_RAISE, "  // " + FRONTEND_RAISE.strip())
+
+
+def _row_a_backend_comment_alone_spells() -> None:
+    # A fresh code: the sample's own is spelled again by the reason the rule register carries.
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n" + _code_row("REQ-SAMPLE-009", "A code only a comment names"))
+    _append(SAMPLE, HASH + ' RETIRED = "REQ-SAMPLE-009"')
+
+
+@pytest.mark.parametrize(
+    ("plant", "said"),
+    [
+        pytest.param(
+            _comment_out_the_frontend_raise,
+            "`FE-SAMPLE-001` has a row and is spelled in no code under `fl_frontend/src/**/*.ts*`",
+            id="slash-comment",
+        ),
+        pytest.param(
+            _row_a_backend_comment_alone_spells,
+            "`REQ-SAMPLE-009` has a row and is spelled in no code under `fl_backend/app/**/*.py`",
+            id="hash-comment",
+        ),
+    ],
+)
+def test_a_code_only_a_comment_spells_leaves_its_row_unanswered(plant: Callable[[], None], said: str) -> None:
+    """Each tree's comment reader, so a code a comment keeps naming keeps no row alive."""
+    _reset()
+    plant()
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
+# The sample rule as the register's one declaration spells it.
+RULE_LINE: Final = '    Rule(code="' + RULE_CODE + '"),'
+
+
+def test_a_rule_a_comment_holds_in_the_register_is_owed_a_row() -> None:
+    """A `code=` inside the tuple's text and outside its value declares nothing, so the module spelling it owes a row."""
+    _reset()
+    _replace(DOMAIN_REGISTER, RULE_LINE, RULE_LINE + "\n    " + HASH + ' Rule(code="REQ-SAMPLE-003"),')
+    _append(SAMPLE, 'RETIRED = "REQ-SAMPLE-003"')
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
+    assert "spells `REQ-SAMPLE-003`, which this register gives no row" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_register_wrapping_a_rule_is_read_as_no_declaration() -> None:
+    """A wrapper decides what reaches the tuple while the `code=` inside it stays literal, so the form is refused whole."""
+    _reset()
+    _replace(DOMAIN_REGISTER, RULE_LINE, '    _retired(Rule(code="' + RULE_CODE + '")),')
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
+    assert "yielded no rule declaration as a tuple of" in output, output
     _assert_corpus_restored()
 
 

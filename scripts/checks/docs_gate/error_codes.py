@@ -12,11 +12,12 @@ Invariants:
 
 from __future__ import annotations
 
+import ast
 import re
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _read_text, _readable, tracked_glob, tracked_page
+from .kernel import REPO_ROOT, Finding, _readable, code_body, python_tree, tracked_glob, tracked_page
 
 ERROR_CODES_CHECK: Final = "error-codes"
 ERROR_CODES_PAGE: Final = "docs/logging/error-codes.md"
@@ -45,11 +46,7 @@ FRONTEND_GLOB: Final = "fl_frontend/src/**/*.ts*"
 TEST_SUFFIXES: Final[tuple[str, ...]] = (".test.ts", ".test.tsx")
 
 DOMAIN_MODULE: Final = "fl_backend/app/core/domain.py"
-# The tuple's own opening, and the close no indented line can spell. Sliced rather than read off the
-# module, whose neighbouring registers are free to take a `code=` field of their own.
-RULES_OPEN: Final = "RULES: tuple[Rule, ...] = ("
-RULES_CLOSE: Final = "\n)\n"
-RULE_CODE_RE: Final = re.compile(rf'\bcode="({CODE_SHAPE})"')
+RULES_NAME: Final = "RULES"
 
 
 @cache
@@ -62,28 +59,37 @@ def _spelled(pattern: str) -> dict[str, str]:
     for path in tracked_glob(pattern):
         if path.name.endswith(TEST_SUFFIXES):
             continue
-        if (text := _read_text(path)[0]) is None:
-            continue
-        for code in CODE_RE.findall(text):
+        # The code alone: a comment naming a retired code would otherwise keep its row alive.
+        for code in CODE_RE.findall(code_body(path)):
             if not code.startswith(READ_PREFIX):
                 found.setdefault(code, path.relative_to(REPO_ROOT).as_posix())
     return found
 
 
+# One form, a bare `Rule(code="...")`: a wrapper or a nested call can spell a `code=` the tuple
+# does not declare.
+def _rule_code(node: ast.expr) -> str | None:
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Rule" and not node.args):
+        return None
+    code = next((keyword.value for keyword in node.keywords if keyword.arg == "code"), None)
+    return code.value if isinstance(code, ast.Constant) and isinstance(code.value, str) else None
+
+
 @cache
 def _declared_rules() -> frozenset[str]:
-    """Every code the backend declares a domain rule for, empty where the declaration cannot be read.
+    """Every code the backend declares a domain rule for, empty where the declaration is not one read here.
 
     Reached without opening the page: rows deciding which codes are owed one could never fail (PRE-4).
     """
     page = tracked_page(DOMAIN_MODULE)
-    if page is None or (text := _read_text(page)[0]) is None:
-        return frozenset()
-    start = text.find(RULES_OPEN)
-    if start < 0:
-        return frozenset()
-    end = text.find(RULES_CLOSE, start)
-    return frozenset(RULE_CODE_RE.findall(text[start:] if end < 0 else text[start:end]))
+    tree = None if page is None else python_tree(page)
+    for node in [] if tree is None else tree.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == RULES_NAME:
+            if not isinstance(node.value, ast.Tuple):
+                return frozenset()
+            codes = [_rule_code(element) for element in node.value.elts]
+            return frozenset() if None in codes else frozenset(code for code in codes if code is not None)
+    return frozenset()
 
 
 def check_error_codes() -> list[Finding]:
@@ -103,7 +109,7 @@ def check_error_codes() -> list[Finding]:
     if not declared:
         # The one finding, and no comparison after it: the one below subtracts the declared rules,
         # and would demand a row for every domain rule the backend spells.
-        detail = f"`{DOMAIN_MODULE}` yielded no rule declaration, so the register was held to nothing"
+        detail = f'`{DOMAIN_MODULE}` yielded no rule declaration as a tuple of `Rule(code="...")` calls, so the register was held to nothing'
         return [Finding("fail", ERROR_CODES_CHECK, rel, detail)]
     found: list[Finding] = []
     for code in sorted(rows & declared):
@@ -113,7 +119,7 @@ def check_error_codes() -> list[Finding]:
         tree = _spelled(glob)
         owed = {code for code in rows if code.startswith(FRONTEND_PREFIX) is frontends}
         for code in sorted(owed - set(tree)):
-            detail = f"`{code}` has a row and is spelled nowhere under `{glob}`"
+            detail = f"`{code}` has a row and is spelled in no code under `{glob}`"
             found.append(Finding("fail", ERROR_CODES_CHECK, rel, detail))
         for code in sorted({one for one in tree if one.startswith(FRONTEND_PREFIX) is frontends} - rows - declared):
             detail = f"`{tree[code]}` spells `{code}`, which this register gives no row"
