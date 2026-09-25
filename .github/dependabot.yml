@@ -15,9 +15,10 @@ version: 2
 #   before a pull request proposes it. A security update is exempt from the cooldown — except under
 #   `github-actions`, where that exemption is empty for the reason above.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
-# - No ecosystem below can read a version written inside a shell script or a Python string, so the
-#   shellcheck and actionlint images in `scripts/gate/selfcheck.sh` and the mongo image in
-#   `fl_backend/tests/conftest.py` are maintained by hand at the lines that hold them.
+# - No ecosystem below reads an image a script or a test names in a string, so these are kept by
+#   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
+#   `scripts/ops/local.sh`, and the db tier's `mongo:8` in `fl_backend/tests/conftest.py` and the
+#   frontend's `*.db.test.ts`.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
