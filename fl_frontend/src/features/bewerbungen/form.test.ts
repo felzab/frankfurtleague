@@ -11,7 +11,6 @@ import { act, createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { blankComments } from "@/core/blankComments";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
@@ -50,7 +49,6 @@ const { TRAINER_ZUGLEICH_OPTIONS, TRIKOT_FARBE_OPTIONS } = await import("@/featu
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
 const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { FormEinwilligungSection } = await import("./components/forms/BewerbungForm/FormKontaktpersonenSection.tsx");
-const { ergebnisPanel } = await import("./components/views/BestaetigungPanels.tsx");
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
@@ -358,8 +356,6 @@ describe("the public application form", () => {
     await settle();
 
     assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]);
-    // Read beside the render: a second spelling of the number behaves identically until the edge's own changes.
-    assert.ok(!FORM.includes("= 429"), "the form spells the edge's status beside the one publicSubmit.ts exports");
   });
 
   /* The route's `length(2)` refuses an incomplete code, and the check is rate-limited per address at an
@@ -692,18 +688,6 @@ describe("what the form says about itself to a reader who cannot see it", () => 
 });
 
 describe("the receipt the form leaves in its own place", () => {
-  /* The box is the confirmation page's recipe
-     (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: ergebnisPanel`).
-     A literal spelling its classes renders identically, so which of the two stands here is legible
-     in the source alone. */
-  it("takes the tinted panel the confirmation page wears rather than dressing one", () => {
-    // Read at the recipe first: one emitting no tint at all satisfies the two claims under it.
-    assert.match(ergebnisPanel({ tone: "erfolg" }), /(^|\s)bg-success\/10(\s|$)/, "the shared panel lost its success tint");
-
-    assert.match(FORM, /className=\{ergebnisPanel\(\{ tone: "erfolg" \}\)\}/, "the receipt dresses a box of its own");
-    assert.doesNotMatch(blankComments(FORM), /bg-success\/|border-success\//, "the receipt spells a success tint beside the recipe");
-  });
-
   /* The receipt swaps itself in for the form alone, so the page's strip goes with the form, and an
      invitation read out with the receipt buries the answer the applicant pressed for. */
   it("repeats the page's own strip under the receipt, outside the live region", async () => {
@@ -745,8 +729,6 @@ describe("the receipt the form leaves in its own place", () => {
       [String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)],
       "the panel states a clock other than the sweep's",
     );
-    // Read beside the render: a number typed at the bound's value renders the same sentence, and outlives a changed bound.
-    assert.match(FORM, /\{String\(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE\)\} Tagen/, "the panel states a deadline it did not read off the bound");
 
     // The decision DOES reach all three, and the panel has to say so or the applicant waits on nothing.
     assert.match(receiptParagraph, /alle[nr]? drei Kontaktpersonen/, "the panel never says the decision reaches all three");

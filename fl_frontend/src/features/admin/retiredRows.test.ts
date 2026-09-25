@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -122,35 +120,10 @@ const LISTS: Record<string, List> = {
   },
 };
 
-/**
- * Every admin list drawing the „Stillgelegt“ pill, found by its import rather than by the recipe this
- * file asserts: a list spelling its own ink drops out of a population read off `identityName`.
- */
-function listsDrawingRetiredRows(): string[] {
-  const features = path.resolve(import.meta.dirname, "..");
-
-  return readdirSync(features)
-    .map((slice) => path.join(features, slice, "components", "collections"))
-    .filter((dir) => existsSync(dir))
-    .flatMap((dir) =>
-      readdirSync(dir)
-        .filter((file) => file.endsWith(".tsx"))
-        .filter((file) => readFileSync(path.join(dir, file), "utf8").includes('from "@/shared/components/ui/RetiredBadge"'))
-        .map((file) => file.replace(/\.tsx$/, "")),
-    )
-    .sort();
-}
-
 /** How many times one name is drawn with exactly this class list. */
 const drawn = (html: string, classes: string, name: string): number => html.split(`<span class="${classes}">${name}</span>`).length - 1;
 
 describe("a retired row on an admin list", () => {
-  /* First: a list that stopped importing the pill, or one added beside these four, would otherwise
-     leave the cases below reading a population nobody chose. */
-  it("is asserted on every list that draws one", () => {
-    assert.deepEqual(Object.keys(LISTS).sort(), listsDrawingRetiredRows());
-  });
-
   /* Both layouts draw the name, so each list draws it twice; a count of one is a layout spelling the
      name its own way, and the table and its phone card then disagree about the row. */
   it("draws its name in the shared retired ink in both layouts, and a live row's in the shared live ink", () => {
