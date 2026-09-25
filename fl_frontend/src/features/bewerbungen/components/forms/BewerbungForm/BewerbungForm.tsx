@@ -9,24 +9,17 @@ import { Button } from "@heroui/react/button";
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import {
-  bewerbungJudgedPaths,
-  bewerbungPayload,
-  buildEmptyBewerbungDraft,
-  KUERZEL_UNGEPRUEFT,
-  KUERZEL_VERGEBEN,
-  kuerzelHinweis,
-} from "@/features/bewerbungen/utils";
+import { bewerbungJudgedPaths, bewerbungPayload, KUERZEL_UNGEPRUEFT, KUERZEL_VERGEBEN, kuerzelHinweis } from "@/features/bewerbungen/utils";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
 import { FormTeamSection } from "./FormTeamSection";
+import { useBewerbungDraft } from "./useBewerbungDraft";
 
 import type {
   BewerbungFormDraft,
@@ -96,18 +89,16 @@ export function BewerbungForm({
 }) {
   const [isPending, startSending] = useTransition();
 
-  const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
+  const [isEingereicht, setIsEingereicht] = useState(false);
+  const [draft, applyDraft] = useBewerbungDraft(saisonId, isEingereicht);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
-  const [isEingereicht, setIsEingereicht] = useState(false);
   /**
    * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
    * andere Person“ — so the picker's own state sits beside the draft, written by `pickTrainerWahl`
    * and by nothing else.
    */
   const [trainerWahl, setTrainerWahl] = useState<FLTrainerZugleich | null | undefined>(undefined);
-  /** Set on the first edit and never cleared: what it guards is the browser's own unload prompt. */
-  const [hasTyped, setHasTyped] = useState(false);
   /** The last blur-time answer about a Kürzel, kept WITH the value it judged (see `mergedErrors`). */
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
@@ -122,9 +113,6 @@ export function BewerbungForm({
   // Above the „eingegangen“ return, as every hook here is: the panel it renders holds no form, and a
   // hook called only on the way to it would run a different number of times per render.
   useForgiveFixed({ bewerbung: bewerbungPayload(draft) });
-
-  // A long form, entered once, by somebody who will not have it saved anywhere else.
-  useUnsavedChangesWarning(hasTyped && !isEingereicht);
 
   const mirroredSeat = draft.kontakte.trainer_ist_zugleich;
 
@@ -145,12 +133,6 @@ export function BewerbungForm({
     kuerzelVerdikt !== null && kuerzelVerdikt.vergeben && kuerzelVerdikt.shorthand === draft.schule.shorthand
       ? { ...fieldErrors, "schule.shorthand": KUERZEL_VERGEBEN }
       : fieldErrors;
-
-  /** Every write to the draft goes through here, so nothing can move it without arming the warning. */
-  const applyDraft = (next: BewerbungFormDraft | ((current: BewerbungFormDraft) => BewerbungFormDraft)) => {
-    setHasTyped(true);
-    setDraft(next);
-  };
 
   const setKontakte = (next: BewerbungKontakteDraft) => applyDraft((current) => ({ ...current, kontakte: next }));
 

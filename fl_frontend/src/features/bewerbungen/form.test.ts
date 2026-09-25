@@ -620,14 +620,6 @@ describe("what the form guards before the draft is sent", () => {
     await typeInto(user, control(container, "kontakte.ansprechperson.vorname"), "Anna", { leaveBox: true });
     assert.equal(asksBeforeLeaving(), true, "an unload takes the draft with it silently");
   });
-
-  /* Every write to the draft goes through one setter, so nothing can move it without arming the
-     browser's prompt. A claim over every write the form holds, where a render arms it through the
-     writes one case makes. */
-  it("moves the draft through the one setter that arms that warning", () => {
-    const raw = [...FORM.matchAll(/(?<![A-Za-z])setDraft\(/g)];
-    assert.equal(raw.length, 1, "a draft write bypasses applyDraft, so it moves the form without arming the warning");
-  });
 });
 
 describe("what the form says about itself to a reader who cannot see it", () => {
