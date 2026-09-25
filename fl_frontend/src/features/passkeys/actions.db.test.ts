@@ -18,7 +18,7 @@ import {
 } from "@/core/authDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
-const mongod = await new MongoDBContainer("mongo:8").start();
+const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;

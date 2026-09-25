@@ -84,7 +84,7 @@ take_dump() {
   MSYS_NO_PATHCONV=1 docker run --rm -i \
     --env-file fl_backend/.env \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
-    mongo:8@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
+    mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
 # docker --env-file strips neither the quotes a dotenv value may carry nor the CR a Windows editor
 # leaves on it, and mongodump answers a URI holding either with a parse error.

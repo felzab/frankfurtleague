@@ -2,7 +2,8 @@
 
 A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
 else reads the pin form: a reference losing its digest in a hand edit, or a service added without
-one, builds and deploys as before, from an image no pull request reviewed.
+one, builds and deploys as before, from an image no pull request reviewed. The frontend's db tier
+is the one reference named by tag alone, for the library reason at its case.
 """
 
 from __future__ import annotations
@@ -78,6 +79,29 @@ def test_every_external_image_is_pinned_by_tag_and_digest() -> None:
     assert unpinned == [], "not pinned by tag and digest:\n" + "\n".join(unpinned)
 
 
+# Three numbers, a `v` ahead of them where the project spells one, and a variant after: a tag
+# naming a series (`mongo:8`) is a label Dependabot compares against no single release.
+EXACT_TAG_RE: Final = re.compile(r"^v?\d+\.\d+\.\d+(?:-[A-Za-z0-9._-]+)?$")
+# Held at the series the toolchain pins (`fl_backend/.python-version`, `engines.node` in
+# `fl_frontend/package.json`), not a release: the runtime bases, by file and image name.
+SERIES_TAGS: Final = frozenset({("fl_frontend/Dockerfile", "node"), ("fl_backend/Dockerfile", "python")})
+
+
+def _tag(image: str) -> str:
+    return image.split("@", 1)[0].rsplit(":", 1)[1]
+
+
+def test_every_external_image_tag_names_an_exact_release() -> None:
+    """The digest runs the image and the tag names it to a reader and to the bot, so a series names nothing exact."""
+    references = external_references() + [(path, image) for path, (_, image) in script_references().items()]
+    loose = [
+        f"{path}: {image}"
+        for path, image in references
+        if (path, image.split(":", 1)[0]) not in SERIES_TAGS and not EXACT_TAG_RE.match(_tag(image))
+    ]
+    assert loose == [], "a tag naming no exact release:\n" + "\n".join(loose)
+
+
 # The images a script runs rather than a manifest names: no Dependabot ecosystem reads a shell
 # string, so these are the ones a hand edit alone keeps. Each name must be found where it is listed.
 SCRIPT_IMAGES: Final = {
@@ -145,3 +169,28 @@ def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
     release = EXACT_RELEASE_RE.match(edge[0])
     assert release, f"{edge[0]} names no exact release, so no floor can be held to it"
     assert tuple(int(part) for part in release.groups()) >= CONTROL_API_FLOOR, f"{edge[0]} predates the Control API's 1.31.5"
+
+
+# The one reference with no digest: testcontainers-node's `ImageName` keeps a digest as its tag
+# (`testcontainers/build/container-runtime/image-name.js`), so `MongoDBContainer.isV5OrLater` reads
+# no version and waits on the `mongo` shell MongoDB 8 does not ship.
+FRONTEND_SOURCE: Final = REPO_ROOT / "fl_frontend" / "src"
+DB_TIER_FILE_RE: Final = re.compile(r"\.db\.test\.[cm]?[jt]sx?$")
+CONTAINER_CALL_RE: Final = re.compile(r"\bMongoDBContainer\(")
+CONTAINER_IMAGE_RE: Final = re.compile(r'\bMongoDBContainer\("([^"]+)"\)')
+
+
+def test_the_frontend_db_tier_names_the_backend_pin_s_release_by_tag_alone() -> None:
+    """A second release under the frontend's tier runs its db tests against a server the backend's never meets."""
+    _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
+    release = backend.split("@", 1)[0]
+    files = [path for path in sorted(FRONTEND_SOURCE.rglob("*")) if DB_TIER_FILE_RE.search(path.name)]
+    started = {path: path.read_text(encoding="utf-8") for path in files}
+    started = {path: text for path, text in started.items() if CONTAINER_CALL_RE.search(text)}
+    assert started, "no frontend db-tier file starts a MongoDBContainer: this reader went inert"
+    wrong = [
+        f"{path.relative_to(REPO_ROOT).as_posix()}: {len(CONTAINER_CALL_RE.findall(text))} call(s), images {CONTAINER_IMAGE_RE.findall(text)}"
+        for path, text in started.items()
+        if CONTAINER_IMAGE_RE.findall(text) != [release] * len(CONTAINER_CALL_RE.findall(text))
+    ]
+    assert wrong == [], f"each MongoDBContainer is to name `{release}` as a literal:\n" + "\n".join(wrong)

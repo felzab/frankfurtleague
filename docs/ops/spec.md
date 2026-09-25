@@ -41,9 +41,11 @@ Each service's image, resource limits and health check are `docker-compose.yml`'
 the digest, the registry's multi-platform index, so a tag rebuilt or repointed upstream changes
 nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
 `docker` and `docker-compose` ecosystems compare to propose the next pair; the two scripts' pins
-move by hand, no ecosystem reading a shell string. `local.sh`'s copy runs the local stack's own
-mongo, digest included. `scripts/tests/test_image_pins.py` holds every such reference to that form
-and the copy to the stack (I367).
+move by hand, no ecosystem reading a shell string. **Each tag names an exact release**, the two
+runtime bases apart, which name the series `fl_backend/.python-version` and `fl_frontend/package.json`'s
+`engines` pin: a series tag (`mongo:8`) is a label no reader can hold to one release. `local.sh`'s
+copy runs the local stack's own mongo, digest included. `scripts/tests/test_image_pins.py` holds
+every such reference to that form and the copy to the stack (I367).
 
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever the image it is built `FROM` is refreshed
@@ -52,10 +54,12 @@ read 2026-09-25), so a correct pin's digest and its tag's current one routinely 
 registry comparison would refuse pins that are right. The tag is an unverified label that Dependabot
 keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
 
-**The database test tier's `mongo:8` stays a bare tag**, in `fl_backend/tests/conftest.py` and the
-frontend's `*.db.test.ts` files alike: `@testcontainers/mongodb` reads the server's version off the
-tag, and a digest reference hands it the digest instead, so its health check falls back to the
-`mongo` shell a MongoDB 8 image does not carry and the container never reports healthy.
+**The frontend's database test tier names mongo by tag alone**, the release
+`fl_backend/tests/conftest.py :: MONGO_IMAGE` pins, in its `*.db.test.ts` files:
+`@testcontainers/mongodb` reads the server's version off the tag, and a digest reference hands it
+the digest instead, so its health check falls back to the `mongo` shell a MongoDB 8 image does not
+carry and the container never reports healthy. The backend's tier takes the digest, its library
+waiting on the server's log line rather than on a shell.
 
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address
@@ -1116,7 +1120,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                      |
 | I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                          |
-| I367 | Every base, stack and script-run image this repository does not build is pinned by tag and digest, the database test tier's `mongo:8` alone excepted                          | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh` and `scripts/ops/local.sh`                                                                                                                                              |
+| I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                     |
 
 ## 3. Violation → remedy
 

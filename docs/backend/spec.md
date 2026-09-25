@@ -504,10 +504,10 @@ values** — an empty `stadtteil`, a null `ergebnis` for an unplayed match, an i
 
 #### The two tiers, and the marker that separates them
 
-| Tier        | Selected by         | Needs Docker | What it costs                                |
-| ----------- | ------------------- | ------------ | -------------------------------------------- |
-| **Default** | everything unmarked | no           | The fast tier — no container and no network  |
-| **`db`**    | `@pytest.mark.db`   | yes          | The containers; cold adds the `mongo:8` pull |
+| Tier        | Selected by         | Needs Docker | What it costs                                    |
+| ----------- | ------------------- | ------------ | ------------------------------------------------ |
+| **Default** | everything unmarked | no           | The fast tier — no container and no network      |
+| **`db`**    | `@pytest.mark.db`   | yes          | The containers; cold adds the `MONGO_IMAGE` pull |
 
 **Neither tier carries a duration here, and that is deliberate**: a figure for a tier moves with the
 machine as much as with the suite, and a stamped number nobody re-takes reads as current long after

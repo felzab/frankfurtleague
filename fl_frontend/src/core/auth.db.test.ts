@@ -17,7 +17,7 @@ import {
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
-const mongod = await new MongoDBContainer("mongo:8").start();
+const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;

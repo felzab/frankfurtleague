@@ -19,7 +19,7 @@ after(async () => {
   await opened.mongod?.stop();
 });
 
-const mongod = await new MongoDBContainer("mongo:8").start();
+const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 opened.mongod = mongod;
 
 const SENT = "__flAdminSessionSentMail";
