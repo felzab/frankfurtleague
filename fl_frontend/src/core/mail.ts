@@ -335,7 +335,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     let brokeOff: APINetworkError | undefined;
     const giveUp = (error: unknown): never => {
       logGivenUp(error);
-      if (brokeOff === undefined || brokeOff === error) throw error;
+      // A last attempt that broke off is already the network failure to end on, and its line is written.
+      if (brokeOff === undefined || error instanceof APINetworkError) throw error;
 
       logNetwork(brokeOff);
       throw brokeOff;

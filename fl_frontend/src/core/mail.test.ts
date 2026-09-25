@@ -581,6 +581,59 @@ describe("a refusal the mail transport tries again", () => {
     assertHidesRecipient(error, "the broken-off send");
   });
 
+  /* The other place the loop gives up: a budget spent during the pause after a refusal must still
+     end a send that once broke off as that network failure. */
+  it("ends a keyed send as its broken attempt when the budget runs out in a later pause", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+    try {
+      let at = 0;
+      respond = async () => {
+        at += 1;
+        if (at === 1) throw new TypeError("fetch failed");
+        return jsonResponse({ name: "application_error" }, 503);
+      };
+      // Handled at creation, as the budget case below explains.
+      const pending = sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+        () => assert.fail("the refused retry resolved"),
+        (thrown: Error) => thrown,
+      );
+
+      await settle();
+      mock.timers.tick(MAIL_RETRY_DELAY_MS);
+      await settle();
+      mock.timers.tick(MAIL_TIMEOUT_MS);
+      await settle();
+
+      const error = await pending;
+      assert.equal(sends.length, 2, "a third attempt was drawn after the budget was spent");
+      assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}, not as the broken attempt`);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  /* Each broken attempt is the same unknown, so the send ends on one line for the last of them. */
+  it("ends a keyed send that broke off every time on one line and the last failure", async () => {
+    const failures: TypeError[] = [];
+    respond = async () => {
+      const failure = new TypeError(`fetch failed ${String(failures.length + 1)}`);
+      failures.push(failure);
+      throw failure;
+    };
+
+    const error = await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+      () => assert.fail("the broken send resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.equal(sends.length, 3);
+    assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}`);
+    assert.equal((error.cause as { originalError?: unknown }).originalError, failures[2], "the send ended on an earlier failure than the last");
+    assert.equal(logs.filter((line) => line.message === "mail.send_failed").length, 1, "the broken send left more than one failure line");
+  });
+
   it("gives up after three attempts and logs the refusal once", async () => {
     answersInTurn([429, 500, 503]);
 
