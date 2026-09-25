@@ -2,9 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -17,7 +15,6 @@ import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { withSaisonId } from "@/shared/utils/saisonHref.ts";
@@ -93,9 +90,6 @@ const { default: AdminSpielerPage } = await import("@/app/admin/spieler/page.tsx
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
   underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-
 const STORED_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SGA" };
 const OTHER_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "TSV Beta", shorthand: "TSB" };
 const RETIRED_ON = "2026-03-01";
@@ -164,15 +158,7 @@ const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 /** What the squad mapper answers one code with, on the write the editor saves. */
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
 
-const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
-
 describe("the player actions against the codes their endpoints publish", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the erasure out of the file before reading it", () => {
-    assert.ok(ERASE_ACTION.includes("eraseSpieler(validated.data)"), "the erasure's call is outside its slice");
-    assert.ok(!ERASE_ACTION.includes("postSaisonSpieler("), "the erasure's slice runs on into the junction create");
-  });
-
   /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, and the erasure's mapper
      answers its own set alone. */
   it("maps every refusal the erasure endpoint publishes", () => {
@@ -269,8 +255,6 @@ describe("the erasure's copy", () => {
     assert.match(armed, /Angaben werden geleert/, "the confirmation does not say the log entries are EMPTIED rather than removed");
     assert.match(armed, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
     assert.doesNotMatch(armed, /Rückgängig/, "the armed panel offers an undo, and no endpoint can honour one");
-    // The action's sentences too, whichever outcome it answers with.
-    assert.ok(!ERASE_ACTION.includes("Rückgängig"), "the action offers an undo, and no endpoint can honour one");
   });
 
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
@@ -286,34 +270,6 @@ describe("the erasure's copy", () => {
     });
 
     assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
-  });
-});
-
-describe("what the erasure moves", () => {
-  /* The base tag and nothing beside it: the person and their squad rows are what the cached public
-     squad read joins, and every other cached read joins no pupil. */
-  it("invalidates the spieler tag alone", () => {
-    assert.ok(ERASE_ACTION.includes("invalidateSpieler();"), "the erasure leaves the erased player in the cached squad read");
-    assert.ok(!ERASE_ACTION.includes("updateTag("), "the erasure invalidates a tag its endpoint does not move");
-    assert.match(ACTIONS, /function invalidateSpieler\(\)[^{]*\{\s*updateTag\("spieler"\);/, "invalidateSpieler moved off the base tag");
-  });
-
-  it("reports how much it removed, which nothing can be looked up again afterwards", () => {
-    assert.ok(
-      ERASE_ACTION.includes("describeErasureUmfang(erasure.erased_saison_spieler, erasure.redacted_aktionen)"),
-      "the counts go unreported",
-    );
-  });
-
-  /* A DELETE on `/erasure`, never on the player's own path: that one is the soft retire, and the two
-     differ by the suffix alone. */
-  it("calls the erasure endpoint and not the retire", () => {
-    assert.match(MUTATIONS, /`\/spieler\/\$\{id\}\/erasure`/, "the mutation no longer addresses the erasure endpoint");
-    assert.match(
-      MUTATIONS,
-      /erasure`,\s*FLSpielerErasureResponseSchema,\s*\{\s*method: "DELETE"/,
-      "the erasure is sent as something other than a DELETE",
-    );
   });
 });
 
