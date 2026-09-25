@@ -73,7 +73,7 @@ else
       scripts/checks/docs_gate/scheme.py) scripts=true; docs=true; frontend=true ;;
       # The ops scope runs this over both stacks' rendered models, the one run judging the real
       # compose files, so an edit here owes that scope as well as the arm below's.
-      scripts/checks/check_compose_exposure.py) scripts=true; docs=true; ops=true ;;
+      scripts/checks/check_compose_model.py) scripts=true; docs=true; ops=true ;;
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;

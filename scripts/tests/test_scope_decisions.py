@@ -58,7 +58,7 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (PYPROJECT, ("scripts", "images", "backend", "ops", "db", "docs")),
     ("fl_backend/uv.lock", ("scripts", "images", "backend", "ops", "db", "docs")),
     # The ops scope runs it over the real compose files, which nothing in the scripts scope reads.
-    ("scripts/checks/check_compose_exposure.py", ("scripts", "docs", "ops")),
+    ("scripts/checks/check_compose_model.py", ("scripts", "docs", "ops")),
     # The docs gate's line-endings check and its binary-byte exemption both read .gitattributes.
     (".gitattributes", ("scripts", "docs")),
     # .gitignore decides which paths that same gate scans, and which citations it excuses; a
