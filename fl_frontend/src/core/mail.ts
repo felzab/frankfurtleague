@@ -279,9 +279,9 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
-    // A message is a write nothing takes back, and one whose answer never comes may still have gone;
-    // `fetch` sends nothing on a signal the deadline has already aborted.
-    if (!bound.signal.aborted) recordWriteSent();
+    // A message is a write nothing takes back, and one whose answer never comes may still have gone. No
+    // attempt starts on a spent deadline: the checks before the first and after each pause refuse it.
+    recordWriteSent();
     try {
       res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: bound.signal });
     } catch (error) {
