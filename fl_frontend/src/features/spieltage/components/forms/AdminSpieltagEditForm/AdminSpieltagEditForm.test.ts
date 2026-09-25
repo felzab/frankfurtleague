@@ -16,7 +16,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types.ts";
 
-const { calls } = doubleActions({
+const { calls, answerWith } = doubleActions({
   modules: ["/src/features/spieltage/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Der Spieltag wurde aktualisiert." }),
 });
@@ -200,6 +200,27 @@ describe("what bounds the Zeitraum pickers", () => {
     await stepDay(user, "Beginn", "ArrowDown");
 
     assert.ok(screen.queryAllByText("Wähle einen Tag innerhalb der Saison.").length > 0, "a day before the season is taken without a word");
+    unmount();
+  });
+});
+
+describe("a date the server refused", () => {
+  /* This editor judges its dates on change alone, so nothing re-renders the form after a visit: the refusal must
+     outlast a focus and a blur that moved nothing (`fl_frontend/src/shared/components/ui/DateTimeFields.tsx :: useSteady`). */
+  it("stays marked through a visit that changes nothing", async () => {
+    const REFUSAL = "Der Beginn liegt vor dem vorigen Spieltag.";
+    answerWith(() => Promise.resolve({ success: false, error: "Überprüfe Deine Eingaben.", fieldErrors: { beginn: REFUSAL } }));
+    const user = userEvent.setup();
+    const unmount = renderEditor(spieltag("halbfinale", "Halbfinale", { ende: "2026-08-12" }));
+    await stepDay(user, "Ende", "ArrowUp");
+    await save(user);
+    assert.equal(screen.queryAllByText(REFUSAL).length, 1, "the refusal never reached the field, so the visit below is judged on nothing");
+
+    await act(async () => screen.getByRole("spinbutton", { name: "Tag, Beginn" }).focus());
+    await user.click(screen.getByRole("spinbutton", { name: "Tag, Ende" }));
+    await act(async () => settled());
+
+    assert.equal(screen.queryAllByText(REFUSAL).length, 1, "a visit that changed nothing took the refusal off the field");
     unmount();
   });
 });

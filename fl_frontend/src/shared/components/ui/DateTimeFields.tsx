@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import Xmark from "@gravity-ui/icons/Xmark";
+import { parseDate, parseTime } from "@internationalized/date";
 
 import { Calendar } from "@heroui/react/calendar";
 import { DateField } from "@heroui/react/date-field";
@@ -30,6 +31,16 @@ import type { ReactNode, RefObject } from "react";
  * against the field surface.
  */
 const LITERAL_SEGMENT_CLASSES = "data-[type=literal]:text-foreground-muted";
+
+/**
+ * One object per distinct value: react-aria's date field clears a server refusal on a blur wherever its value is
+ * another object than at the focus (`useDateField`'s `onBlurWithin`), and callers parse their draft on every render.
+ */
+function useSteady<T extends CalendarDate | Time>(value: T | null, parse: (text: string) => T): T | null {
+  const text = value?.toString() ?? "";
+
+  return useMemo(() => (text === "" ? null : parse(text)), [text, parse]);
+}
 
 /** A segmented field has no other way back to empty, react-aria clearing one segment per Backspace. */
 function ClearFieldButton({ label, onClear, groupRef }: { label: string; onClear: () => void; groupRef: RefObject<HTMLDivElement | null> }) {
@@ -103,13 +114,14 @@ export function AppDatePicker({
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
   const derived = useRequiredMark(name, "");
+  const steady = useSteady(value, parseDate);
 
   return (
     <DatePicker
       isRequired={isRequired ?? derived}
       isDisabled={isDisabled}
       isReadOnly={isReadOnly}
-      value={value}
+      value={steady}
       onChange={onChange}
       onBlur={onBlur}
       name={name}
@@ -202,13 +214,14 @@ export function AppTimeField({
   clearLabel?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const steady = useSteady(value, parseTime);
 
   return (
     <TimeField
       className="w-full"
       name={name}
       hourCycle={24}
-      value={value}
+      value={steady}
       onChange={onChange}
       onBlur={onBlur}
       // A two-digit hour: de-DE's own pattern writes `9:00`, while every kick-off the app prints reads
