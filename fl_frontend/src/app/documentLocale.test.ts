@@ -52,8 +52,7 @@ describe("the document's locale", () => {
     const expected = new Intl.DateTimeFormat(lang, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(
       new Date(`${DAY}T12:00:00Z`),
     );
-    // react-aria wraps a date in Unicode isolates, which the language's own formatter does not.
-    const shown = textOf(html).replace(/[\u2066-\u2069]/g, "");
+    const shown = textOf(html);
     assert.ok(shown.includes(expected), `the document declares lang="${lang}", whose ${expected} the field does not show: ${shown}`);
   });
 });
