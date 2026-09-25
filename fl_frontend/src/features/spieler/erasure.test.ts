@@ -38,10 +38,10 @@ describe("what the erasure moves", () => {
     const result = await eraseSpielerAction({ id: SPIELER_ID });
 
     assert.equal(result.success, true, "the erasure never landed, so its tags are judged on nothing");
-    assert.deepEqual(
-      cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]),
-      ["spieler"],
-    );
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["spieler"] },
+      { name: "refresh", args: [] },
+    ]);
   });
 
   /* Nothing can be looked up again afterwards, so the counts the endpoint answers are the only

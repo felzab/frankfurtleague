@@ -241,12 +241,8 @@ describe("the undraw action", () => {
   /* The removal takes away exactly what the draw wrote, so anything the draw's write invalidated
      answers differently after this too. A narrower set leaves a cached season holding fixtures. */
   it("clears the draw's own tag set", async () => {
-    /** Every tag the last press cleared, as a set. */
-    const cleared = (): Set<unknown> => {
-      const tags = new Set(cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]));
-      cacheCalls.length = 0;
-      return tags;
-    };
+    /** Every invalidation the last press made, in its order. */
+    const cleared = (): typeof cacheCalls => cacheCalls.splice(0);
 
     answerWith(() =>
       Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, removed_spieltage: 0, removed_spiele: 0 }),
@@ -257,7 +253,10 @@ describe("the undraw action", () => {
     answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
     assert.equal((await undrawSpielplanAction({ id: SAISON_ID })).success, true, "the undraw never landed, so its tags are judged on nothing");
 
-    assert.ok(drawn.size > 0, "the draw cleared no tag, so the two sets are compared over nothing");
+    assert.ok(
+      drawn.some(({ name }) => name === "updateTag"),
+      "the draw cleared no tag, so the two are compared over nothing",
+    );
     assert.deepEqual(cleared(), drawn);
   });
 

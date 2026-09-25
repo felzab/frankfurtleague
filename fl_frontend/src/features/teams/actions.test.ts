@@ -180,18 +180,18 @@ describe("the team actions against the codes their endpoints publish", () => {
     answerWith(() => Promise.resolve({ acknowledged: 1, name: "SG Beta", gruppe: "A", fanned_out_to_spiele: 0, ausgetragene_squad_rows: 0 }));
 
     const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" });
-    const tags = cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]);
 
     assert.equal(result.success, true, "the replacement never landed, so its tags are judged on nothing");
-    for (const [tag, stale] of [
-      ["teams", "every unscoped club read keeps the old club"],
-      [`teams:saison_id:${SAISON_ID}`, "the league table keeps the old club"],
-      ["spiele", "every unscoped fixture read keeps the old club"],
-      [`spiele:saison_id:${SAISON_ID}`, "the schedule keeps the old club"],
-      ["spieler", "the public squad serves the retired players for days"],
-    ] as const) {
-      assert.ok(tags.includes(tag), stale);
-    }
+    // The league table and the schedule read the season-scoped pair, every unscoped read the base
+    // tags, and the public squad the `spieler` tag.
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: [`spiele:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["spieler"] },
+      { name: "refresh", args: [] },
+    ]);
   });
 });
 

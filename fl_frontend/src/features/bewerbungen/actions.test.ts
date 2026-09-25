@@ -358,8 +358,8 @@ const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
 /** A success's report, or the refusal's sentence where the action failed. */
 const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
 
-/** Every tag the case's writes cleared, in the order they cleared them. */
-const updatedTags = (): unknown[] => cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]);
+/** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
+const REFRESH_ALONE = [{ name: "refresh", args: [] }];
 
 describe("what each decision moves", () => {
   /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
@@ -370,8 +370,11 @@ describe("what each decision moves", () => {
     answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
 
     assert.equal((await acceptance.press()).success, true, "the acceptance never landed, so its tags are judged on nothing");
-    assert.ok(updatedTags().includes("teams"), "the acceptance stopped invalidating the club reads");
-    assert.ok(updatedTags().includes("teams:saison_id:2026"), "the acceptance no longer invalidates the season it entered the club into");
+    assert.deepEqual(
+      cacheCalls,
+      [{ name: "updateTag", args: ["teams"] }, { name: "updateTag", args: ["teams:saison_id:2026"] }, ...REFRESH_ALONE],
+      "the acceptance clears other than the club reads it wrote into",
+    );
   });
 
   /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
@@ -381,7 +384,7 @@ describe("what each decision moves", () => {
     answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
 
     assert.equal((await decline.press()).success, true, "the decline never landed, so its tags are judged on nothing");
-    assert.deepEqual(updatedTags(), [], "the decline clears a cached read its endpoint does not move");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the decline clears a cached read its endpoint does not move");
   });
 });
 
@@ -913,7 +916,7 @@ describe("the re-sent confirmation link", () => {
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
     assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, true, "the re-send never landed, so its tags are judged on nothing");
-    assert.deepEqual(updatedTags(), [], "the re-send clears a cached read its endpoint does not move");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the re-send clears a cached read its endpoint does not move");
   });
 });
 
@@ -1006,7 +1009,7 @@ describe("the corrected contact address", () => {
       true,
       "the correction never landed, so its tags are judged on nothing",
     );
-    assert.deepEqual(updatedTags(), [], "the correction clears a cached read its endpoint does not move");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the correction clears a cached read its endpoint does not move");
   });
 });
 
@@ -1100,6 +1103,6 @@ describe("the person seated where one stepped out", () => {
     answerWith(() => Promise.resolve(besetzt()));
 
     assert.equal((await besetzeKontaktSitzAction(SITZ)).success, true, "the reseat never landed, so its tags are judged on nothing");
-    assert.deepEqual(updatedTags(), [], "the reseat clears a cached read its endpoint does not move");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the reseat clears a cached read its endpoint does not move");
   });
 });
