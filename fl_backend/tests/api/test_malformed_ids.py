@@ -6,7 +6,7 @@ import pymongo
 import pytest
 from httpx2 import Response
 
-from app.core.exception_handlers import DATABASE_FAILED
+from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
@@ -57,7 +57,7 @@ def test_a_malformed_query_id_is_a_422(team_id: str):
     response = answered("/api/v0/spieler", params={"team_id": team_id})
 
     assert response.status_code == 422
-    assert response.json()["error_code"] == "REQ-VAL-001"
+    assert response.json()["error_code"] == PAYLOAD_REFUSED
 
 
 def test_a_well_formed_query_id_reaches_the_database():

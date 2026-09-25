@@ -18,6 +18,8 @@ from app.core.exception_handlers import (
     DATABASE_FAILED,
     JSON_MEDIA_TYPE,
     NO_DATA_TEXT,
+    PAYLOAD_REFUSED,
+    STORED_DATA_INVALID,
     db_exception_handler,
     duplicate_key_exception_handler,
     pydantic_validation_exception_handler,
@@ -146,7 +148,7 @@ class TestFailureBodies:
         response = asyncio.run(request_validation_exception_handler(None, RequestValidationError([])))  # type: ignore[arg-type]
 
         assert response.status_code == 422
-        assert jsonlib.loads(bytes(response.body))["error_code"] == "REQ-VAL-001"
+        assert jsonlib.loads(bytes(response.body))["error_code"] == PAYLOAD_REFUSED
         assert jsonlib.loads(bytes(response.body))["fields"] == []
 
     def test_the_body_carries_nothing_but_the_code_and_the_id(self):
@@ -186,7 +188,7 @@ def refused(body: object | None = None, *, content: bytes | None = None, query: 
     else:
         response = validation_client.post("/nested", content=content, headers={"content-type": "application/json"})
 
-    assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+    assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
     return response.json()
 
 
@@ -632,7 +634,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert "body.vorname" in document
         assert "string_pattern_mismatch" in document
         assert "String should match pattern" in document
-        assert "REQ-VAL-001" in document
+        assert PAYLOAD_REFUSED in document
 
     def test_a_refused_stored_document_never_reaches_the_line(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
@@ -650,7 +652,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert "vorname" in document
         assert "string_pattern_mismatch" in document
         assert "String should match pattern" in document
-        assert "SRV-VAL-001" in document
+        assert STORED_DATA_INVALID in document
 
     def test_a_refused_stored_documents_value_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))

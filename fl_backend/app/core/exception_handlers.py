@@ -17,6 +17,10 @@ from app.shared.schemas.responses import FLFailureBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
+PAYLOAD_REFUSED = "REQ-VAL-001"
+MALFORMED_OBJECT_ID = "REQ-OID-001"
+STORED_DATA_INVALID = "SRV-VAL-001"
+UNHANDLED_CRASH = "SRV-FAIL-001"
 DATABASE_FAILED = "DB-FAIL-001"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
@@ -52,20 +56,20 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
     # `RequestValidationError` instead. 500, not 422.
     fl_logger.error(
         f"Model validation failed outside request parsing: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
-        extra={"error_code": "SRV-VAL-001"},
+        extra={"error_code": STORED_DATA_INVALID},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-VAL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, STORED_DATA_INVALID)
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
     fl_logger.warning(
         f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
-        extra={"error_code": "REQ-VAL-001"},
+        extra={"error_code": PAYLOAD_REFUSED},
     )
 
-    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001", fields=refused_fields_of(errors))
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 
 
 def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
@@ -249,20 +253,20 @@ def _dotted(path: str, name: Any) -> str:
 async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):
     fl_logger.warning(
         f"Invalid ObjectId format received: {str(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "REQ-OID-001"},
+        extra={"error_code": MALFORMED_OBJECT_ID},
     )
 
-    return error_response(status.HTTP_400_BAD_REQUEST, "REQ-OID-001")
+    return error_response(status.HTTP_400_BAD_REQUEST, MALFORMED_OBJECT_ID)
 
 
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
     fl_logger.error(
         f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}",
         exc_info=True,
-        extra={"error_code": "SRV-FAIL-001"},
+        extra={"error_code": UNHANDLED_CRASH},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-FAIL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, UNHANDLED_CRASH)
 
 
 def register_exception_handlers(app: FastAPI):

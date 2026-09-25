@@ -26,7 +26,14 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_einladungen_collection
-from app.core.exception_handlers import DATABASE_FAILED, STORES_NOTHING_WHEN, UNKNOWN_OUTCOME, db_exception_handler, stores_nothing
+from app.core.exception_handlers import (
+    DATABASE_FAILED,
+    STORES_NOTHING_WHEN,
+    UNHANDLED_CRASH,
+    UNKNOWN_OUTCOME,
+    db_exception_handler,
+    stores_nothing,
+)
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
@@ -410,7 +417,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 
-        assert (response.status_code, response.json()["error_code"]) == (500, "SRV-FAIL-001")
+        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
 
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
     def test_a_write_method_declaring_it_stores_nothing_is_a_failure_too(self, error: PyMongoError):

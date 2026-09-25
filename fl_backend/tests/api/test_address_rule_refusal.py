@@ -14,7 +14,7 @@ from pydantic.warnings import UnsupportedFieldAttributeWarning
 import app
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
@@ -110,7 +110,7 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
         response = answered(route, UMLAUT_LOCAL_PART)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(ROUTES))
     def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self, route: str):
@@ -245,7 +245,7 @@ class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
     def test_a_lone_surrogate_is_refused(self, route: str):
         response = posted_raw(route, "a\\ud800@schule.de")
 
-        assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(FREE_STRING_ROUTES))
     def test_the_same_body_spelled_plainly_reaches_the_database(self, route: str):
