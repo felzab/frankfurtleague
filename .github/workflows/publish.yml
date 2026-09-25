@@ -21,8 +21,9 @@ defaults:
   run:
     shell: bash
 
-# One publish at a time, and a second request waits rather than cancelling one halfway through its
-# two `:latest` moves.
+# One publish at a time, a request waiting rather than cancelling one between its two `:latest`
+# moves. A newer request cancels a pending one (`queue` left at `single`), losing nothing: the
+# verdict refuses all but `main`'s tip.
 concurrency:
   group: publish
   cancel-in-progress: false
