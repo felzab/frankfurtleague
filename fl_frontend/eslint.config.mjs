@@ -227,6 +227,12 @@ const SEGMENTED_DATE_CONTROLS = {
   message: "Compose a date or time field through fl_frontend/src/shared/components/ui/DateTimeFields.tsx.",
 };
 
+/** HeroUI's number field, rendered through the wrapper that records an emptied box as `null` rather than `NaN`. */
+const HEROUI_NUMBER_FIELD = {
+  group: ["@heroui/react/number-field"],
+  message: "Render a number field through fl_frontend/src/shared/components/ui/NumberField.tsx, which records an emptied box as null.",
+};
+
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
 const HEROUI_FORM = {
   group: ["@heroui/react"],
@@ -446,6 +452,10 @@ const DYNAMIC_LOADS = [
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
   {
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fnumber-field$`),
+    message: "Load HeroUI's number field through fl_frontend/src/shared/components/ui/NumberField.tsx, by `import()` as much as by `import`.",
+  },
+  {
     selector: loadOf(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex)),
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
@@ -517,7 +527,7 @@ const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
 const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
-const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS];
+const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HINT_INTERNALS];
 
 const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN];
 
@@ -855,7 +865,7 @@ const eslintConfig = defineConfig([
   },
   { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": "off" } },
 
-  // Every file first, so the Next, date-control and form bans reach tests and the slices neither boundary
+  // Every file first, so the Next, date-control, form and number-field bans reach tests and the slices neither boundary
   // names; each later block restates them for `restrictImports`'s reason.
   { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(...HOMED_IMPORTS) },
 
@@ -888,6 +898,7 @@ const eslintConfig = defineConfig([
   ...[
     [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
     [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],

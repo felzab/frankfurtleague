@@ -3,7 +3,6 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { NumberField } from "@heroui/react/number-field";
 import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
@@ -14,8 +13,8 @@ import {
   FIELD_INPUT_CLASSES,
   FIELD_LABEL_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { emptyAsNull } from "@/shared/utils/draftStatus";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SchiedsrichterDraft } from "../../types";
@@ -101,11 +100,11 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         name="default_payment"
         isInvalid={errors?.["default_payment"] ? true : undefined}
         step={5}
-        value={draft.default_payment ?? Number.NaN}
+        value={draft.default_payment}
         onChange={(val) =>
           onChange({
             ...draft,
-            default_payment: enteredNumber(val),
+            default_payment: val,
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>

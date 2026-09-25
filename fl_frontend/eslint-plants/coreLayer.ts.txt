@@ -4,6 +4,7 @@ import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; //
 import { captureStdout } from "./stdoutCapture"; // expect: test-only
 import { sources } from "./actionSources"; // expect: test-only
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
@@ -52,3 +53,4 @@ export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only
 export const NODE_MODULE_USED = [loadVia, hookVia];
 export const LOADED_LOADER = import("node:module"); // expect: test-only-load
 export const ORIGIN_USED = [SITE_URL, SITE_URL_TYPED];
+export const NUMBER_FIELD_USED = HeroNumberField;

@@ -1,14 +1,13 @@
 "use client";
 
 import { FieldError } from "@heroui/react/field-error";
-import { NumberField } from "@heroui/react/number-field";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 /**
  * A default and never a stored copy: what a match pays is its own `payment`, and the backend's
@@ -46,11 +45,10 @@ export function FormHonorarSection({
           minValue={0}
           step={5}
           name="default_payment"
-          value={defaultPayment ?? Number.NaN}
-          onChange={(next) => {
+          value={defaultPayment}
+          onChange={(value) => {
             // An emptied box is "no standard fee entered", never 0 €: the schema's type check is what
             // then asks for one, in its own German, at the submit.
-            const value = enteredNumber(next);
             onChange(value);
             onFieldChanged(["default_payment"], { default_payment: value });
           }}

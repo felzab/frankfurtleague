@@ -2,7 +2,6 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { ListBox } from "@heroui/react/list-box";
-import { NumberField } from "@heroui/react/number-field";
 import { Select } from "@heroui/react/select";
 
 import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
@@ -13,9 +12,9 @@ import {
   FIELD_MARKER_CLASSES,
   FIELD_TRIGGER_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel, SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
@@ -57,11 +56,11 @@ export function SaisonRuleNumberField({
       name={name}
       minValue={minValue}
       maxValue={maxValue}
-      value={value ?? Number.NaN}
+      value={value}
       // Its dimming is `globals.css`'s, keyed on `[data-readonly="true"]`, so every frozen number
       // field in the product dims by the same amount — an `opacity-*` added here would double it.
       isReadOnly={isReadOnly}
-      onChange={(next) => onChange(enteredNumber(next))}
+      onChange={(next) => onChange(next)}
       onBlur={onBlur}>
       {label}
       <NumberField.Group className={FIELD_GROUP_CLASSES}>

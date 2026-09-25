@@ -9,6 +9,7 @@ import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: seg
 import { CalendarRoot } from "@heroui/react/calendar"; // expect: date-alias
 import * as TimeFields from "@heroui/react/time-field"; // expect: segmented-import expect: heroui-form expect: date-alias
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 
@@ -80,6 +81,7 @@ export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root
 export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-load
 export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
 export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
+export const NUMBER_FIELD_LOADED = import("@heroui/react/number-field"); // expect: number-field-load
 export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
 export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
@@ -132,3 +134,4 @@ export function AdminPlantView({ facets }: { facets: unknown }) {
 export const NODE_MODULE_USED = [loadVia];
 export const HARNESS_USED = [underNext];
 export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;

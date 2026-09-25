@@ -7,7 +7,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { NumberField } from "@heroui/react/number-field";
 import { useFilter } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
 import { Select } from "@heroui/react/select";
@@ -44,10 +43,10 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
@@ -264,8 +263,8 @@ export function FormSchuleSection({
               aria-describedby={stufenHinweisId}
               minValue={1}
               maxValue={BEWERBUNG_STUFENGROESSE_MAX}
-              value={stufengroesse ?? NaN}
-              onChange={(next) => onStufengroesseChange(enteredNumber(next))}
+              value={stufengroesse}
+              onChange={(next) => onStufengroesseChange(next)}
               onBlur={() => onFieldLeft(["stufengroesse"])}>
               <Label className={FIELD_LABEL_CLASSES}>Größe der Stufe</Label>
               <NumberField.Group className={FIELD_GROUP_CLASSES}>

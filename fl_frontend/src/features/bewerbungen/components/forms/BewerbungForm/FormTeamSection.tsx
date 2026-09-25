@@ -5,7 +5,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { NumberField } from "@heroui/react/number-field";
 import { TextField } from "@heroui/react/textfield";
 
 import {
@@ -26,9 +25,9 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./kaderBounds.ts";
 
@@ -137,8 +136,8 @@ export function FormTeamSection({
               name="kader.voraussichtliche_groesse"
               minValue={1}
               maxValue={BEWERBUNG_KADER_GROESSE_MAX}
-              value={kader.voraussichtliche_groesse ?? NaN}
-              onChange={(next) => onKaderChange(kaderWithSquad(kader, enteredNumber(next)))}
+              value={kader.voraussichtliche_groesse}
+              onChange={(next) => onKaderChange(kaderWithSquad(kader, next))}
               onBlur={() => onFieldLeft(["kader.voraussichtliche_groesse"])}>
               <Label className={FIELD_LABEL_CLASSES}>Voraussichtliche Kadergröße</Label>
               <NumberField.Group className={FIELD_GROUP_CLASSES}>
@@ -154,8 +153,8 @@ export function FormTeamSection({
               name="kader.gute_spieler"
               minValue={0}
               maxValue={strongPlayerCeiling(kader.voraussichtliche_groesse)}
-              value={kader.gute_spieler ?? NaN}
-              onChange={(next) => onKaderChange({ ...kader, gute_spieler: enteredNumber(next) })}
+              value={kader.gute_spieler}
+              onChange={(next) => onKaderChange({ ...kader, gute_spieler: next })}
               onBlur={() => onFieldLeft(["kader.gute_spieler"])}>
               {/* The league plans the groups against this, so the bar it means is named in the label:
                   „im Verein“ alone was answered from breadth of membership rather than from level. */}

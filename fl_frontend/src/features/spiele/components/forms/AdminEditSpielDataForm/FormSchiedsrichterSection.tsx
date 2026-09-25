@@ -1,12 +1,11 @@
 import { FieldError } from "@heroui/react/field-error";
-import { NumberField } from "@heroui/react/number-field";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { bookedSchiedsrichterName, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
-import { enteredNumber } from "@/shared/utils/numberField";
+import { NumberField } from "@/shared/components/ui/NumberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
@@ -69,12 +68,9 @@ export function FormSchiedsrichterSection({
     );
   };
 
-  // An emptied field arrives as NaN and must stay empty: coerced to 0, a cleared Honorar submits
-  // as a referee working for free. The `?? NaN` below is the other half.
-  const handlePaymentChange = (newPayment: number) => {
+  // An emptied field stays empty: coerced to 0, a cleared Honorar submits as a referee working for free.
+  const handlePaymentChange = (entered: number | null) => {
     if (schiedsrichterPayload) {
-      const entered = enteredNumber(newPayment);
-
       onSchiedsrichterChange({
         ...schiedsrichterPayload,
         payment: entered === null ? null : Math.round(entered),
@@ -119,9 +115,9 @@ export function FormSchiedsrichterSection({
         // Frozen without a referee, the Mietpreis field's reason: `handlePaymentChange` no-ops on a
         // null payload.
         isReadOnly={!schiedsrichterPayload}
-        value={schiedsrichterPayload?.payment ?? NaN}
+        value={schiedsrichterPayload?.payment ?? null}
         onChange={handlePaymentChange}
-        // On blur, for the Mietpreis field's reason: the same box with the same NaN window.
+        // On blur, for the Mietpreis field's reason: the same box with the same empty window.
         onBlur={() => onValidateFields(["schiedsrichter.payment"])}
         onKeyDown={suppressEnterSubmit}
         formatOptions={{

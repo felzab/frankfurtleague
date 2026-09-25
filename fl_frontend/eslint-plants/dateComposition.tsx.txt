@@ -8,6 +8,7 @@ import { TimeField } from "@heroui/react/time-field";
 import { DateField } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
 import { HintPanel } from "./InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
@@ -27,3 +28,4 @@ export function AppDatePicker() {
 }
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;

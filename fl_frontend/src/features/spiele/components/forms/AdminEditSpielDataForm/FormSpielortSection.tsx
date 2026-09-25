@@ -1,11 +1,10 @@
 import { FieldError } from "@heroui/react/field-error";
-import { NumberField } from "@heroui/react/number-field";
 
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
-import { enteredNumber } from "@/shared/utils/numberField";
+import { NumberField } from "@/shared/components/ui/NumberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
@@ -68,12 +67,10 @@ export function FormSpielortSection({
     );
   };
 
-  // NaN is an emptied field, not a zero price. `Math.round` because a decimal is typable, the
+  // `null` is an emptied field, not a zero price. `Math.round` because a decimal is typable, the
   // field carrying no `step`, and rounding at entry beats a schema rejection.
-  const handleMietpreisChange = (newPrice: number) => {
+  const handleMietpreisChange = (entered: number | null) => {
     if (ortPayload) {
-      const entered = enteredNumber(newPrice);
-
       onOrtChange({ ...ortPayload, mietpreis: entered === null ? null : Math.round(entered) });
     }
   };
@@ -116,9 +113,9 @@ export function FormSpielortSection({
         // null payload, so an editable box discards every keystroke. Read-only for
         // `SaisonRuleNumberField`'s reason — it stays a tab stop and stays in the form.
         isReadOnly={!ortPayload}
-        value={ortPayload?.mietpreis ?? NaN}
+        value={ortPayload?.mietpreis ?? null}
         onChange={handleMietpreisChange}
-        // On blur: a cleared box is `NaN` until the first digit of its replacement is typed, and
+        // On blur: a cleared box is empty until the first digit of its replacement is typed, and
         // complaining in that window is the eager-validation failure.
         onBlur={() => onValidateFields(["ort.mietpreis"])}
         onKeyDown={suppressEnterSubmit}

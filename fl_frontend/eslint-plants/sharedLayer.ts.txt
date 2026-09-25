@@ -1,6 +1,7 @@
 // Linted as src/shared/zzPlant.ts.
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
@@ -21,3 +22,4 @@ export const LOADED_OWN = import("./components/ui/formFieldStyles");
 export const NODE_MODULE_USED = [loadVia];
 export const HARNESS_USED = [renderTest, fixtures];
 export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;

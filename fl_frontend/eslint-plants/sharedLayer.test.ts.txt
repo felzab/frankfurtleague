@@ -3,9 +3,11 @@ import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
 import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js"; // expect: next-private
 import { TimeField } from "@heroui/react/time-field"; // expect: segmented-import
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
 import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 // A test may import a test-only module.
 import { captureStdout } from "./testing/renderTest";
 
 export const USED = [Bars, PathnameContext, TimeField, HeroForm, HintPanel, TEAM_FACETS, captureStdout];
+export const NUMBER_FIELD_USED = HeroNumberField;
