@@ -1,3 +1,5 @@
+import "client-only";
+
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type { FieldErrors } from "./validation";
