@@ -501,28 +501,18 @@ REFUSED_DOCUMENT_REPORT: dict[str, Any] = {
     },
 }
 
+# A validator's refusal inside a batch, carrying the `op` the driver adds: the whole document it
+# tried to write. A duplicate-only batch never reaches this handler, `app/core/crud.py ::
+# post_many_to_db` raising it as `DuplicateKeyError`.
 REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
     "writeErrors": [
         {
-            "index": 1,
-            "code": 11000,
-            "errmsg": (
-                "E11000 duplicate key error collection: fl_test.saison_spieler index: uniq_spieler_id_saison_id"
-                f" dup key: {{ spieler_id: ObjectId('{REFUSED_SPIELER_OID}'), saison_id: \"2026\" }}"
-            ),
-            "keyPattern": {"spieler_id": 1, "saison_id": 1},
-            "keyValue": {"spieler_id": ObjectId(REFUSED_SPIELER_OID), "saison_id": "2026"},
+            **REFUSED_DOCUMENT_REPORT,
             "op": {
-                "spieler_id": ObjectId(REFUSED_SPIELER_OID),
-                "saison_id": "2026",
-                "team_id": ObjectId("6890a1b2c3d4e5f60fff0013"),
-                "ist_nachnominiert": False,
-                "rolle": None,
-                "stufe": "Q1",
-                "position": "Tor",
-                "nummer": "99",
+                "_id": ObjectId(REFUSED_SPIELER_OID),
+                "vorname": "Anna",
+                "einwilligung": {"erteilt_von": REFUSED_CONSENT_SOURCE},
                 "inactive_since": None,
-                "_id": ObjectId("6890a1b2c3d4e5f60fff0018"),
             },
         }
     ],
@@ -684,9 +674,11 @@ class TestValidationLoggingWithholdsTheValue:
     def test_a_bulk_writes_refused_document_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
 
-        # A batch reports the whole document it tried to write as `op`, and quotes the duplicated key.
+        # `op` holds the refused value a second time, beside the validator's `consideredValue`.
         assert REFUSED_SPIELER_OID not in document
-        assert "dup key" not in document
+        assert REFUSED_CONSENT_SOURCE not in document
+        # Still named, so the case cannot pass on a line that dropped the report whole.
+        assert "einwilligung.erteilt_von" in document
         assert DATABASE_FAILED in document
 
     def test_a_duplicate_keys_refused_value_never_reaches_the_line(self, caplog):
