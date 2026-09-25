@@ -681,6 +681,81 @@ def test_a_scripts_suite_read_no_chain_places_is_one_this_check_declares() -> No
     )
 
 
+# How far above its own file a suite stands at the repository root: `tests/`, then `scripts/`, then it.
+ROOT_CLIMB: Final = 3
+
+
+def _climb(node: ast.expr, climbs: dict[str, int]) -> int | None:
+    """How many directories above a suite's own file an expression stands, None off `Path(__file__)`."""
+    if isinstance(node, ast.Name):
+        return climbs.get(node.id)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Path":
+        return 0 if len(node.args) == 1 and isinstance(node.args[0], ast.Name) and node.args[0].id == "__file__" else None
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "resolve":
+        return _climb(node.func.value, climbs)
+    if isinstance(node, ast.Attribute) and node.attr == "parent":
+        below = _climb(node.value, climbs)
+        return None if below is None else below + 1
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Attribute) and node.value.attr == "parents":
+        below, step = _climb(node.value.value, climbs), node.slice
+        return None if below is None or not isinstance(step, ast.Constant) or not isinstance(step.value, int) else below + step.value + 1
+    return None
+
+
+def _root_spellings(tree: ast.Module) -> list[str]:
+    """Every reach of the root `_suite_reads` does not follow, and every `joinpath`, by its source.
+
+    That reader follows `REPO_ROOT` and `SCRIPTS.parent` down `/` chains; any other spelling reads a
+    file no arm is held to.
+    """
+    climbs: dict[str, int] = {}
+    kept: set[ast.expr] = set()
+    for node in sorted((node for node in ast.walk(tree) if isinstance(node, ast.Assign | ast.AnnAssign)), key=lambda node: node.lineno):
+        if node.value is not None and (climb := _climb(node.value, climbs)) is not None:
+            climbs.update(dict.fromkeys(_bound_names(node), climb))
+            if climb == ROOT_CLIMB and _bound_names(node) == [ROOT_NAME]:
+                kept.add(node.value)
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "joinpath":
+            found.append(ast.unparse(node))
+        elif isinstance(node, ast.expr) and not isinstance(node, ast.Name) and node not in kept and not _is_root(node):
+            if _climb(node, climbs) == ROOT_CLIMB:
+                found.append(ast.unparse(node))
+    return found
+
+
+def test_every_scripts_suite_reaches_the_root_by_a_spelling_the_reads_follow() -> None:
+    """Enforced rather than assumed: a read the derivation cannot see selects no scope and fails nothing."""
+    found = [
+        f"{suite.name}: {source}"
+        for suite in sorted((REPO_ROOT / SCRIPTS_SUITES).glob("*.py"))
+        for source in _root_spellings(ast.parse(suite.read_text(encoding="utf-8"), filename=suite.name))
+    ]
+    assert found == [], "reach the root as REPO_ROOT or SCRIPTS.parent, and join with `/`:\n" + "\n".join(found)
+
+
+# Every spelling the reader answers for, the three it refuses beside the three it follows.
+PLANTED_ROOTS: Final = """
+REPO_ROOT: Final = Path(__file__).resolve().parents[2]
+SCRIPTS = Path(__file__).resolve().parents[1]
+FOLLOWED = SCRIPTS.parent / "docs" / "a.md"
+JOINED = REPO_ROOT.joinpath("docs", "a.md")
+ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).parent.parent
+CLIMBED = HERE.parent / "docs" / "a.md"
+"""
+
+
+def test_the_root_reader_refuses_each_spelling_the_reads_cannot_follow() -> None:
+    """The case above holds a tree that spells none, so each refusal is driven here."""
+    assert _root_spellings(ast.parse(PLANTED_ROOTS)) == [
+        "REPO_ROOT.joinpath('docs', 'a.md')",
+        "Path(__file__).resolve().parents[2]",
+        "HERE.parent",
+    ]
+
+
 # The suites that retype a frontend module's own constants and compare them, which is the reach
 # `UNNAMEABLE` above spares from the equality: each names its modules as plain strings.
 MIRROR_REGISTERS: Final[tuple[str, ...]] = ("fl_backend/tests/shared/test_frontend_mirrors.py",)
