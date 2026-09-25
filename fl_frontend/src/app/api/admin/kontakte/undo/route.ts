@@ -29,6 +29,9 @@ export async function POST(request: NextRequest) {
     restore: async (payload) => {
       let operation;
       try {
+        // Each seat's consent label replayed as the earlier record stored it, never judged against the
+        // save's admission (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`):
+        // the save being undone has moved the stored label that admission reads.
         operation = await patchSaisonTeamKontakte(payload);
       } catch (error) {
         const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);

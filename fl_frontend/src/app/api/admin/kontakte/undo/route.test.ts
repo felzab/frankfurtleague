@@ -41,6 +41,25 @@ describe("the contacts save's undo", () => {
     assert.deepEqual(calls, [{ action: "patchSaisonTeamKontakte", payload: BODY }]);
   });
 
+  /* An undo restores the earlier record, and the save it undoes moved the stored label the save's own
+     admission would judge it by, so a label no longer running is replayed rather than refused. */
+  it("replays a seat under the label it was stored with, the running label or not", async () => {
+    calls.length = 0;
+    const seat = {
+      vorname: "Ada",
+      nachname: "Byron",
+      email: "ada@example.org",
+      telefon: "069 111",
+      einwilligung: { umfang: "kontaktdaten", text_version: "2026-08", datum: "2026-03-12" },
+    };
+    const earlier = { ...BODY, kontakte: { trainer: seat, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null } };
+
+    const answer = await undo(POST, earlier);
+
+    assert.equal(answer.success, true, String(answer.error));
+    assert.deepEqual(calls, [{ action: "patchSaisonTeamKontakte", payload: earlier }]);
+  });
+
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
   it("clears no cached read, whether the replay lands or is refused", async () => {
     invalidated.length = 0;
