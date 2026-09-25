@@ -28,6 +28,8 @@ commits, body_gate = import_scripts("check_commits", "check_pr_body")
 # Built rather than typed, so no byte of this file is one: the ban's own finding quotes the subject
 # it found the character in.
 ROBOT: Final = chr(0x1F916)
+# A left-to-right isolate, spelled by code point: written bare, this file would carry one itself.
+ISOLATE: Final = chr(0x2066)
 # The separator in a roadmap entry's heading, built for `ROBOT`'s reason rather than typed.
 MIDDLE_DOT: Final = chr(0xB7)
 
@@ -241,6 +243,18 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         departed=frozenset({TOKEN, OTHER_TOKEN}),
     ),
     Case("an emoji anywhere in the message", _message("Ops: the gate proves it", CLEAN_BODY + " " + ROBOT), (("fail", "an emoji"),)),
+    Case(
+        "a bidirectional control in a message the hook reads",
+        _message("Ops: the gate proves it", CLEAN_BODY + " " + ISOLATE),
+        (("fail", "a bidirectional control"),),
+    ),
+    # Over a range the message has landed, and its body stands: the correction is the pull request's.
+    Case(
+        "a bidirectional control in a landed message",
+        _message("Ops: the gate proves it", CLEAN_BODY + " " + ISOLATE),
+        (("report", "a bidirectional control"),),
+        departed=frozenset(),
+    ),
     # A revert's subject is git's, so its shape and its length are excused and nothing else is --
     # which only holds while the body half of the pair is read too.
     Case("a revert git composed", _message('Revert "Ops: the gate proves it"', "This reverts commit abc1234def.")),

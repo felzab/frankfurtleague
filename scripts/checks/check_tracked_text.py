@@ -114,7 +114,7 @@ def markers_in(text: str) -> list[tuple[int, str]]:
 # Tab, newline and carriage return are the three a text file is made of; every other C0 control and
 # DEL reach a source file only by accident.
 _CONTROL: Final = frozenset(chr(point) for point in (*range(0x00, 0x20), 0x7F)) - frozenset("\t\n\r")
-_BIDIRECTIONAL: Final = frozenset("\u200e\u200f") | frozenset(chr(point) for point in (*range(0x202A, 0x202F), *range(0x2066, 0x206A)))
+BIDIRECTIONAL: Final = frozenset("\u200e\u200f") | frozenset(chr(point) for point in (*range(0x202A, 0x202F), *range(0x2066, 0x206A)))
 
 BYTE_ORDER_MARK: Final = "\ufeff"
 
@@ -123,7 +123,7 @@ BYTE_ORDER_MARK: Final = "\ufeff"
 NAMED: Final[dict[str, str]] = {
     **dict.fromkeys(_CONTROL, "a control character"),
     **dict.fromkeys("\u200b\u200c\u200d", "a zero-width character"),
-    **dict.fromkeys(_BIDIRECTIONAL, "a bidirectional control"),
+    **dict.fromkeys(BIDIRECTIONAL, "a bidirectional control"),
     **dict.fromkeys("\u2028\u2029", "a line separator"),
     BYTE_ORDER_MARK: "a byte order mark",
 }

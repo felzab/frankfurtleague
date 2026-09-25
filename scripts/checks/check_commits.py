@@ -17,6 +17,7 @@ from typing import Final
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+from check_tracked_text import BIDIRECTIONAL
 from checker_kernel import (
     DEFAULT_BASE,
     EXIT_FINDINGS,
@@ -362,6 +363,13 @@ def check_message(message: str, short: str, *, is_bot: bool = False, departed: f
 
     if EMOJI.search(message):
         fail("the message carries an emoji")
+    # The tracked tree's set, one reordering the text around it unseen. Refused in the hook, where a
+    # message is still new; reported over a range, where a landed body stands as the record.
+    if any(character in BIDIRECTIONAL for character in message):
+        if departed is None:
+            fail("the message carries a bidirectional control, which can reorder how its text reads")
+        else:
+            report("the landed message carries a bidirectional control, which can reorder how its text reads")
 
     return findings
 
