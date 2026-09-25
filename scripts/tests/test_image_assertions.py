@@ -27,23 +27,30 @@ PUBLISH: Final = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
 CASE_VAR: Final = "FL_IMAGE_CASE"
+ONLY_VAR: Final = "FL_IMAGE_ONLY"
 
-# The `-c` argument -- what the container was asked to run -- tells the probes apart. An inspect
-# answers in the shape the publish workflow's templates print: one layer a line, then the user.
+# The `-c` argument -- what the container was asked to run -- tells the probes apart.
+
+# A case answers for every image, or for the one `FL_IMAGE_ONLY` names alone, so a check handed the
+# wrong list meets a clean image; each package's inspect answers layers of its own.
 STUB: Final = """#!/usr/bin/env bash
 set -u
+package_of() { case "$1" in *frontend*) printf frontend ;; *backend*) printf backend ;; *) printf other ;; esac; }
+case_for() { # $1 the image asked about
+  if [[ -z "${FL_IMAGE_ONLY:-}" || "$1" == *"${FL_IMAGE_ONLY}"* ]]; then printf '%s' "${FL_IMAGE_CASE:-clean}"; else printf clean; fi
+}
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
   build|tag) exit 0 ;;
   image)
-    if [[ "${2:-}" == "inspect" ]]; then printf 'sha256:checked\\nuser=app\\n'; fi
+    if [[ "${2:-}" == "inspect" ]]; then printf 'sha256:%s\\nuser=app\\n' "$(package_of "${!#}")"; fi
     exit 0 ;;
   # The build loads the image and the cache export is a run of its own; each fails on its own case.
   buildx)
     if [[ "${2:-}" == "imagetools" ]]; then
-      case "${FL_IMAGE_CASE:-clean}" in
+      case "$(case_for "${!#}")" in
         pushed_other) printf 'sha256:rebuilt\\nuser=app\\n' ;;
-        *) printf 'sha256:checked\\nuser=app\\n' ;;
+        *) printf 'sha256:%s\\nuser=app\\n' "$(package_of "${!#}")" ;;
       esac
       exit 0
     fi
@@ -61,11 +68,14 @@ case "${1:-}" in
 esac
 if [[ "${1:-}" != "run" ]]; then exit 0; fi
 cmd=""
+image=""
 prev=""
 for arg in "$@"; do
   if [[ "$prev" == "-c" ]]; then cmd="$arg"; fi
+  if [[ "$arg" == "-c" ]]; then image="$prev"; fi
   prev="$arg"
 done
+FL_IMAGE_CASE="$(case_for "$image")"
 case "$cmd" in
   *instrumentation.js*)
     case "${FL_IMAGE_CASE:-clean}" in
@@ -107,9 +117,22 @@ class Case:
     credentialed: bool = True
     # Each check a unit of the step pool, the path a CI run takes; serial, it runs in place.
     pooled: bool = False
+    # The one package whose image carries the case, the other's answering clean.
+    only: str | None = None
+
+    @property
+    def label(self) -> str:
+        return self.name if self.only is None else f"{self.name}, {self.only} alone"
 
 
 CASES: Final[tuple[Case, ...]] = (
+    # One per image each check reads: the caller names its images itself, so a list losing one is
+    # caught only where that image alone carries the defect.
+    Case("instrumentation_missing", 1, "instrumentation.js is MISSING", only="frontend"),
+    Case("user_root", 1, "An image runs as root", only="frontend"),
+    Case("user_root", 1, "An image runs as root", only="backend"),
+    Case("context_breach", 1, "dockerignore exists to exclude", only="frontend"),
+    Case("context_breach", 1, "dockerignore exists to exclude", only="backend"),
     Case("cache_clean", 0, "Green", cached=True),
     Case("cache_uncredentialed", 2, "ACTIONS_RUNTIME_TOKEN is not set", "finding(s) in this run", cached=True, credentialed=False),
     Case("cache_build_failed", 1, "The frontend image failed to build", "layer cache", cached=True),
@@ -141,9 +164,11 @@ def _run(case: Case) -> tuple[int, str]:
     environment = base_env()
     # Past `base_env`: `VERIFY_TAG` and its cache name another run's images, and a runner's own
     # credential would stand in for the one a case leaves unset.
-    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE", "ACTIONS_RUNTIME_TOKEN"):
+    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE", "ACTIONS_RUNTIME_TOKEN", ONLY_VAR):
         environment.pop(inherited, None)
     environment[CASE_VAR] = case.name
+    if case.only is not None:
+        environment[ONLY_VAR] = case.only
     if case.cached:
         environment["VERIFY_IMAGES_CACHE"] = "gha"
     if case.cached and case.credentialed:
@@ -160,14 +185,14 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() ->
     for case in CASES:
         code, output = _run(case)
         if code != case.code:
-            wrong.append(f"{case.name}: exited {code}, and the contract gives it {case.code}")
+            wrong.append(f"{case.label}: exited {code}, and the contract gives it {case.code}")
         if case.says not in output:
-            wrong.append(f"{case.name}: nothing it printed says {case.says!r}")
+            wrong.append(f"{case.label}: nothing it printed says {case.says!r}")
         if case.never is not None and case.never in output:
-            wrong.append(f"{case.name}: it said {case.never!r}, which names a breach nothing observed")
+            wrong.append(f"{case.label}: it said {case.never!r}, which names a breach nothing observed")
         # A pool that could not start falls back to the serial path, and the case would prove that one twice.
         if case.pooled and "no python at the checkers' floor" in output:
-            wrong.append(f"{case.name}: no pool started, so the pooled path went unexercised")
+            wrong.append(f"{case.label}: no pool started, so the pooled path went unexercised")
     assert not wrong, "\n".join(wrong)
 
 
@@ -256,9 +281,19 @@ class StepCase:
     name: str
     code: int
     says: str
+    # As `Case.only`.
+    only: str | None = None
 
 
 STEP_CASES: Final[tuple[StepCase, ...]] = (
+    # As the gate's own per-image cases, and the comparison per pushed image besides.
+    StepCase(CHECK_STEP, "instrumentation_missing", 1, "has no .next/server/instrumentation.js", only="frontend"),
+    StepCase(CHECK_STEP, "user_root", 1, "runs as uid 0", only="frontend"),
+    StepCase(CHECK_STEP, "user_root", 1, "runs as uid 0", only="backend"),
+    StepCase(CHECK_STEP, "context_breach", 1, "/app/planted", only="frontend"),
+    StepCase(CHECK_STEP, "context_breach", 1, "/app/planted", only="backend"),
+    StepCase(SAME_STEP, "pushed_other", 1, "::error title=Publish::", only="frontend"),
+    StepCase(SAME_STEP, "pushed_other", 1, "::error title=Publish::", only="backend"),
     StepCase(CHECK_STEP, "clean", 0, ""),
     StepCase(CHECK_STEP, "instrumentation_missing", 1, "has no .next/server/instrumentation.js"),
     StepCase(CHECK_STEP, "instrumentation_unreadable", 3, "would not run (exit 125)"),
@@ -281,13 +316,16 @@ def test_the_publish_workflow_checks_and_compares_the_images_it_pushes() -> None
     wrong: list[str] = []
     for case in STEP_CASES:
         environment = {**base_env(), **job_env, CASE_VAR: case.name, "FRONTEND_DIGEST": "sha256:f", "BACKEND_DIGEST": "sha256:b"}
+        environment.pop(ONLY_VAR, None)
+        if case.only is not None:
+            environment[ONLY_VAR] = case.only
         with tempfile.TemporaryDirectory() as scratch:
             script = write_shell(Path(scratch) / "step.sh", RUNNER_SHELL + _run_block(workflow, case.step))
             # The repository root, where the runner's checkout leaves a step.
             done = run_shell(BASH, script, env=_stubbed(scratch, environment), cwd=REPO_ROOT)
         output = done.stdout + done.stderr
         if done.returncode != case.code:
-            wrong.append(f"{case.step} / {case.name}: exited {done.returncode}, owed {case.code}\n{output}")
+            wrong.append(f"{case.step} / {case.name} / {case.only or 'both'}: exited {done.returncode}, owed {case.code}\n{output}")
         if case.says not in output:
-            wrong.append(f"{case.step} / {case.name}: nothing it printed says {case.says!r}")
+            wrong.append(f"{case.step} / {case.name} / {case.only or 'both'}: nothing it printed says {case.says!r}")
     assert not wrong, "\n".join(wrong)
