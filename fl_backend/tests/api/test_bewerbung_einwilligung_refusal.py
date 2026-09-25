@@ -1,5 +1,6 @@
 import inspect
 from collections.abc import Mapping
+from http import HTTPStatus
 from typing import Any, get_args
 
 import pytest
@@ -14,7 +15,8 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     BEWERBUNG_KONTAKT_ALTER,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_TOKEN_EXPIRED,
+    BEWERBUNG_TOKEN_DECIDED,
+    BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANTWORT_FIELDS,
@@ -228,26 +230,38 @@ class TestATokenNoSeatHolds:
 
 
 class TestALinkWhoseTimeIsOver:
-    """`REQ-BEWERBUNG-010`: the deadline, and a decision taken while the seat stood open."""
+    """`REQ-BEWERBUNG-017`: the deadline, which a re-send restarts, so a 409 rather than a spent link."""
 
     @pytest.mark.parametrize(
-        ("bestaetigungsfrist", "status", "refused"),
+        ("bestaetigungsfrist", "refused"),
         [
-            pytest.param(TOMORROW, "eingereicht", False, id="inside the deadline"),
-            pytest.param(TODAY, "eingereicht", False, id="on the deadline's own day"),
-            pytest.param(YESTERDAY, "eingereicht", True, id="the day after the deadline"),
-            pytest.param(None, "eingereicht", False, id="no deadline recorded"),
-            pytest.param(TOMORROW, "angenommen", True, id="accepted meanwhile"),
-            pytest.param(TOMORROW, "abgelehnt", True, id="declined by the triage meanwhile"),
+            pytest.param(TOMORROW, False, id="inside the deadline"),
+            pytest.param(TODAY, False, id="on the deadline's own day"),
+            pytest.param(YESTERDAY, True, id="the day after the deadline"),
+            pytest.param(None, False, id="no deadline recorded"),
         ],
     )
-    def test_each_boundary_falls_where_the_rule_says(self, bestaetigungsfrist: str | None, status: str, refused: bool):
+    def test_each_boundary_falls_where_the_rule_says(self, bestaetigungsfrist: str | None, refused: bool):
         """The deadline's own day still answers: the mail names the day, and a link dying at midnight before it lies."""
+
+        refusal = find_expired_token_refusal(bestaetigungsfrist=bestaetigungsfrist, status="eingereicht", today=TODAY)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or (refusal.error_code, refusal.status) == (BEWERBUNG_TOKEN_PAST_DEADLINE, HTTPStatus.CONFLICT)
+
+
+class TestALinkOnADecidedApplication:
+    """`REQ-BEWERBUNG-010`: a decision taken while the seat stood open, which nothing undoes, so the link is spent."""
+
+    @pytest.mark.parametrize("status", ["angenommen", "abgelehnt"])
+    @pytest.mark.parametrize("bestaetigungsfrist", [TOMORROW, YESTERDAY])
+    def test_a_decided_application_answers_no_seat_whatever_its_deadline(self, status: str, bestaetigungsfrist: str):
+        """Judged before the deadline, so a decided application past its deadline is not told a re-send would help."""
 
         refusal = find_expired_token_refusal(bestaetigungsfrist=bestaetigungsfrist, status=status, today=TODAY)
 
-        assert (refusal is not None) == refused
-        assert refusal is None or refusal.error_code == BEWERBUNG_TOKEN_EXPIRED
+        assert refusal is not None
+        assert (refusal.error_code, refusal.status) == (BEWERBUNG_TOKEN_DECIDED, HTTPStatus.GONE)
 
 
 class TestASeatAlreadyAnswered:

@@ -360,8 +360,10 @@ the document publishes each code at the status a client meets it at:
 - **404** where what the request names does not exist: a link's token, which is the resource's
   identifier carried in a body for secrecy, or the season entry a path names, beside the
   `DB-COMMON-001` a missing document answers
-- **410** where a link is spent for good: its deadline has passed or its record was decided, and
-  nothing reopens either, a fresh link being a new token. Its view still answers 200 with the state
+- **410** where a link is spent for good: its record was decided, or its own deadline passed and no
+  write moves it, a fresh link being a new token. An application's confirmation deadline is one
+  field that a re-send of any seat restarts, so every other seat's link answers again and its
+  passing is a 409 (`REQ-BEWERBUNG-017`). A link's view still answers 200 with the state
   `abgelaufen`, so a page can say why before anyone presses
 - **403** only where the refusal is about who the caller is — their authority, their role or their
   standing, a ban included — and never about the target's state (ruling R573): a visitor typing an

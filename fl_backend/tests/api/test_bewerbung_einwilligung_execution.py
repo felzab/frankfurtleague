@@ -16,7 +16,8 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
     BEWERBUNG_KONTAKT_ALTER,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_TOKEN_EXPIRED,
+    BEWERBUNG_TOKEN_DECIDED,
+    BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
     SEAT_MIN_AGE_YEARS,
@@ -490,7 +491,35 @@ class TestTheLinkIsSpentByTheStamp:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == BEWERBUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == BEWERBUNG_TOKEN_PAST_DEADLINE
+
+    def test_a_resend_of_one_seat_reopens_every_other_seats_link_past_the_deadline(self, mongo_replica_set_url: str):
+        """Why `REQ-BEWERBUNG-017` is a 409 and not a spent link: the deadline is the application's one field, and a re-send restarts it."""
+
+        expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"])
+            await resend(database, "ansprechperson")
+            answered = await answer(database, client, RAW["stellvertretung"])
+
+            return refused.value.error_code, answered.ergebnis
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == (BEWERBUNG_TOKEN_PAST_DEADLINE, "bestaetigt")
+
+    def test_a_decided_application_refuses_every_link_as_spent(self, mongo_replica_set_url: str):
+        """`REQ-BEWERBUNG-010`: nothing sets `status` back to `eingereicht`, and a decided application takes no re-send."""
+
+        decided = bewerbung_document(status="abgelehnt")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["trainer"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == BEWERBUNG_TOKEN_DECIDED
 
 
 class TestADecline:

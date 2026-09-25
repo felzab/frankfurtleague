@@ -32,13 +32,16 @@ BEWERBUNG_PICKED_CLUB_UNUSABLE = "REQ-BEWERBUNG-006"
 BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED = "REQ-BEWERBUNG-007"
 BEWERBUNG_SHORTHAND_TAKEN = "REQ-BEWERBUNG-008"
 BEWERBUNG_TOKEN_UNKNOWN = "REQ-BEWERBUNG-009"
-BEWERBUNG_TOKEN_EXPIRED = "REQ-BEWERBUNG-010"
+# A decision is final, so the link is spent for good; a deadline a re-send restarts is not, so it
+# is a code of its own at the state's status.
+BEWERBUNG_TOKEN_DECIDED = "REQ-BEWERBUNG-010"
 BEWERBUNG_SEAT_ALREADY_ANSWERED = "REQ-BEWERBUNG-011"
 BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
 BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
 BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
 BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
 BEWERBUNG_FASSUNG_VERALTET = "REQ-BEWERBUNG-016"
+BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -596,23 +599,37 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
     return None
 
 
+def _is_decided(status: Any) -> bool:
+    return status != "eingereicht"
+
+
+def _deadline_passed(*, bestaetigungsfrist: Any, today: str) -> bool:
+    return isinstance(bestaetigungsfrist, str) and bestaetigungsfrist < today
+
+
 def link_is_over(*, bestaetigungsfrist: Any, status: Any, today: str) -> bool:
     """Whether the link is over: the deadline has passed, or the application was decided while the seat stood open."""
 
-    if status != "eingereicht":
-        return True
-
-    return isinstance(bestaetigungsfrist, str) and bestaetigungsfrist < today
+    return _is_decided(status) or _deadline_passed(bestaetigungsfrist=bestaetigungsfrist, today=today)
 
 
 def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: str) -> WriteRefusal | None:
     """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again."""
 
-    if link_is_over(bestaetigungsfrist=bestaetigungsfrist, status=status, today=today):
+    if _is_decided(status):
         return WriteRefusal(
-            error_code=BEWERBUNG_TOKEN_EXPIRED,
+            error_code=BEWERBUNG_TOKEN_DECIDED,
             status=HTTPStatus.GONE,
-            message="this link has expired: the application's confirmation deadline has passed, or the application has been decided",
+            message="this link has expired: the application has been decided",
+        )
+
+    # The deadline is the application's one field, and a re-send of any seat restarts it, so every
+    # other seat's link answers again (`compose_erneut_update`): a conflict with state, not a spent link.
+    if _deadline_passed(bestaetigungsfrist=bestaetigungsfrist, today=today):
+        return WriteRefusal(
+            error_code=BEWERBUNG_TOKEN_PAST_DEADLINE,
+            status=HTTPStatus.CONFLICT,
+            message="the application's confirmation deadline has passed; a fresh link from the administration reopens it",
         )
 
     return None
