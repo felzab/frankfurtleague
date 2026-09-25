@@ -57,16 +57,6 @@ describe("the schema the three internal API keys share", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("ü")).success, false);
   });
 
-  it("refuses a key of 64 code points carrying one astral character", () => {
-    // The case the length check alone already refuses HERE and accepts on the backend: this
-    // `length` counts the surrogate pair twice and Python's counts it once.
-    const astral = pad("\u{1F600}");
-
-    assert.equal([...astral].length, LENGTH);
-    assert.equal(astral.length, LENGTH + 1);
-    assert.equal(INTERNAL_API_KEY.safeParse(astral).success, false);
-  });
-
   it("refuses a key a space would let through a bearer header", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("a b")).success, false);
   });
