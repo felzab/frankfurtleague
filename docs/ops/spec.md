@@ -326,10 +326,20 @@ Every response carries five, each sent with `always`:
 - `Referrer-Policy`
 - `Content-Security-Policy`
 
-`'unsafe-inline'` remains on `script-src` because a per-request nonce cannot cover build-time
-prerendered HTML, which this application prerenders (`cacheComponents` in
-`fl_frontend/next.config.ts`). The compensating control is the `react/no-danger` rule
-[`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records.
+**The one enforced policy keeps `'unsafe-inline'` on `script-src`, because Next cannot put a nonce
+or a hash on the inline hydration scripts of a prerendered shell**, and every page here is one
+(`cacheComponents` in `fl_frontend/next.config.ts`). Next's guide calls Partial Prerendering, which
+`cacheComponents` turns on, "incompatible" with a nonce-based CSP, and its experimental SRI puts
+`integrity` on script files alone — the installed release's copy,
+`fl_frontend/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`, and a Next
+maintainer's open correction to it, https://github.com/vercel/next.js/pull/96281, both read
+2026-09-25 and moving without us. A nonce for the stream beside build-time hashes for the shell and
+`'self'` for its chunks would cover every script, and is refused: three mechanisms is a patchwork
+rather than a rule. The compensating control is the `react/no-danger` rule
+[`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records, which keeps every HTML sink out of the
+application. **Revisit when the application renders user-supplied markup, or when Next ships
+inline-script hashing that covers prerendered shells** — and at the first, reconsider the policy,
+never the lint rule.
 
 `style-src` carries it for a narrower reason: several components set a runtime-computed inline
 `style` **attribute**, for which CSP offers no nonce or hash. Narrowing to `style-src 'self'` with
