@@ -3,18 +3,16 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the actions being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real fan-out reaches a mail provider. */
 const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
-// Each double records the write the module it replaces records as it sends one, which the admin spine
-// judges its answer by.
-const API = `import { mayHaveWritten } from "@/core/errors";
-import { recordWriteSent } from "@/core/requestScope";
-export const apiClient = async (path, _schema, options = {}) => {
-  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
-  return globalThis.__flSendApi(path);
-};`;
+/** What the client answers in this case, whichever endpoint the action reads. */
+let apiAnswer: () => unknown = () => undefined;
+doubleApiClient(() => apiAnswer());
+// The fan-out's double records the write the module it replaces records as it sends one, which the
+// admin spine judges its answer by; the shared client records its own.
 const TEAMS = `export const getTeamMemberships = async () => globalThis.__flSendTeams();`;
 const NOTIFICATIONS = `import { recordWriteSent } from "@/core/requestScope";
 export const sendZielMail = async (args) => {
@@ -53,7 +51,6 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/features/teams/queries.ts")) return { format: "module", source: TEAMS, shortCircuit: true };
     if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
@@ -127,7 +124,7 @@ const sentence = (res: { success: boolean; message?: string; error?: string }): 
 beforeEach(() => {
   mails.length = 0;
   log.length = 0;
-  recorders.__flSendApi = liveRow(EINLADUNG_ID);
+  apiAnswer = liveRow(EINLADUNG_ID);
   recorders.__flSendTeams = teamsHolding("a".repeat(24), BEIDE_BESTAETIGT);
   recorders.__flSendOutcome = outcome(["jonas@beispiel.de", "erika@beispiel.de"], [], []);
 });
@@ -185,7 +182,7 @@ describe("what the single invite press answers", () => {
   it("refuses where the live row is not the one the caller named, and composes nothing", async () => {
     const teamId = "e".repeat(24);
     recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    recorders.__flSendApi = liveRow("f".repeat(24));
+    apiAnswer = liveRow("f".repeat(24));
 
     const res = await press(teamId);
 
@@ -197,7 +194,7 @@ describe("what the single invite press answers", () => {
   it("refuses where no link stands at all, and composes nothing", async () => {
     const teamId = "1a".repeat(12);
     recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    recorders.__flSendApi = () => ({ acknowledged: 1, saison_id: SAISON_ID, team_id: "x", einladung: null, laeuft: true });
+    apiAnswer = () => ({ acknowledged: 1, saison_id: SAISON_ID, team_id: "x", einladung: null, laeuft: true });
 
     const res = await press(teamId);
 
@@ -260,7 +257,7 @@ describe("what the season-wide press answers", () => {
   });
 
   const pressSeason = (zeilen: unknown[]) => {
-    recorders.__flSendApi = () => ({ acknowledged: 1, saison_id: SAISON_ID, zeilen: zeilen });
+    apiAnswer = () => ({ acknowledged: 1, saison_id: SAISON_ID, zeilen: zeilen });
     return postEinladungVersandAction({ id: SAISON_ID, erneut: false });
   };
 

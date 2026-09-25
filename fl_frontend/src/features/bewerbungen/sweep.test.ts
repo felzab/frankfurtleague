@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -24,17 +26,19 @@ recorders.__flSweepLogs = logs;
 recorders.__flSweepEvents = events;
 recorders.__flSweepRefused = refused;
 recorders.__flSweepSwitch = "on";
-recorders.__flSweepAnswer = () => ({});
+
+let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
-const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  const call = { kind: "api", endpoint, method: options.method ?? "GET", params: options.params, body: options.body };
-  globalThis.__flSweepEvents.push(call);
+doubleApiClient(({ endpoint, method, params, body }, schema) => {
+  // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
+  const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
+  events.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
-  return schema.parse(globalThis.__flSweepAnswer(call));
-};`;
+  return schema.parse(apiAnswer(call));
+});
 
 // The real error classes beside the doubled transport: the fan-out this sweep drives tells a
 // withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
@@ -69,7 +73,6 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
@@ -107,7 +110,7 @@ const registrierungPasses = (): ApiEvent[] => passesUnder("registrierungen");
 const callTo = (endpoint: string): ApiEvent | undefined => apiCalls().find((call) => call.endpoint === endpoint);
 
 function answerWith(answer: (call: ApiEvent) => unknown): void {
-  recorders.__flSweepAnswer = answer;
+  apiAnswer = answer;
 }
 
 /** One season's pass, with nothing for either side to do unless a case says otherwise. */

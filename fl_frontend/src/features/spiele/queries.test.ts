@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The three filtered admin reads under test, whose `react` imports the server build must answer. */
@@ -14,16 +15,7 @@ const FEATURE_URLS = ["spiele", "spieltage", "teams"].map((feature) => `${pathTo
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads: string[] = [];
-const RECORDER = "__flAdminSeasonContentReads";
-(globalThis as unknown as Record<string, string[]>)[RECORDER] = reads;
-
-// The PARAMS ride on the recorded key, not just the path: what is under test is whether two calls
-// naming the same filters share one round trip, which a path-only recorder could not tell apart.
-const API_DOUBLE = `export const apiClient = async (endpoint, _schema, options) => {
-  globalThis.${RECORDER}.push(endpoint + " " + JSON.stringify(options?.params ?? {}));
-  return { format: "list", teams: [], spiele: [], spieltage: [] };
-};`;
+const reads = doubleApiClient(() => ({ format: "list", teams: [], spiele: [], spieltage: [] }));
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -33,11 +25,6 @@ registerHooks({
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
 });
 
 const { getAdminSpiele } = await import("./queries.ts");
@@ -46,7 +33,7 @@ const { getAdminTeams } = await import("../teams/queries.ts");
 
 const SAISON_ID = "2526";
 
-const countOf = (endpoint: string): number => reads.filter((read) => read.startsWith(endpoint)).length;
+const countOf = (endpoint: string): number => reads.filter((read) => read.endpoint === endpoint).length;
 
 /** The three counts together, so a per-endpoint delta needs no index into a parallel array. */
 const countsNow = (): Map<string, number> => new Map(ENDPOINTS.map((endpoint) => [endpoint, countOf(endpoint)]));

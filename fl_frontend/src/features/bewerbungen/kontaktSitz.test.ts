@@ -3,13 +3,13 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const API = `export const apiClient = async (endpoint) => {
-  globalThis.__flSitzCalls.push(endpoint);
-  throw globalThis.__flSitzMissing(endpoint);
-};`;
+const calls = doubleApiClient(({ endpoint }) => {
+  throw missing(endpoint);
+});
 const CONFIG = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
 const MAIL = `export const sendMail = async () => ({ id: null });
 export class MailWithheldError extends Error {}
@@ -20,7 +20,6 @@ doubleActionRequest();
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
     if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     return nextLoad(url, context);
@@ -32,12 +31,9 @@ const { BEWERBUNG_VERALTET } = await import("./utils.ts");
 const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 
-const calls: string[] = [];
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flSitzCalls = calls;
 // A 404 on the application read, which the action answers with a sentence of its own: reaching it at
 // all is what the running label's case asks.
-recorders.__flSitzMissing = (endpoint: string) =>
+const missing = (endpoint: string) =>
   new APIBadStatusError({
     message: "not found",
     url: `http://backend/api/v0${endpoint}`,
