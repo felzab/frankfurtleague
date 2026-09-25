@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
@@ -14,9 +15,9 @@ import {
   SHORTHAND_TAKEN_ON_EDIT,
 } from "./refusals.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/teams/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const {
   deleteTeamAction,
   patchSaisonTeamAction,

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
-/* The real route, called: the request it runs in and the writes it replays are the doubles. */
-const { answerWith, calls } = doubleUndoRequest("/src/features/teams/mutations.ts");
+/* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers();
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/teams/mutations.ts :: patchTeam` sends, as the backend's own routes spell it. */
@@ -26,9 +28,12 @@ const CLUB = {
 };
 const SAISON = { team_id: TEAM_ID, saison_id: "2026", gruppe: "A", austritt: null, trikot_farbe: null };
 
-/** `action` refused with `code` as `operation` raises it, every other write restored. */
-function refuse(action: "patchTeam" | "patchSaisonTeam", operation: string, code: string): void {
-  answerWith(() => (calls.at(-1)?.action === action ? Promise.reject(refusedOn(operation, code)) : Promise.resolve({ acknowledged: 1 })));
+const CLUB_PATH = `/teams/${TEAM_ID}`;
+const JUNCTION_PATH = `/teams/${TEAM_ID}/saisons/${SAISON.saison_id}`;
+
+/** The write to `path` refused with `code` as `operation` raises it, every other write restored; the client records each request before it answers. */
+function refuse(path: string, operation: string, code: string): void {
+  answerWith(() => (calls.at(-1)?.endpoint === path ? Promise.reject(refusedOn(operation, code)) : Promise.resolve({ acknowledged: 1 })));
 }
 
 describe("the team save's undo", () => {
@@ -37,16 +42,18 @@ describe("the team save's undo", () => {
     const answer = await undo(POST, { club: CLUB, saison: SAISON });
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchTeam", "patchSaisonTeam"],
-    );
+    const { id, ...club } = CLUB;
+    const { team_id, saison_id, ...junction } = SAISON;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/teams/${id}`, method: "PATCH", body: club },
+      { endpoint: `/teams/${team_id}/saisons/${saison_id}`, method: "PATCH", body: junction },
+    ]);
   });
 
   it("words every refusal the club half publishes, closing on the change standing once", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(CLUB_OPERATION),
-      refuse: (code) => refuse("patchTeam", CLUB_OPERATION, code),
+      refuse: (code) => refuse(CLUB_PATH, CLUB_OPERATION, code),
       press: () => undo(POST, { club: CLUB, saison: SAISON }),
     });
   });
@@ -54,7 +61,7 @@ describe("the team save's undo", () => {
   it("words every refusal the junction half publishes, closing on the change standing once", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(JUNCTION_OPERATION),
-      refuse: (code) => refuse("patchSaisonTeam", JUNCTION_OPERATION, code),
+      refuse: (code) => refuse(JUNCTION_PATH, JUNCTION_OPERATION, code),
       press: () => undo(POST, { saison: SAISON }),
     });
   });
@@ -63,7 +70,7 @@ describe("the team save's undo", () => {
   it("says only the club half went back where the junction is refused after it", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(JUNCTION_OPERATION),
-      refuse: (code) => refuse("patchSaisonTeam", JUNCTION_OPERATION, code),
+      refuse: (code) => refuse(JUNCTION_PATH, JUNCTION_OPERATION, code),
       press: () => undo(POST, { club: CLUB, saison: SAISON }),
       closing: "Nur die Stammdaten wurden zurückgesetzt.",
     });
@@ -77,13 +84,13 @@ describe("the team save's undo", () => {
 
     assert.deepEqual(await undo(POST, { club: CLUB, saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten."));
     assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchTeam"],
+      calls.map(({ endpoint }) => endpoint),
+      [CLUB_PATH],
     );
   });
 
   it("answers an unacknowledged junction as of unknown outcome, alone or after the club half", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.action === "patchSaisonTeam" ? 0 : 1 }));
+    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.endpoint === JUNCTION_PATH ? 0 : 1 }));
 
     assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."));
     assert.deepEqual(
