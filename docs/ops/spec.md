@@ -123,8 +123,8 @@ both, and `nginx/edge_test.sh` reads the mode off a running edge.
 
 **The Control API needs nginx 1.31.5 or newer** (nginx's `CHANGES` and command-line page, read
 2026-09-24), and an older release refuses the `-l` switch and never starts. So
-`docker-compose.yml :: nginx` pins an exact release rather than the minor: a host fetches a tag it
-lacks and never again, and a minor tag would stay at whichever patch the host first pulled.
+`docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
+release is what an update is compared against, and it must stay at 1.31.5 or newer.
 
 ### 1.3 nginx routing
 
