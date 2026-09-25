@@ -185,8 +185,8 @@ export const KontaktEmailSchema = addressSchema(
 );
 
 export const FLKontaktSchema = z.object({
-  // Judged on the payload alone, as `email` is: `PHONE_REGEX` now wants a final digit, so a read stating
-  // it refuses a stored number the old rule took -- and one such row fails the whole referee list's parse.
+  // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
+  // in a space that the rule took before it was narrowed, would fail the whole referee list's parse.
   telefon: z.string().nullable(),
   // Judged on the payload alone: a referee row with no address of its own holds the `.invalid`
   // placeholder (`isPlaceholderAddress`), which the rule refuses, so a read stating it fails the list.
