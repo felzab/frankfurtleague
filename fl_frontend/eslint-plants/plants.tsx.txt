@@ -154,6 +154,7 @@ export const TEXT_FIELD_USED = HeroTextField;
 export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete];
 export const NATIVE_FORM = <form method="post" />; // expect: native-form
 export const LOOSE_HINT = <Hint mode="field" text="Beschreibt nichts." />; // expect: field-hint
+export const LOOSE_EXPRESSION_HINT = <Hint mode={"field"} text="Beschreibt nichts." />; // expect: field-hint
 // Inside the field it explains, a field hint is that field's description, and the ban leaves it.
 export const FIELD_HINT = <TextField name="email"><Hint mode="field" text="Beschreibt das Feld." /></TextField>;
 export const BARE_MARK = <Select isRequired name="gruppe" />; // expect: hand-set-required

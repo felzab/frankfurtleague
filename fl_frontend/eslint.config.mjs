@@ -735,7 +735,7 @@ const SOURCE_BANS = [
   {
     // Read off the element, so a hint handed down to a field through a prop or a child component passes unread.
     selector:
-      'JSXOpeningElement[name.name="Hint"]:has(JSXAttribute[name.name="mode"][value.value="field"]):not(JSXElement[openingElement.name.name=/^(?:TextField|NumberField|Select|Autocomplete|Switch|DatePicker)$/] JSXOpeningElement)',
+      'JSXOpeningElement[name.name="Hint"]:has(JSXAttribute[name.name="mode"]:matches([value.value="field"], [value.expression.value="field"])):not(JSXElement[openingElement.name.name=/^(?:TextField|NumberField|Select|Autocomplete|Switch|DatePicker)$/] JSXOpeningElement)',
     message:
       'A hint in mode="field" is a field\'s description, which only the field it sits inside wires to its input: outside one it describes nothing (docs/frontend/spec.md :: I371).',
   },
