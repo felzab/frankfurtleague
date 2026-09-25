@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -12,7 +12,6 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import {
@@ -25,6 +24,7 @@ import {
   readFacetSelectionFromRoute,
 } from "./facets";
 
+import type { ComponentType } from "react";
 import type { Facet } from "./facets";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -498,7 +498,50 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
   );
 }
 
-const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
+/** What each option was told, per facet parameter: the numbers a view hands on as `facetCounts`. */
+type Told = Record<string, Record<string, number>>;
+
+/**
+ * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded by a
+ * computed path, `shared` importing nothing from `features`.
+ */
+const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
+  "aktionen/AKTIONEN_FACETS": {
+    load: async () =>
+      (
+        (await import(pathToFileURL(path.join(FEATURES_DIR, "aktionen", "components", "views", "AdminAktionenView.tsx")).href)) as {
+          AdminAktionenView: ComponentType<never>;
+        }
+      ).AdminAktionenView,
+    props: (told) =>
+      ({
+        aktionen: [],
+        vollstaendig: true,
+        anzahlJeCollection: told["collection"],
+        anzahlJeOperation: told["operation"],
+        anzahlJeHerkunft: told["herkunft"],
+        dokumentId: null,
+        vorgangId: null,
+        richtung: "desc",
+      }) as never,
+  },
+  "bewerbungen/BEWERBUNGEN_FACETS": {
+    load: async () =>
+      (
+        (await import(pathToFileURL(path.join(FEATURES_DIR, "bewerbungen", "components", "views", "AdminBewerbungenView.tsx")).href)) as {
+          AdminBewerbungenView: ComponentType<never>;
+        }
+      ).AdminBewerbungenView,
+    props: (told) =>
+      ({
+        bewerbungen: [],
+        anzahlJeStatus: told["status"],
+        anzahlJeSaisonbezug: told["saisonbezug"],
+        dublettenSchluessel: [],
+        richtung: "desc",
+      }) as never,
+  },
+};
 
 /* `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes every
    other case, while the panel silently returns to counting the rows one read served. */
@@ -524,30 +567,30 @@ describe("the counts a server-narrowed facet is told", () => {
     ]);
   });
 
-  it("is handed to `AdminCrudView` by every view whose facets say the server narrows", () => {
-    // The population is the declaration rather than a list: a slice that marks a facet
-    // `narrowsTheRead` and forgets the counts is exactly the pairing this case exists for.
-    const narrowing = discovered.filter(([, facets]) => facets.some((facet) => facet.narrowsTheRead === true));
-    assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so this case compares nothing");
+  // The population is the declaration rather than a list: a slice that marks a facet `narrowsTheRead`
+  // and whose view forgets the counts is exactly the pairing this exists for.
+  const narrowing = discovered.filter(([, facets]) => facets.some((facet) => facet.narrowsTheRead === true));
 
-    for (const [name] of narrowing) {
-      const views = sourcesUnder(path.join(FEATURES_DIR, name.split("/")[0] ?? "", "components", "views"), 1);
-      const rendering = views.filter((file) => readFileSync(file, "utf8").includes("<AdminCrudView"));
-
-      assert.ok(rendering.length > 0, `${name} narrows on the server and no view of that slice renders <AdminCrudView>`);
-      for (const view of rendering) {
-        const source = readFileSync(view, "utf8");
-
-        assert.ok(
-          occurrences(source, "facetCounts=") >= occurrences(source, "<AdminCrudView"),
-          `${asPosix(path.relative(FEATURES_DIR, view))} renders <AdminCrudView> without the counts its facets need`,
-        );
-      }
-    }
+  it("is rendered here for every slice whose facets say the server narrows", () => {
+    assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so nothing below compares anything");
+    assert.deepEqual(narrowing.map(([name]) => name).sort(), Object.keys(NARROWING_VIEWS).sort());
   });
+
+  for (const [name, facets] of narrowing) {
+    for (const facet of facets.filter((candidate) => candidate.narrowsTheRead === true)) {
+      /* Served no rows, so a view dropping the counts shows every option at zero rather than what it was told. */
+      it(`reaches ${name}'s „${facet.label}“ panel from the view that renders it`, async () => {
+        const view = NARROWING_VIEWS[name] ?? assert.fail(`${name} narrows on the server and no view renders it here`);
+        const told = Object.fromEntries(
+          facets.map((each) => [each.param, Object.fromEntries(each.options.map((option, at) => [option.value, 11 + at]))]),
+        );
+        const first = facet.options[0] ?? assert.fail(`${name}'s „${facet.label}“ offers nothing`);
+
+        render(underNext(h(await view.load(), view.props(told)), { search: `saison_id=2627&${facet.param}=${first.value}` }));
+        await userEvent.setup().click(screen.getByRole("button", { name: `${facet.label}: ${first.label} ändern` }));
+
+        assertPanelOptions(facet.options.map((option, at) => [option.label, String(11 + at)]));
+      });
+    }
+  }
 });
-
-const asPosix = (file: string): string => file.split(path.sep).join("/");
-
-/** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
-const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
