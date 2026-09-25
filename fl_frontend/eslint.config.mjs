@@ -694,6 +694,17 @@ const SOURCE_BANS = [
 ];
 
 /**
+ * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
+ * failure on the sign-in or the mail path routinely carries the submitted address
+ * (`docs/logging/spec.md :: L9`).
+ */
+const LOGGED_ERROR = {
+  selector:
+    'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
+  message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
+};
+
+/**
  * Bans reaching part of the production tree, each with its population's glob. In a chain each scope
  * lies inside every earlier one, which lets its block restate theirs, and no two chains' scopes meet.
  */
@@ -719,7 +730,9 @@ const SCOPED_BANS = [
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
+    { files: ["src/core/auth.ts"], ...LOGGED_ERROR },
   ],
+  [{ files: ["src/features/auth/actions.ts", "src/features/bewerbungen/notifications.ts"], ...LOGGED_ERROR }],
   // An admin view's file, whatever its component is named or bound as: the facets `AdminCrudView` is
   // handed are ones the view built, never a prop's, and a spread would hand one over unread.
   [

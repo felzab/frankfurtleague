@@ -1,0 +1,10 @@
+// Linted as src/core/auth.ts.
+// The sign-in module hands the log no error, and core's own bans still reach it.
+export function planted(error: Error, raised: unknown): void {
+  logger.error("auth.link_send_failed", error, { error_code: "FE-AUTH-003" }); // expect: logged-error
+  logger.error("auth.link_send_failed", raised as Error); // expect: logged-error
+  logger.error("auth.link_send_failed", undefined, { error_code: "FE-AUTH-003", name: error.name });
+  logger.error("auth.link_send_failed");
+  logger.warn("auth.link_send_failed", error);
+}
+export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load

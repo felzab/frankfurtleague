@@ -1,0 +1,6 @@
+// Linted as src/features/bewerbungen/notifications.ts.
+// A mail path hands the log no error either.
+export function planted(error: Error): void {
+  logger.error("bewerbung.mail_failed", error); // expect: logged-error
+  logger.error("bewerbung.mail_failed", undefined, { error_code: "FE-MAIL-002", name: error.name });
+}

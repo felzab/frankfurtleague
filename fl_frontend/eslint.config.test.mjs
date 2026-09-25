@@ -71,6 +71,7 @@ const BANS = [
   ["transition-rewrap", /wrap it in another `startTransition`/],
   ["toast-failure", /Hand an action's failure to `appToast\.failure`/],
   ["uncached-read", /This module caches no read/],
+  ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
   ["unused-disable", /^Unused eslint-disable directive/],
 ];
