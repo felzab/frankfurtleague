@@ -211,6 +211,20 @@ export async function callPage(Page: (props: PageProps) => unknown, props: PageP
   return walk;
 }
 
+/**
+ * React's markup spelled as `renderPage` spells its answer: the DOM writes a no-break space as
+ * `&nbsp;` where React writes the character, so a fragment React rendered is found there only once
+ * it has passed through here too.
+ */
+export function asRenderedPage(markup: string): string {
+  const { window } = new JSDOM(`<!doctype html><html><body>${markup}</body></html>`);
+  try {
+    return window.document.body.innerHTML;
+  } finally {
+    window.close();
+  }
+}
+
 /** A boundary the stream sent as its fallback, React's script still to swap its content in. */
 const UNREVEALED = 'template[id^="B:"]';
 

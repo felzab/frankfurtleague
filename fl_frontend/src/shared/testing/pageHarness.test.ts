@@ -5,7 +5,8 @@ import { createElement as h, Suspense } from "react";
 
 import z from "zod";
 
-import { callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, renderPage, steps } from "./pageHarness.ts";
+import { asRenderedPage, callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, renderPage, steps } from "./pageHarness.ts";
+import { renderTree } from "./renderTest.ts";
 
 /* `await import`, never a static import: the doubles are registered as the harness evaluates, and a
    static import would have resolved the real modules before then. */
@@ -104,6 +105,16 @@ describe("the page harness", () => {
       steps.some((step) => step.kind === "read" && step.endpoint === "/im-kind"),
       "the walk stopped at the first throw",
     );
+  });
+
+  /* The DOM writes the answer back out and React wrote the fragment, and the two spell a no-break space
+     differently: compared raw, a fragment on the page reads as absent. */
+  it("spells a fragment React rendered as it spells its own answer", async () => {
+    const tree = h("p", null, "Saison\u00a02026");
+    const page = await renderPage(tree);
+
+    assert.ok(!page.includes(renderTree(tree)), "the two spell alike, so the helper below is proven over nothing");
+    assert.ok(page.includes(asRenderedPage(renderTree(tree))));
   });
 
   it("answers the schemas a read refuses an empty value for", () => {
