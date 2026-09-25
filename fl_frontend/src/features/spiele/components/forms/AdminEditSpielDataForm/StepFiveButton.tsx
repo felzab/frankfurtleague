@@ -18,12 +18,15 @@ export function StepFiveButton({
 }) {
   const Icon = direction === "decrement" ? Minus : Plus;
   // Spelled out, not templated: the class linter cannot see through `${direction}`, and the HeroUI
-  // slot classes must survive verbatim for the group's grid to place the buttons.
+  // slot classes must survive verbatim to draw the buttons as HeroUI's own.
   const slotClass = direction === "decrement" ? "number-field__decrement-button" : "number-field__increment-button";
 
   return (
     <button
       type="button"
+      // The attribute HeroUI's own steppers carry, which its group sizes a stepper's column from: without
+      // it the group has one column and stacks the three.
+      slot={direction}
       // As react-aria's own steppers are: the spinbutton already offers arrow-key stepping, making
       // these a pointer convenience.
       aria-hidden="true"

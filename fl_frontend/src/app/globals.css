@@ -439,7 +439,7 @@ input:focus:placeholder-shown::placeholder {
       offset ring rang a result nobody chose. Substitute: a background highlight, as every native
       picker does, and the app's inset ring beside it. */
 /* 3. BUTTONS INSIDE A FIELD GROUP. The group's border is already brand by then.
-      Scoped by POSITION, because the members this repo writes carry no slot; the
+      Scoped by POSITION, because the clear controls and chevron carry no slot; the
       two clear controls are carved out below. */
 [data-slot="input"],
 [data-slot="input-group"],
