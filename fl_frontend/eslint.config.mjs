@@ -500,13 +500,6 @@ const LOCAL_RULES = {
   },
 };
 
-/**
- * An admin view under any declaration its name can carry, a wrapper such as `memo` included.
- * `AdminCrudView` is the shared view the slices' admin views hand the facets they built.
- */
-const VIEW_NAME = String.raw`/^Admin(?!CrudView$)\w+View$/`;
-const ADMIN_VIEW = `:matches(FunctionDeclaration[id.name=${VIEW_NAME}], FunctionExpression[id.name=${VIEW_NAME}], VariableDeclarator[id.name=${VIEW_NAME}] > :matches(ArrowFunctionExpression, FunctionExpression).init, VariableDeclarator[id.name=${VIEW_NAME}] > CallExpression.init > :matches(ArrowFunctionExpression, FunctionExpression).arguments)`;
-
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
 
@@ -682,14 +675,6 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: `${ADMIN_VIEW} > ObjectPattern.params > Property[key.name="facets"]`,
-    message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
-  },
-  {
-    selector: `${ADMIN_VIEW} > :not(ObjectPattern).params`,
-    message: "An admin view destructures its props: a `facets` taken inside a whole props object passes the facets ban unread.",
-  },
-  {
     selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',
     message: "Render `PanelHeading` rather than spelling a panel heading.",
   },
@@ -733,6 +718,16 @@ const SCOPED_BANS = [
       files: ["src/core/**/*.{ts,tsx}"],
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
+    },
+  ],
+  // An admin view's file, whatever its component is named or bound as: the facets `AdminCrudView` is
+  // handed are ones the view built, never a prop's, and a spread would hand one over unread.
+  [
+    {
+      files: ["src/features/*/components/views/Admin*View.tsx"],
+      selector:
+        ':matches(ObjectPattern > Property[key.name="facets"], MemberExpression[property.name="facets"], MemberExpression[property.value="facets"], JSXOpeningElement[name.name="AdminCrudView"] > JSXSpreadAttribute)',
+      message: "An admin view builds its facets itself: a Server Component cannot hand it a facet's `read` function.",
     },
   ],
   // Every query module caching none of its reads. One whose cached reads sit beside admin-tier ones

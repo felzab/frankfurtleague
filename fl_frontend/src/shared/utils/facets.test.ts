@@ -11,7 +11,6 @@ import { createElement as h } from "react";
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -548,51 +547,7 @@ describe("the counts a server-narrowed facet is told", () => {
   });
 });
 
-// The admin views by path, which the lint's facets ban finds by name alone.
-// Separators normalised before it is tested, so the pattern does not have to know the platform's.
-const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
 
 /** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
 const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
-
-/** Parentheses are no node in the syntax tree the lint reads, so they are no wrapper here either. */
-const unparenthesised = (node: ts.Expression): ts.Expression => (ts.isParenthesizedExpression(node) ? unparenthesised(node.expression) : node);
-const isInlineFunction = (node: ts.Expression): boolean => ts.isArrowFunction(node) || ts.isFunctionExpression(node);
-
-/**
- * Whether `name` is bound in a shape `fl_frontend/eslint.config.mjs :: ADMIN_VIEW` reads — a function
- * declaration, an inline function, a call taking one inline — rather than behind an `as`, a named
- * component or a second call.
- */
-function bindsAReadableView(file: string, name: string): boolean {
-  const tree = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
-  return tree.statements.some((statement) => {
-    if (ts.isFunctionDeclaration(statement)) return statement.name?.text === name;
-    if (!ts.isVariableStatement(statement)) return false;
-    return statement.declarationList.declarations.some((declaration) => {
-      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name || declaration.initializer === undefined) return false;
-      const bound = unparenthesised(declaration.initializer);
-      return (
-        isInlineFunction(bound) ||
-        (ts.isCallExpression(bound) && bound.arguments.some((argument) => isInlineFunction(unparenthesised(argument))))
-      );
-    });
-  });
-}
-
-describe("who may hold a facet", () => {
-  // `view-facets` in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` finds an admin view by its name and
-  // its shape, so a view file whose component is named otherwise, or bound in a shape it does not read,
-  // could take its facets unread.
-  it("binds every admin view's own name to a component the lint reads", () => {
-    const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
-    assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
-
-    const unread = views
-      .filter((file) => !bindsAReadableView(file, path.basename(file, ".tsx")))
-      .map((file) => asPosix(path.relative(FEATURES_DIR, file)));
-
-    assert.deepEqual(unread, [], `these view files bind their own name to no component the lint reads:\n  ${unread.join("\n  ")}`);
-  });
-});
