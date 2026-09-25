@@ -243,3 +243,49 @@ def test_the_scopes_named_as_pooling_are_the_ones_that_start_steps() -> None:
     assert listed is not None, "verify.sh no longer names the scopes that pool in one condition"
     named = {name.strip().removeprefix("RUN_").lower().replace("_", "-") for name in listed[1].split("||")}
     assert named == set(STARTS_STEPS_RE.findall(gate)), (named, sorted(set(STARTS_STEPS_RE.findall(gate))))
+
+
+# What the one `annotate` checker says on a pass: its scanned population, which a captured run
+# replays because `quietly` prints nothing of a passing tool.
+POPULATION: Final = "scanned the stub's one document"
+
+# The backend virtualenv's interpreter, answering the documentation scope: its version at the
+# checkers' floor, the population for `check_docs.py`, and silence for every other checker.
+STUB_VENV_PYTHON: Final = """#!/usr/bin/env bash
+case "${{1:-}}" in
+  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
+  scripts/checks/check_docs.py) printf '%s\\n' "{population}" ;;
+esac
+exit 0
+"""
+
+# The virtualenv's currency check, which a fixture holding no lockfile would otherwise refuse.
+STUB_UV: Final = """#!/usr/bin/env bash
+exit 0
+"""
+
+
+def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -> None:
+    """`quietly` streams the line under `--verbose`, and `run_checker`'s replay of it is guarded off there.
+
+    Drop that guard and the line prints twice, which no other case here reads.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-gate-annotate-")
+    copy_scripts(root / "scripts")
+    # The POSIX spelling, which `scripts/lib/_lib.sh :: venv_python` also takes on Windows, where
+    # a shebang script cannot stand in for a `.exe`.
+    interpreter = root / "fl_backend" / ".venv" / "bin" / "python"
+    interpreter.parent.mkdir(parents=True)
+    version = sys.version_info
+    os.chmod(write_shell(interpreter, STUB_VENV_PYTHON.format(major=version.major, minor=version.minor, population=POPULATION)), 0o755)
+    stubs = new_root("fl-gate-annotate-stubs-")
+    os.chmod(write_shell(stubs / "uv", STUB_UV), 0o755)
+    environment = base_env()
+    environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
+    for flags, form in ((("--docs", "--verbose"), "streamed"), (("--docs", "--serial"), "captured")):
+        done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", *flags, env=environment)
+        assert done.returncode == 0, done.stdout + done.stderr
+        # The captured form is the control: a count of 1 there is the replay this guard keeps off
+        # the streamed form, so a stub that stopped printing fails here rather than passing both.
+        assert (done.stdout + done.stderr).count(POPULATION) == 1, f"the {form} form:\n{done.stdout}{done.stderr}"
