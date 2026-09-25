@@ -2,13 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries the router context, and every card's `Link` reads it. A Next release that
-   moves the module fails this file at import rather than quietly. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
@@ -45,11 +41,7 @@ describe("the club cards' headings", () => {
      reader's heading list reads; a level skipped there reads as a section gone missing. */
   it("name each club at the level under the page's own heading", () => {
     const markup = renderTree(
-      h(
-        AppRouterContext.Provider,
-        { value: nextRouter() },
-        h(TeamsGrid, { teams: [TEAM], urlPrefix: "/dashboard/teams", saisonId: undefined, isFinishedSaison: false }),
-      ),
+      underNext(h(TeamsGrid, { teams: [TEAM], urlPrefix: "/dashboard/teams", saisonId: undefined, isFinishedSaison: false })),
     );
 
     assert.match(markup, new RegExp(`<h2\\b[^>]*>${TEAM.name}</h2>`));

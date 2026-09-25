@@ -2,15 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `RowActionLink` reads the first and `withSaisonId` the
-   second — and the list renders under both (`docs/frontend/spec.md` §1.9). */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.ts";
@@ -58,17 +52,7 @@ const row = (seats: readonly AdminKontaktSeat[]): AdminKontakteRow => ({
 });
 
 const list = (seats: readonly AdminKontaktSeat[]): string =>
-  renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2627") },
-        h(AdminKontakteList, { filteredKontakte: [row(seats)], emptiness: "none" as const }),
-      ),
-    ),
-  );
+  renderTree(underNext(h(AdminKontakteList, { filteredKontakte: [row(seats)], emptiness: "none" as const }), { search: "saison_id=2627" }));
 
 /** Where a fact stands in the card, asserted unique first: an index into two occurrences orders nothing. */
 function at(html: string, fact: string): number {
