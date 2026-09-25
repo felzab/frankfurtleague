@@ -531,9 +531,9 @@ you are in is decided by that seat's own link, not by the person's role:
   and neither does one half of a claimed pair whose other half has not stepped out: that application
   takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed or
-  whose application has been decided takes none either (`REQ-BEWERBUNG-010`) — both are refusals the
-  person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
+  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed
+  (`REQ-BEWERBUNG-017`) or whose application has been decided (`REQ-BEWERBUNG-010`) takes none either —
+  each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
 
