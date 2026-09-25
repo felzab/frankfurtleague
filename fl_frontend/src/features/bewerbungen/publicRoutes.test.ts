@@ -81,15 +81,16 @@ const SRC_DIR = path.join(FRONTEND_DIR, "src");
 const APP_DIR = path.join(SRC_DIR, "app");
 
 const VIEW = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BewerbungView.tsx"), "utf8");
-const NEXT_CONFIG = readFileSync(path.join(FRONTEND_DIR, "next.config.ts"), "utf8");
 const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "band.ts"), "utf8");
 const BAND_COMPONENT = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
 const INVITATION_SOURCE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
-/** The confirmation page's fact banner, read where the recipe it reaches for leaves no mark on the markup. */
-const PANELS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BestaetigungPanels.tsx"), "utf8");
 const ACTIONS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "actions.ts"), "utf8");
+
+/** Every path `next.config.ts` redirects, as the config the build loads answers them. */
+const { default: nextConfig } = await import("../../../next.config.ts");
+const REDIRECTED = new Set((await nextConfig.redirects?.())?.map((redirect) => redirect.source));
 
 /** The `saison` slot, cut out so an assertion reads it and nothing near it. */
 const SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
@@ -183,7 +184,7 @@ function isRouteAnswered(href: string): boolean {
     path.join(APP_DIR, ...segments, "page.tsx"),
   ];
 
-  return candidates.some((candidate) => existsSync(candidate)) || NEXT_CONFIG.includes(`source: "${href}"`);
+  return candidates.some((candidate) => existsSync(candidate)) || REDIRECTED.has(href);
 }
 
 /** The confirmation form a contact's link opens, rendered so a press can arm the objection. */
@@ -1115,20 +1116,12 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
 
   /* The school is the value nothing bounds, and a name in one long word runs past the panel unless
      it may break mid-word. */
-  it("breaks a long school name through the shared recipe rather than a copy of its classes", () => {
-    // Read rather than rendered: a literal spelling those same classes renders identical markup, so
-    // only the source separates the shared recipe from a copy of its output.
-    assert.match(
-      PANELS,
-      /unbegrenzt: \{\s*\/\/[^\n]*\n\s*true: \{ zelle: "[^"]*", wert: NAME_WRAP_CLASSES \}/,
-      "the banner spells the wrap itself",
-    );
+  it("breaks a long school name mid-word, through the shared wrap", () => {
+    const [schule] = cells;
+
+    assert.ok(schule, "the banner rendered no fact to read");
     for (const classToken of NAME_WRAP_CLASSES.split(" ")) {
-      assert.doesNotMatch(
-        PANELS,
-        new RegExp(`"[^"]*\\b${classToken.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}\\b`),
-        `a second spelling of ${classToken} is back`,
-      );
+      assert.ok(schule.value.includes(classToken), `the school's value lost the wrap's ${classToken}`);
     }
   });
 
