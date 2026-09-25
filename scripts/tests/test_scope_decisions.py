@@ -71,9 +71,9 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # `scripts/gate/selfcheck.sh` compares this file's uv tag against the manifest's pin, and runs
     # in the scripts scope alone; a bot's base-image bump touches this file and nothing else.
     ("fl_backend/Dockerfile", ("images", "docs", "scripts")),
-    # `COPY . .` is what reads this file, so the image and the comments in it are all an edit here
-    # can reach; the `scripts` scope the Dockerfile beside it takes is the uv comparison's.
-    ("fl_backend/.dockerignore", ("images", "docs")),
+    # The image assertions hold both ignore files' excluded shapes to the ones the context search
+    # looks for, and run in the scripts scope.
+    ("fl_backend/.dockerignore", ("images", "docs", "scripts")),
     # `scripts/tests/test_check_gate_budget.py` parses this table itself and drives every budgeted
     # row red and green, so an edit to it is proved in the scripts scope and nowhere else.
     (".github/gate-wall-clock.tsv", ("scripts", "docs")),
@@ -133,14 +133,6 @@ def test_the_hook_registrations_select_the_scripts_scope() -> None:
     assert _on(_mapped([".claude/settings.json"])) == {"scripts", "docs", "format"}
 
 
-def test_the_backend_dockerfile_stops_short_of_the_backend_scope() -> None:
-    """`SELECTED` reads its scopes as a subset, so its row here passes with `backend` and `db` left true.
-
-    The image builds the backend and runs none of its tests, and only a set comparison says so.
-    """
-    assert _on(_mapped(["fl_backend/Dockerfile"])) == {"images", "docs", "scripts"}
-
-
 def test_the_wall_clock_table_selects_the_scripts_scope_and_stops_there() -> None:
     """`SELECTED` reads its scopes as a subset, so its row here passes with every scope left true.
 
@@ -149,12 +141,13 @@ def test_the_wall_clock_table_selects_the_scripts_scope_and_stops_there() -> Non
     assert _on(_mapped([".github/gate-wall-clock.tsv"])) == {"scripts", "docs"}
 
 
-def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
-    """`SELECTED` reads its scopes as a subset, so the row above passes with `scripts` left true.
+def test_the_packaging_files_stop_short_of_the_application_scopes() -> None:
+    """`SELECTED` reads its scopes as a subset, so a packaging arm widened to a suite tier passes it.
 
-    Only a set comparison holds the two halves of that arm apart.
+    Only a set comparison holds each of the four to the build, its comments and the scripts suites reading it.
     """
-    assert _on(_mapped(["fl_backend/.dockerignore"])) == {"images", "docs"}
+    for path in ("fl_frontend/Dockerfile", "fl_frontend/.dockerignore", "fl_backend/Dockerfile", "fl_backend/.dockerignore"):
+        assert _on(_mapped([path])) == {"images", "docs", "scripts"}, path
 
 
 def test_a_module_the_other_package_reads_selects_that_package_s_scopes() -> None:
@@ -546,6 +539,145 @@ def test_a_reach_that_names_no_single_file_is_one_this_check_declares() -> None:
     assert crossings.reaches == set(UNNAMEABLE), (
         "the trees one package's suites reach into without naming a file have changed.\n"
         "derived:  " + repr(sorted(crossings.reaches)) + "\ndeclared: " + repr(sorted(UNNAMEABLE))
+    )
+
+
+# --- the files the scripts scope's own suites read ------------------------------------------------------
+
+SCRIPTS_SUITES: Final = "scripts/tests"
+# The two spellings of the repository root a suite divides: the name each binds, and the parent of
+# the scripts tree where it binds that instead.
+ROOT_NAME: Final = "REPO_ROOT"
+SCRIPTS_NAME: Final = "SCRIPTS"
+
+# Each `/` chain off the root fixing no single file, by suite and source, against the files outside
+# `scripts/` it reaches: empty for a walk no arm could be held to, or for files all under `scripts/`.
+UNPLACED_SCRIPT_READS: Final[dict[tuple[str, str], tuple[str, ...]]] = {
+    ("test_check_gate_budget.py", "REPO_ROOT / budget.REFERENCE"): (".github/gate-wall-clock.tsv",),
+    ("test_deploy_streams.py", "REPO_ROOT / 'fl_backend'"): ("fl_backend/app/__init__.py", "fl_backend/app/core/config.py"),
+    ("test_image_assertions.py", "REPO_ROOT / package / '.dockerignore'"): ("fl_frontend/.dockerignore", "fl_backend/.dockerignore"),
+    ("test_image_pins.py", "REPO_ROOT / relative"): (),
+    ("test_message_gates.py", "SCRIPTS.parent / commits.ROADMAP_ENTRY_PAGES[0]"): ("docs/_roadmap/items.md",),
+    # The trees the documentation standard's Scope line names, walked for the kinds each holds.
+    ("test_scope_agreement.py", "REPO_ROOT / tree"): (),
+    ("test_scope_agreement.py", "REPO_ROOT / entry"): (),
+    # This module's own walks of both packages, over every module in each.
+    ("test_scope_decisions.py", "REPO_ROOT / rel"): (),
+    ("test_scope_decisions.py", "REPO_ROOT / path"): (),
+    ("test_scope_decisions.py", "REPO_ROOT / module"): (),
+    ("test_scope_decisions.py", "REPO_ROOT / (base + suffix)"): (),
+}
+
+
+def _string(node: ast.expr, strings: dict[str, str]) -> str | None:
+    """One path segment a module fixes: a literal, a string it binds by name, or two of those joined by `+`."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.Name):
+        return strings.get(node.id)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _string(node.left, strings), _string(node.right, strings)
+        return left + right if left is not None and right is not None else None
+    return None
+
+
+def _is_root(node: ast.expr) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id == ROOT_NAME
+    return isinstance(node, ast.Attribute) and node.attr == "parent" and isinstance(node.value, ast.Name) and node.value.id == SCRIPTS_NAME
+
+
+def _anchored(node: ast.expr, strings: dict[str, str], bound: dict[str, str]) -> tuple[str, bool] | None:
+    """The path one `/` chain off the root fixes, and whether every segment of it is fixed; None off the root."""
+    parts = _divided(node)
+    head = parts[0]
+    if _is_root(head):
+        segments: list[str] = []
+    elif isinstance(head, ast.Name) and head.id in bound:
+        segments = [bound[head.id]]
+    else:
+        return None
+    for part in parts[1:]:
+        if (segment := _string(part, strings)) is None:
+            return "/".join(segments), False
+        segments.append(segment)
+    return "/".join(segments), True
+
+
+def _bound_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
+    return [target.id for target in (node.targets if isinstance(node, ast.Assign) else [node.target]) if isinstance(target, ast.Name)]
+
+
+def _suite_reads(root: Path, suite: str) -> tuple[set[str], set[str]]:
+    """The files outside `scripts/` one suite's chains fix, and the source of every chain off the root fixing none."""
+    tree = ast.parse((root / suite).read_text(encoding="utf-8"), filename=suite)
+    strings: dict[str, str] = {}
+    bound: dict[str, str] = {}
+    # By line, so a name reaches only the bindings above it, as the module itself runs them.
+    assignments = sorted((node for node in ast.walk(tree) if isinstance(node, ast.Assign | ast.AnnAssign)), key=lambda node: node.lineno)
+    for node in assignments:
+        if node.value is None:
+            continue
+        if (text := _string(node.value, strings)) is not None:
+            strings.update(dict.fromkeys(_bound_names(node), text))
+        elif (fixed := _anchored(node.value, strings, bound)) is not None and fixed[1]:
+            bound.update(dict.fromkeys(_bound_names(node), fixed[0]))
+    divisions = [node for node in ast.walk(tree) if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)]
+    nested = {node.left for node in divisions}
+    # A binding divided further is read through the chains that divide it, never as a tree of its own.
+    heads = {parts[0].id for node in divisions if isinstance((parts := _divided(node))[0], ast.Name)}
+    through = {node.value for node in assignments if node.value is not None and heads.intersection(_bound_names(node))}
+    files: set[str] = set()
+    unplaced: set[str] = set()
+    for node in divisions:
+        if node in nested or node in through or (fixed := _anchored(node, strings, bound)) is None:
+            continue
+        path, complete = fixed
+        if path == "scripts" or path.startswith("scripts/"):
+            continue
+        if complete and (root / path).is_file():
+            files.add(path)
+        else:
+            unplaced.add(ast.unparse(node))
+    return files, unplaced
+
+
+@functools.cache
+def _scripts_reads() -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
+    """Every file outside `scripts/` a suite of the scripts scope names, against its suites, and every chain that names none."""
+    files: dict[str, set[str]] = {}
+    unplaced: set[tuple[str, str]] = set()
+    for suite in sorted((REPO_ROOT / SCRIPTS_SUITES).glob("*.py")):
+        read, opaque = _suite_reads(REPO_ROOT, suite.relative_to(REPO_ROOT).as_posix())
+        for path in read:
+            files.setdefault(path, set()).add(suite.name)
+        unplaced |= {(suite.name, source) for source in opaque}
+    for (suite, _), reached in UNPLACED_SCRIPT_READS.items():
+        for path in reached:
+            files.setdefault(path, set()).add(suite)
+    return files, unplaced
+
+
+def test_every_file_a_scripts_suite_reads_selects_the_scripts_scope() -> None:
+    """A file those suites read that selects no `scripts` changes on a pull request that runs none of them, and main goes red.
+
+    The frontend's and the backend's reads are held above; these are the scripts scope's own.
+    """
+    files, _ = _scripts_reads()
+    assert len(files) >= 10, f"only {sorted(files)} were read out of {SCRIPTS_SUITES}: that reader went inert"
+    missing = [path for path in sorted(files) if not (REPO_ROOT / path).is_file()]
+    assert not missing, f"UNPLACED_SCRIPT_READS names files this repository does not hold: {missing}"
+    selected = _selected(files)
+    unarmed = [f"{path} is read by {', '.join(sorted(files[path]))}" for path in sorted(files) if "scripts" not in selected[path]]
+    assert not unarmed, "give the path's arm in scripts/gate/scope_map.sh the scripts scope:\n" + "\n".join(unarmed)
+
+
+def test_a_scripts_suite_read_no_chain_places_is_one_this_check_declares() -> None:
+    """A chain the reader cannot place would drop out of the case above in silence, so each one is declared with what it reads."""
+    _, unplaced = _scripts_reads()
+    assert unplaced == set(UNPLACED_SCRIPT_READS), (
+        "the scripts suites' unplaced reads have changed.\n"
+        "derived:  " + repr(sorted(unplaced)) + "\ndeclared: " + repr(sorted(UNPLACED_SCRIPT_READS))
     )
 
 

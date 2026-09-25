@@ -80,21 +80,22 @@ else
       # selfcheck.sh looks for the script each hook registration here names, so an edit that drops
       # or renames one is proven by the scripts scope rather than by the session it fails.
       .claude/settings.json) scripts=true; docs=true ;;
-      # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the docs
+      # Markdown a suite of the scripts scope reads: the standard's Scope line, the roadmap page's entry
+      # headings and the deploy runbook (`scripts/tests/test_scope_decisions.py ::
+      # UNPLACED_SCRIPT_READS` and the chains it derives).
+      docs/_standard/standard.md|docs/_roadmap/items.md|docs/ops/runbooks.md) scripts=true; docs=true ;;
+      # Markdown anywhere else — including inside fl_frontend/ and fl_backend/ — is prose: the docs
       # gate and the formatter check it, and no test tier can say anything about it.
       *.md) docs=true ;;
       scripts/*) scripts=true; docs=true ;;
       # Packaging inputs. `docs` rides along because a comment in any of these is documentation
       # (INC-6), and withholding it means a comment-only edit runs no documentation gate at all.
-      fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true; docs=true ;;
-      # `scripts` too, that being the scope `scripts/gate/selfcheck.sh` runs in: nothing else
-      # compares this file's `FROM ghcr.io/astral-sh/uv:` tag with `fl_backend/pyproject.toml`'s
-      # `required-version`. A bot's bump touches this file alone, and the whole scripts scope is
-      # what that costs.
-      fl_backend/Dockerfile) images=true; docs=true; scripts=true ;;
-      # Its own arm, the uv comparison above reading the Dockerfile alone: joined to it, an edit
-      # here would buy the whole scripts scope for a file nothing outside the build reads.
-      fl_backend/.dockerignore) images=true; docs=true ;;
+
+      # `scripts` because suites of that scope read every one: the pin test each Dockerfile's `FROM`,
+      # the image assertions both ignore files' shapes, and `scripts/gate/selfcheck.sh` the backend's
+      # uv tag against `fl_backend/pyproject.toml`'s `required-version`.
+      fl_frontend/Dockerfile|fl_frontend/.dockerignore|fl_backend/Dockerfile|fl_backend/.dockerignore)
+        images=true; docs=true; scripts=true ;;
       # Its own arm, ahead of the three below it: the mirror register reads this module's text for
       # the internal key's alphabet, so it owes the backend scope as well as the image's.
       fl_frontend/src/core/config.ts)
@@ -109,9 +110,11 @@ else
       fl_frontend/src/core/passkeyRefusal.ts|fl_frontend/src/features/passkeys/actions.ts| \
       fl_frontend/src/core/authDoubles.ts|fl_frontend/src/shared/utils/refusal.ts| \
       fl_frontend/src/shared/testing/cacheScope.ts|fl_frontend/src/core/db.ts| \
-      fl_frontend/app-source-maps.mjs|fl_frontend/tsconfig-alias-hook.mjs| \
-      fl_frontend/worker-exit-reporter.mjs)
+      fl_frontend/app-source-maps.mjs|fl_frontend/worker-exit-reporter.mjs)
         frontend=true; db=true; docs=true ;;
+      # As the arm above, and `scripts` too: `scripts/tests/test_scope_decisions.py` reads the
+      # candidates this hook resolves an alias through.
+      fl_frontend/tsconfig-alias-hook.mjs) frontend=true; db=true; docs=true; scripts=true ;;
       # Every extension `test:db` collects, so no db-tier file changes outside the scope that runs it.
       fl_frontend/*.db.test.cjs|fl_frontend/*.db.test.mjs|fl_frontend/*.db.test.js| \
       fl_frontend/*.db.test.cts|fl_frontend/*.db.test.mts|fl_frontend/*.db.test.ts)
@@ -123,8 +126,11 @@ else
       # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys, which can break
       # only the image while the host build stays green. The manifests and the lockfile also pin
       # what the db-tier files start their server with.
-      fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/pnpm-workspace.yaml)
+      fl_frontend/pnpm-lock.yaml|fl_frontend/pnpm-workspace.yaml)
         frontend=true; images=true; db=true; docs=true ;;
+      # As the arm above, and `scripts` too: `scripts/tests/test_scope_decisions.py` reads the
+      # `test:db` command line out of this manifest.
+      fl_frontend/package.json) frontend=true; images=true; db=true; docs=true; scripts=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies, which can
       # break only the image while the host build stays green.
       fl_frontend/next.config.ts)
@@ -185,10 +191,14 @@ else
       fl_frontend/*) frontend=true; docs=true ;;
       # The db tier's image is named here.
       fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
+      # `scripts/tests/test_deploy_streams.py` imports this module to run the deploy's own check of
+      # the environment's names, so an edit here owes the scripts scope too.
+      fl_backend/app/__init__.py|fl_backend/app/core/config.py) backend=true; db=true; docs=true; scripts=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
-      # The ops scope parses the compose files and runs nginx over both edges; prettier also formats
-      # them. Both carry `docs`, their comments being documentation (INC-6).
-      docker-compose.yml|docker-compose.local.yml) ops=true; docs=true ;;
+      # The ops scope parses the compose files and runs nginx over both edges. Both carry `docs`,
+      # their comments being documentation (INC-6), and `scripts`, whose pin test holds every image
+      # either names to its tag and digest (I367).
+      docker-compose.yml|docker-compose.local.yml) ops=true; docs=true; scripts=true ;;
       # A configuration owes the frontend scope too: `fl_frontend/src/core/edgeRedaction.ts` reads
       # the redaction map in `nginx/shared/http.conf` for the suites that build a link, and
       # `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts` walks every one for a
