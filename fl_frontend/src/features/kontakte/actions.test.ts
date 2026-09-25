@@ -28,10 +28,6 @@ import type { FLKontaktErasureResponse } from "./schemas.ts";
  */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-const SECTION = readFileSync(
-  path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
 
 doubleEveryAction();
 
@@ -273,9 +269,6 @@ describe("where the control stands", () => {
       ["Grace Hopper", "Alan Turing", "Ada Byron"],
       "a seat offers the erasure of somebody it does not hold, or offers none",
     );
-    // The ADDRESS is the key the write travels with, and nothing paints a value the markup never shows.
-    assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "the erasure is keyed on something other than the seat's own address");
-
     // The control: the list rendered the person whose erasure it must not offer.
     assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
     assert.ok(!LIST_MARKUP.includes("Kontaktperson löschen"), "the erasure is on the list, detached from the person");
