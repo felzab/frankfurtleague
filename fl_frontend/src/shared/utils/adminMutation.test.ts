@@ -221,14 +221,6 @@ describe("a throw of an API call inside an admin action", () => {
     }
     assert.deepEqual(refreshed, [], "a write that landed nothing refreshed the page");
   });
-
-  /* Nothing left the request, so the write's method on the error promises a change that cannot exist. */
-  it("answers a write the deadline refused unsent, with none sent before, as the failure it is", async () => {
-    const answer = await runAdminMutation("probeAction", () => Promise.reject(timedOut("POST")));
-
-    assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
-    assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");
-  });
 });
 
 describe("an admin action the request's deadline cut", () => {

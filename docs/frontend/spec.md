@@ -158,7 +158,7 @@ client judging by the call's own method and `readOnly`, which
 removal's in the sign-in store, records itself at the call through
 `fl_frontend/src/core/requestScope.ts :: recordWriteSent`. After a sent write, a throw answers as of
 unknown outcome (I326) unless it is that write's own answer, which says whether it landed; with none
-sent, every throw answers as the failure it is. A sent write's success or unknown outcome refreshes
+sent, a throw answers as its own request says. A sent write's success or unknown outcome refreshes
 the page (I233), and a body that sent none moves nothing; a panel refreshes it again only where its
 press may have brought no answer back, a rejected action reaching no server refresh. A route handler's write
 takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the same spine without the refresh Next refuses outside a server

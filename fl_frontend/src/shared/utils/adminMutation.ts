@@ -6,7 +6,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritt
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
-import { toActionErrorResult, unansweredAction, unansweredRead } from "./actionError";
+import { toActionErrorResult, unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 
@@ -69,9 +69,7 @@ async function runGuarded<T extends { success: boolean }>(
       // Judged by what this request sent, a server action being a POST whatever it does. Only a write's own
       // answer says whether it landed, so after a sent write every other throw leaves it unknown.
       const writesOwn = error instanceof RolledBackError || (typed && mayHaveWritten(error));
-      if (requestWriteSent()) answer = writesOwn ? toActionErrorResult(error) : unansweredAction();
-      // With none sent, a write's own error is one the deadline refused unsent.
-      else answer = writesOwn ? unansweredRead() : toActionErrorResult(error);
+      answer = requestWriteSent() && !writesOwn ? unansweredAction() : toActionErrorResult(error);
     }
 
     // Read once the body has settled and inside this scope, which closes with the callback.
