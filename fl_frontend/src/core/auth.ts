@@ -663,8 +663,9 @@ export function isAdminSession(served: ServedSession): boolean {
   return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
 }
 
-// React's `cache`, one read per render pass however many guards ask, and never `"use cache"`, which
-// would hand one request's session to another. The proxy runs outside the render and reads its own.
+// React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
+// serves every guard of a render pass, and none outside it, where a server action and the proxy
+// each read their own.
 /**
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
  * **Check the return value** (`docs/frontend/spec.md` I8).
