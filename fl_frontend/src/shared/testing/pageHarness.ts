@@ -232,13 +232,28 @@ const UNREVEALED = 'template[id^="B:"]';
 const REVEAL_FRAMES = 60;
 
 /**
+ * React's server renderer restores a provider's value only when a render re-enters it, so the page's
+ * last provider stays set for a later client render in this process. An empty render pops back to its
+ * root and does nothing else.
+ */
+async function popProviders(): Promise<void> {
+  const { prelude } = await prerenderToNodeStream(null);
+  await text(prelude);
+}
+
+/**
  * The document a browser holds once the page's stream has run, every boundary awaited, as
  * `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` does not.
  */
 export async function renderPage(tree: ReactNode): Promise<string> {
   const errors: unknown[] = [];
-  const { prelude } = await prerenderToNodeStream(tree, { onError: (error) => void errors.push(error) });
-  const markup = await text(prelude);
+  let markup: string;
+  try {
+    const { prelude } = await prerenderToNodeStream(tree, { onError: (error) => void errors.push(error) });
+    markup = await text(prelude);
+  } finally {
+    await popProviders();
+  }
   // React answers a throw inside a boundary with its fallback, so an absence asserted over that markup
   // would pass over a crash.
   if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "the page's render reported errors");

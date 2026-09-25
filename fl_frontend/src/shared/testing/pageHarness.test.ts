@@ -1,8 +1,11 @@
+import "./dom.ts";
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h, Suspense } from "react";
+import { createContext, createElement as h, Suspense, useContext } from "react";
 
+import { render } from "@testing-library/react";
 import z from "zod";
 
 import { asRenderedPage, callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, renderPage, steps } from "./pageHarness.ts";
@@ -48,6 +51,23 @@ async function Missing() {
 const inBoundary = (child: ReturnType<typeof h>) => () => h(Suspense, { fallback: h("p", null, "lädt") }, child);
 
 describe("the page harness", () => {
+  /* A page rendered under a provider would otherwise leave that provider's value in place of the
+     context's default for every client render after it in the same file. */
+  it("leaves no provider's value set for a client render after it", async () => {
+    const Kontext = createContext("leer");
+    const Reads = () => h("span", null, useContext(Kontext));
+    async function Late() {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return h("p", null, "spät geladen");
+    }
+
+    await renderPage(h(Kontext.Provider, { value: "gesetzt" }, h(Suspense, { fallback: null }, h(Late), h(Reads))));
+    const { container, unmount } = render(h(Reads));
+
+    assert.equal(container.textContent, "leer", "the page's provider still answers a client render outside it");
+    unmount();
+  });
+
   it("renders an async body inside its boundary to what it resolves to, not to the fallback", async () => {
     const markup = await renderPage(h(inBoundary(h(Connected))));
 
