@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
@@ -44,7 +42,6 @@ export function FormKontakteLoeschenSection({
   stand: string;
   isDirty: boolean;
 }) {
-  const router = useRouter();
   const twoPress = useTwoPressConfirm();
   const { isConfirming, press } = twoPress;
 
@@ -67,7 +64,6 @@ export function FormKontakteLoeschenSection({
       }
 
       appToast.success("Kontakte gelöscht", { description: "Für diese Saison sind jetzt keine Kontaktpersonen hinterlegt." });
-      router.refresh();
     });
   };
 

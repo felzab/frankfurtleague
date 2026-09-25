@@ -1147,7 +1147,7 @@ describe("what the two destructive controls do to the page", () => {
 
   /* The row is the team BEING IN the season, so clearing its contacts cannot remove it. Navigating to
      a list that still shows the entry would read as a failed delete. */
-  it("stays on the page and re-reads it, on both", async () => {
+  it("stays on the page and leaves the re-read to the action, on both", async () => {
     for (const [resting, armed] of [
       ["Kontaktperson löschen", "Ja, Kontaktperson endgültig löschen"],
       ["Kontakte löschen", "Ja, Kontakte dieser Saison endgültig löschen"],
@@ -1165,9 +1165,9 @@ describe("what the two destructive controls do to the page", () => {
       });
       await settle();
 
-      assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [1, [], []], `${resting} leaves the page, or does not re-read it`);
+      // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
+      assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], `${resting} leaves the page, or reads it a second time`);
       unmount();
-      seen.refresh = 0;
     }
   });
 

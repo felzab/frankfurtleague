@@ -149,9 +149,9 @@ export function BewerbungBestaetigungStrip({
     // This seat alone, through the updater, so two writes settling never clear each other.
     setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
 
-    // Before the toast either way: the failure arm reports a write that committed, so the readout
-    // beneath it is stale on exactly the press that says so. A rejected write may have committed too.
-    router.refresh();
+    // Before the toast: a write that may have committed leaves the readout beneath it stale on exactly the
+    // press that says so. Every other answer after a landed write comes back refreshed by the action.
+    if (res === null || (!res.success && res.outcome === "unknown")) router.refresh();
 
     // Thrown, no answer came back, so this control's repair names the connection; an answer, an
     // unknown outcome among them, carries its own sentence.
@@ -458,9 +458,6 @@ function AdresseKorrigieren({
       return;
     }
 
-    // Before the toast, as the re-send does it: the row beneath is stale on exactly the press that
-    // says the address moved.
-    router.refresh();
     onFertig();
 
     if (res.verschickt === false) {
@@ -626,9 +623,6 @@ function SitzNeuBesetzen({
       return;
     }
 
-    // Before the toast, as the correction does it: the row beneath is stale on exactly the press
-    // that says somebody now stands in the seat.
-    router.refresh();
     onFertig();
 
     if (res.verschickt === false) {

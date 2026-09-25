@@ -177,9 +177,9 @@ export function FormBestaetigungSection({
     const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(() => null);
     setSendet(false);
 
-    // Before the toast either way: the failure arm reports a write that may have committed, so the
-    // readout beneath it is stale on exactly the press that says so.
-    router.refresh();
+    // Before the toast: a write that may have committed leaves the readout beneath it stale on exactly the
+    // press that says so. Every other answer after a landed write comes back refreshed by the action.
+    if (res === null || (!res.success && res.outcome === "unknown")) router.refresh();
 
     // Thrown, no answer came back, so this control's repair names the connection; an answer, an
     // unknown outcome among them, carries its own sentence.

@@ -1,7 +1,6 @@
 "use client";
 
 import { startTransition, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import Calendar from "@gravity-ui/icons/Calendar";
 import CalendarXmark from "@gravity-ui/icons/CalendarXmark";
@@ -101,7 +100,6 @@ export function FormSpielplanSection({
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeWrite: () => boolean;
 } & SaisonSpielplanContext) {
-  const router = useRouter();
   const twoPress = useTwoPressConfirm(onBeforeWrite);
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
@@ -202,10 +200,6 @@ export function FormSpielplanSection({
         // Cleared with the write that consumed it: this operation is done, and a choice left standing
         // would preselect itself the next time both acts are open.
         setPicked(null);
-
-        // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-        // which now reports the draw that stands and what the control would do to it next.
-        router.refresh();
       });
     });
   };

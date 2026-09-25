@@ -119,9 +119,6 @@ function GruppenTauschControl({
       // `await` outside it.
       startTransition(() => {
         setPartner(null);
-        // Re-renders the page the admin is still standing on, whose locked group row has to show the
-        // group the swap produced.
-        router.refresh();
       });
     });
   };

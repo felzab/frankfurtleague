@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
@@ -54,7 +53,6 @@ export function FormRolloverSection({
   onBeforeActivate: () => boolean;
   banners: readonly SaisonBanner[];
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
   // `past` one is refused by `REQ-ACTIVATE-002`.
@@ -85,8 +83,6 @@ export function FormRolloverSection({
       }
 
       appToast.success("Saison umgestellt", { description: res.message });
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on.
-      router.refresh();
     });
   };
 

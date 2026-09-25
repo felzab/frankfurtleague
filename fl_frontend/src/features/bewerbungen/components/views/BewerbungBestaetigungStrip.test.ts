@@ -415,6 +415,8 @@ describe("a write whose answer never arrives", () => {
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
     assert.deepEqual(unknowns(), [], "a refusal was raised as a write of unknown outcome");
     assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
+    // Both answered, so a landed write came back refreshed by the action itself.
+    assert.equal(seen.refresh, 0, "an answered re-send read the page a second time");
   });
 
   for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {

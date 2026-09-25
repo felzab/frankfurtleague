@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import TrashBin from "@gravity-ui/icons/TrashBin";
 
@@ -61,7 +60,6 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
  * and both collections. Confirmed in place, so the reader sees whose data it is.
  */
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
-  const router = useRouter();
   const twoPress = useTwoPressConfirm();
   const { isConfirming, isPending, press } = twoPress;
   const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);
@@ -99,10 +97,6 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
          reporting that as „gelöscht“ would be a lie of the quiet kind. */
       if (res.cleared === 0) appToast.warning("Nichts gefunden", { description: res.message });
       else appToast.success("Kontaktperson gelöscht", { description: res.message });
-
-      // Stays on the page: the erasure nulls the SLOT, never the block, so this row survives with the
-      // other two seats standing. A refresh is what shows the seat empty.
-      router.refresh();
     });
   };
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { startTransition, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
 
@@ -55,7 +54,6 @@ export function AdminBewerbungAblehnenSection({
   teamName: string | null;
   saisonId: string;
 }) {
-  const router = useRouter();
   const twoPress = useTwoPressConfirm();
   const { isConfirming, press, cancel } = twoPress;
 
@@ -98,9 +96,6 @@ export function AdminBewerbungAblehnenSection({
 
         setGrundError(null);
         appToast.success("Bewerbung abgelehnt", { description: res.message });
-        // The application is decided now, so this page has to come back showing that: the two decision
-        // panels go and the Entscheidung block takes their place.
-        router.refresh();
       });
     });
   };

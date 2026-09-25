@@ -167,9 +167,6 @@ export function FormGruppenSwapSection({
       startTransition(() => {
         setFirst(null);
         setSecond(null);
-        // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-        // whose pickers now have to show the groups the swap produced.
-        router.refresh();
       });
     });
   };

@@ -1,7 +1,6 @@
 "use client";
 
 import { startTransition, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
 import Copy from "@gravity-ui/icons/Copy";
@@ -74,7 +73,6 @@ export function FormEinladungSection({
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
-  const router = useRouter();
   // Held outside this panel's own subtree, which the editor re-keys on every stored value a save
   // moves (`fl_frontend/src/features/einladungen/components/EinladungLinkHolder.tsx`).
   const { frisch, setFrisch } = useEinladungLink();
@@ -104,9 +102,6 @@ export function FormEinladungSection({
     startTransition(() => {
       setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
       appToast.success("Registrierungslink angelegt", { description: res.message });
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-      // whose state read now has to show the row this press wrote.
-      router.refresh();
     });
   };
 
@@ -124,7 +119,6 @@ export function FormEinladungSection({
     startTransition(() => {
       setFrisch(null);
       appToast.success("Link zurückgezogen", { description: res.message });
-      router.refresh();
     });
   };
 
@@ -160,7 +154,6 @@ export function FormEinladungSection({
       }
 
       appToast.success("Registrierungslink gesendet", { description: res.message });
-      router.refresh();
     });
   };
 

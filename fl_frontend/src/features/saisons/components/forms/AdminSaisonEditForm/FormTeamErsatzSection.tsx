@@ -1,7 +1,6 @@
 "use client";
 
 import { startTransition, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
@@ -44,7 +43,6 @@ export function FormTeamErsatzSection({
   /** `REQ-REPLACE-001`: a finished season's fixtures record who played, so the panel explains instead of offering. */
   isFinishedSaison: boolean;
 }) {
-  const router = useRouter();
   const [outgoingId, setOutgoingId] = useState<string | null>(null);
   const [incomingId, setIncomingId] = useState<string | null>(null);
 
@@ -99,9 +97,6 @@ export function FormTeamErsatzSection({
       startTransition(() => {
         setOutgoingId(null);
         setIncomingId(null);
-        // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-        // whose pickers now have to show the season this write produced.
-        router.refresh();
       });
     });
   };

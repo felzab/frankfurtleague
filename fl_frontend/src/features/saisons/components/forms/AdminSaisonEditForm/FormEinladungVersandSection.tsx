@@ -157,7 +157,6 @@ export function FormEinladungVersandSection({
       // listed have just moved.
       setVorschau(null);
       appToast.success("Registrierungslinks gesendet", { description: res.message });
-      router.refresh();
     });
   };
 
