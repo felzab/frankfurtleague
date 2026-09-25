@@ -207,13 +207,21 @@ export async function renderPage(tree: ReactNode): Promise<string> {
   return markup;
 }
 
-type BoundaryOf<P> = { props: { children: { type: (props: P) => Promise<ReactElement>; props: P } } };
+/** The first async component under `node`'s children, depth first. */
+function firstAsync(node: unknown): { type: (props: unknown) => Promise<unknown>; props: unknown } | null {
+  const element = node as Partial<ReactElement<{ children?: unknown }>> | null;
+  if (element === null || typeof element !== "object") return null;
+  if (Array.isArray(element)) return element.map(firstAsync).find((found) => found !== null) ?? null;
+  if (isAsync(element.type)) return { type: element.type, props: element.props };
+  return firstAsync(element.props?.children);
+}
 
 /**
- * A synchronous page's body: the one child of the boundary it returns, called as the component it is,
- * for Testing Library to render and a case to press.
+ * A synchronous page's body: the first async component its tree holds, called as the component it is,
+ * so a case reads the props it hands its view or renders them under Testing Library.
  */
 export async function pageBody<P>(Page: (props: P) => unknown, props: P): Promise<ReactElement> {
-  const body = (Page(props) as BoundaryOf<P>).props.children;
-  return body.type(body.props);
+  const body = firstAsync(Page(props));
+  if (body === null) throw new Error(`${Page.name} returns no async component to call`);
+  return (await body.type(body.props)) as ReactElement;
 }
