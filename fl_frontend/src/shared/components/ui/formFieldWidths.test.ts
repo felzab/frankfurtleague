@@ -1,92 +1,42 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
+import { createElement as h } from "react";
 
-import { classText } from "@/shared/testing/jsxReader.ts";
+import { render } from "@testing-library/react";
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { AddressFields } = await import("./AddressFields.tsx");
+const { WebsiteUrlField } = await import("@/features/teams/components/forms/WebsiteUrlField.tsx");
 
-function parse(relative: string): ts.SourceFile {
-  const full = path.join(SRC_DIR, ...relative.split("/"));
-
-  return ts.createSourceFile(relative, readFileSync(full, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-}
-
-type Element = { tag: string; classes: string[] };
-
-function asWritten(node: ts.JsxElement | ts.JsxSelfClosingElement, source: ts.SourceFile): Element {
-  const opening = ts.isJsxElement(node) ? node.openingElement : node;
-  const className = opening.attributes.properties.find(
-    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
-  );
-
-  return {
-    tag: opening.tagName.getText(source),
-    classes: classText(className !== undefined && ts.isJsxAttribute(className) ? className.initializer : undefined)
-      .split(/\s+/)
-      .filter(Boolean),
-  };
-}
-
-const isElement = (node: ts.Node): node is ts.JsxElement | ts.JsxSelfClosingElement =>
-  ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node);
-
-/** Every element a file writes, in source order, each with the classes it is written with. */
-function elementsIn(source: ts.SourceFile): Element[] {
-  const found: Element[] = [];
-
-  const visit = (node: ts.Node): void => {
-    if (isElement(node)) found.push(asWritten(node, source));
-    ts.forEachChild(node, visit);
-  };
-
-  visit(source);
-  return found;
-}
+const ADDRESS = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
 
 /**
  * The address editor's rows that seat two fields beside each other, never the column stacking those
  * rows: the pair is the shape a specified width overflows, and the column has no pair in it.
  */
-function pairRowsIn(source: ts.SourceFile): Element[][] {
-  const rows: Element[][] = [];
+function pairRows(): Element[][] {
+  const { container } = render(h(AddressFields, { value: ADDRESS, onChange: () => undefined }));
 
-  const visit = (node: ts.Node): void => {
-    if (ts.isJsxElement(node)) {
-      const row = asWritten(node, source);
-
-      if (row.tag === "div" && row.classes.includes("flex") && !row.classes.includes("flex-col")) {
-        rows.push(
-          node.children
-            .filter(isElement)
-            .map((child) => asWritten(child, source))
-            .filter((child) => child.tag === "TextField"),
-        );
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-
-  visit(source);
-  return rows;
+  return [...container.querySelectorAll("div.flex:not(.flex-col)")].map((row) =>
+    [...row.children].filter((child) => child.getAttribute("data-slot") === "textfield"),
+  );
 }
-
-const PAIR_ROWS = pairRowsIn(parse("shared/components/ui/AddressFields.tsx"));
-
-const WEBSITE_ELEMENTS = elementsIn(parse("features/teams/components/forms/WebsiteUrlField.tsx"));
 
 /** A width the element fixes for itself. `min-w-0` is the one exception, that class REMOVING a floor. */
 const SPECIFIED_WIDTH = /^(?:w|min-w|basis)-(?!0$)/;
 
 describe("the two fields an address row seats side by side", () => {
   it("finds both rows, and two fields in each", () => {
-    // A floor before the cases below, which a sweep that matched nothing would leave vacuously true.
-    assert.equal(PAIR_ROWS.length, 2, "the sweep no longer finds the address editor's two paired rows");
+    // A floor before the case below, which a render that matched nothing would leave vacuously true.
+    const rows = pairRows();
+    assert.equal(rows.length, 2, "the address editor no longer renders its two paired rows");
 
-    for (const row of PAIR_ROWS) {
+    for (const row of rows) {
       assert.equal(row.length, 2, "a paired row no longer seats two fields");
     }
   });
@@ -95,36 +45,34 @@ describe("the two fields an address row seats side by side", () => {
      container put the whole gap past it, and no shrinking reclaims any of it while a flex item's
      automatic minimum is its own input's intrinsic width. */
   it("floors neither field at its own width, and leaves the gap its room", () => {
-    for (const field of PAIR_ROWS.flat()) {
-      const list = field.classes.join(" ");
+    for (const field of pairRows().flat()) {
+      const classes = [...field.classList];
+      const list = classes.join(" ");
 
-      assert.ok(field.classes.includes("min-w-0"), `${list}: the field cannot shrink under the intrinsic width of its input`);
+      assert.ok(classes.includes("min-w-0"), `${list}: the field cannot shrink under the intrinsic width of its input`);
       assert.ok(
-        field.classes.some((name) => /^flex-\d+$/.test(name)),
+        classes.some((name) => /^flex-\d+$/.test(name)),
         `${list}: the field takes its share of something other than the free space`,
       );
       assert.ok(
-        !field.classes.some((name) => SPECIFIED_WIDTH.test(name)),
+        !classes.some((name) => SPECIFIED_WIDTH.test(name)),
         `${list}: a width the field fixes for itself leaves the gap standing outside the row`,
       );
     }
   });
 });
 
-const websiteMatching = (tag: string): Element[] => WEBSITE_ELEMENTS.filter((element) => element.tag === tag);
-
 describe("the box inside the website field's group", () => {
-  it("finds the group and the input standing in it", () => {
-    assert.equal(websiteMatching("InputGroup").length, 1, "the sweep no longer finds the website field's group");
-    assert.equal(websiteMatching("InputGroup.Input").length, 1, "the sweep no longer finds the box inside that group");
-  });
-
   /* HeroUI gives the group's input `flex: 1` and no floor of its own, so its automatic minimum is the
      browser's default input width, wider than the room the prefix leaves it. Both levels: a floor on
      the group stops the shrinking above the input. */
   it("lets the shrinking reach the input rather than flooring it at its intrinsic width", () => {
-    for (const element of [...websiteMatching("InputGroup"), ...websiteMatching("InputGroup.Input")]) {
-      assert.ok(element.classes.includes("min-w-0"), `${element.tag}: an automatic minimum floors it, and the row cannot shrink past it`);
+    const { container } = render(h(WebsiteUrlField, { value: "https://example.org", onChange: () => undefined }));
+
+    for (const slot of ["input-group", "input-group-input"]) {
+      const element = container.querySelector(`[data-slot="${slot}"]`) ?? assert.fail(`the website field renders no ${slot}`);
+
+      assert.ok(element.classList.contains("min-w-0"), `${slot}: an automatic minimum floors it, and the row cannot shrink past it`);
     }
   });
 });
