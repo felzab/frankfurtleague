@@ -5,7 +5,7 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
@@ -125,45 +125,11 @@ const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 
-const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
-const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "const BEWERBUNG_WEG");
-
-const ERNEUT_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function einwilligungErneutSendenAction",
-  "export async function kontaktEmailKorrigierenAction",
-);
-
-const KORREKTUR_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function kontaktEmailKorrigierenAction",
-  "export async function besetzeKontaktSitzAction",
-);
-
-/* The reseat is the last declaration in the module, so its slice runs to the end of the file. */
-const SITZ_ACTION = sliceBetween(ACTIONS, "export async function besetzeKontaktSitzAction", null);
-
 /** The one field of a submitted application an administrator may move, in the backend's own spelling. */
 const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
 
 /** The one path that writes a whole person onto a submitted application, in the backend's own spelling. */
 const SITZ_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}";
-
-describe("the slices these assertions read", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts both decisions out of their file before reading them", () => {
-    assert.ok(ANNEHMEN_ACTION.includes("annehmenBewerbung(validated.data)"), "the acceptance's call is outside its slice");
-    assert.ok(!ANNEHMEN_ACTION.includes("ablehnenBewerbung("), "the acceptance's slice reaches the decline");
-
-    assert.ok(ABLEHNEN_ACTION.includes("ablehnenBewerbung(validated.data)"), "the decline's call is outside its slice");
-    assert.ok(!ABLEHNEN_ACTION.includes("annehmenBewerbung("), "the decline's slice reaches the acceptance");
-  });
-
-  it("cuts the re-send's action out of its file", () => {
-    assert.ok(ERNEUT_ACTION.includes("erneutSendenEinwilligung(validated.data)"), "the re-send's call is outside its slice");
-    assert.ok(!ERNEUT_ACTION.includes("ablehnenBewerbung("), "the re-send's slice reaches the decline");
-  });
-});
 
 describe("the triage's refusals against the codes its endpoints publish", () => {
   it("answers every code the acceptance publishes through the triage's mapper", async () => {
@@ -287,27 +253,6 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 });
 
-describe("what each decision moves", () => {
-  /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
-     or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
-     leaves every unscoped read stale. */
-  it("invalidates the club reads the acceptance wrote into", () => {
-    assert.ok(ANNEHMEN_ACTION.includes('updateTag("teams")'), "the acceptance stopped invalidating the club reads");
-    assert.match(
-      ANNEHMEN_ACTION,
-      /updateTag\(`teams:saison_id:\$\{annahmeOperation\.saison_id\}`\)/,
-      "the acceptance no longer invalidates the season it entered the club into",
-    );
-  });
-
-  /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag on a decline, and says why", () => {
-    assert.ok(!ABLEHNEN_ACTION.includes("updateTag("), "the decline clears a cached read its endpoint does not move");
-    assert.match(ABLEHNEN_ACTION, /No tag moves/, "the decline no longer says why it invalidates nothing");
-  });
-});
-
 /** The application a decision's write answers with: a proposed school, one seat holding a mailbox. */
 const ENTSCHIEDEN = {
   saison_id: "2026",
@@ -418,6 +363,33 @@ const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
 
 /** A success's report, or the refusal's sentence where the action failed. */
 const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
+
+/** Every tag the case's writes cleared, in the order they cleared them. */
+const updatedTags = (): unknown[] => cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]);
+
+describe("what each decision moves", () => {
+  /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
+     or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
+     leaves every unscoped read stale. */
+  it("invalidates the club reads the acceptance wrote into", async () => {
+    const [acceptance] = DECISIONS;
+    answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
+
+    assert.equal((await acceptance.press()).success, true, "the acceptance never landed, so its tags are judged on nothing");
+    assert.ok(updatedTags().includes("teams"), "the acceptance stopped invalidating the club reads");
+    assert.ok(updatedTags().includes("teams:saison_id:2026"), "the acceptance no longer invalidates the season it entered the club into");
+  });
+
+  /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
+     application: both triage reads are uncached because an application is personal data. */
+  it("moves no tag on a decline", async () => {
+    const [, decline] = DECISIONS;
+    answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
+
+    assert.equal((await decline.press()).success, true, "the decline never landed, so its tags are judged on nothing");
+    assert.deepEqual(updatedTags(), [], "the decline clears a cached read its endpoint does not move");
+  });
+});
 
 describe("the message that follows a decision", () => {
   /* After the write in both, and the write is what the report is about: a message sent first would
@@ -920,9 +892,12 @@ describe("the re-sent confirmation link", () => {
 
   /* This moves the application's own confirmation block and its deadline, and no cached read holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag, and says why", () => {
-    assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
-    assert.match(ERNEUT_ACTION, /No tag moves/, "the re-send no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, true, "the re-send never landed, so its tags are judged on nothing");
+    assert.deepEqual(updatedTags(), [], "the re-send clears a cached read its endpoint does not move");
   });
 });
 
@@ -1006,20 +981,20 @@ describe("the corrected contact address", () => {
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names one seat of a mirrored pair");
   });
 
-  it("moves no tag, and says why", () => {
-    assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
-    assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    assert.equal(
+      (await kontaktEmailKorrigierenAction(KORREKTUR)).success,
+      true,
+      "the correction never landed, so its tags are judged on nothing",
+    );
+    assert.deepEqual(updatedTags(), [], "the correction clears a cached read its endpoint does not move");
   });
 });
 
 describe("the person seated where one stepped out", () => {
-  /* First, so a boundary that stopped matching fails here rather than leaving every assertion below
-     reading an empty string and passing. */
-  it("cuts the reseat's action out of the file", () => {
-    assert.ok(SITZ_ACTION.includes("besetzenKontaktSitz(validated.data)"), "the reseat's call is outside its slice");
-    assert.ok(!KORREKTUR_ACTION.includes("besetzenKontaktSitz("), "the correction's slice still runs to the end of the file");
-  });
-
   it("answers every code the reseat publishes through its own mapper", async () => {
     for (const code of publishedRefusals(SITZ_OPERATION)) {
       assert.notEqual(
@@ -1104,8 +1079,11 @@ describe("the person seated where one stepped out", () => {
     }
   });
 
-  it("moves no tag, and says why", () => {
-    assert.ok(!SITZ_ACTION.includes("updateTag("), "the reseat clears a cached read its endpoint does not move");
-    assert.match(SITZ_ACTION, /No tag moves/, "the reseat no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(besetzt()));
+
+    assert.equal((await besetzeKontaktSitzAction(SITZ)).success, true, "the reseat never landed, so its tags are judged on nothing");
+    assert.deepEqual(updatedTags(), [], "the reseat clears a cached read its endpoint does not move");
   });
 });
