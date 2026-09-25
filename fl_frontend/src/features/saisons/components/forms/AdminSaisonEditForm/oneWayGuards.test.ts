@@ -61,6 +61,7 @@ const PANELS: Panel[] = [
         bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
         hasDrawnSpiele: false,
         onBeforeWrite: guard,
+        onShapeMovedChange: () => undefined,
       }),
     resting: "Spielplan anlegen",
     armed: "Ja, Spielplan anlegen",

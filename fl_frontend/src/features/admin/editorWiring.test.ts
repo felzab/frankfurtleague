@@ -217,6 +217,49 @@ type Editor = {
   write: string;
 };
 
+const SAISON_SCHEDULE = [
+  { phase: "gruppenphase" as const, matchdays: 3, matches_per_matchday: 4 },
+  { phase: "halbfinale" as const, matchdays: 1, matches_per_matchday: 2 },
+  { phase: "finale" as const, matchdays: 1, matches_per_matchday: 1 },
+];
+
+/** A planned season, undrawn unless told otherwise; drawn, it holds dated matchdays and no recorded result. */
+const saisonProps = (over: { drawn?: boolean } = {}) => ({
+  saison: {
+    id: "2026",
+    status: "future" as const,
+    start_date: "2026-08-01",
+    end_date: "2027-06-30",
+    rules: {
+      win_points: 3,
+      draw_points: 1,
+      qualifiers_per_group: 2,
+      number_of_groups: 2,
+      teams_per_group: 4,
+      max_kadergroesse: 18,
+      tiebreak_order: "tordifferenz" as const,
+      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+      erlaubte_stufen: ["E1" as const, "Q1" as const],
+    },
+    bewerbung: null,
+    registrierung: null,
+  },
+  rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+  swap: { teams: [], playedKnockoutSpiele: 0 },
+  ersatz: { rows: [], candidates: [] },
+  spielplan:
+    over.drawn === true
+      ? {
+          spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
+          spieltageCount: 5,
+          schedule: SAISON_SCHEDULE,
+          bestand: { spiele: 15, erfasst: 0, angesetzt: 0 },
+        }
+      : { spielplan: null, spieltageCount: 0, schedule: SAISON_SCHEDULE, bestand: { spiele: 0, erfasst: 0, angesetzt: 0 } },
+  hasDrawnSpiele: over.drawn === true,
+  spieltagBound: { startMax: null, endMin: null },
+});
+
 /** Every page-owned editor, under its module path below `features/`. */
 const EDITORS: Record<string, Editor> = {
   "spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx": {
@@ -324,40 +367,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSaisonEditForm, {
-          saison: {
-            id: "2026",
-            status: "future",
-            start_date: "2026-08-01",
-            end_date: "2027-06-30",
-            rules: {
-              win_points: 3,
-              draw_points: 1,
-              qualifiers_per_group: 2,
-              number_of_groups: 2,
-              teams_per_group: 4,
-              max_kadergroesse: 18,
-              tiebreak_order: "tordifferenz",
-              forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-              erlaubte_stufen: ["E1", "Q1"],
-            },
-            bewerbung: null,
-            registrierung: null,
-          },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
-          swap: { teams: [], playedKnockoutSpiele: 0 },
-          ersatz: { rows: [], candidates: [] },
-          spielplan: {
-            spielplan: null,
-            spieltageCount: 0,
-            schedule: [
-              { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
-              { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-              { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
-            ],
-            bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
-          },
-          hasDrawnSpiele: false,
-          spieltagBound: { startMax: null, endMin: null },
+          ...saisonProps(),
           pageHeader: { title: "Saison 2026" },
         }),
       );
@@ -824,8 +834,8 @@ type RecordMove = {
   render: () => Promise<HTMLElement>;
   /** A pick the press needs before it can be pressed at all. */
   ready?: (user: UserEvent, container: HTMLElement) => Promise<void>;
-  /** Typing the editor then holds unsaved. */
-  type: (user: UserEvent) => Promise<void>;
+  /** Typing the page then holds unsaved, outside the press's own panel. */
+  type: (user: UserEvent, container: HTMLElement) => Promise<void>;
   /** The control's name at rest, and its armed name where it confirms before it writes. */
   press: string;
   armed?: string;
@@ -931,12 +941,28 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     armed: "Ja, Gruppen tauschen",
     write: "swapGruppenAction",
   },
+  "the season's rollover, beside a redraw's moved shape": {
+    render: async () => {
+      const { AdminSaisonEditForm } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx");
+
+      return renderEditor(h(AdminSaisonEditForm, { ...saisonProps({ drawn: true }), pageHeader: { title: "Saison 2026" } }));
+    },
+    // The redraw's own boxes, outside the season's draft: the save bar never sends a `shape.` path.
+    type: async (user, container) => {
+      await user.click(screen.getByRole("radio", { name: "Neu anlegen" }));
+      pick(container, "shape.qualifiers_per_group", "1");
+    },
+    press: "Auf Saison 2026 umstellen",
+    armed: "Ja, auf 2026 umstellen",
+    write: "activateSaisonAction",
+  },
 };
 
 /** The page rendered, with the press ready to be pressed. */
-async function readied(user: UserEvent, move: RecordMove): Promise<void> {
+async function readied(user: UserEvent, move: RecordMove): Promise<HTMLElement> {
   const container = await move.render();
   await move.ready?.(user, container);
+  return container;
 }
 
 /** The press, through its confirmation where it asks one, and whatever it started settling. */
@@ -958,8 +984,7 @@ describe("a press whose write moves the record the page keys its editor by", () 
       assert.deepEqual(written(), [move.write], "the press over a clean editor did not write, so the refusal below judges nothing");
 
       cleanup();
-      await readied(user, move);
-      await move.type(user);
+      await move.type(user, await readied(user, move));
       calls.length = 0;
       raised.length = 0;
       await user.click(screen.getByRole("button", { name: move.press }));

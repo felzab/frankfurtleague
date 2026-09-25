@@ -98,6 +98,8 @@ export function AdminSaisonEditForm({
   // The whole block or `null`, never a boolean beside a span: `null` is the season that takes no
   // applications, and the panel is what turns one into the other.
   const [bewerbung, setBewerbung] = useState<FLSaisonBewerbung | null>(saison.bewerbung);
+  // The redraw's shape, typed outside the draft: the rollover's write re-keys the page over it as over the draft.
+  const [shapeMoved, setShapeMoved] = useState(false);
   // Its own state beside the window above, never one pair for both: the two windows are saved
   // together and decided apart.
   const [registrierung, setRegistrierung] = useState<FLSaisonRegistrierung | null>(saison.registrierung);
@@ -401,6 +403,7 @@ export function AdminSaisonEditForm({
             // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
             // them, so neither may run over a draft, and both end on the refresh that would drop it.
             onBeforeWrite={() => guardAgainstDraft(isDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")}
+            onShapeMovedChange={setShapeMoved}
           />
 
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
@@ -411,7 +414,7 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
+            onBeforeActivate={() => guardAgainstDraft(isDirty || shapeMoved, DRAFT_DISCARDED)}
             banners={banners}
           />
         </EditFormLayout>

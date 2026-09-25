@@ -80,6 +80,7 @@ export function FormSpielplanSection({
   bestand,
   hasDrawnSpiele,
   onBeforeWrite,
+  onShapeMovedChange,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
@@ -102,6 +103,8 @@ export function FormSpielplanSection({
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeWrite: () => boolean;
+  /** Told whether an offered shape stands moved off the stored rules, which the rollover re-keys the page over. */
+  onShapeMovedChange: (moved: boolean) => void;
 } & SaisonSpielplanContext) {
   const twoPress = useTwoPressConfirm(onBeforeWrite);
   const router = useRouter();
@@ -137,6 +140,12 @@ export function FormSpielplanSection({
 
   // The standing reason is the closure the page stands in, which the body states as well as the control.
   const { bothOpen, operation, isUnchosen, standingReason, closedReason } = spielplanPress({ input: controlInput, picked, shape });
+
+  // From the handlers that move either, never an effect: a shape the pick hides is no typing a reader sees.
+  const meldeShape = (nextPicked: SpielplanOperation | null, nextShape: FLSpielplanShape) => {
+    const offered = replacesDraw && spielplanPress({ input: controlInput, picked: nextPicked, shape: nextShape }).operation === "anlegen";
+    onShapeMovedChange(offered && describeShapeRows(readShape(rules), nextShape).some((row) => row.isChanged));
+  };
   const isDrawing = operation === "anlegen";
 
   // The closure the callout below states as a rule, which is the whole of what a reader in this state
@@ -287,7 +296,9 @@ export function FormSpielplanSection({
               // Disarms on every move: the reveal names one operation's losses, so a switch under an
               // armed panel would have the second press confirm what the first one never described.
               cancel();
-              setPicked(next === "anlegen" || next === "zuruecknehmen" ? next : null);
+              const nextPicked = next === "anlegen" || next === "zuruecknehmen" ? next : null;
+              setPicked(nextPicked);
+              meldeShape(nextPicked, shape);
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             <ToggleButton
@@ -363,7 +374,10 @@ export function FormSpielplanSection({
                         // the draw's payload, so a null would reach the confirmation as a figure and
                         // the press as a refusal.
                         onChange={(next) => {
-                          if (next !== null) setShape({ ...shape, [shapeKey]: next });
+                          if (next === null) return;
+                          const nextShape = { ...shape, [shapeKey]: next };
+                          setShape(nextShape);
+                          meldeShape(picked, nextShape);
                         }}
                       />
                     );
@@ -393,7 +407,11 @@ export function FormSpielplanSection({
                             })
                       }
                       value={shape[shapeKey]}
-                      onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
+                      onChange={(next) => {
+                        const nextShape = { ...shape, [shapeKey]: next };
+                        setShape(nextShape);
+                        meldeShape(picked, nextShape);
+                      }}
                     />
                   );
                 })}

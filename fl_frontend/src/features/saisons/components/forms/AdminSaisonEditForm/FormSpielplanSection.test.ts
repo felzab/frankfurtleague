@@ -65,6 +65,7 @@ const UNDRAWN: SpielplanProps = {
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
+  onShapeMovedChange: () => undefined,
 };
 
 /** The same season drawn with nothing entered, where both writes stand open. */

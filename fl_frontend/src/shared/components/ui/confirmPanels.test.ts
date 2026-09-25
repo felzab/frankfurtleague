@@ -100,6 +100,7 @@ const UNDRAWN = {
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
+  onShapeMovedChange: () => undefined,
 };
 const DRAWN = {
   ...UNDRAWN,
