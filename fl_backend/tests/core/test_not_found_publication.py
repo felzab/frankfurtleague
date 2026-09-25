@@ -76,7 +76,9 @@ def _can_raise(path: Path, lineno: int) -> bool:
     parents = _parents(declaration)
 
     for node in ast.walk(declaration):
-        if _raises_here(node) and (node.exc is not None or _in_a_handler_naming_it(node, parents)) and not _caught(node, parents):
+        if not (isinstance(node, ast.Raise) and _raises_here(node)):
+            continue
+        if (node.exc is not None or _in_a_handler_naming_it(node, parents)) and not _caught(node, parents):
             return True
 
     for chain, call in scoped_calls(declaration, (declaration,)):

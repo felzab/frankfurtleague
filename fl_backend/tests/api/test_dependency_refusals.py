@@ -21,7 +21,7 @@ from app.core.exceptions import DatabaseUnavailableException, MalformedRequestEx
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, Declaration, api_routes, declared, module_of, parsed
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
 
 APP = create_app(build_test_config())
 
@@ -103,10 +103,10 @@ def test_every_refusal_the_table_publishes_is_met_by_a_request():
     assert len(derived) >= PROBED_OPERATIONS_FLOOR
 
 
-def _own_nodes(function: Declaration) -> Iterator[ast.AST]:
-    """Every node inside `function` and outside any function it declares, which answers for its own."""
+def _own_nodes(node: ast.AST) -> Iterator[ast.AST]:
+    """Every node inside `node` and outside any function it declares, which answers for its own."""
 
-    for child in ast.iter_child_nodes(function):
+    for child in ast.iter_child_nodes(node):
         if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield child
             yield from _own_nodes(child)
