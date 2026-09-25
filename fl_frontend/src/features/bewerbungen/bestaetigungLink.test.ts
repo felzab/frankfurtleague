@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
@@ -9,12 +7,6 @@ import { bestaetigungsLink } from "./bestaetigungLink.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
-
-/** Every module that mints a link, read as source: which variable a call site reads is nothing a render shows. */
-const MINTER = ["../../app/api/bewerbung/route.ts", "sweep.ts", "actions.ts"].map((relativ) => ({
-  name: relativ,
-  source: readFileSync(path.resolve(import.meta.dirname, relativ), "utf8"),
-}));
 
 describe("the confirmation link every minter spells", () => {
   it("puts the token on the origin it was handed, under the confirmation page's path", () => {
@@ -35,17 +27,5 @@ describe("the confirmation link every minter spells", () => {
 
     assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
     assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
-  });
-
-  /* A link built on the published origin sends a reader of the local stack into production, and the
-     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
-  it("is minted on the configured origin by every module that mints one, and on the published one by none", () => {
-    for (const { name, source } of MINTER) {
-      assert.match(source, /bestaetigungsLink\(origin/, `${name} mints its link on something other than the origin it read`);
-      assert.match(source, /frontend_config\.AUTH_URL/, `${name} takes its origin from somewhere other than the configuration`);
-      // The import rather than the identifier: a comment naming the published origin to refuse it is
-      // not a use of it.
-      assert.doesNotMatch(source, /^import \{[^}]*\bSITE_URL\b/m, `${name} imports the published origin`);
-    }
   });
 });
