@@ -9,8 +9,13 @@ is the one reference named by tag alone, for the library reason at its case.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from typing import Final
+
+from test_check_gate_budget import job_bodies
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 DOCKERFILES: Final = (REPO_ROOT / "fl_frontend" / "Dockerfile", REPO_ROOT / "fl_backend" / "Dockerfile")
@@ -194,3 +199,22 @@ def test_the_frontend_db_tier_names_the_backend_pin_s_release_by_tag_alone() -> 
         if CONTAINER_IMAGE_RE.findall(text) != [release] * len(CONTAINER_CALL_RE.findall(text))
     ]
     assert wrong == [], f"each MongoDBContainer is to name `{release}` as a literal:\n" + "\n".join(wrong)
+
+
+# The db job's pull step reads the pin itself and sits behind `continue-on-error`, so a pin moved
+# out of its reader's shape leaves it printing an annotation and pulling nothing, with the job green.
+PULL_STEP: Final = "      - name: Pull the mongod image the db tier starts\n"
+
+
+def test_the_db_job_s_pull_step_reads_the_backend_tier_s_pin() -> None:
+    """The step's own script, lifted out of the workflow and run over the real conftest."""
+    body = job_bodies((REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8"))["db"]
+    assert body.count(PULL_STEP) == 1, "the db job holds no single pull step by this name"
+    step = body.split(PULL_STEP, 1)[1]
+    script = textwrap.dedent(step.split("python3 -c '", 1)[1].split("' fl_backend/tests/conftest.py", 1)[0])
+    conftest = REPO_ROOT / "fl_backend" / "tests" / "conftest.py"
+    done = subprocess.run([sys.executable, "-c", script, str(conftest)], capture_output=True, text=True, check=False)
+    _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
+
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == pin, f"the pull step read {done.stdout.strip()!r}, where the conftest pins {pin}"
