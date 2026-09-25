@@ -2,12 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer reaches a provider. */
-const AUTH = `export const getAdminSession = async () => globalThis.__flEinladenSession;`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 const NOTIFICATIONS = `export const mailSchiedsrichterLink = async (args) => { globalThis.__flEinladenMails.push(args); return globalThis.__flEinladenDelivered; };
 export const describeLinkMail = (email, delivered) => (delivered ? \`ging an \${email}\` : \`nicht an \${email}\`);`;
 const QUERIES = `export const getSchiedsrichterById = async (id) => globalThis.__flEinladenRow(id);`;
@@ -26,22 +24,11 @@ const calls: { id: string }[] = [];
 recorders.__flEinladenMails = mails;
 recorders.__flEinladenCalls = calls;
 
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/cache": `export const refresh = () => {}; export const updateTag = () => {}; export const revalidateTag = () => {};`,
-  "next/headers": `export const headers = async () => new Headers();`,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
+doubleActionRequest();
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/features/schiedsrichter/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     if (url.endsWith("/src/features/schiedsrichter/queries.ts")) return { format: "module", source: QUERIES, shortCircuit: true };
     if (url.endsWith("/src/features/schiedsrichter/mutations.ts")) return { format: "module", source: MUTATIONS, shortCircuit: true };
@@ -79,7 +66,6 @@ const withRow =
 beforeEach(() => {
   mails.length = 0;
   calls.length = 0;
-  recorders.__flEinladenSession = { user: { email: "admin@example.de" } };
   recorders.__flEinladenRow = withRow("anna@example.de");
   recorders.__flEinladenMint = () => ({ acknowledged: 1, bestaetigung: { token: "abc", frist: "2026-10-05", email: "anna@example.de" } });
   recorders.__flEinladenCreate = () => ({

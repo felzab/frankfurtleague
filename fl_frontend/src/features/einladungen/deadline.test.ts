@@ -2,14 +2,13 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The real client, mail transport and fan-out, only their network doubled below: what is driven is
    the chain those three and the admin spine make of one season-wide press, which a double of any of
    them would hide. */
 const API_URL = "http://backend:8000";
 
-const AUTH = `export const getAdminSession = async () => ({ user: { email: "admin@example.de" } });`;
 const CONFIG = `export const frontend_config = {
   API_URL: "${API_URL}",
   API_VERSION: 0,
@@ -20,26 +19,13 @@ const CONFIG = `export const frontend_config = {
   AUTH_RESEND_KEY: "resend-key-double",
   AUTH_URL: "https://liga.example.de",
 };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/cache":
-    "export const refresh = () => {}; export const updateTag = () => {}; export const revalidateTag = () => {}; export const cacheLife = () => {}; export const cacheTag = () => {};",
-  "next/headers": "export const headers = async () => new Headers();",
-  "next/navigation": "export const unstable_rethrow = () => {};",
-};
+doubleActionRequest();
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     return nextLoad(url, context);
   },
 });

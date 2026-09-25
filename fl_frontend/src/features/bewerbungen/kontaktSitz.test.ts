@@ -2,40 +2,25 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
-   client reaches a backend no test process runs, and the real session store a database. */
+   client reaches a backend no test process runs, and the real mailer a provider. */
 const API = `export const apiClient = async (endpoint) => {
   globalThis.__flSitzCalls.push(endpoint);
   throw globalThis.__flSitzMissing(endpoint);
 };`;
-const AUTH = `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`;
-const LOGGING = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 const CONFIG = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
 const MAIL = `export const sendMail = async () => ({ id: null });
 export class MailWithheldError extends Error {}
 export class MailRecipientError extends Error {}`;
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the action reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/cache":
-    "export const refresh = () => {}; export const updateTag = () => {}; export const cacheLife = () => {}; export const cacheTag = () => {};",
-  "next/headers": "export const headers = async () => new Headers();",
-  "next/navigation": "export const unstable_rethrow = () => {};",
-};
+doubleActionRequest();
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
     if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     return nextLoad(url, context);
