@@ -188,8 +188,6 @@ else
       # `TEST_ONLY` keeps out of production, and skips them in its mirror walk.
       fl_frontend/eslint.config.mjs) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
-      # The db tier's image is named here.
-      fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
       # `scripts/tests/test_deploy_streams.py` imports this module to run the deploy's own check of
       # the environment's names, so an edit here owes the scripts scope too.
       fl_backend/app/__init__.py|fl_backend/app/core/config.py) backend=true; db=true; docs=true; scripts=true ;;
