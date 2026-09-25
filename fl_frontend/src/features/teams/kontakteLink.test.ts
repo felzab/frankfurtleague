@@ -1,18 +1,28 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement as h } from "react";
+
+import { render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
-import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { buildKontakteFacets } from "./facets.ts";
 import { FLTeamWithMembershipsSchema } from "./schemas.ts";
 import { buildKontaktRows } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte, FLTeamMembership, FLTeamWithMemberships } from "./schemas.ts";
+import type { AdminTeamRow } from "./types.ts";
 
-const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminTeamsTable.tsx"), "utf8");
+doubleEveryAction();
+
+const { AdminTeamsTable } = await import("./components/collections/AdminTeamsTable.tsx");
 
 const SAISON = "2026";
 
@@ -67,20 +77,41 @@ const seats = (): FLSaisonTeamKontakte => ({
 const ROWS = buildKontaktRows([club("gezielt", "Goethe", seats()), club("daneben", "Helmholtz", seats())], SAISON);
 const FACETS = buildKontakteFacets(ROWS.map((row) => ({ teamId: row.teamId, name: row.teamName })));
 
-/** The row link's own template, so what is decoded below is the URL the table builds rather than a copy. */
-const HREF_TEMPLATE = /href=\{withSaisonId\(`(\/admin\/kontakte\?[^`]*)`/.exec(TABLE)?.[1] ?? "";
+/** The club „Goethe“ as the club list draws its row, in the season the selector names. */
+const ROW: AdminTeamRow = {
+  id: "gezielt",
+  name: "Goethe",
+  full_name: "Goethe",
+  shorthand: "GO",
+  inactive_since: null,
+  selected: { gruppe: "A", austritt: null },
+  isRetireable: false,
+  publicSaisonId: SAISON,
+};
 
-// Composed by the SHIPPING helper rather than by a hand-filled `${saisonParam}`: what has to hold
-// is that the season lands in the query, not how the table spells the join.
-const HREF = withSaisonId(HREF_TEMPLATE.replace("${team.id}", "gezielt"), SAISON);
+/** The link the row's overflow menu offers into the contacts list, read off the opened menu. */
+async function contactsLink(): Promise<string> {
+  const { unmount } = render(
+    underNext(h(AdminTeamsTable, { filteredTeams: [ROW], emptiness: "none", setDeletingTeam: () => undefined }), {
+      search: `saison_id=${SAISON}`,
+    }),
+  );
+  const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
+  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${ROW.name}` }));
+
+  const href = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Kontakte anzeigen" }).getAttribute("href") ?? "";
+  unmount();
+
+  return href;
+}
+
+const HREF = await contactsLink();
 
 const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(href.indexOf("?") + 1));
 
 describe("the contacts link the club list offers", () => {
-  /* First: a template the cut no longer finds leaves every assertion below reading an empty string,
-     and the filtering case would then pass over an unfiltered list. */
   it("builds a link into the contacts list at all", () => {
-    assert.notEqual(HREF_TEMPLATE, "", "the club list offers no link into the contacts list");
+    assert.ok(HREF.startsWith("/admin/kontakte?"), `the menu links the contacts to ${HREF}`);
     assert.equal(ROWS.length, 2, "the fixture no longer holds two clubs, so filtering proves nothing");
   });
 
@@ -100,6 +131,5 @@ describe("the contacts link the club list offers", () => {
      silently, because the list still renders three seats for whatever season resolves instead. */
   it("carries the selected season alongside the club", () => {
     assert.equal(query(HREF).get("saison_id"), SAISON, "the contacts link drops the season it was pressed in");
-    assert.match(TABLE, /href=\{withSaisonId\(`\/admin\/kontakte\?team=/, "the link no longer composes the season through the shared helper");
   });
 });

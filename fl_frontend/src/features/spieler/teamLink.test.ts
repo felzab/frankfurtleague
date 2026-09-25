@@ -1,18 +1,30 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { createElement as h } from "react";
+
+import { render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { TEAM_FACETS } from "@/features/teams/facets";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
-import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminTeamRow } from "@/features/teams/types";
+import type { AdminSpielerRow } from "./types.ts";
 
-const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminSpielerTable.tsx"), "utf8");
+doubleEveryAction();
+
+const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
+const { AdminTeamsTable } = await import("@/features/teams/components/collections/AdminTeamsTable.tsx");
 
 const TEAM_NAME = "Carl-Schurz-Schule";
 const SAISON_ID = "68b0f1c2d3e4a5b6c7d8e9f0";
+const TEAM_ID = "68b0f1c2d3e4a5b6c7d8e9a1";
 
 /** As the club list builds a row: `selected` is the SELECTED season's junction data, absent for a club it does not hold. */
 function club(id: string, inSaison: boolean): AdminTeamRow {
@@ -31,17 +43,49 @@ function club(id: string, inSaison: boolean): AdminTeamRow {
 const INSIDE = club("inside", true);
 const OUTSIDE = club("outside", false);
 
-/** The row link's own template, so what is decoded below is the URL the table builds rather than a copy of it. */
-const HREF_TEMPLATE = /href=\{withSaisonId\(`(\/admin\/teams\?[^`]*)`/.exec(TABLE)?.[1] ?? "";
+/** A player whose squad row this season names the club, which is the row the link is drawn on. */
+const SPIELER: AdminSpielerRow = {
+  id: "68b0f1c2d3e4a5b6c7d8e9b1",
+  vorname: "Jule",
+  nachname: "Meier",
+  fullName: "Jule Meier",
+  inactive_since: null,
+  selected: {
+    team_id: TEAM_ID,
+    nummer: "7",
+    position: null,
+    stufe: null,
+    ist_nachnominiert: false,
+    rolle: null,
+    inactive_since: null,
+    teamName: TEAM_NAME,
+    teamShorthand: "CSS",
+  },
+};
 
-/** The template with its interpolations filled in. An interpolation this does not name is left in place, which the case below reads. */
-// Composed by the SHIPPING helper: what has to hold is that the season lands in the query.
-const HREF = withSaisonId(
-  HREF_TEMPLATE.replace("${encodeURIComponent(row.teamName)}", encodeURIComponent(TEAM_NAME))
-    .replace("${TEAMS_ANY_SAISON_QUERY}", TEAMS_ANY_SAISON_QUERY)
-    .replace("${TEAMS_ANY_SAISON_QUERY}", TEAMS_ANY_SAISON_QUERY),
-  SAISON_ID,
-);
+/** The link the squad row draws on the club's name, read off the rendered list under the selector's season. */
+function squadRowLink(): string {
+  const { unmount } = render(
+    underNext(
+      h(AdminSpielerTable, {
+        filteredSpieler: [SPIELER],
+        emptiness: "none",
+        saisonTeams: [],
+        selectedSaisonId: SAISON_ID,
+        setDeletingSpieler: () => undefined,
+      }),
+      { search: `saison_id=${SAISON_ID}` },
+    ),
+  );
+  // Both layouts draw the row, and both links have to agree.
+  const hrefs = new Set(screen.getAllByRole("link", { name: TEAM_NAME }).map((link) => link.getAttribute("href") ?? ""));
+  unmount();
+
+  assert.equal(hrefs.size, 1, `the two layouts link the club differently: ${[...hrefs].join(" | ")}`);
+  return [...hrefs][0] ?? "";
+}
+
+const HREF = squadRowLink();
 
 const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(href.indexOf("?") + 1));
 
@@ -50,11 +94,8 @@ const shown = (href: string, rows: AdminTeamRow[]): AdminTeamRow[] =>
   applyFacets(rows, TEAM_FACETS, readFacetSelection(TEAM_FACETS, query(href)));
 
 describe("the squad row's link into the club list", () => {
-  /* First: a template the regex stopped finding is an empty string, and every case below would then
-     decode nothing and pass. */
-  it("is read out of the table rather than restated here", () => {
-    assert.notEqual(HREF_TEMPLATE, "", `AdminSpielerTable.tsx: no /admin/teams link to read`);
-    assert.ok(!HREF.includes("${"), `AdminSpielerTable.tsx: the link carries ${HREF}, whose interpolation this guard cannot fill in`);
+  it("points into the club list", () => {
+    assert.ok(HREF.startsWith("/admin/teams?"), `the club's name links to ${HREF}`);
   });
 
   /* The defect this closes: a club replacement takes a club out of the season and leaves the squad
@@ -91,9 +132,17 @@ describe("the squad row's link into the club list", () => {
 
   /* The reverse link keys on the club's id and the season's clubs are that facet's options, so a club
      outside the season drops out and the player list widens instead of emptying. */
-  it("leaves the club's own link back to the players alone", () => {
-    const back = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "components", "collections", "AdminTeamsTable.tsx"), "utf8");
+  it("leaves the club's own link back to the players keyed on the club and the season", async () => {
+    render(
+      underNext(h(AdminTeamsTable, { filteredTeams: [{ ...INSIDE, id: TEAM_ID }], emptiness: "none", setDeletingTeam: () => undefined }), {
+        search: `saison_id=${SAISON_ID}`,
+      }),
+    );
+    const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
+    await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${TEAM_NAME}` }));
 
-    assert.match(back, /href=\{withSaisonId\(`\/admin\/spieler\?team=\$\{team\.id\}`, selectedFromUrl\)\}/);
+    const back = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Spieler anzeigen" }).getAttribute("href") ?? "";
+
+    assert.equal(back, `/admin/spieler?team=${TEAM_ID}&saison_id=${SAISON_ID}`);
   });
 });
