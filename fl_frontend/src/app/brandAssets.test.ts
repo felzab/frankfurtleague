@@ -2,26 +2,12 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { assertEveryTokenIsRead, schemeTokens } from "@/core/schemeReader.ts";
 
 import manifest from "./manifest.ts";
-
-/* Next's font loader runs only inside its own build, so the layout's three faces load as inert ones:
-   this file reads the layout's `viewport` export and nothing the fonts decide. */
-const FONTS = `const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
-export { face as Anton, face as Inter, face as Raleway };`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier !== "next/font/google") return nextResolve(specifier, context);
-
-    return { url: `data:text/javascript,${encodeURIComponent(FONTS)}`, shortCircuit: true };
-  },
-});
 
 const { viewport } = await import("./layout.tsx");
 

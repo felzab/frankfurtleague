@@ -97,6 +97,10 @@ function isPathLike(specifier: string): boolean {
   return specifier.split("/").length > (specifier.startsWith("@") ? 2 : 1);
 }
 
+/** The faces `fl_frontend/src/app/layout.tsx` loads; one it adds fails to link here until it is named. */
+const INERT_FONTS = `data:text/javascript,${encodeURIComponent(`const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
+export { face as Anton, face as Inter, face as Raleway };`)}`;
+
 /*
  Registered as this module evaluates, which is why a component under test is reached with
  `await import` and never a static import beside this one (`docs/frontend/spec.md` §1.9).
@@ -109,6 +113,10 @@ registerHooks({
     if (specifier === "server-only") {
       return nextResolve(specifier, { ...context, conditions: [...context.conditions, "react-server"] });
     }
+
+    // Next's font loader runs only inside its own build, so each face loads as an inert one, as a
+    // stylesheet does below: nothing a render here asserts is decided by a font.
+    if (specifier === "next/font/google") return { url: INERT_FONTS, shortCircuit: true };
 
     try {
       return nextResolve(specifier, context);

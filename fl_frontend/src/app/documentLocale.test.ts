@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -8,19 +7,6 @@ import { parseDate } from "@internationalized/date";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
-
-/* Next's font loader runs only inside its own build, so the layout's three faces load as inert ones:
-   what is read here is the document's language and the fields under it, which no face decides. */
-const FONTS = `const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
-export { face as Anton, face as Inter, face as Raleway };`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier !== "next/font/google") return nextResolve(specifier, context);
-
-    return { url: `data:text/javascript,${encodeURIComponent(FONTS)}`, shortCircuit: true };
-  },
-});
 
 const { default: RootLayout } = await import("./layout.tsx");
 const { AppDatePicker } = await import("@/shared/components/ui/DateTimeFields.tsx");

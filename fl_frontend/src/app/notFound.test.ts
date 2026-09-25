@@ -19,17 +19,7 @@ import type { Metadata, ResolvedMetadata } from "next";
 /* The views and forms are doubled whole: no case renders a page's body. */
 const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
 
-/* Next's font loader runs only inside its own build, so the root layout's three faces load as inert
-   ones: this file reads the layout's `metadata` export and nothing the fonts decide. */
-const FONTS = `const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
-export { face as Anton, face as Inter, face as Raleway };`;
-
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier !== "next/font/google") return nextResolve(specifier, context);
-
-    return { url: `data:text/javascript,${encodeURIComponent(FONTS)}`, shortCircuit: true };
-  },
   load(url, context, nextLoad) {
     const view = VIEW.exec(url);
     if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
