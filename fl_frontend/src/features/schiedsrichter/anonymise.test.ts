@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
-/* The real actions over their real `mutations.ts`: the client they send through and the cache API are
+/* The real actions over their real `mutations.ts`: the client they send through and the request are
    the doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the
    components it renders. */
 doubleActionRequest();
@@ -12,9 +12,7 @@ doubleActionRequest();
 type Sent = { endpoint: string; method: string | undefined };
 
 const sent: Sent[] = [];
-const invalidated: string[] = [];
 Reflect.set(globalThis, "__flAnonymiseSent", sent);
-Reflect.set(globalThis, "__flAnonymiseInvalidated", invalidated);
 
 /** Every write acknowledged, with no link minted: the save then mails nothing. */
 const API = `export const apiClient = async (endpoint, _schema, options = {}) => {
@@ -22,16 +20,7 @@ const API = `export const apiClient = async (endpoint, _schema, options = {}) =>
   return { acknowledged: 1, updated_document: null, bestaetigung: null };
 };`;
 
-const CACHE_API = ["updateTag", "refresh", "revalidateTag", "revalidatePath", "cacheLife", "cacheTag"]
-  .map((name) => `export const ${name} = (tag) => { globalThis.__flAnonymiseInvalidated.push("${name} " + String(tag)); };`)
-  .join("\n");
-
-// Registered after the request's doubles, so this recording cache API answers before their inert one.
 registerHooks({
-  resolve: (specifier, context, nextResolve) =>
-    specifier === "next/cache"
-      ? { url: `data:text/javascript,${encodeURIComponent(CACHE_API)}`, shortCircuit: true }
-      : nextResolve(specifier, context),
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
@@ -54,9 +43,11 @@ async function report(): Promise<string> {
   return "message" in result ? String(result.message) : "";
 }
 
+/** Whether a write since the case began cleared the fixture reads' tag. */
+const clearedSpiele = (): boolean => cacheCalls.some(({ name, args }) => name === "updateTag" && args[0] === "spiele");
+
 beforeEach(() => {
   sent.length = 0;
-  invalidated.length = 0;
 });
 
 describe("what the anonymisation moves", () => {
@@ -72,12 +63,12 @@ describe("what the anonymisation moves", () => {
      the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
   it("invalidates the fixture reads, as the rename does", async () => {
     await report();
-    assert.ok(invalidated.includes("updateTag spiele"), "the anonymisation leaves the erased name in the fixture cache");
+    assert.ok(clearedSpiele(), "the anonymisation leaves the erased name in the fixture cache");
 
-    invalidated.length = 0;
+    cacheCalls.length = 0;
     const renamed = await patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE });
     assert.equal(renamed.success, true, "the rename did not run, so what it invalidates is compared to nothing");
-    assert.ok(invalidated.includes("updateTag spiele"), "the rename stopped invalidating the one read a referee write does move");
+    assert.ok(clearedSpiele(), "the rename stopped invalidating the one read a referee write does move");
   });
 });
 

@@ -2,22 +2,20 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through, the session and the
-   cache API are the doubles. A file of its own, `actions.test.ts` and `editor.test.ts` replacing this
+   request are the doubles. A file of its own, `actions.test.ts` and `editor.test.ts` replacing this
    slice's actions module for the components they render. */
 doubleActionRequest();
 
 type Sent = { endpoint: string; method: string | undefined; body: unknown; params: unknown };
 
 const sent: Sent[] = [];
-const invalidated: string[] = [];
 const recorders = globalThis as unknown as Record<string, unknown>;
 recorders.__flKontakteSent = sent;
-recorders.__flKontakteInvalidated = invalidated;
 
 /** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
@@ -27,16 +25,8 @@ const API = `export const apiClient = async (endpoint, schema, options = {}) => 
 
 const AUTH = `export const getAdminSession = async () => globalThis.__flKontakteSession;`;
 
-const CACHE_API = ["updateTag", "refresh", "revalidateTag", "revalidatePath", "cacheLife", "cacheTag"]
-  .map((name) => `export const ${name} = (tag) => { globalThis.__flKontakteInvalidated.push("${name} " + String(tag)); };`)
-  .join("\n");
-
 // Registered after the request's doubles, so each of these answers before theirs.
 registerHooks({
-  resolve: (specifier, context, nextResolve) =>
-    specifier === "next/cache"
-      ? { url: `data:text/javascript,${encodeURIComponent(CACHE_API)}`, shortCircuit: true }
-      : nextResolve(specifier, context),
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
@@ -72,7 +62,6 @@ const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id:
 
 beforeEach(() => {
   sent.length = 0;
-  invalidated.length = 0;
   recorders.__flKontakteSession = { user: { email: "vorstand@example.org" } };
   blockAnswer = { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "a1b2" };
 });
@@ -168,6 +157,9 @@ describe("what the contacts writes clear", () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
     assert.equal(sent.length, 2, "a write never reached the client, so what it clears is judged over nothing");
-    assert.deepEqual(invalidated, ["refresh undefined", "refresh undefined"]);
+    assert.deepEqual(
+      cacheCalls.map(({ name }) => name),
+      ["refresh", "refresh"],
+    );
   });
 });
