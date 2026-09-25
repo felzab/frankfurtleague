@@ -167,7 +167,7 @@ const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 const TEST_SUPPORT = [
   "src/shared/testing/**/*.{ts,tsx}",
   ...TEST_ONLY.flatMap((entry) => entry.group)
-    .filter((glob) => glob.endsWith(".ts"))
+    .filter((glob) => /\.tsx?$/.test(glob))
     .map((glob) => `src/${glob}`),
 ];
 
