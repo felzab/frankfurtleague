@@ -8,11 +8,17 @@ const STORE = "__flPasskeyStore";
 const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
 const SENT = "__flPasskeySentMail";
 const PASS_THROUGH = "__flPasskeyPassThrough";
+const WITHHELD = "__flPasskeyWithheld";
 
 /** Allowlisted by nothing, so every guard below has an arm that is refused for the address alone. */
 const PERSON_EMAIL = "spielerin@example.org";
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => {
+/* Records the message it sends as the real client does, and withholds it where the flag is set before
+   anything leaves, as a deployment that does not mail withholds it. */
+const MAIL_DOUBLE = `import { recordWriteSent } from "@/core/requestScope";
+export const sendMail = async (message) => {
+  if (globalThis.${WITHHELD}) throw new Error("withheld");
+  recordWriteSent();
   globalThis.${SENT}.push(message);
   return { id: null };
 };`;
@@ -66,6 +72,7 @@ const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => {
   globals[PASS_THROUGH] = false;
+  globals[WITHHELD] = false;
   store.passkey.length = 0;
   store.session.length = 0;
   sent.length = 0;
@@ -256,6 +263,20 @@ describe("what a removal costs, and what it refuses", () => {
     for (const secret of [String(held.id), String(held.credentialID), row.token]) {
       assert.ok(!written.includes(secret), "the notice carries material from the row it reports");
     }
+  });
+
+  /* The sign-in store is written past the API client, and a notice withheld before it leaves records no
+     write either: the removal's own record is all that refreshes the page. */
+  it("refreshes the page after a removal whose notice never left", async () => {
+    const { cookie, row } = await steppedUpAdmin();
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
+    arriveAs(cookie);
+    globals[WITHHELD] = true;
+
+    assert.equal((await removePasskeyAction(String(held.id))).success, true);
+    assert.deepEqual(sent, [], "the notice left, so the refresh below is judged over its record");
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
   });
 
   /* A removal ends the administrator's other sessions at the same moment: a device signed in with
