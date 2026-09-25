@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-export const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
+const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
 
 // Printed by the contract suites to whoever must refresh the document, a citation rather than the
 // command: TypeScript cannot import the command's one declaration, and no check would hold a copy to it.
@@ -20,7 +20,7 @@ type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** One code an operation's failure body may carry, under the status that publishes it. */
-export type PublishedAnswer = { code: string; status: number };
+type PublishedAnswer = { code: string; status: number };
 
 /** One operation, named `<METHOD> <path>` below the version prefix as the backend's own routes spell it. */
 export type PublishedOperation = { operation: string; declaration: JsonObject; answers: PublishedAnswer[] };
