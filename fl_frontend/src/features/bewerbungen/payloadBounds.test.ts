@@ -23,6 +23,7 @@ const FORM_COMPONENTS = [
   // season and the opponent it wishes for.
   "FLPostBewerbungPayload",
   "FLBewerbungSchulePayload",
+  "FLBewerbungAddressPayload",
   "FLBewerbungTrikotPayload",
   "FLBewerbungKaderPayload",
   "FLBewerbungKontaktpersonPayload",
