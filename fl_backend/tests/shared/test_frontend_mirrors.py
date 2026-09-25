@@ -224,13 +224,46 @@ def _declared_bounds() -> dict[str, int]:
     return {name: value for name, value in vars(bounds).items() if name.isupper() and isinstance(value, int)}
 
 
-def _production_modules() -> dict[str, str]:
-    """Every non-test frontend module's text, by its path under `src/`."""
+ESLINT_CONFIG: Final = REPO_ROOT / "fl_frontend" / "eslint.config.mjs"
 
+# `fl_frontend/eslint.config.mjs :: specifierOf` throws on any other shape, so a `TEST_ONLY` group
+# writes a module or a directory and nothing else.
+SUITE_GLOB: Final = re.compile(r'"\*\*/(?P<name>[\w.-]+)(?P<directory>/\*\*)?"')
+
+
+class SuiteOnly(NamedTuple):
+    modules: frozenset[str]
+    directories: frozenset[str]
+
+
+def _suite_only() -> SuiteOnly:
+    """What `fl_frontend/eslint.config.mjs :: TEST_ONLY` keeps out of production, read rather than retyped."""
+
+    config = ESLINT_CONFIG.read_text(encoding="utf-8")
+    block = config[config.index("const TEST_ONLY = [") :]
+    block = block[: block.index("\n];")]
+    globs = list(SUITE_GLOB.finditer(block))
+    # Counted against every `**/` spelling, so a shape the reader cannot take fails rather than drops.
+    assert len(globs) == block.count('"**/'), f"{ESLINT_CONFIG.name}'s TEST_ONLY writes a glob this reader cannot take"
+    return SuiteOnly(
+        modules=frozenset(found["name"] for found in globs if found["directory"] is None and found["name"].endswith(".ts")),
+        directories=frozenset(found["name"] for found in globs if found["directory"] is not None),
+    )
+
+
+def _production_modules() -> dict[str, str]:
+    """Every frontend module's text but the suite's own, by its path under `src/`.
+
+    A test double or the harness taken as production could carry the only mention a floor below counts.
+    """
+
+    suite = _suite_only()
     return {
         path.relative_to(FRONTEND_SRC).as_posix(): path.read_text(encoding="utf-8")
         for path in FRONTEND_SRC.rglob("*.ts*")
         if not path.name.endswith((".test.ts", ".test.tsx"))
+        and path.name not in suite.modules
+        and suite.directories.isdisjoint(path.relative_to(FRONTEND_SRC).parts[:-1])
     }
 
 
@@ -238,6 +271,16 @@ def _modules_naming_the_source() -> set[str]:
     """Every non-test frontend module any of whose comments claims a mirror, whether or not the claim governs a constant."""
 
     return {module for module, source in _production_modules().items() if any(_claims_a_mirror(comment.text) for comment in _comments(source))}
+
+
+def test_every_module_the_lint_config_keeps_to_the_suite_is_one_the_walk_meets():
+    """A reader that took nothing off the config, or a stale name, would leave the suite's modules in the production walk."""
+
+    suite = _suite_only()
+    present = {path.name for path in FRONTEND_SRC.rglob("*.ts")}
+
+    assert suite.modules, f"no module was read off {ESLINT_CONFIG.name}'s TEST_ONLY"
+    assert suite.modules <= present, f"{sorted(suite.modules - present)} are kept to the suite and exist nowhere under src/"
 
 
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
@@ -1309,15 +1352,11 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
 def _claimed_pattern_mirrors() -> set[tuple[str, str]]:
     """Every frontend regular-expression constant whose own comment block names a module in this package."""
 
-    claimed: set[tuple[str, str]] = set()
-    for path in FRONTEND_SRC.rglob("*.ts*"):
-        if path.name.endswith((".test.ts", ".test.tsx")):
-            continue
-        module = path.relative_to(FRONTEND_SRC).as_posix()
-        claimed.update(
-            (module, name) for name in _attributed(path.read_text(encoding="utf-8"), REGEX_EXPORT, lambda block: PATTERN_CLAIM in block)
-        )
-    return claimed
+    return {
+        (module, name)
+        for module, source in _production_modules().items()
+        for name in _attributed(source, REGEX_EXPORT, lambda block: PATTERN_CLAIM in block)
+    }
 
 
 def _declared_backend_patterns() -> set[str]:
