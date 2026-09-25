@@ -7,15 +7,17 @@ Traced as `tests/core/test_duplicate_key_publication.py` traces writes: each han
 through the application's own functions, nested callbacks read with the function declaring them.
 """
 
+import ast
 import functools
 from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.main import create_app
 from tests.config import build_test_config
-from tests.core.app_source import BACKEND_ROOT, Declaration, api_routes, declared, module_of, resolve_callee, scoped_calls
+from tests.core.app_source import BACKEND_ROOT, Declaration, api_routes, callee, declared, module_of, resolve_callee, scoped_calls
 
 # A rule's check a route reaches without `RULES` naming it, with why the call there cannot raise its
 # code. Only a call whose arguments disarm the check belongs here; reading, not the trace, holds that.
@@ -54,12 +56,44 @@ SECOND_IMPLEMENTER: Mapping[tuple[str, str], str] = {
 PREFIX = f"/api/v{API_VERSION}"
 
 
-def _reached(declaration: Declaration, path: Path, seen: set[tuple[Path, int]]) -> Iterator[str]:
-    """Every application function `declaration` calls, at any depth, as `RULES` spells an `implemented_by`."""
+# The bare names the checks are declared under, which is all a call through a module or a value can spell.
+CHECK_NAMES = frozenset(rule.implemented_by.rsplit(".", 1)[1] for rule in RULES)
+
+
+@dataclass
+class _Reach:
+    """What one operation's handler reaches: the functions, as `RULES` spells an `implemented_by`."""
+
+    functions: set[str] = field(default_factory=set)
+    #: A rule's check the trace could not follow: called through a module, or held as a value.
+    blind: set[str] = field(default_factory=set)
+
+
+def _names(declaration: Declaration) -> Iterator[tuple[ast.Name | ast.Attribute, str]]:
+    for node in ast.walk(declaration):
+        if isinstance(node, ast.Name):
+            yield node, node.id
+        elif isinstance(node, ast.Attribute):
+            yield node, node.attr
+
+
+def _trace(declaration: Declaration, path: Path, reach: _Reach, seen: set[tuple[Path, int]]) -> None:
+    here = path.relative_to(BACKEND_ROOT).as_posix()
+
+    # `resolve_callee` follows a bare name alone, so a check reached any other way raises a code
+    # the trace never sees: each such reference is recorded rather than passed over.
+    called = {id(node.func) for node in ast.walk(declaration) if isinstance(node, ast.Call)}
+    reach.blind.update(
+        f"{here}:{node.lineno} holds `{ast.unparse(node)}` as a value"
+        for node, name in _names(declaration)
+        if name in CHECK_NAMES and id(node) not in called
+    )
 
     for chain, call in scoped_calls(declaration, (declaration,)):
         resolved = resolve_callee(call, chain, path)
         if resolved is None:
+            if callee(call) in CHECK_NAMES:
+                reach.blind.add(f"{here}:{call.lineno} calls `{ast.unparse(call.func)}`, which the trace cannot follow")
             continue
 
         target, target_path = resolved
@@ -67,19 +101,20 @@ def _reached(declaration: Declaration, path: Path, seen: set[tuple[Path, int]]) 
             continue
         seen.add((target_path, target.lineno))
 
-        yield ".".join((*target_path.relative_to(BACKEND_ROOT).with_suffix("").parts, target.name))
-        yield from _reached(target, target_path, seen)
+        reach.functions.add(".".join((*target_path.relative_to(BACKEND_ROOT).with_suffix("").parts, target.name)))
+        _trace(target, target_path, reach, seen)
 
 
 @functools.cache
-def _reach() -> Mapping[str, frozenset[str]]:
-    """Each served operation, keyed as `RULES` spells one, with every function its handler reaches."""
+def _reach() -> Mapping[str, _Reach]:
+    """Each served operation, keyed as `RULES` spells one."""
 
-    reach: dict[str, frozenset[str]] = {}
+    reach: dict[str, _Reach] = {}
     for route in api_routes(create_app(build_test_config())):
-        functions = frozenset(_reached(declared(route.endpoint), module_of(route.endpoint), set()))
+        traced = _Reach()
+        _trace(declared(route.endpoint), module_of(route.endpoint), traced, set())
         for method in route.methods or ():
-            reach[f"{method} {route.path_format.removeprefix(PREFIX)}"] = functions
+            reach[f"{method} {route.path_format.removeprefix(PREFIX)}"] = traced
 
     return reach
 
@@ -92,9 +127,15 @@ def _unnamed_reaches() -> set[tuple[str, str]]:
     return {
         (rule.code, operation)
         for rule in RULES
-        for operation, functions in _reach().items()
-        if rule.implemented_by in functions and operation not in _named(rule.operation)
+        for operation, reach in _reach().items()
+        if rule.implemented_by in reach.functions and operation not in _named(rule.operation)
     }
+
+
+def test_the_trace_follows_every_reference_to_a_rules_check():
+    """A check called through its module, or handed on as a value, raises its code where the cases below see nothing."""
+
+    assert sorted({entry for reach in _reach().values() for entry in reach.blind}) == []
 
 
 def test_an_operation_reaching_a_rules_check_is_one_rules_names():
@@ -115,7 +156,7 @@ def test_every_operation_rules_names_reaches_the_rules_check():
         (rule.code, operation)
         for rule in RULES
         for operation in _named(rule.operation)
-        if rule.implemented_by not in _reach().get(operation, frozenset())
+        if operation not in _reach() or rule.implemented_by not in _reach()[operation].functions
     }
 
     assert sorted(unreached - SECOND_IMPLEMENTER.keys()) == []

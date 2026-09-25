@@ -45,6 +45,7 @@ from tests.core.app_source import (
     callee,
     declared,
     module_of,
+    parsed,
     resolve_callee,
     scoped_calls,
 )
@@ -343,13 +344,32 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
         (module, call.lineno)
         for module, _, call in app_calls()
         if module != CRUD.relative_to(BACKEND_ROOT).as_posix()
-        if (isinstance(call.func, ast.Name) and callee(call) in WRITE_HELPERS)
-        or (isinstance(call.func, ast.Attribute) and callee(call) in DRIVER_WRITES)
+        # A helper called through its module too, which `resolve_callee` cannot follow: counted here,
+        # it is a write no route's trace reaches.
+        if callee(call) in WRITE_HELPERS or (isinstance(call.func, ast.Attribute) and callee(call) in DRIVER_WRITES)
     }
     reached = {write.site for _, writes in _write_operations().values() for write in writes}
 
     assert made, "no write call site was found, so the comparison below holds over nothing"
     assert sorted(made - reached) == [], "writes no route's trace reaches, so a route making them publishes nothing about their unique indexes"
+
+
+def test_no_write_helper_is_held_as_a_value():
+    """A callback or a partial writes where no call site names the helper, so neither listing above would see the write."""
+
+    held = [
+        f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        if path != CRUD
+        for tree in (parsed(path),)
+        for called in ({id(call.func) for call in ast.walk(tree) if isinstance(call, ast.Call)},)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Name, ast.Attribute))
+        and (node.id if isinstance(node, ast.Name) else node.attr) in WRITE_HELPERS
+        and id(node) not in called
+    ]
+
+    assert held == []
 
 
 def test_the_draws_bulk_inserts_reach_a_unique_index_on_their_own():
