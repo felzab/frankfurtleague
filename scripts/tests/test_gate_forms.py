@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import BASH, base_env, copy_scripts, new_root, run_shell, write_shell
 from test_gate_prerequisites import PAST_THE_GUARD
 
@@ -35,6 +36,10 @@ FLAGS: Final = "--frontend"
 STUB_PNPM: Final = """#!/usr/bin/env bash
 set -u
 printf 'worker=%s step=%s\\n' "${FL_GATE_WORKER:-}" "${FL_GATE_STEP:-}" > "${FL_STUB_LOG}/${1//:/-}-$$-${RANDOM}"
+if [[ -n "${FL_STUB_REFUSE:-}" && "${1:-}" == "${FL_STUB_REFUSE}" ]]; then
+  printf '%s\\n' "[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] The lockfile does not satisfy project of id ."
+  exit 1
+fi
 if [[ -n "${FL_STUB_FAIL:-}" && "${1:-}" == "${FL_STUB_FAIL}" ]]; then
   printf '%s\\n' "the stub failed ${1}"
   exit 1
@@ -109,7 +114,9 @@ def _fixture() -> Fixture:
 
 
 @cache
-def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = False) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
+def _run(
+    *flags: str, fails: str = "", refuses: str = "", ci: bool = False, below_floor: bool = False
+) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
     Cached on every argument: the cases below share their runs, and each costs a second.
@@ -130,6 +137,7 @@ def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = Fal
         environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
+    environment["FL_STUB_REFUSE"] = refuses
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
     # and an interleaved append loses exactly the row that tells the two forms apart.
@@ -289,3 +297,22 @@ def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -
         # The captured form is the control: a count of 1 there is the replay this guard keeps off
         # the streamed form, so a stub that stopped printing fails here rather than passing both.
         assert (done.stdout + done.stderr).count(POPULATION) == 1, f"the {form} form:\n{done.stdout}{done.stderr}"
+
+
+# The unit test runner's own subcommand: `do_unit_tests` runs `pnpm test` with the shard's patterns.
+UNIT_TESTS: Final = "test"
+
+
+@pytest.mark.parametrize(("scope", "subcommand"), [("--format", "format:check"), ("--frontend-units", UNIT_TESTS)])
+def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(scope: str, subcommand: str) -> None:
+    """Exit 2: pnpm stopped the script before it ran, so the step judged nothing (`.claude/CLAUDE.md` §7 **exit codes**).
+
+    The same subcommand failing on its own is the control: a runner refusing every stop passes nothing.
+    """
+    refused, _ = _run(scope, refuses=subcommand)
+    output = refused.stdout + refused.stderr
+    assert refused.returncode == 2, output
+    assert "pnpm's dependency check stopped this step" in output and "cd fl_frontend && pnpm install" in output, output
+    assert "finding(s) in this run" not in output, output
+    failed, _ = _run(scope, fails=subcommand)
+    assert failed.returncode == 1, failed.stdout + failed.stderr
