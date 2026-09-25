@@ -226,11 +226,8 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const bound = boundCall(MAIL_TIMEOUT_MS);
 
-  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
-  // a status and the provider's code reach no stream otherwise. The recipient never travels on
-  // either line (`docs/logging/spec.md :: L9`).
-  const failNetwork = (error: unknown) => {
-    const failure = new APINetworkError({
+  const failNetwork = (error: unknown) =>
+    new APINetworkError({
       message: "Mail request failed.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: MAIL_ENDPOINT,
@@ -240,13 +237,15 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
       originalError: error,
     });
 
+  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
+  // a status and the provider's code reach no stream otherwise. The recipient never travels on
+  // either line (`docs/logging/spec.md :: L9`).
+  const logNetwork = (failure: APINetworkError) => {
     logger.error("mail.send_failed", undefined, {
       error_code: failure.code,
       is_timeout: failure.isTimeout,
       trace_id: traceId,
     });
-
-    return failure;
   };
 
   const headers: Record<string, string> = {
@@ -319,26 +318,38 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   try {
     // Refused unsent once the request's deadline is spent (`docs/frontend/spec.md :: I366`).
-    if (bound.signal.aborted) throw failNetwork(bound.signal.reason);
+    if (bound.signal.aborted) {
+      const refused = failNetwork(bound.signal.reason);
+      logNetwork(refused);
+      throw refused;
+    }
+
+    /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */
+    const logGivenUp = (error: unknown) => {
+      if (error instanceof MailSendError) logRefusal(error);
+      else if (error instanceof APINetworkError) logNetwork(error);
+    };
 
     for (let attemptNumber = 1; ; attemptNumber++) {
       try {
         return await attempt();
       } catch (error) {
-        // A network failure and a timeout are never retried: the provider may have accepted the
-        // request before the connection broke, and a second send without an idempotency key is a
-        // second message to a real person.
-        if (!(error instanceof MailSendError)) throw error;
+        // A network failure is tried again only under an idempotency key, which the provider
+        // documents as collapsing the repeat of a message it accepted before the connection broke:
+        // without one, that repeat is a second message to a real person.
+        const repeatable =
+          error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError && idempotencyKey !== undefined;
 
-        if (!error.isTransient || attemptNumber >= MAIL_ATTEMPTS) {
-          logRefusal(error);
+        // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
+        if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) {
+          logGivenUp(error);
           throw error;
         }
 
         logger.warn("mail.send_retried", {
-          error_code: error.code,
-          status_code: error.statusCode,
-          provider_error_name: error.providerErrorName,
+          error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
+          status_code: error instanceof MailSendError ? error.statusCode : undefined,
+          provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
           trace_id: traceId,
         });
 
@@ -347,7 +358,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
         // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
         // kills, reporting the provider's own refusal as this application's timeout.
         if (bound.signal.aborted) {
-          logRefusal(error);
+          logGivenUp(error);
           throw error;
         }
       }

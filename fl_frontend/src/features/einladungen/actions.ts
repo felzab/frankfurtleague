@@ -24,6 +24,9 @@ import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
 import type { EinladungVersandErgebnis } from "./types";
 
+/** Scopes the bulk send's key to the row each team's link was minted on, which no second press reuses. */
+const VERSAND_IDEMPOTENZ_TAG = "versand";
+
 /**
  * Mints the team's link for the season, closing any live one in the same transaction. **The raw link
  * value is answered once and stored nowhere**, so the panel showing it holds the only copy an
@@ -283,10 +286,10 @@ export async function postEinladungVersandAction(
 
       const outcome = await sendZielMail({
         operation: "postEinladungVersandAction",
-        // No idempotency key: this press MINTS for every team it answers a link value for, so a
-        // second press carries a different link in the same envelope
+        // Its own tag, not the single press's day: that press may mail this row today under the club's
+        // name where this carries the season's, and a key reused over another body is refused
         // (`fl_frontend/src/features/zustellung/notifications.ts :: zielIdempotenzSchluessel`).
-        auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung" },
+        auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung", idempotenzTag: VERSAND_IDEMPOTENZ_TAG },
         // The addresses inside one team stay concurrent: three at most, and `sendZielMail` settles
         // them, so one refused mailbox cannot cost its siblings their message.
         recipients: zeile.empfaenger.map((seat) => seat.email),

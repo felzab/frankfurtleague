@@ -21,8 +21,8 @@ export type ZielAuftrag = {
   zielId: string;
   anlass: ZustellAnlass;
   /**
-   * The day the idempotency key is scoped to, set ONLY where the body cannot change inside the
-   * provider's window: a key reused over a changed body is refused rather than ignored.
+   * What the key is scoped to beside the record, a day or a press, set ONLY where the body cannot
+   * change inside the provider's window. It also lets the transport retry a broken send.
    */
   idempotenzTag?: string;
 };
@@ -59,9 +59,9 @@ export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Recor
 }
 
 /**
- * **Only for a message whose body cannot change inside the provider's 24-hour window.** A reused key
- * over a different body is refused rather than ignored, so any message carrying a freshly minted
- * token must go without one.
+ * **Only for a message whose body cannot change inside the provider's 24-hour window**, a key reused
+ * over another body being refused: a token minted again under one record goes keyless, one minted on
+ * its own record keys safely.
  */
 export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string): string {
   return [anlass, ziel, zielId, tag].join("_");

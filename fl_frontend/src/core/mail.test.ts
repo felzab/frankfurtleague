@@ -535,6 +535,32 @@ describe("a refusal the mail transport tries again", () => {
     assert.equal(sends.length, 1);
   });
 
+  /* Under a key the provider answers a repeat with the message it already accepted, and sends nothing
+     again (https://resend.com/docs/dashboard/emails/idempotency-keys, read 2026-09-25): the one case
+     a broken connection is safe to try again. */
+  it("sends again after a connection failure under an idempotency key, answering the id it then gave", async () => {
+    let broke = false;
+    respond = async () => {
+      if (!broke) {
+        broke = true;
+        throw new TypeError("fetch failed");
+      }
+      return jsonResponse({ id: "01HZ" }, 200);
+    };
+
+    assert.deepEqual(await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }), { id: "01HZ" });
+    assert.equal(sends.length, 2);
+    assert.deepEqual(
+      sends.map((send) => new Headers(send.init.headers).get("Idempotency-Key")),
+      ["einladung_einladung_e_versand", "einladung_einladung_e_versand"],
+      "the repeat went out under another key, or none",
+    );
+    assert.deepEqual(
+      logs.map((line) => line.message),
+      ["mail.send_retried"],
+    );
+  });
+
   it("gives up after three attempts and logs the refusal once", async () => {
     answersInTurn([429, 500, 503]);
 

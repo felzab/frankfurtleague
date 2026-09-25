@@ -165,7 +165,8 @@ call's own bound to what is left and start none once it has passed. **A write th
 of unknown outcome wherever the deadline cut a call or a mail may have gone**, whatever the handler
 made of either: part of the write may stand, as it may where the backend's own deadline cuts one
 (`docs/backend/spec.md :: I321`). Both mail fan-outs count a send that broke off unanswered as neither
-delivered nor unreachable. The deadline sits under the edge's cut by what the
+delivered nor unreachable, and a send carrying an idempotency key is tried again after a broken
+connection, the provider collapsing the repeat. The deadline sits under the edge's cut by what the
 same response spends outside it — the proxy's session read before the action, and the page's
 re-render after it, whose reads keep their own bounds — so a person is answered by this application
 rather than by nginx's 504.

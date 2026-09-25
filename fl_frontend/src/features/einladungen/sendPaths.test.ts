@@ -263,10 +263,16 @@ describe("what the season-wide press answers", () => {
     );
   });
 
-  it("keys no send of its own, every team being minted for in the same request", async () => {
-    await pressSeason([zeile("aa", "t-aa", null)]);
+  /* Keyed per minted row, so the provider collapses a transport retry of a broken send, and on a tag
+     no day spells, so the single press mailing this row today under the club's own name is not refused. */
+  it("keys each team's send on the row its link was minted on, apart from the single press's day", async () => {
+    await pressSeason([zeile("aa", "t-aa", null), zeile("bb", "t-bb", null)]);
 
-    assert.equal(mails[0]?.auftrag.idempotenzTag, undefined);
+    const keyed = mails.map(({ auftrag }) => [auftrag.zielId, auftrag.idempotenzTag]);
+    assert.equal(new Set(keyed.map(([zielId]) => zielId)).size, 2, "two teams' sends share one record");
+    for (const [, tag] of keyed) {
+      assert.ok(tag !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(tag), `a send was keyed ${String(tag)}`);
+    }
   });
 
   /* Outside production every address is withheld, so a row that cannot tell the two apart reports
