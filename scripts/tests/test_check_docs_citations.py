@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Final
 
+import pytest
 from conftest import write
 from test_check_docs import (
     ABSENT_ANCHOR,
@@ -355,6 +356,29 @@ def test_a_shape_the_backend_hands_over_and_the_gate_does_not_read_is_named_both
         _reset()
     assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 2, _shape(reported)
     assert "a shape the gate does not read" in output and "a shape the gate reads too" in output, output
+    _assert_corpus_restored()
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param("re.compile(pattern)", "re.compile(pattern, re.IGNORECASE)", id="flag-by-position"),
+        pytest.param("re.compile(pattern)", "re.compile(pattern, flags=re.IGNORECASE)", id="flag-by-keyword"),
+        pytest.param("re.compile(pattern)", "re.compile(pattern.lower())", id="transformed-pattern"),
+        pytest.param("\n))", "\n) if pattern)", id="filtered-patterns"),
+    ],
+)
+def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str, new: str) -> None:
+    """Every pattern's text still the gate's, so only the form tells that the backend matches otherwise."""
+    _reset()
+    _replace(SHAPE_CLASSIFIER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 1, _shape(reported)
+    assert "no bare `re.compile(pattern)` over literal patterns" in output, output
     _assert_corpus_restored()
 
 
