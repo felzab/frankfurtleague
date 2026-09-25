@@ -20,7 +20,8 @@ class FLRefusedField(BaseModel):
     # The first member of every `loc` FastAPI reports: a set that moves with FastAPI, never with this file.
     in_: Literal["body", "query", "path", "header", "cookie"] = Field(alias="in")
     path: list[str | int]
-    # Pydantic's error `type`, never its English `msg` (`docs/logging/spec.md :: L4`).
+    # Pydantic's error `type`, never its English `msg` (`docs/logging/spec.md :: L4`); on a domain rule's
+    # 422, the rule's own code.
     kind: str
 
 
