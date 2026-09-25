@@ -173,6 +173,11 @@ WINDOWS_TERMINATED: Final[tuple[str, ...]] = (
     "child.wait(timeout=30)",
 )
 
+# Two bounds, the inner the smaller: the double's own wait for `held` must report before the case's
+# timeout does, whose message names a different failure (the pair is held in order by the case).
+HELD_START_S: Final = 30
+STOPPED_BOUND_S: Final = 90
+
 STOPPED: Final[tuple[str, ...]] = (
     "import time",
     "running = pool()",
@@ -185,7 +190,12 @@ STOPPED: Final[tuple[str, ...]] = (
     "    if unit.name != 'raiser':",
     "        real_run_unit(running_pool, unit)",
     "        return",
+    f"    deadline = time.monotonic() + {HELD_START_S}",
     "    while 'held' not in running_pool.live:",
+    "        if time.monotonic() > deadline:",
+    # Stopped first, so a unit starting late cannot hold the executor's join past the case's bound.
+    "            gate_pool.terminate(running_pool)",
+    "            raise SystemExit('held never started')",
     "        time.sleep(0.05)",
     "    raise KeyboardInterrupt",
     "gate_pool.run_unit = interrupting",
@@ -362,8 +372,9 @@ def test_a_stop_on_windows_terminates_the_child_rather_than_signalling_a_group(t
 
 def test_an_interrupt_ends_the_units_before_the_run_waits_on_them(tmp_path: Path) -> None:
     """A unit runs in a session of its own, so Ctrl-C reaches this process alone -- and terminating after the join waits out the build."""
+    assert HELD_START_S < STOPPED_BOUND_S, "the double's wait would outlast the case's own bound, whose message names another failure"
     try:
-        result = _drive(STOPPED, tmp_path, timeout=90)
+        result = _drive(STOPPED, tmp_path, timeout=STOPPED_BOUND_S)
     except subprocess.TimeoutExpired:
         raise AssertionError("the run waited on the unit it had been told to stop") from None
     assert result.returncode == 0, result.stderr
