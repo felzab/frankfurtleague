@@ -132,6 +132,8 @@ const TEST_ONLY = [
       "**/edgeRedaction",
       "**/treeWalk.ts",
       "**/treeWalk",
+      "**/schemaModules.ts",
+      "**/schemaModules",
     ],
     message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
   },

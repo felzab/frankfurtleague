@@ -19,6 +19,8 @@ import { redact } from "./edgeRedaction"; // expect: test-only
 import { redact as redactTyped } from "./edgeRedaction.ts"; // expect: test-only
 import { walkFiles } from "./treeWalk"; // expect: test-only
 import { walkFiles as walkFilesTyped } from "./treeWalk.ts"; // expect: test-only
+import { schemaModules } from "./schemaModules"; // expect: test-only
+import { schemaModules as schemaModulesTyped } from "./schemaModules.ts"; // expect: test-only
 import { DOCUMENT_PATH } from "./openapiDocument"; // expect: test-only
 import { DOCUMENT_PATH as DOCUMENT_PATHTyped } from "./openapiDocument.ts"; // expect: test-only
 import { publishedCeilings } from "./publishedCeilings"; // expect: test-only
@@ -39,7 +41,7 @@ import { registerHooks as hookVia } from "module"; // expect: node-module
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
-export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
