@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
-import { beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { mapAdresseRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
@@ -22,6 +23,7 @@ const SENT = "__flSperreSentMail";
 const POSTED = "__flSperrePosted";
 const ANSWER = "__flSperrePostAnswer";
 const SEND_FAILS = "__flSperreSendFails";
+const DELETE_REFUSAL = "__flSperreDeleteRefusal";
 
 const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -36,6 +38,8 @@ const MUTATIONS_DOUBLE = `export const postSperre = async (payload) => {
 };
 export const deleteSperre = async () => {
   globalThis.${EVENTS}.push("delete");
+  const refusal = globalThis.${DELETE_REFUSAL};
+  if (refusal !== undefined) throw refusal;
   return { acknowledged: 1, sperrliste_id: "6890a1b2c3d4e5f607190001" };
 };`;
 
@@ -90,8 +94,6 @@ globals[POSTED] = posted;
 globals[SEND_FAILS] = false;
 globals[ANSWER] = { acknowledged: 1, created_id: "6890a1b2c3d4e5f607190001", gesperrt_bis_saison_id: ANSWERED_BOUND };
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "sperrliste", "page.tsx"), "utf8");
 /** Whitespace-collapsed: the page's copy is JSX text, so the formatter picks its line breaks. */
@@ -105,8 +107,8 @@ const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/pa
 const PAGE_MARKUP = renderTree(underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" }));
 
 /**
- * One function body's statements, comments and blank lines dropped. What the text tests below can
- * assert is the SHAPE of a handler; that it behaves is not reachable from here.
+ * One function body's statements, comments and blank lines dropped, so an index counts statements and
+ * never the comment above one.
  */
 function statementsOf(slice: string): string[] {
   return slice
@@ -115,20 +117,9 @@ function statementsOf(slice: string): string[] {
     .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
 }
 
-/* The removal alone, and the last declaration in the file: a search over the whole source is
-   satisfied by the create, which does carry a mapper. */
-const REMOVE_ACTION = sliceBetween(ACTIONS, "export async function deleteSperreAction", null);
-
 const CREATE_OPERATION = "POST /sperrliste";
 
-describe("the address a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the removal out of the file before reading it", () => {
-    assert.ok(REMOVE_ACTION.includes("deleteSperre(validated.data)"), "the removal's call is outside its slice");
-  });
-});
-
-const { postSperreAction } = await import("./actions.ts");
+const { deleteSperreAction, postSperreAction } = await import("./actions.ts");
 const { SPERRE_ERFOLG } = await import("./constants.ts");
 
 const BARRED = "zorbanax@beispielschule.de";
@@ -231,10 +222,19 @@ describe("the message the barred person is sent", () => {
 });
 
 describe("the ban list's removal", () => {
+  afterEach(() => {
+    globals[DELETE_REFUSAL] = undefined;
+  });
+
   /* A removal whose row another administrator has already lifted answers 404, which
      `fl_frontend/src/shared/utils/actionError.ts` already words as the reload it is. */
-  it("leaves the removal with no mapper of its own", () => {
-    assert.doesNotMatch(REMOVE_ACTION, /serverErrorCode/, "the removal maps a code the shared reader already answers");
+  it("answers a row already lifted in the shared reader's words", async () => {
+    const lifted = refusedOn("DELETE /sperrliste/{sperrliste_id}", "DB-COMMON-001", 404);
+    globals[DELETE_REFUSAL] = lifted;
+
+    const result = await deleteSperreAction({ id: "6890a1b2c3d4e5f607190001" });
+
+    assert.deepEqual(result, toActionErrorResult(lifted, { method: "POST", readOnly: false }));
   });
 });
 
