@@ -167,6 +167,13 @@ describe("the saison actions against the codes their endpoints publish", () => {
     });
   });
 
+  /* One club named on both sides has a code of its own, which only a stale picker sends: it is worded
+     as a pair standing in one group is, with the same reload. */
+  it("words one club named on both sides as the pair gone stale", () => {
+    assert.equal(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007")), mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-001")));
+    assert.notEqual(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007")), null);
+  });
+
   it("answers every refusal the draw publishes, the shared rules faults included", async () => {
     assert.deepEqual(
       publishedRefusals(DRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),

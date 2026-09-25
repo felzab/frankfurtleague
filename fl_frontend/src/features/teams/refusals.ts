@@ -95,10 +95,9 @@ export function mapReplacementRefusal(error: unknown): string | null {
     // The Austritt is on another page; the sentence says which.
     return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, ein Elfmeterschießen, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
-  if (error.serverErrorCode === "REQ-REPLACE-003") {
-    // One code, two pictures: a club named on both ends lands here too, because the row being
-    // replaced is one that club holds. PLATZ and never „spielt“ — the condition is a `saison_teams`
-    // row of ANY kind, and a withdrawn club still holds one.
+  if (error.serverErrorCode === "REQ-REPLACE-003" || error.serverErrorCode === "REQ-REPLACE-004") {
+    // Two codes, one sentence naming both pictures: `-004` is one club named on both ends. PLATZ and
+    // never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn club still holds one.
     return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Wähle ein Team ohne Platz in dieser Saison; ein ausgeschiedenes behält seinen.";
   }
   if (error.serverErrorCode === "REQ-ENTER-005") {

@@ -221,7 +221,10 @@ export function mapSwapRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // `-007` is one club named on both sides, which the picker offers only on a page gone stale: the
+    // same sentence and the same reload serve it.
     case "REQ-SWAP-001":
+    case "REQ-SWAP-007":
       return "Die beiden Teams stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.";
     case "REQ-SWAP-003":
       return "Diese Saison ist inzwischen abgeschlossen. Lade die Seite neu.";

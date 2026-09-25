@@ -39,7 +39,7 @@ const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace
 const JUNCTION_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
 
 const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
-const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
+const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003", "REQ-REPLACE-004"];
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_ID = "2026";
@@ -76,7 +76,7 @@ describe("the team actions against the codes their endpoints publish", () => {
     );
   });
 
-  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 it does not
+  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a refusal it does not
      word with no reason, which a retry meets again. */
   it("answers every refusal the replacement publishes with the replacement's own mapper", async () => {
     for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
@@ -224,14 +224,15 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
   });
 
-  /* Both shapes at once: the row being replaced is itself a row the incoming club holds, so a club
-     named on both ends lands on this code too. */
+  /* Both shapes in one sentence: a club already holding a row, and one club named on both ends, which
+     the backend refuses under a code of its own and the admin reads the same way. */
   it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
     const message = replacementMessage("REQ-REPLACE-003");
 
     assert.match(message, /schon einen Platz/);
     assert.match(message, /dasselbe Team/);
     assert.doesNotMatch(message, /spielt/, "a withdrawn club holds a row and plays nothing");
+    assert.equal(replacementMessage("REQ-REPLACE-004"), message, "one club named on both ends is worded apart");
   });
 
   /* Both mappers answer `REQ-ENTER-005`, about different clubs: the entry is refused for the club

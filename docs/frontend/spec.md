@@ -151,7 +151,7 @@ disagree about who finished second.
 Every admin mutation is a server action running inside
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, whose guard answers a caller
 with no admin session with an access-denied `FormState` before the action's body runs (I7), and
-without which a 409 crosses the server-action boundary redacted and replaces the admin page with the
+without which a refusal crosses the server-action boundary redacted and replaces the admin page with the
 error page ([`docs/logging/error-codes.md`](../logging/error-codes.md)). **No action declares whether
 it writes: the spine reads it off the request.** `fl_frontend/src/core/api.ts :: apiClient` and
 `fl_frontend/src/core/mail.ts :: sendMail` record each call that may write as they send it, the API
