@@ -219,6 +219,10 @@ GATE_WIDTH_DB_PYTEST=6
 # MEASURED 2026-09-07 idle, each width a converged pair: 4 gave 21.0/20.9s against 18.5/18.5s at
 # 6 and 19.2/19.4s at 8, while 3, 2 and 1 gave 24.0, 30.1 and 48-49s -- flat above, steep below.
 
+# MEASURED 2026-09-26 idle, five interleaved rounds of the default tier: 6 gave 17.6-18.3s against
+# 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
+GATE_WIDTH_BACKEND_PYTEST=6
+
 # --- what a unit runs --------------------------------------------------------------------------------
 
 # Every check that runs beside its neighbours is a `do_<check>` function, called by name: the pool
@@ -267,9 +271,10 @@ do_backend_ruff() {
   ( cd fl_backend && "$PY" -m ruff format --check app tests )
 }
 do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
-# One process, never `-n`: with no database or container in this tier, a worker's own interpreter
-# start is a real share of the work it would take, and the section closes inside `scripts` anyway.
-do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
+# Distributed by file as the db tier is: serial, this tier alone takes the backend job past its
+# budget on a runner. No worker starts a server (`fl_backend/tests/conftest.py ::
+# pytest_configure_node`).
+do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
 do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
