@@ -224,6 +224,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   barrier.arm(ids.length);
   const answers = await Promise.all(ids.map((id) => removePasskeyAction(id)));
   barrier.disarm();
+  assert.ok(await barrier.filled, "the removals were not all held at `passkey.deleteOne` or `user.findOneAndUpdate`, so no race was run");
   return {
     successes: answers.map((answer) => answer.success).sort(),
     refusals: answers.flatMap((answer) => (answer.success ? [] : [answer.error])),
