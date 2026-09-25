@@ -164,7 +164,9 @@ unknown outcome (I326) unless it is that write's own answer, which says whether 
 sent, a throw answers as its own request says. A sent write's success or unknown outcome refreshes
 the page (I233), and a body that sent none moves nothing; a panel refreshes it again only where its
 press may have brought no answer back, a rejected action reaching no server refresh, and does so
-through `fl_frontend/src/shared/utils/actionError.ts :: rejectedWrite` alone. A route handler's write
+through `fl_frontend/src/shared/utils/actionError.ts :: rejectedWrite` alone. Only a press holding no
+draft reads the page again on a rejection; an editor holding one says the outcome is unknown and
+reads nothing, since a reload would wipe the entries it has just kept. A route handler's write
 takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the same spine without the refresh Next refuses outside a server
 action.
 
