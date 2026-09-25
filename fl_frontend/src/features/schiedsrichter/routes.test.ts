@@ -3,18 +3,13 @@ import { describe, it } from "node:test";
 
 import { callPage, clearSteps, OBJECT_ID, readsOf, steps } from "@/shared/testing/pageHarness.ts";
 
-import type { PageProps } from "@/shared/testing/pageHarness.ts";
-
-// Typed as the props Next hands every page, which is what the harness calls a page with.
-const { default: AdminSchiedsrichterEditPage } = (await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx")) as {
-  default: (props: PageProps) => unknown;
-};
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 const { default: AdminSchiedsrichterPage } = await import("@/app/admin/schiedsrichter/page.tsx");
 
 /** Every read one page makes, each answered with the emptiest body its schema takes. */
-async function readsOfPage(Page: (props: PageProps) => unknown, params: Record<string, unknown>): Promise<ReturnType<typeof readsOf>> {
+async function readsOfPage<P>(Page: (props: P) => unknown, props: P): Promise<ReturnType<typeof readsOf>> {
   clearSteps();
-  const { thrown } = await callPage(Page, { params: Promise.resolve(params), searchParams: Promise.resolve({}) });
+  const { thrown } = await callPage(Page, props);
 
   assert.deepEqual(thrown, [], "the page threw before its reads were all made");
   return readsOf(steps);
@@ -25,7 +20,12 @@ describe("what each referee route asks the endpoint for", () => {
     // The list drops the ghost and every row a filter excludes, so a detail page served from it would
     // answer not-found for a referee whose editor this route is the only way into.
     assert.deepEqual(
-      (await readsOfPage(AdminSchiedsrichterEditPage, { schiedsrichter_id: OBJECT_ID })).map(({ endpoint }) => endpoint),
+      (
+        await readsOfPage(AdminSchiedsrichterEditPage, {
+          params: Promise.resolve({ schiedsrichter_id: OBJECT_ID }),
+          searchParams: Promise.resolve({}),
+        })
+      ).map(({ endpoint }) => endpoint),
       [`/schiedsrichter/${OBJECT_ID}`],
     );
   });
