@@ -30,6 +30,8 @@ from app.api.registrierungen.services import (
     undecided_erasure_is_due,
 )
 from app.api.saisons.crud import pull_current_saison
+from app.core.collections import Collection
+from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
@@ -268,6 +270,7 @@ class TestWhatThePassStamps:
         """One key over both passes would answer `it ran` for a registration sweep that stopped a week ago."""
 
         assert REGISTRIERUNG_SWEEP_FELD == "registrierung_sweep_gelaufen_am"
+        assert "sweep_gelaufen_am" in COLLECTION_VALIDATORS[Collection.SAISONS]["$jsonSchema"]["properties"]
         assert "sweep_gelaufen_am" not in build_stale_stamp_filter(today=TODAY)
 
 

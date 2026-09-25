@@ -102,6 +102,7 @@ class TestTheStoredBlock:
 
     def test_a_fresh_mint_chases_nobody_and_carries_no_delivery_state(self):
         assert LIVE_BLOCK["erinnert_am"] is None
+        assert "zustellung" in _SCHIEDSRICHTER_BESTAETIGUNG["properties"]
         assert "zustellung" not in LIVE_BLOCK
 
     def test_the_lookup_is_the_hash_alone(self):

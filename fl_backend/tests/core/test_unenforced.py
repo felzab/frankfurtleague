@@ -11,7 +11,7 @@ from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
 from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
@@ -855,6 +855,7 @@ class TestAFutureSeasonHoldingRecordedResults:
         for refusal in FIXTURE_PATCH_REFUSALS:
             assert "saison_status" not in inspect.signature(refusal).parameters, refusal.__name__
 
+        assert "status" in FLSaison.model_fields
         assert "status" not in FLSpiel.model_fields
 
     def test_the_set_above_is_every_refusal_the_endpoint_runs(self):
