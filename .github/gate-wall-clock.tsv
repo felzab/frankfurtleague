@@ -275,39 +275,61 @@
 # step 12's watchdog comparison, the two shard-matrix readers above and `job_names`' two samples --
 # started no gate run. Neither the reference nor the budget moves and neither takes a new stamp.
 #
-# `backend` gained a guard: `fl_backend/tests/tier.py` watches every default-tier test through the
-# driver's command listener and two hook wrappers. The whole default tier took 22.6-40.2 s without
-# it and 23.2-32.9 s with it, three interleaved rounds each at six workers, measured locally on
-# 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both spreads are upper
-# bounds and they overlap: the guard's cost is inside that machine's noise and inside the floor the
-# `backend` row carries. Neither the reference nor the budget moves and neither takes a new stamp.
+# `backend` gained a guard: `fl_backend/tests/tier.py :: TierGuard` watches every default-tier test
+# through the driver's command listener, wrappers around each test's setup, call and teardown and
+# around every fixture's setup, and a hook after each fixture's finalisation. The whole default tier
+# took 49.8-55.6 s without it and 50.5-66.3 s with it, three interleaved rounds each in the gate's
+# own serial form with `tests/core/test_tier.py` left out of both, the two quieter rounds putting
+# the guard at 0.5-0.7 s. Measured locally on 2026-09-25 on a sixteen-core Windows machine carrying
+# a fleet of agent sessions, so both spreads are upper bounds. The guard's cost sits inside the
+# floor the `backend` row carries; neither the reference nor the budget moves and neither takes a
+# new stamp.
 #
 # `ops` traded three mirror checkers for one exposure check and a header block in the edge test.
 # `nginx/edge_test.sh`, its header block now asking every location, took 3.21-3.33 s against
 # 2.85-3.08 s for the redaction test alone, three interleaved rounds each, measured locally on
 # 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so both ends are upper
-# bounds; `check_compose_model.py` is a standard-library read of two JSON files. Both sit inside
-# the floor the `ops` row carries, and no row moves.
+# bounds. It sits inside the floor the `ops` row carries, and no row moves.
 #
 # `scripts` gained a module: `scripts/tests/test_pre_commit_format.py` commits through
-# `.githooks/pre-commit` in six fresh repositories, 9.4-14.9 s over three runs of the module alone,
-# measured locally on 2026-09-23 on a sixteen-core machine carrying a fleet of agent sessions, so
-# an upper bound. `--dist loadfile` hands it one worker beside the suite's longer modules, so it
-# sits inside the floor the `scripts` row carries and no row moves.
+# `.githooks/pre-commit` in fresh repositories, each case starting a real `node` through
+# `.githooks/format-staged.mjs`. It took 44.5-115.0 s over five runs of the module alone against
+# 8.3-16.8 s for its six cases before the hook formatted the stage in one node process,
+# interleaved, and the three cases holding the hook's refusal of a commit its own formatting
+# emptied took 4.3-13.0 s of it. Measured locally on 2026-09-25 on a sixteen-core Windows machine
+# carrying a fleet of agent sessions, so every figure is an upper bound. `--dist loadfile` hands
+# the module to one worker, where it is among the suite's longest chunks.
 #
 # `scripts` gained a module: `scripts/tests/test_deploy_edge_config.py` drives the deploy's edge
-# functions behind a stand-in `docker`, 7.3-8.5 s over three runs of the module alone against
-# 5.5-6.2 s for `scripts/tests/test_deploy_streams.py` interleaved with it, measured locally on
-# 2026-09-24 on a sixteen-core machine carrying a fleet of agent sessions, so an upper bound. It is
-# shorter than the pre-commit module above, so it sits inside the floor the `scripts` row carries
-# and no row moves. `ops` runs the same `nginx -t` and edge test over the same files, mounted by
-# directory, and no row moves.
+# functions behind a stand-in `docker`, 10.0-10.7 s over three runs of the module alone against
+# 5.8-6.0 s for `scripts/tests/test_deploy_streams.py` interleaved with it, measured locally on
+# 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper
+# bound. It is shorter than the pre-commit module above, so it sits inside the floor the `scripts`
+# row carries and no row moves. `ops` runs `nginx -t` over `nginx/prod/` mounted by directory, as
+# production mounts it; the edge test mounts each file of `nginx/local/` by name beside its stub.
 #
-# `scripts` lost the comment classifier, its cases and its self-check step, and gained four cases
-# driving `verify.sh` over a fixture branch -- two named runs against the mapping, two
-# `--changed` runs. `scripts/tests/test_scope_decisions.py` and the classifier's own module took
-# 28.6-30.0 s together and the one module left takes 24.9-26.2 s, three interleaved rounds each on
-# the same machine and date, so the scope's cost falls. Lowering one is free, and no row moves.
+# `ops` gained a second nginx in the edge test, serving `nginx/prod/` behind a certificate made for
+# the run so the www redirect is requested, a render of the local stack's model so the edge starts
+# as compose starts it, a drive of its Control API, and a stand-in upstream sending a copy of every
+# security header. The edge test took 9.2-10.1 s over five runs against 3.7-6.5 s for the test
+# before it, interleaved, and 9.2-10.1 s without the header copies in the same rounds, one run of
+# 99.8 s under a saturated processor aside, so the copies cost less than this machine resolves.
+# The scope also gained the two Compose renders, 459-494 ms each; `check_compose_model.py` over
+# both, 155-164 ms end to end against 85-96 ms for the interpreter's own start, its connector-trust
+# rule 0.21-0.24 ms a call against 0.88-0.99 ms for its other rules; and a `docker image inspect`
+# ahead of `nginx -t`, 332-364 ms on a host holding the image, the pull it guards being the one the
+# parse paid before. Measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a
+# fleet of agent sessions, so every figure is an upper bound. The edge test's medians differ by
+# 5.5 s, past the 4.9 s floor the `ops` row carries before the renders are counted, so the first
+# main runs carrying them decide whether the row is re-stamped.
+#
+# `scripts` lost the comment classifier, its cases and its self-check step, and, when the local
+# scope mapping went, the cases in `scripts/tests/test_scope_decisions.py` that listed a fixture
+# branch or ran `verify.sh` over it. That module now takes 14.0-18.4 s against 29.2-71.4 s before
+# the mapping went, and `scripts/tests/test_gate_pool.py`, whose order case holds one unit open for
+# a second, 5.9-7.4 s against 4.9-10.4 s, three interleaved rounds each, measured locally on
+# 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so upper bounds.
+# The scope's cost falls; lowering one is free, and no row moves.
 #
 # `scripts` and `backend` gained a rule: ruff's `RUF100` refuses a `noqa` directive that suppresses
 # nothing. `ruff check --no-cache` took 505-753 ms with it against 495-716 ms without over
@@ -347,10 +369,12 @@
 # run that skipped no scope the runner skips the step without starting a shell, and only a run
 # already red pays for its one `echo`. The row's reference and budget do not move.
 #
-# `scripts` gained a module: `scripts/tests/test_image_pins.py` reads four files and runs in
-# 0.02-0.05 s over five runs, pytest's own figure, measured locally on 2026-09-25 on the
-# sixteen-core machine beside a fleet of agent sessions, so the upper end reads that load. It sits
-# inside the floor the `scripts` row carries, so neither its reference nor its budget moves.
+# `scripts` gained a module: `scripts/tests/test_image_pins.py` reads the files its
+# `:: DOCKERFILES`, `:: COMPOSE_FILES` and `:: SCRIPT_IMAGES` name, and its cases run in 0.03-0.04 s
+# over two runs of the module alone, pytest's own figure, inside 0.6-1.4 s of wall clock. Measured
+# locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so the
+# upper end reads that load. It sits inside the floor the `scripts` row carries, so neither its
+# reference nor its budget moves.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
