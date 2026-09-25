@@ -5,16 +5,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — the bar's `useUrlFilters` reads the first and every
-   `useSearchParams` the second. A Next release that moves either module fails this file at import. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSpiel } from "../../schemas.ts";
 
@@ -75,13 +69,7 @@ const ADMIN: ViewProps = {
   schiedsrichter: [{ id: BEISPIEL, name: "Rafael Beispiel" }],
 };
 
-const renderView = (query: string, props: ViewProps = ADMIN) =>
-  render(
-    h(AppRouterContext.Provider, {
-      value: nextRouter(),
-      children: h(SearchParamsContext.Provider, { value: new URLSearchParams(query), children: h(SpielsucheView, props) }),
-    }),
-  );
+const renderView = (query: string, props: ViewProps = ADMIN) => render(underNext(h(SpielsucheView, props), { search: query }));
 
 const PROMPT = "Suche nach einem Spiel oder setze einen Filter.";
 

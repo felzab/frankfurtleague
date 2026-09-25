@@ -5,15 +5,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries the router context, and the club popover's links read it. A Next release that
-   moves the module fails this file at import rather than quietly. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
@@ -55,10 +51,7 @@ const UNGESPIELT: FLSpiel = { ...HALBFINALE, ergebnis: null, elfmeterschiessen: 
 /** The open dialog, for a fixture of a running season unless told otherwise, and the way to take it down. */
 function openDialog(spiel: FLSpiel, isFinishedSaison = false): { dialog: HTMLElement; unmount: () => void } {
   const { unmount } = render(
-    h(AppRouterContext.Provider, {
-      value: nextRouter(),
-      children: h(SpielDetailsModal, { spielData: spiel, isOpen: true, onClose: () => undefined, today: "2026-09-14", isFinishedSaison }),
-    }),
+    underNext(h(SpielDetailsModal, { spielData: spiel, isOpen: true, onClose: () => undefined, today: "2026-09-14", isFinishedSaison })),
   );
 
   return { dialog: screen.getByRole("dialog", { name: "Spiel Nr. 13" }), unmount };
