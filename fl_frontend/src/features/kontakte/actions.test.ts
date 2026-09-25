@@ -10,7 +10,7 @@ import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -97,22 +97,8 @@ const listPage = () =>
     search: "saison_id=2526",
   });
 
-/** The season the address names. No empty value satisfies a season's rules. */
-const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", {
-  id: "2526",
-  status: "active",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
-});
+/** The season the address names. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 /* One club holding `BLOCK` in the season the address names; every other read takes the emptiest
    body its schema accepts. */

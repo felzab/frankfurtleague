@@ -21,7 +21,17 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answer, answerReadsWith, clearSteps, EMPTIEST_ANSWER, OBJECT_ID, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answer,
+  answerReadsWith,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  OBJECT_ID,
+  pageBody,
+  readsOf,
+  saisonFields,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -186,22 +196,8 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
 
-/** The season the address names. No empty value satisfies a season's rules. */
-const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", {
-  id: "2526",
-  status: "active",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
-});
+/** The season the address names. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
