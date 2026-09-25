@@ -20,6 +20,7 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -35,7 +36,7 @@ import type {
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
-import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
+import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -149,7 +150,7 @@ export function AdminSchiedsrichterEditForm({
   const validatePicked = (paths: readonly string[], picked: { default_payment: number | null }) =>
     validatePaths("schiedsrichter", { ...buildPayload(), ...picked }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SchiedsrichterFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
 
   const banners = buildSchiedsrichterBanners({
     isRetired,

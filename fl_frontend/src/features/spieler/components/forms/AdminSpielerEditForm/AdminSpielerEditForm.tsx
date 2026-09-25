@@ -23,6 +23,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
@@ -40,7 +41,7 @@ import type {
   FLSpielerRolle,
   FLSpielerStufe,
 } from "@/features/spieler/schemas";
-import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
+import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -152,7 +153,7 @@ export function AdminSpielerEditForm({
   const validateTeamSelection = (paths: readonly string[], selected: { team_id: string }) =>
     validatePaths("saisonSpieler", { ...buildSaisonPayload(), ...selected }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SpielerFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
 
   // Read off the DRAFT's team: moving the picker moves who already leads, and moves which squad the
   // save would be admitted to.

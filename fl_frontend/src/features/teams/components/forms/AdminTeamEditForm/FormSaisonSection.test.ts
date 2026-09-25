@@ -11,10 +11,11 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus.ts";
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
 const { answerWith } = doubleEveryAction();
@@ -24,8 +25,7 @@ const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
-/** No descriptor for any path, which is the state the panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<TeamFieldPath>(["gruppe", "trikot_farbe"]);
 
 const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
   id,

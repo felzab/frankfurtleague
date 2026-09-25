@@ -9,11 +9,12 @@ import { fireEvent, render } from "@testing-library/react";
 
 import { FLSpielAdminSchema, FLSpielSchema } from "@/features/spiele/schemas.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { FLSpiel, FLSpielQuelle } from "@/features/spiele/schemas.ts";
 import type { SpielBanner } from "./banners.ts";
 
@@ -79,8 +80,7 @@ const HERKUNFT_BANNER: SpielBanner = {
   inline: "team1-herkunft",
 };
 
-/** No descriptor for any of these paths, which is the state the picker stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SpielFieldPath>(["team1.team_id", "team1_quelle", "team2.team_id", "team2_quelle"]);
 
 type PickerProps = Parameters<typeof FormTeamPicker>[0];
 

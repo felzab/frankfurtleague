@@ -19,6 +19,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielortBanners } from "./banners";
@@ -27,7 +28,7 @@ import { FormMieteSection } from "./FormMieteSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLPatchSpielortPayload } from "@/features/spielorte/schemas";
-import type { FLSpielortDraftFields } from "@/features/spielorte/spielortDraftStatus";
+import type { FLSpielortDraftFields, SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLAddress } from "@/shared/schemas";
@@ -98,7 +99,7 @@ export function AdminSpielortEditForm({
   const validatePicked = (paths: readonly string[], picked: { default_mietpreis: number | null }) =>
     validatePaths("spielort", { ...buildPayload(), ...picked }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SpielortFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   const isAddressChanged = status.changed.some((field) => field.group === "Adresse");
 
   const banners = buildSpielortBanners({

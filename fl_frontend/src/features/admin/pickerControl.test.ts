@@ -8,8 +8,9 @@ import { createElement as h, useState } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
 
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { FLSonderereignis } from "@/features/spiele/schemas.ts";
 import type { FLGruppenNames } from "@/features/teams/schemas.ts";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption.ts";
@@ -22,8 +23,7 @@ const { FormSonderereignisSection } = await import("@/features/spiele/components
 const { RefusableSelect } = await import("@/shared/components/ui/RefusableSelect.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
-/** No descriptor for any field, which is the state an editor's panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SpielFieldPath>(["sonderereignis"]);
 
 const OPTIONS: RefusableOption[] = [{ id: "t1", name: "SG Alpha", meta: null, refusal: null }];
 

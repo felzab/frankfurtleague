@@ -4,16 +4,17 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { formPanel } from "@/shared/components/ui/formPanel.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
+
+import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 
 const { FormSonderereignisSection } = await import("./FormSonderereignisSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 type PanelProps = Parameters<typeof FormSonderereignisSection>[0];
 
-/** No descriptor for the field, which is the state the panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SpielFieldPath>(["sonderereignis"]);
 
 const PANEL: PanelProps = {
   sonderereignis: null,

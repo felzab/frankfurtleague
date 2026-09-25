@@ -148,6 +148,7 @@ type FLSpielFieldStatus = {
 export type FLSpielDraftStatus = {
   fields: readonly FLSpielFieldStatus[];
   byPath: ReadonlyMap<string, FLSpielFieldStatus>;
+  declared: ReadonlySet<string>;
   changed: readonly FLSpielFieldStatus[];
   expected: readonly FLSpielExpectedField[];
   invalid: readonly FLSpielFieldStatus[];
@@ -408,6 +409,8 @@ export function deriveSpielDraftStatus({
   return {
     fields,
     byPath: new Map(fields.map((field) => [field.path, field])),
+    // Every descriptor applies to every draft here, so the rows are the whole table.
+    declared: new Set(fields.map((field) => field.path)),
     changed,
     // The severity is set exactly when a field is waited on, so one test both selects the rows and
     // narrows them to the three keys the marker and the open-items card read.

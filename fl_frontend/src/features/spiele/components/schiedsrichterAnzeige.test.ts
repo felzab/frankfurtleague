@@ -5,11 +5,12 @@ import { createElement as h } from "react";
 
 import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
-import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
+import type { SpielFieldPath } from "../draftStatus.ts";
 import type { FLSpiel, FLSpielWithDraftFields } from "../schemas.ts";
 
 doubleEveryAction();
@@ -21,8 +22,8 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { SpielExpectedProvider } = await import("./forms/AdminEditSpielDataForm/SpielExpectedContext.tsx");
 
 /* The picker's label and its expected marker each read a context, so it renders under both providers or
-   not at all. Empty is enough for both: a path neither holds a descriptor for renders no marker. */
-const NO_DRAFT: FLDraftStatus<string> = { fields: [], byPath: new Map(), changed: [], invalid: [], isDirty: false };
+   not at all. */
+const NO_DRAFT = declaredStatus<SpielFieldPath>(["schiedsrichter.schiedsrichter_id", "schiedsrichter.payment"]);
 
 const TODAY = "2026-04-01";
 const REFEREE_ID = "6890a1b2c3d4e5f607800001";

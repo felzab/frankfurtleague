@@ -13,9 +13,10 @@ import { userEvent } from "@testing-library/user-event";
 
 import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 
 doubleEveryAction();
@@ -26,8 +27,17 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 
 type RegelnProps = Parameters<typeof FormRegelnSection>[0];
 
-/** No descriptor for any path, which is the state the panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SaisonFieldPath>([
+  "rules.win_points",
+  "rules.draw_points",
+  "rules.tiebreak_order",
+  "rules.forfeit_ergebnis",
+  "rules.number_of_groups",
+  "rules.teams_per_group",
+  "rules.qualifiers_per_group",
+  "rules.max_kadergroesse",
+  "rules.erlaubte_stufen",
+]);
 
 const RULES: FLSaisonRules = {
   win_points: 3,

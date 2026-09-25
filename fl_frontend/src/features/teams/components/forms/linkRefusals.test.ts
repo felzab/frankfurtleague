@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus.ts";
 import type { FLAddress } from "@/shared/schemas";
-import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
@@ -14,9 +15,14 @@ const { WebsiteUrlField } = await import("./WebsiteUrlField.tsx");
 const { FormAdresseSection } = await import("./AdminTeamEditForm/FormAdresseSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
-/* The editor's labels read their marker off the draft context. Empty is enough: a path it holds no
-   descriptor for renders no marker. */
-const NO_DRAFT: FLDraftStatus<string> = { fields: [], byPath: new Map(), changed: [], invalid: [], isDirty: false };
+const NO_DRAFT = declaredStatus<TeamFieldPath>([
+  "website_url",
+  "address.strasse",
+  "address.hausnummer",
+  "address.plz",
+  "address.stadtteil",
+  "address.stadt",
+]);
 
 const LEER: FLAddress = { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" };
 

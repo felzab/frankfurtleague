@@ -2,6 +2,8 @@
 
 import { createContext, useContext } from "react";
 
+import { fieldStatus } from "@/shared/utils/draftStatus";
+
 import type { FLDraftStatus, FLFieldStatus } from "@/shared/utils/draftStatus";
 import type { ReactNode } from "react";
 
@@ -32,7 +34,7 @@ export function useDraftStatus(): FLDraftStatus<string> {
  */
 export type FieldPath<P extends string> = string extends P ? never : NoInfer<P>;
 
-/** `undefined` for a declared path whose descriptor does not apply to this draft. */
+/** `undefined` for a declared path whose descriptor does not apply to this draft; a path the table lacks throws. */
 export function useFieldStatus<P extends string = never>(path: FieldPath<P>): FLFieldStatus<string> | undefined {
-  return useDraftStatus().byPath.get(path);
+  return fieldStatus(useDraftStatus(), path);
 }

@@ -94,7 +94,14 @@ describe("a control whose write is running", () => {
       storedText: "Halle",
       draftText: "Halle West",
     };
-    const DIRTY: FLDraftStatus<string> = { fields: [NAME], byPath: new Map([[NAME.path, NAME]]), changed: [NAME], invalid: [], isDirty: true };
+    const DIRTY: FLDraftStatus<string> = {
+      fields: [NAME],
+      byPath: new Map([[NAME.path, NAME]]),
+      declared: new Set([NAME.path]),
+      changed: [NAME],
+      invalid: [],
+      isDirty: true,
+    };
 
     render(
       h(DraftStatusProvider, { status: DIRTY, children: h(FormActionBar, { isPending: true, isLeaving: false, onCancel: () => undefined }) }),

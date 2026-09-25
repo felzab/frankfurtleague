@@ -9,8 +9,9 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 import type { FLSaisonRegistrierung } from "@/features/saisons/schemas.ts";
 
 const { FormRegistrierungSection } = await import("./FormRegistrierungSection.tsx");
@@ -18,8 +19,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 
 type PanelProps = Parameters<typeof FormRegistrierungSection>[0];
 
-/** No descriptor for any path, which is the state the panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SaisonFieldPath>(["registrierung"]);
 
 const WINDOW: FLSaisonRegistrierung = { offen: true, von: "2026-02-01", bis: "2026-03-01" };
 

@@ -24,6 +24,7 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSaisonBanners } from "./banners";
@@ -38,6 +39,7 @@ import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   FLSaisonRulesDraft,
@@ -176,9 +178,9 @@ export function AdminSaisonEditForm({
     }
   };
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SaisonFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   // Named by the rules field the mirror holds, so a field moved between its lists needs no second edit here.
-  const isRuleChanged = (field: string) => isChanged(`rules.${field}`);
+  const isRuleChanged = (field: (typeof RESCORING_RULES_FIELDS | typeof PLACING_RULES_FIELDS)[number]) => isChanged(`rules.${field}`);
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 
   const banners = buildSaisonBanners({

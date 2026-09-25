@@ -4,10 +4,11 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas.ts";
-import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 doubleEveryAction();
 
@@ -17,8 +18,8 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { SpielExpectedProvider } = await import("./SpielExpectedContext.tsx");
 
 /* The picker's label and its expected marker each read a context, so it renders under both providers or
-   not at all. Empty is enough for both: a path neither holds a descriptor for renders no marker. */
-const NO_DRAFT: FLDraftStatus<string> = { fields: [], byPath: new Map(), changed: [], invalid: [], isDirty: false };
+   not at all. */
+const NO_DRAFT = declaredStatus<SpielFieldPath>(["ort.spielort_id", "ort.mietpreis"]);
 
 const VENUE_ID = "6890a1b2c3d4e5f607800021";
 /** Not the placeholder's own example venue, which the trigger renders while nothing is picked. */

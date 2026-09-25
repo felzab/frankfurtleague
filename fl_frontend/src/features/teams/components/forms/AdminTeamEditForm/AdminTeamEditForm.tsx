@@ -24,6 +24,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildTeamBanners } from "./banners";
@@ -47,7 +48,7 @@ import type {
   FLTeamRecord,
   FLTrikotFarbe,
 } from "@/features/teams/schemas";
-import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
+import type { FLTeamDraftFields, TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -171,7 +172,7 @@ export function AdminTeamEditForm({
   const validateTrikotSelection = (paths: readonly string[], selected: { trikot_farbe: FLTrikotFarbe | null }) =>
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: TeamFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
