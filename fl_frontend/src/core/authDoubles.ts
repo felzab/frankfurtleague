@@ -26,8 +26,9 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
   return `export const frontend_config = ${JSON.stringify(config)};`;
 }
 
-/* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-   a `MongoClient` at import, so loading it would reach for a server no test run holds. */
+/* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
+   the config above omits, and with one a suite left on the real adapter would reach for a server
+   rather than fail at once. */
 const DB_DOUBLE = `export const client = { db: () => ({}) };`;
 
 // The sign-in path mails an allowlisted address on the way to a session, and a gateway no test run
