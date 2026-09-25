@@ -60,7 +60,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
@@ -85,18 +85,8 @@ const ANSICHT = {
   mindestalter: 18,
 };
 
-/** One refused write as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: `http://backend/api/v0${WRITE}`,
-    statusCode: 409,
-    serverErrorCode,
-    endpoint: WRITE,
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes for its code. */
+const aRefusal = (serverErrorCode: string) => refusedOn(`POST ${WRITE}`, serverErrorCode);
 
 // A confirmation the application still waits on two seats after: the handler owes nobody a message,
 // so the case reaches no mail provider.
@@ -289,6 +279,7 @@ describe("what the confirmation handler answers the browser", () => {
       aRefusal("REQ-BEWERBUNG-009"),
       aRefusal("REQ-BEWERBUNG-010"),
       aRefusal("REQ-BEWERBUNG-011"),
+      aRefusal("REQ-BEWERBUNG-017"),
       aRefusal("REQ-BEWERBUNG-012"),
       refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE),
     ];
