@@ -33,11 +33,13 @@ ENV UV_LINK_MODE=copy
 # Manifests before the source, so a source-only change does not invalidate the dependency layer.
 COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-project --no-dev
+# `--locked`, as uv's Docker guide gives it and CI syncs: a lockfile stale against pyproject.toml
+# fails the build, where `--frozen` would ship whatever the stale file names.
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-install-project --no-dev
 
 COPY . .
 
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 FROM base AS runner
 
