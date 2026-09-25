@@ -84,7 +84,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -1159,7 +1159,7 @@ async def _mail_one_team(
             fl_logger.error(
                 f"The registration link for team {team['team_id']} in season {saison_id} was "
                 f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else "DB-FAIL-001"},
+                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
             )
 
             return FLEinladungVersandZeile(

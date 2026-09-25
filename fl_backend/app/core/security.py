@@ -11,7 +11,14 @@ from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, actor_var, request_var
 
-# `auto_error=False` so a missing header reaches `get_token` and answers `REQ-AUTH-001`; FastAPI's
+# Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
+# than a copy a rename leaves behind.
+MISSING_TOKEN = "REQ-AUTH-001"
+WRONG_BASE_KEY = "REQ-AUTH-002"
+WRONG_SYSTEM_KEY = "REQ-AUTH-003"
+WRONG_ADMIN_KEY = "REQ-AUTH-004"
+
+# `auto_error=False` so a missing header reaches `get_token` and answers `MISSING_TOKEN`; FastAPI's
 # own 403 would carry none of the error-code contract.
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -20,7 +27,7 @@ def get_token(
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
 ) -> str:
     if credentials is None:
-        raise RequestAuthorizationException(error_code="REQ-AUTH-001")
+        raise RequestAuthorizationException(error_code=MISSING_TOKEN)
 
     return credentials.credentials
 
@@ -50,9 +57,9 @@ def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
 
 # Module-level objects, so a router declares the same callable every time and a test can compare
 # guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code="REQ-AUTH-002")
-verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code="REQ-AUTH-003")
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code="REQ-AUTH-004")
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=WRONG_BASE_KEY)
+verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=WRONG_SYSTEM_KEY)
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=WRONG_ADMIN_KEY)
 
 
 def get_actor_email() -> str:
@@ -67,8 +74,6 @@ def get_actor_email() -> str:
 
 ACTOR_HEADER = "X-FL-Actor"
 
-# Named, not inlined like the codes above it: `docs/logging/error-codes.md` is kept in step by a grep
-# for the literal, and the guard below is the one place this code is raised.
 MISSING_ACTOR = "REQ-AUTH-005"
 
 # Deliberately loose: this is a shape check on a value the frontend composed from its own session,

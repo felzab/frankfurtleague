@@ -17,6 +17,7 @@ from app.shared.schemas.responses import FLFailureBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
+DATABASE_FAILED = "DB-FAIL-001"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
 UNKNOWN_OUTCOME = "DB-FAIL-002"
@@ -186,7 +187,7 @@ async def db_exception_handler(request: Request, exc: PyMongoError):
     # Unknown where a write may stand: a commit the driver labels so, or any write request the
     # deadline cut, a write outside a transaction carrying no label (`docs/backend/spec.md :: I321`).
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and _may_have_written(request))
-    error_code = UNKNOWN_OUTCOME if unknown else "DB-FAIL-001"
+    error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
     what = "Database deadline passed" if exc.timeout else "Database crash"
 
     # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
