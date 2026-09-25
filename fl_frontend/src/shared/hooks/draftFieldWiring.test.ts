@@ -239,7 +239,7 @@ const FORM_MODULES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestF
   })
   .map((file) => path.relative(SRC, file).split(path.sep).join("/"));
 
-/** A page-owned editor, whose press over a refused draft `fl_frontend/src/features/admin/saveConfirmation.test.ts` makes. */
+/** A page-owned editor, whose press over a refused draft `fl_frontend/src/features/admin/editorWiring.test.ts` makes. */
 const isEditor = (file: string): boolean => readFileSync(path.join(SRC, file), "utf8").includes("<ConfirmSaveModal");
 
 /**

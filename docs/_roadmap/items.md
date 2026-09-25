@@ -689,7 +689,7 @@ change.** jscpd over the frontend's production sources, run on this tree on 2026
   shared empty row and empty card — about 27 duplicated lines each.
 
 **Sweeps read each of those pages as source, and they move in the same change as the shell.**
-`fl_frontend/src/features/admin/saveConfirmation.test.ts` finds the editors by the text
+`fl_frontend/src/features/admin/editorWiring.test.ts` finds the editors by the text
 `<ConfirmSaveModal` in their files, and `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
 finds the tables by the shared emptiness beside a react-aria table and renders each one to read its
 column arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns

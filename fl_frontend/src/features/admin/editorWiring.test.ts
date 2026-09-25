@@ -11,9 +11,12 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FLKontaktperson } from "@/features/teams/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
@@ -22,9 +25,12 @@ import type { ReactNode } from "react";
 /** Every write is refused unless a case answers otherwise, so no editor leaves the page a case reads. */
 const REFUSED = () => Promise.resolve({ success: false, error: "Nicht gespeichert." });
 
-const { answerWith } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
+const { calls, answerWith } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
 
 const { raised } = doubleToasts();
+
+/** The actions the editors have written to, in order. */
+const written = (): string[] => calls.map((call) => call.action);
 
 /*
  Every page-owned editor, rendered over a stored row and each reached with `await import` inside its render:
@@ -419,6 +425,206 @@ const EDITORS: Record<string, Editor> = {
   },
 };
 
+const FEATURES = path.resolve(import.meta.dirname, "..");
+
+/** Every page-owned editor in the tree, found by the save confirmation each renders rather than by this file's keys. */
+const EDITORS_IN_THE_TREE = filesUnder(FEATURES, (name) => name.endsWith(".tsx") && !isTestFile(name), 100)
+  .filter((file) => readFileSync(file, "utf8").includes("<ConfirmSaveModal"))
+  .map((file) => path.relative(FEATURES, file).split(path.sep).join("/"))
+  .sort();
+
+describe("the page-owned editors every sweep here presses", () => {
+  /* An editor added beside these is pressed by no case below, and one dropped from here passes over nothing. */
+  it("are every editor rendering the save confirmation", () => {
+    assert.ok(EDITORS_IN_THE_TREE.length > 0, "the tree yields no editor, so the equality below compares nothing");
+    assert.deepEqual(Object.keys(EDITORS).sort(), EDITORS_IN_THE_TREE);
+  });
+});
+
+describe("an editor's save confirmation", () => {
+  for (const [file, editor] of Object.entries(EDITORS)) {
+    /* The confirm runs the write the gate handed it: routed back through the gate the dialog raises again, and run
+       beside a cleared snapshot the save goes twice. */
+    it(`${file} writes once on its confirm, and raises no dialog over a draft its schema refuses`, async () => {
+      const user = userEvent.setup();
+      const container = await editor.render();
+      await editor.change(user, container);
+
+      calls.length = 0;
+      await save(user);
+      assert.deepEqual(written(), [], "the press wrote beside raising the dialog, or never reached the gate");
+      await user.click(confirmation() ?? assert.fail("the change raised no save confirmation, so nothing below is judged"));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+      assert.deepEqual(written(), [editor.write], "the confirmation wrote other than once");
+      // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
+      assert.ok(confirmation() === null, "the confirmation raised the dialog again");
+
+      // A save confirmation opens only over a draft every schema accepts, never ahead of the block (`docs/frontend/spec.md :: I255`).
+      await editor.refuse(user, container);
+      calls.length = 0;
+      await save(user);
+
+      assert.ok(confirmation() === null, "the dialog asks about a save the draft's own refusal blocks");
+      assert.deepEqual(written(), [], "a draft the schema refuses was written");
+    });
+  }
+});
+
+/** What the press raised at `danger`, as its title and its description. */
+const failures = (): (string | undefined)[][] =>
+  raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]);
+
+describe("an editor's answer to a payload the API refused on a path it renders no control for", () => {
+  for (const [file, editor] of Object.entries(EDITORS)) {
+    /* Only a page older than the running API sends such a body, so a retry resends what was refused and a reload
+       is the repair. */
+    it(`${file} raises one toast, the refusal's own reload`, async () => {
+      answerWith(() => Promise.resolve(toActionErrorResult(refusedPayload([bodyField(["nicht_gerendert"])]))));
+      try {
+        const user = userEvent.setup();
+        const container = await editor.render();
+        await editor.change(user, container);
+        raised.length = 0;
+
+        await saveThrough(user);
+
+        assert.deepEqual(failures(), [["Änderung nicht gespeichert", "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]]);
+      } finally {
+        answerWith(REFUSED);
+      }
+    });
+  }
+});
+
+describe("an editor's write whose action rejected", () => {
+  for (const [file, editor] of Object.entries(EDITORS)) {
+    /* A dropped connection rejects the action after the POST may have reached the server: uncaught
+       inside the transition, it replaces the editor with the error page and says nothing. */
+    it(`${file} stays on its page and raises one toast of unknown outcome`, async () => {
+      answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+      try {
+        const user = userEvent.setup();
+        const container = await editor.render();
+        await editor.change(user, container);
+        raised.length = 0;
+
+        await saveThrough(user);
+
+        assert.deepEqual(
+          raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
+          [["danger", "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.", "unknown"]],
+        );
+        assert.ok(screen.queryByRole("button", { name: "Speichern" }) !== null, "the rejection took the editor off the page");
+      } finally {
+        answerWith(REFUSED);
+      }
+    });
+  }
+});
+
+/** The two editors writing one press through two actions, each with a change that dirties both halves. */
+const TWO_HALVES: Record<string, (user: UserEvent, container: HTMLElement) => Promise<void>> = {
+  "spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": async (user, container) => {
+    await typeInto(user, box("Vorname"), "Lena-Marie");
+    pick(container, "team_id", TEAM_B.teamId);
+  },
+  "teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx": async (user, container) => {
+    await typeInto(user, box("PLZ"), "60436");
+    pick(container, "gruppe", "B");
+  },
+};
+
+/** A box the first half of each two-part press renders, which a refusal of that half can name. */
+const SHOWN_BY_FIRST_HALF: Record<string, readonly string[]> = {
+  "spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": ["vorname"],
+  "teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx": ["address", "plz"],
+};
+
+const UNKNOWN_COMMIT = () =>
+  Promise.resolve(
+    toActionErrorResult(
+      new APIBadStatusError({
+        message: "x",
+        url: "http://backend/api/v0/x",
+        statusCode: 500,
+        serverErrorCode: "DB-FAIL-002",
+        endpoint: "/x",
+        method: "PATCH",
+        readOnly: false,
+        traceId: "0",
+      }),
+    ),
+  );
+
+/** One press of a two-part editor whose halves answer in turn, and the danger toasts it raised. */
+async function pressBothHalves(
+  file: string,
+  change: (user: UserEvent, container: HTMLElement) => Promise<void>,
+  answers: (() => Promise<unknown>)[],
+) {
+  answerWith(() => (answers.shift() ?? REFUSED)());
+  try {
+    const user = userEvent.setup();
+    const container = await (EDITORS[file] ?? assert.fail(`${file} is no editor this file renders`)).render();
+    await change(user, container);
+    raised.length = 0;
+    calls.length = 0;
+
+    await saveThrough(user);
+
+    assert.equal(calls.length, 2, "the press did not write both halves");
+    return raised.filter((toast) => toast.variant === "danger");
+  } finally {
+    answerWith(REFUSED);
+  }
+}
+
+describe("a two-part press whose second half nobody can tell landed", () => {
+  for (const [file, change] of Object.entries(TWO_HALVES)) {
+    /* One half of unknown outcome makes the whole press one: titled as saved-in-part it would call a
+       change that may stand „nicht gespeichert“, the sentence the marker exists to keep off the toast. */
+    it(`${file} carries the marker onto the one failure it raises, beside the half that saved`, async () => {
+      const danger = await pressBothHalves(file, change, [() => Promise.resolve({ success: true, message: "Gespeichert." }), UNKNOWN_COMMIT]);
+
+      assert.deepEqual(
+        danger.map((toast) => [toast.title, toast.options?.outcome]),
+        [["Nur teilweise gespeichert", "unknown"]],
+      );
+    });
+
+    /* The first half's action rejecting may have written, and uncaught it takes the editor down before
+       the second half runs. */
+    it(`${file} carries a first half's rejected action as of unknown outcome, beside the half that saved`, async () => {
+      const danger = await pressBothHalves(file, change, [
+        () => Promise.reject(new TypeError("Failed to fetch")),
+        () => Promise.resolve({ success: true, message: "Gespeichert." }),
+      ]);
+
+      assert.deepEqual(
+        danger.map((toast) => [toast.title, toast.options?.outcome]),
+        [["Nur teilweise gespeichert", "unknown"]],
+      );
+      assert.ok(screen.queryByRole("button", { name: "Speichern" }) !== null, "the rejection took the editor off the page");
+    });
+
+    /* The first half's refusal is marked on its box, which speaks for that half alone: the second half's
+       unknown outcome has nowhere else to be said. */
+    it(`${file} still announces the half failing with no map beside a half refused on a shown box`, async () => {
+      const shown = SHOWN_BY_FIRST_HALF[file] ?? assert.fail(`${file} names no box its first half renders`);
+      const danger = await pressBothHalves(file, change, [
+        () => Promise.resolve(toActionErrorResult(refusedPayload([bodyField(shown)]))),
+        UNKNOWN_COMMIT,
+      ]);
+
+      assert.deepEqual(
+        danger.map((toast) => [toast.title, toast.options?.outcome]),
+        [["Änderung nicht gespeichert", "unknown"]],
+      );
+    });
+  }
+});
+
 /** Whether any control in the page is shown refused, by the mark react-aria sets on it. */
 const anyMarked = (container: HTMLElement): boolean => container.querySelector('[aria-invalid="true"]') !== null;
 
@@ -488,18 +694,8 @@ const SERVER_REFUSES: Record<
   "spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx": { path: "notiz" },
 };
 
-const FEATURES = path.resolve(import.meta.dirname, "..");
-
-/** Every page-owned editor in the tree, found by the save confirmation each renders rather than by this file's keys. */
-const EDITORS_IN_THE_TREE = filesUnder(FEATURES, (name) => name.endsWith(".tsx") && !isTestFile(name), 100)
-  .filter((file) => readFileSync(file, "utf8").includes("<ConfirmSaveModal"))
-  .map((file) => path.relative(FEATURES, file).split(path.sep).join("/"))
-  .sort();
-
 describe("a page-owned editor's field errors", () => {
-  /* An editor added beside these is pressed by no case below, and one dropped from here passes over nothing. */
-  it("are asked of every page-owned editor", () => {
-    assert.deepEqual(Object.keys(EDITORS).sort(), EDITORS_IN_THE_TREE);
+  it("name a control for the server to refuse in every editor", () => {
     assert.deepEqual(Object.keys(SERVER_REFUSES).sort(), EDITORS_IN_THE_TREE);
   });
 
