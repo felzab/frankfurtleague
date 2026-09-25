@@ -49,6 +49,7 @@ from app.core.config import API_VERSION, BackendConfig
 from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
+    BODY_UNREADABLE,
     COMPONENT_REF,
     JSON_MEDIA_TYPE,
     PAYLOAD_REFUSED,
@@ -388,7 +389,7 @@ def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping
             statuses.setdefault(HTTPStatus.UNPROCESSABLE_CONTENT, set()).add(PAYLOAD_REFUSED)
         # A body arrives only where the operation takes one, and only a body can be undecodable.
         if "requestBody" in operation:
-            statuses.setdefault(HTTPStatus.BAD_REQUEST, set()).add(PAYLOAD_REFUSED)
+            statuses.setdefault(HTTPStatus.BAD_REQUEST, set()).add(BODY_UNREADABLE)
         refused = {str(status): refusal_response(status, found) for status, found in sorted(statuses.items())}
 
         return {**operation, "responses": {**operation["responses"], **refused}}

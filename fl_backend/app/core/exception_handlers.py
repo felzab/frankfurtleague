@@ -21,6 +21,8 @@ from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 NO_DATA_TEXT = "//- No Data -//"
 
 PAYLOAD_REFUSED = "REQ-VAL-001"
+# A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
+BODY_UNREADABLE = "REQ-VAL-002"
 STORED_DATA_INVALID = "SRV-VAL-001"
 UNHANDLED_CRASH = "SRV-FAIL-001"
 DATABASE_FAILED = "DB-FAIL-001"
@@ -33,10 +35,10 @@ UNKNOWN_OUTCOME = "DB-FAIL-002"
 # The routing layer's own refusals, raised before any handler runs.
 NO_ROUTE = "REQ-ROUTE-001"
 METHOD_NOT_SERVED = "REQ-ROUTE-002"
-ROUTING_REFUSED = "REQ-ROUTE-003"
-# FastAPI's one 400 is a body it could not read, which `REQ-VAL-001` already names at 400.
+# Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
+# not parse, and a status outside these is a server fault the catch-all answers.
 ROUTING_CODES: Final[Mapping[int, str]] = {
-    HTTPStatus.BAD_REQUEST: PAYLOAD_REFUSED,
+    HTTPStatus.BAD_REQUEST: BODY_UNREADABLE,
     HTTPStatus.NOT_FOUND: NO_ROUTE,
     HTTPStatus.METHOD_NOT_ALLOWED: METHOD_NOT_SERVED,
 }
@@ -69,7 +71,10 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
 async def routing_exception_handler(request: Request, exc: StarletteHTTPException):
     """Starlette's refusal in the envelope every other failure answers with, its status and headers kept."""
 
-    error_code = ROUTING_CODES.get(exc.status_code, ROUTING_REFUSED)
+    error_code = ROUTING_CODES.get(exc.status_code)
+    if error_code is None:
+        return await global_catch_all_exception_handler(request, exc)
+
     fl_logger.warning(f"Routing refusal ({exc.status_code}): {exc.detail or NO_DATA_TEXT}", extra={"error_code": error_code})
     headers = exc.headers
     if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
@@ -107,14 +112,14 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
+    if any(error["type"] == UNDECODABLE_BODY for error in errors):
+        fl_logger.warning(f"Request body unreadable: {rejected_fields_of(errors) or NO_DATA_TEXT}", extra={"error_code": BODY_UNREADABLE})
+        return error_response(status.HTTP_400_BAD_REQUEST, BODY_UNREADABLE)
+
     fl_logger.warning(
         f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
         extra={"error_code": PAYLOAD_REFUSED},
     )
-
-    # Malformed syntax, RFC 9110's 400 rather than a refused payload: no field was read, so none is named.
-    if any(error["type"] == UNDECODABLE_BODY for error in errors):
-        return error_response(status.HTTP_400_BAD_REQUEST, PAYLOAD_REFUSED)
 
     return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 

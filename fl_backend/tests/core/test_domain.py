@@ -30,7 +30,7 @@ from app.core.domain import (
     Action,
     Editability,
 )
-from app.core.exception_handlers import METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED, ROUTING_REFUSED
+from app.core.exception_handlers import BODY_UNREADABLE, METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED
 from app.core.exceptions import WriteRefusal
 from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
 from app.main import create_app
@@ -65,9 +65,9 @@ PROTOCOL_CODES = frozenset(
         WRONG_ADMIN_KEY,
         MISSING_ACTOR,
         PAYLOAD_REFUSED,
+        BODY_UNREADABLE,
         NO_ROUTE,
         METHOD_NOT_SERVED,
-        ROUTING_REFUSED,
     }
 )
 

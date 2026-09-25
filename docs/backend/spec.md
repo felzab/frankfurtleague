@@ -341,9 +341,9 @@ The invariant the tests pin here: the code on the wire and in the log is the **e
 
 **Every failure an operation can answer is published at its status with the codes it carries** — a
 dependency's 400, 401 and 503 (I370), a route's 404 for `DB-COMMON-001` (I369) and 409 for
-`DB-COMMON-002` (I358), each rule's code (I357), and `REQ-VAL-001` on the 422 of every operation
-taking input and on the 400 of every one taking a body — so `default` is left to the 500s, whose
-codes name a server fault rather than the request.
+`DB-COMMON-002` (I358), each rule's code (I357), `REQ-VAL-001` on the 422 of every operation
+taking input and `REQ-VAL-002` on the 400 of every one taking a body — so `default` is left to the
+500s, whose codes name a server fault rather than the request.
 
 **A domain refusal answers the status its check chose by
 [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#section-15.5)'s meanings**
@@ -382,8 +382,13 @@ the form answers each with the public slice's own sentence, or the generic one w
 - a refusal inside a union carries pydantic's member tag in its path, which no payload key spells
 - a whole-record rule carries the path of the model that holds it — empty for the body itself
 
-**A body that is not JSON at all answers 400 `REQ-VAL-001` with no `fields`**: malformed syntax is
-RFC 9110's 400 rather than a refused payload, and nothing inside it was read to be named.
+**A body that could not be read answers 400 `REQ-VAL-002` with no `fields`**, whether it is not
+JSON at all or not UTF-8: malformed syntax is RFC 9110's 400 rather than a refused payload, and
+nothing inside it was read to be named. It has a code of its own so that no code answers at two
+statuses. The router raises only 400, 404 and 405
+(`fl_backend/app/core/exception_handlers.py :: ROUTING_CODES`), so a framework exception at any other
+status is a server bug and answers 500 `SRV-FAIL-001`
+(`fl_backend/tests/api/test_error_responses.py :: TestTheRouterAnswersInTheEnvelope`).
 
 **A `DuplicateKeyError` maps to a 409 through a dedicated handler**: a natural-key collision on a
 create is an ordinary outcome rather than a server fault.

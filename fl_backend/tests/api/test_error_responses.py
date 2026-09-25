@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import logging
 import re
@@ -18,14 +19,16 @@ from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
+    BODY_UNREADABLE,
     DATABASE_FAILED,
     JSON_MEDIA_TYPE,
     METHOD_NOT_SERVED,
     NO_DATA_TEXT,
     NO_ROUTE,
     PAYLOAD_REFUSED,
-    ROUTING_REFUSED,
+    ROUTING_CODES,
     STORED_DATA_INVALID,
+    UNHANDLED_CRASH,
     db_exception_handler,
     duplicate_key_exception_handler,
     pydantic_validation_exception_handler,
@@ -33,7 +36,7 @@ from app.core.exception_handlers import (
     refused_codes,
     register_exception_handlers,
 )
-from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthorizationException, WriteRefusal
+from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, BaseAPIException, RequestAuthorizationException, WriteRefusal
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
@@ -41,7 +44,7 @@ from app.main import create_app, dependency_refusals, document_routes, publish_r
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
-from tests.core.app_source import BACKEND_ROOT, api_routes
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, callee, parsed
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
@@ -252,7 +255,17 @@ class TestTheRefusedFieldsReachTheCaller:
             "/nested", content=b'{"kontakt": ', headers={"content-type": "application/json"}
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (400, PAYLOAD_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (400, BODY_UNREADABLE)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_a_body_that_is_not_utf8_is_the_same_unreadable_body(self):
+        """FastAPI raises its own 400 here rather than a validation error, and the routing handler answers it."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/nested", content=b'{"kontakt": "\xff"}', headers={"content-type": "application/json"}
+        )
+
+        assert (response.status_code, response.json()["error_code"]) == (400, BODY_UNREADABLE)
         assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
@@ -304,16 +317,42 @@ class TestTheRouterAnswersInTheEnvelope:
 
         assert short == {}
 
-    def test_the_frameworks_unreadable_body_is_the_undecodable_bodys_code(self):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/400")
+    @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
+    def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(f"/starlette/{status}")
 
-        assert (response.status_code, response.json()["error_code"]) == (400, PAYLOAD_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (status, ROUTING_CODES[status])
 
-    def test_any_other_status_passes_through_under_the_routing_code(self):
+    def test_a_status_the_routing_layer_never_raises_is_the_servers_fault(self):
+        """No code names it, so a raise at it is a server bug the catch-all answers, never passed through."""
+
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/418")
 
-        assert (response.status_code, response.json()["error_code"]) == (418, ROUTING_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
         assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_the_application_raises_the_frameworks_exception_only_through_its_own_base(self):
+        """A bare raise meets the routing handler, which answers a status it has no code for as a crash."""
+
+        names = {
+            alias.asname or alias.name
+            for path in APP_ROOT.rglob("*.py")
+            for node in ast.walk(parsed(path))
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if alias.name == "HTTPException"
+        }
+        raised = [f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in names]
+        extended = {
+            node.name
+            for path in APP_ROOT.rglob("*.py")
+            for node in ast.walk(parsed(path))
+            if isinstance(node, ast.ClassDef) and any(isinstance(base, ast.Name) and base.id in names for base in node.bases)
+        }
+
+        assert names, "the walk found no import of the framework's exception, so it read nothing"
+        assert raised == []
+        assert extended == {BaseAPIException.__name__}
 
 
 class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
@@ -405,7 +444,7 @@ def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
         if operation.get("parameters") or "requestBody" in operation:
             declared.setdefault(name, {}).setdefault("422", set()).add(PAYLOAD_REFUSED)
         if "requestBody" in operation:
-            declared.setdefault(name, {}).setdefault("400", set()).add(PAYLOAD_REFUSED)
+            declared.setdefault(name, {}).setdefault("400", set()).add(BODY_UNREADABLE)
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)
