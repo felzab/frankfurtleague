@@ -168,7 +168,8 @@ made of either: part of the write may stand, as it may where the backend's own d
 (`docs/backend/spec.md :: I321`). Both mail fan-outs count a send that broke off unanswered as neither
 delivered nor unreachable, and a send carrying an idempotency key is tried again after a broken
 connection, the provider collapsing the repeat. The deadline sits under the edge's cut by the proxy's
-session read before the action: Next streams the action's answer as soon as it returns, the page's
+session read before the action, and by the action's cache invalidations after it, which Next applies
+to this server's own cache before the first byte: Next streams the action's answer as soon as it returns, the page's
 re-render following in chunks under a deadline of its own, and nginx times each gap between two reads
 rather than the whole response, so a person is answered by this application rather than by nginx's 504.
 
