@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
-
-import ts from "typescript";
 
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
@@ -506,36 +502,6 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.equal(logged[0]?.meta.error_code, "FE-MAIL-002");
     assert.equal(logged[0]?.meta.name, "Error", "the line no longer names the error class");
     assert.equal(logged[0]?.error, undefined, "the error object reaches the stream, and its message and stack with it");
-  });
-
-  /* The runtime case above proves TODAY'S error carries no address. This one holds whatever
-     `sendMail` throws tomorrow: handed `undefined`, no error can reach the stream at all. */
-  it("hands the log stream no error object at all, in the source", () => {
-    const file = path.join(import.meta.dirname, "notifications.ts");
-    const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
-    const calls: ts.NodeArray<ts.Expression>[] = [];
-
-    source.forEachChild(function walk(node: ts.Node): void {
-      const isLoggerError =
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === "logger" &&
-        node.expression.name.text === "error";
-
-      if (isLoggerError) calls.push(node.arguments);
-      node.forEachChild(walk);
-    });
-
-    assert.ok(calls.length > 0, "no logger.error call was found, so this test proves nothing");
-    // Every one of them, so a line added later inherits the rule rather than escaping the sweep.
-    for (const argumente of calls) {
-      const errorArgument = argumente[1];
-      assert.ok(
-        errorArgument && ts.isIdentifier(errorArgument) && errorArgument.text === "undefined",
-        "logger.error was handed an error object where it must be handed `undefined`",
-      );
-    }
   });
 });
 

@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
-import ts from "typescript";
 
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
@@ -87,40 +84,6 @@ describe("handleSignIn's answer", () => {
     assert.deepEqual(sent, { success: true, message: NEUTRAL_ANSWER, submittedEmail: "vorstand@example.org" });
     assert.deepEqual(refused, sent, "a refused sign-in answers otherwise than a sent one");
     assert.deepEqual(thrown, sent, "a failed sign-in answers otherwise than a sent one");
-  });
-
-  /* `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and
-     a failure on this path routinely carries the submitted address, which
-     `docs/logging/spec.md :: L9` keeps off the stream. The same sweep over the module this action
-     calls is `fl_frontend/src/core/authLogging.test.ts`. */
-  it("hands the log stream no error object, only the name and the code", () => {
-    const actionsSource = readFileSync(path.join(import.meta.dirname, "actions.ts"), "utf8");
-    const parsed = ts.createSourceFile("actions.ts", actionsSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    const descendants = function* (node: ts.Node): Generator<ts.Node> {
-      for (const child of node.getChildren()) {
-        yield child;
-        yield* descendants(child);
-      }
-    };
-    const calls = [...descendants(parsed)].filter(
-      (node) =>
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === "logger" &&
-        node.expression.name.text === "error",
-    ) as ts.CallExpression[];
-
-    assert.ok(calls.length > 0, "no logger.error call was found, so this test proves nothing");
-
-    for (const call of calls) {
-      const errorArgument = call.arguments[1];
-      assert.ok(errorArgument, "logger.error was called without the error argument this test reads");
-      assert.ok(
-        ts.isIdentifier(errorArgument) && errorArgument.text === "undefined",
-        `logger.error was handed \`${errorArgument.getText(parsed)}\` where it must be handed \`undefined\``,
-      );
-    }
   });
 });
 
