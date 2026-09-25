@@ -1142,8 +1142,8 @@ def tracked_page(rel: str) -> Path | None:
 
 
 # No `i`, `l`, `o`, `0` or `1`: an id is read aloud and typed into a commit trailer. Spelled again
-# in `scripts/checks/check_commits.py :: ENTRY_TOKEN`, which CI runs on a bare runner that can
-# import nothing from this package.
+# in `scripts/checks/check_commits.py :: ENTRY_TOKEN`, which the commit-msg hook runs on whatever
+# interpreter it finds, importing nothing from this package.
 ENTRY_TOKEN_ALPHABET: Final = "abcdefghjkmnpqrstuvwxyz23456789"
 # The hyphen is what keeps `git grep <token>` a proof of uniqueness: eight bare lower-case
 # alphanumerics is the shape of an ordinary identifier.

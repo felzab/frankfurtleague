@@ -33,11 +33,12 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   stash list is shared by every worktree, so name what you stash and pop it by its `stash@{n}`.
 - One commit per reason, each message complete in `docs/_git/templates.md`'s form: `commit-msg`
   checks it and `.githooks/pre-commit` formats what you stage, where prettier is installed in your
-  worktree. Commit with `git commit -F <file>`. Then run
-  `python scripts/checks/check_commits.py --base <session branch>`, which prints the advisory tier
-  the hook leaves out, and report both exit codes. Write no `Closes:` trailer -- which entries a
-  commit retires depends on what lands. The coordinator lands your commits on the session branch and
-  may reword or combine them.
+  worktree. Commit with `git commit -F <file>`; the hook prints its advisory tier as a notice on a
+  message it lets through, so report the commit's exit code and any notice. The hook judges a
+  `Closes:` trailer against the staged diff: write one exactly when your commit retires a roadmap
+  entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
+  `--amend`, which the hook reads as the amend's delta alone. The coordinator lands your commits on
+  the session branch and may reword or combine them.
 - **Commit everything before you report**: the landing takes your branch's commits and nothing else,
   so an edit left uncommitted is dropped without a word. `git status --porcelain` prints nothing
   when your report lands.

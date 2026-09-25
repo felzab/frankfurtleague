@@ -102,27 +102,27 @@ exclude the unhyphenated shape.
 **An entry that ends only partly done is rewritten rather than deleted**, and the commit doing that
 carries no trailer ([`../_roadmap/protocol.md`](../_roadmap/protocol.md) §3).
 
-The one other trailer is a closing paragraph that is sign-offs and nothing else, which is what
-Dependabot's generator always writes and the only trailer form the checker releases on an exact
-author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`; the list below names what
-else that identity releases). Work is never signed as AI-generated, which overrides any tool
-default appending a `Co-Authored-By` line.
+Work is never signed as AI-generated, which overrides any tool default appending a
+`Co-Authored-By` line.
 
-**The trailer's two halves are checked in different places.** Its shape is checked wherever a
-message is, the `commit-msg` hook included. Whether the diff _asks_ for one is checked only where
-the commit exists — the gate's `--docs` scope and CI's `commits` job, both reading `base..HEAD`. The
-hook cannot ask: at `commit-msg` time the commit has no diff, and the staged one is measured against
-the commit being replaced under `git commit --amend` and during a `rebase -i` reword, so a hook
-reading it would refuse the very message that repairs a trailer.
+**The `commit-msg` hook is the only reader of a message.** Commits are never rewritten, so a
+message is correct before it is committed or stays wrong, and a finding against one already pushed
+is corrected in the pull request body. `git config core.hooksPath .githooks` installs the hook, with
+every other hook in that folder, and it runs `scripts/checks/check_commits.py`. The checker judges
+the whole message and, for the `Closes:` trailer, the staged diff
+(`scripts/checks/check_commits.py :: staged_departures`), which is the new commit's own diff for a
+plain commit, for `git commit -C <sha>` or `-F` after `git cherry-pick -n` — the landing flow, so a
+commit is judged in full when it becomes permanent — and for a commit after
+`git reset --soft HEAD~1`. It refuses on a failure, and prints each finding the list below marks
+_reported_ as a notice on a message it lets through, the one moment a notice can still be acted on.
 
-`scripts/checks/check_commits.py` reads the message three times over — as a `commit-msg` hook when
-you write it, in the `--docs` gate scope, and in CI on every pull request — and reads the branch's
-own commits, never history, which predates the convention. **Only a refusal
-reaches the hook** (`scripts/checks/check_commits.py :: check_message_file`), so every finding the
-list below marks _reported_ passes the hook in silence and first appears at the gate, where the
-reword it asks for costs a rebase. `git config core.hooksPath .githooks` installs every hook in that
-folder, this one among them, and **a fresh clone has none until that is run** — until then the gate
-and CI are the only checks.
+**What the hook never sees:** a committing `git cherry-pick` without `-n` and a non-interactive
+`git rebase`, neither of which runs it; a commit made on GitHub, Dependabot's among them; a clone
+that never set `core.hooksPath`; and a commit made with `--no-verify`. **Under
+`git commit --amend` the staged diff is the amend's delta against the commit being replaced**, and
+nothing git hands the hook tells an amend apart from a plain commit, so an amend of a closing commit
+is refused as carrying a spurious trailer. The refusal names its own route, `git reset --soft
+HEAD~1` then `git commit -F`, which stages the whole change against the parent.
 
 [`templates.md`](templates.md) holds the form and what the checker refuses outright.
 Beyond that list:
@@ -136,13 +136,9 @@ Beyond that list:
   (`scripts/checks/check_commits.py :: GLUED_TRAILER_RE`). Glued to the prose above it the line is
   prose to git, so the paragraph is no trailer block at all and every arm reading that block — the
   three comparing the message to the diff included — sees an absent trailer rather than a broken
-  one. It is a shape, so the `commit-msg` hook runs it.
+  one.
 - A body recording no verification is reported, not refused.
-- Merge and revert subjects are skipped — they are git's.
-- **The bot exemption drops three rules and no more**, the three Dependabot's generator gives it no
-  way to satisfy: the sign-off, the wrapped body, and the missing-verification report. Everything
-  else answers for Dependabot as for anyone — I4 included, so a bot commit with no body is still
-  refused.
+- A message git is composing — a merge's, or a `git revert --no-commit`'s — is skipped: it is git's.
 
 ### 1.4 Pull requests
 
@@ -330,8 +326,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | `git pull` refuses to fast-forward                       | Local `main` has drifted                                                                                                    | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
 | The gate reports surfaces it did not prove               | A scoped run mid-work                                                                                                       | Expected. Report it rather than suppressing it                                                         |
 | A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer the convention does not admit                                    | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
-| The gate refuses a message the `commit-msg` hook passed  | A `Closes:` trailer missing, spurious, or naming an entry the diff kept — the arms the hook has no diff to run (§1.3)       | Read the finding: it names what the diff retired beside what the message claimed                       |
-| The gate reports a subject or a scope the hook passed    | A report-severity finding is filtered out of the hook's own output and survives to the gate (§1.3)                          | Reword — a rebase once pushed. Read a subject's length and its scope before committing, not after      |
+| An amend of a closing commit is refused                  | Under `git commit --amend` the hook reads the amend's delta, which retires nothing (§1.3)                                   | `git reset --soft HEAD~1`, then `git commit -F` with the same message                                  |
 | A pull request check named `pr-body` fails               | The body indexes commits instead of summarising                                                                             | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
 | A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
 | CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |
@@ -354,5 +349,4 @@ so neither the commits nor the working tree are at risk.
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Deployment is manual, and merging does not trigger it                  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone        |
 | Repository settings are unversioned                                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate                     |
-| The `--ops` scope alone omits the commit-message check                 | CI closes the gap with a `commits` job nothing filters by path, since a commit message has no path to filter on        |
 | Nothing checks that a commit's frontend imports resolve at that commit | Deliberate. One such commit is a skip (§3); a second reaching `main` is the argument for a per-commit resolution check |

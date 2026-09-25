@@ -41,8 +41,8 @@ ADVISORY_STEPS: Final = frozenset({"Report each scope's result", "Report the gat
 RUNS_FILE: Final = "runs.json"
 JOBS_FILE: Final = "jobs-{}-{}.json"
 
-# A skipped job or step passed, exactly as `verify`'s own verdict step reads them: on a push to main
-# `commits` never runs, and a skipped scope job fails `verify`'s own skip step, which is named.
+# A skipped job or step passed, exactly as `verify`'s own verdict step reads them: a skipped scope
+# job fails `verify`'s own skip step, which is named, and a verdict step that did not fire skips.
 PASSED: Final = frozenset({"success", "skipped"})
 
 COMMIT_RE: Final = re.compile(r"^[0-9a-f]{40}$")

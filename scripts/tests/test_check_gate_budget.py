@@ -650,7 +650,7 @@ def test_the_workflow_runs_every_mode():
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
 
     assert re.search(r"scripts/checks/check_gate_budget\.py --jobs ", workflow), "the verify job does not hold the run to its budgets"
-    assert re.search(r"scripts/checks/check_gate_budget\.py --base ", workflow), "the commits job does not hold the reference against its base"
+    assert re.search(r"scripts/checks/check_gate_budget\.py --base ", workflow), "the docs job does not hold the reference against its base"
     assert re.search(r"scripts/checks/check_gate_budget\.py --window ", workflow), "the verify job does not report the main runs' medians"
     for path in (".github/gate-wall-clock.tsv", "scripts/checks/check_gate_budget.py", "scripts/lib/checker_kernel.py"):
         assert path in workflow, f"the verify job's sparse checkout does not read {path}"

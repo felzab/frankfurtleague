@@ -25,7 +25,7 @@
 # so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
 # over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
 # budget or a reference that rises against main carries a new stamp, refused otherwise by
-# `scripts/checks/check_gate_budget.py` in the pull request's `commits` job. Lowering one is free.
+# `scripts/checks/check_gate_budget.py` in the pull request's `docs` job. Lowering one is free.
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. A cost that sits inside its job's floor moves
@@ -37,15 +37,12 @@
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is its only guard.
 #
-# `commits` runs on pull requests alone, so its population is pull-request runs and its reference
-# columns are `-`: the report is cut from main runs, where it never appears. `format` runs on every
-# event, but its row is still cut from the pull-request runs its stamp counts, so its reference
-# columns stay `-` until main runs exist to cut them from. Both stamps move on their own runs and
-# never with the rows above them.
+# `format` runs on every event, but its row is still cut from the pull-request runs its stamp
+# counts, so its reference columns stay `-` until main runs exist to cut them from. Its stamp moves
+# on its own runs and never with the rows above it.
 #
 # `ops` answers to a shorter population than every other row cut from main runs, counted in its own
-# stamp -- `commits` and `format`, carved out just above, are shorter still and are pull-request
-# runs. `nginx/edge_test.sh` joined that scope partway through those rows' window, and a run
+# stamp -- `format`, carved out just above, is shorter still and is pull-request runs. `nginx/edge_test.sh` joined that scope partway through those rows' window, and a run
 # from before that merge measures a gate this one is not. A population that short cannot be cut
 # into two windows of twelve, so its floor is the p95 movement between two 12-run medians drawn
 # with replacement from it. On the three rows computable both ways that draw lands within a point
@@ -407,10 +404,15 @@
 # selection moves no row, the rows being cut from pushes to main, which already ran every scope;
 # whether the unit's growth above moved the job's span past its floor or its budget is for the
 # first main runs carrying it to show. `frontend` and `backend` each lost a step holding the scope
-# derivation's crossing cases, 3.45-3.54 s alone and 5.1 s inside one `--backend` run, and
-# `commits` gained the line delta the dropped `changes` job wrote, 0.94-2.70 s over three runs of
-# a 788-commit branch, measured locally on 2026-09-25 on the same machine, so upper bounds;
-# whether the delta moves `commits` past its budget is for the first pull-request runs to show.
+# derivation's crossing cases, 3.45-3.54 s alone and 5.1 s inside one `--backend` run, measured
+# locally on 2026-09-25 on the same machine, so upper bounds.
+#
+# `docs` gained, on a pull request alone, the two steps of the dropped `commits` job that read the
+# branch against its base: the budget check, 0.24-0.26 s over three runs, and the line delta,
+# 0.94-2.70 s over three runs of a 788-commit branch, measured locally on 2026-09-25 on the same
+# machine, so upper bounds. Its commit-message step is gone with the local one (R578). The row is
+# cut from main runs, where neither step runs, so it moves nothing; whether they move a
+# pull request's `docs` past its budget is for the first pull-request runs to show.
 #
 # `scripts` and `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list
 # names. `ruff check --no-cache` took 185-842 ms with it against 187-1762 ms without over
@@ -433,7 +435,6 @@
 #
 # job	seconds	floor	budget	measured
 backend	35	14	60	24@2026-09-07
-commits	-	-	25	24@2026-09-07
 db	49	40	125	24@2026-09-07
 docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31

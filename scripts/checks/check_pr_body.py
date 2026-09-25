@@ -21,8 +21,8 @@ from checker_kernel import EXIT_OK, Finding, report_findings, run
 SUMMARY_TARGET: Final = 200  # reported: past a generous reading of "one or two paragraphs"
 SUMMARY_MAX: Final = 500  # failed: past any reading of it
 
-# The login GitHub reports as the pull request's author, matched whole. The commit half of the same
-# exemption is `check_commits.py :: BOT_IDENTITIES` (COR-2).
+# The login GitHub reports as the pull request's author, matched whole. A bot's commits are made on
+# GitHub, where no commit-msg hook runs, so no commit half of the exemption exists.
 BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]"})
 
 # Verbatim fragments of the form in `docs/_git/templates.md :: Pull requests`: their presence means

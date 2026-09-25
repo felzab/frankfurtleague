@@ -64,10 +64,10 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    the agent rebases onto the session branch and resolves in its own worktree. A branch landed before
    lands again only after its agent's rebase ([register-template.md](register-template.md)). A
    later fix to a landed commit lands as a commit of its own, naming the commit it corrects.
-2. **A commit message is good enough when both routes accept it and its claims are true of its own
-   diff.** Check it against the diff, never against the proposal it came from: for every path in the
-   diff, does the body account for it? Validate with both routes
-   [register-template.md](register-template.md) gives.
+2. **A commit message is good enough when the `commit-msg` hook accepts it and its claims are true
+   of its own diff.** Check it against the diff, never against the proposal it came from: for every
+   path in the diff, does the body account for it? The hook is the only reader
+   ([register-template.md](register-template.md)).
 3. **Re-establish every fact in the message as you commit it**, never from the agent's report: an
    installed version, a remote setting or a file's presence moves between drafting and permanence.
    **A claim about the code is checked against that commit**, never against where the branch ends —

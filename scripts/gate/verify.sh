@@ -250,7 +250,6 @@ do_docs_gate() {
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then "$PY" scripts/checks/check_docs.py --output-format github
   else "$PY" scripts/checks/check_docs.py; fi
 }
-do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
 do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
@@ -362,7 +361,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(tracked_text docs_gate commit_messages public_routes log_quoting_class openapi)
+DOCS_POOL=(tracked_text docs_gate public_routes log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate backend_deps)
 
@@ -851,8 +850,8 @@ character, or spell it by code point where a test is about the character itself.
     DOCS_OK=0
   fi
 
-  # They collect rather than stop: stopping at the first leaves the commit messages unexamined
-  # while the exit code reads as though they were checked.
+  # They collect rather than stop: stopping at the first leaves the checks after it unexamined
+  # while the exit code reads as though they ran.
   step "docs · citations, links and shapes"
   unit_join docs_gate
   # `annotate`, for `run_checker`'s reason.
@@ -861,18 +860,6 @@ or (branch diff) where the check read the diff rather than any one file — and 
 check's own name. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
     unit_replay docs_gate; then
     ok "documentation references resolve"
-  else
-    DOCS_OK=0
-  fi
-
-  # Commit messages ride in this scope rather than one of their own; the argument is in
-  # `scripts/checks/check_commits.py`'s own header.
-  step "docs · commit messages on this branch"
-  unit_join commit_messages
-  if run_checker collect "scripts/checks/check_commits.py" "The commit message gate failed. Each finding above names the
-commit and what is wrong with it. The form is docs/_git/templates.md." \
-    unit_replay commit_messages; then
-    ok "commit messages follow the convention"
   else
     DOCS_OK=0
   fi

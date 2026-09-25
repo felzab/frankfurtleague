@@ -740,19 +740,19 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 every such job calls.
 **Every other CI job that runs python takes the interpreter `fl_backend/.python-version` pins through
 `actions/setup-python`**, the file the virtualenv's interpreter is read from too, so one pin decides
-every job's version; the reason is at that workflow's `commits` job.
+every job's version; the reason is at that workflow's `verify` job.
 
-| Scope              | Runs                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                           | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
-| `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
-| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier), `check_test_estate.py` and `deptry` over `app/` started together behind it                                                                                                                | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
-| `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                                    | pnpm install                                                                                                                                 |
-| `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                                                               | pnpm install                                                                                                                                 |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                                          | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
-| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6), then `pnpm run test:db` (`docs/frontend/spec.md` §1.9)                                                                                                | venv + pnpm install + Docker                                                                                                                 |
-| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                        | Docker                                                                                                                                       |
+| Scope              | Runs                                                                                                                                                                                                                                                      | Needs                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                       | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
+| `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
+| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier), `check_test_estate.py` and `deptry` over `app/` started together behind it                                                                                            | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
+| `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                          | pnpm install                                                                                                                                 |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                 |
+| `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                                           | pnpm install                                                                                                                                 |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
+| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6), then `pnpm run test:db` (`docs/frontend/spec.md` §1.9)                                                                            | venv + pnpm install + Docker                                                                                                                 |
+| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                    | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
 image that would not run at all is refused at exit 2 rather than graded. The context probe and both
@@ -794,22 +794,11 @@ version rather than letting pyright infer one, which would answer differently pe
 caller would be the alternative, and it would have to be spelled again in every workflow `run:`
 line, every hook and every test.
 
-**Commit messages ride in the docs scope**, the commit bodies being documentation and merges never
-squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4). In CI the check
-can ride nowhere, a commit message having no path to filter on, so `.github/workflows/verify.yml`
-gives it a `commits` job of its own that the `verify` aggregate lists among its `needs`, which is
-what keeps the required check gating on it.
+**No scope reads a commit message**: the `commit-msg` hook is the only reader, a message being
+correct before it is committed or never, since commits are never rewritten
+([`docs/_git/spec.md`](../_git/spec.md) §1.3).
 
-**The two call sites resolve the base differently, and the difference is safe in one direction
-only.** CI passes `--base origin/<the pull request's base>`; the gate passes nothing and takes
-`scripts/lib/checker_kernel.py :: DEFAULT_BASE`, which is `main`. They agree for a pull request into
-`main`, which is every pull request here — `main` is the only long-lived branch
-([`docs/_git/spec.md`](../_git/spec.md) §1.2). Where a branch is stacked on another and merges into
-it, the default reads from `main` instead and so covers the commits below the fork as well: a
-superset, already checked when the branch beneath was, so the local run is stricter than CI rather
-than blinder.
-
-**The `commits` job writes a line-delta glance** into its run summary on every pull request. It
+**The `docs` job writes a line-delta glance** into its run summary on every pull request. It
 decides nothing.
 
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
@@ -887,10 +876,10 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `commits` runs on pull requests alone, and `format` on every push to main as well, but both
-rows are measured from pull-request runs and carry `-` where the report,
-cut from main runs, would read a reference, until main runs of `format` exist to cut its row from.
-**Raising a budget or a reference costs a measurement.** In the `commits` job,
+guard. `format` runs on every event, but its row is measured from pull-request runs and carries
+`-` where the report, cut from main runs, would read a reference, until main runs of `format` exist
+to cut its row from.
+**Raising a budget or a reference costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
@@ -1165,7 +1154,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Reference data stale for up to a day                                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
 | League table or fixtures stale after a season edit                                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
 | The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run all jobs, not the failed ones alone, then take the cost out rather than raise it; a right raise stamps its measuring runs (§1.6)                                                                              |
-| The `commits` job is red naming a row that rose on an unchanged stamp                             | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
+| The `docs` job is red naming a row that rose on an unchanged stamp                                | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
 
 ## 4. Known-open
 

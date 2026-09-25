@@ -67,8 +67,7 @@ class Case:
     name: str
     text: str
     expected: tuple[tuple[str, str], ...] = ()
-    is_bot: bool = False
-    # What the commit's diff retires. None is the commit-msg hook, which has no diff to read.
+    # What the staged diff retires. None is a case about the message alone, no diff read.
     departed: frozenset[str] | None = None
 
 
@@ -154,8 +153,7 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         "a body closing on a colon-bearing sentence",
         _message("Ops: the gate proves it", CLEAN_BODY, "Verified: the four endings ran and the gate returned exit 0."),
     ),
-    # A trailer with no blank line over it is a shape fault, so it is refused with no diff to read --
-    # the hook, where the repair is a keystroke rather than a rebase.
+    # A trailer with no blank line over it is a shape fault, so it is refused with no diff to read.
     Case(
         "a Closes trailer glued to the paragraph above",
         _message("Ops: the gate proves it", f"{CLEAN_BODY}\nCloses: {TOKEN}"),
@@ -175,13 +173,6 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         "a trailer the convention refuses, glued to the paragraph above",
         _message("Ops: the gate proves it", f"{CLEAN_BODY}\nRefs-Item: OPS-1"),
         (("fail", "a trailer needs a blank line over it"),),
-    ),
-    # What the rule may not cost. A sign-off's value is a name and an address, so the bot exemption
-    # is untouched by it: the one trailer dependabot writes has no single-token value to match.
-    Case(
-        "a bot whose sign-off is glued to the paragraph above",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.\nSigned-off-by: dependabot[bot] <support@github.com>"),
-        is_bot=True,
     ),
     # The five clauses of the `Closes:` contract, in order. A closing commit is the one message the
     # convention admits a trailer in, and the diff is what decides whether it may.
@@ -248,55 +239,6 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         _message("Ops: the gate proves it", CLEAN_BODY + " " + ISOLATE),
         (("fail", "a bidirectional control"),),
     ),
-    # Over a range the message has landed, and its body stands: the correction is the pull request's.
-    Case(
-        "a bidirectional control in a landed message",
-        _message("Ops: the gate proves it", CLEAN_BODY + " " + ISOLATE),
-        (("report", "a bidirectional control"),),
-        departed=frozenset(),
-    ),
-    # A revert's subject is git's, so its shape and its length are excused and nothing else is --
-    # which only holds while the body half of the pair is read too.
-    Case("a revert git composed", _message('Revert "Ops: the gate proves it"', "This reverts commit abc1234def.")),
-    Case(
-        "a revert-shaped subject with no revert body",
-        _message('Revert "Ops: the gate proves it"', CLEAN_BODY),
-        (("fail", "subject is not"),),
-    ),
-    # The bot exemption drops the sign-off alone, that being the one thing dependabot's generator
-    # cannot leave out. The same message from a person keeps every rule.
-    Case(
-        "a bot signing off",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.", "Signed-off-by: dependabot[bot] <support@github.com>"),
-        is_bot=True,
-    ),
-    Case(
-        "the same message from a person",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.", "Signed-off-by: dependabot[bot] <support@github.com>"),
-        (("fail", "a Signed-off-by trailer"), ("report", "the body records no verification")),
-    ),
-    Case(
-        "a bot carrying a Co-authored-by trailer",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.", "Co-authored-by: Someone <someone@example.com>"),
-        (("fail", "a Co-authored-by trailer"),),
-        is_bot=True,
-    ),
-    # A trailer the bans do not name reaches the trailer-block arm, which is the only place a
-    # widened carve-out shows: the Co-authored-by case above is refused before it gets there.
-    Case(
-        "a bot carrying a trailer that is not its sign-off",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.", "Refs-Item: OPS-1"),
-        (("fail", "is the only trailer the convention carries"),),
-        is_bot=True,
-    ),
-    # The sign-off carve-out is untouched by the `Closes:` contract: a bot's message retires no
-    # entry, so the arm that would refuse its trailer never asks whether it is one.
-    Case(
-        "a bot signing off on a commit retiring nothing",
-        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.", "Signed-off-by: dependabot[bot] <support@github.com>"),
-        is_bot=True,
-        departed=frozenset(),
-    ),
 )
 
 
@@ -342,8 +284,7 @@ BODY_CASES: Final[tuple[BodyCase, ...]] = (
         "word " * (body_gate.SUMMARY_TARGET + 1) + "\n\n**Verified** exit 0.\n",
         (("report", "the form asks for one or two paragraphs"),),
     ),
-    # The pull request half of the same exemption as `check_commits.py :: BOT_IDENTITIES`: a
-    # generated body is refused by every rule here and by none of them once the author is a bot.
+    # A generated body is refused by every rule here and by none of them once the author is a bot.
     BodyCase("a bot's body", "Bumps httpx from 1.0 to 1.1.\n", author=min(body_gate.BOT_AUTHORS)),
 ) + tuple(
     # One case per template fragment, generated from the tuple itself: a fragment added by hand and
@@ -383,10 +324,7 @@ def _message_outcomes() -> dict[str, Outcome]:
         case.name: _match(
             case.name,
             case.expected,
-            [
-                (finding.severity, finding.detail)
-                for finding in commits.check_message(case.text, "0000000", is_bot=case.is_bot, departed=case.departed)
-            ],
+            [(finding.severity, finding.detail) for finding in commits.check_message(case.text, departed=case.departed)],
         )
         for case in MESSAGE_CASES
     }
@@ -473,7 +411,6 @@ def test_the_guarded_vocabularies_are_not_empty() -> None:
     assert commits.KNOWN_SCOPES
     assert body_gate.TEMPLATE_FRAGMENTS
     assert body_gate.BOT_AUTHORS
-    assert commits.BOT_IDENTITIES
 
 
 def test_every_reporting_site_in_either_checker_is_reached_by_a_case() -> None:
@@ -497,7 +434,7 @@ def test_every_reporting_site_in_either_checker_is_reached_by_a_case() -> None:
 def test_every_banned_pattern_and_template_fragment_is_named_by_a_case() -> None:
     """The vocabularies are data, so a row added to either without a case would look covered."""
     said = [detail for outcome in _message_outcomes().values() for _, detail in outcome.produced]
-    unnamed = [what for _, what, _ in commits.BANNED if not any(what in detail for detail in said)]
+    unnamed = [what for _, what in commits.BANNED if not any(what in detail for detail in said)]
     assert not unnamed, f"no case trips: {unnamed}"
     bodies = [case.text for case in BODY_CASES]
     missing = [fragment for fragment in body_gate.TEMPLATE_FRAGMENTS if not any(fragment in text for text in bodies)]
@@ -563,22 +500,15 @@ def test_a_trailer_glued_into_an_earlier_paragraph_is_found_beside_a_well_formed
 
 def test_a_closing_trailer_is_not_an_issue_closing_keyword() -> None:
     """The ban reads `closes #12`, and a trailer would be refused by a rule written for GitHub's keyword."""
-    issue_closing = next(pattern for pattern, what, _ in commits.BANNED if what == "an issue-closing keyword")
+    issue_closing = next(pattern for pattern, what in commits.BANNED if what == "an issue-closing keyword")
     assert not issue_closing.search(f"Closes: {TOKEN}")
     assert issue_closing.search("The change closes #12")
 
 
-def test_the_bot_exemption_drops_the_sign_off_and_nothing_else() -> None:
-    """Every other banned pattern still binds a bot, which is what keeps the exemption from being a way past the convention."""
-    still_binding = [what for _, what, binds_a_bot in commits.BANNED if binds_a_bot]
-    assert len(still_binding) == len(commits.BANNED) - 1
-    assert "a Signed-off-by trailer" not in still_binding
-
-
 # --- the outer layer: what git hands the rules, and what the hook hands them ------------------------
 
-# The gate resolves a bot by the AUTHOR pair git records, so the layer above `check_message` needs a
-# repository with real commits in it. Nothing below writes to this one's own.
+# The layer above `check_message` reads git's own state, so it needs a repository of its own.
+# Nothing below writes to this one's own.
 
 
 def _run_git(root: Path, *args: str, author: tuple[str, str] | None = None) -> str:
@@ -619,43 +549,6 @@ def _rooted_at(root: Path) -> Iterator[None]:
         yield
     finally:
         globals_["REPO_ROOT"] = real
-
-
-SIGNED_OFF: Final = "Ops: bump the pinned action" + chr(10) * 2 + CLEAN_BODY + chr(10) * 2 + "Signed-off-by: A Bot <bot@example.com>"
-
-
-def test_a_bot_is_resolved_by_the_exact_pair_git_recorded() -> None:
-    """Every row of the register is driven, and so is a near miss on each half: half an address would release a domain."""
-    wrong: list[str] = []
-    with tempfile.TemporaryDirectory() as scratch:
-        root = Path(scratch)
-        _fixture_repository(root)
-        for name, email in sorted(commits.BOT_IDENTITIES):
-            cases = (
-                ("the pair itself", (name, email), False),
-                ("its name beside another address", (name, "someone@example.com"), True),
-                ("its address under another name", ("A Person", email), True),
-            )
-            for what, author, refused in cases:
-                sha = _commit(root, SIGNED_OFF, author)
-                with _rooted_at(root):
-                    found = [finding.detail for finding in commits.check_commit(sha)]
-                signed = [detail for detail in found if "Signed-off-by" in detail]
-                if bool(signed) is not refused:
-                    wrong.append(f"{name}: {what} gave {signed or 'no finding'}, and the exemption {'binds' if refused else 'releases'} it")
-    assert not wrong, chr(10).join(wrong)
-
-
-def test_a_commit_git_will_not_read_is_failed_rather_than_skipped() -> None:
-    """A message nothing read is indistinguishable from a clean one, so the unread commit is the finding."""
-    with tempfile.TemporaryDirectory() as scratch:
-        root = Path(scratch)
-        _fixture_repository(root)
-        _commit(root, _message(), ("A Person", "person@example.com"))
-        with _rooted_at(root):
-            found = commits.check_commit("0" * 40)
-    assert len(found) == 1, found
-    assert "never judged" in found[0].detail, found[0].detail
 
 
 def test_the_hook_reads_the_message_git_has_yet_to_strip() -> None:
@@ -706,17 +599,6 @@ def test_the_comment_marker_is_git_s_own_answer() -> None:
             assert commits.comment_char() == ";"
             _run_git(root, "config", "core.commentChar", "auto")
             assert commits.comment_char() == "#"
-
-
-def test_a_branch_with_no_commits_is_parted_from_a_listing_git_refused() -> None:
-    """None is not an empty list: a refused listing is every message on the branch passing unread."""
-    with tempfile.TemporaryDirectory() as scratch:
-        root = Path(scratch)
-        _fixture_repository(root)
-        _commit(root, _message(), ("A Person", "person@example.com"))
-        with _rooted_at(root):
-            assert commits.branch_commits("HEAD") == []
-            assert commits.branch_commits("no-such-ref") is None
 
 
 # --- the trailer against the diff, which only a repository with real changes in it can drive --------
@@ -778,7 +660,14 @@ def test_the_matcher_reads_the_headings_the_roadmap_page_itself_writes() -> None
     assert [line for line in written if not commits.ENTRY_HEADING_DIFF_RE.match(f"-{line}")] == []
 
 
-def test_a_commit_retires_the_headings_it_removes_and_writes_back_nowhere() -> None:
+def _staged(root: Path) -> frozenset[str] | None:
+    """What the change staged in `root` retires, read as the hook reads it."""
+    _run_git(root, "add", "-A")
+    with _rooted_at(root):
+        return commits.staged_departures()
+
+
+def test_a_staged_change_retires_the_headings_it_removes_and_writes_back_nowhere() -> None:
     """An entry ending only partly done keeps its token, so a rewrite never reads as retired."""
     entries = commits.ROADMAP_ENTRY_PAGES[0]
     # A heading of the same shape outside the pathspec, which is what proves the pathspec: editing
@@ -790,14 +679,11 @@ def test_a_commit_retires_the_headings_it_removes_and_writes_back_nowhere() -> N
         _fixture_repository(root)
         _page(root, entries, _entry(TOKEN, "One claim"), _entry(OTHER_TOKEN, "Another claim"))
         _page(root, elsewhere, _entry("mmmm-3333", "The shape, written out as an example"))
-        added = _commit_tree(root, _message())
+        assert _staged(root) == frozenset()
+        _commit(root, _message(), ("A Person", "person@example.com"))
         _page(root, entries, _entry(OTHER_TOKEN, "Another claim, and the half of it still open"))
         _page(root, elsewhere, "The example moved into prose.")
-        removed = _commit_tree(root, _message())
-        with _rooted_at(root):
-            assert commits.commit_departures(added) == frozenset()
-            assert commits.commit_departures(removed) == frozenset({TOKEN})
-            assert commits.commit_departures("0" * 40) is None
+        assert _staged(root) == frozenset({TOKEN})
 
 
 def test_a_page_renamed_into_the_entry_path_brings_its_headings_with_it() -> None:
@@ -814,70 +700,30 @@ def test_a_page_renamed_into_the_entry_path_brings_its_headings_with_it() -> Non
         _commit_tree(root, _message())
         (root / elsewhere).unlink()
         _page(root, entries, *carried[:-1])
-        moved = _commit_tree(root, _message())
-        with _rooted_at(root):
-            departed = commits.commit_departures(moved)
+        departed = _staged(root)
     assert departed == frozenset({"zzzz-zzz7"}), departed
-
-
-def test_a_real_commit_is_judged_against_the_diff_it_carries() -> None:
-    """Where the message and the diff meet: each half passes its own tests while the join between them is absent."""
-    entries = commits.ROADMAP_ENTRY_PAGES[0]
-    closing = _message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}")
-    with tempfile.TemporaryDirectory() as scratch:
-        root = Path(scratch)
-        _fixture_repository(root)
-        _page(root, entries, _entry(TOKEN, "One claim"))
-        _commit_tree(root, _message())
-        _page(root, entries, "The entry is gone.")
-        silent = _commit_tree(root, _message())
-        _page(root, entries, _entry(TOKEN, "One claim"))
-        spurious = _commit_tree(root, closing)
-        _page(root, entries, "The entry is gone.")
-        proper = _commit_tree(root, closing)
-        made = (("silent", silent), ("spurious", spurious), ("proper", proper))
-        with _rooted_at(root):
-            found = {name: [finding.detail for finding in commits.check_commit(sha)] for name, sha in made}
-    assert any("carries no `Closes:` trailer" in detail for detail in found["silent"]), found["silent"]
-    assert any("retires no roadmap entry" in detail for detail in found["spurious"]), found["spurious"]
-    assert found["proper"] == [], found["proper"]
 
 
 # Through pytest's fixture: a module imported by name is a `ModuleType`, whose attribute pyright
 # will not let a test assign and ruff's B010 will not let it `setattr`.
-def test_a_diff_git_would_not_hand_over_is_failed_rather_than_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An empty departure set and an unread one decide opposite things, so the diff nothing read is its own finding."""
+def test_a_staged_diff_git_would_not_hand_over_refuses_rather_than_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing reads a message after the hook, so a trailer judged against no diff would be a trailer never judged."""
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
         _fixture_repository(root)
-        sha = _commit(root, _message(), ("A Person", "person@example.com"))
+        path = root / "COMMIT_EDITMSG"
+        path.write_text(_message() + chr(10), encoding="utf-8", newline=chr(10))
         real = commits.git
 
-        # The diff read is the one asking for an empty format; the identity read asks for `%an%n...`.
         def refuse_the_diff(*args: str) -> str | None:
-            return None if "--format=" in args else real(*args)
+            return None if args[:2] == ("diff", "--cached") else real(*args)
 
         # Patched inside, never before: `_rooted_at` reaches REPO_ROOT through `commits.git`'s own
         # globals, which a stand-in does not carry.
         with _rooted_at(root):
             monkeypatch.setattr(commits, "git", refuse_the_diff)
-            found = [finding.detail for finding in commits.check_commit(sha)]
-    assert any("roadmap diff" in detail for detail in found), found
-
-
-def test_the_hook_admits_a_trailer_it_has_no_diff_to_judge() -> None:
-    """The commit does not exist yet, and under `git commit --amend` the index is measured against the commit being replaced."""
-    with tempfile.TemporaryDirectory() as scratch:
-        root = Path(scratch)
-        _fixture_repository(root)
-        path = root / "COMMIT_EDITMSG"
-        with _rooted_at(root):
-            path.write_text(_message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}") + chr(10), encoding="utf-8", newline=chr(10))
-            admitted = commits.check_message_file(path)
-            path.write_text(_message("Ops: the gate proves it", CLEAN_BODY, "Closes: BE-44") + chr(10), encoding="utf-8", newline=chr(10))
-            refused = commits.check_message_file(path)
-    assert admitted == 0, "the hook refused a trailer it has no diff to judge against"
-    assert refused == 1, refused
+            code = commits.check_message_file(path)
+    assert code == commits.EXIT_REFUSED, code
 
 
 # --- the body gate as its own process, which is where a printed line and an exit code can disagree -

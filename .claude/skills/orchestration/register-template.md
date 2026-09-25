@@ -81,10 +81,12 @@ a new file lands 100644 whatever the filesystem says, and a hook without the exe
 skipped in silence on Linux. The agent stages its mode (`.claude/agents/implementer.md` section 9);
 the recipe's `--summary` shows the mode each created file arrived with.
 
-**A message has two routes.** `commit-msg` runs `check_commits.py --message-file`, which prints
-only what fails, so an over-long subject and an unknown scope pass it in silence. The range check,
-the recipe's last line, prints that advisory tier too and alone judges the `Closes:` trailer, so
-read it in the turn the commit lands, while `git commit --amend` still reaches the tip.
+**A message has one route.** `commit-msg` runs `check_commits.py --message-file`, which refuses
+what fails, judges the `Closes:` trailer against the staged diff -- the landing's own diff, so a
+commit is judged in full as it lands -- and prints an over-long subject or an unknown scope as a
+notice on a message it lets through. Read the notice in the turn the commit lands; a reword is a
+`git reset --soft HEAD~1` and a second `git commit -F`, never `--amend`, which the hook reads as the
+amend's delta alone.
 
 **Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
 and tree hold exactly what you staged:
@@ -94,8 +96,7 @@ and tree hold exactly what you staged:
     git status --porcelain                 # prints nothing: -n picks onto whatever the index holds
     git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: its range here too
     git diff --cached --stat --summary     # against the Files cell; --summary: created, deleted, modes
-    git commit -F <message file>           # pre-commit formats, commit-msg checks
-    python scripts/checks/check_commits.py # the Closes: trailer, over the range
+    git commit -F <message file>           # pre-commit formats, commit-msg checks, the trailer included
 
 **A clean cherry-pick is not a correct one.** Two agents making the same change merge without a
 conflict and land it twice, which no exit code reports; the ownership map prevents it, and the

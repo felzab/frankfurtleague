@@ -33,10 +33,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # A pull request's commit messages, moved budgets and line delta, each read against the base. A
-  # push to main has no branch to measure, so the whole job is skipped.
-  commits:
-    if: github.event_name == 'pull_request'
+  scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,72 +41,6 @@ jobs:
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
-          persist-credentials: false
-          # Full history: every step here reads this branch against the merge base.
-          fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
-        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
-        # fail on a development machine over a language version.
-
-        # An interpreter and no virtualenv: both checks import the standard library alone, and the
-        # toolcache holds the pin, so this is a lookup rather than the install setup-uv and a sync
-        # would be.
-        with:
-          python-version-file: fl_backend/.python-version
-      - name: Check the branch's commit messages
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
-      - name: Hold a moved gate budget to its measurement
-        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused here. This job, because it already has the
-        # interpreter and the full history the base comparison reads.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
-      - name: Report the branch's line delta
-        # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
-        # the pull request adding it. Advisory by construction — no threshold, no verdict, and
-        # continue-on-error keeps a failure away from this job's conclusion.
-        continue-on-error: true
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          base="$(git merge-base "origin/${BASE_REF}" HEAD)"
-          # --no-renames: a rename counts as its full add and delete in one bucket, netting zero,
-          # where a rename spec's combined spelling would classify as neither side.
-          git diff --numstat --no-renames "$base" HEAD | awk -F'\t' -v base="$base" '
-            $1 == "-" { next }
-            {
-              b = "product code"
-              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
-              else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
-              else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
-              else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
-              seen[b] = 1; add[b] += $1; del[b] += $2
-            }
-            END {
-              n = split("product code,tests,documentation,tooling,generated", names, ",")
-              net = 0
-              for (i = 1; i < n; i++) net += add[names[i]] - del[names[i]]
-              printf "### Line delta against merge base %.7s\n\n", base
-              printf "**Net: %+d lines** (generated files excluded)\n\n", net
-              print "| Bucket | Added | Removed | Net |"
-              print "| --- | ---: | ---: | ---: |"
-              for (i = 1; i <= n; i++) {
-                b = names[i]
-                if (seen[b]) printf "| %s%s | %d | %d | %+d |\n", b, (i == n ? " (excluded)" : ""), add[b], del[b], add[b] - del[b]
-              }
-            }
-          ' >> "$GITHUB_STEP_SUMMARY"
-
-  scripts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
           persist-credentials: false
           # The sha check's test walks recent commits for one whose short form carries a digit and
           # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
@@ -158,7 +89,8 @@ jobs:
         with:
           persist-credentials: false
           # Full history: the documentation gate diffs the branch against the merge base for its
-          # branch-scoped checks, which a shallow clone cannot do.
+          # branch-scoped checks, and the budget and line-delta steps below read the same range,
+          # none of which a shallow clone can do.
           fetch-depth: 0
       # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
       - uses: ./.github/actions/backend-toolchain
@@ -166,6 +98,51 @@ jobs:
           application: true
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
+      - name: Hold a moved gate budget to its measurement
+        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
+        # stamp, or the pull request is refused. Here for the full history the comparison reads; a
+        # push to main has no base.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # The virtualenv the toolchain step made: the runner's own python is below the checkers' floor.
+        run: fl_backend/.venv/bin/python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
+      - name: Report the branch's line delta
+        # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
+        # the pull request adding it. Advisory by construction — no threshold, no verdict, and
+        # continue-on-error keeps a failure away from this job's conclusion.
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="$(git merge-base "origin/${BASE_REF}" HEAD)"
+          # --no-renames: a rename counts as its full add and delete in one bucket, netting zero,
+          # where a rename spec's combined spelling would classify as neither side.
+          git diff --numstat --no-renames "$base" HEAD | awk -F'\t' -v base="$base" '
+            $1 == "-" { next }
+            {
+              b = "product code"
+              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
+              else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
+              else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
+              else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
+              seen[b] = 1; add[b] += $1; del[b] += $2
+            }
+            END {
+              n = split("product code,tests,documentation,tooling,generated", names, ",")
+              net = 0
+              for (i = 1; i < n; i++) net += add[names[i]] - del[names[i]]
+              printf "### Line delta against merge base %.7s\n\n", base
+              printf "**Net: %+d lines** (generated files excluded)\n\n", net
+              print "| Bucket | Added | Removed | Net |"
+              print "| --- | ---: | ---: | ---: |"
+              for (i = 1; i <= n; i++) {
+                b = names[i]
+                if (seen[b]) printf "| %s%s | %d | %d | %+d |\n", b, (i == n ? " (excluded)" : ""), add[b], del[b], add[b] - del[b]
+              }
+            }
+          ' >> "$GITHUB_STEP_SUMMARY"
 
   # Prettier in check mode over the whole repository: with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
   # which runs beside the frontend job rather than on its path.
@@ -281,7 +258,7 @@ jobs:
         # probe zeroes `scripts/gate/verify.sh :: STEP_JOBS`, and the scope silently costs the sum of
         # its checks rather than the longest.
 
-        # An interpreter and no virtualenv, for the reason written at `commits`; here the lookup is
+        # An interpreter and no virtualenv, for the reason written at `verify`; here the lookup is
         # on the run's critical path.
         with:
           python-version-file: fl_backend/.python-version
@@ -385,7 +362,7 @@ jobs:
         # the checkers' floor -- above this image's own. Without it the scope costs their sum rather
         # than the longer of the two, against the timeout above.
 
-        # An interpreter and no virtualenv, for the reason written at `commits`: each Dockerfile
+        # An interpreter and no virtualenv, for the reason written at `verify`: each Dockerfile
         # installs its own tree inside the build.
         with:
           python-version-file: fl_backend/.python-version
@@ -406,7 +383,7 @@ jobs:
   # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a
   # failed need.
   verify:
-    needs: [commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
+    needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -436,7 +413,7 @@ jobs:
         # saying so and stopping.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The token is not needed after checkout, for the reason the commits job gives above.
+          # The token is not needed after checkout, for the reason the scripts job gives above.
           persist-credentials: false
           sparse-checkout: |
             .github/gate-wall-clock.tsv
@@ -490,15 +467,13 @@ jobs:
           exit 1
 
       # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition
-      # someone added, which the step above passes. Every job this one needs is named, `commits`
-      # under the one event it runs for.
+      # someone added, which the step above passes. Every job this one needs is named.
       - name: Fail if a scope job was skipped
         if: >-
           needs.scripts.result == 'skipped' || needs.docs.result == 'skipped' || needs.format.result == 'skipped'
           || needs.backend.result == 'skipped' || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
           || needs.frontend-units.result == 'skipped' || needs.ops.result == 'skipped'
           || needs.images.result == 'skipped'
-          || (github.event_name == 'pull_request' && needs.commits.result == 'skipped')
         run: |
           echo "::error::A scope job was skipped, and every event runs them all -- the scope results above name it."
           exit 1
