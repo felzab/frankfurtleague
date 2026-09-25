@@ -69,22 +69,27 @@ from test_check_docs import (
 # A hook git runs by its event's name, and a module beside it that a hook hands work to.
 GIT_HOOK: Final = ".githooks/pre-commit"
 HOOK_MODULE: Final = ".githooks/probe-helper.mjs"
+# A shell script beside the hooks that a hook sources, spelled with the suffix the other scopes read.
+HOOK_SCRIPT: Final = ".githooks/probe-helper.sh"
 
 
 def test_a_hook_folder_s_module_is_read_in_its_own_language_and_a_hook_as_shell() -> None:
     """Read as shell by its folder, a module's string naming a shell tool reads as a platform branch.
 
-    The suffixless hook carrying the same token is the control, so a reader dropping the folder whole passes nothing.
+    The suffixless hook and the `.sh` script carrying the token are the controls: a reader dropping
+    either spelling fails.
     """
     _reset()
     root = _gate().root
     write(root, GIT_HOOK, _page("#!/usr/bin/env bash", "uname -s"))
+    write(root, HOOK_SCRIPT, _page("#!/usr/bin/env bash", "uname -s"))
     write(root, HOOK_MODULE, _page('const kernel = "uname";'))
     try:
         _, reported = _run()
     finally:
         _reset()
-    assert _about("platform-branch", reported) == [("fail", "platform-branch", GIT_HOOK)], _shape(reported)
+    found = sorted(_about("platform-branch", reported))
+    assert found == [("fail", "platform-branch", GIT_HOOK), ("fail", "platform-branch", HOOK_SCRIPT)], _shape(reported)
     _assert_corpus_restored()
 
 

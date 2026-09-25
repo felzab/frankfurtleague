@@ -27,9 +27,9 @@ CRLF_CHECK: Final = "crlf-write"
 # fixtures a shell reads.
 PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/")
 TEST_SCOPES: Final[tuple[str, ...]] = ("scripts/tests/", "fl_backend/tests/")
-# `.githooks/` by the missing suffix: a hook carries none, git naming it by its event, and a module
-# a hook runs there carries its language's own.
-SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/")
+# `.githooks/` holds shell under `.sh` as the other scopes do, and under no suffix, git naming a
+# hook by its event; a module a hook runs there carries its language's own.
+SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/", ".githooks/")
 GIT_HOOKS_DIR: Final = ".githooks/"
 
 # Matched on the chain's TAIL, so a driver's `gate_pool.sys.platform` is read as the predicate it
