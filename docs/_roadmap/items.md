@@ -830,8 +830,9 @@ per surface with a comparator, the shape `scripts/checks/check_log_quoting_class
 **The one send that mails every team does it in series**
 (`fl_frontend/src/features/einladungen/actions.ts :: postEinladungVersandAction`), under the request
 deadline (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`). A provider slow enough to
-spend that deadline cuts the rest, and the admin is told the outcome is unclear; every send is keyed,
-so pressing again is safe.
+spend that deadline cuts the rest, and the admin is told the outcome is unclear; pressing again mints
+and mails a fresh link for every team without a delivery record, so a team whose cut message did
+arrive gets a second one, and the first link stops opening.
 
 **The trigger:** a season-wide send that ends unclear. **Done when** the send goes out through Resend's
 batch endpoint, one call for the season, each message keeping its own delivery record and a refused
