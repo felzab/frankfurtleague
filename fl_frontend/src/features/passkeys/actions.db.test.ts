@@ -16,6 +16,7 @@ import {
   ORIGIN,
   registerAuthDoubles,
 } from "@/core/authDoubles.ts";
+import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
@@ -74,9 +75,6 @@ export const client = new Proxy(real, { get(target, prop) {
 const MAIL_DOUBLE = `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`;
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
 
-// `refresh()` throws outside a request Next itself is rendering.
-const CACHE_DOUBLE = `export const refresh = () => {};`;
-
 const LOGGING_DOUBLE = `export const logger = {
   debug: () => {},
   info: () => {},
@@ -86,7 +84,7 @@ const LOGGING_DOUBLE = `export const logger = {
 
 registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(CACHE_DOUBLE) },
+  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
 
 /**
