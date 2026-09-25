@@ -189,8 +189,8 @@ describe("the privacy notice's retention table", () => {
   });
 });
 
-/* German writes one to twelve in words, as the notice's own clocks read: the same count in digits in one place and
-   in a word in another reads as two clocks. The larger figures, a session's lifetime and the ages, stay digits. */
+/* German writes one to twelve in words: the same count in digits in one place and in a word in another reads as two
+   clocks. */
 describe("the privacy notice writes its small counts in words", () => {
   it("states no count from one to twelve in digits, anywhere on the page", () => {
     const inZiffern = SEITE.match(/(?<![\d.,/])(?:[1-9]|1[0-2]) (?:Tage?n?|Wochen?|Monate?n?|Jahre?n?|Stunden?|Minuten?|Saisons?)\b/g) ?? [];
