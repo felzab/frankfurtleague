@@ -15,6 +15,15 @@ type Recorder = { push: (call: ActionCall) => void; answer: (action: string) => 
 let registered = 0;
 
 /**
+ * A name a generated module declares, spelled into its source where no literal can hold it: refused
+ * unless it is an identifier, so nothing read off a real module can write code into the double.
+ */
+function identifier(name: string): string {
+  if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`${JSON.stringify(name)} is no name a module can declare`);
+  return name;
+}
+
+/**
  * Replaces an actions module, or the `mutations.ts` a real action calls, at the module boundary, every
  * export answering `answer` and recording its call: a test-only prop would be a seam in production code.
  */
@@ -85,7 +94,7 @@ export function doubleActions({
           const call = real.slice(match.index, exported[index + 1]?.index);
           const records = /method: "(?!GET")[A-Z]+"/.test(call) && !call.includes("readOnly: true") ? "recordWriteSent(); " : "";
 
-          return `export const ${name} = async (payload) => { ${records}const bus = globalThis.${bus}; bus.push({ action: "${name}", payload }); return bus.answer("${name}"); };`;
+          return `export const ${identifier(name)} = async (payload) => { ${records}const bus = globalThis.${bus}; bus.push({ action: ${JSON.stringify(name)}, payload }); return bus.answer(${JSON.stringify(name)}); };`;
         })
         .join("\n");
 
@@ -127,7 +136,8 @@ export const cacheCalls: CacheCall[] = [];
 const CACHE_BUS = "__flNextCacheCalls";
 Reflect.set(globalThis, CACHE_BUS, cacheCalls);
 
-const recorded = (name: string): string => `export const ${name} = (...args) => void globalThis.${CACHE_BUS}.push({ name: "${name}", args });`;
+const recorded = (name: string): string =>
+  `export const ${identifier(name)} = (...args) => void globalThis.${CACHE_BUS}.push({ name: ${JSON.stringify(name)}, args });`;
 
 const INERT_DECLARATIONS = "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };";
 
@@ -149,7 +159,7 @@ export const ROUTE_NEXT_CACHE_DOUBLE = [
   ...["revalidateTag", "revalidatePath"].map(recorded),
   ...ACTION_ONLY_INVALIDATIONS.map(
     (name) =>
-      `export const ${name} = (...args) => { globalThis.${CACHE_BUS}.push({ name: "${name}", args }); throw new Error("${name} can only be called from within a Server Action"); };`,
+      `export const ${identifier(name)} = (...args) => { globalThis.${CACHE_BUS}.push({ name: ${JSON.stringify(name)}, args }); throw new Error(${JSON.stringify(`${name} can only be called from within a Server Action`)}); };`,
   ),
   INERT_DECLARATIONS,
 ].join("\n");
@@ -197,7 +207,11 @@ function signInStore(url: string): string {
     getSignInDestination: `export const getSignInDestination = async () => globalThis.${DESTINATION_BUS};`,
   };
   return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
-    .map(([, name = ""]) => doubled[name] ?? `export const ${name} = () => { throw new Error("the sign-in store's ${name} is not doubled"); };`)
+    .map(
+      ([, name = ""]) =>
+        doubled[name] ??
+        `export const ${identifier(name)} = () => { throw new Error(${JSON.stringify(`the sign-in store's ${name} is not doubled`)}); };`,
+    )
     .join("\n");
 }
 
@@ -287,7 +301,10 @@ const fail = (title, failure) => raise("danger")(title, { description: failure?.
 const inert = () => undefined;
 export const UNDO_TIMEOUT_MS = 1;
 export const appToast = { ${toastMembers()
-    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : name === "failure" ? "fail" : `raise("${name}")`}`)
+    .map(
+      (name) =>
+        `${identifier(name)}: ${name === "close" || name === "clear" ? "inert" : name === "failure" ? "fail" : `raise(${JSON.stringify(name)})`}`,
+    )
     .join(", ")} };`;
 
   registerHooks({
