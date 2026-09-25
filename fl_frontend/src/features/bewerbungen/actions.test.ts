@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
@@ -112,9 +109,6 @@ const {
 } = await import("./actions.ts");
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
