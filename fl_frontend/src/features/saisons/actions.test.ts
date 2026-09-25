@@ -232,13 +232,18 @@ describe("the saison actions against the codes their endpoints publish", () => {
       publishedRefusals(DRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [
         // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
-        // the season has days. It measures the span for that, exactly as the create and the edit do.
-        "REQ-DATE-005",
+        // the season has days. It measures the span for that, as the create and the edit do.
+        "REQ-DATE-009",
+        // A shape this request carried; the three below from `-014` are the same rules over the
+        // stored numbers, and each code's answer names its own panel.
         "REQ-RULES-001",
         "REQ-RULES-007",
-        "REQ-RULES-008",
-        "REQ-RULES-010",
         "REQ-RULES-013",
+        "REQ-RULES-014",
+        "REQ-RULES-015",
+        "REQ-RULES-016",
+        "REQ-RULES-017",
+        "REQ-RULES-018",
         "REQ-SPIELPLAN-001",
         "REQ-SPIELPLAN-002",
         "REQ-SPIELPLAN-003",
@@ -412,8 +417,9 @@ describe("the German each widened refusal renders", () => {
     assert.doesNotMatch(message, /Saison-ID/);
   });
 
-  /* Several endpoints refuse on this code, so a sentence written twice could tell two admins two
-     different things about one rule. Each path adds its own tail and shares the opening. */
+  /* The editor's `REQ-DATE-005` and the draw's `REQ-DATE-009` are one rule, so a sentence written
+     twice could tell two admins two different things about it. Each path adds its own tail and shares
+     the opening. */
   it("opens the schedule refusal with one sentence on both paths", () => {
     const opening = (message: string): string => message.split(". ")[0] ?? "";
     const editor = editBanner("REQ-DATE-005");
@@ -421,7 +427,7 @@ describe("the German each widened refusal renders", () => {
     assert.notEqual(opening(editor), "", "the editor words no opening for the schedule refusal");
     for (const carriedShape of [false, true]) {
       assert.equal(
-        opening(drawAnswer("REQ-DATE-005", carriedShape)),
+        opening(drawAnswer("REQ-DATE-009", carriedShape)),
         opening(editor),
         "the draw opens the schedule refusal apart from the editor",
       );
@@ -438,7 +444,7 @@ describe("the German each widened refusal renders", () => {
      on a past season, and `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an
      even `teams_per_group` down to the odd one. */
   it("offers no rules field as a repair for the schedule refusal", () => {
-    for (const text of [editBanner("REQ-DATE-005"), drawAnswer("REQ-DATE-005", false), drawAnswer("REQ-DATE-005", true)]) {
+    for (const text of [editBanner("REQ-DATE-005"), drawAnswer("REQ-DATE-009", false), drawAnswer("REQ-DATE-009", true)]) {
       assert.doesNotMatch(text, /Qualifikanten/);
       assert.doesNotMatch(text, /Teams pro Gruppe/);
     }
@@ -447,11 +453,43 @@ describe("the German each widened refusal renders", () => {
   /* The draw carries its own three numbers on a replace and none on a first draw, so the panel the
      second repair names moves with the request. Hardcode either and half the admins are misdirected. */
   it("sends the draw's schedule refusal to the panel that holds the numbers it was judged on", () => {
-    assert.match(drawAnswer("REQ-DATE-005", true), /Abschnitt Spielplan/);
-    assert.match(drawAnswer("REQ-DATE-005", false), /Abschnitt Regeln/);
+    assert.match(drawAnswer("REQ-DATE-009", true), /Abschnitt Spielplan/);
+    assert.match(drawAnswer("REQ-DATE-009", false), /Abschnitt Regeln/);
     // Neither tail sends the admin to change a number: the dates are the repair that works whatever
     // the numbers are.
-    for (const carriedShape of [false, true]) assert.doesNotMatch(drawAnswer("REQ-DATE-005", carriedShape), /Ändere die Zahlen/);
+    for (const carriedShape of [false, true]) assert.doesNotMatch(drawAnswer("REQ-DATE-009", carriedShape), /Ändere die Zahlen/);
+  });
+
+  /* The backend answers a carried shape and the stored rules under different codes, so the code alone
+     names the panel holding the numbers it judged, whatever the action read off its request. */
+  it("sends each shape fault to the panel holding the numbers its code judged", () => {
+    for (const [carried, stored] of [
+      ["REQ-RULES-001", "REQ-RULES-014"],
+      ["REQ-RULES-007", "REQ-RULES-015"],
+      ["REQ-RULES-013", "REQ-RULES-018"],
+    ] as const) {
+      for (const carriedShape of [false, true]) {
+        assert.match(drawAnswer(carried, carriedShape), /Abschnitt Spielplan/, `${carried} sends the admin away from the numbers it judged`);
+        assert.match(drawAnswer(stored, carriedShape), /Abschnitt Regeln/, `${stored} sends the admin away from the numbers it judged`);
+      }
+    }
+  });
+
+  /* A draw never carries the points or the forfeit, so its twins of the editor's two faults state the
+     editor's own rule and send the admin to the panel holding it. */
+  it("states the editor's points and forfeit rules on the draw, repaired in the rules panel", () => {
+    for (const [edit, draw, field] of [
+      ["REQ-RULES-008", "REQ-RULES-016", "rules.draw_points"],
+      ["REQ-RULES-010", "REQ-RULES-017", "rules.forfeit_ergebnis.sieger_tore"],
+    ] as const) {
+      const rule = mapRulesRefusal(refusedOn(EDIT_OPERATION, edit))?.fieldErrors?.[field] ?? "";
+
+      assert.notEqual(rule, "", `the editor seats no rule for ${edit}, so ${draw} is compared with nothing`);
+      for (const carriedShape of [false, true]) {
+        assert.ok(drawAnswer(draw, carriedShape).startsWith(rule), `${draw} words its rule apart from ${edit}`);
+        assert.match(drawAnswer(draw, carriedShape), /Abschnitt Regeln/);
+      }
+    }
   });
 
   /* `REQ-SPIELPLAN-003` refuses `past` alone, so the message may not send the admin looking for a

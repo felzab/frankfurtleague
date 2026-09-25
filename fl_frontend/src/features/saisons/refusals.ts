@@ -23,7 +23,7 @@ const TOO_MANY_FIXTURES =
   "Aus so vielen Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann. Senke eine der beiden Zahlen.";
 
 /**
- * `REQ-DATE-005`'s shared half: the dates repair every state, because
+ * The half `REQ-DATE-005` and the draw's `REQ-DATE-009` share: the dates repair every state, because
  * `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an even `teams_per_group`
  * down to the odd one and a smaller number does not always buy a day back.
  */
@@ -125,9 +125,6 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
 export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | null {
   if (!isRefusal(error)) return null;
 
-  // Which panel holds the three numbers this draw was judged on, and therefore where the repair is.
-  const shapeFault = carriedShape ? shapeFaultMessage : rulesFaultMessage;
-
   switch (error.serverErrorCode) {
     // Both step aside for a confirmed replace, so either arriving means the season gained rows after
     // this page rendered: the request went out as a first draw because that is what the panel saw.
@@ -151,27 +148,29 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
         `Ein Spielplan lässt sich nur für eine geplante Saison neu anlegen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
         "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
       );
-    // The draw judges its own three numbers and the season's stored rest, so the first two are
-    // repaired wherever this request took them from and the last two only in the rules panel.
-    // `stored=None` there, so no narrowing rule answers.
+    // The code says which numbers were judged, and so which panel repairs them: `-001`, `-007` and
+    // `-013` the three this request carried, their twins `-014`, `-015` and `-018` the stored rules.
     case "REQ-RULES-001":
-      return shapeFault(
-        `${carriedShape ? "Aus diesen Zahlen" : "Aus den Regeln dieser Saison"} entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`,
-      );
+      return shapeFaultMessage(`Aus diesen Zahlen entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`);
+    case "REQ-RULES-014":
+      return rulesFaultMessage(`Aus den Regeln dieser Saison entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`);
     case "REQ-RULES-007":
-      return shapeFault(GROUP_OVER_QUALIFIES);
-    case "REQ-RULES-008":
-      return rulesFaultMessage(DRAW_BEATS_WIN);
-    case "REQ-RULES-010":
-      return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
-    // Through `shapeFault` rather than `rulesFaultMessage`: a replace carries the two counts this
-    // total is computed from, so on that path the panel holding them is the Spielplan's.
+      return shapeFaultMessage(GROUP_OVER_QUALIFIES);
+    case "REQ-RULES-015":
+      return rulesFaultMessage(GROUP_OVER_QUALIFIES);
     case "REQ-RULES-013":
-      return shapeFault(TOO_MANY_FIXTURES);
-    // NOT through `shapeFault`, whose two tails both send the admin to change a number: the repair
-    // that works whatever the numbers are is the season's dates. Only where a smaller one could be
-    // typed differs, which is what the ternary carries.
-    case "REQ-DATE-005":
+      return shapeFaultMessage(TOO_MANY_FIXTURES);
+    case "REQ-RULES-018":
+      return rulesFaultMessage(TOO_MANY_FIXTURES);
+    // The points and the forfeit are never a draw's own numbers, so their repair is the rules panel.
+    case "REQ-RULES-016":
+      return rulesFaultMessage(DRAW_BEATS_WIN);
+    case "REQ-RULES-017":
+      return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
+    // NOT through a fault message, whose tails send the admin to change a number: the dates are the
+    // repair that works whatever the numbers are. Only where a smaller one could be typed differs,
+    // which the ternary carries.
+    case "REQ-DATE-009":
       return (
         `${SPAN_BELOW_SCHEDULE} Weniger Spieltage ergeben sich sonst nur aus kleineren Zahlen im Abschnitt ` +
         `${carriedShape ? "Spielplan" : "Regeln"}, und nicht jede kleinere Zahl spart einen Spieltag.`
