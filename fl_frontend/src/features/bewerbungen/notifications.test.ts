@@ -82,8 +82,15 @@ registerHooks({
   },
 });
 
-const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, rolleText, seatsByMailbox, sendBewerbungMail } =
-  await import("./notifications.ts");
+const {
+  collectBewerbungEingangEmpfaenger,
+  collectBewerbungEmpfaenger,
+  describeBewerbungMail,
+  rolleText,
+  seatsByMailbox,
+  sendBewerbungMail,
+  zustellungIdempotenzSchluessel,
+} = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
 const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
@@ -630,7 +637,10 @@ describe("what an accepted send records about itself", () => {
       recipients: [gepaart],
       buildMail: buildMail,
     });
-    assert.equal(sent[0]?.idempotencyKey, `loeschung_${AUFTRAG.bewerbungId}_ansprechperson-trainer_2026-09-08`);
+    assert.match(
+      sent[0]?.idempotencyKey ?? "",
+      new RegExp(`^loeschung_${AUFTRAG.bewerbungId}_ansprechperson-trainer_2026-09-08_[0-9a-f]{64}$`),
+    );
   });
 
   /* The two triage decisions pass none: their application is closed by the time a delivery state
@@ -676,5 +686,28 @@ describe("what an accepted send records about itself", () => {
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
     assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
+  });
+});
+
+describe("the key one application message is sent under", () => {
+  const delivery = { bewerbungId: "a".repeat(24), rollen: ["ansprechperson", "trainer"] as const, anlass: "erinnerung" as const };
+
+  /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
+     for two sends of one day and a different one the next. */
+  it("mints one idempotency key per message per day", () => {
+    const today = zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de");
+
+    assert.equal(zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"), today);
+    assert.notEqual(zustellungIdempotenzSchluessel(delivery, "2026-09-09", "erste@schule.de"), today);
+    assert.ok(today.length <= 256, "the provider refuses a key over 256 characters");
+  });
+
+  /* The provider refuses a key reused over another payload, and the recipient is in the payload: an
+     address corrected inside the window would otherwise go out under the old address's key. */
+  it("mints a different key for the same seats at another mailbox", () => {
+    assert.notEqual(
+      zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"),
+      zustellungIdempotenzSchluessel(delivery, "2026-09-08", "neue@schule.de"),
+    );
   });
 });

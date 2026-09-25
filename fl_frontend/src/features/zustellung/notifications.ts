@@ -1,11 +1,9 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
-import { mailboxKey } from "@/core/emailAddress";
 import { APINetworkError, MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
 
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
@@ -67,11 +65,7 @@ export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Recor
  * its own record keys safely.
  */
 export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string, address: string): string {
-  // Per mailbox, the fan-out's messages to one record being bodies apart; a digest rather than the
-  // address, which would carry it into a second place and past the provider's 256 characters.
-  const mailbox = createHash("sha256").update(mailboxKey(address)).digest("hex");
-
-  return [anlass, ziel, zielId, tag, mailbox].join("_");
+  return mailIdempotencyKey([anlass, ziel, zielId, tag], address);
 }
 
 /** The record one accepted message covered, stamped with THIS server's clock. */

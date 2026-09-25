@@ -83,7 +83,6 @@ const {
   ZUSTELLUNG_CHIP,
   ZUSTELLUNG_QUEUE_LABEL,
   ZUSTELLUNG_QUEUE_TINT,
-  zustellungIdempotenzSchluessel,
   zustellungTags,
 } = await import("./zustellung.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
@@ -348,16 +347,6 @@ describe("the tags one message rides out with", () => {
 
   it("routes an event back by application and seat rather than by the message alone", () => {
     assert.deepEqual(zustellungTags(delivery), { bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
-  });
-
-  /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
-     for two sends of one day and a different one the next. */
-  it("mints one idempotency key per message per day", () => {
-    const today2 = zustellungIdempotenzSchluessel(delivery, "2026-09-08");
-
-    assert.equal(zustellungIdempotenzSchluessel(delivery, "2026-09-08"), today2);
-    assert.notEqual(zustellungIdempotenzSchluessel(delivery, "2026-09-09"), today2);
-    assert.ok(today2.length <= 256, "the provider refuses a key over 256 characters");
   });
 });
 

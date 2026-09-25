@@ -5,14 +5,15 @@ import { APINetworkError } from "@/core/errors";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
 
 import { BEWERBUNG_SEATS } from "./constants";
 import { meldeZustellungAngenommen } from "./mutations";
-import { zustellungIdempotenzSchluessel, zustellungTags } from "./zustellung";
+import { zustellungTags } from "./zustellung";
 
 import type { BewerbungBestaetigungData, BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
-import type { ZustellAnlass } from "./zustellung";
+import type { ZustellAnlass, ZustellSendung } from "./zustellung";
 
 /**
  * The three seats, narrowed to the one field a fan-out reads. Both a stored block and a submitted
@@ -261,6 +262,15 @@ export async function sendBewerbungLinkMail({
 }
 
 /**
+ * **Only for a message whose body cannot change inside the provider's 24-hour window.** A reused key
+ * over a different body is refused rather than ignored, so any message carrying a freshly minted
+ * token must go without one.
+ */
+export function zustellungIdempotenzSchluessel({ bewerbungId, rollen, anlass }: ZustellSendung, tag: string, address: string): string {
+  return mailIdempotencyKey([anlass, bewerbungId, [...rollen].join("-"), tag], address);
+}
+
+/**
  * The seats one accepted message covered, stamped with THIS server's clock — which the backend
  * orders against the seat's own last accept and against no provider stamp
  * (`fl_backend/app/api/bewerbungen/services.py :: zustellung_send_applies`).
@@ -314,7 +324,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
         idempotencyKey:
           sendung === undefined || auftrag?.idempotenzTag === undefined
             ? undefined
-            : zustellungIdempotenzSchluessel(sendung, auftrag.idempotenzTag),
+            : zustellungIdempotenzSchluessel(sendung, auftrag.idempotenzTag, recipient.address),
       });
     }),
   );

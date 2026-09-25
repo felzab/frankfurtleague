@@ -38,15 +38,6 @@ export function zustellungTags({ bewerbungId, rollen, anlass }: ZustellSendung):
 }
 
 /**
- * **Only for a message whose body cannot change inside the provider's 24-hour window.** A reused key
- * over a different body is refused rather than ignored, so any message carrying a freshly minted
- * token must go without one.
- */
-export function zustellungIdempotenzSchluessel({ bewerbungId, rollen, anlass }: ZustellSendung, tag: string): string {
-  return [anlass, bewerbungId, [...rollen].join("-"), tag].join("_");
-}
-
-/**
  * The envelope's own `created_at` orders events and `data.created_at` does not: the second is when the
  * MESSAGE was made, which every event about one message repeats.
  */
