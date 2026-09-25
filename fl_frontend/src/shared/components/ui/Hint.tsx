@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
+import { Description } from "@heroui/react/description";
 import { Popover } from "@heroui/react/popover";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
@@ -12,11 +13,11 @@ import { overlayPanel } from "./overlayPanel";
 
 import type { ReactNode, RefObject } from "react";
 
-/**
- * The bold run is a field rather than markup inside `text`, so `hintCap.test.ts` can count what a
- * hint says. A `ReactNode` bullet is unmeasurable, and an uncounted hint grows without a bound.
- */
 type HintPoint = { term?: string; text: string };
+
+// The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
+// pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
+const FIELD_HINT_CLASSES = "fluid-xxs text-foreground-muted leading-normal font-medium";
 
 /** A lead and four bullets, together about 350 characters. Longer is a document, not a popover. */
 type HintBody = {
@@ -35,16 +36,17 @@ type HintBody = {
 };
 
 type HintProps =
-  /** Rendered in the flow, so mounting one on a keystroke shifts the layout under somebody typing. */
-  | {
-      mode: "inline";
-      text: string;
-      /**
-       * The `id` this paragraph publishes, carried by the control it explains in `aria-describedby`.
-       * Required so no hint lands describing nothing, and `hintCap.test.ts` looks for the other end.
-       */
-      describes: string;
-    }
+  /**
+   * A child of the field it explains, as react-aria's description slot: the field names it in its own
+   * `aria-describedby`, which a hint placed anywhere else never reaches. In the flow, so mounting one
+   * on a keystroke shifts the layout.
+   */
+  | { mode: "field"; text: string }
+  /**
+   * Beside a control that cannot hold it, publishing the `id` that control carries in `aria-describedby`.
+   * Each site names why the control cannot.
+   */
+  | { mode: "inline"; text: string; describes: string }
   /**
    * For a hint that owns its own press. A control that owns one keeps `IconTooltip`, whose panel a
    * modal popover would steal the press of.
@@ -73,13 +75,20 @@ type HintProps =
  * Grade one in the editor's `banners.ts` instead.
  */
 export function Hint(props: HintProps) {
+  if (props.mode === "field")
+    return (
+      <Description
+        elementType="p"
+        className={FIELD_HINT_CLASSES}>
+        {props.text}
+      </Description>
+    );
+
   if (props.mode === "inline")
     return (
-      // The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
-      // pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
       <p
         id={props.describes}
-        className="fluid-xxs text-foreground-muted leading-normal font-medium">
+        className={FIELD_HINT_CLASSES}>
         {props.text}
       </p>
     );

@@ -21,7 +21,6 @@ import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { Hint } from "@/shared/components/ui/Hint";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -98,14 +97,12 @@ function BestaetigungAngaben({
   onEntwurf,
   onGeburtsdatumVerlassen,
   isDisabled,
-  hinweisId,
   mindestalter,
 }: {
   entwurf: Entwurf;
   onEntwurf: (entwurf: Entwurf) => void;
   onGeburtsdatumVerlassen: () => void;
   isDisabled: boolean;
-  hinweisId: string;
   mindestalter: number;
 }) {
   const panel = formPanel();
@@ -119,28 +116,21 @@ function BestaetigungAngaben({
         {/* The form's own field grid, so one box on a wide page stands in a column rather than
             stretching the segments across it. */}
         <div className={FIELD_PAIR_CLASSES}>
-          <div className="flex flex-col gap-y-2">
-            <AppDatePicker
-              isRequired
-              isDisabled={isDisabled}
-              name="geburtsdatum"
-              label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
-              calendarLabel="Geburtsdatum auswählen"
-              value={toCalendarDate(entwurf.geburtsdatum)}
-              onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-              onBlur={onGeburtsdatumVerlassen}
-              aria-describedby={hinweisId}
-              minValue={parseDate(frueheste)}
-              maxValue={parseDate(spaeteste)}
-            />
-            {/* One wording in both states: a hint that rewrote itself on arming would move every
-                control under it, which is the shift this section exists to avoid. */}
-            <Hint
-              mode="inline"
-              describes={hinweisId}
-              text={geburtsdatumHinweis(mindestalter)}
-            />
-          </div>
+          <AppDatePicker
+            isRequired
+            isDisabled={isDisabled}
+            name="geburtsdatum"
+            label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+            calendarLabel="Geburtsdatum auswählen"
+            value={toCalendarDate(entwurf.geburtsdatum)}
+            onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+            onBlur={onGeburtsdatumVerlassen}
+            // One wording in both states: a hint that rewrote itself on arming would move every
+            // control under it, which is the shift this section exists to avoid.
+            hint={geburtsdatumHinweis(mindestalter)}
+            minValue={parseDate(frueheste)}
+            maxValue={parseDate(spaeteste)}
+          />
         </div>
       </section>
 
@@ -261,7 +251,6 @@ export function BestaetigungFormPanel({
   const widerspruch = useTwoPressConfirm();
   const { isConfirming, press } = widerspruch;
 
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
@@ -383,7 +372,6 @@ export function BestaetigungFormPanel({
           onEntwurf={setEntwurf}
           onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
           isDisabled={isConfirming}
-          hinweisId={geburtsdatumHinweisId}
           mindestalter={mindestalter}
         />
 

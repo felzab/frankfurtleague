@@ -29,9 +29,8 @@ export function ExpectedMarker({ path }: { path: SpielFieldPath }) {
     </span>
   );
 
-  /* Two elements over one with a conditional lead: `hintCap.test.ts` counts a literal, and a
-     ternary is a body it cannot measure. Neither line repeats the trigger's own `aria-label`,
-     which a screen reader announces immediately before it. */
+  /* Neither line repeats the trigger's own `aria-label`, which a screen reader announces
+     immediately before it. */
   return blocksScoring ? (
     <Hint
       mode="reveal"

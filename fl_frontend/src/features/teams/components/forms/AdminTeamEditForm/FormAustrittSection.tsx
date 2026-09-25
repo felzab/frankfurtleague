@@ -26,9 +26,6 @@ import type { TeamBanner } from "./banners";
 /** Names the exit-type chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const ART_LABEL_ID = "austritt-art";
 
-/** The id the durability sentence publishes, carried by the reason's own field in `aria-describedby`. */
-const GRUND_HINT_ID = "austritt-grund-hinweis";
-
 /**
  * `austritt` is required with no default: lifting one sends an explicit `null`, not a quiet
  * reinstatement. The route starts on NEITHER Art — a default Disqualifikation would file
@@ -138,7 +135,6 @@ export function FormAustrittSection({
               <TextField
                 isRequired
                 name="austritt.grund"
-                aria-describedby={GRUND_HINT_ID}
                 value={grund}
                 onChange={onGrundChange}
                 onBlur={() => onValidateFields(["austritt.grund"])}>
@@ -148,8 +144,7 @@ export function FormAustrittSection({
                 {/* Under the field rather than in the panel's hint, which opens on a press, or the
                     banner, which only a changed reason raises: this rule stands whatever is typed. */}
                 <Hint
-                  mode="inline"
-                  describes={GRUND_HINT_ID}
+                  mode="field"
                   text="Ein Name hier bleibt öffentlich stehen, auch wenn die Person später vergessen werden möchte."
                 />
               </TextField>

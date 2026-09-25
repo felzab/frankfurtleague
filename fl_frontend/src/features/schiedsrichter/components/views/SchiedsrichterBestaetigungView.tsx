@@ -46,7 +46,6 @@ import {
   TOGGLE_GROUP_ALIGN_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -271,7 +270,6 @@ function SchiedsrichterFormPanel({
   const [entwurf, setEntwurf] = useState<Entwurf>(LEERER_ENTWURF);
 
   const panel = formPanel();
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
   const werte = { ...KONSTANTEN, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
@@ -367,25 +365,18 @@ function SchiedsrichterFormPanel({
           {/* The form's own field grid, so one box on a wide page stands in a column rather than
               stretching the segments across it. */}
           <div className={FIELD_PAIR_CLASSES}>
-            <div className="flex flex-col gap-y-2">
-              <AppDatePicker
-                isRequired
-                name="geburtsdatum"
-                label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
-                calendarLabel="Geburtsdatum auswählen"
-                value={toCalendarDate(entwurf.geburtsdatum)}
-                onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
-                aria-describedby={geburtsdatumHinweisId}
-                minValue={parseDate(frueheste)}
-                maxValue={parseDate(spaeteste)}
-              />
-              <Hint
-                mode="inline"
-                describes={geburtsdatumHinweisId}
-                text={`Spiele leiten kann nur, wer mindestens ${String(mindestalter)} Jahre alt ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
-              />
-            </div>
+            <AppDatePicker
+              isRequired
+              name="geburtsdatum"
+              label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+              calendarLabel="Geburtsdatum auswählen"
+              value={toCalendarDate(entwurf.geburtsdatum)}
+              onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+              onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
+              hint={`Spiele leiten kann nur, wer mindestens ${String(mindestalter)} Jahre alt ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
+              minValue={parseDate(frueheste)}
+              maxValue={parseDate(spaeteste)}
+            />
           </div>
         </section>
 

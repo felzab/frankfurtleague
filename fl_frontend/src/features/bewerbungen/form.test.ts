@@ -636,10 +636,10 @@ describe("what the form says about itself to a reader who cannot see it", () => 
     }
   });
 
-  /* Without HeroUI forwarding `aria-describedby` to its own input, this hint would describe nothing,
-     and the picker's `<p id>` pattern would be the only way to reach a reader who cannot see it. */
+  /* The hint is the field's description slot, which react-aria names in the input's own
+     `aria-describedby`: outside the field it would render nothing and describe nothing. */
   it("describes the Abi-Jahrgang box by the hint sitting under it", () => {
-    const hintId = /<p id="([^"]*)"[^>]*>Alle Schülerinnen und Schüler/.exec(NEW_SCHOOL_MARKUP)?.[1] ?? "";
+    const hintId = /<p\b[^>]*\bid="([^"]*)"[^>]*>Alle Schülerinnen und Schüler/.exec(NEW_SCHOOL_MARKUP)?.[1] ?? "";
 
     assert.notEqual(hintId, "", "the school panel renders no Abi-Jahrgang hint, so this case compares nothing");
 

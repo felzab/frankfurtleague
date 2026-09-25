@@ -18,6 +18,7 @@ import {
   FIELD_ERROR_CLASSES,
   FIELD_GROUP_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
+import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -71,7 +72,7 @@ export function AppDatePicker({
   isRequired = false,
   isDisabled,
   isReadOnly,
-  "aria-describedby": describedBy,
+  hint,
   minValue,
   maxValue,
   clearLabel,
@@ -87,7 +88,8 @@ export function AppDatePicker({
   isRequired?: boolean;
   isDisabled?: boolean;
   isReadOnly?: boolean;
-  "aria-describedby"?: string;
+  /** A standing sentence under the field, which the field names as its description. */
+  hint?: string;
   /**
    * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
    * `aria`'s realtime validation and marks a half-typed year (`.claude/rules/frontend.md`). The schema refuses an
@@ -107,7 +109,6 @@ export function AppDatePicker({
       value={value}
       onChange={onChange}
       onBlur={onBlur}
-      aria-describedby={describedBy}
       name={name}
       // Two-digit day and month: de-DE's own pattern writes `4.9.2016`, while every date the app prints
       // reads `04.09.2016` (`fl_frontend/src/shared/utils/format.ts :: formatSpielDatum`).
@@ -143,6 +144,12 @@ export function AppDatePicker({
         </DateField.Suffix>
       </DateField.Group>
       <FieldError className={FIELD_ERROR_CLASSES} />
+      {hint !== undefined && (
+        <Hint
+          mode="field"
+          text={hint}
+        />
+      )}
       <DatePicker.Popover
         className={DATE_PICKER_POPOVER_CLASSES}
         placement={DATE_PICKER_PLACEMENT}>

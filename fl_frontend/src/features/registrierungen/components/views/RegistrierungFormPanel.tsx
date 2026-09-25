@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
@@ -74,7 +74,6 @@ export function RegistrierungFormPanel({
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   const [isEingereicht, setIsEingereicht] = useState(false);
 
-  const emailHinweisId = useId();
   const eingereichtRef = useRef<HTMLElement>(null);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
@@ -224,30 +223,24 @@ export function RegistrierungFormPanel({
           </div>
 
           <div className={FIELD_PAIR_CLASSES}>
-            {/* The hint rides in the same grid cell as the box it explains, so it stays under that box
-                rather than under whichever field the two-column layout puts beside it. */}
-            <div className="flex w-full flex-col gap-y-1">
-              <TextField
-                isRequired
-                type="email"
-                aria-describedby={emailHinweisId}
-                name="email"
-                value={draft.email}
-                onChange={(next) => setDraft({ ...draft, email: next })}
-                onBlur={() => validateFields(["email"])}>
-                <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
-                <Input
-                  placeholder="z.B. name@beispiel.de"
-                  className={FIELD_INPUT_CLASSES}
-                />
-                <FieldError className={FIELD_ERROR_CLASSES} />
-              </TextField>
+            <TextField
+              isRequired
+              type="email"
+              name="email"
+              value={draft.email}
+              onChange={(next) => setDraft({ ...draft, email: next })}
+              onBlur={() => validateFields(["email"])}>
+              <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
+              <Input
+                placeholder="z.B. name@beispiel.de"
+                className={FIELD_INPUT_CLASSES}
+              />
+              <FieldError className={FIELD_ERROR_CLASSES} />
               <Hint
-                mode="inline"
-                describes={emailHinweisId}
+                mode="field"
                 text="An diese Adresse schicken wir Deinen Bestätigungslink. Sie wird später auch Dein Zugang zur Website."
               />
-            </div>
+            </TextField>
 
             <NummerField
               label={<Label className={FIELD_LABEL_CLASSES}>Rückennummer</Label>}

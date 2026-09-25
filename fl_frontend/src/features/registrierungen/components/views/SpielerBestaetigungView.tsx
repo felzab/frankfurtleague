@@ -41,7 +41,6 @@ import {
   TOGGLE_GROUP_ALIGN_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -332,7 +331,6 @@ function SpielerBestaetigungForm({
     medien: ansicht.medien ?? false,
   });
 
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
   const panel = formPanel();
 
@@ -456,25 +454,18 @@ function SpielerBestaetigungForm({
 
           {ansicht.geburtsdatum === null ? (
             <div className={FIELD_PAIR_CLASSES}>
-              <div className="flex flex-col gap-y-2">
-                <AppDatePicker
-                  isRequired
-                  name="geburtsdatum"
-                  label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
-                  calendarLabel="Geburtsdatum auswählen"
-                  value={toCalendarDate(entwurf.geburtsdatum)}
-                  onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                  onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
-                  aria-describedby={geburtsdatumHinweisId}
-                  minValue={parseDate(frueheste)}
-                  maxValue={parseDate(spaeteste)}
-                />
-                <Hint
-                  mode="inline"
-                  describes={geburtsdatumHinweisId}
-                  text={`Daran prüfen wir, ob Du mindestens ${String(ansicht.mindestalter)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
-                />
-              </div>
+              <AppDatePicker
+                isRequired
+                name="geburtsdatum"
+                label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+                calendarLabel="Geburtsdatum auswählen"
+                value={toCalendarDate(entwurf.geburtsdatum)}
+                onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+                onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
+                hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.mindestalter)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
+                minValue={parseDate(frueheste)}
+                maxValue={parseDate(spaeteste)}
+              />
             </div>
           ) : (
             // Shown rather than asked: the league already holds this person's date, and asking again

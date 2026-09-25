@@ -30,12 +30,7 @@ import type { ReactNode } from "react";
 
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";
 
-/**
- * What each seat is for, behind the heading's own glyph.
- *
- * **Spelled out per seat rather than looked up from `BEWERBUNG_SEATS`**: `hintCap.test.ts` counts a
- * body written as a literal, and an interpolated one is a hint nothing measures.
- */
+/** What each seat is for, behind the heading's own glyph. */
 const SEAT_HINT: Record<SeatRolle, ReactNode> = {
   trainer: (
     <Hint
@@ -101,7 +96,6 @@ export function FormKontaktpersonenSection({
   const panel = formPanel();
 
   const altersHinweisId = useId();
-  const emailHinweisId = useId();
 
   const path = (feld: string) => `kontakte.${seat}.${feld}`;
 
@@ -129,6 +123,8 @@ export function FormKontaktpersonenSection({
           />
         )}
 
+        {/* Beside the fields rather than inside the Vorname box: it states the whole seat's floors
+            above every box, where a description inside one would read as that box's alone. */}
         {zeigtAltersHinweis && (
           <Hint
             mode="inline"
@@ -173,30 +169,24 @@ export function FormKontaktpersonenSection({
             </div>
 
             <div className={FIELD_PAIR_CLASSES}>
-              {/* The hint rides in the same grid cell as the box it explains, so it stays under that
-                  box rather than under whichever field the two-column layout puts beside it. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  type="email"
-                  aria-describedby={emailHinweisId}
-                  name={path("email")}
-                  value={person.email}
-                  onChange={(next) => onChange({ ...person, email: next })}
-                  onBlur={() => onFieldLeft([path("email")])}>
-                  <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
-                  <Input
-                    placeholder="z.B. name@beispiel.de"
-                    className={FIELD_INPUT_CLASSES}
-                  />
-                  <FieldError className={FIELD_ERROR_CLASSES} />
-                </TextField>
+              <TextField
+                isRequired
+                type="email"
+                name={path("email")}
+                value={person.email}
+                onChange={(next) => onChange({ ...person, email: next })}
+                onBlur={() => onFieldLeft([path("email")])}>
+                <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
+                <Input
+                  placeholder="z.B. name@beispiel.de"
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 <Hint
-                  mode="inline"
-                  describes={emailHinweisId}
+                  mode="field"
                   text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein."
                 />
-              </div>
+              </TextField>
 
               <TextField
                 isRequired

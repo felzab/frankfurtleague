@@ -133,9 +133,6 @@ export function FormSchuleSection({
   const listeHinweisId = useId();
   const kuerzelHinweisId = useId();
   const adressHinweisId = useId();
-  const stufenHinweisId = useId();
-  const teamNameHinweisId = useId();
-  const kuerzelErklaerungId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
@@ -252,34 +249,28 @@ export function FormSchuleSection({
             )}
           </div>
 
-          {/* The hint rides in the same grid cell as its box, so it stays under that box rather than
-              under the picker beside it. */}
-          <div className="flex w-full flex-col gap-y-1">
-            {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
-                never offer in the form what the write path refuses. */}
-            <NumberField
-              isRequired
-              name="stufengroesse"
-              aria-describedby={stufenHinweisId}
-              minValue={1}
-              maxValue={BEWERBUNG_STUFENGROESSE_MAX}
-              value={stufengroesse}
-              onChange={(next) => onStufengroesseChange(next)}
-              onBlur={() => onFieldLeft(["stufengroesse"])}>
-              <Label className={FIELD_LABEL_CLASSES}>Größe der Stufe</Label>
-              <NumberField.Group className={FIELD_GROUP_CLASSES}>
-                <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
-                <NumberField.IncrementButton />
-              </NumberField.Group>
-              <FieldError className={FIELD_ERROR_CLASSES} />
-            </NumberField>
+          {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
+              never offer in the form what the write path refuses. */}
+          <NumberField
+            isRequired
+            name="stufengroesse"
+            minValue={1}
+            maxValue={BEWERBUNG_STUFENGROESSE_MAX}
+            value={stufengroesse}
+            onChange={(next) => onStufengroesseChange(next)}
+            onBlur={() => onFieldLeft(["stufengroesse"])}>
+            <Label className={FIELD_LABEL_CLASSES}>Größe der Stufe</Label>
+            <NumberField.Group className={FIELD_GROUP_CLASSES}>
+              <NumberField.DecrementButton />
+              <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
+              <NumberField.IncrementButton />
+            </NumberField.Group>
+            <FieldError className={FIELD_ERROR_CLASSES} />
             <Hint
-              mode="inline"
-              describes={stufenHinweisId}
+              mode="field"
               text="Alle Schülerinnen und Schüler Deines Abi-Jahrgangs, nicht nur die, die mitspielen."
             />
-          </div>
+          </NumberField>
         </div>
 
         {istNeueSchule(auswahl) && (
@@ -287,31 +278,27 @@ export function FormSchuleSection({
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Neue Schule</h3>
 
             <div className={FIELD_PAIR_CLASSES}>
-              {/* At the box rather than in the panel's own hint: a school picking a club the league
-                  already holds never reaches this row, and a panel hint explaining it would answer a
-                  question that reader cannot see. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  name="schule.team_name"
-                  aria-describedby={teamNameHinweisId}
-                  value={schule.team_name}
-                  onChange={(next) => setSchuleFeld({ team_name: next })}
-                  onBlur={() => onFieldLeft(["schule.team_name"])}
-                  maxLength={TEAM_NAME_MAX_LENGTH}>
-                  <Label className={FIELD_LABEL_CLASSES}>Teamname</Label>
-                  <Input
-                    placeholder="z.B. Goethe-Gymnasium"
-                    className={FIELD_INPUT_CLASSES}
-                  />
-                  <FieldError className={FIELD_ERROR_CLASSES} />
-                </TextField>
+              <TextField
+                isRequired
+                name="schule.team_name"
+                value={schule.team_name}
+                onChange={(next) => setSchuleFeld({ team_name: next })}
+                onBlur={() => onFieldLeft(["schule.team_name"])}
+                maxLength={TEAM_NAME_MAX_LENGTH}>
+                <Label className={FIELD_LABEL_CLASSES}>Teamname</Label>
+                <Input
+                  placeholder="z.B. Goethe-Gymnasium"
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                {/* At the box rather than in the panel's own hint: a school picking a club the league
+                    already holds never reaches this row, and a panel hint explaining it would answer a
+                    question that reader cannot see. */}
                 <Hint
-                  mode="inline"
-                  describes={teamNameHinweisId}
+                  mode="field"
                   text="Die kurze Form, die in Tabelle und Spielplan steht."
                 />
-              </div>
+              </TextField>
 
               <TextField
                 isRequired
@@ -332,45 +319,42 @@ export function FormSchuleSection({
             <div className={FIELD_PAIR_CLASSES}>
               {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
                   club, retired ones included, so a case variant must not look like a different value. */}
-              {/* Both ids while the check has something to say: the standing explanation and the
-                  verdict on this code are two different sentences, and naming one alone drops the
+              {/* The verdict's id while the check has something to say, beside the explanation the
+                  description slot names: two different sentences, and naming one alone drops the
                   other for a reader who cannot see either. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  name="schule.shorthand"
-                  aria-describedby={kuerzelHinweis === null ? kuerzelErklaerungId : `${kuerzelErklaerungId} ${kuerzelHinweisId}`}
-                  value={schule.shorthand}
-                  onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
-                  onBlur={() => {
-                    onFieldLeft(["schule.shorthand"]);
-                    onKuerzelLeft(schule.shorthand);
-                  }}>
-                  {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
-                      it hands out is another one where this is taken. */}
-                  <Label className={FIELD_LABEL_CLASSES}>Wunschkürzel</Label>
-                  <Input
-                    placeholder="z.B. GG"
-                    maxLength={KUERZEL_LAENGE}
-                    className={FIELD_INPUT_CLASSES}
-                  />
-                  <FieldError className={FIELD_ERROR_CLASSES} />
-                  {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
-                      line beside the field would push its neighbour out of the column. */}
-                  {kuerzelHinweis !== null && (
-                    <p
-                      id={kuerzelHinweisId}
-                      className="fluid-xxs text-foreground-muted font-medium">
-                      {kuerzelHinweis}
-                    </p>
-                  )}
-                </TextField>
+              <TextField
+                isRequired
+                name="schule.shorthand"
+                aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
+                value={schule.shorthand}
+                onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
+                onBlur={() => {
+                  onFieldLeft(["schule.shorthand"]);
+                  onKuerzelLeft(schule.shorthand);
+                }}>
+                {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
+                    it hands out is another one where this is taken. */}
+                <Label className={FIELD_LABEL_CLASSES}>Wunschkürzel</Label>
+                <Input
+                  placeholder="z.B. GG"
+                  maxLength={KUERZEL_LAENGE}
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
+                    line beside the field would push its neighbour out of the column. */}
+                {kuerzelHinweis !== null && (
+                  <p
+                    id={kuerzelHinweisId}
+                    className="fluid-xxs text-foreground-muted font-medium">
+                    {kuerzelHinweis}
+                  </p>
+                )}
                 <Hint
-                  mode="inline"
-                  describes={kuerzelErklaerungId}
+                  mode="field"
                   text="Zwei Buchstaben, mit denen Tabelle und Spielplan Dein Team abkürzen."
                 />
-              </div>
+              </TextField>
 
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
                   the moment it is made. */}
