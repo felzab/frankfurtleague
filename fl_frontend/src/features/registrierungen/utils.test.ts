@@ -148,7 +148,7 @@ describe("what one refused submission shows", () => {
   });
 
   /* Both directions against the published document: a code the write path raises and this mapper
-     does not know falls through to the 409 fallback, which tells a pupil an equivalent entry exists. */
+     does not know falls through to the 409 fallback, which tells a pupil no reason. */
   it("maps every code the write path publishes, and no rule it does not", () => {
     const published = publishedRefusals("POST /registrierungen");
     const mapped = [

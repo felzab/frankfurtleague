@@ -306,8 +306,7 @@ describe("every published 409 against the tests that ask about it", () => {
   });
 
   /* The half the slice tests cannot hold between them: a 409 no test asks about reaches the admin
-     through the shared fallback, which tells them an equivalent entry already exists
-     (`.claude/rules/cross-surface.md`). */
+     through the shared fallback, which names no reason (`.claude/rules/cross-surface.md`). */
   it("asks some test about every operation the document publishes a 409 on", () => {
     assert.deepEqual(
       [...refusing].filter((operation) => !askedOperations.has(operation)).sort(),

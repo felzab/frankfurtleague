@@ -15,8 +15,8 @@ import type { FieldErrors } from "./validation";
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
 /**
- * The 409 fallback's sentence, which every undo route answers the unique index's refusal with too:
- * the conflict is the same one whichever write met it.
+ * The unique index's refusal (`DB-COMMON-002`), which every undo route answers with too: the conflict
+ * is the same one whichever write met it.
  */
 export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
 
@@ -171,9 +171,14 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
         return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
       }
     }
-    if (error.statusCode === 409) {
-      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002), possibly a retired row keeping its slot.
+    if (error.statusCode === 409 && error.serverErrorCode === "DB-COMMON-002") {
+      // The ordinary outcome of a create hitting a unique index, possibly a retired row keeping its slot.
       return { success: false, error: KONFLIKT_MIT_BESTEHENDEM };
+    }
+    if (error.statusCode === 409) {
+      // Any other code is a rule no mapper here words, and naming the unique index for it would send the
+      // admin looking for an entry that may not exist.
+      return { success: false, error: UNKNOWN_REFUSAL };
     }
     if (error.statusCode === 404) {
       return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };

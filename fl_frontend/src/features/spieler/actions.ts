@@ -296,7 +296,7 @@ export async function reactivateSaisonSpielerAction(
     }
 
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
-    // (`REQ-SQUAD-003`) — and the generic 409 would call that a duplicate entry.
+    // (`REQ-SQUAD-003`) — and the shared 409 fallback would name no reason.
     let reactivateOperation;
     try {
       reactivateOperation = await reactivateSaisonSpieler(validated.data);

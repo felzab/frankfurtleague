@@ -7,6 +7,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackEr
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
 import { FELD_ABGELEHNT, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
+import { UNKNOWN_REFUSAL } from "./refusal.ts";
 import { VALIDATION_FAILED } from "./validation.ts";
 
 const base = { url: "http://backend:8000/api/v0/x", endpoint: "/x", traceId: "ab".repeat(16) };
@@ -26,6 +27,16 @@ describe("toActionErrorResult", () => {
 
     assert.equal(result.success, false);
     assert.match(result.error ?? "", /Konflikt/);
+  });
+
+  /* The unique index's sentence sends the admin looking for an entry that exists, which a rule refusing
+     for any other reason leaves them searching for in vain. */
+  it("answers a 409 no reader here words with the way out alone, never the unique index's conflict", () => {
+    for (const serverErrorCode of ["REQ-UNCLAIMED-000", undefined]) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
+
+      assert.deepEqual(result, { success: false, error: UNKNOWN_REFUSAL }, String(serverErrorCode));
+    }
   });
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
@@ -103,8 +114,7 @@ describe("toActionErrorResult", () => {
     for (const serverErrorCode of ["toString", "constructor", "valueOf"]) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 
-      assert.equal(typeof result.error, "string", serverErrorCode);
-      assert.match(result.error ?? "", /Konflikt/, serverErrorCode);
+      assert.equal(result.error, UNKNOWN_REFUSAL, serverErrorCode);
       assert.equal(result.errorCode, undefined, serverErrorCode);
     }
   });

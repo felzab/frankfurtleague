@@ -116,7 +116,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   });
 
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
-     does; left unmapped it reaches the admin as the 409 fallback, which names an entry rather than a rule. */
+     does; left unmapped it reaches the admin as the 409 fallback, which names no rule. */
   it("words every refusal the reactivation publishes", () => {
     assert.deepEqual(
       publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),

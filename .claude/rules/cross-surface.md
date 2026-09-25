@@ -49,7 +49,7 @@ paths:
   and its code; a mapper in the feature slice words it for the save, and where the replayed
   endpoint declares refusals the undo `route.ts` words it again in its own `REPLAY_REFUSALS`. A code
   either path leaves unmapped falls through to the 409 fallback in
-  `fl_frontend/src/shared/utils/actionError.ts`, which tells the admin an equivalent entry already
-  exists. Each slice's test asks its mapper about every code `fl_backend/openapi.json` publishes on
+  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry
+  the same rule refuses again. Each slice's test asks its mapper about every code `fl_backend/openapi.json` publishes on
   that endpoint's 409 (`fl_frontend/src/shared/testing/publishedRefusals.ts`), and
   `fl_frontend/src/core/refusalCoverage.test.ts` fails for a published 409 no test asks about.

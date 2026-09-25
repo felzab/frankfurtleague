@@ -56,11 +56,10 @@ describe("the match editor's refusals against the codes its endpoint publishes",
   });
 
   /* Two sites answer them: the slice's own mapper, and the shared reader behind it. A code neither
-     claims reaches the admin as the sentence about an equivalent entry, which is false for every rule
-     published here. */
+     claims reaches the admin as the fallback's bare retry, which names no rule and meets it again. */
   for (const code of publishedRefusals(PATCH_OPERATION)) {
     it(`${code} reaches the admin as its own refusal`, () => {
-      assert.notEqual(answerShown(PATCH_OPERATION, code, mapSpielRefusal), null, `${code} tells the admin an equivalent entry already exists`);
+      assert.notEqual(answerShown(PATCH_OPERATION, code, mapSpielRefusal), null, `${code} reaches the admin with no reason`);
     });
   }
 

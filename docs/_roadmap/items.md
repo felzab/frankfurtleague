@@ -796,8 +796,8 @@ What no consumer can read is the class: whether a caller's precondition failed, 
 invalid, the caller was unauthenticated, nothing was found, the service was unavailable or the
 server broke. The frontend therefore words every backend code by hand at three sites per refusal
 (`.claude/rules/cross-surface.md`'s trap), and a code either site forgets falls through to
-`fl_frontend/src/shared/utils/actionError.ts`'s 409 fallback, which tells the admin an equivalent
-entry already exists whatever happened. Mature registers carry both: Google's API error model pairs
+`fl_frontend/src/shared/utils/actionError.ts`'s 409 fallback, which names no reason and sends the
+admin to a retry the same rule refuses again. Mature registers carry both: Google's API error model pairs
 a canonical status from a closed list with an open `reason`, Stripe pairs a `type` from five with
 an open `code`, and RFC 9457 carries `status` beside a `type` that resolves to documentation.
 

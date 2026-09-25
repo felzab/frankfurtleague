@@ -165,7 +165,7 @@ describe("the re-send the editor's panel presses", () => {
   });
 
   /* Every refusal the endpoint declares, worded at the panel rather than falling through to the
-     shared 409 sentence, which tells the administrator an equivalent entry exists. */
+     shared 409 sentence, which names no rule. */
   for (const [code, fragment] of [
     ["REQ-SCHIEDSRICHTER-001", /stillgelegt/],
     ["REQ-SCHIEDSRICHTER-004", /schon bestätigt/],
