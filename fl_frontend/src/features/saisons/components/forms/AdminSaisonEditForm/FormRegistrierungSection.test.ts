@@ -75,9 +75,8 @@ describe("the registration window panel", () => {
     assert.deepEqual(written, [null, { offen: false, von: "", bis: "" }]);
   });
 
-  /* The three names `fl_frontend/src/core/refusalPaths.test.ts` resolves this panel's payload paths
-     against, and the absence its `FLPatchSaisonPayloadSchema` entry records: the outer switch carries
-     no `name`, so `registrierung` itself can be refused on no control. */
+  /* The three names a refusal of this panel's payload lands on. The outer switch carries no `name`:
+     `registrierung` itself is refusable only on a shape the typed payload cannot build. */
   it("names each field of the block and leaves the record's own switch unnamed", () => {
     const { unmount } = render(panel({ registrierung: WINDOW }));
 

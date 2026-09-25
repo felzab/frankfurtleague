@@ -118,12 +118,7 @@ export const MAIL_ABGEWIESEN =
   "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link noch einmal; " +
   `der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
-/**
- * The refused send as the form shows it.
- *
- * Here rather than at the handler: a field map built inside a route handler is one
- * `fl_frontend/src/core/refusalPaths.test.ts` cannot attribute to a form.
- */
+/** The refused send as the form shows it. */
 export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErrors } {
   return { fieldErrors: { email: MAIL_ABGEWIESEN } };
 }

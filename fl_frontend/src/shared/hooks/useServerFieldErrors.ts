@@ -21,6 +21,22 @@ export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
   repair: "Versuche es noch einmal",
 });
 
+/** `UNHANDLED_FIELD_REFUSAL`'s first sentence, which every fallback opens on. */
+const UNSHOWN_COST = UNHANDLED_FIELD_REFUSAL.slice(0, UNHANDLED_FIELD_REFUSAL.indexOf(".") + 1);
+
+/**
+ * The fallback for refused paths no control shows: what the save cost, then each path's own message, which is the
+ * one thing that tells the reader what to change. A retry is offered only where no path brought a message.
+ */
+export function unshownRefusal(messages: readonly string[]): string {
+  // Once each: one message refusing several paths reads as one reason.
+  const reasons = [...new Set(messages.map((message) => message.trim()).filter((message) => message !== ""))];
+  if (reasons.length === 0) return UNHANDLED_FIELD_REFUSAL;
+
+  // A message closes itself where it lacks a full stop, so the next one never runs on from it.
+  return [UNSHOWN_COST, ...reasons.map((reason) => (/[.!?]$/.test(reason) ? reason : `${reason}.`))].join(" ");
+}
+
 /** The admin editors' word for a failed save; a form whose save is not a change passes its own title. */
 const DEFAULT_FAILURE_TITLE = "Änderung nicht gespeichert";
 
@@ -95,19 +111,14 @@ export function focusFirstRefusal(form: HTMLFormElement, fieldErrors: FieldError
   return rendered;
 }
 
-/** Whether some refused path is one no control in the form carries, however many others one does. */
-function leavesSomeUnshown(form: HTMLFormElement, fieldErrors: FieldErrors): boolean {
-  const named = new Set(Array.from(form.elements, (control) => control.getAttribute("name")));
-
-  return Object.keys(fieldErrors).some((path) => !named.has(path));
-}
-
 /**
- * Whether a refusal has to be announced rather than shown. Pulled out of the effect so it can be exercised:
- * inverted, the toast fires on every refusal a field DID render and is silent on the one case it exists for.
+ * The refused paths no control in the form carries, however many others one does: what has to be announced rather
+ * than shown. With no form mounted, every one of them.
  */
-export function needsUnhandledReport(fieldErrors: FieldErrors, rendered: boolean): boolean {
-  return Object.keys(fieldErrors).length > 0 && !rendered;
+export function unshownPaths(form: HTMLFormElement | null, fieldErrors: FieldErrors): string[] {
+  const named = new Set(Array.from(form?.elements ?? [], (control) => control.getAttribute("name")));
+
+  return Object.keys(fieldErrors).filter((path) => !named.has(path));
 }
 
 /**
@@ -157,17 +168,14 @@ export function useServerFieldErrors(failureTitle?: string) {
     const form = formRef.current;
     const { fieldErrors, unplaced, owed } = refusal;
     const rendered = Object.keys(fieldErrors).length > 0 && form !== null && focusFirstRefusal(form, fieldErrors);
+    const unshown = unshownPaths(form, fieldErrors);
 
-    if (needsUnhandledReport(fieldErrors, rendered)) {
-      if (owed !== undefined) owed.raise({ ...owed.failure, error: unplaced ?? UNHANDLED_FIELD_REFUSAL });
-      else appToast.danger(failureTitle ?? DEFAULT_FAILURE_TITLE, { description: UNHANDLED_FIELD_REFUSAL });
-      return;
-    }
-
-    // A failed write whose marks leave some refused path unshown: marked alone, the rest is announced
-    // nowhere. A blocked press is left to its marks, its own schema having judged what the form renders.
-    if (owed !== undefined && form !== null && leavesSomeUnshown(form, fieldErrors)) {
-      owed.raise({ ...owed.failure, error: unplaced ?? UNHANDLED_FIELD_REFUSAL });
+    // Some refused path no control shows, whatever the others show: marked alone, it is announced nowhere. A
+    // blocked press as well as a failed write, a draft's own schema refusing a path the form never rendered.
+    if (unshown.length > 0) {
+      const said = unshownRefusal(unshown.map((path) => fieldErrors[path] ?? ""));
+      if (owed !== undefined) owed.raise({ ...owed.failure, error: unplaced ?? said });
+      else appToast.danger(failureTitle ?? DEFAULT_FAILURE_TITLE, { description: said });
       return;
     }
 

@@ -34,7 +34,7 @@ const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
-const { UNHANDLED_FIELD_REFUSAL } = await import("@/shared/hooks/useServerFieldErrors.ts");
+const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
 /** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
@@ -341,11 +341,11 @@ describe("what a refused press does to the page", () => {
   }
 
   /* A refusal naming only a path no control renders: the sentence the answer brings is the one
-     announced, and the generic one only where the answer brings none. */
+     announced, and the path's own message only where the answer brings none. */
   const EIGENER_SATZ = "Der Satz, den die Antwort für diesen Fall mitbringt.";
   for (const [angesagt, mitgebracht, erwartet] of [
     ["the answer's own sentence", { unplacedError: EIGENER_SATZ }, EIGENER_SATZ],
-    ["the generic sentence where the answer brings none", {}, UNHANDLED_FIELD_REFUSAL],
+    ["the refused path's own message where the answer brings none", {}, unshownRefusal(["abgelehnt"])],
   ] as const) {
     it(`announces a refusal no box can take with ${angesagt}`, async () => {
       answerEveryFetch({ success: false, fieldErrors: { text_version: "abgelehnt" }, ...mitgebracht });

@@ -340,9 +340,6 @@ export function FormSpielplanSection({
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau des neuen Spielplans</h3>
             <div className={FIELD_TRIO_CLASSES}>
-              {/* `shapeKey` is destructured under that name and kept there:
-                  `fl_frontend/src/core/refusalPaths.test.ts` binds the identifier to the three paths
-                  these templates render, and a rename drops all three from the sweep silently. */}
               {SHAPE_FIELDS.map(({ key: shapeKey, label }) => {
                 if (shapeKey === "teams_per_group")
                   return (
