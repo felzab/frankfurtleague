@@ -103,7 +103,17 @@ function renderStrip({
   isOpen = true,
 }: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
   return render(
-    underNext(h(BewerbungBestaetigungStrip, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", staende: stands, frist, isOpen }), { router }),
+    underNext(
+      h(BewerbungBestaetigungStrip, {
+        bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+        staende: stands,
+        frist,
+        isOpen,
+        isDirty: false,
+        onGetipptChange: () => undefined,
+      }),
+      { router },
+    ),
   );
 }
 

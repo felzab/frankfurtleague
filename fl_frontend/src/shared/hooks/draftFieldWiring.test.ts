@@ -206,7 +206,18 @@ describe("a public or single-purpose form's press over a draft its schema refuse
         bestaetigungen: { ansprechperson: offen, stellvertretung: offen, trainer: { ...offen, abgelehnt_am: "2026-09-03" } },
         status: "eingereicht",
       }) ?? assert.fail("the fixture carries no confirmation block");
-    render(underNext(h(BewerbungBestaetigungStrip, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", staende, frist: "2099-12-31", isOpen: true })));
+    render(
+      underNext(
+        h(BewerbungBestaetigungStrip, {
+          bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+          staende,
+          frist: "2099-12-31",
+          isOpen: true,
+          isDirty: false,
+          onGetipptChange: () => undefined,
+        }),
+      ),
+    );
     calls.length = 0;
 
     await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));

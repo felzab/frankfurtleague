@@ -28,6 +28,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 /**
  * The cap and its wording are the write's own (`docs/frontend/spec.md :: I18`), asked of the field that
@@ -49,6 +50,7 @@ export function AdminBewerbungAblehnenSection({
   teamName,
   saisonId,
   onGetipptChange,
+  isDirty,
 }: {
   bewerbungId: string;
   /** The club this decline is about, or `null` where the application names none — the readout says so. */
@@ -56,8 +58,10 @@ export function AdminBewerbungAblehnenSection({
   saisonId: string;
   /** Told whether a reason stands typed, which the acceptance's write would re-key the page over. */
   onGetipptChange: (getippt: boolean) => void;
+  /** Whether a box in the confirmation strip holds typing, which this write re-keys the page over. */
+  isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
   const { isConfirming, press, cancel } = twoPress;
 
   const [grund, setGrund] = useState("");

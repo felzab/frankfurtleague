@@ -39,9 +39,10 @@ export function AdminBewerbungView({
 
   const isOpen = bewerbung.status === "eingereicht";
 
-  // The decline's typed reason, which the acceptance's write re-keys the page over. The strip's boxes open
-  // only on a seat that closes the acceptance, so none of them can stand beside its press.
+  // What each panel holds typed, which every other panel's write re-keys the page over. The acceptance
+  // guards on the reason alone: the strip's boxes open only on a seat that closes it.
   const [grundGetippt, setGrundGetippt] = useState(false);
+  const [boxGetippt, setBoxGetippt] = useState(false);
 
   // `null` for an application submitted before the workflow: it carries no per-seat state, and the
   // acceptance is not closed against one.
@@ -70,6 +71,8 @@ export function AdminBewerbungView({
               staende={staende}
               frist={bewerbung.bestaetigungsfrist}
               isOpen={isOpen}
+              isDirty={grundGetippt}
+              onGetipptChange={setBoxGetippt}
             />
           )}
 
@@ -100,6 +103,7 @@ export function AdminBewerbungView({
               teamName={teamName}
               saisonId={bewerbung.saison_id}
               onGetipptChange={setGrundGetippt}
+              isDirty={boxGetippt}
             />
           )}
         </div>

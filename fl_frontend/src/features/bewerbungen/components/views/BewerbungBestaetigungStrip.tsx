@@ -42,6 +42,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -116,6 +117,8 @@ export function BewerbungBestaetigungStrip({
   staende,
   frist,
   isOpen,
+  isDirty,
+  onGetipptChange,
 }: {
   bewerbungId: string;
   staende: readonly SitzBestaetigung[];
@@ -123,6 +126,10 @@ export function BewerbungBestaetigungStrip({
   frist: string | null;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
   isOpen: boolean;
+  /** Whether the decline holds a typed reason, which every write here re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether the open box holds typing, which the page's other writes would re-key the strip over. */
+  onGetipptChange: (getippt: boolean) => void;
 }) {
   const router = useRouter();
   // Per seat rather than one flag: three buttons stand here, and one press must not hold the others.
@@ -133,6 +140,12 @@ export function BewerbungBestaetigungStrip({
    * opening a second row drops the first's draft — one address nobody has written yet.
    */
   const [editor, setEditor] = useState<{ rolle: KontaktRolle; art: Bearbeitung } | null>(null);
+  // Beside `editor` rather than inside it: the re-send guards on it, and the page is told of every change.
+  const [boxGetippt, setBoxGetippt] = useState(false);
+  const meldeBox = (getippt: boolean) => {
+    setBoxGetippt(getippt);
+    onGetipptChange(getippt);
+  };
 
   const panel = formPanel();
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
@@ -141,6 +154,8 @@ export function BewerbungBestaetigungStrip({
   const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
+    if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
+
     setSendendeRollen((vorher) => new Set(vorher).add(rolle));
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
@@ -191,12 +206,16 @@ export function BewerbungBestaetigungStrip({
               istNeubesetzbar={isOpen && neubesetzbar.has(sitz.rolle)}
               sendet={sendendeRollen.has(sitz.rolle)}
               bearbeitet={editor?.rolle === sitz.rolle ? editor.art : null}
+              isDirty={isDirty}
+              onGetipptChange={meldeBox}
               onSendeErneut={() => void sendeErneut(sitz.rolle)}
               onOeffne={(art) => {
                 setEditor({ rolle: sitz.rolle, art: art });
+                meldeBox(false);
               }}
               onSchliessen={() => {
                 setEditor(null);
+                meldeBox(false);
               }}
             />
           ))}
@@ -222,6 +241,8 @@ function SitzZeile({
   istNeubesetzbar,
   sendet,
   bearbeitet,
+  isDirty,
+  onGetipptChange,
   onSendeErneut,
   onOeffne,
   onSchliessen,
@@ -235,6 +256,8 @@ function SitzZeile({
   istNeubesetzbar: boolean;
   sendet: boolean;
   bearbeitet: Bearbeitung | null;
+  isDirty: boolean;
+  onGetipptChange: (getippt: boolean) => void;
   onSendeErneut: () => void;
   onOeffne: (art: Bearbeitung) => void;
   onSchliessen: () => void;
@@ -359,6 +382,8 @@ function SitzZeile({
           rolle={sitz.rolle}
           gespeicherteAdresse={sitz.email}
           belegteAdressen={belegteAdressen}
+          isDirty={isDirty}
+          onGetipptChange={onGetipptChange}
           onFertig={onSchliessen}
         />
       )}
@@ -369,6 +394,8 @@ function SitzZeile({
           rolle={sitz.rolle}
           label={sitz.label}
           belegteAdressen={belegteAdressen}
+          isDirty={isDirty}
+          onGetipptChange={onGetipptChange}
           onFertig={onSchliessen}
         />
       )}
@@ -386,12 +413,18 @@ function AdresseKorrigieren({
   rolle,
   gespeicherteAdresse,
   belegteAdressen,
+  isDirty,
+  onGetipptChange,
   onFertig,
 }: {
   bewerbungId: string;
   rolle: KontaktRolle;
   gespeicherteAdresse: string | null;
   belegteAdressen: readonly string[];
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether the box holds other than the stored address. */
+  onGetipptChange: (getippt: boolean) => void;
   onFertig: () => void;
 }) {
   const router = useRouter();
@@ -474,6 +507,7 @@ function AdresseKorrigieren({
         // The pending button is not the whole guard: `Enter` in the field submits too, and a second
         // correction mid-flight is refused as already stored.
         if (sendet) return;
+        if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
         guardSubmit({ korrektur: payload }, () => void schreibe());
       }}
@@ -482,7 +516,10 @@ function AdresseKorrigieren({
         type="email"
         name="email"
         value={email}
-        onChange={setEmail}
+        onChange={(next) => {
+          setEmail(next);
+          onGetipptChange(next.trim() !== (gespeicherteAdresse ?? ""));
+        }}
         onBlur={() => {
           validatePaths("korrektur", payload, ["email"]);
         }}
@@ -549,6 +586,8 @@ function SitzNeuBesetzen({
   rolle,
   label,
   belegteAdressen,
+  isDirty,
+  onGetipptChange,
   onFertig,
 }: {
   bewerbungId: string;
@@ -556,6 +595,10 @@ function SitzNeuBesetzen({
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
   belegteAdressen: readonly string[];
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether any of the four boxes holds typing. */
+  onGetipptChange: (getippt: boolean) => void;
   onFertig: () => void;
 }) {
   const router = useRouter();
@@ -579,6 +622,12 @@ function SitzNeuBesetzen({
   }, [formRef]);
 
   const unvollstaendig = Object.values(person).some((wert) => wert.trim() === "");
+
+  const aendere = (feld: keyof typeof LEERE_PERSON, wert: string) => {
+    const neu = { ...person, [feld]: wert };
+    setPerson(neu);
+    onGetipptChange(Object.values(neu).some((eingabe) => eingabe.trim() !== ""));
+  };
 
   const schreibe = async () => {
     // The submission's own rule, judged here so the administrator is told at the field rather than
@@ -638,6 +687,7 @@ function SitzNeuBesetzen({
         // The pending button is not the whole guard: `Enter` in a field submits too, and a second
         // press mid-flight is refused as a seat already filled.
         if (sendet) return;
+        if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
         guardSubmit({ neubesetzung: payload }, () => void schreibe());
       }}
@@ -666,7 +716,7 @@ function SitzNeuBesetzen({
         <TextField
           name="vorname"
           value={person.vorname}
-          onChange={(next) => setPerson({ ...person, vorname: next })}
+          onChange={(next) => aendere("vorname", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["vorname"]);
           }}>
@@ -678,7 +728,7 @@ function SitzNeuBesetzen({
         <TextField
           name="nachname"
           value={person.nachname}
-          onChange={(next) => setPerson({ ...person, nachname: next })}
+          onChange={(next) => aendere("nachname", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["nachname"]);
           }}>
@@ -693,7 +743,7 @@ function SitzNeuBesetzen({
           type="email"
           name="email"
           value={person.email}
-          onChange={(next) => setPerson({ ...person, email: next })}
+          onChange={(next) => aendere("email", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["email"]);
           }}>
@@ -709,7 +759,7 @@ function SitzNeuBesetzen({
           type="tel"
           name="telefon"
           value={person.telefon}
-          onChange={(next) => setPerson({ ...person, telefon: next })}
+          onChange={(next) => aendere("telefon", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["telefon"]);
           }}>

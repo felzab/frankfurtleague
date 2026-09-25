@@ -179,7 +179,13 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () =>
         underNext(
-          el(C.ablehnen, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", teamName: "SG Alpha", saisonId: "2027", onGetipptChange: () => undefined }),
+          el(C.ablehnen, {
+            bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+            teamName: "SG Alpha",
+            saisonId: "2027",
+            onGetipptChange: () => undefined,
+            isDirty: false,
+          }),
         ),
       reach: (user) => user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz."),
       resting: "Bewerbung ablehnen",

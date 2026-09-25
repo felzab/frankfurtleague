@@ -35,6 +35,7 @@ function renderPanel() {
         teamName: "SG Alpha",
         saisonId: "2027",
         onGetipptChange: () => undefined,
+        isDirty: false,
       }),
     ),
   );

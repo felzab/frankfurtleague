@@ -654,6 +654,8 @@ const FORMS: Record<string, FormCase> = {
           staende: await staende(),
           frist: "2099-12-31",
           isOpen: true,
+          isDirty: false,
+          onGetipptChange: () => undefined,
         } as never),
         async (into) => {
           const user = userEvent.setup();
