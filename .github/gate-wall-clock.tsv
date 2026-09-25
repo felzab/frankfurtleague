@@ -362,21 +362,20 @@
 # upper end reads that load. It sits inside the floor the `scripts` row carries, so neither its
 # reference nor its budget moves.
 #
-# `docs` lost its `diagram` and `header-see` checks and gained three reads:
+# `docs` lost its `diagram` and `header-see` checks and gained two reads:
 # `scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons` resolves every address an
-# unenforced rule's declared reason argues from; `:: check_handed_over_shapes` holds the shapes the
-# classifier hands over to the ones the gate reads, and to a single read of them; and
+# unenforced rule's declared reason argues from, and
 # `scripts/checks/docs_gate/checks.py :: _uncited_lines` reads a source file's comments rather than
 # its whole text. The checker took 15.7-21.4 s over `main`'s tree against 17.9-23.6 s over the
 # branch's, five interleaved rounds after one warm run each, medians 16.4 s and 18.3 s; over a later
 # branch tree in a busier window, 16.9-20.8 s against 20.2-35.4 s, medians 18.9 s and 28.7 s.
-# Profiled in that window, the reasons read took 86-139 ms, 22-28 ms of it the shape comparison,
-# and the comment read 26-75 ms against 95-179 ms for the whole text. Called directly, the shape
-# comparison with its single-read rule takes 18 ms over a parsed classifier and 0.16-0.17 s on the
-# call that parses it. Measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a
-# fleet of agent sessions, so every figure is an upper bound. The quieter window's difference sits
-# inside the 3.9 s floor the `docs` row carries and the busier one's does not, so the first main
-# runs carrying the branch decide whether the row is re-stamped.
+# Profiled in that window, the reasons read took 86-139 ms, and the comment read 26-75 ms against
+# 95-179 ms for the whole text. The reasons read now imports the backend's declaration rather than
+# parsing it: importing it took 0.72-0.82 s in a fresh interpreter against 0.17 s for the gate's
+# package alone, five interleaved rounds. Measured locally on 2026-09-25 on a sixteen-core Windows
+# machine carrying a fleet of agent sessions, so every figure is an upper bound. The quieter
+# window's difference sits inside the 3.9 s floor the `docs` row carries and the busier one's does
+# not, so the first main runs carrying the branch decide whether the row is re-stamped.
 #
 # `scripts` gained modules and cases, each module run alone three times unless a figure says
 # otherwise, measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of
