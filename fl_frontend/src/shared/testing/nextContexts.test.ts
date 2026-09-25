@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h, useContext } from "react";
-// eslint-disable-next-line no-restricted-imports -- the helper that mounts Next's contexts for every other test
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-// eslint-disable-next-line no-restricted-imports -- the helper that mounts Next's contexts for every other test
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { nextRouter, recordingRouter, underNext } from "./nextContexts.ts";

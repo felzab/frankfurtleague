@@ -822,14 +822,16 @@ const eslintConfig = defineConfig([
   // Each ban's one importer, last among the blocks reaching it for `restrictImports`'s reason, and left
   // out of that ban alone: a disable comment would excuse every import ban on its line.
   ...[
-    ["src/shared/components/ui/Hint.tsx", HINT_INTERNALS],
-    ["src/shared/components/ui/Form.tsx", HEROUI_FORM],
-    ["src/shared/components/ui/DateTimeFields.tsx", SEGMENTED_DATE_CONTROLS],
-  ].map(([file, allowed]) => ({
-    files: [file],
+    [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, SUITE_IMPORTS],
+    [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, SUITE_IMPORTS],
+    [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, SUITE_IMPORTS],
+    // The harness and its own test, which the suite's bans leave out.
+    [["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"], NEXT_PRIVATE_CONTEXTS, []],
+  ].map(([files, allowed, suiteBans]) => ({
+    files,
     rules: restrictImports(
       ...[NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS].filter((ban) => ban !== allowed),
-      ...SUITE_IMPORTS,
+      ...suiteBans,
       LAYER_BOUNDARY.shared,
     ),
   })),
