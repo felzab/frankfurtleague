@@ -277,6 +277,16 @@ LIVE_REASON: Final = (
     "Near `REQ-SAMPLE-001` and `REQ-SAMPLE-*`, in `app/sample.py`, as `app/sample.py :: VALUE` and `I1` hold; "
     "`GET /sample` is the backend's to read."
 )
+# The backend classifier that hands those shapes over, holding the gate's own five, so the clean corpus
+# agrees and a plant swapping one disagrees.
+SHAPE_CLASSIFIER: Final = "fl_backend/tests/core/test_domain.py"
+HANDED_OVER_SHAPES: Final = (
+    r"^(?:REQ|READ)-[A-Z]+-\d+$",
+    r"^((?:REQ|READ)-[A-Z]+-)\*$",
+    r"^(\S+\.\w+) :: (.+)$",
+    r"^[\w.\-]+(?:/[\w.\-]*)+$",
+    r"^[IL]\d{1,3}[a-z]?$",
+)
 # The code the sample component's second literal spells, so the frontend owes two rows.
 SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
@@ -868,6 +878,15 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             '  const label = "' + REPEATED_STRING + '";',
             '  const again = "' + REPEATED_STRING + '";',
             "});",
+        ),
+        SHAPE_CLASSIFIER: _page(
+            QUOTES + "BACKEND · the suite resolving the reason tokens the gate leaves it." + QUOTES,
+            "",
+            "import re",
+            "",
+            "_GATE_SHAPES = tuple(re.compile(pattern) for pattern in (",
+            *[f'    r"{pattern}",' for pattern in HANDED_OVER_SHAPES],
+            "))",
         ),
         DOMAIN_REGISTER: _page(
             QUOTES + "BACKEND · the rule register whose codes the refusal register gives no row." + QUOTES,

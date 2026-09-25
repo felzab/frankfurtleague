@@ -6,7 +6,8 @@ own suite resolves the rest, being the one reader able to import what they name.
 
 Invariants:
   Each backticked token of a reason is one package's to resolve: the shapes below here, every
-  other one in `fl_backend/tests/core/test_domain.py :: _classify`.
+  other one in `fl_backend/tests/core/test_domain.py :: _classify`, which passes over exactly
+  these (`check_handed_over_shapes`).
 """
 
 from __future__ import annotations
@@ -25,13 +26,19 @@ READ_RULES_SHEET: Final = "docs/backend/spec.md"
 APP_GLOB: Final = "fl_backend/app/**/*.py"
 
 REASON_TOKEN_RE: Final = re.compile(r"`([^`]+)`")
-# The shapes this package owns. The backend's classifier hands these same shapes over and reads every
-# other, so a shape added to one list and not the other is a token nothing reads.
+# The shapes this package owns. The backend's classifier hands these over and reads every other, so a
+# shape in one list alone is a token nothing reads (`check_handed_over_shapes`).
 RULE_CODE_RE: Final = re.compile(r"^(?:REQ|READ)-[A-Z]+-\d+$")
 CODE_FAMILY_RE: Final = re.compile(r"^((?:REQ|READ)-[A-Z]+-)\*$")
 CITATION_RE: Final = re.compile(r"^(\S+\.\w+) :: (.+)$")
 REPO_PATH_RE: Final = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
 INVARIANT_RE: Final = re.compile(r"^[IL]\d{1,3}[a-z]?$")
+OWNED_SHAPES: Final = (RULE_CODE_RE, CODE_FAMILY_RE, CITATION_RE, REPO_PATH_RE, INVARIANT_RE)
+
+# Read from its source rather than imported: the suite needs the backend's application objects, and
+# a gate reading it here runs in the docs scope, which a change to either file selects.
+CLASSIFIER: Final = "fl_backend/tests/core/test_domain.py"
+HANDED_OVER: Final = "_GATE_SHAPES"
 
 RAISED_CODE_RE: Final = re.compile(r"\bREQ-[A-Z]+-\d+\b")
 READ_ROW_RE: Final = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ", re.MULTILINE)
@@ -81,6 +88,32 @@ def declared_reasons() -> list[tuple[str, str | None, int]] | None:
     return None
 
 
+def handed_over_shapes() -> frozenset[str] | None:
+    """Every pattern the backend's classifier passes over as this package's, None where it declares none."""
+    page = tracked_page(CLASSIFIER)
+    tree = None if page is None else python_tree(page)
+    for node in [] if tree is None else tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == HANDED_OVER for target in node.targets):
+            return frozenset(part.value for part in ast.walk(node.value) if isinstance(part, ast.Constant) and isinstance(part.value, str))
+    return None
+
+
+def check_handed_over_shapes() -> list[Finding]:
+    """The two lists of the shapes this package owns, required to be one list spelled twice."""
+    handed = handed_over_shapes()
+    if handed is None:
+        return [Finding("fail", "citation", CLASSIFIER, f"declares no `{HANDED_OVER}`, so no reason token is known to be this gate's")]
+    owned = {shape.pattern for shape in OWNED_SHAPES}
+    found = [
+        Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` hands over `{one}`, a shape the gate does not read")
+        for one in sorted(handed - owned)
+    ]
+    found += [
+        Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` keeps `{one}`, a shape the gate reads too") for one in sorted(owned - handed)
+    ]
+    return found
+
+
 def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite: Cite) -> list[tuple[str, str]]:
     """What one token fails, as a check's name beside its detail; nothing for a shape the backend reads."""
     said = f"'{subject}' argues from `{token}`"
@@ -105,12 +138,12 @@ def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite
 def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> list[Finding]:
     """Every address an `UNENFORCED` reason argues from, resolved as the corpus's own citations are."""
     entries = declared_reasons()
+    found = check_handed_over_shapes()
     if not entries:
-        return [Finding("fail", "citation", DOMAIN_MODULE, "yielded no `UNENFORCED` reason, so no reason's addresses were read")]
+        return [*found, Finding("fail", "citation", DOMAIN_MODULE, "yielded no `UNENFORCED` reason, so no reason's addresses were read")]
     if not resolvable_codes():
         detail = f"no module under `{APP_GLOB}` raises a code and no read-rules row declares one, so codes were read against nothing"
-        return [Finding("fail", "citation", DOMAIN_MODULE, detail)]
-    found: list[Finding] = []
+        return [*found, Finding("fail", "citation", DOMAIN_MODULE, detail)]
     for subject, reason, line in entries:
         if reason is None:
             found.append(

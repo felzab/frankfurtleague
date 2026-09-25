@@ -54,6 +54,7 @@ from test_check_docs import (
     SECOND_CASE,
     SECOND_PYTHON_CASE,
     SELF_CLAIMED_CHECK,
+    SHAPE_CLASSIFIER,
     SHARED_BASENAME,
     SPIELER_PANEL,
     STANDARD,
@@ -339,6 +340,20 @@ def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_r
         _reset()
     assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
     assert "so codes were read against nothing" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_shape_the_backend_hands_over_and_the_gate_does_not_read_is_named_both_ways() -> None:
+    """The invariant pattern narrowed in the backend's list: that list keeps the gate's, and hands over one the gate never reads."""
+    _reset()
+    _replace(SHAPE_CLASSIFIER, r"^[IL]\d{1,3}[a-z]?$", r"^[I]\d{1,3}[a-z]?$")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 2, _shape(reported)
+    assert "a shape the gate does not read" in output and "a shape the gate reads too" in output, output
     _assert_corpus_restored()
 
 

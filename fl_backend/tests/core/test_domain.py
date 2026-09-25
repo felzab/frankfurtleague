@@ -74,13 +74,14 @@ DECLARATION_MODULE = "app.core.domain"
 # classified before it is looked up, and one matching no shape at all fails rather than passing.
 _REASON_TOKEN = re.compile(r"`([^`]+)`")
 # The shapes the documentation gate resolves, each an address the corpus answers for; passed over
-# here, and read there (`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`).
+# here, and read there, spelled as that gate spells them
+# (`scripts/checks/docs_gate/reasons.py :: check_handed_over_shapes`).
 _GATE_SHAPES = tuple(
     re.compile(pattern)
     for pattern in (
         r"^(?:REQ|READ)-[A-Z]+-\d+$",
-        r"^(?:REQ|READ)-[A-Z]+-\*$",
-        r"^\S+\.\w+ :: .+$",
+        r"^((?:REQ|READ)-[A-Z]+-)\*$",
+        r"^(\S+\.\w+) :: (.+)$",
         r"^[\w.\-]+(?:/[\w.\-]*)+$",
         r"^[IL]\d{1,3}[a-z]?$",
     )
