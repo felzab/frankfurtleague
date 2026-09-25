@@ -16,10 +16,12 @@ export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
  * `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`. Distinct in kind from `FLSpielStatus`,
  * which is derived, total and about time.
  */
+const SONDEREREIGNIS_UNGEWAEHLT = "Bitte wähle ein Sonderereignis.";
+
 export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"], {
   // German, unlike `FLSpielStatusSchema`'s beside it: this one is bound to a picker in the match
   // editor, so its message is a sentence an administrator reads rather than a parse failure's note.
-  error: "Bitte wähle ein Sonderereignis.",
+  error: SONDEREREIGNIS_UNGEWAEHLT,
 });
 export type FLSonderereignis = z.infer<typeof FLSonderereignisSchema>;
 
@@ -326,6 +328,20 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
   schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
 };
+
+/**
+ * The payload as the editor judges it, which refuses no event while its switch asserts one. A FACTORY because the
+ * switch is the editor's own state, which the payload has no field for: the write path takes `null` as "no event",
+ * so an asserted event left unpicked would save as none.
+ */
+export function buildPatchSpielDataPayloadSchema({ hasSonderereignis }: { hasSonderereignis: boolean }) {
+  if (!hasSonderereignis) return FLPatchSpielDataPayloadSchema;
+
+  return FLPatchSpielDataPayloadSchema.refine((spiel) => spiel.sonderereignis !== null, {
+    error: SONDEREREIGNIS_UNGEWAEHLT,
+    path: ["sonderereignis"],
+  });
+}
 
 /**
  * `tie_unresolved` empties the slot and needs a person; every other reason leaves it alone, naming

@@ -21,7 +21,7 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
-import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
+import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
@@ -136,11 +136,11 @@ export function AdminEditSpielDataForm({
   // input the refusal was judged on moves, so a corrected draft never carries the previous ones.
   const [refusal, setRefusal] = useState<{ key: string; code: SpielRefusalCode } | null>(null);
 
-  // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
-  // server would have produced.
+  // The schema `patchAdminSpielDataAction` parses, so a message shown here is the one the server would have
+  // produced, plus the one rule the switch asserts and the payload has no field for.
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     useDraftFieldErrors({
-      schemas: { spiel: FLPatchSpielDataPayloadSchema },
+      schemas: { spiel: buildPatchSpielDataPayloadSchema({ hasSonderereignis }) },
     });
 
   // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every

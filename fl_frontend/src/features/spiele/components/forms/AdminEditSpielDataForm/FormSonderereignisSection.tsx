@@ -90,9 +90,9 @@ export function FormSonderereignisSection({
             nobody chose, and `ausgefallen` would refuse goals that are already typed. */}
         {hasSonderereignis && (
           <Select
-            // The switch asserts an event, so an empty pick is refused here, by the browser on submit:
-            // the write path accepts `null` and has no rule to lend. Switching off is the way back to
-            // no event.
+            // Marked by hand: the switch asserts an event, which the editor's schema refuses unpicked
+            // (`spiele/schemas.ts :: buildPatchSpielDataPayloadSchema`) while the field's own leaf takes
+            // `null`. Switching off is the way back to no event.
             isRequired
             name="sonderereignis"
             // `null` and never `undefined` for no event: react-stately reads `undefined` as uncontrolled, so the first
