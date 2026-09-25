@@ -547,9 +547,8 @@ describe("the editor's shape", () => {
     }
   });
 
-  /* A page-owned editor, so §1.3 allows its undo a route handler. The write replaces the block whole on
-     a row the path names, so the STORED block and both ids restore through the same PATCH: the save run
-     backwards rather than a second write shape nothing else exercises. */
+  /* A page-owned editor's undo is a route handler (`docs/frontend/spec.md` §1.3). The STORED block and
+     both ids restore through the same PATCH: the save run backwards, never a second write shape. */
   it("offers an undo that replays the pre-save block to its own route handler", async () => {
     fetchMock.mock.mockImplementation(() =>
       Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
@@ -1172,9 +1171,8 @@ describe("what the two destructive controls do to the page", () => {
     }
   });
 
-  /* The whole safety of moving this control off a page that showed an address onto a page that shows
-     one season: without the reach spelled out it reads as clearing this seat. The ADDRESS is the key
-     the read and the write travel with. What the list itself renders is
+  /* On a page showing one season, an erasure without its reach spelled out reads as clearing this seat.
+     The ADDRESS keys both the read and the write; the list itself is
      `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
   it("reads whom the address holds before the write can be confirmed", async () => {
     const user = userEvent.setup({ delay: null });
