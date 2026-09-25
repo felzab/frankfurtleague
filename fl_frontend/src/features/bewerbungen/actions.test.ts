@@ -834,6 +834,16 @@ describe("the re-sent confirmation link", () => {
     assert.deepEqual(mailed, [], "a message went out stating no deadline");
   });
 
+  /* The throw above lands after the mint, which stands behind it as behind a refused send. */
+  it("refreshes the page after a re-send that threw after the mint", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
+  });
+
   /* A correction landing between the page's read and this write moves the mailbox, and only the
      write's own image knows it: the read would mail the address the correction replaced. */
   it("mails the address and the seats the write itself answered", async () => {
