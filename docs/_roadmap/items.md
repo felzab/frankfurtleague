@@ -368,40 +368,6 @@ written at the reader's line. Every property asserted today is still asserted an
 afterwards, and an answer resting on practice outside this repository cites a public repository a
 reader can open.
 
-### `ehtw-25uz` · A mailed link carries its token in the path or query, so a failed request writes it to the edge's error log
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**My item, 2026-09-24:** "file roadmap entry for option 1" — the token travels after `#`, which a
-browser never sends, rather than in any part of the URL a request carries.
-
-**The access log redacts a token and the error log cannot.** The access line is ours to shape, and
-`fl_frontend/src/core/edgeRedaction.ts :: redactedParameterNames` with `nginx/edge_test.sh`'s `LEAK`
-cases hold it free of one. An error line is not: open-source nginx compiles its `request:`,
-`upstream:` and `referrer:` fields into the binary, and the `json` format and `error_log_tag` that
-would let a configuration shape it are nginx's commercial build alone — the pinned image refuses
-both at `nginx -t`. Served with nothing upstream on 2026-09-24, the redaction table's 41 cases wrote
-36 error lines carrying a token or an address, at `notice`, `warn` and `error` alike. So a token of
-a request that failed sits in `/var/log/frankfurtleague/nginx/error.log` until the rotation
-[`runbooks.md`](../ops/runbooks.md) §7 sets removes it, readable only by whoever holds the server.
-
-**The fragment is the cause-level repair, and it reaches every link.** Every function minting a
-mailed link writes its token after `#`; every page such a link lands on reads the token in the
-browser and posts it, so no request line, `Referer`, upstream URI or Cloudflare log holds one. The
-cost is that a landing page cannot render on the server from its token. The redaction sweep and its
-table then assert that no minted link carries a token outside the fragment.
-
-**Three cheaper shapes do not hold, and are refused here.** Raising the http-level `error_log` to
-`crit` drops every upstream-failure, timeout and 413 line with the tokens, and makes the notice's
-sentence about a failed request's error entry untrue. A `Referrer-Policy` on the landing pages with
-per-path error levels closes one route and misses the next minter's landing, which is why the access
-log redacts by parameter rather than by path. A redacting receiver behind `error_log syslog:` is a
-new component standing between nginx and its only failure record.
-
-**Done when** no mailed link carries a token in its path or its query.
-
 ### `eq3t-4e3f` · Which wording a person agreed to is defined only in the frontend, and the record of it is overwritten rather than kept
 
 | Status | Depends on |
