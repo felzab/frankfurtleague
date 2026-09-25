@@ -33,6 +33,9 @@ RELEASE_AGE: Final = "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION  stand-in@1.0.0 was
 # A drift is the one stop the change can be fixed to answer for, so it is the control: a step
 # grading everything at 2 fails here rather than passing every refusal case.
 DRIFT: Final = "ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with frozen-lockfile because pnpm-lock.yaml is not up to date"
+# The same drift in a workspace setting the lockfile records, such as `overrides`, which pnpm names
+# with a code of its own.
+SETTING_DRIFT: Final = "ERR_PNPM_LOCKFILE_CONFIG_MISMATCH  Cannot proceed with the frozen installation. The current overrides do not match"
 UNREAD: Final = "ERR_PNPM_META_FETCH_FAIL  GET https://registry.npmjs.org/stand-in: request failed"
 
 FINDINGS: Final = "finding(s) in this run"
@@ -70,9 +73,10 @@ def test_a_release_too_young_to_install_refuses_rather_than_reporting_a_finding(
     assert FINDINGS not in output, output
 
 
+@pytest.mark.parametrize("stop", [pytest.param(DRIFT, id="manifest"), pytest.param(SETTING_DRIFT, id="setting")])
 @pytest.mark.parametrize("flags", FORMS)
-def test_a_lockfile_that_drifted_from_its_manifest_is_a_finding(flags: tuple[str, ...]) -> None:
-    status, output = _lockfile_step(DRIFT, *flags)
+def test_a_lockfile_that_drifted_from_its_manifest_is_a_finding(stop: str, flags: tuple[str, ...]) -> None:
+    status, output = _lockfile_step(stop, *flags)
     assert status == 1, output
     assert "no longer answers its manifest" in output, output
     assert FINDINGS in output, output
