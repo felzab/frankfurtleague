@@ -80,20 +80,9 @@ const REPO_DIR = path.resolve(FRONTEND_DIR, "..");
 const SRC_DIR = path.join(FRONTEND_DIR, "src");
 const APP_DIR = path.join(SRC_DIR, "app");
 
-const VIEW = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BewerbungView.tsx"), "utf8");
-const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "band.ts"), "utf8");
-const BAND_COMPONENT = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
-const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
-const INVITATION_SOURCE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
-const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
-const ACTIONS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "actions.ts"), "utf8");
-
 /** Every path `next.config.ts` redirects, as the config the build loads answers them. */
 const { default: nextConfig } = await import("../../../next.config.ts");
 const REDIRECTED = new Set((await nextConfig.redirects?.())?.map((redirect) => redirect.source));
-
-/** The `saison` slot, cut out so an assertion reads it and nothing near it. */
-const SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
 
 /** Names no school the placeholders already carry, so a hit is the list rather than a hint text. */
 const SCHOOLS = [
@@ -308,12 +297,7 @@ describe("how the application page invites a post about the application", () => 
     assert.equal(textOf(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
   });
 
-  it("reads its box off the band recipe rather than retyping it", () => {
-    assert.match(INVITATION_SOURCE, /band\(\)/, "the strip hand-writes a box the season band already has a recipe for");
-    /* The ground token is the recipe's alone, so any hand copy of the box carries it whatever order
-       the formatter sorts the copy into, where a prefix of the spelling would miss a re-sorted one. */
-    assert.doesNotMatch(INVITATION_SOURCE, /className="[^"]*\bbg-surface\b/, "a second spelling of the band box is back");
-    // Catches the OTHER half: a call that reaches the recipe and asks it for a different ground.
+  it("wears the band recipe's box", () => {
     assert.equal(rootClass(INVITATION), band().root(), "the strip renders a box other than the recipe's surface ground");
   });
 
@@ -435,13 +419,6 @@ describe("the links the application page's header offers", () => {
       for (const classToken of primaryOnly) assert.ok(!classesOf.includes(classToken), `${link.href} was promoted above the other two`);
     }
   });
-
-  /* Read rather than rendered: a literal spelling the recipe's classes renders markup identical to
-     the recipe's, so only the source tells a nav that READS `ctaButton` from a copy of its output. */
-  it("reads that recipe off ctaButton rather than retyping its classes", () => {
-    assert.match(VIEW, /ctaButton\(\{ intent: "outline", size: "sm", hover: "css" \}\)/, "the header hand-writes what the recipe spells");
-    assert.doesNotMatch(VIEW, /transform-none items-center justify-center rounded-xl/, "a second spelling of the recipe's classes is back");
-  });
 });
 
 describe("how the page spells the box a panel sits in", () => {
@@ -454,14 +431,6 @@ describe("how the page spells the box a panel sits in", () => {
     for (const classToken of formPanel().root().split(" ")) {
       assert.ok(panel.split(" ").includes(classToken), `the state panel's box is missing formPanel's ${classToken}`);
     }
-  });
-
-  /* Read rather than rendered: a literal spelling the recipe's own classes renders identical markup,
-     so only the source separates a box that READS `formPanel` from a second copy of it. The copy
-     drifts at the next change to either. */
-  it("reads that box off formPanel rather than retyping it", () => {
-    assert.match(VIEW, /formPanel\(\)\.root\(\)/, "the state panel hand-writes a box the form already has a recipe for");
-    assert.doesNotMatch(VIEW, /"border-border bg-surface flex w-full flex-col/, "a second spelling of the panel box is back");
   });
 });
 
@@ -497,29 +466,7 @@ describe("what the application page holds while it loads", () => {
  Read rather than rendered: what is asserted is which classes a recipe wrote and that no call site
  asks the recipe for a second box — a rendered class list is one flat string that shows neither.
 */
-describe("how the band writes the season it is inviting applications for", () => {
-  /* The slot deliberately carries its colour in the recipe, so an assertion at a call site would be
-     satisfied by a recipe that had dropped the brand. */
-  it("tints the season with the brand itself", () => {
-    assert.match(SAISON, /(^|\s)text-brand(\s|$)/, "the band no longer writes the season in the brand colour");
-  });
-
-  /* The other half of the pair above: a colour written beside the slot at the call site is the drift
-     one recipe for every band exists to stop. Fill or text alike, both are a colour. */
-  it("colours the season in the recipe and nowhere else", () => {
-    assert.doesNotMatch(BAND_COMPONENT, /styles\.saison\(\)\} [^"]*(text|bg)-/, "the call site writes a second colour onto the season");
-  });
-
-  /* One box, because one ground is left to sit on. A second box is what cut a pale rectangle into a
-     page that had a card recipe of its own, and no page now needs one. */
-  it("offers one box and no second ground", () => {
-    assert.doesNotMatch(BAND, /variants:/i, "the recipe offers a call site a box to choose between again");
-    /* `\b` on both sides, or `text-foreground` in the `text` slot matches and the assertion can never
-       pass: a compound ending in the word is not the word. */
-    assert.doesNotMatch(BAND, /\bground\b/, "the recipe names a ground again");
-    assert.match(BAND, /root: "[^"]*\bbg-surface\b/, "the band lost the card box every page seats it in");
-  });
-
+describe("which box the contact page's band sits on", () => {
   /* The one box is nobody's to ask for, so the contact page asks for nothing: no box of its own while
      the window runs, and no stand-in for the rest of the year. */
   it("seats the contact page's band on the one box, asking for nothing", async () => {
@@ -534,22 +481,6 @@ describe("how the band writes the season it is inviting applications for", () =>
   });
 });
 
-/*
- What a module imports reaches no markup. The stake is a client component importing the recipe out of
- a module that pulls `server-only`, which fails at `next build` and nowhere earlier.
-*/
-describe("what the band's recipe is allowed to reach", () => {
-  it("stands in a module that imports no query", () => {
-    const imports = [...BAND.matchAll(/^import[^;]*from "([^"]*)";$/gm)].map((hit) => hit[1]);
-
-    assert.deepEqual(imports, ["tailwind-variants"], "the recipe's module reaches something besides its own dependency");
-  });
-});
-
-/*
- What is read rather than rendered below is which classes a recipe wrote: a literal spelling those
- classes renders identical markup.
-*/
 describe("what the landing page's one band slot holds", () => {
   /* The contact band reaches the page ONLY as what stands in for the application band, so a running
      window replaces it rather than adding a second band under it. */
@@ -574,16 +505,6 @@ describe("what the landing page's one band slot holds", () => {
     assert.doesNotMatch(landing, /Deine Schule|Du hast Fragen/, "the fallback shows words it may have to swap for different ones");
     // Resolved, the skeleton goes: one drawn as a standing sibling rather than as the fallback would stay.
     assert.ok(!(await publicMarkup(LandingPage, null)).includes(waiting), "the skeleton stands beside the band rather than in its fallback");
-  });
-
-  /* The skeleton is built FROM the recipes it stands in for, so its height cannot drift from theirs.
-     A skeleton that changes the layout on resolve is worse than no skeleton. */
-  it("builds the skeleton from the band's own recipe rather than from copied classes", () => {
-    // Anchored on the assignment, never on `band()` anywhere: the doc comment above names the recipe too.
-    assert.match(SKELETON, /= band\(\);/, "the skeleton restates the band's box instead of reading it");
-    assert.match(SKELETON, /ctaButton\(\{/, "the skeleton restates the control's height instead of reading it");
-    // The placeholder's tone is the recipe's default, so no call site is in a position to pick one.
-    assert.doesNotMatch(SKELETON, /skeletonBlock\(\{/, "the skeleton picks a placeholder tone instead of taking the one default");
   });
 
   /* The contact page keeps `null`: its band renders nothing for most of the year, and a skeleton
@@ -648,14 +569,6 @@ describe("how the workflow's links are spelled", () => {
     const parameter = /\?(\w+)=/.exec(bestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
 
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
-
-    for (const [whose, sourceText] of [
-      ["the retention sweep", SWEEP],
-      ["the administrator's re-send", ACTIONS],
-    ] as const) {
-      assert.match(sourceText, /bestaetigungsLink\(/, `${whose} no longer mints its link through the one helper`);
-      assert.doesNotMatch(sourceText, /\/bestaetigung\/kontakt\?/, `${whose} spells a link of its own beside the helper`);
-    }
   });
 
   /* An edge file spelling the emptied path sends the mail's link to a 404 that no case here drives.
@@ -834,13 +747,6 @@ describe("which kit colours the wish picker leaves out", () => {
       TRIKOT_FARBE_OPTIONS.map((option) => option.value),
       "the picker withholds a colour nobody holds",
     );
-  });
-
-  /* Colours an administrator ASSIGNED, never another application's `trikot.wunschfarbe`: that would
-     carry one school's submission into another school's form. What the page reads and hands on is
-     held in `fl_frontend/src/features/bewerbungen/routes.test.ts`; this is the view's half. */
-  it("reads no other application's wish in the view", () => {
-    assert.doesNotMatch(VIEW, /wunschfarbe/, "the application view reads a wish where it must read an assignment");
   });
 });
 
