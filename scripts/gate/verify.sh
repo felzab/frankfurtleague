@@ -94,7 +94,8 @@ step_worker() { [[ -n "$STEP_UNIT" ]]; }
 # loses the interrupted closing statement.
 cleanup() { :; }
 gate_exit() {
-  local dir
+  # First, before any command replaces it: the status this process is ending on.
+  local status=$? dir
   if step_worker; then return 0; fi
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
@@ -104,7 +105,13 @@ gate_exit() {
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
-    for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
+    # A crash keeps them, named: each unit's own output and the status the pool recorded are all
+    # that can say which process ended it, and nothing past this exit reads them otherwise.
+    if (( status >= 3 && status != 130 )); then
+      for dir in "${POOL_DIRS[@]}"; do detail "kept for reading, as this crash left it: ${dir}" >&2; done
+    else
+      for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
+    fi
   fi
   # Only the opener: the path is exported, so a re-entry exiting above the scripts scope's own
   # `mktemp` would reclaim the parent's file mid-write, and the `>>` after it recreates a file
@@ -438,7 +445,8 @@ run_checker() {
     2) refuse "${label} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above." ;;
     130) on_interrupt ;;
-    # Never `skip`: a named scope whose checker never ran has proved nothing.
+    # Never `skip`: a named scope whose checker never ran has proved nothing. On Windows a bare 127
+    # can also be a checker that crashed, which Git Bash's runtime reports with that same number.
     *) on_error "$rc" "${BASH_LINENO[0]}" "$label" ;;
   esac
 }
@@ -684,7 +692,16 @@ if (( PARALLEL )); then
         fi
         ;;
       # Rank 0, for `adopt_rows`' reason: no row at all drops the scope out of the table.
-      *)     adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0 ;;
+      *)
+        adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0
+        # A crash's own text holds the pool directories its worker kept, and named nowhere else they
+        # outlive the run unread.
+        if [[ "$status" =~ ^[0-9]+$ ]] && [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
+          info "the ${scope} scope crashed with status ${status}, and the run ended at the failure above rather than at this one — its own output follows"
+          if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+          if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+        fi
+        ;;
     esac
   }
 

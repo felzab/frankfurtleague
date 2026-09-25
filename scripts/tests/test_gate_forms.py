@@ -40,6 +40,10 @@ if [[ -n "${FL_STUB_REFUSE:-}" && "${1:-}" == "${FL_STUB_REFUSE}" ]]; then
   printf '%s\\n' "[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] The lockfile does not satisfy project of id ."
   exit 1
 fi
+if [[ -n "${FL_STUB_CRASH:-}" && "${1:-}" == "${FL_STUB_CRASH}" ]]; then
+  printf '%s\\n' "the stub crashed ${1}"
+  exit 3
+fi
 if [[ -n "${FL_STUB_FAIL:-}" && "${1:-}" == "${FL_STUB_FAIL}" ]]; then
   printf '%s\\n' "the stub failed ${1}"
   exit 1
@@ -88,6 +92,8 @@ class Fixture:
     stubs: Path
     started: Path
     below_floor: Path
+    # Where the gate's `mktemp` puts a pool's captures, so a case can read one a run kept.
+    scratch: Path
 
 
 @cache
@@ -110,12 +116,16 @@ def _fixture() -> Fixture:
     below_floor = stubs / "below-floor"
     below_floor.mkdir()
     os.chmod(write_shell(below_floor / "python3", STUB_BELOW_FLOOR), 0o755)
-    return Fixture(verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started", below_floor=below_floor)
+    scratch = stubs / "tmp"
+    scratch.mkdir()
+    return Fixture(
+        verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started", below_floor=below_floor, scratch=scratch
+    )
 
 
 @cache
 def _run(
-    *flags: str, fails: str = "", refuses: str = "", ci: bool = False, below_floor: bool = False
+    *flags: str, fails: str = "", refuses: str = "", crashes: str = "", ci: bool = False, below_floor: bool = False
 ) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
@@ -138,6 +148,8 @@ def _run(
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
     environment["FL_STUB_REFUSE"] = refuses
+    environment["FL_STUB_CRASH"] = crashes
+    environment["TMPDIR"] = fixture.scratch.as_posix()
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
     # and an interleaved append loses exactly the row that tells the two forms apart.
@@ -391,3 +403,47 @@ def test_pnpm_s_dependency_check_stopping_the_db_tier_ends_the_run_once_as_a_ref
     assert done.returncode == 2, output
     assert "pnpm's dependency check stopped this step" in output, output
     assert "Crashed" not in output, output
+
+
+KEPT: Final = re.compile(r"kept for reading, as this crash left it: (\S+)")
+# Read through bash, whose spelling of the path the gate prints: on Windows that is an MSYS path no
+# Python call resolves. The directory is reclaimed once read, as the gate would have done.
+READ_KEPT: Final = """#!/usr/bin/env bash
+cat -- "$1/manifest.tsv" && rm -rf -- "$1"
+"""
+
+
+def test_a_crashed_run_keeps_its_pool_captures_and_names_each_one() -> None:
+    """A crash's evidence is the pool's own record, so the exit that ends it must not delete it.
+
+    A run ending on findings is the control: every other ending still reclaims its directories.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    crashed, _ = _run(FLAGS, crashes="typecheck:only")
+    output = crashed.stdout + crashed.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert crashed.returncode == 3, output
+    assert manifests, output
+    for read in manifests:
+        assert read.returncode == 0, f"a directory was named and not kept:\n{read.stderr}\n{output}"
+    assert any("typecheck" in read.stdout for read in manifests), output
+    failed, _ = _run(FLAGS, fails="typecheck:only")
+    assert failed.returncode == 1, failed.stdout + failed.stderr
+    assert not KEPT.search(failed.stdout + failed.stderr), failed.stdout + failed.stderr
+
+
+def test_a_scope_crashing_past_an_earlier_failure_still_names_what_it_kept() -> None:
+    """The run ends at the format scope's failure, and the frontend scope's crash is read after it.
+
+    Its worker kept its pool directory; unnamed in the parent's output, that directory outlives the
+    run with nobody told it exists.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    done, _ = _run(FLAGS, fails="format:check", crashes="typecheck:only")
+    output = done.stdout + done.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert done.returncode == 1, output
+    assert "the frontend scope crashed with status 3" in output, output
+    assert any(read.returncode == 0 and "typecheck" in read.stdout for read in manifests), output
