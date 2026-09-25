@@ -123,16 +123,22 @@ Reflect.set(globalThis, CACHE_BUS, cacheCalls);
 const recorded = (name: string): string => `export const ${name} = (...args) => void globalThis.${CACHE_BUS}.push({ name: "${name}", args });`;
 
 /**
+ * `next/cache` as a server action meets it, every invalidation recorded into `cacheCalls`, for a
+ * harness that doubles its packages itself. `cacheLife` and `cacheTag` declare a cached read rather
+ * than clear one, so they record nothing.
+ */
+export const NEXT_CACHE_DOUBLE = [
+  ...["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(recorded),
+  "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };",
+].join("\n");
+
+/**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
  * throw outside one, and `server-only` throws outside a server build.
  */
 export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "server-only": "export {};",
-  // `cacheLife` and `cacheTag` declare a cached read rather than clear one, so they record nothing.
-  "next/cache": [
-    ...["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(recorded),
-    "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };",
-  ].join("\n"),
+  "next/cache": NEXT_CACHE_DOUBLE,
   "next/headers": "export const headers = async () => new Headers();",
 };
 

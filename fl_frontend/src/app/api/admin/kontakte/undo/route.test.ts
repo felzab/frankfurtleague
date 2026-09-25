@@ -1,26 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
 import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route, called: the request it runs in and the write it replays are the doubles. */
 const { answerWith, calls } = doubleUndoRequest("/src/features/kontakte/mutations.ts");
-const invalidated: string[] = [];
-Reflect.set(globalThis, "__flKontakteUndoInvalidated", invalidated);
-registerHooks({
-  resolve: (specifier, context, nextResolve) => {
-    // Recording rather than inert, and registered after the request's double so it answers first: the
-    // contacts undo is the one replay that may clear no cached read.
-    if (specifier !== "next/cache") return nextResolve(specifier, context);
-
-    const record = (name: string) =>
-      `export const ${name} = (tag) => { globalThis.__flKontakteUndoInvalidated.push("${name} " + String(tag)); };`;
-    const source = ["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(record).join("\n");
-    return { url: `data:text/javascript,${encodeURIComponent(source)}`, shortCircuit: true };
-  },
-});
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
@@ -62,12 +48,11 @@ describe("the contacts save's undo", () => {
 
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
   it("clears no cached read, whether the replay lands or is refused", async () => {
-    invalidated.length = 0;
     await undo(POST, BODY);
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, DUPLICATE_KEY)));
     await undo(POST, BODY);
 
-    assert.deepEqual(invalidated, []);
+    assert.deepEqual(cacheCalls, []);
   });
 
   it("replays nothing for a body the save's schema refuses, or a caller from another site", async () => {
