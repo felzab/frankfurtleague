@@ -23,10 +23,11 @@ import {
   OBJECT_ID,
   readsOf,
   redirectTarget,
+  saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
 
-import type { FLSaison, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas.ts";
+import type { FLSaison, FLSaisonStatus } from "@/features/saisons/schemas.ts";
 import type { AnswerSchema, PageProps } from "@/shared/testing/pageHarness.ts";
 import type { ReactNode } from "react";
 
@@ -73,25 +74,11 @@ const tracked = <T extends { saison_id: string }>(row: T): T =>
     },
   });
 
-const RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
-
 const saison = (id: string, status: FLSaisonStatus): FLSaison =>
   FLSaisonSchema.parse({
-    id: id,
+    ...saisonFields(id, status),
     start_date: `${id}-03-07`,
     end_date: `${id}-10-31`,
-    status: status,
-    rules: RULES,
     schedule: [],
     spielplan: null,
     bewerbung: null,

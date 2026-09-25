@@ -78,6 +78,29 @@ export const readsOf = (taken: readonly PageStep[]): { endpoint: string; params:
 export const OBJECT_ID = "6890a1b2c3d4e5f607250001";
 
 /**
+ * A season's id, status and rules, which no empty value satisfies. Spelled structurally, as `shared`
+ * imports no slice's schema: the caller parses it through
+ * `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonSchema`, which refuses the drift.
+ */
+export function saisonFields(id: string, status: "past" | "active" | "future"): Record<string, unknown> {
+  return {
+    id: id,
+    status: status,
+    rules: {
+      win_points: 3,
+      draw_points: 1,
+      qualifiers_per_group: 2,
+      number_of_groups: 2,
+      teams_per_group: 4,
+      max_kadergroesse: 18,
+      tiebreak_order: "tordifferenz",
+      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+      erlaubte_stufen: ["E1", "Q1"],
+    },
+  };
+}
+
+/**
  * Tried in order: a list read with nothing in it lets the page read on. The last four stand in where a
  * schema refuses an empty value: a season, an id, a date, a count.
  */
