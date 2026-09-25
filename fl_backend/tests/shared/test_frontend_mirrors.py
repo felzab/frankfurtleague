@@ -246,7 +246,7 @@ def _suite_only() -> SuiteOnly:
     # Counted against every `**/` spelling, so a shape the reader cannot take fails rather than drops.
     assert len(globs) == block.count('"**/'), f"{ESLINT_CONFIG.name}'s TEST_ONLY writes a glob this reader cannot take"
     return SuiteOnly(
-        modules=frozenset(found["name"] for found in globs if found["directory"] is None and found["name"].endswith(".ts")),
+        modules=frozenset(found["name"] for found in globs if found["directory"] is None and found["name"].endswith((".ts", ".tsx"))),
         directories=frozenset(found["name"] for found in globs if found["directory"] is not None),
     )
 
@@ -277,7 +277,7 @@ def test_every_module_the_lint_config_keeps_to_the_suite_is_one_the_walk_meets()
     """A reader that took nothing off the config, or a stale name, would leave the suite's modules in the production walk."""
 
     suite = _suite_only()
-    present = {path.name for path in FRONTEND_SRC.rglob("*.ts")}
+    present = {path.name for path in FRONTEND_SRC.rglob("*.ts*")}
 
     assert suite.modules, f"no module was read off {ESLINT_CONFIG.name}'s TEST_ONLY"
     assert suite.modules <= present, f"{sorted(suite.modules - present)} are kept to the suite and exist nowhere under src/"
