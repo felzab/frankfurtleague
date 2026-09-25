@@ -75,8 +75,9 @@ services:
   # Production declares no database service and must not gain one (`docs/ops/spec.md :: I174`).
   mongo:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
-    # cluster runs, so a copy taken from it restores into a server of its own major version.
-    image: mongo:8
+    # cluster runs, so a copy taken from it restores into a server of its own major version. Pinned
+    # here by its digest too (`docs/ops/spec.md` §1.1).
+    image: mongo:8@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
     command: --replSet rs0 --bind_ip_all

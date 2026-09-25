@@ -347,6 +347,11 @@
 # run that skipped no scope the runner skips the step without starting a shell, and only a run
 # already red pays for its one `echo`. The row's reference and budget do not move.
 #
+# `scripts` gained a module: `scripts/tests/test_image_pins.py` reads four files and runs in
+# 0.02-0.05 s over five runs, pytest's own figure, measured locally on 2026-09-25 on the
+# sixteen-core machine beside a fleet of agent sessions, so the upper end reads that load. It sits
+# inside the floor the `scripts` row carries, so neither its reference nor its budget moves.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in any of its modes, and compares nothing at all.

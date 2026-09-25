@@ -100,10 +100,9 @@ services:
           memory: "128M"
 
   nginx:
-    # The exact patch, never the minor: a host pulls a tag it lacks and never again, so a minor tag
-    # stays at whichever patch it first pulled. The local stack, `nginx/edge_test.sh` and
+    # Tag and digest (`docs/ops/spec.md` §1.1). The local stack, `nginx/edge_test.sh` and
     # `scripts/gate/verify.sh`'s `nginx -t` read this line.
-    image: nginx:1.31.6-alpine
+    image: nginx:1.31.6-alpine@sha256:d10753d9289b8e3f884386351f73554ce72b631378949deddd75e83ee296c427
     restart: unless-stopped
     # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
     # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
@@ -153,10 +152,10 @@ services:
   # No resource limit, unlike the three above: this process forwards bytes for every request on the
   # site, and a CPU cap nobody has measured throttles the whole of it rather than capping a leak.
   cloudflared:
-    # Pinned, against the vendor's own `:latest --pull always` example, for the nginx service's
-    # reason above: the component holding the site's one route in would otherwise drift per host,
+    # Pinned by tag and digest (`docs/ops/spec.md` §1.1), against the vendor's own `:latest --pull
+    # always` example: the component holding the site's one route in would otherwise drift per host,
     # silently.
-    image: cloudflare/cloudflared:2026.9.1
+    image: cloudflare/cloudflared:2026.9.1@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
     restart: unless-stopped
     # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
     # own binary is the unpinned tag again, arrived at from inside the container.

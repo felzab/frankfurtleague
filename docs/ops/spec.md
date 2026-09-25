@@ -35,6 +35,13 @@ settings are dashboard state (§1.8).
 Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
 `image:`, its `deploy.resources` and its `healthcheck:`.
 
+**Every base image in a Dockerfile's `FROM` and every image either compose file names is pinned by
+tag and digest** (`name:tag@sha256:<digest>`), this repository's two own images alone excepted: a
+build or a pull fetches the digest, the registry's multi-platform index, so a tag rebuilt or
+repointed upstream changes nothing here until a pull request moves it, while the tag is what
+`.github/dependabot.yml`'s `docker` and `docker-compose` ecosystems compare to propose the next pair.
+`scripts/tests/test_image_pins.py` holds every such reference to that form.
+
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address
 between them, and only the sockets it had pooled to the container that went fail, once each. Read

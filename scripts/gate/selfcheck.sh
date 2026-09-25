@@ -921,7 +921,7 @@ step "15. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
 UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
-UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ ]*\) .*|\1|p' fl_backend/Dockerfile)"
+UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' fl_backend/Dockerfile)"
 if [[ -z "$UV_PIN" || -z "$UV_TAG" ]]; then
   # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
   note_fail "could not read the uv version from both files — pin '${UV_PIN:-none}', image tag '${UV_TAG:-none}'"

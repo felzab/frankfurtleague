@@ -101,6 +101,9 @@ updates:
   # stage is a second image in the same file for the same reason. A Dockerfile change triggers the
   # `images` CI job on the pull request itself (.github/workflows/verify.yml), so a base-image bump
   # proves both images build before it merges.
+
+  # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
+  # two together; the compose ecosystem below does the same for every image either stack names.
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:

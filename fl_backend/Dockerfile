@@ -3,10 +3,12 @@
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
 # lines alone, so this is what puts the installer's version under the same review as every other
 # base image here.
-FROM ghcr.io/astral-sh/uv:0.12.18 AS uv
+
+# Tag and digest, as every base image here (`docs/ops/spec.md` §1.1).
+FROM ghcr.io/astral-sh/uv:0.12.18@sha256:3adc3706091ce7c2fe595e669628caedd6d951551b92b258b7e7dbe06d9440bc AS uv
 
 # The OS layer the build and the runtime share, so anything added here ships in the image.
-FROM python:3.14-slim AS base
+FROM python:3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS base
 
 # tini for PID 1 signal routing -> the container shuts down gracefully.
 RUN apt-get update && \
