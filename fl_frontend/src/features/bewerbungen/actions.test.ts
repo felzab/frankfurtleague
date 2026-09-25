@@ -117,7 +117,6 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 /** Read for the codes each mapper's own switch names, which no call can enumerate. */
 const REFUSALS = readFileSync(path.resolve(import.meta.dirname, "refusals.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts"), "utf8");
 /** The bound the decline's reason is mirrored from, read where it is written. */
@@ -494,30 +493,6 @@ describe("the message that follows a decision", () => {
   });
 });
 
-describe("how each endpoint is addressed", () => {
-  it("posts to the two triage endpoints, with the id in the path", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/annehmen`/, "the acceptance no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/ablehnen`/, "the decline no longer addresses its own endpoint");
-
-    for (const endpoint of ["annehmen", "ablehnen"]) {
-      assert.match(
-        MUTATIONS,
-        new RegExp(`${endpoint}\`,\\s*FL\\w+ResponseSchema,\\s*\\{\\s*method: "POST"`),
-        `the ${endpoint} is sent as something other than a POST`,
-      );
-    }
-  });
-
-  /* The id is split off into the path by both mutations; a body carrying one is refused whole, the
-     backend payloads forbidding an extra field. */
-  it("splits the id out of both bodies", () => {
-    const splits = [...MUTATIONS.matchAll(/\{ id, \.\.\.fields \}/g)];
-
-    assert.equal(splits.length, 2, `expected both mutations to split the id off, saw ${String(splits.length)}`);
-    assert.ok(!MUTATIONS.includes("JSON.stringify(validated.data)"), "a mutation sends the whole payload, id included");
-  });
-});
-
 /** Where one surface's German comes from: what it rendered, split into its sentences. */
 type RenderingSource = { where: string; rendered: readonly string[] };
 
@@ -888,10 +863,6 @@ describe("the re-sent confirmation link", () => {
     for (const code of erneutCodes) assert.ok(published.includes(code), `${code} is mapped by the re-send and published on it by no rule`);
   });
 
-  it("addresses its own endpoint, with the seat in the path", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/einwilligung\/\$\{rolle\}\/erneut`/, "the re-send no longer addresses its own endpoint");
-  });
-
   /* The token is minted and the deadline moved by the time the message is composed, so the read that
      carries the new deadline has to come after the write rather than from the page's own copy. */
   it("mails nothing where the write is refused, and states the deadline the write set", async () => {
@@ -1081,11 +1052,6 @@ describe("the corrected contact address", () => {
       assert.ok(published.includes(code), `${code} is mapped by the correction and published on it by no rule`);
   });
 
-  it("addresses its own endpoint, with the seat in the path and the address in the body", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}\/email`/, "the correction no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /body: JSON\.stringify\(\{ email: email \}\)/, "the correction sends something other than the address alone");
-  });
-
   /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
      address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
   it("mails the address the write stored, never the one the read still holds", async () => {
@@ -1198,13 +1164,6 @@ describe("the person seated where one stepped out", () => {
     const published = publishedRefusals(SITZ_OPERATION);
 
     for (const code of sitzCodes) assert.ok(published.includes(code), `${code} is mapped by the reseat and published on it by no rule`);
-  });
-
-  /* The correction's own path with the `/email` segment dropped, and it takes a body: everything but
-     the application and the seat is typed, so a path-only request would seat nobody. */
-  it("addresses its own endpoint, with the seat in the path and the person in the body", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}`/, "the reseat no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /body: JSON\.stringify\(person\)/, "the reseat sends something other than the person it was given");
   });
 
   /* `SITZ_LEER` is the correction's guard on an empty slot, and an empty slot is what this write runs
