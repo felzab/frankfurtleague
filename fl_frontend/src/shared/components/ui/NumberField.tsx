@@ -2,8 +2,6 @@
 
 import { NumberField as HeroUINumberField } from "@heroui/react/number-field";
 
-import { enteredNumber } from "@/shared/utils/numberField";
-
 import { useRequiredMark } from "./RequiredMarks";
 
 import type { NumberFieldRootProps } from "@heroui/react/number-field";
@@ -25,7 +23,9 @@ function NumberFieldRoot({
       {...props}
       isRequired={useRequiredMark(props.name, null)}
       value={value ?? Number.NaN}
-      onChange={(next) => onChange(enteredNumber(next))}
+      // A `null` left in the draft is refused at submit, where every payload schema words its own type
+      // check, so the empty box draws German.
+      onChange={(next) => onChange(Number.isNaN(next) ? null : next)}
     />
   );
 }
