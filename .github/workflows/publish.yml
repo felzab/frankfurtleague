@@ -7,7 +7,8 @@
 # - Only `main`'s tip is built, and only where its own push run of `verify` passed, a run failed by
 #   its wall-clock budget step alone counting as passed.
 # - Nothing is pushed before both loaded builds pass the images scope's three assertions, and no
-#   `:latest` tag names a pushed image whose layers or user differ from the one they examined.
+#   `:latest` tag names a pushed image whose layers or user differ from the one they examined
+#   (`docs/ops/spec.md :: I365`).
 # - Neither `:latest` tag moves until both packages hold the build under its `sha-` tag.
 name: publish
 

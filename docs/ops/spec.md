@@ -487,7 +487,7 @@ images scope's three assertions** (`scripts/lib/_lib.sh :: image_has_instrumenta
 `:: image_runs_unprivileged`, `:: image_context_clean`); the push rebuilds from the same builder's
 layers, under `sha-` and the commit's short hash (`docker/metadata-action`'s `type=sha`). A pushed
 image whose layers or user differ from the one checked is refused, and only then do both `:latest`
-tags move (I353, I7). A merge
+tags move (I353, I365, I7). A merge
 publishes nothing, and re-running an old publish run refuses rather than moving `:latest` backward.
 **A `verify` run failed on its wall-clock budget alone still counts as passed**: the budget judges
 how long the gate took, not the tree, so `scripts/checks/check_publish_verdict.py` reads that run's
@@ -1105,6 +1105,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, after its ref check; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the budget and advisory step names to `.github/workflows/verify.yml`      |
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                      |
+| I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                          |
 
 ## 3. Violation → remedy
 
