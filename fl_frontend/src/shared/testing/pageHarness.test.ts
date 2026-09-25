@@ -54,6 +54,20 @@ describe("the page harness", () => {
     assert.doesNotMatch(markup, /lädt/, "the render stopped at the boundary's fallback");
   });
 
+  /* A boundary React outlines, as it does a large one beside another, streams as its fallback beside
+     the content and a script swapping them in on a later frame: the markup before that holds both. */
+  it("hands back the document once the stream has swapped a late body in", async () => {
+    async function Late() {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return h("p", null, `spät geladen ${"x".repeat(20_000)}`);
+    }
+    const boundary = (fallback: string) => h(Suspense, { fallback: h("p", null, fallback) }, h(Late));
+    const markup = await renderPage(h("div", null, boundary("lädt eins"), boundary("lädt zwei")));
+
+    assert.match(markup, /spät geladen/);
+    assert.doesNotMatch(markup, /lädt/, "a boundary's fallback stands beside the content it was swapped for");
+  });
+
   /* React answers a throw inside a boundary with the fallback and a client-rendering template, so a
      render that resolved there would hand an absence assertion a crash to pass over. */
   it("rejects where a body throws inside its boundary", async () => {

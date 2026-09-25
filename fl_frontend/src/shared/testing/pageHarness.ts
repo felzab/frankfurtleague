@@ -3,8 +3,10 @@ import "@/shared/testing/renderTest.ts";
 import { registerHooks } from "node:module";
 import { text } from "node:stream/consumers";
 
+import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 
 import type { ReactElement, ReactNode } from "react";
@@ -115,6 +117,19 @@ export const EMPTIEST_ANSWER: ReadAnswer = (endpoint, schema) => {
   throw new Error(`no empty answer for ${endpoint}`);
 };
 
+/** The backend's 404 for `endpoint`, which a query reading "none" off it turns into its `null`. */
+export const backendNotFound = (endpoint: string): APIBadStatusError =>
+  new APIBadStatusError({
+    message: "not found",
+    url: `http://backend/api/v0${endpoint}`,
+    statusCode: 404,
+    serverErrorCode: "DB-NOTFOUND-001",
+    endpoint: endpoint,
+    method: "GET",
+    readOnly: true,
+    traceId: "0",
+  });
+
 /** Answers every read from here on with `respond`, until another call names another. */
 export function answerReadsWith(respond: ReadAnswer): void {
   globals[ANSWER] = respond;
@@ -194,17 +209,37 @@ export async function callPage(Page: (props: PageProps) => unknown, props: PageP
   return walk;
 }
 
+/** A boundary the stream sent as its fallback, React's script still to swap its content in. */
+const UNREVEALED = 'template[id^="B:"]';
+
+/** Frames a stream's reveal may take before the page is called stuck rather than slow. */
+const REVEAL_FRAMES = 60;
+
 /**
- * Every boundary awaited, as `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` does not.
- * Rejects on any error the render reports: React answers a throw inside a boundary with its fallback,
- * so an absence asserted over the markup would pass over a crash.
+ * The document a browser holds once the page's stream has run, every boundary awaited, as
+ * `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` does not. Rejects on any error the
+ * render reports: React answers a throw inside a boundary with its fallback, so an absence asserted over
+ * the markup would pass over a crash.
  */
 export async function renderPage(tree: ReactNode): Promise<string> {
   const errors: unknown[] = [];
   const { prelude } = await prerenderToNodeStream(tree, { onError: (error) => void errors.push(error) });
   const markup = await text(prelude);
   if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "the page's render reported errors");
-  return markup;
+
+  // A boundary still pending when the shell was written streams as its fallback beside the content and
+  // React's script swapping them, so the markup holds both until that script runs, as it does here.
+  const { window } = new JSDOM(`<!doctype html><html><body>${markup}</body></html>`, { runScripts: "dangerously", pretendToBeVisual: true });
+  try {
+    for (let frame = 0; window.document.querySelector(UNREVEALED) !== null; frame += 1) {
+      if (frame === REVEAL_FRAMES) throw new Error(`the page's stream revealed no content in ${String(REVEAL_FRAMES)} frames`);
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    }
+    for (const script of window.document.querySelectorAll("script")) script.remove();
+    return window.document.body.innerHTML;
+  } finally {
+    window.close();
+  }
 }
 
 /** The first async component under `node`'s children, depth first. */

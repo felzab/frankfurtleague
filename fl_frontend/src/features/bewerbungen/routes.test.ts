@@ -4,7 +4,16 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answerReadsWith,
+  backendNotFound,
+  callPage,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  pageBody,
+  readsOf,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 
 import type { PageProps } from "@/shared/testing/pageHarness.ts";
 import type { Metadata } from "next";
@@ -63,8 +72,6 @@ registerHooks({
   },
 });
 
-const { APIBadStatusError } = await import("@/core/errors.ts");
-
 const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
 const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);
 const { default: AdminBewerbungenPage } = await import("@/app/admin/bewerbungen/page.tsx");
@@ -86,22 +93,10 @@ answerReadsWith((endpoint, schema, params) => {
   return answered;
 });
 
-const notFoundAnswer = (endpoint: string) =>
-  new APIBadStatusError({
-    message: "no season carries the id",
-    url: `http://backend/api/v0${endpoint}`,
-    statusCode: 404,
-    serverErrorCode: "DB-NOTFOUND-001",
-    endpoint: endpoint,
-    method: "GET",
-    readOnly: true,
-    traceId: "0",
-  });
-
 /** The backend's answer for one season's window, as `window` describes it. */
 function windowAnswer(saisonId: string, window: WindowRead): unknown {
   const endpoint = `/bewerbungen/fenster/${saisonId}`;
-  if (window === null) return notFoundAnswer(endpoint);
+  if (window === null) return backendNotFound(endpoint);
   if (window instanceof Error || window.fenster !== null) return window instanceof Error ? window : window.fenster;
   return { acknowledged: 1, saison_id: saisonId, fenster: null };
 }

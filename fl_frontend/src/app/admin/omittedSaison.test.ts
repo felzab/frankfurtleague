@@ -15,6 +15,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
   answerReadsWith,
+  backendNotFound,
   callPage,
   clearSteps,
   EMPTIEST_ANSWER,
@@ -49,7 +50,6 @@ registerHooks({
   },
 });
 
-const { APIBadStatusError } = await import("@/core/errors.ts");
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { SaisonMetadataDisplay } = await import("@/features/saisons/components/ui/SaisonMetadataDisplay.tsx");
 
@@ -162,16 +162,7 @@ answerReadsWith((endpoint, schema, params) => {
 
   if (endpoint === "/saisons/current") {
     if (running !== undefined) return answer(schema, endpoint, { saison: running });
-    throw new APIBadStatusError({
-      message: "no season is active",
-      url: `http://backend/api/v0${endpoint}`,
-      statusCode: 404,
-      serverErrorCode: "DB-NOTFOUND-001",
-      endpoint: endpoint,
-      method: "GET",
-      readOnly: true,
-      traceId: "0",
-    });
+    throw backendNotFound(endpoint);
   }
   // The public list withholds a planned season, as `GET /saisons` does.
   if (endpoint === "/saisons") return answer(schema, endpoint, { saisons: league.filter((entry) => entry.status !== "future") });
