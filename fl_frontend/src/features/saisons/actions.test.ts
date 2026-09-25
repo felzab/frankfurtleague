@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { withoutPythonComments } from "@/core/pythonComments.ts";
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
@@ -12,9 +13,9 @@ import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRe
 
 import type { FLSaisonRules } from "./schemas.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/saisons/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
 

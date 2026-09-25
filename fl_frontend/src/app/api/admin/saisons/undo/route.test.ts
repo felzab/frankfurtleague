@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
-/* The real route, called: the request it runs in and the write it replays are the doubles. */
-const { answerWith, calls } = doubleUndoRequest("/src/features/saisons/mutations.ts");
+/* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers();
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/saisons/mutations.ts :: patchSaison` sends, as the backend's own routes spell it. */
@@ -32,10 +34,8 @@ describe("the season save's undo", () => {
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchSaison"],
-    );
+    const { id, ...season } = BODY;
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/saisons/${id}`, method: "PATCH", body: season }]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
