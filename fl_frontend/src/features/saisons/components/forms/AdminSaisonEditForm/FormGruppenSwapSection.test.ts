@@ -20,7 +20,6 @@ const { answerWith } = doubleEveryAction();
 const { raised } = doubleToasts();
 
 const { FormGruppenSwapSection } = await import("./FormGruppenSwapSection.tsx");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const team = (id: string, name: string, gruppe: "A" | "B") => ({
   id,
@@ -83,9 +82,9 @@ describe("the season's group swap after its answer", () => {
   }
 
   /* The swap is its own inverse, so a swap that may have landed, pressed again over the same pair,
-     swaps back what it just swapped. */
+     swaps back what it just swapped. Rejected, so the panel reads the page again itself. */
   it("drops the pair and reads the page again after a swap of unknown outcome", async () => {
-    const seen = await swapped(() => Promise.resolve(unansweredAction()));
+    const seen = await swapped(() => Promise.reject(new TypeError("Failed to fetch")));
 
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.options?.outcome]),

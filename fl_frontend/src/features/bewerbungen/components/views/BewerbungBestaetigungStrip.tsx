@@ -39,6 +39,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -144,19 +145,15 @@ export function BewerbungBestaetigungStrip({
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
     // „Sendet...“ standing for good and reports nothing.
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(() => null);
+    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, ERNEUT_OHNE_ANTWORT));
 
     // This seat alone, through the updater, so two writes settling never clear each other.
     setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
 
-    // Before the toast: a write that may have committed leaves the readout beneath it stale on exactly the
-    // press that says so. Every other answer after a landed write comes back refreshed by the action.
-    if (res === null || (!res.success && res.outcome === "unknown")) router.refresh();
-
-    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
-    // unknown outcome among them, carries its own sentence.
-    if (res === null || !res.success) {
-      appToast.failure("Link nicht erneut gesendet", res ?? { error: ERNEUT_OHNE_ANTWORT, outcome: "unknown" });
+    // A rejection, which no answer came back from, carries this control's repair naming the connection; an
+    // answer, an unknown outcome among them, carries its own sentence.
+    if (!res.success) {
+      appToast.failure("Link nicht erneut gesendet", res);
       return;
     }
 
@@ -431,7 +428,7 @@ function AdresseKorrigieren({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
+    const res = await kontaktEmailKorrigierenAction(payload).catch(rejectedWrite(router, KORREKTUR_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -439,10 +436,8 @@ function AdresseKorrigieren({
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
     // sends, and the refreshed row says whether one is owed.
-    if (res === null || (!res.success && res.outcome === "unknown")) {
-      router.refresh();
-      // Thrown, no answer came back, so this control's repair names the connection.
-      nichtKorrigiert(res ?? { success: false, error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
+    if (!res.success && res.outcome === "unknown") {
+      nichtKorrigiert(res);
       return;
     }
 
@@ -596,7 +591,7 @@ function SitzNeuBesetzen({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await besetzeKontaktSitzAction(payload).catch(() => null);
+    const res = await besetzeKontaktSitzAction(payload).catch(rejectedWrite(router, BESETZUNG_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -604,10 +599,8 @@ function SitzNeuBesetzen({
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
     // sends, and the refreshed row says whether one is owed.
-    if (res === null || (!res.success && res.outcome === "unknown")) {
-      router.refresh();
-      // Thrown, no answer came back, so this control's repair names the connection.
-      nichtBesetzt(res ?? { success: false, error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
+    if (!res.success && res.outcome === "unknown") {
+      nichtBesetzt(res);
       return;
     }
 

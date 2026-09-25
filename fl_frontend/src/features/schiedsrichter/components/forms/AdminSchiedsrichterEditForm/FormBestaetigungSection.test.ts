@@ -269,6 +269,6 @@ describe("the control that sends the link", () => {
       unmount();
     }
 
-    assert.deepEqual(refreshes, { sent: 0, refused: 0, thrown: 1, answered: 1 });
+    assert.deepEqual(refreshes, { sent: 0, refused: 0, thrown: 1, answered: 0 });
   });
 });

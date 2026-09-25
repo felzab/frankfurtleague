@@ -376,6 +376,9 @@ const UNCLEAR_ARMS: Record<string, () => Promise<unknown>> = {
   answered: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }),
 };
 
+/* The strip reads the row again after a rejection alone: an answer comes back with its action's own refresh. */
+const readAgain: Record<string, number> = { thrown: 1, answered: 0 };
+
 /** What the toast over each arm says: the control's own repair where the action threw, the answer's sentence where it answered. */
 const repairOn = (arm: string, own: string): string => (arm === "thrown" ? own : ANSWERED);
 
@@ -391,7 +394,7 @@ describe("a write whose answer never arrives", () => {
       await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
       assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
-      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
           "Link nicht erneut gesendet",
@@ -429,7 +432,7 @@ describe("a write whose answer never arrives", () => {
 
       assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
       assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
-      assert.equal(seen.refresh, 1);
+      assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
           "Adresse nicht korrigiert",
@@ -452,7 +455,7 @@ describe("a write whose answer never arrives", () => {
         "Doreen",
         "the person a second press would send is gone",
       );
-      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
           "Rolle nicht neu besetzt",

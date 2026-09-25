@@ -163,7 +163,8 @@ removal's in the sign-in store, records itself at the call through
 unknown outcome (I326) unless it is that write's own answer, which says whether it landed; with none
 sent, a throw answers as its own request says. A sent write's success or unknown outcome refreshes
 the page (I233), and a body that sent none moves nothing; a panel refreshes it again only where its
-press may have brought no answer back, a rejected action reaching no server refresh. A route handler's write
+press may have brought no answer back, a rejected action reaching no server refresh, and does so
+through `fl_frontend/src/shared/utils/actionError.ts :: rejectedWrite` alone. A route handler's write
 takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the same spine without the refresh Next refuses outside a server
 action.
 

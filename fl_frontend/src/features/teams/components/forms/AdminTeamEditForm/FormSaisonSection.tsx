@@ -27,7 +27,7 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
@@ -98,17 +98,14 @@ function GruppenTauschControl({
 
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(unansweredAction);
+      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(rejectedWrite(router));
 
       if (!res.success) {
         // Wrapped again, as below: the press runs this inside its transition.
         startTransition(() => {
           // The swap is its own inverse, so the same partner pressed again after a swap of unknown outcome
           // would swap back one that landed.
-          if (res.outcome === "unknown") {
-            setPartner(null);
-            router.refresh();
-          }
+          if (res.outcome === "unknown") setPartner(null);
           appToast.failure("Gruppen nicht getauscht", res);
         });
         return;

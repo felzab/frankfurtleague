@@ -147,6 +147,19 @@ export function unansweredAction(): ActionFailure {
 }
 
 /**
+ * A write action's rejection answered as `unansweredAction` answers it, with the page read again: a rejection brings
+ * no server refresh back while the write may stand. `repair` is a control's own sentence where it has one.
+ */
+export function rejectedWrite(router: { refresh: () => void }, repair?: string): () => ActionFailure {
+  return () => {
+    router.refresh();
+    const unanswered = unansweredAction();
+
+    return repair === undefined ? unanswered : { ...unanswered, error: repair };
+  };
+}
+
+/**
  * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
  * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.
  */

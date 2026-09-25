@@ -7,7 +7,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackEr
 import { isRefusalCode, publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
-import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
+import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, rejectedWrite, toActionErrorResult, unansweredAction } from "./actionError.ts";
 import { UNKNOWN_REFUSAL } from "./refusal.ts";
 import { VALIDATION_FAILED } from "./validation.ts";
 
@@ -388,5 +388,17 @@ describe("a public route's own parse refusing the body", () => {
 
   it("answers the sentence alone where the refusal names no path, which no control could mark", () => {
     assert.deepEqual(refusal("kein Objekt"), { error: SATZ });
+  });
+});
+
+describe("a write action that rejected", () => {
+  /* No answer came back, so no server refresh did either, while the write may stand. */
+  it("reads the page again and answers as of unknown outcome, in the control's own words where it has them", () => {
+    let refreshed = 0;
+    const router = { refresh: () => void (refreshed += 1) };
+
+    assert.deepEqual(rejectedWrite(router)(), unansweredAction());
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(), { ...unansweredAction(), error: "Prüfe die Verbindung." });
+    assert.equal(refreshed, 2, "a rejected write left the page as it was");
   });
 });

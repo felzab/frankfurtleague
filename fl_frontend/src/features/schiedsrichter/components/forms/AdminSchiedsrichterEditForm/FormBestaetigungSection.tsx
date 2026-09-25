@@ -23,6 +23,7 @@ import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -174,17 +175,13 @@ export function FormBestaetigungSection({
     setSendet(true);
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(() => null);
+    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, OHNE_ANTWORT));
     setSendet(false);
 
-    // Before the toast: a write that may have committed leaves the readout beneath it stale on exactly the
-    // press that says so. Every other answer after a landed write comes back refreshed by the action.
-    if (res === null || (!res.success && res.outcome === "unknown")) router.refresh();
-
-    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
-    // unknown outcome among them, carries its own sentence.
-    if (res === null || !res.success) {
-      appToast.failure("Bestätigungslink nicht gesendet", res ?? { error: OHNE_ANTWORT, outcome: "unknown" });
+    // A rejection, which no answer came back from, carries this control's repair naming the connection; an
+    // answer, an unknown outcome among them, carries its own sentence.
+    if (!res.success) {
+      appToast.failure("Bestätigungslink nicht gesendet", res);
       return;
     }
 

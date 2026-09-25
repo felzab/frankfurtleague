@@ -159,7 +159,12 @@ describe("the season's bulk invite send", () => {
     answerWith(vorschauAntwort(VORSCHAU));
     render(underNext(h(FormEinladungVersandSection, { saisonId: SAISON_ID, isFinishedSaison: false }), { router }));
 
-    await pressTwice(user, { resting: RESTING, armed: ARMED, whileArmed: () => answerWith(() => Promise.resolve(unansweredAction())) });
+    // Rejected, so the panel reads the page again itself: no answer brought the action's refresh.
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => answerWith(() => Promise.reject(new TypeError("Failed to fetch"))),
+    });
     await screen.findByRole("button", { name: RESTING });
 
     const { error, outcome } = unansweredAction();

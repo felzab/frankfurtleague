@@ -18,7 +18,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { unansweredAction, unansweredRead } from "@/shared/utils/actionError";
+import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
@@ -132,17 +132,14 @@ export function FormEinladungVersandSection({
 
   const senden = async () => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
-    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredAction);
+    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(rejectedWrite(router));
 
     if (!res.success) {
       // Wrapped again, as below: the press runs this inside its transition.
       startTransition(() => {
         // A send of unknown outcome may have mailed the links the list names, and a press armed over
         // that list would mint them again under a readout of what was true before it.
-        if (res.outcome === "unknown") {
-          setVorschau(null);
-          router.refresh();
-        }
+        if (res.outcome === "unknown") setVorschau(null);
         appToast.failure("Registrierungslinks nicht gesendet", res);
       });
       return;

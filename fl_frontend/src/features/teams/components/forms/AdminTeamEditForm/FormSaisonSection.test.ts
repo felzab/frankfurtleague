@@ -23,7 +23,6 @@ const { raised } = doubleToasts();
 
 const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const STATUS = declaredStatus<TeamFieldPath>(["gruppe", "trikot_farbe"]);
 
@@ -112,9 +111,9 @@ describe("the club's group swap after its answer", () => {
   }
 
   /* The swap is its own inverse, so a swap that may have landed, pressed again over the same partner,
-     swaps back what it just swapped. */
+     swaps back what it just swapped. Rejected, so the panel reads the page again itself. */
   it("drops the partner and reads the page again after a swap of unknown outcome", async () => {
-    const { seen, user } = await swapped(() => Promise.resolve(unansweredAction()));
+    const { seen, user } = await swapped(() => Promise.reject(new TypeError("Failed to fetch")));
 
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.options?.outcome]),
