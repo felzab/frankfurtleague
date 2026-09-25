@@ -13,12 +13,12 @@ import type { NextRequest } from "next/server";
 export type UndoAnswer = { success: boolean; message?: string; error?: string; warn?: boolean; outcome?: "unknown" };
 
 /**
- * The request an undo route runs in and the slice's `mutations.ts` its replay writes through, every
- * write acknowledged until a case names another answer. Registered before the suite's `await import`
- * of the route, as `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest` is.
+ * The request an undo route runs in, `next/cache` answering as a route handler meets it. Registered
+ * before the suite's `await import` of the route, as
+ * `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest` is.
  */
-export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleActions> {
-  doubleActionRequest();
+export function doubleRouteRequest(): ReturnType<typeof doubleActionRequest> {
+  const request = doubleActionRequest();
   // Registered after the request's doubles, so its `next/cache` answers before theirs.
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -33,8 +33,18 @@ export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleAc
     assert.deepEqual(refused, [], "the route called what Next refuses outside a Server Action; a route handler clears with revalidateTag");
   });
 
+  return request;
+}
+
+/** The route's request, and the slice's `mutations.ts` its replay writes through, every write acknowledged until a case names another answer. */
+export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleActions> {
+  doubleRouteRequest();
   return doubleActions({ modules: [mutations], answer: () => Promise.resolve({ acknowledged: 1 }) });
 }
+
+/** Every tag the route cleared, and the profile each was cleared with, in the order it cleared them. */
+export const revalidatedTags = (): [unknown, unknown][] =>
+  cacheCalls.filter(({ name }) => name === "revalidateTag").map(({ args }) => [args[0], args[1]]);
 
 /** A route's answer where its replay's write went unacknowledged, which may still have landed. */
 export const unacknowledged = (error: string): UndoAnswer => ({ success: false, error, outcome: "unknown" });

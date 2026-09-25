@@ -2,21 +2,14 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+doubleRouteRequest();
 
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoRefTags.push([tag, profile]); };
-export const refresh = () => { throw new Error("refresh() outside a server action"); };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-const AUTH = `export const getAdminSession = async () => globalThis.__flUndoRefSession;
-export const getSignInDestination = async () => "/admin";`;
 const MUTATIONS = `export const patchSchiedsrichter = async (payload) => { globalThis.__flUndoRefCalls.push(payload); return globalThis.__flUndoRefAnswer(); };`;
 const NOTIFICATIONS = `export const mailSchiedsrichterLink = async (args) => { globalThis.__flUndoRefMails.push(args); return globalThis.__flUndoRefDelivered; };
 export const describeLinkMail = (email, delivered) => (delivered ? \`Der Bestätigungslink ging an \${email}.\` : \`Der Bestätigungslink konnte nicht an \${email} zugestellt werden.\`);`;
@@ -24,29 +17,14 @@ export const describeLinkMail = (email, delivered) => (delivered ? \`Der Bestät
 type MailArgs = { email: string; schiedsrichterId: string };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-const tags: [string, unknown][] = [];
 const calls: { id: string }[] = [];
 const mails: MailArgs[] = [];
-recorders.__flUndoRefTags = tags;
 recorders.__flUndoRefCalls = calls;
 recorders.__flUndoRefMails = mails;
 
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/cache": NEXT_CACHE,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
-
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
   load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/features/schiedsrichter/mutations.ts")) return { format: "module", source: MUTATIONS, shortCircuit: true };
     if (url.endsWith("/src/features/schiedsrichter/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
@@ -84,15 +62,12 @@ function aRequest(body: unknown, headers: Record<string, string> = {}) {
 }
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<{ success: boolean; message?: string; error?: string; warn?: boolean }> => {
-  const answer = (await POST(request)) as unknown as { body: { success: boolean; message?: string; error?: string; warn?: boolean } };
-  return answer.body;
+  return (await (await POST(request)).json()) as { success: boolean; message?: string; error?: string; warn?: boolean };
 };
 
 beforeEach(() => {
-  tags.length = 0;
   calls.length = 0;
   mails.length = 0;
-  recorders.__flUndoRefSession = { user: { email: "admin@example.de" } };
   recorders.__flUndoRefDelivered = true;
   recorders.__flUndoRefAnswer = () => ({ acknowledged: 1, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });
 });
@@ -103,7 +78,7 @@ describe("the referee save's undo", () => {
 
     assert.equal(answer.success, true);
     assert.deepEqual(calls, [BODY]);
-    assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
+    assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
   });
 
   /* The replay puts the earlier address back, which the endpoint reads as a correction and mints

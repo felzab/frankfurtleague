@@ -1,58 +1,22 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
 
-/* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
-   client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };
-export const refresh = () => { throw new Error("refresh() outside a server action"); };`;
-const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
-export const getSignInDestination = async () => globalThis.__flUndoDestination;`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+/* The real client reaches a backend no test process runs, so it is the one module replaced here; the
+   handler, its mutation and the spine are the real ones, driven. */
+const { setSession } = doubleRouteRequest();
 
 /** What the replay's write answers in this case, returned or thrown. */
 let antwort: () => unknown = () => undefined;
 // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
 // from the shape the route is written against.
 const calls = doubleApiClient((_call, schema) => schema.parse(antwort()));
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-const tags: [string, unknown][] = [];
-recorders.__flUndoTags = tags;
-
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/navigation": NEXT_NAVIGATION,
-  "next/cache": NEXT_CACHE,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -98,18 +62,16 @@ const asRequest = (body: unknown) =>
 type Outcome = { success: boolean; message?: string; error?: string; warn?: boolean };
 
 async function post(body: unknown): Promise<Outcome & { status: number }> {
-  const answered = (await POST(asRequest(body))) as unknown as { body: Outcome; status: number };
+  const answered = await POST(asRequest(body));
 
-  return { ...answered.body, status: answered.status };
+  return { ...((await answered.json()) as Outcome), status: answered.status };
 }
 
 const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
 
 beforeEach(() => {
-  tags.length = 0;
   calls.length = 0;
-  recorders.__flUndoSession = { user: { email: "admin@example.de" } };
-  recorders.__flUndoDestination = "/admin";
+
   antwort = () => RESTORED;
 });
 
@@ -158,11 +120,11 @@ describe("the undo route, driven", () => {
     await post(aReplayOf(SPIEL_ID));
 
     assert.deepEqual(
-      tags.map(([tag]) => tag),
+      revalidatedTags().map(([tag]) => tag),
       EXPECTED_TAGS,
     );
     assert.deepEqual(
-      tags.map(([, profile]) => profile),
+      revalidatedTags().map(([, profile]) => profile),
       EXPECTED_TAGS.map(() => ({ expire: 0 })),
     );
   });
@@ -262,8 +224,7 @@ describe("the undo route, driven", () => {
   });
 
   it("answers a caller with no admin session 401 and writes nothing", async () => {
-    recorders.__flUndoSession = null;
-    recorders.__flUndoDestination = "/signin";
+    setSession(null, "/signin");
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
@@ -275,8 +236,7 @@ describe("the undo route, driven", () => {
   /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the public root,
      so a person's live session answered 401 would loop them through a sign-in they already hold. */
   it("answers a session that is live but not an administrator's 403", async () => {
-    recorders.__flUndoSession = null;
-    recorders.__flUndoDestination = "/";
+    setSession(null, "/");
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
@@ -288,8 +248,7 @@ describe("the undo route, driven", () => {
   /* An administrator past a lifetime or short of the second factor: a live session, and 401 rather
      than 403, because the way back is a sign-in rather than the public root. */
   it("answers an administrator whose session no longer satisfies the guard 401", async () => {
-    recorders.__flUndoSession = null;
-    recorders.__flUndoDestination = "/signin/passkey";
+    setSession(null, "/signin/passkey");
 
     const answered = await post(aReplayOf(SPIEL_ID));
 

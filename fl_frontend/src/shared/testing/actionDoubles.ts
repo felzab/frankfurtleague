@@ -173,21 +173,27 @@ const SILENT_LOGGER = "const inert = () => undefined; export const logger = { de
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, or nobody signed in. */
 type AdminSessionDouble = { user: { email: string } } | null;
 
-// Through a global: the doubled store is compiled from source and shares nothing with this scope.
+// Through globals: the doubled store is compiled from source and shares nothing with this scope.
 const SESSION_BUS = "__flAdminSession";
+const DESTINATION_BUS = "__flSignInDestination";
+
+/** Where the real store sends a caller the session leaves out, when a case names no other. */
+const destinationOf = (session: AdminSessionDouble): string =>
+  // eslint-disable-next-line local/admin-link -- the sign-in store's own landing, which carries no season
+  session === null ? "/signin" : "/admin";
 
 /**
- * The sign-in store answering the session `doubleActionRequest` holds, the real one opening the
- * database driver as it loads. Every other export throws where called, its name read off the real
- * module so an import links.
+ * The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds,
+ * the real one opening the database driver as it loads. Every other export throws where called, its
+ * name read off the real module so an import links.
  */
 function signInStore(url: string): string {
+  const doubled: Record<string, string> = {
+    getAdminSession: `export const getAdminSession = async () => globalThis.${SESSION_BUS};`,
+    getSignInDestination: `export const getSignInDestination = async () => globalThis.${DESTINATION_BUS};`,
+  };
   return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
-    .map(([, name]) =>
-      name === "getAdminSession"
-        ? `export const getAdminSession = async () => globalThis.${SESSION_BUS};`
-        : `export const ${name ?? ""} = () => { throw new Error("the sign-in store's ${name ?? ""} is not doubled"); };`,
-    )
+    .map(([, name = ""]) => doubled[name] ?? `export const ${name} = () => { throw new Error("the sign-in store's ${name} is not doubled"); };`)
     .join("\n");
 }
 
@@ -200,8 +206,12 @@ export function doubleActionRequest({
 }: {
   /** Who the request is signed in as, until `setSession` names another for the rest of that case; `null` for nobody. */
   session?: AdminSessionDouble;
-} = {}): { setSession: (next: AdminSessionDouble) => void } {
-  const setSession = (next: AdminSessionDouble): void => void Reflect.set(globalThis, SESSION_BUS, next);
+} = {}): { setSession: (next: AdminSessionDouble, destination?: string) => void } {
+  // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
+  const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
+    Reflect.set(globalThis, SESSION_BUS, next);
+    Reflect.set(globalThis, DESTINATION_BUS, destination);
+  };
   setSession(session);
   // Before every case: one reading `cacheCalls` would otherwise also read every earlier case's
   // invalidations, and one after a case that signed out would run its write with no session.
