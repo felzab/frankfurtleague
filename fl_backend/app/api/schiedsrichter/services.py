@@ -309,7 +309,7 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.GONE,
         message="this link has expired; the administration can send a fresh one",
     )
 

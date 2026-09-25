@@ -611,7 +611,7 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
     if link_is_over(bestaetigungsfrist=bestaetigungsfrist, status=status, today=today):
         return WriteRefusal(
             error_code=BEWERBUNG_TOKEN_EXPIRED,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.GONE,
             message="this link has expired: the application's confirmation deadline has passed, or the application has been decided",
         )
 

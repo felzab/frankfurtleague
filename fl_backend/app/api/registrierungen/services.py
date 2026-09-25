@@ -407,7 +407,7 @@ def find_expired_token_refusal(*, bestaetigung: Any, status: Any, today: str) ->
 
     return WriteRefusal(
         error_code=REGISTRIERUNG_TOKEN_EXPIRED,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.GONE,
         message="this link has expired, or the registration has been decided; registering again through the team's link is the way back",
     )
 

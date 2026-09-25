@@ -1740,7 +1740,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.GONE,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a link whose deadline has passed records no consent",
@@ -1919,7 +1919,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-010",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.GONE,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a seat is not answered once the application's confirmation deadline has passed or the application has been decided",
@@ -2079,7 +2079,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-005",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.GONE,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a confirmation past its deadline, or on a registration already decided, is refused",

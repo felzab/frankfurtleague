@@ -360,6 +360,9 @@ the document publishes each code at the status a client meets it at:
 - **404** where what the request names does not exist: a link's token, which is the resource's
   identifier carried in a body for secrecy, or the season entry a path names, beside the
   `DB-COMMON-001` a missing document answers
+- **410** where a link is spent for good: its deadline has passed or its record was decided, and
+  nothing reopens either, a fresh link being a new token. Its view still answers 200 with the state
+  `abgelaufen`, so a page can say why before anyone presses
 
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never
