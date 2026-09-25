@@ -1657,13 +1657,20 @@ def _jsx_text_lines(text: str, sought: str) -> set[int]:
     return found
 
 
-def _lines_carrying(text: str, sought: str, *, rendered: bool, whole: bool = False) -> set[int]:
+# What continues a name, `$` being TypeScript's. YAML, CSS, nginx and shell spell names with a
+# hyphen, so there `autoupdate` must not resolve inside `--no-autoupdate`; in code it is an operator.
+NAME_CONTINUES: Final = r"[\w$]"
+NAME_WITH_HYPHEN: Final = r"[\w$-]"
+HYPHENATED_STYLES: Final = frozenset({".sh", ".css"})
+
+
+def _lines_carrying(text: str, sought: str, *, rendered: bool, continues: str | None = None) -> set[int]:
     """Every line spelling the fragment, a JSX text run's wrapped lines too where the file renders one.
 
     A line first: the run is read only for a fragment no single line holds.
     """
-    # Bounded by what continues no name in a scanned language, `$` being TypeScript's.
-    spelled = re.compile(r"(?<![\w$])" + re.escape(sought) + r"(?![\w$])") if whole else None
+    # A whole name where `continues` is given: the class of what would continue it.
+    spelled = re.compile("(?<!" + continues + ")" + re.escape(sought) + "(?!" + continues + ")") if continues else None
     return {
         number for number, line in enumerate(text.split("\n"), start=1) if (sought in line if spelled is None else spelled.search(line))
     } or (_jsx_text_lines(text, sought) if rendered else set())
@@ -1751,8 +1758,8 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
     # comment render nowhere, and read across a wrap a dead one resolves.
     rendered = quoted and has_suffix(where, (".tsx",))
     # A quoted anchor is a fragment whatever it spells: `_anchor_names` reads its quotes as no name.
-    whole = names is not None
-    spellings = _lines_carrying(content, sought, rendered=rendered, whole=whole)
+    continues = None if names is None else NAME_WITH_HYPHEN if comment_style(target) in HYPHENATED_STYLES else NAME_CONTINUES
+    spellings = _lines_carrying(content, sought, rendered=rendered, continues=continues)
     if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
@@ -1762,7 +1769,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
-        if not _lines_carrying("\n".join(_uncited_lines(target)), sought, rendered=rendered, whole=whole) - on:
+        if not _lines_carrying("\n".join(_uncited_lines(target)), sought, rendered=rendered, continues=continues) - on:
             detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
             return [Finding("fail", "citation", rel, detail)]
     return []

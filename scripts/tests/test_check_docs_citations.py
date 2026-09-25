@@ -27,6 +27,7 @@ from test_check_docs import (
     CITED_CASE,
     CITED_HEADING,
     CITED_PYTHON_CASE,
+    COMPOSE_FILE,
     DEAD_ROOT_FOLDER_PATH,
     DOMAIN_REGISTER,
     ESCAPED_CASE,
@@ -402,6 +403,26 @@ def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fra
         _reset()
     assert reported[("fail", "citation", NOTES)] == 1, "a whole name or a fragment of one was judged wrongly: " + _shape(reported)
     assert "anchor 'MARK' no longer appears in " + MARKER_TSX in output, output
+    _assert_corpus_restored()
+
+
+def test_a_hyphen_continues_a_name_in_yaml_and_ends_one_in_typescript() -> None:
+    """A compose option spells `--no-autoupdate`, so `autoupdate` there is no name; `1-SPAN` subtracts a name.
+
+    One finding: the dead YAML name. The live YAML key and the TypeScript name each resolve.
+    """
+    _reset()
+    _append(COMPOSE_FILE, "    command: --no-autoupdate")
+    _append(MARKER_TSX, "export const minus = 1-SPAN;")
+    cited = [COMPOSE_FILE + " :: autoupdate", COMPOSE_FILE + " :: fixture", MARKER_TSX + " :: SPAN"]
+    _append(NOTES, "Three names: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
+    assert "anchor 'autoupdate' no longer appears in " + COMPOSE_FILE in output, output
     _assert_corpus_restored()
 
 
