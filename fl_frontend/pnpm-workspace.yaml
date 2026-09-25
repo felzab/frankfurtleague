@@ -12,6 +12,9 @@ overrides:
   # runtime-reachable, via libvips on /_next/image.
   sharp: "^0.35.4"
   postcss: "^8.5.26"
+# Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
+# so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
+verifyDepsBeforeRun: error
 patchedDependencies:
   # The assertion asks for the user verification `authenticatorSelection` asks of the enrolment,
   # which better-auth pull request 11155 retires; every registration runs in the transaction
