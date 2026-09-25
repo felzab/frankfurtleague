@@ -227,7 +227,10 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
+    // A decided application, or a deadline passed that only a re-sent link restarts: one panel names
+    // both, the link being spent either way for this person.
     case "REQ-BEWERBUNG-010":
+    case "REQ-BEWERBUNG-017":
       return { zustand: "abgelaufen" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.

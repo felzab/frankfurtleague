@@ -631,14 +631,20 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
-     is a reader sent to the wrong one of the two, with no way to tell. */
-  it("gives each code its own answer", () => {
-    const answers = publishedRefusals(CONFIRM_OPERATION).map((code) =>
-      JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER)),
+  /* Two codes sharing an answer leave the reader no way to tell which one happened. The exempt pair
+     both spend this person's link: a decided application, and a deadline only the league's re-send
+     restarts. */
+  it("gives each code its own answer, the two spent links one panel", () => {
+    const answers = new Map(
+      publishedRefusals(CONFIRM_OPERATION).map((code) => [
+        code,
+        JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER)),
+      ]),
     );
 
-    assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");
+    assert.equal(answers.get("REQ-BEWERBUNG-017"), answers.get("REQ-BEWERBUNG-010"), "the passed deadline leaves the spent-link panel");
+    answers.delete("REQ-BEWERBUNG-017");
+    assert.equal(new Set(answers.values()).size, answers.size, "two codes are answered with the same panel or sentence");
   });
 
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
