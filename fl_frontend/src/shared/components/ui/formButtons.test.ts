@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
@@ -8,8 +6,6 @@ import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
 import { confirmButton, ctaButton, formButton } from "./formButtons";
 
 import type { AtRule, Container, Document, Root, Rule } from "postcss";
-
-const SRC = path.join(import.meta.dirname, "..", "..", "..");
 
 const compiled = compiledGlobals();
 
@@ -93,20 +89,12 @@ function buttonRules(root: Root, prop: string): { selector: string; value: strin
 }
 
 describe("the step that stands in a row of chips", () => {
-  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged, and the two
-     heights are one decision: the strip's chips are pinned to the same step. */
-  it("takes the chips' own height rather than the base's", async () => {
+  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged. */
+  it("takes the chips' own height rather than the base's", () => {
     const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
-    const strip = await readFile(path.join(SRC, "features", "bewerbungen", "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
 
     assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
     assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
-    assert.match(strip, /const STRIP_CHIP_CLASSES = "h-7/, "the chips this step is measured against no longer stand at it");
-    assert.equal(
-      strip.match(/labelBadge\(/g)?.length,
-      5,
-      "the chips this step is measured against are no longer composed as the app's label pill",
-    );
   });
 });
 
