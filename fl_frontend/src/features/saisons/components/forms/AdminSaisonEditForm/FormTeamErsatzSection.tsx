@@ -64,7 +64,7 @@ export function FormTeamErsatzSection({
   }));
 
   // The outgoing club holds a row here too, so the first arm is also what keeps one club off both
-  // ends of the same wechsel — the second picture behind `REQ-REPLACE-003`.
+  // ends of the same wechsel, which the backend refuses as `REQ-REPLACE-004`.
   const incomingOptions: RefusableOption[] = ersatz.candidates.map((candidate) => ({
     id: candidate.id,
     name: candidate.name,

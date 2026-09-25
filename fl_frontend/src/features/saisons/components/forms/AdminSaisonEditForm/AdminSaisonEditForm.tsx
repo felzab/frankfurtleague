@@ -390,7 +390,7 @@ export function AdminSaisonEditForm({
             // The STORED rules, never the draft: the draw reads what is saved, and `schedule` beside it was
             // derived from exactly these, so a typed value leaves the preview contradicting itself.
             rules={saison.rules}
-            // The STORED span for the same reason: `REQ-DATE-005`'s mirror judges the season the
+            // The STORED span for the same reason: `REQ-DATE-009`'s mirror judges the season the
             // press would draw, and typed dates are refused before arming (`onBeforeWrite`).
             startDate={saison.start_date}
             endDate={saison.end_date}

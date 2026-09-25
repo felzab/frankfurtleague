@@ -89,7 +89,7 @@ export function FormSpielplanSection({
    * values would promise a season this press cannot write.
    */
   rules: FLSaisonRules;
-  /** The season's STORED span: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
+  /** The season's STORED span: `REQ-DATE-009`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
   /**

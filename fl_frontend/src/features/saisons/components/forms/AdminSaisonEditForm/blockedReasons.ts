@@ -17,10 +17,10 @@ export type SpielplanControlInput = {
   erfassteSpieleCount: number;
   /** Whether the season's served schedule reaches a knockout round at all, which a FIRST draw is judged on. */
   hasKoRunden: boolean;
-  /** The season's STORED span, `REQ-DATE-005`'s offered side — what the draw would run on. */
+  /** The season's STORED span, `REQ-DATE-009`'s offered side — what the draw would run on. */
   startDate: string;
   endDate: string;
-  /** `REQ-DATE-005`'s required side for a FIRST draw: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
+  /** `REQ-DATE-009`'s required side for a FIRST draw: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
   vorschauSpieltage: number;
   /** `REQ-SPIELPLAN-004`'s condition over the season's STORED two numbers, which a first draw runs from. */
   gruppen: Parameters<typeof drawGruppenRefusal>[0];
@@ -95,7 +95,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   if (drawGruppenRefusal(input.gruppen) !== null) return GRUPPEN_OFF_RULES;
 
   // After the groups, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
-  // pass, and on its `stored=None` path `REQ-RULES-001` reduces to a qualifier product reaching no
+  // pass, and on its `stored=None` path `REQ-RULES-014` reduces to a qualifier product reaching no
   // bracket, which is exactly an empty knockout list.
   if (!hasKoRunden) return "Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt Regeln und speichere sie.";
 
