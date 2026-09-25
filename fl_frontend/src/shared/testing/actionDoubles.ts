@@ -129,14 +129,29 @@ Reflect.set(globalThis, CACHE_BUS, cacheCalls);
 
 const recorded = (name: string): string => `export const ${name} = (...args) => void globalThis.${CACHE_BUS}.push({ name: "${name}", args });`;
 
+const INERT_DECLARATIONS = "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };";
+
 /**
  * `next/cache` as a server action meets it, every invalidation recorded into `cacheCalls`, for a
  * harness that doubles its packages itself. `cacheLife` and `cacheTag` declare a cached read rather
  * than clear one, so they record nothing.
  */
-export const NEXT_CACHE_DOUBLE = [
-  ...["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(recorded),
-  "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };",
+export const NEXT_CACHE_DOUBLE = [...["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(recorded), INERT_DECLARATIONS].join("\n");
+
+/** Next's two invalidations that throw in a route handler, being a Server Action's alone. */
+export const ACTION_ONLY_INVALIDATIONS = ["updateTag", "refresh"];
+
+/**
+ * `next/cache` as a route handler meets it: each of `ACTION_ONLY_INVALIDATIONS` throws there, as Next's
+ * does, and is recorded first, since a route may catch the throw and answer as though it cleared.
+ */
+export const ROUTE_NEXT_CACHE_DOUBLE = [
+  ...["revalidateTag", "revalidatePath"].map(recorded),
+  ...ACTION_ONLY_INVALIDATIONS.map(
+    (name) =>
+      `export const ${name} = (...args) => { globalThis.${CACHE_BUS}.push({ name: "${name}", args }); throw new Error("${name} can only be called from within a Server Action"); };`,
+  ),
+  INERT_DECLARATIONS,
 ].join("\n");
 
 /**

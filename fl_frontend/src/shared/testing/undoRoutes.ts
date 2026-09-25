@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
+import { afterEach } from "node:test";
 
 import { AENDERUNG_STEHT_WEITERHIN, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError.ts";
 
-import { doubleActionRequest, doubleActions } from "./actionDoubles.ts";
+import { ACTION_ONLY_INVALIDATIONS, cacheCalls, doubleActionRequest, doubleActions, ROUTE_NEXT_CACHE_DOUBLE } from "./actionDoubles.ts";
 import { DUPLICATE_KEY } from "./publishedRefusals.ts";
 
 import type { NextRequest } from "next/server";
@@ -18,9 +19,19 @@ export type UndoAnswer = { success: boolean; message?: string; error?: string; w
  */
 export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleActions> {
   doubleActionRequest();
+  // Registered after the request's doubles, so its `next/cache` answers before theirs.
   registerHooks({
-    // `next` publishes no `exports` map, so Node finds the subpath only with the extension a bundler would supply.
-    resolve: (specifier, context, nextResolve) => nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context),
+    resolve(specifier, context, nextResolve) {
+      if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(ROUTE_NEXT_CACHE_DOUBLE)}`, shortCircuit: true };
+      // `next` publishes no `exports` map, so Node finds the subpath only with the extension a bundler would supply.
+      return nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context);
+    },
+  });
+  // After every case rather than at the throw: the undo spine catches an invalidation's throw and logs
+  // it, so a route calling one answers its press as cleared while the running Next refuses the call.
+  afterEach(() => {
+    const refused = cacheCalls.filter(({ name }) => ACTION_ONLY_INVALIDATIONS.includes(name)).map(({ name }) => name);
+    assert.deepEqual(refused, [], "the route called what Next refuses outside a Server Action; a route handler clears with revalidateTag");
   });
 
   return doubleActions({ modules: [mutations], answer: () => Promise.resolve({ acknowledged: 1 }) });
