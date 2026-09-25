@@ -12,6 +12,8 @@ import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
+import { CELL_EDGE_CLASSES, CELL_INNER_CLASSES, COLUMN_EDGE_CLASSES, COLUMN_INNER_CLASSES, TABLE_HEADING_CLASSES } from "./adminTable.ts";
+
 import type { ComponentProps, ReactNode } from "react";
 
 doubleEveryAction();
@@ -288,6 +290,15 @@ function selfCapped(token: string): boolean {
 
 const classesOf = (element: Element): string[] => [...element.classList];
 
+/** Every inset utility Tailwind spells, a logical side and one behind a variant among them. */
+const insetsOf = (tokens: readonly string[]): string[] => tokens.filter((token) => /^-?p[trblsexy]?-/.test(utilityOf(token))).sort();
+
+const tokensOf = (classes: string): string[] => classes.split(/\s+/).filter((token) => token !== "");
+
+/** The insets a column may wear, heading included, and those a cell may: `adminTable.ts`'s pair, edge and inner. */
+const COLUMN_INSETS = [COLUMN_EDGE_CLASSES, COLUMN_INNER_CLASSES].map((inset) => insetsOf(tokensOf(`${TABLE_HEADING_CLASSES} ${inset}`)));
+const CELL_INSETS = [CELL_EDGE_CLASSES, CELL_INNER_CLASSES].map((inset) => insetsOf(tokensOf(inset)));
+
 const widthToken = (element: Element): string | undefined => classesOf(element).find((token) => /^w-/.test(token));
 
 /** The desktop layout of one table, rendered over its row: the phone's card list beside it is not a table. */
@@ -397,6 +408,27 @@ describe("the six admin CRUD tables", () => {
           [],
           `${file}: its ${String(box.getAttribute("data-slot") ?? "wrapper")} carries ${capping.join(" ")} and stops short of the column the bar above it fills`,
         );
+      }
+    }
+  });
+
+  /* Every floor and column width above was measured with `adminTable.ts`'s insets, and the arithmetic
+     reads none: a column or cell padded otherwise overflows what its width promised at the narrowest step. */
+  it("pad every column and cell with the inset pair the widths were measured with", () => {
+    for (const file of Object.keys(TABLES)) {
+      const { columns, cells } = rendered(file);
+
+      for (const [kind, elements, pair] of [
+        ["column", columns, COLUMN_INSETS],
+        ["cell", cells, CELL_INSETS],
+      ] as const) {
+        for (const element of elements) {
+          const worn = insetsOf(classesOf(element));
+          assert.ok(
+            pair.some((inset) => inset.join(" ") === worn.join(" ")),
+            `${file}: a ${kind} is padded ${worn.join(" ") || "not at all"}, which neither inset in adminTable.ts spells`,
+          );
+        }
       }
     }
   });
