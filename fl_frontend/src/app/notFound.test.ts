@@ -10,7 +10,6 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { openGraphFor } from "@/shared/utils/metadata.ts";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
 
 import type { PageProps } from "@/shared/testing/pageHarness.ts";
@@ -20,7 +19,17 @@ import type { Metadata, ResolvedMetadata } from "next";
 /* The views and forms are doubled whole: no case renders a page's body. */
 const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
 
+/* Next's font loader runs only inside its own build, so the root layout's three faces load as inert
+   ones: this file reads the layout's `metadata` export and nothing the fonts decide. */
+const FONTS = `const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
+export { face as Anton, face as Inter, face as Raleway };`;
+
 registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier !== "next/font/google") return nextResolve(specifier, context);
+
+    return { url: `data:text/javascript,${encodeURIComponent(FONTS)}`, shortCircuit: true };
+  },
   load(url, context, nextLoad) {
     const view = VIEW.exec(url);
     if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
@@ -224,17 +233,8 @@ describe("what every 404 is built from", () => {
   });
 });
 
-/**
- * Every field a layout sets that a 404 may not keep. Spelled here rather than read off a layout: the
- * root one's `next/font/google` import does not load under this runner, and the claim holds over any.
- */
-const LAYOUT_METADATA: Metadata = {
-  metadataBase: new URL("https://frankfurtleague.de"),
-  description: "Der Spielplan der laufenden Saison.",
-  alternates: { canonical: "/dashboard" },
-  openGraph: openGraphFor("/dashboard"),
-  twitter: { card: "summary_large_image" },
-};
+/** Every field the root layout sets, each of which a 404 under it may not keep. */
+const { metadata: LAYOUT_METADATA } = await import("./layout.tsx");
 
 /** What a crawler reads for `page` under that layout, merged by Next's own installed resolver. */
 const resolvedUnderALayout = (page: Metadata): Promise<ResolvedMetadata> =>
