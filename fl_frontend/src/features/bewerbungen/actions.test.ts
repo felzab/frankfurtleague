@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -45,6 +46,26 @@ const declineMapped = (refusal: unknown) => mapTriageRefusal(refusal, null);
 
 /** What a failed action says, or nothing where it succeeded. */
 const errorOf = (result: { success: boolean; error?: string }): string => result.error ?? "";
+
+/** The origin this run is configured with, which no published address shares. */
+const ORIGIN = "http://localhost:3000";
+const mailed: { to: string; text: string }[] = [];
+Reflect.set(globalThis, "__flBewerbungMailed", mailed);
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/config.ts")) {
+      return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
+    }
+    if (url.endsWith("/src/core/mail.ts")) {
+      const source = `export class MailWithheldError extends Error {}
+export class MailRecipientError extends Error {}
+export const sendMail = async (mail) => (globalThis.__flBewerbungMailed.push({ to: mail.to, text: mail.text }), { id: "msg-1" });`;
+      return { format: "module", source, shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
 
 /* The real actions, called: the request they run in, the application three of them read first and
    the writes they send are the doubles. */
@@ -743,6 +764,32 @@ describe("the re-sent confirmation link", () => {
       act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
       mapped: mapEinwilligungErneutRefusal,
     });
+  });
+
+  /* A link built on the published origin sends a reader of the local stack into production
+     (`docs/frontend/spec.md :: I186`). */
+  it("mints the re-sent link on the configured origin", async () => {
+    mailed.length = 0;
+    const frist = "2026-09-18";
+    readWith(() => Promise.resolve({ bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: frist } }));
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        token: "token-neu",
+        rolle: "ansprechperson",
+        email: PERSON.email,
+        rollen: ["ansprechperson"],
+        bestaetigungsfrist: frist,
+      }),
+    );
+
+    const result = await einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" });
+
+    assert.equal(result.success, true, "the re-send mailed nothing, so the origin below is judged on nothing");
+    assert.ok(
+      mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
+      "the re-sent link is minted on an origin this run was not configured with",
+    );
   });
 
   it("maps no rule the re-send does not publish", () => {
