@@ -506,13 +506,13 @@ ran, so nothing here is a verdict on the change (exit 130)." >&2 ;;
 # Exits rather than returning: a script free to carry on past its closing statement prints a
 # second one. A sentence passed in is appended to the green statement alone.
 finish() {
-  local i count worst=0
+  local i count worst=0 crashed=0
   end_section
   count="${#_SECTION_NAMES[@]}"
   # A section closing with no verdict is a caller defect: green would print "no findings" beside a
   # row reading `no verdict`. `fail`, not `warn` — a section proving nothing must not pass.
   for (( i = 0; i < count; i++ )); do
-    if (( _SECTION_RANKS[i] == RANK_CRASHED )); then continue; fi
+    if (( _SECTION_RANKS[i] == RANK_CRASHED )); then crashed=1; continue; fi
     if (( _SECTION_RANKS[i] == 0 )); then
       fail "section '${_SECTION_NAMES[i]}' closed with no verdict — nothing in it proves anything"
     fi
@@ -522,6 +522,8 @@ finish() {
   # its input ends the same either way.
   if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
   if (( worst == 4 )); then _closing refused; exit 2; fi
+  # Only where no other row set the ending, which a crashed row is adopted behind.
+  if (( crashed )); then _closing crashed; exit 3; fi
   # No row reached `pass`, so nothing judged anything and green would read as a run that did.
   # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
   # plainly opens no section at all.

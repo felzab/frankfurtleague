@@ -12,6 +12,7 @@ to `:: pool_units_replayed` is the guard over a unit nothing replays.
 
 from __future__ import annotations
 
+import re
 import tempfile
 from pathlib import Path
 from typing import Final
@@ -149,15 +150,22 @@ POOL: Final[tuple[tuple[str, str], ...]] = (("pool_wait", ""),)
 
 
 def test_a_scope_that_reached_no_verdict_keeps_a_row_in_the_table() -> None:
-    """Adopting nothing drops the scope out of the table and reports a section fewer than the run had.
+    """An unadopted scope drops out of the table, which then reports a section fewer than the run had.
 
-    A killed worker is the case: its rows say nothing, so the row has to be rank 0 rather than
-    absent, and `finish` turns that into a verdict.
+    A worker the pool never started wrote no rows, so its row is rank 0, which `finish` turns into a
+    verdict.
     """
-    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "137"})
-    assert "ops" in output, "the killed scope left no row at all: " + output
+    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "not-started"})
+    assert "ops" in output, "the unstarted scope left no row at all: " + output
     assert code == 1, f"a scope that proved nothing exited {code}: {output}"
     assert "closed with no verdict" in output, output
+
+
+def test_a_killed_scope_reads_as_the_crash_it_is() -> None:
+    """Its row says `crashed`, and with no other ending set the run ends on it rather than on nothing."""
+    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "137"})
+    assert re.search(r"^ +ops +\S*crashed", output, re.MULTILINE), "the killed scope's row: " + output
+    assert code == 3, f"a killed scope with no other ending exited {code}: {output}"
 
 
 def test_a_scope_the_pool_judged_is_adopted_from_its_own_rows() -> None:

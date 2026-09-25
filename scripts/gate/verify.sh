@@ -708,9 +708,8 @@ if (( PARALLEL )); then
           if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
         fi
         ;;
-      # A number here is a process that ended, and one ending past 2 and short of an interrupt
-      # crashed; anything else never ran. Rank 0 for that, for `adopt_rows`' reason: no row at all
-      # drops the scope out of the table.
+      # A number past 2, an interrupt aside, is a process that crashed. Anything else never ran,
+      # and takes rank 0 for `adopt_rows`' reason: no row drops the scope out of the table.
       *)
         if [[ ! "$status" =~ ^[0-9]+$ ]] || (( status == 130 )); then
           adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0
