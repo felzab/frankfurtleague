@@ -181,13 +181,13 @@ if [ ${#restaged[@]} -gt 0 ] && head_tree="$(git rev-parse -q --verify 'HEAD^{tr
     echo "  pre-commit hook: could not tell whether formatting left anything to commit — the commit is refused." >&2
     exit 1
   fi
-  # The hook cannot see `--amend`, so an amend staging formatting alone is refused too; `--no-verify`
-  # makes that one.
+  # The hook cannot see `--amend` or `--allow-empty`, so either staging formatting alone is refused
+  # too; `--no-verify` makes that one.
   if [ "$probe_tree" = "$head_tree" ]; then
     {
       echo "  pre-commit hook: formatted, every staged change is what HEAD already holds, so the commit would"
-      echo "  be empty — it is refused, and nothing was staged or written. To amend only the message, pass"
-      echo "  --no-verify:"
+      echo "  be empty — it is refused, and nothing was staged or written. To amend only the message, or to"
+      echo "  commit it empty with --allow-empty, pass --no-verify:"
       name_files "${restaged[@]}"
     } >&2
     exit 1

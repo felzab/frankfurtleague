@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import REPO_ROOT, base_env, configure, git, new_root, write
 
 HOOK: Final = REPO_ROOT / ".githooks" / "pre-commit"
@@ -285,16 +286,19 @@ def _formatted_head(root: Path) -> str:
     return git(root, "rev-parse", "HEAD")
 
 
-def test_a_commit_its_formatting_emptied_is_refused_and_leaves_index_and_working_copy() -> None:
+# `--allow-empty` passes git's own check and reaches the hook, which cannot see the flag.
+@pytest.mark.parametrize("flags", [(), ("--allow-empty",)], ids=["plain", "allow-empty"])
+def test_a_commit_its_formatting_emptied_is_refused_and_leaves_index_and_working_copy(flags: tuple[str, ...]) -> None:
     """Git refuses an empty commit before the hook runs, never after, so this refusal is the hook's to make."""
     root = _repository()
     head = _formatted_head(root)
     write(root, "a.ts", _lines(RAW))
     git(root, "add", "a.ts")
     index = git(root, "ls-files", "-s")
-    done = _commit(root)
+    done = _commit(root, *flags)
     assert done.returncode != 0, done.stdout + done.stderr
     assert "the commit would\n  be empty" in done.stderr, done.stderr
+    assert "--allow-empty, pass --no-verify" in done.stderr, done.stderr
     assert git(root, "rev-parse", "HEAD") == head
     assert git(root, "ls-files", "-s") == index
     assert _on_disk(root, "a.ts") == _lines(RAW).encode()
