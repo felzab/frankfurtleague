@@ -4,7 +4,7 @@ import importlib
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, get_args, get_origin
 
 import pytest
 from pydantic import BaseModel
@@ -17,10 +17,12 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import (
     AGGREGATES,
     FIELD_POLICIES,
+    OPERATION_SEPARATOR,
     REFERENCES,
     RULES,
     UNENFORCED,
@@ -31,7 +33,9 @@ from app.core.domain import (
 from app.core.exception_handlers import METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED, ROUTING_REFUSED
 from app.core.exceptions import WriteRefusal
 from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
-from tests.core.app_source import Declaration, declared, module_of, parsed, resolve_callee, scoped_calls
+from app.main import create_app
+from tests.config import build_test_config
+from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -421,6 +425,74 @@ def test_every_refusal_the_application_builds_is_answered_at_its_rules_status():
 
     assert len(built) >= len(RULES), "fewer refusals were found than rules declared, so the walk reads less than the tree holds"
     assert [entry for entry in built if statuses.get(entry[1]) != entry[2]] == []
+
+
+def _field_of(model: Any, path: tuple[str | int, ...]) -> bool:
+    """Whether `path` names a field inside `model`, an index stepping into a list's item type."""
+
+    current: Any = model
+    for step in path:
+        # `Optional[...]`, `Annotated[...]` and a union step to the one member a path can walk into.
+        while get_origin(current) is not None and get_origin(current) is not list:
+            current = next((member for member in get_args(current) if member is not type(None)), None)
+        if isinstance(step, int):
+            if get_origin(current) is not list:
+                return False
+            current = get_args(current)[0]
+        elif isinstance(current, type) and issubclass(current, BaseModel):
+            field = next((info for name, info in current.model_fields.items() if step in (name, info.alias)), None)
+            if field is None:
+                return False
+            current = field.annotation
+        else:
+            return False
+
+    return True
+
+
+@functools.cache
+def _body_models() -> Mapping[str, Any]:
+    """Each served operation's body model, keyed as `RULES` spells an operation."""
+
+    prefix = f"/api/v{API_VERSION}"
+
+    return {
+        f"{method} {route.path_format.removeprefix(prefix)}": route.dependant.body_params[0].field_info.annotation
+        for route in api_routes(create_app(build_test_config()))
+        if route.dependant.body_params
+        for method in route.methods or ()
+    }
+
+
+def test_every_field_a_refusal_names_is_a_field_of_the_body_its_operations_take():
+    """A form marks the field a 422 names, and the frontend throws on a path its form does not hold.
+
+    Resolved on the body of every operation `RULES` names for the refusal's code.
+    """
+
+    operations = {rule.code: rule.operation.split(OPERATION_SEPARATOR) for rule in RULES}
+    named: list[tuple[str, str, tuple[str | int, ...]]] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        if f"{WriteRefusal.__name__}(" not in path.read_text(encoding="utf-8"):
+            continue
+        module = _module_of(path)
+        for call in ast.walk(parsed(path)):
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == WriteRefusal.__name__):
+                continue
+            spelled = {keyword.arg: keyword.value for keyword in call.keywords}
+            if "fields" in spelled:
+                code = _resolved(spelled["error_code"], module)
+                named.extend((code, operation, field) for field in ast.literal_eval(spelled["fields"]) for operation in operations[code])
+
+    unresolved = [entry for entry in named if not _field_of(_body_models().get(entry[1]), entry[2])]
+
+    assert len(named) >= NAMED_FIELDS_FLOOR, "fewer named fields were found than the tree holds, so the walk reads less than it should"
+    assert unresolved == []
+
+
+# The (code, operation, field) triples the sweep above found on the tree this was written against,
+# so a walk that read nothing cannot pass it.
+NAMED_FIELDS_FLOOR = 12
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
