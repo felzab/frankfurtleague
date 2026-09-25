@@ -20,7 +20,7 @@ from app.api.zustellung.services import ABGEWIESENER_VERSAND_STAND, ZIEL_PFADE, 
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
 
 # Beside the application's own delivery router rather than replacing it: moving that one would
@@ -78,7 +78,7 @@ async def _apply(
     "/angenommen",
     response_model=FLZustellungResponse,
     summary="Record the message the provider accepted for this record",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def angenommen_zustellung(
     angenommen_data: Annotated[FLZustellungAngenommenPayload, Body()],
@@ -117,7 +117,7 @@ async def angenommen_zustellung(
     "/abgewiesen",
     response_model=FLZustellungResponse,
     summary="Record the send the provider refused for this record",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def abgewiesen_zustellung(
     abgewiesen_data: Annotated[FLZustellungAbgewiesenPayload, Body()],
@@ -155,7 +155,7 @@ async def abgewiesen_zustellung(
     "",
     response_model=FLZustellungResponse,
     summary="Apply one delivery event to the record its message was sent about",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_zustellung(
     ereignis_data: Annotated[FLZustellungEreignisPayload, Body()],

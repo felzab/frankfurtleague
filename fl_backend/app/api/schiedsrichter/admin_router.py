@@ -67,7 +67,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -157,7 +157,7 @@ async def post_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter and fan the change out",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -259,7 +259,7 @@ async def patch_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLSchiedsrichterWriteResponse,
     summary="Deactivate a Schiedsrichter (soft delete)",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -312,7 +312,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -388,7 +388,7 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def einladen_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -477,7 +477,7 @@ async def einladen_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/anonymisieren",
     response_model=FLSchiedsrichterWriteResponse,
     summary="Anonymise a Schiedsrichter",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,

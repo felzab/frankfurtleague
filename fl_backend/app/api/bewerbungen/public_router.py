@@ -51,7 +51,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 
@@ -120,7 +120,12 @@ def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) 
 # NOT an ordering constraint: this and `/fenster/{saison_id}` are different segment counts, so
 # neither matches the other's path in any order. What keeps these literals out of the admin id route
 # is its `objectid` convertor (`app/core/routing.py`).
-@router.get("/fenster", response_model=FLBewerbungFensterResponse, summary="The Saison currently accepting applications")
+@router.get(
+    "/fenster",
+    response_model=FLBewerbungFensterResponse,
+    summary="The Saison currently accepting applications",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """
     Return the season taking applications today -- its window open and the season not ended; 404 when none is.
@@ -153,6 +158,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     "/fenster/{saison_id}",
     response_model=FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse,
     summary="One Saison's application window",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_fenster(
     saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
@@ -210,7 +216,10 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
 
 
 @router.get(
-    "/trikotfarben/{saison_id}", response_model=FLBewerbungTrikotFarbenResponse, summary="The kit colours a Saison has already assigned"
+    "/trikotfarben/{saison_id}",
+    response_model=FLBewerbungTrikotFarbenResponse,
+    summary="The kit colours a Saison has already assigned",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_trikotfarben(
     saison_id: str,
@@ -283,7 +292,12 @@ async def _answer_as_the_first(
     )
 
 
-@router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post(
+    "",
+    response_model=FLPostBewerbungResponse,
+    summary="Submit a Bewerbung",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,

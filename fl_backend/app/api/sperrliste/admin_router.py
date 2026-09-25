@@ -25,7 +25,7 @@ from app.api.sperrliste.services import (
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -155,7 +155,9 @@ async def post_sperrliste_eintrag(
     )
 
 
-@router.delete(by_id("sperrliste_id"), response_model=FLSperrlisteWriteResponse, summary="Lift a ban")
+@router.delete(
+    by_id("sperrliste_id"), response_model=FLSperrlisteWriteResponse, summary="Lift a ban", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
+)
 async def delete_sperrliste_eintrag(
     sperrliste_id: CustomRouteObjectId,
     sperrliste_collection: SperrlisteCollection,

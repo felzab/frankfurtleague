@@ -46,7 +46,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
@@ -100,6 +100,7 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     response_model=FLEinladungAnsichtResponse,
     summary="What a registration link opens",
     dependencies=[Depends(stores_nothing)],
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_einladung_ansicht(
     ansicht_data: Annotated[FLEinladungAnsichtPayload, Body()],
@@ -206,7 +207,12 @@ async def _answer_as_the_first(
     )
 
 
-@router.post("", response_model=FLPostRegistrierungResponse, summary="Register through a team's link", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post(
+    "",
+    response_model=FLPostRegistrierungResponse,
+    summary="Register through a team's link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_registrierung(
     registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],
     teams_collection: TeamsCollection,

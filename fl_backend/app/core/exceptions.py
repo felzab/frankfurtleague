@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 DOCUMENT_NOT_FOUND = "DB-COMMON-001"
 DUPLICATE_KEY = "DB-COMMON-002"
 NO_DATABASE_CLIENT = "DB-CONN-001"
+DATABASE_UNREACHABLE = "DB-CONN-002"
 
 
 @dataclass(frozen=True, kw_only=True)

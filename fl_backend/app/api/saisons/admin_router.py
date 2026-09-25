@@ -84,7 +84,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -276,7 +276,10 @@ class MovableFigures(NamedTuple):
 
 
 @router.patch(
-    "/{saison_id}", response_model=FLPatchSaisonResponse, summary="Update a Saison's dates and rules", responses={409: DUPLICATE_KEY_RESPONSE}
+    "/{saison_id}",
+    response_model=FLPatchSaisonResponse,
+    summary="Update a Saison's dates and rules",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison(
     saison_id: str,
@@ -460,7 +463,7 @@ async def patch_saison(
     "/{saison_id}/activate",
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def activate_saison(
     saison_id: str,
@@ -600,7 +603,7 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,
@@ -750,7 +753,7 @@ async def swap_gruppen(
     response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def generate_spielplan(
     saison_id: str,
@@ -951,7 +954,7 @@ async def generate_spielplan(
     "/{saison_id}/spielplan",
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def undraw_spielplan(
     saison_id: str,
@@ -1176,7 +1179,12 @@ async def _mail_one_team(
             )
 
 
-@router.get("/{saison_id}/einladungen/versand/vorschau", response_model=FLEinladungVersandVorschauResponse, summary="Who the send would reach")
+@router.get(
+    "/{saison_id}/einladungen/versand/vorschau",
+    response_model=FLEinladungVersandVorschauResponse,
+    summary="Who the send would reach",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def preview_einladungen_versand(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
@@ -1237,7 +1245,7 @@ async def preview_einladungen_versand(
     "/{saison_id}/einladungen/versand",
     response_model=FLEinladungVersandResponse,
     summary="Mint every admitted team a link",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladungen_versand(
     saison_id: str,

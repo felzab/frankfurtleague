@@ -45,20 +45,34 @@ from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig
-from app.core.db import lifespan
+from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
     COMPONENT_REF,
     JSON_MEDIA_TYPE,
+    PAYLOAD_REFUSED,
     STORES_NOTHING_WHEN,
     refusal_response,
     refused_codes,
     register_exception_handlers,
     stores_nothing,
 )
+from app.core.exceptions import NO_DATABASE_CLIENT
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
-from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import (
+    MISSING_ACTOR,
+    MISSING_TOKEN,
+    SAFE_METHODS,
+    WRONG_ADMIN_KEY,
+    WRONG_BASE_KEY,
+    WRONG_SYSTEM_KEY,
+    bind_actor,
+    get_token,
+    verify_access_admin,
+    verify_access_base,
+    verify_access_system,
+)
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 # Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
@@ -112,6 +126,20 @@ SYSTEM_ROUTERS = (
 # published so the two can be compared (`docs/backend/spec.md :: I190`).
 KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
+
+# Each dependency answering a refusal of its own before any handler runs, and the one it answers;
+# held to what each raises by `fl_backend/tests/api/test_dependency_refusals.py`.
+DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
+    get_token: (HTTPStatus.UNAUTHORIZED, MISSING_TOKEN),
+    verify_access_base: (HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
+    verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
+    verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
+    bind_actor: (HTTPStatus.UNAUTHORIZED, MISSING_ACTOR),
+    get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+    get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+}
+# Refusing on a write alone, a read passing whatever it carries (`app/core/security.py :: bind_actor`).
+WRITE_ONLY_DEPENDENCIES = frozenset({bind_actor})
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
@@ -234,14 +262,8 @@ def with_failure_bodies(document: Mapping[str, Any]) -> Document:
     schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
 
     def edit(_: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
-        responses = dict(operation["responses"])
-        # FastAPI's own placement, on every operation taking input, is what is kept: a `default`
-        # declared to FastAPI instead suppresses it everywhere.
-        if "422" in responses:
-            responses["422"] = body_response(FLRefusedPayloadBody, "Validation Error")
-        responses["default"] = body_response(FLFailureBody, "Failure")
-
-        return {**operation, "responses": responses}
+        # Written here rather than declared to FastAPI, whose own 422 a declared `default` suppresses everywhere.
+        return {**operation, "responses": {**operation["responses"], "default": body_response(FLFailureBody, "Failure")}}
 
     # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
     return with_operations_edited({**document, "components": {**components, "schemas": dict(sorted(schemas.items()))}}, edit)
@@ -263,10 +285,39 @@ def declared_refusals() -> dict[Operation, Refusals]:
     return declared
 
 
+def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
+    """Every dependency the operation runs, a dependency's own among them."""
+
+    for dependency in dependant.dependencies:
+        if dependency.call is not None:
+            yield dependency.call
+        yield from _dependency_calls(dependency)
+
+
+def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them."""
+
+    found: dict[Operation, Refusals] = {}
+    for route in document_routes(app):
+        refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
+        for operation in route.operations:
+            for call in refusing:
+                if call in WRITE_ONLY_DEPENDENCIES and operation[1].upper() in SAFE_METHODS:
+                    continue
+                status, code = DEPENDENCY_REFUSALS[call]
+                found.setdefault(operation, {}).setdefault(status, set()).add(code)
+
+    return found
+
+
 def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
-    """Each operation's refusal codes by status: its rules', merged with the codes its route's own declarations name."""
+    """Each operation's refusal codes by status: its rules', its dependencies' and the codes its route's own declarations name."""
 
     codes = declared_refusals()
+    for operation, refusals in dependency_refusals(app).items():
+        for status, found in refusals.items():
+            codes.setdefault(operation, {}).setdefault(status, set()).update(found)
+
     unnamed: list[str] = []
     for route in document_routes(app):
         for status_code, response in route.responses.items():
@@ -300,7 +351,11 @@ def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping
     """`document` with each status an operation refuses at replaced by one publishing exactly its codes, whatever it carried."""
 
     def edit(key: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
-        refused = {str(status): refusal_response(status, found) for status, found in sorted(codes.get(key, {}).items())}
+        statuses = {status: set(found) for status, found in codes.get(key, {}).items()}
+        # FastAPI's own placement of its 422, on every operation taking input, is where a payload can be refused.
+        if str(int(HTTPStatus.UNPROCESSABLE_CONTENT)) in operation["responses"]:
+            statuses.setdefault(HTTPStatus.UNPROCESSABLE_CONTENT, set()).add(PAYLOAD_REFUSED)
+        refused = {str(status): refusal_response(status, found) for status, found in sorted(statuses.items())}
 
         return {**operation, "responses": {**operation["responses"], **refused}}
 
@@ -354,8 +409,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         return "Hello World"
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
-    # caches what it builds, so an edit made afterwards never reaches a reader. The refusals pass
-    # last, since it replaces responses the failure bodies pass wrote.
+    # caches what it builds, so an edit made afterwards never reaches a reader.
     publish_document(app, (publish_key_tiers(app), publish_stores_nothing(app), with_failure_bodies, publish_refusals(app)))
 
     return app

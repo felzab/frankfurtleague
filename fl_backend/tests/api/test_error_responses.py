@@ -33,7 +33,7 @@ from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthor
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
-from app.main import create_app, document_routes, publish_refusals, refusal_codes, with_refusals
+from app.main import create_app, dependency_refusals, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -285,7 +285,11 @@ def published_operations() -> list[tuple[str, dict[str, Any]]]:
 
 
 def published_schema(response: dict[str, Any]) -> str:
-    return response["content"][JSON_MEDIA_TYPE]["schema"]["$ref"].removeprefix("#/components/schemas/")
+    """The body a response publishes, the one a narrowing composes included."""
+
+    schema = response["content"][JSON_MEDIA_TYPE]["schema"]
+
+    return schema.get("allOf", [schema])[0]["$ref"].removeprefix("#/components/schemas/")
 
 
 # The operations publishing a refusal on the tree this was written against, so an equality over two
@@ -294,9 +298,20 @@ REFUSING_OPERATIONS_FLOOR = 59
 
 
 def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
-    """Read off `RULES` and the routes here rather than through the publisher, which is what this is compared against."""
+    """Read off `RULES`, the routes and the dependencies here rather than through the publisher, which is what this is compared against.
+
+    A dependency's codes are taken from `app/main.py :: dependency_refusals`, which
+    `tests/api/test_dependency_refusals.py` holds against what a request meets.
+    """
 
     declared: dict[str, dict[str, set[str]]] = {}
+    for (path, method), refusals in dependency_refusals(APP).items():
+        for status, codes in refusals.items():
+            declared.setdefault(f"{method.upper()} {path}", {}).setdefault(str(int(status)), set()).update(codes)
+    # Every operation taking input can refuse it, read off its own `parameters` and `requestBody`.
+    for name, operation in published_operations():
+        if operation.get("parameters") or "requestBody" in operation:
+            declared.setdefault(name, {}).setdefault("422", set()).add(PAYLOAD_REFUSED)
     for rule in RULES:
         for token in rule.operation.split(OPERATION_SEPARATOR):
             method, route = token.split(" ", 1)

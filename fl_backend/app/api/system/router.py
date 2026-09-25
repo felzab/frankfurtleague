@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -7,7 +8,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
 from app.core.config import API_VERSION
 from app.core.db import get_database
-from app.core.exceptions import DatabaseUnavailableException
+from app.core.exception_handlers import refusal_response
+from app.core.exceptions import DATABASE_UNREACHABLE, DatabaseUnavailableException
 from app.core.security import verify_access_system
 
 # The one router without a blanket guard, because `/is_live` must be reachable by the container
@@ -26,7 +28,13 @@ async def check_is_live() -> JSONResponse:
     return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
 
 
-@router.get("/is_ready", dependencies=[Depends(verify_access_system)], response_model=CheckIsReadyResponse, summary="Readiness probe")
+@router.get(
+    "/is_ready",
+    dependencies=[Depends(verify_access_system)],
+    response_model=CheckIsReadyResponse,
+    summary="Readiness probe",
+    responses={503: refusal_response(HTTPStatus.SERVICE_UNAVAILABLE, {DATABASE_UNREACHABLE})},
+)
 async def check_is_ready(db: Annotated[AsyncDatabase, Depends(get_database)]):
     """
     Readiness: can this process reach its database?
@@ -37,7 +45,7 @@ async def check_is_ready(db: Annotated[AsyncDatabase, Depends(get_database)]):
         await db.command("ping")
         return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
     except Exception as unknown_error:
-        raise DatabaseUnavailableException(error_code="DB-CONN-002") from unknown_error
+        raise DatabaseUnavailableException(error_code=DATABASE_UNREACHABLE) from unknown_error
 
 
 @router.get("/info", dependencies=[Depends(verify_access_system)], response_model=SystemInfoResponse, summary="Service metadata")

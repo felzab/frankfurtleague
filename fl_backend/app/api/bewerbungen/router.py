@@ -23,6 +23,7 @@ from app.api.bewerbungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -118,7 +119,9 @@ async def get_bewerbungen(
     )
 
 
-@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung")
+@router.get(
+    by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
+)
 async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,

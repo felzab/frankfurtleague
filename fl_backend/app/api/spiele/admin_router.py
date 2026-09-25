@@ -73,7 +73,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing, stores_nothing_when
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -88,7 +88,12 @@ router = APIRouter(
 
 # Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
 # only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
-@router.get("/list/admin", response_model=FLSpieleAdminListResponse, summary="Spiele for the admin surfaces")
+@router.get(
+    "/list/admin",
+    response_model=FLSpieleAdminListResponse,
+    summary="Spiele for the admin surfaces",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_spiele_for_admin(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
@@ -122,7 +127,12 @@ async def get_spiele_for_admin(
     return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
 
 
-@router.get("/action_required", response_model=FLSpieleActionRequiredResponse, summary="Spiele needing attention")
+@router.get(
+    "/action_required",
+    response_model=FLSpieleActionRequiredResponse,
+    summary="Spiele needing attention",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_spiele_action_required(
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
@@ -194,7 +204,12 @@ async def get_spiele_action_required(
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
 # same prefix, so whichever router registered first would answer both.
-@router.get(f"{by_id('spiel_id')}/admin", response_model=FLSpieleAdminSingleResponse, summary="One Spiel for the admin editor")
+@router.get(
+    f"{by_id('spiel_id')}/admin",
+    response_model=FLSpieleAdminSingleResponse,
+    summary="One Spiel for the admin editor",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
     """
     Return one match in the joined shape, plus the two figures the base tier withholds.
@@ -466,7 +481,12 @@ async def previewing(
     return dry_run
 
 
-@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.patch(
+    by_id("spiel_id"),
+    response_model=FLPatchSpielDataResponse,
+    summary="Update a Spiel",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
@@ -511,7 +531,7 @@ async def patch_spiel_data(
     "/paarungen",
     response_model=FLPatchSpielePaarungenResponse,
     summary="Restore the Paarungen one save moved",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_spiele_paarungen(
     payload: Annotated[FLPatchSpielePaarungenPayload, Body()],

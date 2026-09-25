@@ -17,7 +17,7 @@ from app.api.spielorte.services import build_unplayed_booking_filter, find_venue
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.addresses import FLAddress
@@ -59,7 +59,7 @@ async def post_spielort(
     by_id("spielort_id"),
     response_model=FLPatchSpielortResponse,
     summary="Update a Spielort and fan the change out",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
@@ -107,7 +107,7 @@ async def patch_spielort(
     by_id("spielort_id"),
     response_model=FLSpielortWriteResponse,
     summary="Deactivate a Spielort (soft delete)",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
@@ -149,7 +149,7 @@ async def delete_spielort(
     f"{by_id('spielort_id')}/reactivate",
     response_model=FLSpielortWriteResponse,
     summary="Bring a deactivated Spielort back",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,
