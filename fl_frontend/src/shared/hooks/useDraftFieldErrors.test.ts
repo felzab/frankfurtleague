@@ -598,14 +598,17 @@ describe("markedFieldCount", () => {
 
 describe("a blocked press's announcement", () => {
   /* Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them: the mark speaks for that
-     one, and the other is said in its own words, or nothing says it at all. */
-  it("names the fields the form marks, and says the refusal of the one it renders no box for", async () => {
+     one, and the other is said in its own words in the same toast, or nothing says it at all. */
+  it("names the fields the form marks, and says in the same toast the refusal of the one it renders no box for", async () => {
     const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["shorthand"]);
 
-    assert.deepEqual(press.toasts, [
-      `${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`,
-      `Änderung nicht gespeichert: ${unshownRefusal(["Bitte gib den vollständigen Namen ein."])}`,
-    ]);
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)} Bitte gib den vollständigen Namen ein.`]);
+  });
+
+  it("names the marks alone where every refused field has a box", async () => {
+    const press = await pressSave({ shorthand: "", full_name: "" });
+
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(2)}`]);
   });
 
   it("raises nothing where no field is marked, leaving the press to the unhandled-refusal report", async () => {

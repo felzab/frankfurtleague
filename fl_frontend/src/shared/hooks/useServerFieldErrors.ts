@@ -11,17 +11,23 @@ import type { FieldErrors } from "@/shared/utils/validation";
 /** `UNHANDLED_FIELD_REFUSAL`'s first sentence, which every fallback opens on. */
 const UNSHOWN_COST = UNHANDLED_FIELD_REFUSAL.slice(0, UNHANDLED_FIELD_REFUSAL.indexOf(".") + 1);
 
+/** Refused paths' own messages as one run of sentences, or `""` where none brings one. */
+export function joinedMessages(messages: readonly string[]): string {
+  // Once each: one message refusing several paths reads as one reason.
+  const reasons = [...new Set(messages.map((message) => message.trim()).filter((message) => message !== ""))];
+
+  // A message closes itself where it lacks a full stop, so the next one never runs on from it.
+  return reasons.map((reason) => (/[.!?]$/.test(reason) ? reason : `${reason}.`)).join(" ");
+}
+
 /**
  * The fallback for refused paths no control shows: what the save cost, then each path's own message, which is the
  * one thing that tells the reader what to change. A retry is offered only where no path brought a message.
  */
 export function unshownRefusal(messages: readonly string[]): string {
-  // Once each: one message refusing several paths reads as one reason.
-  const reasons = [...new Set(messages.map((message) => message.trim()).filter((message) => message !== ""))];
-  if (reasons.length === 0) return UNHANDLED_FIELD_REFUSAL;
+  const reasons = joinedMessages(messages);
 
-  // A message closes itself where it lacks a full stop, so the next one never runs on from it.
-  return [UNSHOWN_COST, ...reasons.map((reason) => (/[.!?]$/.test(reason) ? reason : `${reason}.`))].join(" ");
+  return reasons === "" ? UNHANDLED_FIELD_REFUSAL : `${UNSHOWN_COST} ${reasons}`;
 }
 
 /** The admin editors' word for a failed save; a form whose save is not a change passes its own title. */
@@ -114,10 +120,16 @@ export function unshownPaths(form: HTMLFormElement | null, fieldErrors: FieldErr
  */
 export function useServerFieldErrors(failureTitle?: string) {
   // One state rather than two: the effect answers the map with the sentence, and the toast, that arrived beside it.
-  const [refusal, setRefusal] = useState<{ fieldErrors: FieldErrors; unplaced: string | undefined; owed: OwedToast | undefined }>({
+  const [refusal, setRefusal] = useState<{
+    fieldErrors: FieldErrors;
+    unplaced: string | undefined;
+    owed: OwedToast | undefined;
+    announced: boolean;
+  }>({
     fieldErrors: {},
     unplaced: undefined,
     owed: undefined,
+    announced: false,
   });
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -125,9 +137,12 @@ export function useServerFieldErrors(failureTitle?: string) {
   // resolved at the raise is one `docs/frontend/spec.md :: I42`'s register can read.
   const raiseOwnTitle = useCallback<RaiseFailure>((shown) => appToast.failure(failureTitle ?? DEFAULT_FAILURE_TITLE, shown), [failureTitle]);
 
-  /** A map with no failure behind it: a blocked press's, or a clear. */
-  const setFieldErrors = useCallback((fieldErrors: FieldErrors) => {
-    setRefusal({ fieldErrors, unplaced: undefined, owed: undefined });
+  /**
+   * A map with no failure behind it: a blocked press's, or a clear. `announced` where the caller's own toast already
+   * says what no control shows, so a press raises one toast rather than two.
+   */
+  const setFieldErrors = useCallback((fieldErrors: FieldErrors, { announced = false }: { announced?: boolean } = {}) => {
+    setRefusal({ fieldErrors, unplaced: undefined, owed: undefined, announced });
   }, []);
 
   /**
@@ -141,25 +156,25 @@ export function useServerFieldErrors(failureTitle?: string) {
       // Raised now where no map waits on a render: a caller closing its editor on the failure would
       // unmount the effect below before it ran.
       if (Object.keys(fieldErrors).length === 0) {
-        setRefusal({ fieldErrors, unplaced: undefined, owed: undefined });
+        setRefusal({ fieldErrors, unplaced: undefined, owed: undefined, announced: false });
         raise(failure);
         return;
       }
 
-      setRefusal({ fieldErrors, unplaced: failure.unplacedError, owed: { failure, raise, evenWhenShown } });
+      setRefusal({ fieldErrors, unplaced: failure.unplacedError, owed: { failure, raise, evenWhenShown }, announced: false });
     },
     [raiseOwnTitle],
   );
 
   useEffect(() => {
     const form = formRef.current;
-    const { fieldErrors, unplaced, owed } = refusal;
+    const { fieldErrors, unplaced, owed, announced } = refusal;
     const rendered = Object.keys(fieldErrors).length > 0 && form !== null && focusFirstRefusal(form, fieldErrors);
     const unshown = unshownPaths(form, fieldErrors);
 
     // Some refused path no control shows, whatever the others show: marked alone, it is announced nowhere. A
     // blocked press as well as a failed write, a draft's own schema refusing a path the form never rendered.
-    if (unshown.length > 0) {
+    if (unshown.length > 0 && !announced) {
       const said = unshownRefusal(unshown.map((path) => fieldErrors[path] ?? ""));
       if (owed !== undefined) owed.raise({ ...owed.failure, error: unplaced ?? said });
       else appToast.danger(failureTitle ?? DEFAULT_FAILURE_TITLE, { description: said });

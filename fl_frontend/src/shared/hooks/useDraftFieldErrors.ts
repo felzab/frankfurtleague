@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { joinedMessages, unshownPaths, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -306,11 +306,11 @@ export function useDraftFieldErrors<TSchema extends string>({
    * blur-time judgement here — this map is what moves focus.
    */
   const setSubmitFieldErrors = useCallback(
-    (errors: FieldErrors, judged: Readonly<Partial<Record<TSchema, unknown>>>) => {
+    (errors: FieldErrors, judged: Readonly<Partial<Record<TSchema, unknown>>>, announcement?: { announced?: boolean }) => {
       submittedPayloads.current = { ...judged };
       setHasAttemptedSubmit(true);
       setVerdicts({});
-      setFieldErrors(errors);
+      setFieldErrors(errors, announcement);
     },
     // Stable, so a caller reading a server result from an effect can depend on it without re-running
     // that effect — and re-moving focus — on every render. It closes over setters and a ref alone.
@@ -376,15 +376,23 @@ export function useDraftFieldErrors<TSchema extends string>({
     const decision = submitDecision({ payloads, schemas });
 
     if (decision.blocked) {
-      setSubmitFieldErrors(decision.refusals, payloads);
       const marked = markedFieldCount(formRef.current, decision.refusals);
+      setSubmitFieldErrors(decision.refusals, payloads, { announced: marked > 0 });
 
       // Announced as well as marked. A `FieldError` is a plain span in no live region, so a blocked press
       // reaches a screen reader as a button that did nothing; every toast carries `role="alert"`.
 
       // Nothing marked is the map `useServerFieldErrors` announces as unhandled, by the same name walk as this count:
       // a second toast here would point at marks nobody can see.
-      if (marked > 0) appToast.danger(BLOCKED_SUBMIT_TITLE, { description: blockedSubmitDetail(marked) });
+      if (marked > 0) {
+        // One toast for the press: the paths no control shows ride in this one's description, the fallback told
+        // above to stay silent, so the marks and what is said nowhere else reach the reader together.
+        const unshown = unshownPaths(formRef.current, decision.refusals);
+        const said = joinedMessages(unshown.map((path) => decision.refusals[path] ?? ""));
+        appToast.danger(BLOCKED_SUBMIT_TITLE, {
+          description: said === "" ? blockedSubmitDetail(marked) : `${blockedSubmitDetail(marked)} ${said}`,
+        });
+      }
       return;
     }
 
