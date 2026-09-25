@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.core.exceptions import NO_DATABASE_CLIENT, RequestAuthorizationException
+from app.core.exceptions import NO_DATABASE_CLIENT, MalformedRequestException
 from app.core.recording import PUBLIC_ACTOR, PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR, Actor, actor_var, request_var
 from app.core.security import (
     ACTOR_HEADER,
@@ -137,15 +137,17 @@ class TestTheGuardOverAServedRequest:
         """Fail closed: an unattributed write is the one thing a log complete by construction cannot allow."""
         response = getattr(client(), method)(path, headers=ADMIN_AUTH)
 
-        assert response.status_code == 401
+        assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
+        # The key passed, so a challenge would name a credential that was valid.
+        assert "www-authenticate" not in response.headers
 
     @pytest.mark.parametrize("actor", MALFORMED_ACTORS)
     def test_a_write_carrying_a_malformed_actor_is_refused(self, actor: str):
         """A shape check and a bound, not an address validation: the value was composed by the frontend from its own session."""
         response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: actor})
 
-        assert response.status_code == 401
+        assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
 
     def test_a_write_carrying_a_well_formed_actor_reaches_the_database(self):
@@ -166,7 +168,7 @@ class TestTheGuardOverAServedRequest:
 class TestTheGuardDecidesByMethodAlone:
     @pytest.mark.parametrize("method", sorted(SAFE_METHODS))
     def test_a_safe_method_passes_with_no_actor(self, method: str):
-        """HEAD and OPTIONS reach no route of this application's own, and refusing them would answer a preflight with a 401."""
+        """HEAD and OPTIONS reach no route of this application's own, and refusing them would answer a preflight with a 400."""
         during, _ = asyncio.run(through_the_binder(request_for(method, None)))
 
         assert during == (SYSTEM_ACTOR, None)
@@ -174,10 +176,10 @@ class TestTheGuardDecidesByMethodAlone:
     @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE", "PUT"])
     def test_an_unsafe_method_with_no_actor_raises(self, method: str):
         """The decision is the METHOD's, not the route's: `PUT` is served nowhere and would still have to fail closed."""
-        with pytest.raises(RequestAuthorizationException) as excinfo:
+        with pytest.raises(MalformedRequestException) as excinfo:
             asyncio.run(through_the_binder(request_for(method, None)))
 
-        assert excinfo.value.status_code == 401
+        assert excinfo.value.status_code == 400
         assert excinfo.value.error_code == MISSING_ACTOR
 
 
@@ -403,7 +405,7 @@ def test_an_actor_carrying_a_control_character_is_refused(code_point: int):
 
     assert WELL_FORMED_ACTOR.fullmatch(forged) is None
 
-    with pytest.raises(RequestAuthorizationException) as excinfo:
+    with pytest.raises(MalformedRequestException) as excinfo:
         asyncio.run(through_the_binder(request_for("PATCH", forged)))
 
     assert excinfo.value.error_code == MISSING_ACTOR

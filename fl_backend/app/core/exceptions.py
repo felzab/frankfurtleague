@@ -68,6 +68,17 @@ class RequestAuthorizationException(BaseAPIException):
         )
 
 
+class MalformedRequestException(BaseAPIException):
+    """A header the request needs is missing or malformed.
+
+    400 and never 401: it is judged after the key has passed, and no `WWW-Authenticate` scheme covers
+    the header, so a 401's challenge would name a credential that was valid.
+    """
+
+    def __init__(self, error_code: str, message: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, error_code=error_code, message=message)
+
+
 class DatabaseUnavailableException(BaseAPIException):
     def __init__(self, error_code: str, message: str = "The database is not available"):
         super().__init__(

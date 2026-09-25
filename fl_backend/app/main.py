@@ -134,7 +134,7 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_access_base: (HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
     verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
     verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
-    bind_actor: (HTTPStatus.UNAUTHORIZED, MISSING_ACTOR),
+    bind_actor: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }

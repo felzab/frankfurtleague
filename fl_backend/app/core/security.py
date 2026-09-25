@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 
 from app.core.config import BackendConfig, get_app_config
-from app.core.exceptions import RequestAuthorizationException
+from app.core.exceptions import MalformedRequestException, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, actor_var, request_var
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
@@ -102,7 +102,7 @@ async def bind_actor(request: Request) -> AsyncIterator[None]:
     # checker can follow into the `Actor` below.
     if header_value is None or len(header_value) > ACTOR_MAX_LENGTH or WELL_FORMED_ACTOR.fullmatch(header_value) is None:
         if request.method not in SAFE_METHODS:
-            raise RequestAuthorizationException(error_code=MISSING_ACTOR)
+            raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"a write carries no well-formed {ACTOR_HEADER}")
 
         yield
         return

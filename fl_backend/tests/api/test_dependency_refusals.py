@@ -17,7 +17,7 @@ from typing import Any
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.core.exceptions import DatabaseUnavailableException, RequestAuthorizationException
+from app.core.exceptions import DatabaseUnavailableException, MalformedRequestException, RequestAuthorizationException
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -33,15 +33,18 @@ ACTOR = {ACTOR_HEADER: "admin@example.com"}
 _PARAMETER = re.compile(r"\{(\w+)(?::(\w+))?\}")
 AN_OBJECT_ID = "0" * 23 + "1"
 
-# The statuses a dependency answers at, so an answer at any other is the handler's or validation's.
-DEPENDENCY_STATUSES = frozenset(status for status, _ in DEPENDENCY_REFUSALS.values())
+# Spelled here rather than read off the table, which a status moved in it alone would move too. A
+# bodiless probe meets no other 400, 401 or 503: an absent body is a 422, and the handler never runs.
+PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HTTPStatus.SERVICE_UNAVAILABLE})
 
 # The operations a dependency refused on the tree this was written against, so an equality over two
 # maps that both went empty still fails.
 PROBED_OPERATIONS_FLOOR = 100
 
 # Raised by these alone: a raise of either anywhere else answers a code the table never publishes.
-PROTOCOL_EXCEPTIONS = frozenset({RequestAuthorizationException.__name__, DatabaseUnavailableException.__name__})
+PROTOCOL_EXCEPTIONS = frozenset(
+    {RequestAuthorizationException.__name__, MalformedRequestException.__name__, DatabaseUnavailableException.__name__}
+)
 
 
 def _url(route: APIRoute) -> str:
@@ -66,7 +69,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
             answers = found.setdefault((route.path_format, method.lower()), set())
             for headers in ({}, WRONG_KEY, own, {**own, **ACTOR}):
                 response = client.request(method, _url(route), headers=headers)
-                if response.status_code in DEPENDENCY_STATUSES:
+                if response.status_code in PROBED_STATUSES:
                     answers.add((HTTPStatus(response.status_code), response.json()["error_code"]))
 
     return found
