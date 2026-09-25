@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
@@ -15,7 +15,7 @@ import type { FLSaisonRules } from "./schemas.ts";
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleApiAnswers();
+const { answerWith, calls } = doubleApiAnswers();
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
 
@@ -258,16 +258,26 @@ describe("the undraw action", () => {
       }),
     );
     assert.equal((await generateSpielplanAction({ id: SAISON_ID })).success, true, "the draw never landed, so its tags are judged on nothing");
-    const drawn = cleared();
+    // Spelled out rather than taken from the draw, so a set both presses lose, the refresh among it, fails.
+    const DRAWN = [
+      { name: "updateTag", args: ["saisons"] },
+      { name: "updateTag", args: ["spieltage"] },
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: [`spiele:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+      { name: "refresh", args: [] },
+    ];
+    assert.deepEqual(cleared(), DRAWN, "the draw clears a set other than the reads it moves");
 
     answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
     assert.equal((await undrawSpielplanAction({ id: SAISON_ID })).success, true, "the undraw never landed, so its tags are judged on nothing");
 
-    assert.ok(
-      drawn.some(({ name }) => name === "updateTag"),
-      "the draw cleared no tag, so the two are compared over nothing",
-    );
-    assert.deepEqual(cleared(), drawn);
+    assert.deepEqual(cleared(), DRAWN, "the undraw clears a set other than the draw's");
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "POST", body: {} },
+      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "DELETE", body: undefined },
+    ]);
   });
 
   /* One sentence over the counts would report a watermark-only season as nothing done: it answers
