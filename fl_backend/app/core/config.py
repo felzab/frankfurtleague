@@ -105,14 +105,18 @@ class BackendConfig(BaseSettings):
     # The characters MongoDB accepts in a database name: a value carrying a separator or a space
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
-    # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first
-    # request waits on. Here a request's shorter deadline governs, so only the boot waits this long,
-    # and no visitor waits on the boot.
-
-    # Milliseconds. Zero fails every operation before the driver has looked at anything, and the
-    # ceiling keeps a failed ping inside the window `scripts/ops/deploy.sh` waits for health in, so
-    # the reason reaches the log excerpt it prints.
-    db_server_selection_timeout: int = Field(default=15000, gt=0, le=60_000, description="MongoDB server-selection timeout in ms")
+    db_server_selection_timeout: int = Field(
+        # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first
+        # request waits on. Here a request's shorter deadline governs, so only the boot waits this long,
+        # and no visitor waits on the boot.
+        default=15000,
+        # Milliseconds. Zero fails every operation before the driver has looked at anything, and the
+        # ceiling keeps a failed ping inside the window `scripts/ops/deploy.sh` waits for health in, so
+        # the reason reaches the log excerpt it prints.
+        gt=0,
+        le=60_000,
+        description="MongoDB server-selection timeout in ms",
+    )
     db_min_connections: int = Field(default=5, ge=0, description="Min pool size")
     # At least one: pymongo refuses a zero maximum at construction, which is a stack trace during
     # the lifespan rather than a named variable at the gate.
