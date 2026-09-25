@@ -25,7 +25,6 @@ export function ClosedSetSelect<TValue extends string>({
   name,
   label,
   placeholder,
-  error,
   withOwnLabel = true,
 }: {
   value: TValue | null;
@@ -35,8 +34,6 @@ export function ClosedSetSelect<TValue extends string>({
   name: string;
   label: string;
   placeholder: string;
-  /** The message for a caller without a `<Form>` context — the same split as `GruppeSelect`. */
-  error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
@@ -58,7 +55,6 @@ export function ClosedSetSelect<TValue extends string>({
       aria-label={withOwnLabel ? undefined : label}
       value={value ?? NONE}
       onChange={handleChange}
-      isInvalid={error ? true : undefined}
       className="w-full">
       {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
@@ -67,7 +63,7 @@ export function ClosedSetSelect<TValue extends string>({
         <span className={value ? "" : "text-foreground-muted"}>{value ?? placeholder}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
         <ListBox aria-label={label}>
           <ListBox.Item

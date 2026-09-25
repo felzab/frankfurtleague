@@ -29,25 +29,12 @@ const ACTION_BUTTON_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover dat
 
 const DANGER_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
-export function RowActionLink({
-  href,
-  label,
-  ariaLabel,
-  external,
-  children,
-}: {
-  href: string;
-  label: string;
-  ariaLabel: string;
-  external?: boolean;
-  children: ReactNode;
-}) {
+export function RowActionLink({ href, label, ariaLabel, children }: { href: string; label: string; ariaLabel: string; children: ReactNode }) {
   return (
     <IconTooltip label={label}>
       <Link
         href={href}
         aria-label={ariaLabel}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         className={ACTION_LINK_CLASSES}>
         {children}
       </Link>

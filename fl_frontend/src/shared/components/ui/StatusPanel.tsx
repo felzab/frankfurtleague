@@ -64,7 +64,6 @@ export function StatusPanel({
   badgeLabel,
   heading,
   message,
-  digestLabel,
   digest,
   children,
 }: {
@@ -77,7 +76,6 @@ export function StatusPanel({
   /** Rendered as h1 on `page`, which carries the route's only one, and h2 on `inline` (the shell has the h1). */
   heading: ReactNode;
   message: string;
-  digestLabel?: string;
   digest?: string;
   /** The action row — `ctaButton()`-styled links/buttons supplied by the caller. */
   children: ReactNode;
@@ -114,11 +112,7 @@ export function StatusPanel({
 
         <p className={styles.message()}>{message}</p>
 
-        {digest && (
-          <p className={styles.digest()}>
-            {digestLabel ?? "Fehler-Code"}: {digest}
-          </p>
-        )}
+        {digest && <p className={styles.digest()}>Fehler-Code: {digest}</p>}
 
         {children}
       </div>

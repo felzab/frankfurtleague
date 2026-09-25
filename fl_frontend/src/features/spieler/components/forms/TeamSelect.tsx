@@ -21,7 +21,6 @@ export function TeamSelect({
   value,
   onChange,
   teams,
-  name = "team_id",
   error,
   withOwnLabel = true,
 }: {
@@ -29,10 +28,8 @@ export function TeamSelect({
   onChange: (teamId: string) => void;
   /** The selected season's teams — the caller names the season. */
   teams: readonly SpielerTeamOption[];
-  /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
-  name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `team_id` — for
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
@@ -57,7 +54,7 @@ export function TeamSelect({
 
   return (
     <Select
-      name={name}
+      name="team_id"
       // Only without the visible `Label`: beside it the trigger is named twice, „Team Team“.
       aria-label={withOwnLabel ? undefined : "Team"}
       // `null` and never `undefined` for no team: react-stately reads `undefined` as uncontrolled, so the first pick

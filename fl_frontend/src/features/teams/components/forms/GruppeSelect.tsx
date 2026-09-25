@@ -23,7 +23,6 @@ export function GruppeSelect({
   value,
   onChange,
   offer,
-  name = "gruppe",
   error,
   withOwnLabel = true,
 }: {
@@ -31,10 +30,8 @@ export function GruppeSelect({
   onChange: (gruppe: FLGruppenNames) => void;
   /** The season's groups with occupancy, from `buildGruppeOffer` — the caller names the season. */
   offer: readonly GruppeOffer[];
-  /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
-  name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `gruppe` — for
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
@@ -50,7 +47,7 @@ export function GruppeSelect({
 
   return (
     <Select
-      name={name}
+      name="gruppe"
       // Only without the visible `Label`: beside it the trigger is named twice, „Gruppe Gruppe“.
       aria-label={withOwnLabel ? undefined : "Gruppe"}
       // `null` and never `undefined` for no group: react-stately reads `undefined` as uncontrolled, so the first pick
