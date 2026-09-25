@@ -225,15 +225,17 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
   });
 
-  /* Both shapes in one sentence: a club already holding a row, and one club named on both ends, which
-     the backend refuses under a code of its own and the admin reads the same way. */
-  it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
-    const message = replacementMessage("REQ-REPLACE-003");
+  /* Each code names its own cause and no other: a club already holding a row, or one club named on
+     both ends, which the backend refuses under a code of its own. */
+  it("words the already-entered refusal and the club named twice apart, without claiming the club plays", () => {
+    const entered = replacementMessage("REQ-REPLACE-003");
+    const twice = replacementMessage("REQ-REPLACE-004");
 
-    assert.match(message, /schon einen Platz/);
-    assert.match(message, /dasselbe Team/);
-    assert.doesNotMatch(message, /spielt/, "a withdrawn club holds a row and plays nothing");
-    assert.equal(replacementMessage("REQ-REPLACE-004"), message, "one club named on both ends is worded apart");
+    assert.match(entered, /schon einen Platz/);
+    assert.doesNotMatch(entered, /dasselbe Team/, "the already-entered refusal names the club named twice");
+    assert.doesNotMatch(entered, /spielt/, "a withdrawn club holds a row and plays nothing");
+    assert.match(twice, /dasselbe Team/);
+    assert.doesNotMatch(twice, /schon einen Platz/, "the club named twice is told it already has a row");
   });
 
   /* Both mappers answer `REQ-ENTER-005`, about different clubs: the entry is refused for the club
