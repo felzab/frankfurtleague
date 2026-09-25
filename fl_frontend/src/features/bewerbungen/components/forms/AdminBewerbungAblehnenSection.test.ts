@@ -28,7 +28,16 @@ const ZU_LANG = (() => {
 
 function renderPanel() {
   const user = userEvent.setup();
-  render(underNext(h(AdminBewerbungAblehnenSection, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", teamName: "SG Alpha", saisonId: "2027" })));
+  render(
+    underNext(
+      h(AdminBewerbungAblehnenSection, {
+        bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+        teamName: "SG Alpha",
+        saisonId: "2027",
+        onGetipptChange: () => undefined,
+      }),
+    ),
+  );
   const reasonBox = screen.getByRole("textbox", { name: "Grund für die Absage" });
 
   /** Replaces the box's reason in one paste, as a thousand keystrokes would. */

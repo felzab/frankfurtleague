@@ -14,6 +14,7 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { RowReturn } from "@/features/spieler/types";
 import type { ActionResult } from "@/shared/types/types";
@@ -42,6 +43,7 @@ export function FormAustragenSection({
   rowInactiveSince,
   rowReturn,
   banners,
+  isDirty,
 }: {
   spielerId: string;
   saisonId: string;
@@ -50,6 +52,8 @@ export function FormAustragenSection({
   /** Judged on the row's STORED club rather than the draft's: the reactivate returns the row to the club it names. */
   rowReturn: RowReturn;
   banners: readonly SpielerBanner[];
+  /** The editor's unsaved typing, which either write re-keys the editor over. */
+  isDirty: boolean;
 }) {
   const styles = formPanel({ tone: "danger" });
   const [isPending, startWriting] = useTransition();
@@ -68,6 +72,8 @@ export function FormAustragenSection({
   }, [row]);
 
   const run = (write: () => Promise<ActionResult>, savedHeading: string, failureHeading: string) => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     startWriting(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await write().catch(rejectedWrite(router));

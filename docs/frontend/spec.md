@@ -172,7 +172,14 @@ strip's correction and reseat, and a redraw's shape among them. A record moved u
 entry, by half of a two-part save or by another writer, re-keys the subtree and drops it.
 `fl_frontend/src/features/admin/editorWiring.test.ts :: "an editor's write whose action rejected"`
 holds every editor to it. A press writing no typed entry reads the page again, a reload after its
-rejection dropping no more than its success would. A route handler's write
+rejection dropping no more than its success would. **Where it stands beside a page-owned editor, it
+refuses while the editor holds unsaved typing**, since its landing re-keys the editor and drops the
+typing unasked: the header's reactivation, a club's season entry and group swap, a squad row's
+removal and return, and a referee's invitation, as the acceptance refuses beside a typed decline
+reason. Each says `fl_frontend/src/shared/utils/draftGuard.ts :: DRAFT_DISCARDED`, the one sentence of
+every guard over typing its control would discard, and
+`fl_frontend/src/features/admin/editorWiring.test.ts :: "a press whose write moves the record the page keys its editor by"`
+holds each editor's press. A route handler's write
 takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the same spine without the refresh Next refuses outside a server
 action.
 

@@ -26,6 +26,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
@@ -145,6 +146,7 @@ export function FormBestaetigungSection({
   bestaetigung,
   einwilligung,
   geburtsdatum,
+  isDirty,
 }: {
   schiedsrichterId: string;
   /** The STORED address, never the draft's: an unsaved box is not somewhere a message can go. */
@@ -153,6 +155,8 @@ export function FormBestaetigungSection({
   bestaetigung: FLSchiedsrichterBestaetigung | null;
   einwilligung: FLEinwilligung | null;
   geburtsdatum: string | null;
+  /** The editor's unsaved typing, which the mint re-keys the editor over. */
+  isDirty: boolean;
 }) {
   const router = useRouter();
   const [sendet, setSendet] = useState(false);
@@ -172,6 +176,8 @@ export function FormBestaetigungSection({
         : SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE;
 
   const sende = async () => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     setSendet(true);
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.

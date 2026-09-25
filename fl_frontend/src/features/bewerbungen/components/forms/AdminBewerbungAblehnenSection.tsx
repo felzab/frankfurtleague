@@ -48,11 +48,14 @@ export function AdminBewerbungAblehnenSection({
   bewerbungId,
   teamName,
   saisonId,
+  onGetipptChange,
 }: {
   bewerbungId: string;
   /** The club this decline is about, or `null` where the application names none — the readout says so. */
   teamName: string | null;
   saisonId: string;
+  /** Told whether a reason stands typed, which the acceptance's write would re-key the page over. */
+  onGetipptChange: (getippt: boolean) => void;
 }) {
   const twoPress = useTwoPressConfirm();
   const { isConfirming, press, cancel } = twoPress;
@@ -130,6 +133,7 @@ export function AdminBewerbungAblehnenSection({
             setGrundError(null);
             if (next.trim() === "" || zuLangSatz(next) === null) setLaengeError(null);
             setGrund(next);
+            onGetipptChange(next.trim() !== "");
             cancel();
           }}
           onBlur={() => setLaengeError(zuLang)}

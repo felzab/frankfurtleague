@@ -177,7 +177,10 @@ const einladungPanel = () =>
 const PANELS: Record<string, Arming[]> = {
   [M.ablehnen]: [
     {
-      render: () => underNext(el(C.ablehnen, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", teamName: "SG Alpha", saisonId: "2027" })),
+      render: () =>
+        underNext(
+          el(C.ablehnen, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", teamName: "SG Alpha", saisonId: "2027", onGetipptChange: () => undefined }),
+        ),
       reach: (user) => user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz."),
       resting: "Bewerbung ablehnen",
     },
@@ -194,6 +197,7 @@ const PANELS: Record<string, Arming[]> = {
             saisonStatus: "future",
             gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
             hindernis: null,
+            isDirty: false,
           }),
         ),
       reach: async (user) => {
@@ -378,6 +382,7 @@ const PANELS: Record<string, Arming[]> = {
               onValidateTrikotSelection: () => undefined,
               swap: SWAP,
               teamId: "t1",
+              isDirty: false,
             }),
           }),
         ),

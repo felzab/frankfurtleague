@@ -13,15 +13,18 @@ import { userEvent } from "@testing-library/user-event";
 
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 
 doubleEveryAction();
+const { raised } = doubleToasts();
 
 const { AdminBewerbungView } = await import("./AdminBewerbungView.tsx");
+// After the doubles: the guard raises its warning through the toast module they replace.
+const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..");
 
@@ -143,5 +146,34 @@ describe("which irreversibility the triage claims", () => {
         "an armed decision claims the log is emptied, and no triage write empties one",
       );
     }
+  });
+});
+
+describe("the Zusage beside a typed Absage", () => {
+  /* The acceptance's refresh re-keys the page on the decided application, which throws the typed reason away
+     unasked. The press arms over an empty reason, so the refusal below is the reason's alone. */
+  it("refuses to arm while a reason stands typed, naming the reason's loss", async () => {
+    const user = userEvent.setup();
+    const armed = () => screen.queryByRole("button", { name: "Ja, Team verbindlich aufnehmen" });
+    const pressAccept = async (container: HTMLElement) => {
+      await user.selectOptions(container.querySelector('select[name="gruppe"]') ?? assert.fail("the acceptance offers no group"), "A");
+      await user.click(screen.getByRole("button", { name: "Bewerbung annehmen" }));
+    };
+
+    const clean = renderPage(OFFEN);
+    await pressAccept(clean.container);
+    assert.ok(armed() !== null, "the acceptance does not arm over an empty reason, so the refusal below judges nothing");
+    clean.unmount();
+
+    const { container } = renderPage(OFFEN);
+    await user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
+    raised.length = 0;
+    await pressAccept(container);
+
+    assert.ok(armed() === null, "the acceptance armed over a typed reason");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["warning", "Erst speichern", DRAFT_DISCARDED]],
+    );
   });
 });

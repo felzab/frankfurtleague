@@ -170,6 +170,7 @@ export function AdminSpieltagEditForm({
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}

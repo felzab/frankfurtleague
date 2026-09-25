@@ -29,6 +29,7 @@ import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -59,15 +60,17 @@ function GruppenTauschControl({
   saisonStatus,
   swap,
   self,
+  isDirty,
 }: {
   saisonId: string;
   saisonStatus: TeamSaisonContext["saisonStatus"];
   swap: SaisonGruppenSwapContext;
   /** This page's club, as it stands in this season — the side the admin does not choose. */
   self: SaisonSwapTeam;
+  isDirty: boolean;
 }) {
   const router = useRouter();
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
   const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
@@ -235,6 +238,7 @@ export function FormSaisonSection({
   swap,
   teamId,
   banners,
+  isDirty,
 }: {
   saison: TeamSaisonContext;
   gruppeLock: TeamGruppeLock;
@@ -257,6 +261,8 @@ export function FormSaisonSection({
   /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
   teamId: string;
+  /** The editor's unsaved typing, which the entry and the swap re-key the editor over. */
+  isDirty: boolean;
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
@@ -275,6 +281,8 @@ export function FormSaisonSection({
   // Fires its own action rather than joining the save bar: it is an event, and it creates the
   // junction row the rest of this panel edits.
   const handleEnterSaison = () => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     startEntering(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
@@ -378,6 +386,7 @@ export function FormSaisonSection({
                 saisonStatus={saison.saisonStatus}
                 swap={swap}
                 self={self}
+                isDirty={isDirty}
               />
             )}
           </>

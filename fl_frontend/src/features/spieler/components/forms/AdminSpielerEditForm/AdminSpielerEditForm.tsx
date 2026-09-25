@@ -329,6 +329,7 @@ export function AdminSpielerEditForm({
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -374,6 +375,7 @@ export function AdminSpielerEditForm({
               and the Kader panel above offers the entry instead. */}
           {storedMembership !== null && (
             <FormAustragenSection
+              isDirty={isDirty}
               spielerId={spieler.id}
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}

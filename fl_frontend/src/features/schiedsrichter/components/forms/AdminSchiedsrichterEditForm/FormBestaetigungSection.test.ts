@@ -58,6 +58,7 @@ const PROPS: Props = {
   bestaetigung: null,
   einwilligung: null,
   geburtsdatum: null,
+  isDirty: false,
 };
 
 const panel = (overrides: Partial<Props> = {}) => underNext(h(FormBestaetigungSection, { ...PROPS, ...overrides }), { router: nextRouter() });

@@ -457,6 +457,7 @@ export function AdminEditSpielDataForm({
             header={pageHeader}
             onLeave={requestLeave}
             isLeaving={isLeaving}
+            isDirty={isDirty}
             rail={
               <SpielRail
                 previewSpiel={previewSpiel}

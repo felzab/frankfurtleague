@@ -373,6 +373,7 @@ export function AdminTeamEditForm({
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -393,6 +394,7 @@ export function AdminTeamEditForm({
           />
 
           <FormSaisonSection
+            isDirty={isDirty}
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
             gruppeOffer={gruppeOffer}
             gruppeLock={{ locked: gruppeLocked }}

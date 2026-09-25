@@ -21,6 +21,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -41,6 +42,7 @@ export function AdminBewerbungAnnehmenSection({
   saisonStatus,
   gruppeOffer,
   hindernis,
+  isDirty,
 }: {
   bewerbungId: string;
   /** The club this acceptance would enter, or `null` where the application names none. */
@@ -58,8 +60,10 @@ export function AdminBewerbungAnnehmenSection({
    * 2026-09-04).
    */
   hindernis: string | null;
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
   const router = useRouter();
   const { isConfirming, press, cancel } = twoPress;
 

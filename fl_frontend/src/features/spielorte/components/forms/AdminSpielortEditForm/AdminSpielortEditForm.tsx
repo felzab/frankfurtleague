@@ -184,6 +184,7 @@ export function AdminSpielortEditForm({
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}

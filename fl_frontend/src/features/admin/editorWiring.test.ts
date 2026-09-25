@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { APIBadStatusError } from "@/core/errors.ts";
@@ -16,6 +16,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FLKontaktperson } from "@/features/teams/schemas.ts";
@@ -28,6 +29,9 @@ const REFUSED = () => Promise.resolve({ success: false, error: "Nicht gespeicher
 const { calls, answerWith } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
 
 const { raised } = doubleToasts();
+
+// After the doubles: the guard raises its warning through the toast module they replace.
+const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
 /** The actions the editors have written to, in order. */
 const written = (): string[] => calls.map((call) => call.action);
@@ -116,6 +120,90 @@ const PERSON = (vorname: string, email: string): FLKontaktperson => ({
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
 
+const SPIELORT = { id: "68c1f0a2b3c4d5e6f7a8b9d0", name: "Sportpark Nord", address: ADDRESS, default_mietpreis: 40 };
+
+const SCHIEDSRICHTER = {
+  id: "68c1f0a2b3c4d5e6f7a8b9d1",
+  name: "Pia Kraft",
+  schule: null,
+  // A real address: the payload requires one, so a row stored without it refuses every save at the box.
+  kontakt: { email: "pia@example.org", telefon: null },
+  default_payment: 25,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
+};
+
+const SPIELER = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
+
+const SPIELER_MEMBERSHIP = {
+  team_id: TEAM_A.teamId,
+  nummer: "10",
+  position: null,
+  stufe: null,
+  ist_nachnominiert: false,
+  rolle: null,
+  inactive_since: null,
+};
+
+/** The player's editor in the season its squad row stands in, and what the view hands it besides. */
+const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string } = {}) => ({
+  spieler: { ...SPIELER, inactive_since: over.inactiveSince ?? null },
+  einwilligung: null,
+  saison: {
+    saisonId: "2026",
+    saisonStatus: "active" as const,
+    erlaubteStufen: ["Q1" as const],
+    nachnominierungLaeuft: null,
+    membership: { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
+  },
+  teams: [TEAM_A, TEAM_B],
+  membershipCount: 1,
+});
+
+const TEAM = {
+  id: TEAM_A.teamId,
+  name: TEAM_A.name,
+  shorthand: TEAM_A.shorthand,
+  description: "",
+  full_name: "Sportgemeinschaft Alpha",
+  website_url: null,
+  address: ADDRESS,
+  schulform: null,
+  inactive_since: null,
+};
+
+/** A club in a season that has played nothing, as the swap reads it. */
+const swapTeam = ({ teamId, name }: typeof TEAM_A, gruppe: "A" | "B") => ({
+  id: teamId,
+  name,
+  gruppe,
+  gespielteGruppenSpiele: 0,
+  gruppenSpieleProSpieltag: {},
+  koSpieleProSpieltag: {},
+});
+
+/** The club's editor in a planned season, entered in group A unless told otherwise, and what the view hands it besides. */
+const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: boolean } = {}) => ({
+  team: { ...TEAM, inactive_since: over.inactiveSince ?? null },
+  saison: {
+    saisonId: "2026",
+    saisonStatus: "future" as const,
+    membership:
+      over.isMember === false ? null : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+  },
+  today: "2026-09-14",
+  gruppeLocked: over.locked ?? false,
+  gruppeOffer: [
+    { gruppe: "A" as const, occupied: 1, capacity: 4 },
+    { gruppe: "B" as const, occupied: 0, capacity: 4 },
+  ],
+  swap: { teams: over.locked === true ? [swapTeam(TEAM_A, "A"), swapTeam(TEAM_B, "B")] : [], playedKnockoutSpiele: 0 },
+  // `null` is the club that holds no junction row for the season, which is the one state
+  // this sweep's fixture can take without the invite panel's own read.
+  einladung: null,
+});
+
 type Editor = {
   /** The editor rendered over a stored row. */
   render: () => Promise<HTMLElement>;
@@ -137,7 +225,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSpielortEditForm, {
-          spielort: { id: "68c1f0a2b3c4d5e6f7a8b9d0", name: "Sportpark Nord", address: ADDRESS, default_mietpreis: 40 },
+          spielort: SPIELORT,
           isRetired: false,
           pageHeader: { title: "Sportpark Nord" },
         }),
@@ -155,17 +243,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSchiedsrichterEditForm, {
-          schiedsrichter: {
-            id: "68c1f0a2b3c4d5e6f7a8b9d1",
-            name: "Pia Kraft",
-            schule: null,
-            // A real address: the payload requires one, so a row stored without it refuses every save at the box.
-            kontakt: { email: "pia@example.org", telefon: null },
-            default_payment: 25,
-            geburtsdatum: null,
-            einwilligung: null,
-            bestaetigung: null,
-          },
+          schiedsrichter: SCHIEDSRICHTER,
           isRetired: false,
           pageHeader: { title: "Pia Kraft" },
         }),
@@ -182,25 +260,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSpielerEditForm, {
-          spieler: { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
-          einwilligung: null,
-          saison: {
-            saisonId: "2026",
-            saisonStatus: "active",
-            erlaubteStufen: ["Q1"],
-            nachnominierungLaeuft: null,
-            membership: {
-              team_id: TEAM_A.teamId,
-              nummer: "10",
-              position: null,
-              stufe: null,
-              ist_nachnominiert: false,
-              rolle: null,
-              inactive_since: null,
-            },
-          },
-          teams: [TEAM_A, TEAM_B],
-          membershipCount: 1,
+          ...spielerProps(),
           pageHeader: { title: "Lena Meier" },
         }),
       );
@@ -216,32 +276,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminTeamEditForm, {
-          team: {
-            id: TEAM_A.teamId,
-            name: TEAM_A.name,
-            shorthand: TEAM_A.shorthand,
-            description: "",
-            full_name: "Sportgemeinschaft Alpha",
-            website_url: null,
-            address: ADDRESS,
-            schulform: null,
-            inactive_since: null,
-          },
-          saison: {
-            saisonId: "2026",
-            saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
-          },
-          today: "2026-09-14",
-          gruppeLocked: false,
-          gruppeOffer: [
-            { gruppe: "A", occupied: 1, capacity: 4 },
-            { gruppe: "B", occupied: 0, capacity: 4 },
-          ],
-          swap: { teams: [], playedKnockoutSpiele: 0 },
-          // `null` is the club that holds no junction row for the season, which is the one state
-          // this sweep's fixture can take without the invite panel's own read.
-          einladung: null,
+          ...teamProps(),
           pageHeader: { title: TEAM_A.name },
         }),
       );
@@ -777,6 +812,164 @@ describe("a page-owned editor's undo", () => {
         "the undo reached somewhere other than its own slice's route, once",
       );
       assert.deepEqual(seen.replaced, ["/signin"], "a lapsed session's undo stayed on the page, so the dispatch is not the shared one");
+    });
+  }
+});
+
+/** A day the record was retired on, which is what puts the reactivation in the header. */
+const RETIRED_ON = "2026-01-15";
+
+/** A control beside the save whose write moves the record the page keys its editor by. */
+type RecordMove = {
+  render: () => Promise<HTMLElement>;
+  /** A pick the press needs before it can be pressed at all. */
+  ready?: (user: UserEvent, container: HTMLElement) => Promise<void>;
+  /** Typing the editor then holds unsaved. */
+  type: (user: UserEvent) => Promise<void>;
+  /** The control's name at rest, and its armed name where it confirms before it writes. */
+  press: string;
+  armed?: string;
+  /** The action the press writes through. */
+  write: string;
+};
+
+const RECORD_MOVES: Record<string, RecordMove> = {
+  "the venue's reactivation": {
+    render: async () => {
+      const { AdminSpielortEditView } = await import("@/features/spielorte/components/views/AdminSpielortEditView.tsx");
+
+      return renderEditor(h(AdminSpielortEditView, { spielort: SPIELORT, inactiveSince: RETIRED_ON }));
+    },
+    type: (user) => typeInto(user, box("Name"), "Sportpark Nordwest"),
+    press: "Reaktivieren",
+    write: "reactivateSpielortAction",
+  },
+  "the referee's reactivation": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: RETIRED_ON }));
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Reaktivieren",
+    write: "reactivateSchiedsrichterAction",
+  },
+  "the referee's invitation": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Bestätigungslink senden",
+    write: "einladeSchiedsrichterAction",
+  },
+  "the player's reactivation": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ inactiveSince: RETIRED_ON })));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Reaktivieren",
+    write: "reactivateSpielerAction",
+  },
+  "the squad row's removal": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps()));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Aus Kader 2026 austragen",
+    write: "deleteSaisonSpielerAction",
+  },
+  "the squad row's return": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ rowInactiveSince: RETIRED_ON })));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Kadereintrag reaktivieren",
+    write: "reactivateSaisonSpielerAction",
+  },
+  "the club's reactivation": {
+    render: async () => {
+      const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+
+      return renderEditor(h(AdminTeamEditView, teamProps({ inactiveSince: RETIRED_ON })));
+    },
+    type: (user) => typeInto(user, box("PLZ"), "60436"),
+    press: "Reaktivieren",
+    write: "reactivateTeamAction",
+  },
+  "the club's season entry": {
+    render: async () => {
+      const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+
+      return renderEditor(h(AdminTeamEditView, teamProps({ isMember: false })));
+    },
+    // The entry's own pick, which the draft leaves out: the club holds no season row for it to change.
+    ready: async (_user, container) => pick(container, "gruppe", "A"),
+    type: (user) => typeInto(user, box("PLZ"), "60436"),
+    press: "In Saison 2026 aufnehmen",
+    write: "postSaisonTeamAction",
+  },
+  "the club's group swap": {
+    render: async () => {
+      const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+
+      return renderEditor(h(AdminTeamEditView, teamProps({ locked: true })));
+    },
+    ready: async (user) => {
+      await user.click(screen.getByRole("button", { name: /Tauschen mit/ }));
+      await user.click(screen.getByRole("option", { name: /^SG Beta/ }));
+    },
+    type: (user) => typeInto(user, box("PLZ"), "60436"),
+    press: "Gruppen tauschen",
+    armed: "Ja, Gruppen tauschen",
+    write: "swapGruppenAction",
+  },
+};
+
+/** The page rendered, with the press ready to be pressed. */
+async function readied(user: UserEvent, move: RecordMove): Promise<void> {
+  const container = await move.render();
+  await move.ready?.(user, container);
+}
+
+/** The press, through its confirmation where it asks one, and whatever it started settling. */
+async function pressThrough(user: UserEvent, { press, armed }: RecordMove): Promise<void> {
+  if (armed === undefined) await user.click(screen.getByRole("button", { name: press }));
+  else await pressTwice(user, { resting: press, armed });
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+}
+
+describe("a press whose write moves the record the page keys its editor by", () => {
+  for (const [name, move] of Object.entries(RECORD_MOVES)) {
+    /* The write's refresh remounts the editor on the moved record, so a press over unsaved typing throws the
+       typing away unasked. The clean press writes, so the refusal below is the typing's alone. */
+    it(`${name} refuses over unsaved typing, naming the typing's loss, and writes over none`, async () => {
+      const user = userEvent.setup();
+      await readied(user, move);
+      calls.length = 0;
+      await pressThrough(user, move);
+      assert.deepEqual(written(), [move.write], "the press over a clean editor did not write, so the refusal below judges nothing");
+
+      cleanup();
+      await readied(user, move);
+      await move.type(user);
+      calls.length = 0;
+      raised.length = 0;
+      await user.click(screen.getByRole("button", { name: move.press }));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+      assert.deepEqual(written(), [], "the press wrote over the unsaved typing");
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["warning", "Erst speichern", DRAFT_DISCARDED]],
+      );
     });
   }
 });

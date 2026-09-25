@@ -45,6 +45,7 @@ describe("the squad-row panel a player is taken out of a season on", () => {
           rowInactiveSince: null,
           rowReturn: "open",
           banners: [],
+          isDirty: false,
         }),
       ),
     );

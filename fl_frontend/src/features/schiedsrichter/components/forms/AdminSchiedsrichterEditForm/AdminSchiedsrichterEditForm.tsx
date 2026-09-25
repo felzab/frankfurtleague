@@ -248,6 +248,7 @@ export function AdminSchiedsrichterEditForm({
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -277,6 +278,7 @@ export function AdminSchiedsrichterEditForm({
           {/* The STORED address, never `kontakt`: the send goes to what is saved, and a typed box
               the save bar has not committed is nowhere a message can reach. */}
           <FormBestaetigungSection
+            isDirty={isDirty}
             schiedsrichterId={schiedsrichter.id}
             hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}

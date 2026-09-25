@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BackButton } from "@/shared/components/ui/BackButton";
@@ -36,6 +38,10 @@ export function AdminBewerbungView({
   const saisonHref = useSaisonHref();
 
   const isOpen = bewerbung.status === "eingereicht";
+
+  // The decline's typed reason, which the acceptance's write re-keys the page over. The strip's boxes open
+  // only on a seat that closes the acceptance, so none of them can stand beside its press.
+  const [grundGetippt, setGrundGetippt] = useState(false);
 
   // `null` for an application submitted before the workflow: it carries no per-seat state, and the
   // acceptance is not closed against one.
@@ -84,6 +90,7 @@ export function AdminBewerbungView({
               saisonStatus={saisonStatus}
               gruppeOffer={gruppeOffer}
               hindernis={hindernis}
+              isDirty={grundGetippt}
             />
           )}
 
@@ -92,6 +99,7 @@ export function AdminBewerbungView({
               bewerbungId={bewerbung.id}
               teamName={teamName}
               saisonId={bewerbung.saison_id}
+              onGetipptChange={setGrundGetippt}
             />
           )}
         </div>
