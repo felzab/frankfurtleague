@@ -617,6 +617,7 @@ describe("POST /api/mail/zustellung", () => {
         message: "API returned a bad status.",
         url: "http://backend:8000",
         statusCode: 404,
+        serverErrorCode: "DB-COMMON-001",
         endpoint: "/bewerbungen/zustellung",
         method: "POST",
         readOnly: false,
@@ -627,6 +628,38 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     assert.equal(status, 200);
+  });
+
+  /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
+     body it does not take would each lose the event, where the provider's retry lands later. */
+  it("settles an event only on the record's own answer, and has every other 4xx sent again", async () => {
+    const answered = (statusCode: number, serverErrorCode: string | undefined) => async () => {
+      recorders.__flZustellungAnswer = () => {
+        throw new APIBadStatusError({
+          message: "API returned a bad status.",
+          url: "http://backend:8000",
+          statusCode,
+          serverErrorCode,
+          endpoint: "/bewerbungen/zustellung",
+          method: "POST",
+          readOnly: false,
+          traceId: "t".repeat(32),
+        });
+      };
+
+      return (await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status;
+    };
+
+    assert.equal(await answered(409, "DB-COMMON-002")(), 200, "an event the store already holds was sent back");
+    for (const [statusCode, code] of [
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+      [404, undefined],
+      [401, "REQ-AUTH-003"],
+      [422, "REQ-VAL-001"],
+    ] as const) {
+      assert.equal(await answered(statusCode, code)(), 503, `${String(code)} at ${String(statusCode)} settled the event`);
+    }
   });
 
   /* The one case a retry repairs. A 200 here tells the provider the event is settled and the state
