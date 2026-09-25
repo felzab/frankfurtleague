@@ -32,7 +32,7 @@ import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from ".
 
 import type { ReactElement, ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
-import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
+import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
@@ -65,7 +65,10 @@ const PAGE_DOUBLES: [string, string][] = [
   [
     "/src/features/spieler/queries.ts",
     `export const getSpielerMemberships = async () => globalThis.${PAGE_READS}.memberships;
-export const getSpielerNachnominierung = async (saison_id) => ({ saison_id, nachnominierung: false });`,
+export const getSpielerNachnominierung = async (saison_id) => {
+  globalThis.${PAGE_READS}.asked?.push(saison_id);
+  return { saison_id, nachnominierung: globalThis.${PAGE_READS}.nachnominierung ?? false };
+};`,
   ],
   [
     "/src/features/saisons/queries.ts",
@@ -84,28 +87,14 @@ registerHooks({
 });
 
 const { default: AdminSpielerEditPage } = await import("@/app/admin/spieler/[spieler_id]/page.tsx");
+const { default: AdminSpielerPage } = await import("@/app/admin/spieler/page.tsx");
 
 /** A tree under all three contexts, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
   underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-/**
- * The page that hands the editor its figures, whitespace-collapsed because the formatter picks its line
- * breaks. What its cases hold is the wiring between the memberships read and the props it folds for the editor.
- */
-const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "[spieler_id]", "page.tsx"), "utf8").replace(
-  /\s+/g,
-  " ",
-);
-
-/** The list page, which folds the squad counts the table must not fold: the same wiring, for the list. */
-const LIST_PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "page.tsx"), "utf8").replace(
-  /\s+/g,
-  " ",
-);
 
 const STORED_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SGA" };
 const OTHER_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "TSV Beta", shorthand: "TSB" };
@@ -403,6 +392,64 @@ const editorPageBody = (): Promise<ReactElement> =>
     searchParams: Promise.resolve({ saison_id: SAISON_ID }),
   });
 
+const OTHER_ID = "68c1f0a2b3c4d5e6f7a8b9d0";
+const THIRD_ID = "68c1f0a2b3c4d5e6f7a8b9d1";
+const EARLIER = "2025";
+
+type PageReads = { asked: string[]; nachnominierung: boolean };
+const pageReads = (): PageReads => (globalThis as unknown as Record<string, PageReads>)[PAGE_READS]!;
+
+/** A player holding one live squad row per entry. */
+function person(id: string, vorname: string, rows: { saison_id: string; team_id: string; rolle?: FLSpielerRolle }[]) {
+  return {
+    id,
+    vorname,
+    nachname: null,
+    inactive_since: null,
+    geburtsdatum: null,
+    einwilligung: null,
+    email: null,
+    memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
+      saison_id,
+      team_id,
+      nummer: null,
+      position: null,
+      stufe: null,
+      ist_nachnominiert: false,
+      rolle,
+      inactive_since: null,
+    })),
+  };
+}
+
+/** Both clubs in both seasons, squads capped at two, the verdict answering that a late entry runs. */
+function answerPages(spieler: ReturnType<typeof person>[]): void {
+  const rules = { erlaubte_stufen: ["Q1"], max_kadergroesse: 2 };
+  const club = ({ teamId, name, shorthand }: SpielerTeamOption) => ({
+    id: teamId,
+    name,
+    shorthand,
+    memberships: [{ saison_id: EARLIER }, { saison_id: SAISON_ID }],
+  });
+
+  (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+    memberships: { spieler },
+    saisons: {
+      saisons: [
+        { id: EARLIER, status: "past", rules },
+        { id: SAISON_ID, status: "active", rules },
+      ],
+    },
+    teams: { teams: [club(STORED_TEAM), club(OTHER_TEAM)] },
+    asked: [],
+    nachnominierung: true,
+  };
+}
+
+const teamsOf = (body: ReactElement): SpielerTeamOption[] => (body.props as { teams: SpielerTeamOption[] }).teams;
+const heldBy = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.heldRollen]));
+const fullIn = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.isSquadFull]));
+
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,
      which a replacement can take out of the season. A refusal carrying only a field message reaches
@@ -460,12 +507,20 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
       true,
       "the offer is derived from something other than the draft team's own holders",
     );
+  });
 
-    assert.match(
-      PAGE,
-      /const heldRollen = collectHeldRollen\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
-      "the page gathers the holders of another season, or counts this player's own role as taken from them",
-    );
+  /* Held in another season, or held by the player being edited, a role is free to take: counted
+     either way, the editor closes a role the write path would take. */
+  it("is handed the holders of the selected season, the player being edited left out", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId, rolle: "kapitaen" }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: EARLIER, team_id: STORED_TEAM.teamId, rolle: "co_kapitaen" },
+        { saison_id: SAISON_ID, team_id: OTHER_TEAM.teamId, rolle: "kapitaen" },
+      ]),
+    ]);
+
+    assert.deepEqual(heldBy(await editorPageBody()), { [STORED_TEAM.teamId]: {}, [OTHER_TEAM.teamId]: { kapitaen: "Mia" } });
   });
 
   /* A transfer carries the draft's role into the destination squad, where the write path would
@@ -657,22 +712,40 @@ describe("REQ-SQUAD-003 before the press", () => {
       !document.body.textContent.includes(KADER_VOLL_BANNER),
       "the banner is derived from something other than the draft team's own answer",
     );
+  });
 
-    assert.match(
-      PAGE,
-      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
-      "the page counts another season's squad rows, or leaves the player being edited in the tally their own room is judged from",
-    );
+  /* Two places in a squad of two: the stored club is full only when the edited player's own row is
+     counted, which would refuse an edit that moves nobody, and the other club only in another season. */
+  it("is handed each squad's room in the selected season, the player being edited left out", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: SAISON_ID, team_id: STORED_TEAM.teamId },
+        { saison_id: EARLIER, team_id: OTHER_TEAM.teamId },
+      ]),
+      person(THIRD_ID, "Ida", [{ saison_id: EARLIER, team_id: OTHER_TEAM.teamId }]),
+    ]);
+
+    assert.deepEqual(fullIn(await editorPageBody()), { [STORED_TEAM.teamId]: false, [OTHER_TEAM.teamId]: false });
   });
 
   /* The table is handed `filteredSpieler`, so a count folded there would shrink under a search and
-     report room in a squad the endpoint refuses. */
-  it("folds the list's counts on the page, where no search has narrowed the memberships", () => {
-    assert.match(
-      LIST_PAGE,
-      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaisonId, exceptSpielerId: null \}\);/,
-      "the list's own fold counts against something other than the season the rows are shown for",
-    );
+     report room in a squad the endpoint refuses. The list names no writer: every live row counts. */
+  it("is handed each squad's room on the list, over every player of the selected season", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: SAISON_ID, team_id: STORED_TEAM.teamId },
+        { saison_id: EARLIER, team_id: OTHER_TEAM.teamId },
+      ]),
+      person(THIRD_ID, "Ida", [{ saison_id: EARLIER, team_id: OTHER_TEAM.teamId }]),
+    ]);
+    const body = await pageBody(AdminSpielerPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ saison_id: SAISON_ID, q: "Lena" }),
+    });
+
+    assert.deepEqual(fullIn(body), { [STORED_TEAM.teamId]: true, [OTHER_TEAM.teamId]: false });
   });
 
   /* Two ways out and neither reader reaches either: the list is a page from the squad and the editor
@@ -807,16 +880,15 @@ describe("the late-entry marker, which the backend derives", () => {
   });
 
   /* The banner is raised on the entry branch alone, so a player holding a row costs no read. */
-  it("asks for the served verdict only where the player holds no row in the season", () => {
-    assert.match(
-      PAGE,
-      /const nachnominierung = membership === null \? await getSpielerNachnominierung\(selectedSaison\.id\) : null;/,
-      "the page asks for a verdict no banner can use, or asks another season",
-    );
-    assert.match(
-      PAGE,
-      /nachnominierungLaeuft: nachnominierung\?\.nachnominierung \?\? null,/,
-      "the editor is handed something other than the verdict",
-    );
+  it("asks for the served verdict only where the player holds no row in the season", async () => {
+    const saisonOf = (body: ReactElement) => (body.props as { saison: SpielerSaisonMembership }).saison;
+
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: EARLIER, team_id: STORED_TEAM.teamId }])]);
+    assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, true, "the editor is handed something other than the verdict");
+    assert.deepEqual(pageReads().asked, [SAISON_ID], "the page asks another season, or asks more than once");
+
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, null, "a player holding a row is handed a verdict no entry uses");
+    assert.deepEqual(pageReads().asked, [], "the page asks for a verdict no banner can use");
   });
 });
