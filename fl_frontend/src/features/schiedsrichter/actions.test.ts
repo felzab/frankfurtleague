@@ -316,7 +316,6 @@ afterEach(() => {
   seen.pushed.length = 0;
   seen.replaced.length = 0;
   seen.refresh = 0;
-  answerWith(() => new Promise<never>(() => undefined));
 });
 
 /** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
