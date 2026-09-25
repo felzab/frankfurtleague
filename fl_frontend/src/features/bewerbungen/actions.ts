@@ -389,22 +389,27 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
-    const zustellung = await sendeBestaetigungErneut({
-      bewerbungId: validated.data.id,
-      saisonId: bewerbung.saison_id,
-      // The address and the seats the WRITE matched, never the read above: a correction landing
-      // between the two moved the mailbox, and this link replaces the one the correction mailed.
-      person: { vorname: person.vorname, email: erneutOperation.email },
-      benanntesTeam: benanntesTeam,
-      sitze: erneutOperation.rollen,
-      token: erneutOperation.token,
-    });
+    let zustellung: Awaited<ReturnType<typeof sendeBestaetigungErneut>> | undefined;
+    try {
+      zustellung = await sendeBestaetigungErneut({
+        bewerbungId: validated.data.id,
+        saisonId: bewerbung.saison_id,
+        // The address and the seats the WRITE matched, never the read above: a correction landing
+        // between the two moved the mailbox, and this link replaces the one the correction mailed.
+        person: { vorname: person.vorname, email: erneutOperation.email },
+        benanntesTeam: benanntesTeam,
+        sitze: erneutOperation.rollen,
+        token: erneutOperation.token,
+      });
+    } finally {
+      // The spine refreshes a success alone, and a refused send or a throw leaves the mint standing: the
+      // seat's old link is spent and its deadline moved.
+      if (zustellung?.verschickt !== true) refresh();
+    }
 
-    // The spine refreshes a success alone, and a refused send leaves the mint standing: the seat's old
-    // link is spent and its deadline moved.
-    if (!zustellung.verschickt) refresh();
+    if (!zustellung.verschickt) return { success: false, error: zustellung.error };
 
-    return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
+    return { success: true, message: zustellung.message };
   });
 }
 
