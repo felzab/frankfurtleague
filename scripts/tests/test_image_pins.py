@@ -87,9 +87,6 @@ def test_every_external_image_is_pinned_by_tag_and_digest() -> None:
 # Three numbers, a `v` ahead of them where the project spells one, and a variant after: a tag
 # naming a series (`mongo:8`) is a label Dependabot compares against no single release.
 EXACT_TAG_RE: Final = re.compile(r"^v?\d+\.\d+\.\d+(?:-[A-Za-z0-9._-]+)?$")
-# Held at the series the toolchain pins (`fl_backend/.python-version`, `engines.node` in
-# `fl_frontend/package.json`), not a release: the runtime bases, by file and image name.
-SERIES_TAGS: Final = frozenset({("fl_frontend/Dockerfile", "node"), ("fl_backend/Dockerfile", "python")})
 
 
 def _tag(image: str) -> str:
@@ -99,11 +96,7 @@ def _tag(image: str) -> str:
 def test_every_external_image_tag_names_an_exact_release() -> None:
     """The digest runs the image and the tag names it to a reader and to the bot, so a series names nothing exact."""
     references = external_references() + [(path, image) for path, (_, image) in script_references().items()]
-    loose = [
-        f"{path}: {image}"
-        for path, image in references
-        if (path, image.split(":", 1)[0]) not in SERIES_TAGS and not EXACT_TAG_RE.match(_tag(image))
-    ]
+    loose = [f"{path}: {image}" for path, image in references if not EXACT_TAG_RE.match(_tag(image))]
     assert loose == [], "a tag naming no exact release:\n" + "\n".join(loose)
 
 

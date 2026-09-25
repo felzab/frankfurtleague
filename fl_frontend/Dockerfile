@@ -2,7 +2,7 @@
 
 # The OS layer the build and the runtime share, so anything added here ships in the image. Tag and
 # digest, which Dependabot moves together (`docs/ops/spec.md` §1.1).
-FROM node:26-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
 
 # libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
 # serving); tini for PID 1 signal routing -> a stop signal reaches node, which exits on it

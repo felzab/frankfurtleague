@@ -41,9 +41,10 @@ Each service's image, resource limits and health check are `docker-compose.yml`'
 the digest, the registry's multi-platform index, so a tag rebuilt or repointed upstream changes
 nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
 `docker` and `docker-compose` ecosystems compare to propose the next pair; the two scripts' pins
-move by hand, no ecosystem reading a shell string. **Each tag names an exact release**, the two
-runtime bases apart, which name the series `fl_backend/.python-version` and `fl_frontend/package.json`'s
-`engines` pin: a series tag (`mongo:8`) is a label no reader can hold to one release. `local.sh`'s
+move by hand, no ecosystem reading a shell string. **Each tag names the exact release its digest
+is**, the runtime bases included, whose series `fl_backend/.python-version` and
+`fl_frontend/package.json`'s `engines` pin: a series tag (`mongo:8`) is a label no reader can hold to
+one release. `local.sh`'s
 copy runs the local stack's own mongo, digest included. `scripts/tests/test_image_pins.py` holds
 every such reference to that form and the copy to the stack (I367).
 
