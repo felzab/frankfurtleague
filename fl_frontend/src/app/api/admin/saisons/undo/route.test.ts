@@ -30,7 +30,6 @@ const BODY = { id: "2026", start_date: "2026-03-01", end_date: "2026-07-01", rul
 
 describe("the season save's undo", () => {
   it("replays the stored season", async () => {
-    calls.length = 0;
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));

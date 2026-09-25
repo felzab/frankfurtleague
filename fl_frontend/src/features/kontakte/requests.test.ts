@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiClient, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
 import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
@@ -14,15 +14,6 @@ const { setSession } = doubleActionRequest({ session: VORSTAND });
 
 /** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
 const sent = doubleApiClient(({ endpoint }, schema) => schema.parse(endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
-
-/** Each request the client was handed, its body parsed. */
-const bodiesParsed = () =>
-  sent.map(({ endpoint, method, body, params }) => ({
-    endpoint,
-    method,
-    body: body === undefined ? undefined : (JSON.parse(body) as unknown),
-    params,
-  }));
 
 const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
@@ -58,7 +49,7 @@ describe("what the person's erasure sends", () => {
   it("sends the address in the body, to the erasure endpoint, as a POST", async () => {
     await eraseKontaktpersonAction({ email: ADDRESS });
 
-    assert.deepEqual(bodiesParsed(), [{ endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS }, params: undefined }]);
+    assert.deepEqual(requestsOf(sent), [{ endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS } }]);
   });
 
   /* The response carries counts and no person, and nothing on this side may put one back. */
@@ -84,12 +75,11 @@ describe("what the season's contacts save sends", () => {
   it("addresses the junction row by its natural key and sends the block alone", async () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.deepEqual(bodiesParsed(), [
+    assert.deepEqual(requestsOf(sent), [
       {
         endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`,
         method: "PATCH",
         body: { kontakte: null, kontakte_stand: "9f2c" },
-        params: undefined,
       },
     ]);
   });
@@ -105,7 +95,7 @@ describe("what the season's contacts save sends", () => {
 
     await patchSaisonTeamKontakteAction(CLEARED);
     assert.deepEqual(
-      bodiesParsed().map(({ body }) => body),
+      requestsOf(sent).map(({ body }) => body),
       [{ kontakte: null, kontakte_stand: "9f2c" }],
     );
   });

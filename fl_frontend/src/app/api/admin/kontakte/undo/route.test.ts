@@ -29,7 +29,6 @@ const STALE_BLOCK = "REQ-KONTAKT-001";
 
 describe("the contacts save's undo", () => {
   it("replays the save's own payload through the save's own write", async () => {
-    calls.length = 0;
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));
@@ -39,7 +38,6 @@ describe("the contacts save's undo", () => {
   /* An undo restores the earlier record, and the save it undoes moved the stored label the save's own
      admission would judge it by, so a label other than the running one is replayed rather than refused. */
   it("replays a seat under the label it was stored with, the running label or not", async () => {
-    calls.length = 0;
     const seat = {
       vorname: "Ada",
       nachname: "Byron",
@@ -65,7 +63,6 @@ describe("the contacts save's undo", () => {
   });
 
   it("replays nothing for a body the save's schema refuses, or a caller from another site", async () => {
-    calls.length = 0;
     const withoutToken = await undo(POST, { ...BODY, kontakte_stand: undefined });
     const crossSite = await undo(POST, BODY, "cross-site");
 

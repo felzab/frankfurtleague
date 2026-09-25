@@ -68,7 +68,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<{ success: b
 };
 
 beforeEach(() => {
-  calls.length = 0;
   mails.length = 0;
   recorders.__flUndoRefDelivered = true;
 });

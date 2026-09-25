@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiClient, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { SentApiRequest } from "@/shared/testing/apiClientDouble.ts";
 
 /* What these cases read is what each mutation asks the client for, never what it answers. */
 const sent = doubleApiClient(() => ({ acknowledged: 1 }));
@@ -13,12 +13,12 @@ const { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenE
 
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 
-/** The one request the last mutation sent, its body parsed. */
-function lastSent(): { endpoint: string; method: string | undefined; body: unknown } {
-  assert.equal(sent.length, 1, `the mutation sent ${String(sent.length)} requests rather than one`);
-  const [{ endpoint, method, body }] = sent as [ApiCall];
+/** The one request the last mutation sent. */
+function lastSent(): SentApiRequest {
+  const [only, ...more] = requestsOf(sent);
+  assert.ok(only !== undefined && more.length === 0, `the mutation sent ${String(sent.length)} requests rather than one`);
 
-  return { endpoint, method, body: body === undefined ? undefined : JSON.parse(body) };
+  return only;
 }
 
 beforeEach(() => {

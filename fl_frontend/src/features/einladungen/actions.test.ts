@@ -22,7 +22,6 @@ const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
 describe("the invite's writes", () => {
   it("address the mint and the revoke by both ids in the path, and the send by its season", async () => {
-    calls.length = 0;
     answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: KEY.saison_id, zeilen: [] }));
 
     await postEinladungAction(KEY);

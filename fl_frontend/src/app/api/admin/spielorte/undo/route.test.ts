@@ -23,7 +23,6 @@ const BODY = {
 
 describe("the venue save's undo", () => {
   it("replays the stored venue", async () => {
-    calls.length = 0;
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));

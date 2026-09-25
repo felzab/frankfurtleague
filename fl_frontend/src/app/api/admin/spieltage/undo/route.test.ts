@@ -18,7 +18,6 @@ const BODY = { id: "6890a1b2c3d4e5f607a20001", beginn: "2026-04-01", ende: "2026
 
 describe("the matchday save's undo", () => {
   it("replays the stored span", async () => {
-    calls.length = 0;
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));

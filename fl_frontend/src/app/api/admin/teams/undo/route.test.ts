@@ -31,14 +31,13 @@ const SAISON = { team_id: TEAM_ID, saison_id: "2026", gruppe: "A", austritt: nul
 const CLUB_PATH = `/teams/${TEAM_ID}`;
 const JUNCTION_PATH = `/teams/${TEAM_ID}/saisons/${SAISON.saison_id}`;
 
-/** The write to `path` refused with `code` as `operation` raises it, every other write restored; the client records each request before it answers. */
+/** The write to `path` refused with `code` as `operation` raises it, every other write restored. */
 function refuse(path: string, operation: string, code: string): void {
-  answerWith(() => (calls.at(-1)?.endpoint === path ? Promise.reject(refusedOn(operation, code)) : Promise.resolve({ acknowledged: 1 })));
+  answerWith(({ endpoint }) => (endpoint === path ? Promise.reject(refusedOn(operation, code)) : Promise.resolve({ acknowledged: 1 })));
 }
 
 describe("the team save's undo", () => {
   it("replays both halves, the club first", async () => {
-    calls.length = 0;
     const answer = await undo(POST, { club: CLUB, saison: SAISON });
 
     assert.equal(answer.success, true, String(answer.error));
@@ -79,7 +78,6 @@ describe("the team save's undo", () => {
   /* Unacknowledged, a write may still have landed, so each arm is titled unclear and never says the
      change stands; the junction's sentence says whether the club half went back. */
   it("answers an unacknowledged club half as of unknown outcome, replaying nothing after it", async () => {
-    calls.length = 0;
     answerWith(() => Promise.resolve({ acknowledged: 0 }));
 
     assert.deepEqual(await undo(POST, { club: CLUB, saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten."));
@@ -90,7 +88,7 @@ describe("the team save's undo", () => {
   });
 
   it("answers an unacknowledged junction as of unknown outcome, alone or after the club half", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.endpoint === JUNCTION_PATH ? 0 : 1 }));
+    answerWith(({ endpoint }) => Promise.resolve({ acknowledged: endpoint === JUNCTION_PATH ? 0 : 1 }));
 
     assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."));
     assert.deepEqual(

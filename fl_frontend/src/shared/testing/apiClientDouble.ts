@@ -47,21 +47,40 @@ export const apiClient = async (endpoint, schema, options = {}) => {
   return calls;
 }
 
-/** Each request as the backend reads it: the path, the method, and the body parsed. */
-export const requestsOf = (calls: readonly ApiCall[]): { endpoint: string; method: string | undefined; body: unknown }[] =>
-  calls.map(({ endpoint, method, body }) => ({ endpoint, method, body: body === undefined ? undefined : (JSON.parse(body) as unknown) }));
+/** One request as the backend reads it. */
+export type SentApiRequest = { endpoint: string; method: string | undefined; body: unknown; params?: unknown };
+
+/**
+ * Each request as the backend reads it: the path, the method, and the body parsed. The query appears
+ * only on a call that carried one, so a comparison naming none fails on a value that leaked into it.
+ */
+export const requestsOf = (calls: readonly ApiCall[]): SentApiRequest[] =>
+  calls.map(({ endpoint, method, body, params }) => ({
+    endpoint,
+    method,
+    body: body === undefined ? undefined : (JSON.parse(body) as unknown),
+    ...(params === undefined ? {} : { params }),
+  }));
+
+/** What the backend answers one call with, handed the call so an answer can tell the requests apart. */
+type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 
 /**
  * `doubleApiClient` answering every call with `answer`, until `answerWith` names another for the rest
  * of that case: the double a suite drives a slice's real `mutations.ts` through.
  */
-export function doubleApiAnswers(answer: () => Promise<unknown> = () => Promise.resolve({ acknowledged: 1 })): {
+export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
   calls: ApiCall[];
-  answerWith: (next: () => Promise<unknown>) => void;
+  answerWith: (next: ApiAnswer) => void;
 } {
   let answering = answer;
-  // Back to `answer` before every case: a case that named another would hand it to the next case's write.
-  beforeEach(() => void (answering = answer));
+  const calls = doubleApiClient((call) => answering(call));
 
-  return { calls: doubleApiClient(() => answering()), answerWith: (next) => void (answering = next) };
+  // Back to `answer` before every case: a case that named another would hand it to the next case's write.
+  beforeEach(() => {
+    answering = answer;
+    calls.length = 0;
+  });
+
+  return { calls, answerWith: (next) => void (answering = next) };
 }

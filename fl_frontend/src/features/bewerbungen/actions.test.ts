@@ -101,7 +101,6 @@ const { answerWith: clubsWith } = doubleActions({
 beforeEach(() => {
   mailed.length = 0;
   logged.length = 0;
-  writes.length = 0;
   recorders.__flBewerbungMailRefused = false;
 });
 const {
