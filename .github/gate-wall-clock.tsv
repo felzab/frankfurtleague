@@ -372,7 +372,9 @@
 # Profiled in that window, the reasons read took 86-139 ms, and the comment read 26-75 ms against
 # 95-179 ms for the whole text. The reasons read now imports the backend's declaration rather than
 # parsing it: importing it took 0.72-0.82 s in a fresh interpreter against 0.17 s for the gate's
-# package alone, five interleaved rounds. Measured locally on 2026-09-25 on a sixteen-core Windows
+# package alone, five interleaved rounds. It reads every declared row's prose rather than the
+# reasons alone: 100-134 ms a call against 2.4-6.9 ms, warm, two interleaved rounds of five calls
+# each. Measured locally on 2026-09-25 on a sixteen-core Windows
 # machine carrying a fleet of agent sessions, so every figure is an upper bound. The quieter
 # window's difference sits inside the 3.9 s floor the `docs` row carries and the busier one's does
 # not, so the first main runs carrying the branch decide whether the row is re-stamped.
