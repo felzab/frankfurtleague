@@ -287,6 +287,11 @@ OPENAPI: Final = "fl_backend/openapi.json"
 SAMPLE_PAGE: Final = "fl_frontend/src/app/(site)/sample/page.tsx"
 RULE_OPERATION: Final = "GET /sample"
 SURFACE: Final = "/sample"
+# A second table's row, its prose in a string field and a tuple of them: every declared row is read,
+# and one row may name another by its first field, which no source tree spells.
+AGGREGATE_NAME: Final = "Sample-Plan"
+LIVE_BOUNDARY: Final = "Read by `GET /sample`, beside `Sample-Plan`."
+LIVE_MEMBER: Final = "`/sample`"
 # The code the sample component's second literal spells, so the frontend owes two rows.
 SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
@@ -894,6 +899,13 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "",
             "@dataclass(frozen=True)",
+            "class Aggregate:",
+            "    name: str",
+            "    boundary: str",
+            "    members: tuple[str, ...] = ()",
+            "",
+            "",
+            "@dataclass(frozen=True)",
             "class Unenforced:",
             "    subject: str",
             "    reason: str",
@@ -902,6 +914,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "RULES: tuple[Rule, ...] = (",
             '    Rule(code="' + RULE_CODE + '", operation="' + RULE_OPERATION + '"),',
+            ")",
+            "",
+            "AGGREGATES: tuple[Aggregate, ...] = (",
+            '    Aggregate(name="' + AGGREGATE_NAME + '", boundary="' + LIVE_BOUNDARY + '", members=("' + LIVE_MEMBER + '",)),',
             ")",
             "",
             "UNENFORCED: tuple[Unenforced, ...] = (",

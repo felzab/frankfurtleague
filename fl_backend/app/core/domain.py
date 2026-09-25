@@ -370,7 +370,7 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_removed=Action.RESTRICT,
         note=(
             "Unreachable in the creating direction for the reason `spieltag_id` above is. "
-            "There is no `DELETE /saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it."
+            "There is no DELETE on `/saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it."
         ),
     ),
     Reference(
@@ -586,7 +586,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "status",
         Editability.CONTROL_ONLY,
         "written `eingereicht` at create by `POST /bewerbungen`, which takes it from no payload, and moved by "
-        "`POST /bewerbungen/{bewerbung_id}/annehmen` and `.../ablehnen`, each of which owns the whole transition and "
+        "`POST /bewerbungen/{bewerbung_id}/annehmen` and `POST /bewerbungen/{bewerbung_id}/ablehnen`, "
+        "each of which owns the whole transition and "
         "refuses an application already decided (`REQ-BEWERBUNG-001`)",
         "app.api.bewerbungen.services.find_triage_refusal",
     ),
@@ -878,7 +879,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league",
+        "`DELETE` stamps it and `POST /spieler/{spieler_id}/reactivate` clears it; this is the PERSON leaving the league",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
@@ -1049,7 +1050,10 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELORTE,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it, and the retirement is refused while an unplayed fixture is still booked here",
+        (
+            "`DELETE` stamps it and `POST /spielorte/{spielort_id}/reactivate` clears it, and the retirement is refused while "
+            "an unplayed fixture is still booked here"
+        ),
         "app.api.spielorte.services.find_venue_retire_refusal",
     ),
     FieldPolicy(
@@ -1104,7 +1108,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it, `DELETE` being refused while an unplayed fixture still "
+        "`DELETE` stamps it and `POST /schiedsrichter/{schiedsrichter_id}/reactivate` clears it, `DELETE` being refused "
+        "while an unplayed fixture still "
         "names this referee; the anonymisation writes it on no row, deleting the referee instead and leaving their "
         "fixtures on the ghost, which carries a stamp of its own and is reachable by neither control",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",

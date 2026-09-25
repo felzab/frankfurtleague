@@ -21,6 +21,7 @@ import pytest
 from conftest import write
 from test_check_docs import (
     ABSENT_ANCHOR,
+    AGGREGATE_NAME,
     BACKEND_RAISE,
     BACKEND_SPEC,
     BACKEND_TEST,
@@ -43,6 +44,7 @@ from test_check_docs import (
     IGNORED_MODULE,
     IGNORED_PAGE,
     KERNEL,
+    LIVE_MEMBER,
     MARKER_TSX,
     NOTES,
     OPENAPI,
@@ -352,8 +354,8 @@ def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_r
     ("old", "new", "check", "said"),
     [
         pytest.param("`GET /sample`", "`GET /gone`", "citation", f"a route `{OPENAPI}` does not publish", id="endpoint"),
-        pytest.param(f"`{SURFACE}`", "`/gone`", "path", "a page no `page.tsx`", id="surface"),
-        pytest.param(f"`{SURFACE}`", "`/(site)/sample`", "path", "a page no `page.tsx`", id="route-group-spelled"),
+        pytest.param(f"`{SURFACE}`", "`/gone`", "path", "a path no `page.tsx`", id="surface"),
+        pytest.param(f"`{SURFACE}`", "`/(site)/sample`", "path", "a path no `page.tsx`", id="route-group-spelled"),
         pytest.param("`(saison_id, team_id)`", "`(saison_id, gone_id)`", "citation", "an index key no index", id="index-key"),
         pytest.param("naming `VALUE`", "naming `GONE_NAME`", "citation", "a name neither source tree spells", id="name"),
         pytest.param("and `3`.", "and `?!`.", "citation", "a shape nothing here reads", id="unread-shape"),
@@ -361,6 +363,28 @@ def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_r
 )
 def test_a_reason_s_token_nothing_answers_for_is_named_by_its_kind(old: str, new: str, check: str, said: str) -> None:
     """The reader imports the declaration, so the plant reaches it as the application would."""
+    _reset()
+    _replace(DOMAIN_REGISTER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "check", "said"),
+    [
+        pytest.param("Read by `GET /sample`", "Read by `GET /gone`", "citation", f"a route `{OPENAPI}` does not publish", id="string-field"),
+        pytest.param(LIVE_MEMBER, "`/gone`", "path", "a path no `page.tsx`", id="tuple-field"),
+        pytest.param(f"beside `{AGGREGATE_NAME}`", "beside `Gone-Plan`", "citation", "a shape nothing here reads", id="declared-name"),
+    ],
+)
+def test_a_token_in_any_declared_row_s_prose_is_held_to_the_tree(old: str, new: str, check: str, said: str) -> None:
+    """Another table than `UNENFORCED`, found by its rows: its string field, its tuple of strings, and a row's name."""
     _reset()
     _replace(DOMAIN_REGISTER, old, new)
     try:

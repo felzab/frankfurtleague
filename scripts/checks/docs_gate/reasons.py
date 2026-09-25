@@ -1,21 +1,22 @@
 """SCRIPTS · what the backend's declaration argues from, held to the tree it names.
 
-A reason is read as evidence, so one arguing from a rule, an invariant, a route or a file renamed away
-reads as evidence and is none. The declaration is imported rather than read as text: its value is
-what the application runs with, whatever spelling builds it.
+A declared row's prose is read as evidence, so one arguing from a rule, an invariant, a route or a
+file renamed away reads as evidence and is none. The declaration is imported rather than read as
+text: its value is what the application runs with, whatever spelling builds it.
 
 Invariants:
-  Every backticked token of a reason resolves here, by its shape, or fails; the backend's own suite
-  holds the declaration's claims and never its addresses.
+  Every backticked token of every string a declared row carries resolves here, by its shape, or
+  fails; the backend's own suite holds the declaration's claims and never its addresses.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import json
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import cache
 from types import ModuleType
 from typing import Final, NamedTuple
@@ -52,8 +53,9 @@ INVARIANT_RE: Final = re.compile(r"^[IL]\d{1,3}[a-z]?$")
 ENDPOINT_RE: Final = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
 SURFACE_RE: Final = re.compile(r"^/\S*$")
 INDEX_KEY_RE: Final = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
-NAME_RE: Final = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
-WORD_RE: Final = re.compile(r"[A-Za-z_]\w*")
+# A leading `$` for a database operator the write spells, as `$set`.
+NAME_RE: Final = re.compile(r"^\$?[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
+WORD_RE: Final = re.compile(r"\$?[A-Za-z_]\w*")
 # The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
 # field beside the value it holds, and a type expression.
 SPARED_RES: Final = (re.compile(r"^\d+$"), re.compile(r"^[\w.]+: \S+$"), re.compile(r"^[\w\[\], |]*[\[|][\w\[\], |]*$"))
@@ -147,6 +149,16 @@ def _index_keys(loaded: Backend) -> frozenset[tuple[str, ...]]:
     )
 
 
+def _published_path(loaded: Backend, token: str) -> bool:
+    """A bare path names a resource the document publishes under any method, as prose about its verbs does."""
+    return f"/api/v{loaded.config.API_VERSION}{token}" in published_routes()
+
+
+def _declared_names(loaded: Backend) -> frozenset[str]:
+    """What one row calls another by: each declared row's first field, an aggregate's name among them."""
+    return frozenset(str(_values(row)[0]) for row in _declared_rows(loaded.domain))
+
+
 def _published(loaded: Backend, token: str) -> bool:
     """The whole path, never its end: `/saisons/{saison_id}` also ends the team and player routes."""
     endpoint = ENDPOINT_RE.match(token)
@@ -175,10 +187,13 @@ def _unresolved(loaded: Backend, token: str, subject: str, invariants: dict[str,
     if ENDPOINT_RE.match(token):
         return [] if _published(loaded, token) else [("citation", f"{said}, a route `{OPENAPI_PAGE}` does not publish")]
     if SURFACE_RE.match(token):
-        return [] if token in served_pages() else [("path", f"{said}, a page no `page.tsx` under `{APP_DIR}` serves")]
+        known = token in served_pages() or _published_path(loaded, token)
+        return [] if known else [("path", f"{said}, a path no `page.tsx` under `{APP_DIR}` serves and `{OPENAPI_PAGE}` does not publish")]
     if key := INDEX_KEY_RE.match(token):
         known = tuple(key.group(1).split(", ")) in _index_keys(loaded)
         return [] if known else [("citation", f"{said}, an index key no index in `app/core/constraints.py` declares")]
+    if token in _declared_names(loaded):
+        return []
     if NAME_RE.match(token):
         known = all(segment in spelled_names() for segment in token.split("."))
         return [] if known else [("citation", f"{said}, a name neither source tree spells outside the declaration")]
@@ -187,14 +202,34 @@ def _unresolved(loaded: Backend, token: str, subject: str, invariants: dict[str,
     return [("citation", f"{said}, a shape nothing here reads, so it resolves to nothing")]
 
 
-def _line(text: str, subject: str) -> int | None:
-    """The line opening an entry, found by its subject: the imported value carries none."""
-    at = text.find(json.dumps(subject, ensure_ascii=False))
+def _line(text: str, spelled: str) -> int | None:
+    """The first line spelling `spelled`: the imported value carries none."""
+    at = text.find(spelled)
     return None if at < 0 else text.count("\n", 0, at) + 1
 
 
+def _declared_rows(domain: ModuleType) -> Iterator[object]:
+    """Every row of every table the declaration holds, found by shape rather than listed by table."""
+    for table in vars(domain).values():
+        if isinstance(table, tuple) and table and all(dataclasses.is_dataclass(row) for row in table):
+            yield from table
+
+
+def _values(row: object) -> list[object]:
+    """A row's field values in declared order; a dataclass itself rather than an instance holds none."""
+    if not dataclasses.is_dataclass(row) or isinstance(row, type):
+        return []
+    return [getattr(row, field.name) for field in dataclasses.fields(row)]
+
+
+def _prose(row: object) -> Iterator[str]:
+    """Each string the row carries, so a field added to a row is read as it lands."""
+    for value in _values(row):
+        yield from (item for item in (value if isinstance(value, tuple) else (value,)) if isinstance(item, str))
+
+
 def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> list[Finding]:
-    """Every address the declaration argues from: each reason's tokens, each entry's surface, each rule's routes."""
+    """Every address the declaration argues from: each row's backticked tokens, each entry's surface, each rule's routes."""
     loaded = backend()
     if isinstance(loaded, str):
         return []  # `checks.py :: main` refuses the run on it before any check reads the backend
@@ -209,11 +244,14 @@ def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> li
     page = tracked_page(DOMAIN_MODULE)
     text = (None if page is None else _read_text(page)[0]) or ""
     found: list[Finding] = []
+    for row in _declared_rows(loaded.domain):
+        # The class and the first field, which name the row: an aggregate's name, a rule's code.
+        subject = f"{type(row).__name__} {_values(row)[0]}"
+        for token in (token for prose in _prose(row) for token in REASON_TOKEN_RE.findall(prose)):
+            unresolved = _unresolved(loaded, token, subject, invariants, cite)
+            found.extend(Finding("fail", check, DOMAIN_MODULE, detail, _line(text, f"`{token}`")) for check, detail in unresolved)
     for entry in entries:
-        line = _line(text, entry.subject)
-        for token in REASON_TOKEN_RE.findall(entry.reason):
-            unresolved = _unresolved(loaded, token, entry.subject, invariants, cite)
-            found.extend(Finding("fail", check, DOMAIN_MODULE, detail, line) for check, detail in unresolved)
+        line = _line(text, json.dumps(entry.subject, ensure_ascii=False))
         surface = entry.surfaced_by
         served = surface in served_pages() if surface.startswith("/") else repo_path(surface) is not None
         if surface and not served:
@@ -222,5 +260,5 @@ def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> li
         for token in rule.operation.split(loaded.domain.OPERATION_SEPARATOR):
             if not _published(loaded, token):
                 detail = f"`{rule.code}` declares `{token}`, which `{OPENAPI_PAGE}` does not publish"
-                found.append(Finding("fail", "citation", DOMAIN_MODULE, detail, _line(text, rule.code)))
+                found.append(Finding("fail", "citation", DOMAIN_MODULE, detail, _line(text, json.dumps(rule.code))))
     return found
