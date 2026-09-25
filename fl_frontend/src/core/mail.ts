@@ -86,6 +86,18 @@ export class MailRecipientError extends Error {
   }
 }
 
+/**
+ * Raised where the request's deadline was spent before the send left. Not an `APINetworkError`, which
+ * a fan-out reads as a message that may have gone: nothing reached the provider.
+ */
+export class MailUnsentError extends Error {
+  constructor() {
+    super("The request's deadline had passed before the message was sent.");
+
+    this.name = "MailUnsentError";
+  }
+}
+
 /** The errno token where a failure carries one — `EEXIST`, `EACCES` — and nothing else. */
 function errnoCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
@@ -319,9 +331,9 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   try {
     // Refused unsent once the request's deadline is spent (`docs/frontend/spec.md :: I366`).
     if (bound.signal.aborted) {
-      const refused = failNetwork(bound.signal.reason);
-      logNetwork(refused);
-      throw refused;
+      // `FE-NET-001`, the code a send that never reached the provider logs under.
+      logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });
+      throw new MailUnsentError();
     }
 
     /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */

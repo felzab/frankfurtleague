@@ -49,7 +49,7 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 const logs: RecordedLine[] = [];
 (globalThis as unknown as Record<string, RecordedLine[]>)[LOG_RECORDER] = logs;
 
-const { sendMail, MailRecipientError, MailWithheldError } = await import("./mail.ts");
+const { sendMail, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, runWithRequestScope } = await import("./requestScope.ts");
 
@@ -895,6 +895,7 @@ describe("a send inside a request whose deadline runs out", () => {
     assert.equal(cut, true, "the request does not know its deadline cut a send");
   });
 
+  /* Not a network error, which a fan-out reads as a message that may have gone: nothing left. */
   it("draws no request once nothing is left, and logs the send as timed out", async () => {
     const thrown = await runWithRequestScope(SCOPE, () => {
       advance(REQUEST_DEADLINE_MS);
@@ -906,8 +907,7 @@ describe("a send inside a request whose deadline runs out", () => {
     });
 
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
-    assert.ok(thrown instanceof APINetworkError, "the refused send was not thrown as a network error");
-    assert.equal(thrown.isTimeout, true);
+    assert.ok(thrown instanceof MailUnsentError, "the send refused before it left was thrown as one that may have gone");
     assert.deepEqual(
       logs.map((line) => [line.message, line.meta?.["is_timeout"]]),
       [["mail.send_failed", true]],

@@ -25,6 +25,8 @@ const withheld = new Set<string>();
 const unconvertible = new Set<string>();
 /** Addresses whose send breaks off unanswered, which the provider may have accepted. */
 const broken = new Set<string>();
+/** Addresses the transport refused before sending, the request's deadline being spent. */
+const unsent = new Set<string>();
 /** Per address the provider itself turned away: its own token, and the status that says whether a retry could land. */
 const tokenRefused = new Map<string, { token?: string; status: number }>();
 const gemeldet: Record<string, unknown>[] = [];
@@ -36,6 +38,7 @@ recorders.__flZielRefusedMail = refused;
 recorders.__flZielWithheldMail = withheld;
 recorders.__flZielUnconvertibleMail = unconvertible;
 recorders.__flZielBrokenMail = broken;
+recorders.__flZielUnsentMail = unsent;
 recorders.__flZielTokenRefusedMail = tokenRefused;
 recorders.__flZielGemeldet = gemeldet;
 recorders.__flZielAbgewiesen = abgewiesen;
@@ -50,7 +53,7 @@ recorders.__flZielAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
 // The two error classes come from the real module rather than being restated: the fan-out tells a
 // withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
 const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./mail.ts?real";
-import { MailRecipientError, MailWithheldError } from "./mail.ts?real";
+import { MailRecipientError, MailUnsentError, MailWithheldError } from "./mail.ts?real";
 // The real class here too: the refusal arm reads the provider's token off it, which a look-alike
 // carrying the same field would not prove.
 import { APINetworkError, MailSendError } from "./errors.ts";
@@ -58,6 +61,7 @@ import { APINetworkError, MailSendError } from "./errors.ts";
 export const sendMail = async (mail) => {
   globalThis.__flZielSentMail.push({ to: mail.to, subject: mail.subject, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
   if (globalThis.__flZielWithheldMail.has(mail.to)) throw new MailWithheldError();
+  if (globalThis.__flZielUnsentMail.has(mail.to)) throw new MailUnsentError();
   if (globalThis.__flZielUnconvertibleMail.has(mail.to)) throw new MailRecipientError();
   const abweisung = globalThis.__flZielTokenRefusedMail.get(mail.to);
   if (abweisung !== undefined) {
@@ -152,6 +156,7 @@ beforeEach(() => {
   withheld.clear();
   unconvertible.clear();
   broken.clear();
+  unsent.clear();
   tokenRefused.clear();
   recorders.__flZielAbweisungFails = false;
   recorders.__flZielMeldungFails = false;
@@ -334,6 +339,27 @@ describe("one fan-out about a record", () => {
     assert.deepEqual([settled.delivered, settled.unreachable, settled.ungewiss], [[SECOND_ADDRESS], [], [ADDRESS]]);
     assert.equal(markedUnknown, true, "the request was not told a send may have landed");
     assert.equal(abgewiesen.length, 0, "a send that may have landed was recorded as refused");
+  });
+
+  /* Refused before it left, the request's deadline spent: nothing can be in the inbox, so it is not
+     the unclear send above, and the fan-out records no refusal the mailbox never made. */
+  it("counts a send refused before it left as unreachable, never unclear, and records nothing", async () => {
+    unsent.add(ADDRESS);
+
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      const outcome = await sendZielMail({
+        operation: "schiedsrichter.einladung",
+        auftrag: auftrag,
+        recipients: [ADDRESS, SECOND_ADDRESS],
+        buildMail,
+      });
+
+      return [outcome, requestOutcomeUnknown()] as const;
+    });
+
+    assert.deepEqual([settled.delivered, settled.unreachable, settled.ungewiss], [[SECOND_ADDRESS], [ADDRESS], []]);
+    assert.equal(markedUnknown, false, "a send that never left marked the request unclear");
+    assert.equal(abgewiesen.length, 0, "a send that never left was recorded as refused");
   });
 
   /* Outside production every address is withheld, and a caller reading that as a refusal reports one

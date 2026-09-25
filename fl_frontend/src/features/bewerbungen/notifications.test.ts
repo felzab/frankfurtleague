@@ -19,6 +19,8 @@ const logged: LoggedCall[] = [];
 const refused = new Set<string>();
 /** Addresses whose send breaks off unanswered, which the provider may have accepted. */
 const broken = new Set<string>();
+/** Addresses the transport refused before sending, the request's deadline being spent. */
+const unsent = new Set<string>();
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 /** What the recording half of the fan-out was handed, and the id the doubled provider accepted with. */
@@ -28,6 +30,7 @@ recorders.__flSentMail = sent;
 recorders.__flMailLogs = logged;
 recorders.__flRefusedMail = refused;
 recorders.__flBrokenMail = broken;
+recorders.__flUnsentMail = unsent;
 recorders.__flZustellungCalls = gemeldet;
 recorders.__flZustellungFails = false;
 recorders.__flAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
@@ -36,12 +39,14 @@ recorders.__flAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
 // transport posts to the mail provider, on a key no test run holds, and the real logger writes past
 // this file.
 const MAIL_DOUBLE = `import { APINetworkError } from "./errors.ts";
+import { MailUnsentError } from "./mail.ts?real";
 
 export const sendMail = async (mail) => {
   globalThis.__flSentMail.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
   if (globalThis.__flBrokenMail.has(mail.to)) {
     throw new APINetworkError({ message: "Mail request failed.", isTimeout: true, url: "https://api.example.invalid/emails", method: "POST", readOnly: false, traceId: "0123456789abcdef0123456789abcdef" });
   }
+  if (globalThis.__flUnsentMail.has(mail.to)) throw new MailUnsentError();
   if (globalThis.__flRefusedMail.has(mail.to)) throw new Error("the provider refused the message");
   return { id: globalThis.__flAcceptedId };
 };`;
@@ -137,6 +142,7 @@ function reset(): void {
   logged.length = 0;
   refused.clear();
   broken.clear();
+  unsent.clear();
   gemeldet.length = 0;
   recorders.__flZustellungFails = false;
   recorders.__flAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
@@ -463,6 +469,26 @@ describe("a fan-out that cannot reach everyone", () => {
 
     assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], [], ["zweite@schule.de"]]);
     assert.equal(markedUnknown, true, "the request was not told a send may have landed");
+  });
+
+  /* Refused before it left, the request's deadline spent: nothing can be in the inbox, so it is not
+     the unclear send above. */
+  it("counts a send refused before it left as unreachable, never unclear", async () => {
+    reset();
+    unsent.add("zweite@schule.de");
+
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      const settled = await sendBewerbungMail({
+        operation: "annehmenBewerbungAction",
+        recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
+        buildMail: buildMail,
+      });
+
+      return [settled, requestOutcomeUnknown()] as const;
+    });
+
+    assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], ["zweite@schule.de"], []]);
+    assert.equal(markedUnknown, false, "a send that never left marked the request unclear");
   });
 
   it("reports every address when the provider refuses them all", async () => {
