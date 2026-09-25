@@ -312,7 +312,7 @@ frontend_phases_disjoint
 run_writer() { # $1 unit
   local writer
   for writer in "${FRONTEND_WRITERS[@]}"; do
-    if [[ "$1" == "$writer" ]]; then quietly "do_$1"; return; fi
+    if [[ "$1" == "$writer" ]]; then quietly --pnpm "do_$1"; return; fi
   done
   on_error 3 "${BASH_LINENO[0]}" "do_$1 is run as a writer, and FRONTEND_WRITERS does not name it"
 }
@@ -351,6 +351,7 @@ pool_units_replayed() { # $1.. units
     # semicolon or a line ending after the name.
     [[ "$_REPLAY_SOURCE" == *"unit_replay ${unit}"[!a-zA-Z0-9_]* ]] \
       || [[ "$_REPLAY_SOURCE" == *"unit_verdict ${unit}"[!a-zA-Z0-9_]* ]] \
+      || [[ "$_REPLAY_SOURCE" == *"unit_verdict --pnpm ${unit}"[!a-zA-Z0-9_]* ]] \
       || on_error 3 "${BASH_LINENO[0]}" "the ${unit} unit is started by a pool and replayed nowhere in ${SELF##*/}, so its output and its status would be discarded and the scope would pass over a check nobody read"
   done
 }
@@ -569,9 +570,11 @@ unit_join() { # $1 unit — re-date the step to the work's own length, which is 
   if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
 }
 
-unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy for a failure
+unit_verdict() { # [--pnpm, `quietly`'s] · $1 unit · $2 the line to blame a crash on · $3 the remedy for a failure
   local rc=0
-  quietly unit_replay "$1" || rc=$?
+  local -a pnpm=()
+  if [[ "$1" == --pnpm ]]; then pnpm=(--pnpm); shift; fi
+  quietly "${pnpm[@]}" unit_replay "$1" || rc=$?
   case "$rc" in
     0)   ;;
     1)   die "$3" ;;
@@ -934,7 +937,7 @@ if (( RUN_FORMAT )); then
   step "format · prettier  (check mode — this gate never writes)"
   # No cause asserted: an unformatted file and a pnpm that would not start fail alike, and only
   # the capture above knows which.
-  quietly do_prettier \
+  quietly --pnpm do_prettier \
     || die "the formatter check did not pass — its own output is above.
 Where it names files, they are unformatted:  cd fl_frontend && pnpm format  -- then commit the result."
   ok "the tree is formatted"
@@ -953,7 +956,7 @@ if (( RUN_FRONTEND_UNITS )); then
   # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
   # collected, a crashed worker -- is a run that reached no verdict.
   UNIT_TESTS_RC=0
-  quietly do_unit_tests || UNIT_TESTS_RC=$?
+  quietly --pnpm do_unit_tests || UNIT_TESTS_RC=$?
   case "$UNIT_TESTS_RC" in
     0) ;;
     1) die "frontend unit tests failed." ;;
@@ -1012,17 +1015,17 @@ output is above." ;;
 
   step "frontend · tsc"
   unit_join typecheck
-  unit_verdict typecheck "${LINENO}" "tsc found type errors."
+  unit_verdict --pnpm typecheck "${LINENO}" "tsc found type errors."
   ok "no type errors"
 
   step "frontend · eslint"
   unit_join eslint
-  unit_verdict eslint "${LINENO}" "eslint failed."
+  unit_verdict --pnpm eslint "${LINENO}" "eslint failed."
   ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
   unit_join knip
-  unit_verdict knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
+  unit_verdict --pnpm knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
 Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.json beside the entry."
   ok "nothing unused"
 
@@ -1033,7 +1036,7 @@ Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.js
   # pnpm audit answers 1 for an advisory and 0 otherwise; every other status is a check that made
   # none, `unit_replay`'s 3 included. An else-arm would close the scope green over one.
   AUDIT_RC=0
-  quietly unit_replay audit || AUDIT_RC=$?
+  quietly --pnpm unit_replay audit || AUDIT_RC=$?
   case "$AUDIT_RC" in
     0)   ok "no known runtime vulnerabilities" ;;
     1)   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit" ;;
@@ -1312,7 +1315,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  ( cd fl_frontend && quietly pnpm run test:db ) || FRONTEND_DB_RC=$?
+  ( cd fl_frontend && quietly --pnpm pnpm run test:db ) || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.

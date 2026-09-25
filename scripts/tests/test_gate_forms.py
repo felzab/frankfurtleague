@@ -273,24 +273,30 @@ exit 0
 """
 
 
-def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -> None:
-    """`quietly` streams the line under `--verbose`, and `run_checker`'s replay of it is guarded off there.
-
-    Drop that guard and the line prints twice, which no other case here reads.
-    """
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    root = new_root("fl-gate-annotate-")
+def _venv_root(prefix: str, interpreter_text: str, **fields: str) -> tuple[Path, dict[str, str]]:
+    """A copy of `scripts/` whose virtualenv interpreter is a stub, with `uv`'s currency check stubbed too."""
+    root = new_root(prefix)
     copy_scripts(root / "scripts")
     # The POSIX spelling, which `scripts/lib/_lib.sh :: venv_python` also takes on Windows, where
     # a shebang script cannot stand in for a `.exe`.
     interpreter = root / "fl_backend" / ".venv" / "bin" / "python"
     interpreter.parent.mkdir(parents=True)
     version = sys.version_info
-    os.chmod(write_shell(interpreter, STUB_VENV_PYTHON.format(major=version.major, minor=version.minor, population=POPULATION)), 0o755)
-    stubs = new_root("fl-gate-annotate-stubs-")
+    os.chmod(write_shell(interpreter, interpreter_text.format(major=version.major, minor=version.minor, **fields)), 0o755)
+    stubs = new_root(prefix + "stubs-")
     os.chmod(write_shell(stubs / "uv", STUB_UV), 0o755)
     environment = base_env()
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
+    return root, environment
+
+
+def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -> None:
+    """`quietly` streams the line under `--verbose`, and `run_checker`'s replay of it is guarded off there.
+
+    Drop that guard and the line prints twice, which no other case here reads.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, environment = _venv_root("fl-gate-annotate-", STUB_VENV_PYTHON, population=POPULATION)
     for flags, form in ((("--docs", "--verbose"), "streamed"), (("--docs", "--serial"), "captured")):
         done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", *flags, env=environment)
         assert done.returncode == 0, done.stdout + done.stderr
@@ -303,8 +309,19 @@ def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -
 UNIT_TESTS: Final = "test"
 
 
-@pytest.mark.parametrize(("scope", "subcommand"), [("--format", "format:check"), ("--frontend-units", UNIT_TESTS)])
-def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(scope: str, subcommand: str) -> None:
+# One subcommand per kind of call site passing `quietly --pnpm`: a direct step, a writer, a pooled
+# unit's verdict and the audit's own replay. The audit's failure is an advisory, so its control is 0.
+@pytest.mark.parametrize(
+    ("scope", "subcommand", "failed"),
+    [
+        ("--format", "format:check", 1),
+        ("--frontend-units", UNIT_TESTS, 1),
+        ("--frontend", "typegen", 1),
+        ("--frontend", "typecheck:only", 1),
+        ("--frontend", "audit:prod", 0),
+    ],
+)
+def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(scope: str, subcommand: str, failed: int) -> None:
     """Exit 2: pnpm stopped the script before it ran, so the step judged nothing (`.claude/CLAUDE.md` §7 **exit codes**).
 
     The same subcommand failing on its own is the control: a runner refusing every stop passes nothing.
@@ -314,5 +331,27 @@ def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(sco
     assert refused.returncode == 2, output
     assert "pnpm's dependency check stopped this step" in output and "cd fl_frontend && pnpm install" in output, output
     assert "finding(s) in this run" not in output, output
-    failed, _ = _run(scope, fails=subcommand)
-    assert failed.returncode == 1, failed.stdout + failed.stderr
+    control, _ = _run(scope, fails=subcommand)
+    assert control.returncode == failed, control.stdout + control.stderr
+
+
+# A checker that is no pnpm script, failing with output that quotes the dependency check's code: a
+# case asserting on a stub's refusal prints exactly that.
+STUB_QUOTING_PYTHON: Final = """#!/usr/bin/env bash
+case "${{1:-}}" in
+  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
+  scripts/checks/check_docs.py) printf '%s\\n' "a finding quoting [ERR_PNPM_VERIFY_DEPS_BEFORE_RUN]"; exit 1 ;;
+esac
+exit 0
+"""
+
+
+def test_a_failing_check_quoting_pnpm_s_refusal_code_is_a_failure() -> None:
+    """Exit 1: only a step that started a pnpm script can have been stopped by pnpm's dependency check."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, environment = _venv_root("fl-gate-quoting-", STUB_QUOTING_PYTHON)
+    # Serial: the stub interpreter would also be handed the pool's driver, and runs nothing.
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--docs", "--serial", env=environment)
+    output = done.stdout + done.stderr
+    assert done.returncode == 1, output
+    assert "pnpm's dependency check stopped this step" not in output, output

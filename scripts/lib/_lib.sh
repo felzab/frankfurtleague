@@ -284,9 +284,12 @@ QUIETLY_OUTPUT=""
 # The streaming arm's copy while its command runs, so an interrupt can reclaim it.
 _QUIETLY_CAPTURE=""
 
+# `--pnpm` first names a command that starts a pnpm script, the one kind pnpm's dependency check can
+# stop: any other tool's output may quote that check's code without pnpm having run.
 quietly() {
-  local out rc=0
+  local out rc=0 runs_pnpm=0
   local -a piped=()
+  if [[ "${1:-}" == --pnpm ]]; then runs_pnpm=1; shift; fi
   QUIETLY_OUTPUT=""
   if (( VERBOSE )); then
     # Kept as well as streamed, or a caller grading by the output grades this form differently. A
@@ -310,8 +313,8 @@ quietly() {
   QUIETLY_OUTPUT="$out"
   # pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) stopped the
   # `pnpm run` or `pnpm exec` before its script started, so no check ran: a refusal, never the
-  # step's own failure, whichever step it was.
-  if (( rc )) && [[ "$out" == *ERR_PNPM_VERIFY_DEPS_BEFORE_RUN* ]]; then
+  # step's own failure.
+  if (( rc && runs_pnpm )) && [[ "$out" == *ERR_PNPM_VERIFY_DEPS_BEFORE_RUN* ]]; then
     refuse "pnpm's dependency check stopped this step before it ran: fl_frontend's node_modules do not answer
 its manifest and lockfile (pnpm names what differs above), so nothing here was checked.
 Fix with:  cd fl_frontend && pnpm install  -- and commit the lockfile if it changes."
