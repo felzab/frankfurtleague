@@ -7,6 +7,7 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { TEAM_FACETS } from "@/features/teams/facets";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -41,7 +42,6 @@ import {
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 /** Read for the codes each mapper's own switch names. */
 const UTILS = readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8");
 
@@ -555,11 +555,10 @@ describe("the submission's refusals against the codes its endpoint publishes", (
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
-     exists or its state. The vocabulary is READ OFF the teams facet, so a status added there is
+     exists or its state. The vocabulary is the teams list's status facet, so a status added there is
      covered here too. */
   it("keeps both roster-facing refusals free of every status word the app uses", () => {
-    const facets = readFileSync(path.join(SRC_DIR, "features", "teams", "facets.ts"), "utf8");
-    const statuses = [...facets.matchAll(/value: "(stillgelegt|ausgeschieden|\w+)", label: "([A-ZÄÖÜ]\w+)"/g)].map((t) => t[2]!);
+    const statuses = (TEAM_FACETS.find((facet) => facet.param === "status")?.options ?? []).map((option) => option.label);
 
     assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
 
