@@ -741,9 +741,8 @@ because a case is cut only where a surviving one still fails for the same regres
   consumed everywhere, beats a value that looks better on one page, and a real exception is ratified
   in prose where the next sweep finds it. The grammar the redesign replaces is
   [`docs/frontend/spec.md`](../frontend/spec.md) §1.16 to §1.21, over the tokens in
-  `fl_frontend/src/app/globals.css`, and the checks holding it —
-  `fl_frontend/src/shared/components/ui/gapLadder.test.ts` and the two hover bans in
-  `fl_frontend/eslint.config.mjs :: SOURCE_BANS` among them — change with their rule rather than
+  `fl_frontend/src/app/globals.css`, and the checks holding it — the gap ban and the two hover bans
+  in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` among them — change with their rule rather than
   being deleted. **No page leads its neighbours**: a page on the new grammar beside
   pages on the old reads as a defect, so a new rule reaches every page it governs in the change that
   introduces it.
