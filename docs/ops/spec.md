@@ -275,9 +275,10 @@ both sitting below that log's own level. nginx puts the request line there WHOLE
 `Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
 line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
 ([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
-`nginx:1.31-alpine` and read back, 2026-09-21. The live sign-in token travels in the
-query of `/signin/bestaetigen`, a page, so what stands over it is `location /`'s connection ceiling
-rather than any rate zone. **What the pair does not close is every OTHER `error`-level line**, an
+`nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
+query of a page — the sign-in, confirmation and invitation landing pages — so what stands over it
+is `location /`'s connection ceiling rather than any rate zone, the zones metering the writes those
+pages post. **What the pair does not close is every OTHER line about a request, at any level**, an
 upstream failure among them, which repeats the same request line
 ([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
 zone that refused, the access line carrying `status` alone.

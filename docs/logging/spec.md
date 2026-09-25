@@ -138,8 +138,8 @@ How each surface keeps its stream to one format:
   `trace_id` the `$request_id` the header carries and its `span_id` the `$edge_span` map. `path` and
   `message` read `$logged_uri` rather than `$request_uri`, and `referer` reads `$logged_referer`
   rather than `$http_referer`: each is the raw value except on the sign-in library's verification
-  path, and on any
-  query naming the sign-in token or the address it was mailed to, where a literal stands in (L11).
+  path, and on any query carrying a `token` or an `email` parameter — the spelling every minted
+  link's token and every mailed address takes — where a literal stands in (L11).
   The **error log is the one deliberate exception**: the open-source build this stack pins offers
   no format for it but plain text. `error_log`'s `json` parameter and `error_log_tag` (both 1.29.8)
   are commercial-subscription features, which `nginx:1.31-alpine` refuses as `invalid log level
