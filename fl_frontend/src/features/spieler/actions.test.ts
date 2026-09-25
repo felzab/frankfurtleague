@@ -14,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -59,8 +60,7 @@ const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 /** What the editor page's doubled reads answer, set by the case that renders it. */
 const PAGE_READS = "__flSpielerEditorLesungen";
 
-/* The page's own reads and `connection()`, which is request-only where this process makes no
-   request. Each double answers only the fields the page reads. */
+/* The page's own reads, each double answering only the fields the page reads. */
 const PAGE_DOUBLES: [string, string][] = [
   [
     "/src/features/spieler/queries.ts",
@@ -73,7 +73,6 @@ export const getSpielerNachnominierung = async (saison_id) => ({ saison_id, nach
 export const getSaisons = async () => globalThis.${PAGE_READS}.saisons;`,
   ],
   ["/src/features/teams/queries.ts", `export const getTeamMemberships = async () => globalThis.${PAGE_READS}.teams;`],
-  ["/next/server.js", "export const connection = async () => undefined;"],
 ];
 
 registerHooks({
@@ -397,18 +396,12 @@ describe("the erasure's gate and its exit", () => {
   });
 });
 
-type ElementOf<P> = { type: (props: P) => Promise<ReactElement>; props: P };
-
-// Reached through the boundary's own `props.children` for the reason
-// `fl_frontend/src/features/bewerbungen/routes.test.ts :: renderBody` gives.
 /** The editor page's body as its reads answer it: the element it hands the editor. */
-async function editorPageBody(): Promise<ReactElement> {
-  const props = { params: Promise.resolve({ spieler_id: SPIELER_ID }), searchParams: Promise.resolve({ saison_id: SAISON_ID }) };
-  const boundary = AdminSpielerEditPage(props) as unknown as { props: { children: ElementOf<typeof props> } };
-  const body = boundary.props.children;
-
-  return body.type(body.props);
-}
+const editorPageBody = (): Promise<ReactElement> =>
+  pageBody(AdminSpielerEditPage, {
+    params: Promise.resolve({ spieler_id: SPIELER_ID }),
+    searchParams: Promise.resolve({ saison_id: SAISON_ID }),
+  });
 
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,

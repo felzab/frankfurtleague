@@ -737,8 +737,6 @@ which HeroUI publishes at the root alone.
 
 **The shapes no render reaches:**
 
-- an async Server Component, whose content sits behind its own awaits — a render reaches the
-  fallback it declares, so an assertion over that markup passes without seeing the component's own
 - an overlay's body under the server render — a modal, a `ComboBox`'s suggestion list, a
   `DatePicker`'s calendar — which the component holds outside the markup it renders, a modal handed
   `isOpen` included; a client render reaches one a press opens, in the document body beside its root

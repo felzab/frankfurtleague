@@ -1,0 +1,116 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { createElement as h, Suspense } from "react";
+
+import z from "zod";
+
+import { callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, renderPage, steps } from "./pageHarness.ts";
+
+/* `await import`, never a static import: the doubles are registered as the harness evaluates, and a
+   static import would have resolved the real modules before then. */
+const { connection } = await import("next/server");
+const { apiClient } = await import("@/core/api.ts");
+const { notFound } = await import("next/navigation.js");
+
+const Answer = z.object({ n: z.number() });
+const PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
+
+async function Connected() {
+  await connection();
+  await apiClient("/erst-nach-connection", Answer);
+  return h(ReadsUnderIt);
+}
+
+/* Awaits no connection of its own: it is called only once its parent has returned. */
+async function ReadsUnderIt() {
+  await apiClient("/im-kind", Answer);
+  return h("p", null, "geladen");
+}
+
+async function ReadsFirst() {
+  await apiClient("/vor-connection", Answer);
+  await connection();
+  return null;
+}
+
+async function Crashes(): Promise<never> {
+  await connection();
+  throw new Error("kaputt");
+}
+
+async function Missing() {
+  await connection();
+  return notFound();
+}
+
+const inBoundary = (child: ReturnType<typeof h>) => () => h(Suspense, { fallback: h("p", null, "lädt") }, child);
+
+describe("the page harness", () => {
+  it("renders an async body inside its boundary to what it resolves to, not to the fallback", async () => {
+    const markup = await renderPage(h(inBoundary(h(Connected))));
+
+    assert.match(markup, /geladen/);
+    assert.doesNotMatch(markup, /lädt/, "the render stopped at the boundary's fallback");
+  });
+
+  /* React answers a throw inside a boundary with the fallback and a client-rendering template, so a
+     render that resolved there would hand an absence assertion a crash to pass over. */
+  it("rejects where a body throws inside its boundary", async () => {
+    await assert.rejects(renderPage(h(inBoundary(h(Crashes)))), /kaputt/);
+  });
+
+  it("records each step in order, and a read no connection() above it opened", async () => {
+    clearSteps();
+    const walk = await callPage(inBoundary(h("div", null, h(Connected), h(ReadsFirst))), PROPS);
+
+    assert.deepEqual(
+      steps.map((step) => (step.kind === "read" ? step.endpoint : step.kind)),
+      ["connection", "/erst-nach-connection", "/im-kind", "/vor-connection", "connection"],
+    );
+    assert.deepEqual(
+      walk.unconnected,
+      ["ReadsFirst :: /vor-connection"],
+      "a child is charged for its parent's connection, or a read before one passes",
+    );
+  });
+
+  it("records every throw and walks on past it, telling Next's own answers from a crash", async () => {
+    clearSteps();
+    const walk = await callPage(inBoundary(h("div", null, h(Crashes), h(Missing), h(Connected))), PROPS);
+
+    assert.deepEqual(
+      walk.thrown.map((error) => [error instanceof Error ? error.message : String(error), isNavigation(error)]),
+      [
+        ["kaputt", false],
+        ["NEXT_HTTP_ERROR_FALLBACK;404", true],
+      ],
+    );
+    assert.ok(
+      steps.some((step) => step.kind === "read" && step.endpoint === "/im-kind"),
+      "the walk stopped at the first throw",
+    );
+  });
+
+  it("answers the schemas a read refuses an empty value for", () => {
+    const Schema = z.object({
+      id: z.string().regex(/^[0-9a-f]{24}$/),
+      saison_id: z.string().length(4),
+      am: z.iso.date(),
+      je_status: z.record(z.enum(["offen", "zu"]), z.int().nonnegative()),
+      je_name: z.record(z.string(), z.int()),
+      format: z.discriminatedUnion("format", [z.object({ format: z.literal("liste") }), z.object({ format: z.literal("gruppen") })]),
+      position: z.int().min(1),
+    });
+
+    assert.deepEqual(emptiest(Schema), {
+      id: OBJECT_ID,
+      saison_id: "2026",
+      am: "2026-01-01",
+      je_status: { offen: 0, zu: 0 },
+      je_name: {},
+      format: { format: "liste" },
+      position: 1,
+    });
+  });
+});

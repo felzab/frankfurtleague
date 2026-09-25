@@ -114,7 +114,7 @@ const asModule = (source: string): string => `data:text/javascript,${encodeURICo
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
  * throw outside one, and `server-only` throws outside a server build.
  */
-const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
+export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "server-only": "export {};",
   "next/cache":
     "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as revalidatePath, inert as cacheLife, inert as cacheTag };",

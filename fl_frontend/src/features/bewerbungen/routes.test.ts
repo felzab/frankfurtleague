@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import "@/shared/testing/renderTest.ts";
+import { pageBody } from "@/shared/testing/pageHarness.ts";
 
 import type { Metadata } from "next";
 import type { FLBewerbungFensterResponse } from "./schemas";
@@ -163,9 +163,6 @@ export const getAdminSaisons = async () => ({ saisons: [] });`;
 const RENDERS_NOTHING = `export const BewerbungView = () => null;
 export const ContentLoader = () => null;`;
 
-/** Stands in for `next/server`, whose `connection()` is request-only and this process makes no request. */
-const CONNECTION_DOUBLE = `export const connection = async () => undefined;`;
-
 /* Everything under the page is doubled -- its reads, its view, its loader and the season list the
    segment resolver imports -- so a case decides what the window answer does to the metadata. */
 const DOUBLED: [string, string][] = [
@@ -178,8 +175,6 @@ const DOUBLED: [string, string][] = [
 // The page itself compiles through the shared harness's step, which this hook runs ahead of.
 registerHooks({
   load(url, context, nextLoad) {
-    if (url.endsWith("/next/server.js")) return { format: "module", source: CONNECTION_DOUBLE, shortCircuit: true };
-
     const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
     if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
     return nextLoad(url, context);
@@ -232,19 +227,12 @@ describe("what the public application page tells a crawler about its season", ()
   });
 });
 
-type ElementOf<P> = { type: (props: P) => Promise<unknown>; props: P };
-
-// Reached through the element's own `props.children` rather than rendered, which is a private shape
-// a React release can move: the body is an async Server Component, so `renderTree` draws the
-// boundary's fallback and never the component's own answer (`docs/frontend/spec.md` §1.9).
 /** The page's body: the boundary's one child, where the season's read and its 404 sit. */
 async function renderBody(antwort: WindowRead, schulen: Error | null = null): Promise<unknown> {
   (globalThis as unknown as Record<string, unknown>)[ANSWER] = antwort;
   (globalThis as unknown as Record<string, unknown>)[SCHOOLS_ANSWER] = schulen;
-  const boundary = BewerbungPage(PAGE_PROPS) as unknown as { props: { children: ElementOf<typeof PAGE_PROPS> } };
-  const body = boundary.props.children;
 
-  return body.type(body.props);
+  return pageBody(BewerbungPage, PAGE_PROPS);
 }
 
 describe("what the public application page answers for a season nobody knows", () => {
