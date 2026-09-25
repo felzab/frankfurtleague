@@ -13,6 +13,8 @@ from collections.abc import Iterator
 
 import pytest
 
+from app.core.security import MISSING_TOKEN
+
 from .test_bewerbung_public_read import (
     ADDRESS,
     CLUBS,
@@ -29,9 +31,6 @@ from .test_bewerbung_public_read import (
 # What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
 # decoded bodies by key.
 WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
-
-# The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
 
 
 # Module-scoped for the read module's `seeded_url`'s reason.
@@ -134,7 +133,7 @@ class TestTheTierTheseReadsAreServedAt:
         response = answered(seeded_url, path, headers={})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+        assert response.json()["error_code"] == MISSING_TOKEN
 
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""

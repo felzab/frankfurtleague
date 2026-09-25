@@ -15,6 +15,7 @@ from app.api.identitaet.services import build_referee_pipeline, build_seat_pipel
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
@@ -30,12 +31,6 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
 APP = create_app(build_test_config())
-
-# The code a request carrying no bearer draws, and the one `verify_access_system` itself raises: each
-# guard is built with its OWN (`app/core/security.py :: verify_api_key`), so the base key answers the
-# system guard's code rather than `verify_access_base`'s.
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
-WRONG_KEY_FOR_THIS_GUARD = "REQ-AUTH-003"
 
 # The folded form a caller sends, and the spellings the league stores it under. Deliberately
 # unusual, so a hit in a seeded corpus cannot be a coincidence.
@@ -399,16 +394,16 @@ def test_the_operation_is_unreachable_without_a_bearer_token():
     response = TestClient(APP, raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
 
     assert response.status_code == 401
-    assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+    assert response.json()["error_code"] == MISSING_TOKEN
 
 
 def test_the_base_key_draws_the_system_guard_s_own_code():
-    """`REQ-AUTH-002` here would mean `verify_access_base` is on this route; the code names the guard, never the key presented."""
+    """`WRONG_BASE_KEY` here would mean `verify_access_base` is on this route; each guard answers its own code, whatever key arrives."""
 
     response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
 
     assert response.status_code == 401
-    assert response.json()["error_code"] == WRONG_KEY_FOR_THIS_GUARD
+    assert response.json()["error_code"] == WRONG_SYSTEM_KEY
 
 
 def served_over_http(url: str, email: str = IDENTIFIER) -> Response:

@@ -40,7 +40,7 @@ from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
@@ -880,7 +880,6 @@ class TestASubmissionMadeOverTheWire:
 
 # The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
 # the payload alone, so the stored shape is `bsonType: "int"` and no null.
-DOCUMENT_VALIDATION_FAILED = 121
 
 
 def _parsed_kontakte() -> dict[str, Any]:
