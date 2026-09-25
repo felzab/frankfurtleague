@@ -315,9 +315,9 @@ quietly() {
   # shellcheck disable=SC2034  # read by the scripts that source this file
   QUIETLY_OUTPUT="$out"
   # pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) stopped the
-  # `pnpm run` or `pnpm exec` before its script started, so no check ran: a refusal, never the
-  # step's own failure.
-  if (( rc && runs_pnpm )) && [[ "$out" == *ERR_PNPM_VERIFY_DEPS_BEFORE_RUN* ]]; then
+  # `pnpm run` or `pnpm exec` before its script started, so no check ran: a refusal. Only that stop
+  # prints the code first; a script that ran can quote it later.
+  if (( rc && runs_pnpm )) && [[ "$out" == '[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN]'* ]]; then
     refuse "pnpm's dependency check stopped this step before it ran: fl_frontend's node_modules do not answer
 its manifest and lockfile (pnpm names what differs above), so nothing here was checked.
 Fix with:  cd fl_frontend && pnpm install  -- and commit the lockfile if it changes."

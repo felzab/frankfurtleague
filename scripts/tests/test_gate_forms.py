@@ -40,6 +40,10 @@ if [[ -n "${FL_STUB_REFUSE:-}" && "${1:-}" == "${FL_STUB_REFUSE}" ]]; then
   printf '%s\\n' "[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] The lockfile does not satisfy project of id ."
   exit 1
 fi
+if [[ -n "${FL_STUB_QUOTE:-}" && "${1:-}" == "${FL_STUB_QUOTE}" ]]; then
+  printf '%s\\n' "the stub ran ${1}" "a failing case expected [ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] in its output"
+  exit 1
+fi
 if [[ -n "${FL_STUB_CRASH:-}" && "${1:-}" == "${FL_STUB_CRASH}" ]]; then
   printf '%s\\n' "the stub crashed ${1}"
   exit 3
@@ -130,7 +134,7 @@ def _fixture() -> Fixture:
 
 @cache
 def _run(
-    *flags: str, fails: str = "", refuses: str = "", crashes: str = "", ci: bool = False, below_floor: bool = False
+    *flags: str, fails: str = "", refuses: str = "", crashes: str = "", quotes: str = "", ci: bool = False, below_floor: bool = False
 ) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
@@ -154,6 +158,7 @@ def _run(
     environment["FL_STUB_FAIL"] = fails
     environment["FL_STUB_REFUSE"] = refuses
     environment["FL_STUB_CRASH"] = crashes
+    environment["FL_STUB_QUOTE"] = quotes
     environment["TMPDIR"] = fixture.scratch.as_posix()
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
@@ -350,6 +355,14 @@ def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(sco
     assert "finding(s) in this run" not in output, output
     control, _ = _run(scope, fails=subcommand)
     assert control.returncode == failed, control.stdout + control.stderr
+
+
+def test_a_pnpm_script_that_ran_and_failed_quoting_the_refusal_code_is_a_failure() -> None:
+    """Exit 1: the script started, so pnpm's check let it through, whatever its own output says after."""
+    done, _ = _run("--frontend-units", quotes=UNIT_TESTS)
+    output = done.stdout + done.stderr
+    assert done.returncode == 1, output
+    assert "pnpm's dependency check stopped this step" not in output, output
 
 
 # A checker that is no pnpm script, failing with output that quotes the dependency check's code: a
