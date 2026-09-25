@@ -95,11 +95,11 @@ describe("a panel's hint sits beside its heading", () => {
     assert.deepEqual(nested.map(rel), []);
   });
 
-  it("is the mechanism those headings use", () => {
-    // Anti-vacuity: the case above is equally true of a tree that stopped rendering panels at all.
-    const users = FILES.filter((file) => readFileSync(file, "utf8").includes("<PanelHeading"));
+  it("reads the headings the tree renders", () => {
+    // Anti-vacuity: the case above is equally true of a reader that stopped finding headings at all.
+    const read = FILES.flatMap((file) => headings(code(readFileSync(file, "utf8")), rel(file)));
 
-    assert.ok(users.length >= 35, `expected the shared heading in at least 35 panels, found ${String(users.length)}`);
+    assert.ok(read.length >= 60, `expected at least 60 headings across the tree, the sweep read ${String(read.length)}`);
   });
 
   it("puts nothing but the title in the one heading it renders", () => {
