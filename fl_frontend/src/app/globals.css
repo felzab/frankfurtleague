@@ -649,6 +649,13 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   color: var(--fg-muted);
 }
 
+/* A field's hint stays beside its error, as ruled on 2026-09-25, where HeroUI's field styles hide a
+   description inside an invalid field. Unlayered, so it outranks that `hidden`; `revert` hands back the
+   element's own display. */
+:is([data-invalid="true"], [aria-invalid="true"]) [data-slot="description"] {
+  display: revert;
+}
+
 /* Every HeroUI `Switch` opts out of rings: it rings off react-aria's global
    focus-visible modality, so a press following any earlier key press counted as
    keyboard focus. It turns its border brand instead, like every field here. */
