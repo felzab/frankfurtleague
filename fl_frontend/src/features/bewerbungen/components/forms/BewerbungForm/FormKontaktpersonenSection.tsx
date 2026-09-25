@@ -107,7 +107,7 @@ export function FormKontaktpersonenSection({
 
   /**
    * The wire spells an unanswered claim as `null`, so hiding the boxes until an answer would refuse
-   * six fields on controls nobody can see — which reaches the applicant as the unhandled-path toast.
+   * each box below on a control nobody can see — which reaches the applicant as the unhandled-path toast.
    */
   const zeigtFelder = trainerWahl === undefined || trainerWahl === null;
 
