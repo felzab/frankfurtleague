@@ -240,6 +240,13 @@ where the row carries the stamp the expiry reads (I119).\
 **Trap:** the name carries `stufe` and the number counts no `stufe` — a `stufe` is one Halbjahr and an Abi-Jahrgang runs through all six of them, so no single `stufe` ever names the cohort this field counts, and `erlaubte_stufen` answers a different question again; the label alone says `Stufe` and the sentence under it is what settles the cohort, so prose written from the label counts the wrong pupils; the count is required of the public form while the stored shape keeps the key out of the validator's `required`, so an application submitted before the field existed can still be decided; and the ceiling is the write payload's alone, a stored value over it still reading rather than answering 500 for a whole triage list.\
 **See:** backend spec I16 for what a validator may assert, and [`domain.md`](domain.md) for why a substring match attributes this term's facts to another concept.
 
+### `wunschgegner` — the opponent a school wishes to meet on the first Spieltag
+
+**Is:** a school's free-text wish on its application, naming the side it would like to play first, or null where it named nobody. A wish recorded and repeated back, never a fixture: the Spielplan decides the pairings.\
+**In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung.wunschgegner`, trimmed and bounded on the write by `:: FLPostBewerbungPayload` against `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH`; the acceptance mail states it through `fl_frontend/src/core/bewerbungEmail.ts :: BewerbungZusageData`, where the field is required so no call site can leave it out.\
+**Trap:** a string, never a club reference — a school may name an applicant the league has not accepted yet, so no reading of it resolves to a `Team`, and nothing ever pairs on it; the acceptance mail says the draw decides for the same reason. An empty or blank entry is stored as null rather than as a wish, and the write payload defaults the key where its siblings require theirs, so a form that stops sending it ships a silent null.\
+**See:** the `Spielplan` entry above for what decides the pairings, and backend spec I16 for why the validator leaves the key out of `required`.
+
 ### `Kürzel` · `shorthand` — the two letters one club is known by
 
 **Is:** the code a club is identified by league-wide, unique across every club and retired ones with them. A school proposes one on its application before any club exists to hold it, and the acceptance is what turns the proposal into a club's own.\
