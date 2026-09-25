@@ -14,7 +14,7 @@ import postcss from "postcss";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
+import { asRenderedPage, isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { PageProps } from "@/shared/testing/pageHarness.ts";
@@ -697,6 +697,10 @@ const FALLBACKS = SHAPES.flatMap((shape) =>
 
 const fallbacksIn = (html: string): string[] => FALLBACKS.filter(({ markup }) => html.includes(markup)).map(({ drawn }) => drawn);
 
+/** The same over `renderPage`'s answer, which the DOM spells rather than React. */
+const fallbacksInPage = (html: string): string[] =>
+  FALLBACKS.filter(({ markup }) => html.includes(asRenderedPage(markup))).map(({ drawn }) => drawn);
+
 const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/admin/${route}` });
 
 /* Selected on the placeholder each route's loading boundary draws, which is none of the properties the
@@ -729,7 +733,7 @@ describe("every admin CRUD route", () => {
       );
       // Resolved, the page draws its view, whose cover is the placeholder the view was built for.
       assert.deepEqual(
-        fallbacksIn(await renderPage(atRoute(route, h(Page, PROPS)))),
+        fallbacksInPage(await renderPage(atRoute(route, h(Page, PROPS)))),
         drawn,
         `${route}: its view covers itself with another placeholder`,
       );
