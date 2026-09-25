@@ -825,9 +825,11 @@ which a seat holding an address requires; neither hook puts a component out of r
 
 **A replacement reason names what the assertion is about, never what the runner cannot do** — a
 ratified decision (`.claude/rules/cross-surface.md`), not this sheet's to widen. **A server action is
-called for what it returns**, its slice's `mutations.ts` doubled by
-`fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActions` and the request Next would serve it
-in by `:: doubleActionRequest`. Which mapper an action consults is held by what it answers each
+called for what it returns**, in the request Next would serve it in, doubled by
+`fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest`, with its slice's real
+`mutations.ts` sending through the client
+`fl_frontend/src/shared/testing/apiClientDouble.ts :: doubleApiAnswers` doubles: that client records
+a sent write as the real one does, and the admin spine answers by that record. Which mapper an action consults is held by what it answers each
 published refusal with (`fl_frontend/src/shared/testing/publishedRefusals.ts :: assertEachAnswered`),
 never by its source naming the mapper.
 

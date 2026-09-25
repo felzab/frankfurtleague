@@ -24,14 +24,17 @@ function identifier(name: string): string {
 }
 
 /**
- * Replaces an actions module, or the `mutations.ts` a real action calls, at the module boundary, every
- * export answering `answer` and recording its call: a test-only prop would be a seam in production code.
+ * Replaces an actions module, or a read module a real action calls, at the module boundary: a
+ * test-only prop would be a seam in production code.
  */
 export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
 }: {
-  /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
+  /**
+   * Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. Never
+   * a real action's write module: this double records no write for the admin spine, `doubleApiAnswers` does.
+   */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
@@ -85,20 +88,14 @@ export function doubleActions({
       if (!modules.some((named) => (typeof named === "string" ? url.endsWith(named) : named.test(url)))) return nextLoad(url, context);
 
       const real = blankComments(readFileSync(fileURLToPath(url), "utf8"));
-      const exported = [...real.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)];
-      const source = exported
-        .map((match, index) => {
-          const name = match[1] ?? "";
-          // The record the API client makes as it sends the export's request, which the spine judges its
-          // answer by: each export makes one call, a method other than GET without `readOnly: true` a write.
-          const call = real.slice(match.index, exported[index + 1]?.index);
-          const records = /method: "(?!GET")[A-Z]+"/.test(call) && !call.includes("readOnly: true") ? "recordWriteSent(); " : "";
-
-          return `export const ${identifier(name)} = async (payload) => { ${records}const bus = globalThis.${bus}; bus.push({ action: ${JSON.stringify(name)}, payload }); return bus.answer(${JSON.stringify(name)}); };`;
+      const source = [...real.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
+        .map(([, name = ""]) => {
+          const action = JSON.stringify(name);
+          return `export const ${identifier(name)} = async (payload) => { const bus = globalThis.${bus}; bus.push({ action: ${action}, payload }); return bus.answer(${action}); };`;
         })
         .join("\n");
 
-      return { format: "module", source: `import { recordWriteSent } from "@/core/requestScope";\n${source}`, shortCircuit: true };
+      return { format: "module", source, shortCircuit: true };
     },
   });
 
