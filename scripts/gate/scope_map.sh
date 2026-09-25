@@ -71,6 +71,9 @@ else
       # `fl_frontend/src/shared/components/ui/tabIndicator.test.ts` reads the contrast pairs this
       # module records, so an edit here owes the frontend scope as well as the arm below's.
       scripts/checks/docs_gate/scheme.py) scripts=true; docs=true; frontend=true ;;
+      # The ops scope runs this over both stacks' rendered models, the one run judging the real
+      # compose files, so an edit here owes that scope as well as the arm below's.
+      scripts/checks/check_compose_exposure.py) scripts=true; docs=true; ops=true ;;
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;
@@ -130,9 +133,9 @@ else
       # of its own, so CI reads this vocabulary rather than translating it.
 
       # `scripts` rides along because `scripts/ruff.toml` EXTENDS this pyproject and the gate's own
-      # ruff and pyright come out of the virtualenv this lockfile pins: both govern that scope
-      # without living in it.
-      fl_backend/pyproject.toml|fl_backend/uv.lock) scripts=true; backend=true; db=true; images=true; docs=true ;;
+      # ruff and pyright come out of the virtualenv this lockfile pins, and `ops` because the ops
+      # scope's zizmor does too: each governs a scope without living in it.
+      fl_backend/pyproject.toml|fl_backend/uv.lock) scripts=true; backend=true; ops=true; db=true; images=true; docs=true ;;
       # Every scope running the virtualenv this file pins, and the image's builder stage. The frontend
       # and images jobs take a bare interpreter from it for the step pool alone, where a low pin
       # costs the pool, never a verdict.
