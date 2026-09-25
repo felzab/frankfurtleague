@@ -273,22 +273,20 @@ FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
 DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
 RULE_CODE: Final = "REQ-SAMPLE-002"
 UNENFORCED_SUBJECT: Final = "a sample state the register permits"
+# One live token of every shape a reason may take, each resolving in the corpus below.
 LIVE_REASON: Final = (
     "Near `REQ-SAMPLE-001` and `REQ-SAMPLE-*`, in `app/sample.py`, as `app/sample.py :: VALUE` and `I1` hold; "
-    "`GET /sample` is the backend's to read."
+    "`GET /sample` serves `/sample` over `(saison_id, team_id)`, naming `VALUE` and `3`."
 )
-# The backend classifier that hands those shapes over, holding the gate's own five, so the clean corpus
-# agrees and a plant swapping one disagrees.
-SHAPE_CLASSIFIER: Final = "fl_backend/tests/core/test_domain.py"
-# The classifier's one read of them, which matches the token a reason spells as it stands.
-SHAPE_READ: Final = "return any(shape.match(token) for shape in _GATE_SHAPES)"
-HANDED_OVER_SHAPES: Final = (
-    r"^(?:REQ|READ)-[A-Z]+-\d+$",
-    r"^((?:REQ|READ)-[A-Z]+-)\*$",
-    r"^(\S+\.\w+) :: (.+)$",
-    r"^[\w.\-]+(?:/[\w.\-]*)+$",
-    r"^[IL]\d{1,3}[a-z]?$",
-)
+# The backend the gate imports beside the register: the version its routes are published under,
+# the one index a reason names, and the page an entry is surfaced by, inside a route group.
+BACKEND_CONFIG: Final = "fl_backend/app/core/config.py"
+BACKEND_CONSTRAINTS: Final = "fl_backend/app/core/constraints.py"
+BACKEND_PACKAGE: Final = "fl_backend/app/__init__.py"
+OPENAPI: Final = "fl_backend/openapi.json"
+SAMPLE_PAGE: Final = "fl_frontend/src/app/(site)/sample/page.tsx"
+RULE_OPERATION: Final = "GET /sample"
+SURFACE: Final = "/sample"
 # The code the sample component's second literal spells, so the frontend owes two rows.
 SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
@@ -881,35 +879,58 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             '  const again = "' + REPEATED_STRING + '";',
             "});",
         ),
-        SHAPE_CLASSIFIER: _page(
-            QUOTES + "BACKEND · the suite resolving the reason tokens the gate leaves it." + QUOTES,
-            "",
-            "import re",
-            "",
-            "_GATE_SHAPES = tuple(re.compile(pattern) for pattern in (",
-            *[f'    r"{pattern}",' for pattern in HANDED_OVER_SHAPES],
-            "))",
-            "",
-            "",
-            "def _classify(token):",
-            f"    {SHAPE_READ}",
-        ),
         DOMAIN_REGISTER: _page(
             QUOTES + "BACKEND · the rule register whose codes the refusal register gives no row." + QUOTES,
             "",
+            "from dataclasses import dataclass",
+            "",
+            'OPERATION_SEPARATOR = " · "',
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Rule:",
+            "    code: str",
+            "    operation: str",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Unenforced:",
+            "    subject: str",
+            "    reason: str",
+            '    surfaced_by: str = ""',
+            "",
+            "",
             "RULES: tuple[Rule, ...] = (",
-            '    Rule(code="' + RULE_CODE + '"),',
+            '    Rule(code="' + RULE_CODE + '", operation="' + RULE_OPERATION + '"),',
             ")",
             "",
-            # One live address of every shape the gate reads, and one the backend reads, which
-            # the gate must pass over rather than fail.
             "UNENFORCED: tuple[Unenforced, ...] = (",
             "    Unenforced(",
             '        subject="' + UNENFORCED_SUBJECT + '",',
             '        reason="' + LIVE_REASON + '",',
+            '        surfaced_by="' + SURFACE + '",',
             "    ),",
             ")",
         ),
+        BACKEND_PACKAGE: "",
+        BACKEND_CONFIG: _page(QUOTES + "BACKEND · the version the routes are published under." + QUOTES, "", "API_VERSION = 0"),
+        BACKEND_CONSTRAINTS: _page(
+            QUOTES + "BACKEND · the indexes a reason may name." + QUOTES,
+            "",
+            "from dataclasses import dataclass",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Index:",
+            "    keys: tuple[str, ...]",
+            "",
+            "",
+            'UNIQUE_INDEXES = (Index(keys=("saison_id", "team_id")),)',
+            "SUPPORT_INDEXES = ()",
+            "TTL_INDEXES = ()",
+        ),
+        OPENAPI: '{"paths": {"/api/v0/sample": {"get": {}}}}\n',
+        SAMPLE_PAGE: _page("export default function Page() {", "  return null;", "}"),
         SCHEME: _scheme_page(),
         APP_GLOBALS: _globals_page(),
         COPY_SAMPLE: _page(
@@ -1935,7 +1956,7 @@ def test_a_rule_register_read_as_nothing_is_named_once_and_compared_to_nothing()
     One finding: a comparison run after it would add a second, demanding a row for that spelled rule.
     """
     _reset()
-    _replace(DOMAIN_REGISTER, "RULES: tuple[Rule, ...] = (", "RULES = (")
+    _replace(DOMAIN_REGISTER, "RULES: tuple[Rule, ...] = (\n", "RULES: tuple[Rule, ...] = ()\n_DROPPED = (\n")
     try:
         _, output = _output()
     finally:
@@ -1943,7 +1964,7 @@ def test_a_rule_register_read_as_nothing_is_named_once_and_compared_to_nothing()
     reported = _reported(output)
     spoke = {key: count for key, count in reported.items() if key[1] == "error-codes"}
     assert spoke == {("fail", "error-codes", ERROR_CODES): 1}, "an unreadable rule register was not named alone: " + _shape(reported)
-    said = 'yielded no rule declaration as a tuple of `Rule(code="...")` calls, so the register was held to nothing'
+    said = "`fl_backend/app/core/domain.py :: RULES` declares no rule, so the register was held to nothing"
     assert said in output, "the finding misstates what it cost: " + output
     _assert_corpus_restored()
 

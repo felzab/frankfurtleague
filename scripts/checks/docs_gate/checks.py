@@ -112,7 +112,7 @@ from .kernel import (
     word_count,
 )
 from .platform import check_platform_branches, check_text_writes
-from .reasons import check_unenforced_reasons
+from .reasons import backend, check_unenforced_reasons
 from .scheme import check_scheme_tokens
 
 # --- what a page's kind decides ------------------------------------------------------------------
@@ -2174,6 +2174,11 @@ def main() -> int:
     if not files:
         # Refused, not green: an empty corpus is a tree this gate could not read.
         print("      no corpus file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
+        return checker_kernel.EXIT_REFUSED
+    # Refused, not a finding: the backend's rules and declared states are read by importing it, and
+    # a backend that will not import leaves nothing here judged about them.
+    if isinstance(loaded := backend(), str):
+        print(f"      fl_backend could not be imported ({loaded}), so no rule or declared state was read", file=sys.stderr)
         return checker_kernel.EXIT_REFUSED
 
     # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers

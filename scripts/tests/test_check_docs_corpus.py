@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
-from typing import Final
 
 import pytest
 from conftest import git, write
@@ -26,7 +25,6 @@ from test_check_docs import (
     APP_GLOBALS,
     BLOCKED_FIELDS,
     DOCS_ENTRY,
-    DOMAIN_REGISTER,
     ERROR_CODES,
     FRONTEND_RAISE,
     FRONTEND_ROW,
@@ -44,7 +42,6 @@ from test_check_docs import (
     PROTOCOL,
     QUOTES,
     ROADMAP,
-    RULE_CODE,
     SAMPLE,
     SKIPPED_MODULE,
     SLICE_ENTRY,
@@ -356,47 +353,6 @@ def test_a_code_only_a_comment_spells_leaves_its_row_unanswered(plant: Callable[
         _reset()
     assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
     assert said in output, output
-    _assert_corpus_restored()
-
-
-# The sample rule as the register's one declaration spells it.
-RULE_LINE: Final = '    Rule(code="' + RULE_CODE + '"),'
-
-
-def test_a_rule_a_comment_holds_in_the_register_is_owed_a_row() -> None:
-    """A `code=` inside the tuple's text and outside its value declares nothing, so the module spelling it owes a row."""
-    _reset()
-    _replace(DOMAIN_REGISTER, RULE_LINE, RULE_LINE + "\n    " + HASH + ' Rule(code="REQ-SAMPLE-003"),')
-    _append(SAMPLE, 'RETIRED = "REQ-SAMPLE-003"')
-    try:
-        _, output = _output()
-        reported = _reported(output)
-    finally:
-        _reset()
-    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
-    assert "spells `REQ-SAMPLE-003`, which this register gives no row" in output, output
-    _assert_corpus_restored()
-
-
-@pytest.mark.parametrize(
-    "spelled",
-    [
-        pytest.param('    _retired(Rule(code="' + RULE_CODE + '")),', id="wrapped"),
-        pytest.param('    Retired(code="' + RULE_CODE + '"),', id="another-call"),
-        pytest.param('    Rule("sample", code="' + RULE_CODE + '"),', id="positional"),
-    ],
-)
-def test_a_register_spelling_a_rule_other_than_bare_is_read_as_no_declaration(spelled: str) -> None:
-    """Each keeps its `code=` literal while no `Rule(code=...)` reaches the tuple as spelled, so the form is refused whole."""
-    _reset()
-    _replace(DOMAIN_REGISTER, RULE_LINE, spelled)
-    try:
-        _, output = _output()
-        reported = _reported(output)
-    finally:
-        _reset()
-    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
-    assert "yielded no rule declaration as a tuple of" in output, output
     _assert_corpus_restored()
 
 

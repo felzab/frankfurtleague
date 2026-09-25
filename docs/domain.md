@@ -297,11 +297,10 @@ than reading as the evidence it is not. A bare name is resolved weakly on purpos
 source tree spells outside the declaration itself, so one still written anywhere else in either tree passes
 whatever it names there.
 
-**Most of what a model change owes is caught at the gate**: the documentation gate resolves the rule codes,
-invariants, paths and citations a reason argues from
-(`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`), and `test_domain.py` resolves every other
-address the declaration names and holds the claims it makes rather than merely the addresses. Two obligations
-are not caught, because no check can see a row nobody wrote:
+**Most of what a model change owes is caught at the gate**: the documentation gate imports the declaration and
+resolves every address it names — each anchor a reason argues from, each entry's surface and each rule's route
+(`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`) — and `test_domain.py` holds the claims it
+makes rather than the addresses. Two obligations are not caught, because no check can see a row nobody wrote:
 
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks

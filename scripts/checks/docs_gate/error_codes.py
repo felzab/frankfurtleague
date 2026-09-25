@@ -12,12 +12,12 @@ Invariants:
 
 from __future__ import annotations
 
-import ast
 import re
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _readable, code_body, python_tree, rebound, tracked_glob, tracked_page
+from .kernel import REPO_ROOT, Finding, _readable, code_body, tracked_glob, tracked_page
+from .reasons import backend
 
 ERROR_CODES_CHECK: Final = "error-codes"
 ERROR_CODES_PAGE: Final = "docs/logging/error-codes.md"
@@ -46,7 +46,6 @@ FRONTEND_GLOB: Final = "fl_frontend/src/**/*.ts*"
 TEST_SUFFIXES: Final[tuple[str, ...]] = (".test.ts", ".test.tsx")
 
 DOMAIN_MODULE: Final = "fl_backend/app/core/domain.py"
-RULES_NAME: Final = "RULES"
 
 
 @cache
@@ -66,34 +65,13 @@ def _spelled(pattern: str) -> dict[str, str]:
     return found
 
 
-# One form, a bare `Rule(code="...")`: a wrapper or a nested call can spell a `code=` the tuple
-# does not declare.
-def _rule_code(node: ast.expr) -> str | None:
-    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Rule" and not node.args):
-        return None
-    code = next((keyword.value for keyword in node.keywords if keyword.arg == "code"), None)
-    return code.value if isinstance(code, ast.Constant) and isinstance(code.value, str) else None
-
-
-def _domain_tree() -> ast.Module | None:
-    page = tracked_page(DOMAIN_MODULE)
-    return None if page is None else python_tree(page)
-
-
-@cache
 def _declared_rules() -> frozenset[str]:
-    """Every code the backend declares a domain rule for, empty where the declaration is not one read here.
+    """Every code the backend declares a domain rule for, as the application imports them.
 
     Reached without opening the page: rows deciding which codes are owed one could never fail (PRE-4).
     """
-    tree = _domain_tree()
-    for node in [] if tree is None else tree.body:
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == RULES_NAME:
-            if not isinstance(node.value, ast.Tuple):
-                return frozenset()
-            codes = [_rule_code(element) for element in node.value.elts]
-            return frozenset() if None in codes else frozenset(code for code in codes if code is not None)
-    return frozenset()
+    loaded = backend()
+    return frozenset() if isinstance(loaded, str) else frozenset(rule.code for rule in getattr(loaded.domain, "RULES", ()))
 
 
 def check_error_codes() -> list[Finding]:
@@ -113,9 +91,9 @@ def check_error_codes() -> list[Finding]:
     if not declared:
         # The one finding, and no comparison after it: the one below subtracts the declared rules,
         # and would demand a row for every domain rule the backend spells.
-        detail = f'`{DOMAIN_MODULE}` yielded no rule declaration as a tuple of `Rule(code="...")` calls, so the register was held to nothing'
+        detail = f"`{DOMAIN_MODULE} :: RULES` declares no rule, so the register was held to nothing"
         return [Finding("fail", ERROR_CODES_CHECK, rel, detail)]
-    found = rebound(_domain_tree(), RULES_NAME, ERROR_CODES_CHECK, DOMAIN_MODULE)
+    found: list[Finding] = []
     for code in sorted(rows & declared):
         detail = f"`{code}` is a domain rule, stated at `{DOMAIN_MODULE} :: RULES`, and takes no row here"
         found.append(Finding("fail", ERROR_CODES_CHECK, rel, detail))

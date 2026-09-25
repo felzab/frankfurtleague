@@ -1,8 +1,6 @@
 import ast
 import functools
 import importlib
-import json
-import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import ModuleType
@@ -19,12 +17,10 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.constraints import COLLECTION_VALIDATORS, SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
+from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import (
     AGGREGATES,
     FIELD_POLICIES,
-    OPERATION_SEPARATOR,
     REFERENCES,
     RULES,
     UNENFORCED,
@@ -39,14 +35,9 @@ from tests.core.app_source import Declaration, declared, module_of, parsed, reso
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
-# The frontend, because `Unenforced.surfaced_by` names the page or component reporting the state.
-REPO_ROOT = BACKEND_ROOT.parent
 
 # One file, so the pairing below can be exact in both directions.
 UNENFORCED_TESTS = "tests/core/test_unenforced.py"
-
-FRONTEND_APP = REPO_ROOT / "fl_frontend" / "src" / "app"
-_ROUTE_GROUP = re.compile(r"^\(.+\)$")
 
 # `saison_teams` and `saison_spieler` have no row model: their fields are declared by their
 # `$jsonSchema` alone.
@@ -73,34 +64,6 @@ _CODE_PATTERN = "REQ-"
 DECLARATION = APP_ROOT / "core" / "domain.py"
 DECLARATION_MODULE = "app.core.domain"
 
-# What a `reason=` cites, by shape. Each kind carries its own idea of resolving, so a token is
-# classified before it is looked up, and one matching no shape at all fails rather than passing.
-_REASON_TOKEN = re.compile(r"`([^`]+)`")
-# The shapes the documentation gate resolves, each an address the corpus answers for; passed over
-# here, and read there, spelled as that gate spells them
-# (`scripts/checks/docs_gate/reasons.py :: check_handed_over_shapes`).
-_GATE_SHAPES = tuple(
-    re.compile(pattern)
-    for pattern in (
-        r"^(?:REQ|READ)-[A-Z]+-\d+$",
-        r"^((?:REQ|READ)-[A-Z]+-)\*$",
-        r"^(\S+\.\w+) :: (.+)$",
-        r"^[\w.\-]+(?:/[\w.\-]*)+$",
-        r"^[IL]\d{1,3}[a-z]?$",
-    )
-)
-_ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
-_SURFACE = re.compile(r"^/\S*$")
-_INDEX_KEY = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
-_NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
-_WORD = re.compile(r"[A-Za-z_]\w*")
-
-# The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
-# field beside the value it holds, and a type expression.
-_VALUE = re.compile(r"^\d+$")
-_FIELD_VALUE = re.compile(r"^[\w.]+: \S+$")
-_TYPE_EXPRESSION = re.compile(r"^[\w\[\], |]*[\[|][\w\[\], |]*$")
-
 
 def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
     """Every `REQ-*` code under `root`, comments included; `skip` drops a file that must not answer for its own text."""
@@ -118,92 +81,6 @@ def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
             if code.count("-") == 2 and code.rsplit("-", 1)[1].isdigit():
                 found.add(code)
     return found
-
-
-def _page_serves(url: str, app_dir: Path = FRONTEND_APP) -> bool:
-    """Whether a `page.tsx` serves `url`, through any route group.
-
-    A folder named `(name)` is left out of the URL (https://nextjs.org/docs/app/api-reference/file-conventions/route-groups,
-    Next.js 16.3.6, read 2026-09-24), so a page moved into one keeps its address and must keep resolving.
-    """
-
-    def serves(folder: Path, segments: list[str]) -> bool:
-        groups = [child for child in folder.iterdir() if child.is_dir() and _ROUTE_GROUP.match(child.name)] if folder.is_dir() else []
-        here = (folder / "page.tsx").is_file() if not segments else serves(folder / segments[0], segments[1:])
-
-        return here or any(serves(group, segments) for group in groups)
-
-    segments = [segment for segment in url.split("/") if segment]
-
-    return not any(_ROUTE_GROUP.match(segment) for segment in segments) and serves(app_dir, segments)
-
-
-@functools.cache
-def _declared_index_keys() -> frozenset[tuple[str, ...]]:
-    """Key fields alone, the sort direction dropped: a reason names the group an index covers, never the order it walks it in."""
-
-    return frozenset(
-        {tuple(index.keys) for index in UNIQUE_INDEXES}
-        | {tuple(field for field, _ in support.keys) for support in SUPPORT_INDEXES}
-        | {(ttl.key,) for ttl in TTL_INDEXES}
-    )
-
-
-@functools.cache
-def _published_routes() -> Mapping[str, Any]:
-    """`openapi.json` rather than the application object.
-
-    The published document is the surface a route claim is about, and the gate holds it to the
-    endpoints it describes.
-    """
-
-    return json.loads((BACKEND_ROOT / "openapi.json").read_text(encoding="utf-8"))["paths"]
-
-
-@functools.cache
-def _names_the_source_trees_spell() -> frozenset[str]:
-    """Weak on purpose, because the rot it answers is a rename.
-
-    A name neither tree spells is gone, whatever it named -- a field, a symbol, an index, or a
-    label a page prints.
-    """
-
-    words: set[str] = set()
-    for root, suffixes in ((APP_ROOT, ("*.py",)), (REPO_ROOT / "fl_frontend" / "src", ("*.ts", "*.tsx", "*.css"))):
-        for suffix in suffixes:
-            for path in root.rglob(suffix):
-                if path != DECLARATION:
-                    words.update(_WORD.findall(path.read_text(encoding="utf-8")))
-
-    return frozenset(words)
-
-
-def _classify(token: str) -> tuple[str, bool | None]:
-    """The kind, and whether it resolves -- `None` where the kind has no address, parting a spared value from one nothing answers for."""
-
-    # Ahead of every shape below: an `I<n>` is also a name either tree spells.
-    if any(shape.match(token) for shape in _GATE_SHAPES):
-        return "the documentation gate's", None
-
-    if endpoint := _ENDPOINT.match(token):
-        route, method = endpoint.group(2), endpoint.group(1).lower()
-        # The whole path, never its end: `/saisons/{saison_id}` also ends the team and player routes,
-        # which would go on resolving a season route renamed away.
-        return "endpoint", method in _published_routes().get(f"/api/v{API_VERSION}{route}", {})
-
-    if _SURFACE.match(token):
-        return "surface", _page_serves(token)
-
-    if key := _INDEX_KEY.match(token):
-        return "index key", tuple(key.group(1).split(", ")) in _declared_index_keys()
-
-    if _NAME.match(token):
-        return "name", all(segment in _names_the_source_trees_spell() for segment in token.split("."))
-
-    if _VALUE.match(token) or _FIELD_VALUE.match(token) or _TYPE_EXPRESSION.match(token):
-        return "value", None
-
-    return "a shape this check does not read", False
 
 
 def _validator_properties(collection: Collection) -> Mapping[str, Any]:
@@ -527,14 +404,6 @@ def test_every_refusal_the_application_builds_is_answered_at_its_rules_status():
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
-def test_every_rule_names_operations_the_document_publishes(rule):
-    """No refusal is raised from `operation`, so a route it names wrongly is read by a person and caught by nothing."""
-
-    for token in rule.operation.split(OPERATION_SEPARATOR):
-        assert _classify(token) == ("endpoint", True), f"{rule.code} declares {token!r}, which the published document does not serve"
-
-
-@pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
 def test_every_rule_is_tested_where_it_says(rule):
     """The CLAIM again: a class that asserts on messages alone proves the wording, never the contract a client maps."""
 
@@ -561,75 +430,6 @@ def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
     unknown = [code for code in entry.near if code not in defined]
 
     assert not unknown, f"'{entry.subject}' sits near {unknown}, which the application defines nowhere"
-
-
-@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
-def test_every_unenforced_surface_resolves(entry):
-    """A dead surface is the rot this catches: an entry claiming a person can see the state, pointing at a page that is gone."""
-
-    if not entry.surfaced_by:
-        return
-
-    served = _page_serves(entry.surfaced_by) if entry.surfaced_by.startswith("/") else (REPO_ROOT / entry.surfaced_by).is_file()
-
-    assert served, f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
-
-
-def test_a_surface_resolves_through_a_route_group_and_never_to_the_groups_own_name(tmp_path: Path):
-    """A synthetic tree, so the arm is pinned whether or not a page in the real one sits in a group today."""
-
-    (tmp_path / "admin" / "(current-saison)" / "action_required").mkdir(parents=True)
-    (tmp_path / "admin" / "(current-saison)" / "action_required" / "page.tsx").touch()
-
-    assert _page_serves("/admin/action_required", tmp_path)
-    assert not _page_serves("/admin/(current-saison)/action_required", tmp_path)
-    assert not _page_serves("/admin/elsewhere", tmp_path)
-
-
-@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
-def test_every_anchor_a_reason_names_resolves(entry):
-    """The entry's argument, held to the bar its three addressed fields meet.
-
-    A reason arguing from a rule, a page or an index renamed away reads as evidence and is none.
-    """
-
-    unresolved = []
-    for token in _REASON_TOKEN.findall(entry.reason):
-        kind, resolved = _classify(token)
-        if resolved is False:
-            unresolved.append(f"`{token}` ({kind})")
-
-    assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
-
-
-def test_an_endpoint_resolves_against_the_whole_published_path():
-    """The second token ends the published season route and names no route at all."""
-
-    assert _classify("PATCH /saisons/{saison_id}") == ("endpoint", True)
-    assert _classify("PATCH /{saison_id}") == ("endpoint", False)
-
-
-def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():
-    """Per kind: one arm resolving whatever the trees spell satisfies a bare floor for all of them.
-
-    A listing that answers nothing is then named here, rather than reaching
-    `fl_backend/tests/core/test_domain.py :: test_every_anchor_a_reason_names_resolves` alone, as
-    reasons that invented their evidence.
-    """
-
-    present: set[str] = set()
-    resolved: set[str] = set()
-    for entry in UNENFORCED:
-        for token in _REASON_TOKEN.findall(entry.reason):
-            kind, answer = _classify(token)
-            if answer is None:
-                continue
-            present.add(kind)
-            if answer:
-                resolved.add(kind)
-
-    assert present, "no reason names anything with an address, so the per-entry sweep passed over nothing"
-    assert present == resolved, f"nothing resolved for {sorted(present - resolved)}, so the listing behind that kind answers for nothing"
 
 
 def test_every_unenforced_entry_is_paired_with_the_test_that_proves_it():

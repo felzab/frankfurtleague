@@ -1,56 +1,64 @@
-"""SCRIPTS · the addresses a declared unenforced state argues from, held to the tree they name.
+"""SCRIPTS · what the backend's declaration argues from, held to the tree it names.
 
-A reason is read as evidence, so one arguing from a rule, an invariant or a file renamed away reads
-as evidence and is none. This package resolves the addresses the corpus answers for; the backend's
-own suite resolves the rest, being the one reader able to import what they name.
+A reason is read as evidence, so one arguing from a rule, an invariant, a route or a file renamed away
+reads as evidence and is none. The declaration is imported rather than read as text: its value is
+what the application runs with, whatever spelling builds it.
 
 Invariants:
-  Each backticked token of a reason is one package's to resolve: the shapes below here, every
-  other one in `fl_backend/tests/core/test_domain.py :: _classify`, which passes over exactly
-  these (`check_handed_over_shapes`).
+  Every backticked token of a reason resolves here, by its shape, or fails; the backend's own suite
+  holds the declaration's claims and never its addresses.
 """
 
 from __future__ import annotations
 
-import ast
+import importlib
+import json
 import re
-from collections.abc import Callable, Sequence
+import sys
+from collections.abc import Callable
 from functools import cache
-from typing import Final
+from types import ModuleType
+from typing import Final, NamedTuple
 
 from .kernel import (
     REPO_ROOT,
     Finding,
+    _read_text,
     _readable,
     code_body,
     is_gitignored,
-    python_tree,
-    rebound,
     repo_path,
     tracked_glob,
     tracked_page,
 )
 
+BACKEND_ROOT: Final = "fl_backend"
 DOMAIN_MODULE: Final = "fl_backend/app/core/domain.py"
-DECLARED: Final = "UNENFORCED"
 # The one sheet holding the read rules, which refuse nothing and so reach no module's source.
 READ_RULES_SHEET: Final = "docs/backend/spec.md"
 APP_GLOB: Final = "fl_backend/app/**/*.py"
+OPENAPI_PAGE: Final = "fl_backend/openapi.json"
+PAGE_GLOB: Final = "fl_frontend/src/app/**/page.tsx"
+APP_DIR: Final = "fl_frontend/src/app/"
+# The trees a bare name is looked for in: a field, a symbol, an index or a label a page prints.
+NAME_GLOBS: Final = (APP_GLOB, "fl_frontend/src/**/*.ts", "fl_frontend/src/**/*.tsx", "fl_frontend/src/**/*.css")
 
 REASON_TOKEN_RE: Final = re.compile(r"`([^`]+)`")
-# The shapes this package owns. The backend's classifier hands these over and reads every other, so a
-# shape in one list alone is a token nothing reads (`check_handed_over_shapes`).
 RULE_CODE_RE: Final = re.compile(r"^(?:REQ|READ)-[A-Z]+-\d+$")
 CODE_FAMILY_RE: Final = re.compile(r"^((?:REQ|READ)-[A-Z]+-)\*$")
 CITATION_RE: Final = re.compile(r"^(\S+\.\w+) :: (.+)$")
 REPO_PATH_RE: Final = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
 INVARIANT_RE: Final = re.compile(r"^[IL]\d{1,3}[a-z]?$")
-OWNED_SHAPES: Final = (RULE_CODE_RE, CODE_FAMILY_RE, CITATION_RE, REPO_PATH_RE, INVARIANT_RE)
-
-# Read from its source rather than imported: the suite needs the backend's application objects, and
-# a gate reading it here runs in the docs scope, which a change to either file selects.
-CLASSIFIER: Final = "fl_backend/tests/core/test_domain.py"
-HANDED_OVER: Final = "_GATE_SHAPES"
+ENDPOINT_RE: Final = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
+SURFACE_RE: Final = re.compile(r"^/\S*$")
+INDEX_KEY_RE: Final = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
+NAME_RE: Final = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
+WORD_RE: Final = re.compile(r"[A-Za-z_]\w*")
+# The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
+# field beside the value it holds, and a type expression.
+SPARED_RES: Final = (re.compile(r"^\d+$"), re.compile(r"^[\w.]+: \S+$"), re.compile(r"^[\w\[\], |]*[\[|][\w\[\], |]*$"))
+# A folder Next.js leaves out of the URL (https://nextjs.org/docs/app/api-reference/file-conventions/route-groups).
+ROUTE_GROUP_RE: Final = re.compile(r"^\(.+\)$")
 
 RAISED_CODE_RE: Final = re.compile(r"\bREQ-[A-Z]+-\d+\b")
 READ_ROW_RE: Final = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ", re.MULTILINE)
@@ -58,6 +66,31 @@ READ_ROW_RE: Final = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ", re.MULTILINE)
 # `rel`, then the citation, then the invariant tables: `checks.py :: _check_citation`'s signature,
 # handed in because that module imports this one.
 Cite = Callable[[str, str, dict[str, list[str]]], list[Finding]]
+
+
+class Backend(NamedTuple):
+    domain: ModuleType
+    constraints: ModuleType
+    config: ModuleType
+
+
+@cache
+def backend() -> Backend | str:
+    """The backend's declarations as the application runs them, or why they could not be imported.
+
+    Any `app` a host process already holds is dropped first: this reads the backend at `REPO_ROOT`.
+    """
+    root = str(REPO_ROOT / BACKEND_ROOT)
+    for name in [name for name in sys.modules if name == "app" or name.startswith("app.")]:
+        del sys.modules[name]
+    sys.path.insert(0, root)
+    try:
+        return Backend(*(importlib.import_module(f"app.core.{name}") for name in ("domain", "constraints", "config")))
+    # Whatever stopped the import is the refusal's reason; a finding would blame a reason nobody read.
+    except Exception as error:
+        return f"{type(error).__name__}: {error}"
+    finally:
+        sys.path.remove(root)
 
 
 @cache
@@ -75,134 +108,54 @@ def resolvable_codes() -> frozenset[str]:
     return frozenset(codes)
 
 
-def _literal(node: ast.expr | None) -> str | None:
-    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
+@cache
+def published_routes() -> dict[str, dict[str, object]]:
+    """`openapi.json` rather than the application: the published document is what a route claim is about."""
+    page = tracked_page(OPENAPI_PAGE)
+    text = None if page is None else _read_text(page)[0]
+    return {} if text is None else json.loads(text).get("paths", {})
 
 
-def _tree(rel: str) -> ast.Module | None:
-    page = tracked_page(rel)
-    return None if page is None else python_tree(page)
+@cache
+def served_pages() -> frozenset[str]:
+    """Every URL a `page.tsx` serves, route groups left out as Next.js leaves them."""
+    served: set[str] = set()
+    for page in tracked_glob(PAGE_GLOB):
+        folders = page.relative_to(REPO_ROOT).as_posix().removeprefix(APP_DIR).split("/")[:-1]
+        served.add("/" + "/".join(folder for folder in folders if not ROUTE_GROUP_RE.match(folder)))
+    return frozenset(served)
 
 
-def declared_reasons() -> list[tuple[str, str | None, int]] | None:
-    """Each entry's subject, its reason where one literal string spells it, and that reason's line.
-
-    None where the module declares no `UNENFORCED` tuple this can read.
-    """
-    tree = _tree(DOMAIN_MODULE)
-    for node in [] if tree is None else tree.body:
-        if not isinstance(node, ast.AnnAssign | ast.Assign):
-            continue
-        target = node.target if isinstance(node, ast.AnnAssign) else node.targets[0]
-        if isinstance(target, ast.Name) and target.id == DECLARED and isinstance(node.value, ast.Tuple):
-            entries: list[tuple[str, str | None, int]] = []
-            for call in node.value.elts:
-                fields = {keyword.arg: keyword.value for keyword in call.keywords} if isinstance(call, ast.Call) else {}
-                reason = fields.get("reason")
-                entries.append((_literal(fields.get("subject")) or "?", _literal(reason), (reason or call).lineno))
-            return entries
-    return None
+@cache
+def spelled_names() -> frozenset[str]:
+    """Weak on purpose, because the rot it answers is a rename: a name neither tree spells is gone."""
+    words: set[str] = set()
+    for glob in NAME_GLOBS:
+        for path in tracked_glob(glob):
+            if path.relative_to(REPO_ROOT).as_posix() != DOMAIN_MODULE and (text := _read_text(path)[0]) is not None:
+                words.update(WORD_RE.findall(text))
+    return frozenset(words)
 
 
-def handed_over_value() -> ast.expr | None:
-    """What the backend's classifier assigns the shapes it passes over as this package's, None where it declares none."""
-    tree = _tree(CLASSIFIER)
-    for node in [] if tree is None else tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == HANDED_OVER for target in node.targets):
-            return node.value
-    return None
+def _index_keys(loaded: Backend) -> frozenset[tuple[str, ...]]:
+    """Key fields alone: a reason names the group an index covers, never the order it walks it in."""
+    constraints = loaded.constraints
+    return frozenset(
+        {tuple(index.keys) for index in constraints.UNIQUE_INDEXES}
+        | {tuple(field for field, _ in support.keys) for support in constraints.SUPPORT_INDEXES}
+        | {(ttl.key,) for ttl in constraints.TTL_INDEXES}
+    )
 
 
-def _bare_compile(node: ast.expr) -> ast.expr | None:
-    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "compile"):
-        return None
-    module = node.func.value
-    bare = isinstance(module, ast.Name) and module.id == "re" and len(node.args) == 1 and not node.keywords
-    return node.args[0] if bare and not isinstance(node.args[0], ast.Starred) else None
+def _published(loaded: Backend, token: str) -> bool:
+    """The whole path, never its end: `/saisons/{saison_id}` also ends the team and player routes."""
+    endpoint = ENDPOINT_RE.match(token)
+    route = f"/api/v{loaded.config.API_VERSION}{endpoint.group(2)}" if endpoint else ""
+    return endpoint is not None and endpoint.group(1).lower() in published_routes().get(route, {})
 
 
-def _literals(nodes: Sequence[ast.expr | None]) -> list[str] | None:
-    patterns = [pattern for node in nodes if (pattern := _literal(node)) is not None]
-    return patterns if len(patterns) == len(nodes) else None
-
-
-def handed_over_patterns(value: ast.expr) -> list[str] | None:
-    """The patterns `_GATE_SHAPES` compiles, None for any form but one bare compile over literal patterns.
-
-    A flag, a filter or a transform changes what a shape matches while its text stays the gate's.
-    """
-    if not (isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "tuple"):
-        return None
-    built = value.args[0] if len(value.args) == 1 and not value.keywords else None
-    if not (isinstance(built, ast.GeneratorExp) and len(built.generators) == 1):
-        return None
-    loop = built.generators[0]
-    compiled = _bare_compile(built.elt)
-    same_name = isinstance(loop.target, ast.Name) and isinstance(compiled, ast.Name) and compiled.id == loop.target.id
-    if not same_name or loop.ifs or loop.is_async or not isinstance(loop.iter, ast.Tuple):
-        return None
-    return _literals(loop.iter.elts)
-
-
-def _bare_match(node: ast.AST, parameters: set[str]) -> ast.expr | None:
-    """The shapes read by `any(shape.match(<a parameter>) for shape in _GATE_SHAPES)`, None for any other node."""
-    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "any" and len(node.args) == 1):
-        return None
-    built = node.args[0]
-    if node.keywords or not (isinstance(built, ast.GeneratorExp) and len(built.generators) == 1):
-        return None
-    loop, match = built.generators[0], built.elt
-    if loop.ifs or loop.is_async or not (isinstance(loop.iter, ast.Name) and loop.iter.id == HANDED_OVER):
-        return None
-    if not (isinstance(match, ast.Call) and isinstance(match.func, ast.Attribute) and match.func.attr == "match") or match.keywords:
-        return None
-    shape, token = match.func.value, match.args[0] if len(match.args) == 1 else None
-    matched = isinstance(shape, ast.Name) and isinstance(loop.target, ast.Name) and shape.id == loop.target.id
-    return loop.iter if matched and isinstance(token, ast.Name) and token.id in parameters else None
-
-
-def _handed_over_use(tree: ast.Module | None) -> list[Finding]:
-    """The one read of the shapes, required to match the token a reason spells, untransformed."""
-    reads = [node for node in ([] if tree is None else ast.walk(tree)) if isinstance(node, ast.Name) and node.id == HANDED_OVER]
-    reads = [node for node in reads if isinstance(node.ctx, ast.Load)]
-    functions = [node for node in ([] if tree is None else ast.walk(tree)) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)]
-    bare = {
-        found
-        for function in functions
-        for node in ast.walk(function)
-        if (found := _bare_match(node, {argument.arg for argument in (*function.args.posonlyargs, *function.args.args)})) is not None
-    }
-    if len(reads) == 1 and set(reads) == bare:
-        return []
-    line = next((node.lineno for node in reads if node not in bare), reads[0].lineno if reads else None)
-    detail = f"`{HANDED_OVER}` is read other than once as `any(shape.match(<parameter>) ...)`, so it may match a token no reason spells"
-    return [Finding("fail", "citation", CLASSIFIER, detail, line)]
-
-
-def check_handed_over_shapes() -> list[Finding]:
-    """The two lists of the shapes this package owns, required to be one list spelled twice."""
-    value = handed_over_value()
-    if value is None:
-        return [Finding("fail", "citation", CLASSIFIER, f"declares no `{HANDED_OVER}`, so no reason token is known to be this gate's")]
-    patterns = handed_over_patterns(value)
-    if patterns is None:
-        detail = f"`{HANDED_OVER}` is no bare `re.compile(pattern)` over literal patterns, so what it passes over is not what it spells"
-        return [Finding("fail", "citation", CLASSIFIER, detail, value.lineno)]
-    handed = set(patterns)
-    owned = {shape.pattern for shape in OWNED_SHAPES}
-    found = rebound(_tree(CLASSIFIER), HANDED_OVER, "citation", CLASSIFIER) + _handed_over_use(_tree(CLASSIFIER))
-    found += [
-        Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` hands over `{one}`, a shape the gate does not read")
-        for one in sorted(handed - owned)
-    ]
-    found += [
-        Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` keeps `{one}`, a shape the gate reads too") for one in sorted(owned - handed)
-    ]
-    return found
-
-
-def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite: Cite) -> list[tuple[str, str]]:
-    """What one token fails, as a check's name beside its detail; nothing for a shape the backend reads."""
+def _unresolved(loaded: Backend, token: str, subject: str, invariants: dict[str, list[str]], cite: Cite) -> list[tuple[str, str]]:
+    """What one token fails, as a check's name beside its detail, by the first shape it takes."""
     said = f"'{subject}' argues from `{token}`"
     if RULE_CODE_RE.match(token):
         known = token in resolvable_codes()
@@ -216,28 +169,58 @@ def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite
         return [(finding.check, f"'{subject}': {finding.detail}") for finding in cite(token, DOMAIN_MODULE, invariants)]
     if REPO_PATH_RE.match(token):
         return [] if repo_path(token) is not None or is_gitignored(token) else [("path", f"{said}, a path the repository holds nowhere")]
+    # Ahead of a name: an `I<n>` is also a word either tree spells.
     if INVARIANT_RE.match(token):
         return [] if token in invariants else [("invariant-id", f"{said}, which no spec sheet's invariant table defines")]
-    return []
+    if ENDPOINT_RE.match(token):
+        return [] if _published(loaded, token) else [("citation", f"{said}, a route `{OPENAPI_PAGE}` does not publish")]
+    if SURFACE_RE.match(token):
+        return [] if token in served_pages() else [("path", f"{said}, a page no `page.tsx` under `{APP_DIR}` serves")]
+    if key := INDEX_KEY_RE.match(token):
+        known = tuple(key.group(1).split(", ")) in _index_keys(loaded)
+        return [] if known else [("citation", f"{said}, an index key no index in `app/core/constraints.py` declares")]
+    if NAME_RE.match(token):
+        known = all(segment in spelled_names() for segment in token.split("."))
+        return [] if known else [("citation", f"{said}, a name neither source tree spells outside the declaration")]
+    if any(spared.match(token) for spared in SPARED_RES):
+        return []
+    return [("citation", f"{said}, a shape nothing here reads, so it resolves to nothing")]
+
+
+def _line(text: str, subject: str) -> int | None:
+    """The line opening an entry, found by its subject: the imported value carries none."""
+    at = text.find(json.dumps(subject, ensure_ascii=False))
+    return None if at < 0 else text.count("\n", 0, at) + 1
 
 
 def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> list[Finding]:
-    """Every address an `UNENFORCED` reason argues from, resolved as the corpus's own citations are."""
-    entries = declared_reasons()
-    found = [*check_handed_over_shapes(), *rebound(_tree(DOMAIN_MODULE), DECLARED, "citation", DOMAIN_MODULE)]
+    """Every address the declaration argues from: each reason's tokens, each entry's surface, each rule's routes."""
+    loaded = backend()
+    if isinstance(loaded, str):
+        return []  # `checks.py :: main` refuses the run on it before any check reads the backend
+    entries, rules = getattr(loaded.domain, "UNENFORCED", ()), getattr(loaded.domain, "RULES", ())
     if not entries:
-        return [*found, Finding("fail", "citation", DOMAIN_MODULE, "yielded no `UNENFORCED` reason, so no reason's addresses were read")]
+        return [Finding("fail", "citation", DOMAIN_MODULE, "declares no `UNENFORCED` entry, so no reason's addresses were read")]
     if not resolvable_codes():
         detail = (
             f"no module under `{APP_GLOB}` spells a code in its code and no read-rules row declares one, so codes were read against nothing"
         )
-        return [*found, Finding("fail", "citation", DOMAIN_MODULE, detail)]
-    for subject, reason, line in entries:
-        if reason is None:
-            found.append(
-                Finding("fail", "citation", DOMAIN_MODULE, f"'{subject}' spells no reason as one literal string, so none was read", line)
-            )
-            continue
-        for token in REASON_TOKEN_RE.findall(reason):
-            found.extend(Finding("fail", check, DOMAIN_MODULE, detail, line) for check, detail in _unresolved(token, subject, invariants, cite))
+        return [Finding("fail", "citation", DOMAIN_MODULE, detail)]
+    page = tracked_page(DOMAIN_MODULE)
+    text = (None if page is None else _read_text(page)[0]) or ""
+    found: list[Finding] = []
+    for entry in entries:
+        line = _line(text, entry.subject)
+        for token in REASON_TOKEN_RE.findall(entry.reason):
+            unresolved = _unresolved(loaded, token, entry.subject, invariants, cite)
+            found.extend(Finding("fail", check, DOMAIN_MODULE, detail, line) for check, detail in unresolved)
+        surface = entry.surfaced_by
+        served = surface in served_pages() if surface.startswith("/") else repo_path(surface) is not None
+        if surface and not served:
+            found.append(Finding("fail", "path", DOMAIN_MODULE, f"'{entry.subject}' is surfaced by `{surface}`, which serves nothing", line))
+    for rule in rules:
+        for token in rule.operation.split(loaded.domain.OPERATION_SEPARATOR):
+            if not _published(loaded, token):
+                detail = f"`{rule.code}` declares `{token}`, which `{OPENAPI_PAGE}` does not publish"
+                found.append(Finding("fail", "citation", DOMAIN_MODULE, detail, _line(text, rule.code)))
     return found

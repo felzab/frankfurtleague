@@ -45,22 +45,23 @@ from test_check_docs import (
     KERNEL,
     MARKER_TSX,
     NOTES,
+    OPENAPI,
     OTHER_SPELLING,
     QUOTE,
     QUOTED_ERROR,
     RENAMED_HEADING,
     RETIRED_ID,
     ROOT_FOLDER_FILE,
+    RULE_OPERATION,
     SAMPLE,
     SCRIPTS_COPY,
     SECOND_CASE,
     SECOND_PYTHON_CASE,
     SELF_CLAIMED_CHECK,
-    SHAPE_CLASSIFIER,
-    SHAPE_READ,
     SHARED_BASENAME,
     SPIELER_PANEL,
     STANDARD,
+    SURFACE,
     TWIN_NOTES,
     UNCITED_CASE,
     UNCITED_PYTHON_CASE,
@@ -302,17 +303,17 @@ def _declare_unenforced(*entries: str) -> None:
 
 
 def test_every_address_a_reason_argues_from_is_resolved_and_a_dead_one_named_by_its_check() -> None:
-    """One finding per dead address and one for a reason no literal spells; the live read rule and the fixture's own entry raise none."""
+    """One finding per dead address; the live read rule and the fixture's own entry raise none."""
     _reset()
     _replace(BACKEND_SPEC, "It answers with one document.", READ_RULE_TABLE)
-    _declare_unenforced('"' + DEAD_REASON + '"', "REASON_HELD_ELSEWHERE")
+    _declare_unenforced('"' + DEAD_REASON + '"')
     try:
         _, output = _output()
         reported = _reported(output)
     finally:
         _reset()
     about = {check: reported[("fail", check, DOMAIN_REGISTER)] for check in ("citation", "path", "invariant-id")}
-    assert about == {"citation": 6, "path": 1, "invariant-id": 1}, _shape(reported)
+    assert about == {"citation": 5, "path": 1, "invariant-id": 1}, _shape(reported)
     assert "READ-SAMPLE-001" not in output, output
     assert UNENFORCED_SUBJECT not in output, output
     _assert_corpus_restored()
@@ -328,7 +329,7 @@ def test_a_register_declaring_no_unenforced_state_is_named_rather_than_read_as_c
     finally:
         _reset()
     assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
-    assert "yielded no `UNENFORCED` reason" in output, output
+    assert "declares no `UNENFORCED` entry" in output, output
     _assert_corpus_restored()
 
 
@@ -346,61 +347,64 @@ def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_r
     _assert_corpus_restored()
 
 
-def test_a_shape_the_backend_hands_over_and_the_gate_does_not_read_is_named_both_ways() -> None:
-    """The invariant pattern narrowed in the backend's list: that list keeps the gate's, and hands over one the gate never reads."""
+# One token of each shape the gate took over from the backend's suite, turned into one nothing answers.
+@pytest.mark.parametrize(
+    ("old", "new", "check", "said"),
+    [
+        pytest.param("`GET /sample`", "`GET /gone`", "citation", f"a route `{OPENAPI}` does not publish", id="endpoint"),
+        pytest.param(f"`{SURFACE}`", "`/gone`", "path", "a page no `page.tsx`", id="surface"),
+        pytest.param(f"`{SURFACE}`", "`/(site)/sample`", "path", "a page no `page.tsx`", id="route-group-spelled"),
+        pytest.param("`(saison_id, team_id)`", "`(saison_id, gone_id)`", "citation", "an index key no index", id="index-key"),
+        pytest.param("naming `VALUE`", "naming `GONE_NAME`", "citation", "a name neither source tree spells", id="name"),
+        pytest.param("and `3`.", "and `?!`.", "citation", "a shape nothing here reads", id="unread-shape"),
+    ],
+)
+def test_a_reason_s_token_nothing_answers_for_is_named_by_its_kind(old: str, new: str, check: str, said: str) -> None:
+    """The reader imports the declaration, so the plant reaches it as the application would."""
     _reset()
-    _replace(SHAPE_CLASSIFIER, r"^[IL]\d{1,3}[a-z]?$", r"^[I]\d{1,3}[a-z]?$")
+    _replace(DOMAIN_REGISTER, old, new)
     try:
         _, output = _output()
         reported = _reported(output)
     finally:
         _reset()
-    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 2, _shape(reported)
-    assert "a shape the gate does not read" in output and "a shape the gate reads too" in output, output
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
     _assert_corpus_restored()
 
 
 @pytest.mark.parametrize(
-    ("old", "new"),
+    ("old", "new", "check", "said"),
     [
-        pytest.param("re.compile(pattern)", "re.compile(pattern, re.IGNORECASE)", id="flag-by-position"),
-        pytest.param("re.compile(pattern)", "re.compile(pattern, flags=re.IGNORECASE)", id="flag-by-keyword"),
-        pytest.param("re.compile(pattern)", "re.compile(pattern.lower())", id="transformed-pattern"),
-        pytest.param("\n))", "\n) if pattern)", id="filtered-patterns"),
+        pytest.param(f'surfaced_by="{SURFACE}"', 'surfaced_by="/gone"', "path", "is surfaced by `/gone`, which serves nothing", id="surface"),
+        pytest.param(f'operation="{RULE_OPERATION}"', 'operation="POST /sample"', "citation", "declares `POST /sample`", id="rule-route"),
     ],
 )
-def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str, new: str) -> None:
-    """Every pattern's text still the gate's, so only the form tells that the backend matches otherwise."""
+def test_an_entry_s_surface_and_a_rule_s_route_are_held_to_the_tree(old: str, new: str, check: str, said: str) -> None:
+    """The two addressed fields beside the reason, resolved by the same reader."""
     _reset()
-    _replace(SHAPE_CLASSIFIER, old, new)
+    _replace(DOMAIN_REGISTER, old, new)
     try:
         _, output = _output()
         reported = _reported(output)
     finally:
         _reset()
-    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 1, _shape(reported)
-    assert "no bare `re.compile(pattern)` over literal patterns" in output, output
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
     _assert_corpus_restored()
 
 
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [
-        pytest.param("shape.match(token)", "shape.match(token.upper())", id="transformed-token"),
-        pytest.param(SHAPE_READ, SHAPE_READ + "\n\n\nOTHERS = _GATE_SHAPES", id="second-read"),
-    ],
-)
-def test_a_handed_over_shape_matched_other_than_the_token_as_spelled_is_named(old: str, new: str) -> None:
-    """The list is the gate's, and the classifier still reads a token the reason does not spell."""
+def test_a_backend_that_will_not_import_refuses_the_run() -> None:
+    """Exit 2 and no finding: nothing about a rule or a declared state was read, so nothing about one is wrong."""
     _reset()
-    _replace(SHAPE_CLASSIFIER, old, new)
+    _append(DOMAIN_REGISTER, 'raise RuntimeError("the declaration will not import")')
     try:
-        _, output = _output()
-        reported = _reported(output)
+        code, output = _output()
     finally:
         _reset()
-    assert reported[("fail", "citation", SHAPE_CLASSIFIER)] == 1, _shape(reported)
-    assert "is read other than once as `any(shape.match(<parameter>) ...)`" in output, output
+    assert code == 2, output
+    assert "fl_backend could not be imported (RuntimeError: the declaration will not import)" in output, output
+    assert "failing finding" not in output, output
     _assert_corpus_restored()
 
 
@@ -410,12 +414,7 @@ REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
 
 @pytest.mark.parametrize(
     ("rel", "rebinding", "check", "name"),
-    [
-        pytest.param(DOMAIN_REGISTER, "UNENFORCED = UNENFORCED + ()", "citation", "UNENFORCED", id="reasons"),
-        pytest.param(SHAPE_CLASSIFIER, "_GATE_SHAPES = ()", "citation", "_GATE_SHAPES", id="handed-over-shapes"),
-        pytest.param(DOMAIN_REGISTER, "RULES += ()", "error-codes", "RULES", id="rule-register"),
-        pytest.param(KERNEL, "CHECKS = dict(CHECKS)", "enforced-by", "CHECKS", id="check-registry"),
-    ],
+    [pytest.param(KERNEL, "CHECKS = dict(CHECKS)", "enforced-by", "CHECKS", id="check-registry")],
 )
 def test_a_name_the_gate_reads_from_source_bound_twice_is_named(rel: str, rebinding: str, check: str, name: str) -> None:
     """The gate reads a name's first binding, and Python runs with its last.

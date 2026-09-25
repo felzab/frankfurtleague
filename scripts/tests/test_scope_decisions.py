@@ -258,7 +258,6 @@ SHELL_TOKEN: Final = re.compile(r"[A-Za-z0-9_./-]+")
 # An arm matches a path, so a suite walking a whole tree can be carried by none. Declared rather
 # than derived: what a new row owes the mapping is a judgement, and a row here is that question.
 UNNAMEABLE: Final[tuple[tuple[str, str], ...]] = (
-    ("fl_backend/tests/core/test_domain.py", "fl_frontend/src"),
     ("fl_backend/tests/shared/test_frontend_mirrors.py", "fl_frontend/src"),
     # Every configuration it finds, which the `nginx/*.conf` arm carries (`SELECTED`).
     ("fl_frontend/src/features/bewerbungen/publicRoutes.test.ts", "nginx"),
