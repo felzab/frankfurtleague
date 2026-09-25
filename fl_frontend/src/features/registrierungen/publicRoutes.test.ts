@@ -2,8 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -15,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -23,6 +22,7 @@ import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants.ts";
 import { MAIL_ABGEWIESEN } from "./utils.ts";
 
+import type { ReactElement } from "react";
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 import type { SpielerBestaetigungGeoeffnet, SpielerFassung } from "./types.ts";
 
@@ -44,8 +44,7 @@ const { RegistrierungFormPanel } = await import("./components/views/Registrierun
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
 const { STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
-const CONFIRM_PAGE = readFileSync(path.join(SRC_DIR, "app", "(public)", "bestaetigung", "spieler", "page.tsx"), "utf8");
+const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
 
 /**
  * The team the invite opens, and a SECOND team of the same season that it does not.
@@ -490,20 +489,18 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  /* A prop binding reaches no markup, so the page's own source is the only place the current label
-     is tied to the words this view renders. */
-  it("is handed the registry's current label by the page rather than reaching for one", () => {
-    assert.match(
-      CONFIRM_PAGE,
-      /textVersion: SPIELER_EINWILLIGUNG\.textVersion/,
-      "the page stamps a label other than the registry's current one",
-    );
-    // Every word off the CURRENT LABEL's entry: a page reaching past it renders whatever the keyed
-    // object holds after the next rewording, under a label whose records cite the words before it.
-    for (const member of ["absaetzeNachSchluessel", "schalter", "bedienelemente"]) {
-      assert.match(CONFIRM_PAGE, new RegExp(`SPIELER_EINWILLIGUNG[.]${member}`), `the page reaches past the label for its ${member}`);
-    }
-    assert.doesNotMatch(CONFIRM_PAGE, /SPIELER_ABSAETZE/, "the page imports the copy object beside the label that freezes it");
+  it("is handed the registry's current label by the page rather than reaching for one", async () => {
+    const body = (await pageBody(SpielerBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({}) })) as ReactElement<{
+      fassung: SpielerFassung;
+    }>;
+    const { fassung } = body.props;
+
+    // Identity rather than equality: a page reaching past the CURRENT LABEL's entry renders whatever the
+    // keyed object holds after the next rewording, under a label whose records cite the words before it.
+    assert.equal(fassung.textVersion, SPIELER_EINWILLIGUNG.textVersion, "the page stamps a label other than the registry's current one");
+    assert.equal(fassung.absaetze, SPIELER_EINWILLIGUNG.absaetzeNachSchluessel, "the page reaches past the label for its paragraphs");
+    assert.equal(fassung.schalter, SPIELER_EINWILLIGUNG.schalter, "the page reaches past the label for its switch");
+    assert.equal(fassung.bedienelemente, SPIELER_EINWILLIGUNG.bedienelemente, "the page reaches past the label for its controls");
   });
 });
 
