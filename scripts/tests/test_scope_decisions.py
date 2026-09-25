@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import itertools
 import json
 import posixpath
 import re
@@ -56,10 +57,13 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (PYPROJECT, ("scripts", "images", "backend", "db", "docs")),
     # The docs gate's line-endings check and its binary-byte exemption both read .gitattributes.
     (".gitattributes", ("scripts", "docs")),
-    # .gitignore decides which paths that same gate scans, and which citations it excuses.
-    (".gitignore", ("docs",)),
-    # The documentation gate resolves the asset paths NOTICE names, and nothing else reads the file.
-    ("NOTICE", ("docs",)),
+    # .gitignore decides which paths that same gate scans, and which citations it excuses; a
+    # frontend suite reads it through a name `_frontend_reaches` cannot follow.
+    (".gitignore", ("docs", "frontend")),
+    # knip reads the one from a JSON configuration and a frontend suite the other through a name,
+    # neither a read `_frontend_reaches` finds.
+    (".prettierrc.json", ("format", "frontend")),
+    (".prettierignore", ("format", "frontend")),
     # `scripts/gate/selfcheck.sh` compares this file's uv tag against the manifest's pin, and runs
     # in the scripts scope alone; a bot's base-image bump touches this file and nothing else.
     ("fl_backend/Dockerfile", ("images", "docs", "scripts")),
@@ -69,8 +73,8 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # `scripts/tests/test_check_gate_budget.py` parses this table itself and drives every budgeted
     # row red and green, so an edit to it is proved in the scripts scope and nowhere else.
     (".github/gate-wall-clock.tsv", ("scripts", "docs")),
-    # `fl_frontend/src/core/edgeRedaction.ts` reads this file's redaction map for five frontend suites.
-    ("nginx/shared/http.conf", ("ops", "docs", "frontend")),
+    # The configuration walk declared in `UNNAMEABLE` reads this file, which no read names.
+    ("nginx/prod/prod.conf", ("ops", "docs", "frontend")),
     # The ops scope's zizmor reads the Dependabot configuration, and nothing else in the gate does.
     (".github/dependabot.yml", ("ops", "docs")),
 )
@@ -85,13 +89,13 @@ def test_a_path_selects_every_scope_that_would_check_it() -> None:
     assert not missed, "\n".join(missed)
 
 
-def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> None:
-    """`SELECTED` reads its scopes as a subset, so a scope left true fails nothing there.
+def test_the_notice_file_selects_its_two_readers_scopes_and_nothing_else() -> None:
+    """The derived reads ask for `frontend` alone, and the documentation gate reads the file too.
 
     An arm that stopped matching would turn every scope on through the conservative default, and
     only a set comparison catches that.
     """
-    assert _on(_mapped(["NOTICE"])) == {"docs"}
+    assert _on(_mapped(["NOTICE"])) == {"docs", "frontend"}
 
 
 def test_the_hook_registrations_select_the_scripts_scope() -> None:
@@ -213,11 +217,15 @@ BACKEND: Final = "fl_backend"
 # A path in one package must select the scope the OTHER package's suites run in. `db` is emitted
 # wherever `backend` is, so `backend` answers for that pair.
 FAR_SCOPE: Final[dict[str, str]] = {BACKEND: "frontend", FRONTEND: "backend"}
+# What a read owes, by the package its reader sits in: a suite reading a file outside its package
+# waits for the push to main unless that file selects the scope the suite runs in.
+OWN_SCOPE: Final[dict[str, str]] = {FRONTEND: "frontend", BACKEND: "backend"}
 
-# How each language spells a path into the other package. TypeScript hands `path.resolve` one segment
-# per argument, so the package name is a whole segment; python joins a `Path` with `/`.
+# How each language spells a path out of its package. TypeScript hands `path.resolve` one segment per
+# argument, so the entry a path leaves by is a whole segment; python joins a `Path` with `/`.
 TS_CALL: Final = re.compile(r"path\.(?:resolve|join)\([^()]*\)")
-TS_SEGMENTS: Final = re.compile(r'"' + BACKEND + r'"((?:\s*,\s*"[^"\\\n]+")+)')
+# A run of quoted arguments, which a variable between two of them parts.
+TS_RUN: Final = re.compile(r'"[^"\\\n]+"(?:\s*,\s*"[^"\\\n]+")*')
 TS_QUOTED: Final = re.compile(r'"([^"\\\n]+)"')
 
 # Every shell token that could be a path. WHICH of them the mapping carries across is settled by
@@ -229,12 +237,14 @@ SHELL_TOKEN: Final = re.compile(r"[A-Za-z0-9_./-]+")
 UNNAMEABLE: Final[tuple[tuple[str, str], ...]] = (
     ("fl_backend/tests/core/test_domain.py", "fl_frontend/src"),
     ("fl_backend/tests/shared/test_frontend_mirrors.py", "fl_frontend/src"),
+    # Every configuration it finds, which the `nginx/*.conf` arm carries (`SELECTED`).
+    ("fl_frontend/src/features/bewerbungen/publicRoutes.test.ts", "nginx"),
 )
 
 
 @dataclass(frozen=True)
 class Crossings:
-    """Each key below is a path in the package that the OTHER one reads it from."""
+    """Each key below is a path a package reads from outside itself: the other package, or the root's own files."""
 
     reads: dict[str, set[str]]
     # A module against the TREE it reaches into, no file in it being named.
@@ -265,24 +275,38 @@ def _widest(reaches: set[tuple[str, str]]) -> set[tuple[str, str]]:
     }
 
 
-def _frontend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
-    """Every backend path a frontend module builds, and every reach that resolves to no file.
+def _leaves_by(call: str, outside: set[str]) -> tuple[str, list[str]] | None:
+    """The top-level entry one path call leaves the frontend by, and the quoted segments from it on.
 
-    A path call rather than any mention of the package: comments across this tree cite a backend
-    module by path, and a citation is prose.
+    The first segment past the climb decides: one naming anything but a top-level entry stays in
+    the package.
     """
+    for run in TS_RUN.findall(call):
+        segments = list(itertools.dropwhile(lambda segment: segment == "..", TS_QUOTED.findall(run)))
+        if segments:
+            entry = segments[0].split("/")[0]
+            return (entry, segments) if entry in outside else None
+    return None
+
+
+def _frontend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
+    """Every path outside the frontend a frontend module builds, and every reach placing no file.
+
+    A path call, never a mention: a comment citing a backend module is prose. Blind to a path held
+    in a variable.
+    """
+    outside = {entry.name for entry in root.iterdir()} - {FRONTEND, ".git"}
     reads: dict[str, set[str]] = {}
     reaches: set[tuple[str, str]] = set()
     for rel in files:
-        text = (root / rel).read_text(encoding="utf-8")
-        if BACKEND not in text:
-            continue
-        for call in TS_CALL.findall(text):
-            if BACKEND not in call:
+        for call in TS_CALL.findall((root / rel).read_text(encoding="utf-8")):
+            if (left := _leaves_by(call, outside)) is None:
                 continue
-            found = TS_SEGMENTS.search(call)
-            path = "/".join([BACKEND, *TS_QUOTED.findall(found[1])]) if found is not None else ""
-            _file_or_tree(root, rel, path, BACKEND, reads, reaches)
+            entry, segments = left
+            # A segment carrying a slash is a spelling this reader does not place, so the entry is as
+            # much as an arm could be held to.
+            path = "" if "/" in segments[0] else "/".join(segments)
+            _file_or_tree(root, rel, path, entry, reads, reaches)
     return reads, _widest(reaches)
 
 
@@ -425,12 +449,18 @@ def _carried(crossings: Crossings) -> set[str]:
 
 
 def _unarmed(crossings: Crossings) -> list[str]:
-    """A file the other package reads that no arm carries across -- the repair is to widen an arm."""
-    return [
-        path + " is read by " + ", ".join(sorted(readers)) + ", and no arm carries it into --" + FAR_SCOPE[path.split("/")[0]]
-        for path, readers in sorted(crossings.reads.items())
-        if FAR_SCOPE[path.split("/")[0]] not in crossings.selected[path]
-    ]
+    """A file read from outside its package that no arm carries across -- the repair is to widen an arm."""
+    missing: list[str] = []
+    for path, readers in sorted(crossings.reads.items()):
+        owed: dict[str, list[str]] = {}
+        for reader in sorted(readers):
+            owed.setdefault(OWN_SCOPE[reader.split("/")[0]], []).append(reader)
+        missing += [
+            path + " is read by " + ", ".join(by) + ", and no arm carries it into --" + scope
+            for scope, by in sorted(owed.items())
+            if scope not in crossings.selected[path]
+        ]
+    return missing
 
 
 def _stale(crossings: Crossings) -> list[str]:
@@ -457,6 +487,8 @@ def test_every_file_the_other_package_reads_is_carried_across_by_an_arm() -> Non
     for package, reader in ((BACKEND, "fl_frontend/"), (FRONTEND, "fl_backend/")):
         found = {path for path in crossings.reads if path.startswith(package + "/")}
         assert found, "no file in " + package + " was found read from " + reader + ": that reader went inert"
+    beyond = {path for path in crossings.reads if not path.startswith((BACKEND + "/", FRONTEND + "/"))}
+    assert beyond, "no file outside both packages was found read from fl_frontend/: that reader went inert"
     assert not (missing := _unarmed(crossings)), "name the path in its arm in scripts/gate/scope_map.sh:\n" + "\n".join(missing)
 
 
@@ -563,6 +595,12 @@ PLANTED_TREE: Final[dict[str, str]] = {
     "fl_frontend/src/actions.ts": "export const total = 1;\n",
     "fl_frontend/src/register.ts": 'const RULES = readFileSync(path.resolve(ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");\n',
     "fl_frontend/src/opaque.ts": 'const RULES = readFileSync(path.resolve(ROOT, "fl_backend/app/core/domain.py"), "utf8");\n',
+    # A file at the root, reached by climbing, and a climb landing back inside the frontend.
+    "NOTICE": "Sample Notice\n",
+    "fl_frontend/src/notice.ts": (
+        'const NOTICE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "NOTICE"), "utf8");\n'
+        'const OWN = readFileSync(path.resolve(import.meta.dirname, "..", "src", "actions.ts"), "utf8");\n'
+    ),
 }
 
 # The mapping's own shape: a continuation, a comment between arms, a glob arm and a literal one.
@@ -593,8 +631,8 @@ def test_each_reader_finds_a_file_the_other_package_reads_and_a_reach_it_cannot_
     """
     root = _planted()
     # The second module of each pair is the shape that must not read as a named file.
-    reads, reaches = _frontend_reaches(root, ["fl_frontend/src/register.ts", "fl_frontend/src/opaque.ts"])
-    assert reads == {"fl_backend/app/core/domain.py": {"fl_frontend/src/register.ts"}}, repr(reads)
+    reads, reaches = _frontend_reaches(root, ["fl_frontend/src/register.ts", "fl_frontend/src/opaque.ts", "fl_frontend/src/notice.ts"])
+    assert reads == {"fl_backend/app/core/domain.py": {"fl_frontend/src/register.ts"}, "NOTICE": {"fl_frontend/src/notice.ts"}}, repr(reads)
     assert reaches == {("fl_frontend/src/opaque.ts", BACKEND)}, repr(reaches)
 
     reads, reaches = _backend_reaches(root, ["fl_backend/tests/test_mirror.py"])
@@ -621,6 +659,8 @@ PLANTED_CROSSINGS: Final = Crossings(
     reads={
         "fl_backend/app/core/domain.py": {"fl_frontend/src/register.ts"},
         "fl_frontend/src/actions.ts": {"fl_backend/tests/test_mirror.py"},
+        # Outside both packages, so only its reader's package says which scope it owes.
+        "NOTICE": {"fl_frontend/src/notice.ts"},
     },
     reaches={("fl_backend/tests/test_mirror.py", "fl_frontend/src")},
     # `recording.py` and `next.config.ts` are a stale arm, one per direction; `constants.ts` is the
@@ -638,6 +678,7 @@ PLANTED_CROSSINGS: Final = Crossings(
         "fl_frontend/src/actions.ts": {"frontend", "backend", "db", "docs"},
         "fl_frontend/src/constants.ts": {"frontend", "backend", "db", "docs"},
         "fl_frontend/next.config.ts": {"frontend", "backend", "db", "docs"},
+        "NOTICE": {"docs"},
     },
 )
 
@@ -649,7 +690,8 @@ def test_the_two_repairs_are_reported_apart() -> None:
     suite's to edit.
     """
     assert _unarmed(PLANTED_CROSSINGS) == [
-        "fl_backend/app/core/domain.py is read by fl_frontend/src/register.ts, and no arm carries it into --frontend"
+        "NOTICE is read by fl_frontend/src/notice.ts, and no arm carries it into --frontend",
+        "fl_backend/app/core/domain.py is read by fl_frontend/src/register.ts, and no arm carries it into --frontend",
     ], repr(_unarmed(PLANTED_CROSSINGS))
     assert _stale(PLANTED_CROSSINGS) == [
         "fl_backend/app/core/recording.py is carried into --frontend, and nothing there reads it",

@@ -68,6 +68,9 @@ else
       # which would map it to docs alone and never run the images job it exists to serve.
       .github/actions/*) all ;;
       scripts/*.sh) all ;;
+      # `fl_frontend/src/shared/components/ui/tabIndicator.test.ts` reads the contrast pairs this
+      # module records, so an edit here owes the frontend scope as well as the arm below's.
+      scripts/checks/docs_gate/scheme.py) scripts=true; docs=true; frontend=true ;;
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;
@@ -147,9 +150,11 @@ else
       fl_backend/app/core/collections.py|fl_backend/app/core/constraints.py| \
       fl_backend/tests/shared/address_lines.json|fl_backend/tests/shared/email_addresses.json)
         backend=true; db=true; frontend=true; docs=true ;;
-      # prettier's configuration and its ignore file decide what the format scope proves, so a change
-      # to either is a change to that scope — and to nothing else, the build reading neither.
-      .prettierignore|*/.prettierignore|.prettierrc.json|*/.prettierrc.json) format=true ;;
+      # prettier's configuration and ignore file decide what the format scope proves, and the root
+      # pair is read in the frontend scope too: by knip (`fl_frontend/knip.json`) and by
+      # `fl_frontend/src/core/mail.test.ts`.
+      .prettierignore|.prettierrc.json) format=true; frontend=true ;;
+      */.prettierignore|*/.prettierrc.json) format=true ;;
       # The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are
       # retyped by hand in these modules, so a diff editing the frontend side of a mirror would
       # otherwise reach that comparison no earlier than the push to main.
@@ -178,9 +183,11 @@ else
       # The ops scope parses the compose files and runs nginx over both edges; prettier also formats
       # them. Both carry `docs`, their comments being documentation (INC-6).
       docker-compose.yml|docker-compose.local.yml) ops=true; docs=true ;;
-      # `fl_frontend/src/core/edgeRedaction.ts` reads this file's redaction map for the frontend
-      # suites that build a link, so an edit here owes the frontend scope too.
-      nginx/shared/http.conf) ops=true; docs=true; frontend=true ;;
+      # A configuration owes the frontend scope too: `fl_frontend/src/core/edgeRedaction.ts` reads
+      # the redaction map in `nginx/shared/http.conf` for the suites that build a link, and
+      # `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts` walks every one for a
+      # confirmation path the frontend does not serve.
+      nginx/*.conf) ops=true; docs=true; frontend=true ;;
       nginx/*) ops=true; docs=true ;;
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.
@@ -191,16 +198,17 @@ else
       .gitattributes) scripts=true; docs=true ;;
       # `.gitignore` decides which paths the documentation gate scans and which citations it
       # excuses (`scripts/checks/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
-      # --docs proves while nothing else reads the widening.
-      .gitignore) docs=true ;;
+      # --docs proves; `fl_frontend/src/core/mail.test.ts` holds it to a rule for the mail sink.
+      .gitignore) docs=true; frontend=true ;;
       # `scripts/tests/test_check_gate_budget.py` parses this file itself and drives every budgeted
       # row red and green, so the scripts scope is what proves an edit here; ahead of the
       # `.github/*` arm, which would map it to `docs` alone.
       .github/gate-wall-clock.tsv) scripts=true; docs=true ;;
-      # NOTICE is read whole by the documentation gate and by nothing else
-      # (`scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES`), so an edit to it selects that
-      # scope alone: a dead asset path written there fails on the branch that wrote it.
-      NOTICE) docs=true ;;
+      # NOTICE is read whole by the documentation gate
+      # (`scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES`), so a dead asset path written there
+      # fails on the branch that wrote it; a frontend suite reads the name it spells
+      # (`fl_frontend/src/features/meta/components/views/ImpressumView.test.ts`).
+      NOTICE) docs=true; frontend=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here
       # falls through to the conservative default below.
       certs/*|LICENSE) ;;
