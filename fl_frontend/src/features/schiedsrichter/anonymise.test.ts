@@ -27,8 +27,11 @@ async function report(): Promise<string> {
   return "message" in result ? String(result.message) : "";
 }
 
-/** Whether a write since the case began cleared the fixture reads' tag. */
-const clearedSpiele = (): boolean => cacheCalls.some(({ name, args }) => name === "updateTag" && args[0] === "spiele");
+/** Every invalidation a referee write owes: the fixture reads' tag, and the page it stands on. */
+const MOVES_SPIELE = [
+  { name: "updateTag", args: ["spiele"] },
+  { name: "refresh", args: [] },
+];
 
 beforeEach(() => {
   sent.length = 0;
@@ -50,12 +53,12 @@ describe("what the anonymisation moves", () => {
      the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
   it("invalidates the fixture reads, as the rename does", async () => {
     await report();
-    assert.ok(clearedSpiele(), "the anonymisation leaves the erased name in the fixture cache");
+    assert.deepEqual(cacheCalls, MOVES_SPIELE, "the anonymisation leaves the erased name in the fixture cache, or clears more");
 
     cacheCalls.length = 0;
     const renamed = await patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE });
     assert.equal(renamed.success, true, "the rename did not run, so what it invalidates is compared to nothing");
-    assert.ok(clearedSpiele(), "the rename stopped invalidating the one read a referee write does move");
+    assert.deepEqual(cacheCalls, MOVES_SPIELE, "the rename stopped invalidating the one read a referee write does move, or clears more");
   });
 });
 

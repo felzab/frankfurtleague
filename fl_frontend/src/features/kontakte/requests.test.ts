@@ -143,9 +143,9 @@ describe("what the contacts writes clear", () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
     assert.equal(sent.length, 2, "a write never reached the client, so what it clears is judged over nothing");
-    assert.deepEqual(
-      cacheCalls.map(({ name }) => name),
-      ["refresh", "refresh"],
-    );
+    assert.deepEqual(cacheCalls, [
+      { name: "refresh", args: [] },
+      { name: "refresh", args: [] },
+    ]);
   });
 });
