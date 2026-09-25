@@ -14,7 +14,6 @@ import {
 } from "@/shared/schemas";
 
 import type { FLAddress } from "@/shared/schemas";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
 
 /**
@@ -25,7 +24,6 @@ export function AddressFields({
   value,
   onChange,
   namePrefix = "address",
-  errors,
   onFieldLeft,
   renderLabel,
   describedById,
@@ -34,11 +32,6 @@ export function AddressFields({
   onChange: (newValue: FLAddress) => void;
   /** The address object's own path in the payload, so field names match the server's error keys. */
   namePrefix?: string;
-  /**
-   * For a caller with no `<Form>` above it — the inline-create panel renders inside another form and cannot be one, so
-   * the `validationErrors` context never reaches it. Everywhere else this stays undefined.
-   */
-  errors?: FieldErrors;
   /** For a caller that judges a typed field on blur; the dialog callers pass nothing and judge on submit. */
   onFieldLeft?: (paths: readonly string[]) => void;
   /**
@@ -69,11 +62,10 @@ export function AddressFields({
           onChange={(next) => updateField("strasse", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.strasse`])}
           maxLength={ADDRESS_STRASSE_MAX_LENGTH}
-          isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="min-w-0 flex-2">
           {renderLabel ? renderLabel("strasse", "Straße") : <Label className={FIELD_LABEL_CLASSES}>Straße</Label>}
           <Input className={FIELD_INPUT_CLASSES} />
-          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
         {/* `HAUSNUMMER_REGEX` is spelled with `*` rather than `+`, so an empty number passes: a sports
             ground can genuinely lack one. Marking this field required promises a refusal no schema
@@ -85,11 +77,10 @@ export function AddressFields({
           onChange={(next) => updateField("hausnummer", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.hausnummer`])}
           maxLength={ADDRESS_HAUSNUMMER_MAX_LENGTH}
-          isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
           className="min-w-0 flex-1">
           {renderLabel ? renderLabel("hausnummer", "Nr.") : <Label className={FIELD_LABEL_CLASSES}>Nr.</Label>}
           <Input className={FIELD_INPUT_CLASSES} />
-          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
@@ -100,11 +91,10 @@ export function AddressFields({
           value={value.plz}
           onChange={(next) => updateField("plz", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.plz`])}
-          isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
           className="min-w-0 flex-1">
           {renderLabel ? renderLabel("plz", "PLZ") : <Label className={FIELD_LABEL_CLASSES}>PLZ</Label>}
           <Input className={FIELD_INPUT_CLASSES} />
-          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.plz`]}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
         <TextField
           name={`${namePrefix}.stadt`}
@@ -113,11 +103,10 @@ export function AddressFields({
           onChange={(next) => updateField("stadt", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.stadt`])}
           maxLength={ADDRESS_STADT_MAX_LENGTH}
-          isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="min-w-0 flex-2">
           {renderLabel ? renderLabel("stadt", "Stadt") : <Label className={FIELD_LABEL_CLASSES}>Stadt</Label>}
           <Input className={FIELD_INPUT_CLASSES} />
-          <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
@@ -127,14 +116,13 @@ export function AddressFields({
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}
         onBlur={() => onFieldLeft?.([`${namePrefix}.stadtteil`])}
-        maxLength={ADDRESS_STADTTEIL_MAX_LENGTH}
-        isInvalid={errors?.[`${namePrefix}.stadtteil`] ? true : undefined}>
+        maxLength={ADDRESS_STADTTEIL_MAX_LENGTH}>
         {renderLabel ? renderLabel("stadtteil", "Stadtteil") : <Label className={FIELD_LABEL_CLASSES}>Stadtteil</Label>}
         <Input
           placeholder="z.B. Nordend"
           className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.stadtteil`]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
     </div>
   );

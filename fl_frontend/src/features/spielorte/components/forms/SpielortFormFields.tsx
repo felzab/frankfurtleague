@@ -15,46 +15,33 @@ import {
 import { NumberField } from "@/shared/components/ui/NumberField";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
 
 /** Field names match their path in the create/patch payload — see `SchiedsrichterFormFields`. */
-export function SpielortFormFields<T extends SpielortDraft>({
-  draft,
-  onChange,
-  errors,
-}: {
-  draft: T;
-  onChange: (updatedDraft: T) => void;
-  /** For the inline-create panel, inside the match form's `<form>` where `Form`'s `validationErrors` cannot reach. */
-  errors?: FieldErrors;
-}) {
+export function SpielortFormFields<T extends SpielortDraft>({ draft, onChange }: { draft: T; onChange: (updatedDraft: T) => void }) {
   return (
     <>
       <TextField
         name="name"
-        value={draft.name}
-        onChange={(next) => onChange({ ...draft, name: next })}
         // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
-        isInvalid={errors?.["name"] ? true : undefined}>
+        value={draft.name}
+        onChange={(next) => onChange({ ...draft, name: next })}>
         <Label className={FIELD_LABEL_CLASSES}>Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
           className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["name"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <AddressFields
         value={draft.address}
         onChange={(newAddress) => onChange({ ...draft, address: newAddress })}
-        errors={errors}
       />
 
       <NumberField
         minValue={0}
         name="default_mietpreis"
-        isInvalid={errors?.["default_mietpreis"] ? true : undefined}
         step={5}
         value={draft.default_mietpreis}
         onChange={(val) =>
@@ -70,7 +57,7 @@ export function SpielortFormFields<T extends SpielortDraft>({
           <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR_CLASSES}>{errors?.["default_mietpreis"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </NumberField>
     </>
   );

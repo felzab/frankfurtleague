@@ -29,7 +29,6 @@ export function WebsiteUrlField({
   onChange,
   onFieldLeft,
   labelSlot,
-  error,
   name = "website_url",
   maxLength,
 }: {
@@ -41,8 +40,6 @@ export function WebsiteUrlField({
   onFieldLeft?: () => void;
   /** The label node — the editor passes its marker-carrying `FieldLabel`, the dialog a plain label. */
   labelSlot?: ReactNode;
-  /** The message for a caller without a `<Form>` context — same split as `SpielortFormFields`. */
-  error?: string;
   /** The field's dotted path in the enclosing payload, for a caller that nests the club's own shape. */
   name?: string;
   /** The box's ceiling, which is the PAYLOAD's minus `WEBSITE_URL_SCHEME`: the prefix is not typed. */
@@ -69,8 +66,7 @@ export function WebsiteUrlField({
       name={name}
       value={withoutScheme(value)}
       onChange={(next) => onChange(toWebsiteUrl(next))}
-      onBlur={() => onFieldLeft?.()}
-      isInvalid={error ? true : undefined}>
+      onBlur={() => onFieldLeft?.()}>
       {labelSlot ?? <Label className={FIELD_LABEL_CLASSES}>Website</Label>}
       {/* Beside the group, never in its suffix: HeroUI's vendored `input-group.js` focuses the input on every click
           inside the group's box, so a press in the suffix leaves the field typable behind the tab it opened. */}
@@ -104,7 +100,7 @@ export function WebsiteUrlField({
           </Hint>
         )}
       </div>
-      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </TextField>
   );
 }
