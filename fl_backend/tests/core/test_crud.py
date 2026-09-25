@@ -257,8 +257,18 @@ DUPLICATE_ERROR: Mapping[str, Any] = {
     "keyValue": {"shorthand": "C2"},
     "op": {"name": "Club 2", "shorthand": "C2"},
 }
-# A stand-in for a transaction handle: an abort takes back whatever the batch wrote under it.
-SESSION = cast(AsyncClientSession, object())
+
+
+class _Session:
+    """A stand-in for a session handle, which answers the one attribute the helper reads off it."""
+
+    def __init__(self, *, in_transaction: bool) -> None:
+        self.in_transaction = in_transaction
+
+
+TRANSACTION = cast(AsyncClientSession, _Session(in_transaction=True))
+# A session holding no transaction, whose writes stand as a sessionless call's do.
+BARE_SESSION = cast(AsyncClientSession, _Session(in_transaction=False))
 VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
 WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
 
@@ -290,7 +300,7 @@ class TestPostManyToDb:
         ("landed", "session"),
         [
             pytest.param(0, None, id="nothing written"),
-            pytest.param(2, SESSION, id="rows written under a session, which its abort takes back"),
+            pytest.param(2, TRANSACTION, id="rows written inside a transaction, which its abort takes back"),
         ],
     )
     def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self, landed: int, session: AsyncClientSession | None):
@@ -315,11 +325,14 @@ class TestPostManyToDb:
 
         assert raised is failure
 
-    def test_rows_that_stand_keep_the_batchs_own_failure_and_their_row(self):
-        """Outside a session nothing takes the first two back: a 409 would say nothing was written while they stand."""
+    @pytest.mark.parametrize(
+        "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
+    )
+    def test_rows_that_stand_keep_the_batchs_own_failure_and_their_row(self, session: AsyncClientSession | None):
+        """Outside a transaction nothing takes the first two back: a 409 would say nothing was written while they stand."""
 
         failure = refused_batch(DUPLICATE_ERROR, landed=2)
-        raised, recorded = batch_raised(failure)
+        raised, recorded = batch_raised(failure, session=session)
 
         assert raised is failure
         assert [(row["operation"], row["modified_count"]) for row in recorded] == [("insert_many", 2)]

@@ -170,13 +170,13 @@ async def post_many_to_db(
     try:
         result = await collection.insert_many(documents=documents, session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ORDERED and not atomic: a duplicate key partway through leaves everything
-        # before it written, unlogged unless recorded here. Not under a session, where the abort takes
-        # them back and a second write would mask this error with its own.
+        # `insert_many` is ORDERED and not atomic: a refused document leaves every one before it
+        # written, unlogged unless recorded here. Not inside a transaction, whose abort takes them back
+        # and where a second write would mask this error with its own.
         landed = int((failure.details or {}).get("nInserted", 0))
-        stands = session is None and landed > 0
+        stands = landed > 0 and not (session is not None and session.in_transaction)
         if stands:
-            await record_write(collection=collection, operation="insert_many", modified_count=landed)
+            await record_write(collection=collection, operation="insert_many", modified_count=landed, session=session)
 
         if not stands and (refusal := _duplicate_key_of(failure)) is not None:
             raise refusal from failure
