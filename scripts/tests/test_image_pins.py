@@ -130,3 +130,18 @@ COPY --from=0 /a /a
 def test_an_image_a_copy_or_a_mount_takes_from_is_read_beside_a_stage() -> None:
     """A stage is the file's own, and any other source is an image Docker pulls."""
     assert dockerfile_images(PLANTED_DOCKERFILE, "planted") == [f"node:26@sha256:{'0' * 64}", "busybox:1.36", "alpine:3.22"]
+
+
+# The Control API's first release (`docs/ops/spec.md` §1.2): the edge's command passes `-l`, which an
+# older nginx refuses, and it never starts.
+CONTROL_API_FLOOR: Final = (1, 31, 5)
+EXACT_RELEASE_RE: Final = re.compile(r"^nginx:(\d+)\.(\d+)\.(\d+)\b")
+
+
+def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
+    """Read off the tag, which names the release an update is compared against; the digest runs it."""
+    edge = [image for path, image in external_references() if path == "docker-compose.yml" and image.startswith("nginx:")]
+    assert len(edge) == 1, f"docker-compose.yml names nginx {edge}, where the case reads exactly one"
+    release = EXACT_RELEASE_RE.match(edge[0])
+    assert release, f"{edge[0]} names no exact release, so no floor can be held to it"
+    assert tuple(int(part) for part in release.groups()) >= CONTROL_API_FLOOR, f"{edge[0]} predates the Control API's 1.31.5"

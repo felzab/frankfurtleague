@@ -139,10 +139,11 @@ both, and `nginx/edge_test.sh` reads the mode off a running edge.
 **The Control API needs nginx 1.31.5 or newer** (nginx's `CHANGES` and command-line page, read
 2026-09-24), and an older release refuses the `-l` switch and never starts. So
 `docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
-release is what an update is compared against, and it must stay at 1.31.5 or newer. The digest, not
-the tag, holds that floor: the ops scope's `nginx/edge_test.sh` starts the pinned image with the
-`-l` switch, and a release below it exits refusing the switch, which the test reads off the
-container's log and fails the scope on.
+release is what an update is compared against, and it must stay at 1.31.5 or newer.
+`scripts/tests/test_image_pins.py` holds the tag's release to that floor, which fails the scripts
+scope. The tag is a label the digest is not checked against (§1.1), so the ops scope's
+`nginx/edge_test.sh` starts the pinned image with the `-l` switch too, and a digest below the floor
+never publishes its port, which ends that scope refused.
 
 ### 1.3 nginx routing
 
