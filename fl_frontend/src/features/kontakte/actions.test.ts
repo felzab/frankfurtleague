@@ -5,9 +5,12 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
+import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -19,7 +22,6 @@ import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
  * Read rather than called: what each case asserts is which module carries a step — which declares a
  * tier, which composes the report — and a call reports an outcome rather than the site.
@@ -27,13 +29,10 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-/** Whitespace-collapsed: the admin list page's copy is JSX text, so the formatter picks its line breaks. */
-const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "kontakte", "page.tsx"), "utf8");
 const SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
-const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
 
 doubleEveryAction();
 
@@ -92,12 +91,49 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
 /** One rendered seat per entry, cut at the next seat's own title. */
 const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
 
-/** The list page's own return. Its table sits behind the boundary, whose fallback stands here. */
-const PAGE_MARKUP = renderTree(
+/** The list page at the address naming the season `BLOCK` is held in. */
+const listPage = () =>
   underNext(h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }), {
     search: "saison_id=2526",
-  }),
-);
+  });
+
+/** The season the address names. No empty value satisfies a season's rules. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", {
+  id: "2526",
+  status: "active",
+  rules: {
+    win_points: 3,
+    draw_points: 1,
+    qualifiers_per_group: 2,
+    number_of_groups: 2,
+    teams_per_group: 4,
+    max_kadergroesse: 18,
+    tiebreak_order: "tordifferenz",
+    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+    erlaubte_stufen: ["E1", "Q1"],
+  },
+});
+
+/* One club holding `BLOCK` in the season the address names; every other read takes the emptiest
+   body its schema accepts. */
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
+  if (endpoint === "/teams/memberships") {
+    const club = answer(FLTeamWithMembershipsSchema, endpoint, {
+      id: OBJECT_ID,
+      name: "SG Alpha",
+      shorthand: "SA",
+      full_name: "Sportgemeinschaft Alpha",
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" }],
+    });
+    return answer(schema, endpoint, { teams: [club] });
+  }
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
+
+/** The list page resolved whole, its table and every row in it. */
+const LIST_MARKUP = await renderPage(listPage());
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
 
@@ -275,10 +311,9 @@ describe("where the control stands", () => {
     // The ADDRESS is the key the write travels with, and nothing paints a value the markup never shows.
     assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "the erasure is keyed on something other than the seat's own address");
 
-    assert.ok(!PAGE_MARKUP.includes("Kontaktperson löschen"), "the list's own chrome offers the erasure");
-    /* The list's rows render behind the boundary that chrome carries, so what the table hands a row
-       is read here rather than met in the markup above. */
-    assert.ok(!PAGE.includes("FormKontaktErasure"), "the erasure is on the list, detached from the person");
+    // The control: the list rendered the person whose erasure it must not offer.
+    assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
+    assert.ok(!LIST_MARKUP.includes("Kontaktperson löschen"), "the erasure is on the list, detached from the person");
   });
 
   /* The claim points two seats at one record. Offered on both, the same person would read as two, and
@@ -300,17 +335,18 @@ describe("where the control stands", () => {
 
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
   it("raises no heading the shell already owns", () => {
-    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
-    /* The control that absence needs: the page's whole return is one boundary, so what renders is
-       the fallback, and a page rendering nothing at all would satisfy the line above unread. */
-    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
-    // The list itself renders behind the boundary, so what the table returns is read rather than met.
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+    // The control: a page rendering no row at all would satisfy the absence below unread.
+    assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
+    assert.ok(!LIST_MARKUP.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The page's chrome may never wait on the list. */
-  it("leaves the page's shape intact", () => {
-    assert.match(PAGE, /export default function AdminKontaktePage/, "the page's default export became async");
+  /* The page's chrome may never wait on the list: rendered with no boundary awaited, the bar stands
+     beside the list's fallback, where an async page would suspend whole. */
+  it("renders its chrome before the list resolves", () => {
+    const chrome = renderTree(listPage());
+
+    assert.ok(chrome.includes('role="status"'), "no fallback stands where the list will resolve");
+    assert.ok(chrome.includes('type="search"'), "the page's bar waits on the list");
   });
 });
 
