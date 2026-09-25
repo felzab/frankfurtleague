@@ -741,8 +741,6 @@ patterns.
 never collects.** The `test` script's patterns are Node's own default set with that suffix cut from
 the `.test` family alone, and `pnpm run test:db` collects the suffix in every extension that family
 takes, so the two scripts partition the default set. The gate's db scope runs `test:db`.
-`fl_frontend/src/core/mongoImage.test.ts` holds the frontend's db tier and the backend's to one mongod
-image.
 The library's memory adapter, which `fl_frontend/src/core/auth.test.ts` runs on, resolves two writes to
 one row last-writer-wins, so a refusal the database makes never happens there. Because the `test`
 script ends in its patterns, a flag appended after it is not applied: the gate shards the suite
