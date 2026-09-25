@@ -51,7 +51,7 @@ const logs: RecordedLine[] = [];
 
 const { sendMail, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
-const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, runWithRequestScope } = await import("./requestScope.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
 
@@ -873,7 +873,7 @@ describe("a send inside a request whose deadline runs out", () => {
   /* Asserted at the tick, as the send's own timeout is above: nothing else ends a send that never
      answers, so a transport ignoring the deadline fails here instead of hanging. */
   it("aborts a send begun late at what is left of the deadline, not at its own bound", async () => {
-    const [thrown, cut] = await runWithRequestScope(SCOPE, async () => {
+    const [thrown, cut, wrote] = await runWithRequestScope(SCOPE, async () => {
       advance(REQUEST_DEADLINE_MS - 5000);
       respond = () => new Promise<Response>(() => {});
       const pending = sendMail(MESSAGE).then(
@@ -887,26 +887,30 @@ describe("a send inside a request whose deadline runs out", () => {
       advance(1);
       assert.equal(signal.aborted, true, "the deadline passed and the send ran on to its own bound");
 
-      return [await pending, requestOutcomeUnknown()];
+      return [await pending, requestOutcomeUnknown(), requestWriteSent()];
     });
 
     assert.ok(thrown instanceof APINetworkError, "the cut send was not thrown as a network error");
     assert.equal(thrown.isTimeout, true);
     assert.equal(cut, true, "the request does not know its deadline cut a send");
+    assert.equal(wrote, true, "a message that went out unanswered was not recorded as a write");
   });
 
   /* Not a network error, which a fan-out reads as a message that may have gone: nothing left. */
   it("draws no request once nothing is left, and logs the send as timed out", async () => {
-    const thrown = await runWithRequestScope(SCOPE, () => {
+    const [thrown, wrote] = await runWithRequestScope(SCOPE, async () => {
       advance(REQUEST_DEADLINE_MS);
 
-      return sendMail(MESSAGE).then(
+      const error = await sendMail(MESSAGE).then(
         () => assert.fail("the send past the deadline resolved"),
-        (error: unknown) => error,
+        (failure: unknown) => failure,
       );
+
+      return [error, requestWriteSent()] as const;
     });
 
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.equal(wrote, false, "a message the deadline refused unsent was recorded as a write");
     assert.ok(thrown instanceof MailUnsentError, "the send refused before it left was thrown as one that may have gone");
     assert.deepEqual(
       logs.map((line) => [line.message, line.meta?.["is_timeout"]]),

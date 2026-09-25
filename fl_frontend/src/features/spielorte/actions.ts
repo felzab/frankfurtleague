@@ -18,7 +18,7 @@ export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSpielortAction", { readOnly: false }, async () => {
+  return runAdminMutation("postSpielortAction", async () => {
     const validated = FLPostSpielortPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -51,7 +51,7 @@ export async function patchSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
 ): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("patchSpielortAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSpielortAction", async () => {
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -88,7 +88,7 @@ export async function patchSpielortAction(
 }
 
 export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("deleteSpielortAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -127,7 +127,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
  * no fixtures with it.
  */
 export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
-  return runAdminMutation("reactivateSpielortAction", { readOnly: false }, async () => {
+  return runAdminMutation("reactivateSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

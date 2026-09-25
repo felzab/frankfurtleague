@@ -74,7 +74,7 @@ export async function postSaisonAction(
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSaisonAction", { readOnly: false }, async () => {
+  return runAdminMutation("postSaisonAction", async () => {
     const validated = FLPostSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -114,7 +114,7 @@ export async function postSaisonAction(
 export async function patchSaisonAction(
   rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft },
 ): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
-  return runAdminMutation("patchSaisonAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSaisonAction", async () => {
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -155,7 +155,7 @@ export async function patchSaisonAction(
  * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
-  return runAdminMutation("activateSaisonAction", { readOnly: false }, async () => {
+  return runAdminMutation("activateSaisonAction", async () => {
     const validated = FLActivateSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -197,7 +197,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  * club that used to play there.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
-  return runAdminMutation("swapGruppenAction", { readOnly: false }, async () => {
+  return runAdminMutation("swapGruppenAction", async () => {
     const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -247,7 +247,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 export async function generateSpielplanAction(
   rawPayload: FLGenerateSpielplanPayload,
 ): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
-  return runAdminMutation("generateSpielplanAction", { readOnly: false }, async () => {
+  return runAdminMutation("generateSpielplanAction", async () => {
     const validated = FLGenerateSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -297,7 +297,7 @@ export async function generateSpielplanAction(
 export async function undrawSpielplanAction(
   rawPayload: FLUndrawSpielplanPayload,
 ): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
-  return runAdminMutation("undrawSpielplanAction", { readOnly: false }, async () => {
+  return runAdminMutation("undrawSpielplanAction", async () => {
     const validated = FLUndrawSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

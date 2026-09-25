@@ -48,7 +48,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
 }
 
 export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSperreAction", { readOnly: false }, async () => {
+  return runAdminMutation("postSperreAction", async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -87,7 +87,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteSperreAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteSperreAction", async () => {
     const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

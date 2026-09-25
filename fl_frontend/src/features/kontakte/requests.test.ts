@@ -17,8 +17,12 @@ const sent: Sent[] = [];
 const recorders = globalThis as unknown as Record<string, unknown>;
 recorders.__flKontakteSent = sent;
 
-/** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
+/** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it,
+    and the write it records as the real client does as it sends one. */
+const API = `import { mayHaveWritten } from "@/core/errors";
+import { recordWriteSent } from "@/core/requestScope";
+export const apiClient = async (endpoint, schema, options = {}) => {
+  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
   globalThis.__flKontakteSent.push({ endpoint, method: options.method, body: options.body === undefined ? undefined : JSON.parse(options.body), params: options.params });
   return schema.parse(globalThis.__flKontakteAnswer(endpoint));
 };`;

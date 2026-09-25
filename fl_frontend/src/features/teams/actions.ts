@@ -50,7 +50,7 @@ export async function postTeamAction(
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("postTeamAction", async () => {
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -109,7 +109,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
     fanned_out_to_saison_teams?: number;
   }>
 > {
-  return runAdminMutation("patchTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchTeamAction", async () => {
     const validated = FLPatchTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -146,7 +146,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
 }
 
 export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
-  return runAdminMutation("deleteTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteTeamAction", async () => {
     const validated = FLDeleteTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -180,7 +180,7 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
 }
 
 export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
-  return runAdminMutation("reactivateTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("reactivateTeamAction", async () => {
     const validated = FLReactivateTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -206,7 +206,7 @@ export async function postSaisonTeamAction(
   // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("postSaisonTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("postSaisonTeamAction", async () => {
     const validated = FLPostSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -245,7 +245,7 @@ export async function postSaisonTeamAction(
 export async function patchSaisonTeamAction(
   rawPayload: SaisonTeamMembershipDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("patchSaisonTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSaisonTeamAction", async () => {
     const validated = FLPatchSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -286,7 +286,7 @@ export async function patchSaisonTeamAction(
 export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
-  return runAdminMutation("replaceSaisonTeamAction", { readOnly: false }, async () => {
+  return runAdminMutation("replaceSaisonTeamAction", async () => {
     const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

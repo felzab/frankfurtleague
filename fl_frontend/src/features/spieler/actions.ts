@@ -48,7 +48,7 @@ function invalidateSpieler(): void {
 }
 
 export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("patchSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSpielerAction", async () => {
     const validated = FLPatchSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -73,7 +73,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
 ): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("deleteSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteSpielerAction", async () => {
     const validated = FLDeleteSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -98,7 +98,7 @@ export async function deleteSpielerAction(
 export async function reactivateSpielerAction(
   rawPayload: FLReactivateSpielerPayload,
 ): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
-  return runAdminMutation("reactivateSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("reactivateSpielerAction", async () => {
     const validated = FLReactivateSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -126,7 +126,7 @@ export async function reactivateSpielerAction(
  * deliberately keeps no image of them.
  */
 export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Promise<ActionResult<{ erasure?: FLSpielerErasureResponse }>> {
-  return runAdminMutation("eraseSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("eraseSpielerAction", async () => {
     const validated = FLEraseSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -159,7 +159,7 @@ export async function postSaisonSpielerAction(
   // Draft-shaped for the same reason as the create: an untouched team picker submits null.
   rawPayload: SaisonSpielerEnterDraft,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("postSaisonSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("postSaisonSpielerAction", async () => {
     const validated = FLPostSaisonSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -194,7 +194,7 @@ export async function postSaisonSpielerAction(
 export async function patchSaisonSpielerAction(
   rawPayload: SaisonSpielerMembershipDraft,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("patchSaisonSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSaisonSpielerAction", async () => {
     const validated = FLPatchSaisonSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -224,7 +224,7 @@ export async function patchSaisonSpielerAction(
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("deleteSaisonSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteSaisonSpielerAction", async () => {
     const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -248,7 +248,7 @@ export async function deleteSaisonSpielerAction(
 export async function reactivateSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
-  return runAdminMutation("reactivateSaisonSpielerAction", { readOnly: false }, async () => {
+  return runAdminMutation("reactivateSaisonSpielerAction", async () => {
     const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

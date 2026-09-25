@@ -49,23 +49,29 @@ beforeEach(() => {
 });
 
 const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
-const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+
+/** A body that sends a write before it answers, as a call through the API client records one. */
+const writing =
+  <T>(answer: () => Promise<T>) =>
+  (): Promise<T> => {
+    recordWriteSent();
+    return answer();
+  };
 
 describe("the session guard every admin write runs behind", () => {
   /* Ahead of the body, so an unauthenticated caller reaches neither the payload nor the backend: the
      proxy's matcher is the only other layer (`docs/frontend/spec.md :: I7`). */
-  it("turns away a caller with no admin session before the body runs, a write and a read alike", async () => {
+  it("turns away a caller with no admin session before the body runs", async () => {
     bus[SESSION] = null;
     let ran = 0;
 
-    for (const readOnly of [false, true]) {
-      const answer = await runAdminMutation("probeAction", { readOnly: readOnly }, () => {
-        ran += 1;
-        return Promise.resolve({ success: true });
-      });
+    const answer = await runAdminMutation("probeAction", () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    });
 
-      assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN }, `readOnly: ${String(readOnly)}`);
-    }
+    assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
     assert.equal(ran, 0, "the body ran for a caller nobody authorized");
     assert.deepEqual(refreshed, [], "a refused caller's page was refreshed");
   });
@@ -90,7 +96,7 @@ describe("the session guard every admin write runs behind", () => {
     bus[SESSION] = new Error("the session store is down");
     let ran = 0;
 
-    const answer = await runAdminMutation("probeAction", { readOnly: false }, () => {
+    const answer = await runAdminMutation("probeAction", () => {
       ran += 1;
       return Promise.resolve({ success: true });
     });
@@ -103,7 +109,7 @@ describe("the session guard every admin write runs behind", () => {
   it("hands the body the session it resolved", async () => {
     let seen: unknown;
 
-    await runAdminMutation("probeAction", { readOnly: false }, (session) => {
+    await runAdminMutation("probeAction", (session) => {
       seen = session;
       return Promise.resolve({ success: true });
     });
@@ -114,48 +120,71 @@ describe("the session guard every admin write runs behind", () => {
 
 describe("the refresh an admin write owes the page", () => {
   it("refreshes once after a write succeeds", async () => {
-    await runAdminMutation("probeAction", { readOnly: false }, () => Promise.resolve({ success: true }));
+    await runAdminMutation(
+      "probeAction",
+      writing(() => Promise.resolve({ success: true })),
+    );
 
     assert.equal(refreshed.length, 1, "a write that succeeded left the admin's page standing");
   });
 
-  /* A read moved nothing, and a failure or a throw is answered on a page the admin may still need:
-     a refresh re-renders it under the toast. */
-  it("refreshes nothing after a read, a refused write or a throw", async () => {
-    await runAdminMutation("probeAction", { readOnly: true }, () => Promise.resolve({ success: true }));
-    await runAdminMutation("probeAction", { readOnly: false }, () => Promise.resolve({ success: false, error: "Nein." }));
-    await runAdminMutation("probeAction", { readOnly: false }, () => Promise.reject(new RangeError("Invalid time value")));
+  /* A body sending no write moved nothing, and a refusal is answered on a page the admin may still
+     need: a refresh re-renders it under the toast. */
+  it("refreshes nothing after a body that sent no write, or a refused write", async () => {
+    await runAdminMutation("probeAction", () => Promise.resolve({ success: true }));
+    await runAdminMutation("probeAction", () => Promise.reject(new RangeError("Invalid time value")));
+    await runAdminMutation(
+      "probeAction",
+      writing(() => Promise.resolve({ success: false, error: "Nein." })),
+    );
 
     assert.deepEqual(refreshed, []);
   });
 
+  /* The row may stand behind the throw, and a page left as it was offers the write again. */
+  it("refreshes once after a write of unknown outcome, thrown or answered", async () => {
+    for (const body of [
+      writing(() => Promise.reject(new RangeError("Invalid time value"))),
+      writing(() => Promise.resolve({ success: false, error: "Unklar.", outcome: "unknown" as const })),
+    ]) {
+      refreshed.length = 0;
+      await runAdminMutation("probeAction", body);
+
+      assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
+    }
+  });
+
   /* Next throws on `refresh()` outside a server action, which the spine would answer as an unclear undo. */
   it("leaves a route handler's success to the route", async () => {
-    const answer = await runAdminRouteWrite("probeRoute", () => Promise.resolve({ success: true }));
+    const answer = await runAdminRouteWrite(
+      "probeRoute",
+      writing(() => Promise.resolve({ success: true })),
+    );
 
     assert.deepEqual(answer, { forbidden: false, answer: { success: true } });
     assert.deepEqual(refreshed, []);
   });
 });
 
-/** What an action answers when its own code throws, declared a read or a write at its call site. */
-const thrownIn = (readOnly: boolean) =>
-  runAdminMutation("probeAction", { readOnly: readOnly }, async (): Promise<{ success: true }> => {
+/** What an action answers when its own code throws, after a write it sent or with none sent. */
+const thrownIn = (wrote: boolean) =>
+  runAdminMutation("probeAction", async (): Promise<{ success: true }> => {
+    if (wrote) recordWriteSent();
     throw new RangeError("Invalid time value");
   });
 
 describe("a throw of an admin action's own code", () => {
   /* A write's code after its API call can throw with the row already stored: answered as a failure,
      the admin repeats a write that may stand. */
-  it("answers a write as of unknown outcome", async () => {
-    const answer = await thrownIn(false);
+  it("answers a throw after a sent write as of unknown outcome", async () => {
+    const answer = await thrownIn(true);
 
     assert.equal(answer.success, false);
     assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
   });
 
-  it("answers a read, which changed nothing, as the failure it is", async () => {
-    const answer = await thrownIn(true);
+  it("answers a throw before any write, which changed nothing, as the failure it is", async () => {
+    const answer = await thrownIn(false);
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
     assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");
@@ -176,8 +205,9 @@ describe("an admin action the request's deadline cut", () => {
   });
 
   /** An action that asks for one bounded call once the deadline has passed, and then answers `settled` as a fan-out settles a refused send. */
-  const cutIn = (readOnly: boolean, settled: { success: boolean; message?: string }) =>
-    runAdminMutation("probeAction", { readOnly: readOnly }, () => {
+  const cutIn = (wrote: boolean, settled: { success: boolean; message?: string }) =>
+    runAdminMutation("probeAction", () => {
+      if (wrote) recordWriteSent();
       clock += REQUEST_DEADLINE_MS;
       boundCall(1000);
 
@@ -191,21 +221,24 @@ describe("an admin action the request's deadline cut", () => {
       { success: true, message: "Gesendet." },
       { success: false, message: "Die E-Mail konnte nicht gesendet werden." },
     ]) {
-      const answer = await cutIn(false, settled);
+      refreshed.length = 0;
+      const answer = await cutIn(true, settled);
 
       assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown", `a cut write answered ${JSON.stringify(answer)}`);
+      assert.equal(refreshed.length, 1, `a cut write answering ${JSON.stringify(settled)} left the admin's page standing`);
     }
   });
 
-  it("answers a read with what it answered itself, a read changing nothing", async () => {
+  it("answers a body that sent no write with what it answered itself, a read changing nothing", async () => {
     const settled = { success: false, message: "Der Server hat zu lange nicht geantwortet." };
 
-    assert.deepEqual(await cutIn(true, settled), settled);
+    assert.deepEqual(await cutIn(false, settled), settled);
   });
 
   it("answers a write the deadline never cut with what it answered itself", async () => {
     const settled = { success: true, message: "Gespeichert." };
-    const answer = await runAdminMutation("probeAction", { readOnly: false }, () => {
+    const answer = await runAdminMutation("probeAction", () => {
+      recordWriteSent();
       boundCall(1000).clear();
 
       return Promise.resolve(settled);

@@ -27,7 +27,7 @@ import type {
  * while the club they were reached for still plays.
  */
 export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
-  return runAdminMutation("eraseKontaktpersonAction", { readOnly: false }, async () => {
+  return runAdminMutation("eraseKontaktpersonAction", async () => {
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -68,7 +68,7 @@ export async function patchSaisonTeamKontakteAction(
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
-  return runAdminMutation("patchSaisonTeamKontakteAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -117,7 +117,7 @@ export async function patchSaisonTeamKontakteAction(
 export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
 ): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
-  return runAdminMutation("readKontaktErasureAnsichtAction", { readOnly: true }, async () => {
+  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

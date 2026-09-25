@@ -4,13 +4,12 @@ import { unstable_rethrow } from "next/navigation";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestOutcomeUnknown } from "@/core/requestScope";
+import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
 import { toActionErrorResult, unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 
-import type { SentRequest } from "@/core/errors";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
 
@@ -45,20 +44,16 @@ export type Guarded<T> = { forbidden: true } | { forbidden: false; answer: T | A
  */
 async function runGuarded<T extends { success: boolean }>(
   mutationName: string,
-  { readOnly }: Pick<SentRequest, "readOnly">,
   fn: (session: AdminSession) => Promise<T>,
-): Promise<Guarded<T>> {
+): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
-    // Set once the guard admits the caller: a throw before then, the session store's among them, wrote nothing.
-    let admitted = false;
     try {
       // Ahead of the body rather than inside each one, so no admin write reaches its payload or the
       // backend unguarded: the proxy's matcher is the first layer, and this the second (`docs/frontend/spec.md :: I7`).
       const session = await getAdminSession();
       if (session === null) return { forbidden: true };
 
-      admitted = true;
       answer = await fn(session);
     } catch (error) {
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
@@ -71,42 +66,41 @@ async function runGuarded<T extends { success: boolean }>(
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      // A server action is a POST whatever it does, so its declaration is what tells the two apart, and a body
-      // that never ran is a read whatever it declared.
-      answer = toActionErrorResult(error, { method: "POST", readOnly: readOnly || !admitted });
+      // A server action is a POST whatever it does, so what this request sent is what tells a write's throw
+      // from a read's.
+      answer = toActionErrorResult(error, { method: "POST", readOnly: !requestWriteSent() });
     }
+
+    // Read once the body has settled and inside this scope, which closes with the callback.
+    const wrote = requestWriteSent();
 
     // Whatever the action made of a deadline's cut or of a mail that may have gone, a fan-out settling
     // either among its refusals: part of the write may stand (`docs/frontend/spec.md :: I366`).
-    if (!readOnly && requestOutcomeUnknown()) {
+    if (wrote && requestOutcomeUnknown()) {
       logger.error(`Admin mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: unansweredAction() };
+      return { forbidden: false, answer: unansweredAction(), wrote: wrote };
     }
 
-    return { forbidden: false, answer };
+    return { forbidden: false, answer: answer, wrote: wrote };
   });
 }
 
 /** A server action's spine; a route handler's write takes `runAdminRouteWrite`. */
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
-  // Required at every call: a throw after a write may leave its row standing, a read's changed nothing,
-  // and a default would answer one of them wrongly. A write's success refreshes the page; a read's moves nothing.
-  { readOnly }: Pick<SentRequest, "readOnly">,
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const guarded = await runGuarded(mutationName, { readOnly: readOnly }, async (session) => {
-    const answer = await fn(session);
-    // Here rather than in each action, whatever tags it also moves: an action that forgets it leaves the admin's
-    // page standing (`docs/frontend/spec.md :: I233`). An action whose failure stands behind a landed write
-    // refreshes on that path itself.
-    if (!readOnly && answer.success) refresh();
+  const guarded = await runGuarded(mutationName, fn);
+  if (guarded.forbidden) return { success: false, error: ADMIN_FORBIDDEN };
 
-    return answer;
-  });
+  const { answer, wrote } = guarded;
+  // Here rather than in each action, which could forget it (`docs/frontend/spec.md :: I233`), and after the
+  // guard's conversions, so a throw or a deadline's cut behind a sent write refreshes too; a refusal behind
+  // one is its action's to refresh.
+  if (wrote && (answer.success || ("outcome" in answer && answer.outcome === "unknown"))) refresh();
 
-  return guarded.forbidden ? { success: false, error: ADMIN_FORBIDDEN } : guarded.answer;
+  return answer;
 }
 
 /**
@@ -118,5 +112,7 @@ export async function runAdminRouteWrite<T extends { success: boolean }>(
   mutationName: string,
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<Guarded<T>> {
-  return runGuarded(mutationName, { readOnly: false }, fn);
+  const guarded = await runGuarded(mutationName, fn);
+
+  return guarded.forbidden ? guarded : { forbidden: false, answer: guarded.answer };
 }

@@ -32,7 +32,7 @@ type SavedFixtures = MovedFixtures & {
 };
 
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
-  return runAdminMutation("patchAdminSpielDataAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -93,7 +93,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * cached match list on every keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
-  return runAdminMutation("previewAdminSpielDataAction", { readOnly: true }, async () => {
+  return runAdminMutation("previewAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
     if (!validated.success) {
       // Silent by design: a toast about an incomplete payload would fire mid-keystroke, and the

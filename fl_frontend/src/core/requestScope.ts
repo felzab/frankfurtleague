@@ -18,6 +18,9 @@ interface RequestScope {
   deadlineAt: number;
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
   outcomeUnknown: boolean;
+  // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
+  // answer leaves standing, where an action declaring it would repeat what each call already says.
+  writeSent: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
@@ -33,7 +36,7 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
   if (storage.getStore() !== undefined) return fn();
 
   const render = scopeOfThisRender();
-  render.scope ??= { ...scope, deadlineAt: performance.now() + REQUEST_DEADLINE_MS, outcomeUnknown: false };
+  render.scope ??= { ...scope, deadlineAt: performance.now() + REQUEST_DEADLINE_MS, outcomeUnknown: false, writeSent: false };
 
   return storage.run(render.scope, fn);
 }
@@ -79,6 +82,20 @@ export function markOutcomeUnknown(): void {
 /** Whether the deadline cut a call of this request, or a settled call may have landed. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;
+}
+
+/**
+ * Called as a call that may write is sent: one never answered may still have landed. The API and mail
+ * clients call it themselves, and a write through another client at the write. A no-op outside a scope.
+ */
+export function recordWriteSent(): void {
+  const store = storage.getStore();
+  if (store !== undefined) store.writeSent = true;
+}
+
+/** Whether this request has dispatched a call that may write. `false` outside a scope. */
+export function requestWriteSent(): boolean {
+  return storage.getStore()?.writeSent === true;
 }
 
 export function getRequestTraceId(): string | undefined {

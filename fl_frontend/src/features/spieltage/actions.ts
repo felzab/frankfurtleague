@@ -18,7 +18,7 @@ function invalidateSpieltage(): void {
 }
 
 export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
-  return runAdminMutation("patchSpieltagAction", { readOnly: false }, async () => {
+  return runAdminMutation("patchSpieltagAction", async () => {
     const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

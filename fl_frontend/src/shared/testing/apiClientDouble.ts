@@ -19,7 +19,11 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
   const bus = `__flApiClientDouble${String((registered += 1))}`;
   Reflect.set(globalThis, bus, { calls, answer });
 
-  const source = `export const apiClient = async (endpoint, schema, options = {}) => {
+  // The record the real client makes as it sends a write, which the admin spine judges its answer by.
+  const source = `import { mayHaveWritten } from "@/core/errors";
+import { recordWriteSent } from "@/core/requestScope";
+export const apiClient = async (endpoint, schema, options = {}) => {
+  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
   const call = { endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) };
   globalThis.${bus}.calls.push(call);
   return globalThis.${bus}.answer(call, schema);

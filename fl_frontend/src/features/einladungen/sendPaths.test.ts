@@ -9,9 +9,18 @@ const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(
 const AUTH = `export const getAdminSession = async () => globalThis.__flSendSession;`;
 const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-const API = `export const apiClient = async (path) => globalThis.__flSendApi(path);`;
+// Each double records the write the module it replaces records as it sends one, which the admin spine
+// judges its answer by.
+const API = `import { mayHaveWritten } from "@/core/errors";
+import { recordWriteSent } from "@/core/requestScope";
+export const apiClient = async (path, _schema, options = {}) => {
+  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
+  return globalThis.__flSendApi(path);
+};`;
 const TEAMS = `export const getTeamMemberships = async () => globalThis.__flSendTeams();`;
-const NOTIFICATIONS = `export const sendZielMail = async (args) => {
+const NOTIFICATIONS = `import { recordWriteSent } from "@/core/requestScope";
+export const sendZielMail = async (args) => {
+  recordWriteSent();
   globalThis.__flSendLog.push("send:" + args.auftrag.zielId);
   globalThis.__flSendMails.push(args);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -166,7 +175,7 @@ describe("what the single invite press answers", () => {
     assert.match(sentence(res), /Die E-Mail konnte nicht gesendet werden/);
   });
 
-  /* The spine refreshes a success alone, and a refused address is still written to the delivery record
+  /* The spine leaves a refusal standing, and a refused address is still written to the delivery record
      the panel shows. */
   it("refreshes the panel after a fan-out that delivered to nobody", async () => {
     const teamId = "e".repeat(24);

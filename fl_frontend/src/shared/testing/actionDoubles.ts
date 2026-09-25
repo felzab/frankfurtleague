@@ -75,14 +75,21 @@ export function doubleActions({
     load(url, context, nextLoad) {
       if (!modules.some((named) => (typeof named === "string" ? url.endsWith(named) : named.test(url)))) return nextLoad(url, context);
 
-      const source = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
-        .map(
-          ([, name]) =>
-            `export const ${name ?? ""} = async (payload) => { const bus = globalThis.${bus}; bus.push({ action: "${name ?? ""}", payload }); return bus.answer("${name ?? ""}"); };`,
-        )
+      const real = blankComments(readFileSync(fileURLToPath(url), "utf8"));
+      const exported = [...real.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)];
+      const source = exported
+        .map((match, index) => {
+          const name = match[1] ?? "";
+          // The record the API client makes as it sends the export's request, which the spine judges its
+          // answer by: each export makes one call, a method other than GET without `readOnly: true` a write.
+          const call = real.slice(match.index, exported[index + 1]?.index);
+          const records = /method: "(?!GET")[A-Z]+"/.test(call) && !call.includes("readOnly: true") ? "recordWriteSent(); " : "";
+
+          return `export const ${name} = async (payload) => { ${records}const bus = globalThis.${bus}; bus.push({ action: "${name}", payload }); return bus.answer("${name}"); };`;
+        })
         .join("\n");
 
-      return { format: "module", source, shortCircuit: true };
+      return { format: "module", source: `import { recordWriteSent } from "@/core/requestScope";\n${source}`, shortCircuit: true };
     },
   });
 

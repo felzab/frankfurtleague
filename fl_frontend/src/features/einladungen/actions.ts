@@ -34,7 +34,7 @@ const VERSAND_IDEMPOTENZ_TAG = "versand";
 export async function postEinladungAction(
   rawPayload: FLEinladungKeyPayload,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
-  return runAdminMutation("postEinladungAction", { readOnly: false }, async () => {
+  return runAdminMutation("postEinladungAction", async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -67,7 +67,7 @@ export async function postEinladungAction(
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
 export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
-  return runAdminMutation("mailEinladungAction", { readOnly: false }, async () => {
+  return runAdminMutation("mailEinladungAction", async () => {
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -153,8 +153,8 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
     // reads it: outside production every address is withheld, and a refusal here would offer a
     // retry that cannot succeed.
     if (outcome.delivered.length === 0 && outcome.withheld.length === 0) {
-      // The spine refreshes a success alone, and a refused address is written to the delivery record
-      // this panel shows, which is the only thing this press writes.
+      // The spine refreshes a success or an unknown outcome, and a refused address is written to the
+      // delivery record this panel shows, which is the only thing this press writes.
       refresh();
 
       return {
@@ -172,7 +172,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
 export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteEinladungAction", { readOnly: false }, async () => {
+  return runAdminMutation("deleteEinladungAction", async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -193,7 +193,7 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
 export async function previewEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
-  return runAdminMutation("previewEinladungVersandAction", { readOnly: true }, async () => {
+  return runAdminMutation("previewEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -216,7 +216,7 @@ export async function previewEinladungVersandAction(
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
-  return runAdminMutation("postEinladungVersandAction", { readOnly: false }, async () => {
+  return runAdminMutation("postEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

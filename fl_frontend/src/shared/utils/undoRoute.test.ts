@@ -55,6 +55,7 @@ registerHooks({
 
 const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
+const { recordWriteSent } = await import("@/core/requestScope.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
@@ -113,6 +114,7 @@ describe("what the undo spine answers when nobody can tell whether its replay la
      failure, the admin undoes it a second time. The shared reader's sentence speaks of a save. */
   it("answers a throw of the replay's own code as of unknown outcome, in words about the undo", async () => {
     const { answer, status } = await undo(async () => {
+      recordWriteSent();
       throw new RangeError("Invalid time value");
     });
 

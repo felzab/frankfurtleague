@@ -130,7 +130,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
 export async function annehmenBewerbungAction(
   rawPayload: FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
-  return runAdminMutation("annehmenBewerbungAction", { readOnly: false }, async () => {
+  return runAdminMutation("annehmenBewerbungAction", async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -206,7 +206,7 @@ export async function annehmenBewerbungAction(
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
-  return runAdminMutation("ablehnenBewerbungAction", { readOnly: false }, async () => {
+  return runAdminMutation("ablehnenBewerbungAction", async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -350,7 +350,7 @@ async function sendeBestaetigungErneut({
  * the league acts on either way.
  */
 export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
-  return runAdminMutation("einwilligungErneutSendenAction", { readOnly: false }, async () => {
+  return runAdminMutation("einwilligungErneutSendenAction", async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -389,25 +389,24 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
-    let zustellung: Awaited<ReturnType<typeof sendeBestaetigungErneut>> | undefined;
-    try {
-      zustellung = await sendeBestaetigungErneut({
-        bewerbungId: validated.data.id,
-        saisonId: bewerbung.saison_id,
-        // The address and the seats the WRITE matched, never the read above: a correction landing
-        // between the two moved the mailbox, and this link replaces the one the correction mailed.
-        person: { vorname: person.vorname, email: erneutOperation.email },
-        benanntesTeam: benanntesTeam,
-        sitze: erneutOperation.rollen,
-        token: erneutOperation.token,
-      });
-    } finally {
-      // The spine refreshes a success alone, and a refused send or a throw leaves the mint standing: the
-      // seat's old link is spent and its deadline moved.
-      if (zustellung?.verschickt !== true) refresh();
-    }
+    const zustellung = await sendeBestaetigungErneut({
+      bewerbungId: validated.data.id,
+      saisonId: bewerbung.saison_id,
+      // The address and the seats the WRITE matched, never the read above: a correction landing
+      // between the two moved the mailbox, and this link replaces the one the correction mailed.
+      person: { vorname: person.vorname, email: erneutOperation.email },
+      benanntesTeam: benanntesTeam,
+      sitze: erneutOperation.rollen,
+      token: erneutOperation.token,
+    });
 
-    if (!zustellung.verschickt) return { success: false, error: zustellung.error };
+    if (!zustellung.verschickt) {
+      // The spine refreshes a success or an unknown outcome, a throw here among them, and a refused send
+      // leaves the mint standing too: the seat's old link is spent and its deadline moved.
+      refresh();
+
+      return { success: false, error: zustellung.error };
+    }
 
     return { success: true, message: zustellung.message };
   });
@@ -421,7 +420,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("kontaktEmailKorrigierenAction", { readOnly: false }, async () => {
+  return runAdminMutation("kontaktEmailKorrigierenAction", async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -495,7 +494,7 @@ export async function kontaktEmailKorrigierenAction(
  * send is a link to try again rather than a person who was never seated.
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("besetzeKontaktSitzAction", { readOnly: false }, async () => {
+  return runAdminMutation("besetzeKontaktSitzAction", async () => {
     // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
     // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
     if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };

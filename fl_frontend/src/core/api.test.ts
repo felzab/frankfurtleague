@@ -34,7 +34,7 @@ registerHooks({
 
 const { apiClient } = await import("./api.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
-const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, runWithRequestScope } = await import("./requestScope.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
@@ -257,6 +257,27 @@ describe("a call the caller declares read-only", () => {
   }
 });
 
+describe("the write a call records in its request", () => {
+  /** Whether the request recorded a write once `options` was sent and failed or answered. */
+  const recorded = (options: RequestInit & { readOnly?: true }, arrange: () => void = () => undefined) =>
+    runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+      arrange();
+      await apiClient("/x", z.unknown(), options).catch(() => undefined);
+
+      return requestWriteSent();
+    });
+
+  /* Recorded as it leaves: a write whose answer never came may still have landed. */
+  it("records a write as it is sent, answered or not", async () => {
+    assert.equal(await recorded({ method: "POST" }), true, "an answered write went unrecorded");
+    assert.equal(await recorded({ method: "PATCH" }, () => void (nextTimesOut = true)), true, "an unanswered write went unrecorded");
+  });
+
+  it("records none for a GET, or for a POST declaring itself read-only", async () => {
+    assert.deepEqual([await recorded({}), await recorded({ method: "POST", readOnly: true })], [false, false]);
+  });
+});
+
 describe("the client's own timeout", () => {
   const TIMEOUT_MS = 1000;
 
@@ -355,16 +376,19 @@ describe("the request's deadline over a chain of calls", () => {
   });
 
   it("draws no request once nothing is left, and answers the call as a timed-out write", async () => {
-    const thrown = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () => {
+    const [thrown, wrote] = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
       advance(REQUEST_DEADLINE_MS);
 
-      return apiClient("/x", z.unknown(), { method: "POST" }).then(
+      const error = await apiClient("/x", z.unknown(), { method: "POST" }).then(
         () => assert.fail("the call past the deadline resolved"),
-        (error: unknown) => error,
+        (failure: unknown) => failure,
       );
+
+      return [error, requestWriteSent()] as const;
     });
 
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.equal(wrote, false, "a write the deadline refused unsent was recorded as sent");
     assert.ok(thrown instanceof APINetworkError, "the refused call was not thrown as a network error");
     assert.deepEqual([thrown.isTimeout, thrown.method, thrown.readOnly], [true, "POST", false]);
   });

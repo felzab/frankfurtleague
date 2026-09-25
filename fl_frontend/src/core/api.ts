@@ -4,9 +4,9 @@ import z from "zod";
 
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "./errors";
 import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -201,6 +201,10 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
         traceId: traceId,
       });
     }
+
+    // Past the refusal above, which sends nothing, and before `fetch`: a write whose answer never comes
+    // may still have landed.
+    if (mayHaveWritten(sent)) recordWriteSent();
 
     try {
       res = await fetch(urlObj, { ...customOptions, headers, signal: bound.signal });

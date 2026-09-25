@@ -33,20 +33,26 @@ const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent
 /* The ORDER between the write and the send decides whether somebody is told they are barred by a
    request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double
    appends to one list, read instead of the source. */
-const MUTATIONS_DOUBLE = `export const postSperre = async (payload) => {
+const MUTATIONS_DOUBLE = `import { recordWriteSent } from "@/core/requestScope";
+export const postSperre = async (payload) => {
+  recordWriteSent();
   globalThis.${EVENTS}.push("post");
   globalThis.${POSTED}.push(payload);
   const answer = globalThis.${ANSWER};
   return typeof answer === "function" ? answer() : answer;
 };
 export const deleteSperre = async () => {
+  recordWriteSent();
   globalThis.${EVENTS}.push("delete");
   const refusal = globalThis.${DELETE_REFUSAL};
   if (refusal !== undefined) throw refusal;
   return { acknowledged: 1, sperrliste_id: "6890a1b2c3d4e5f607190001" };
 };`;
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => {
+// Both write doubles record their write as the clients they stand for do: the spine refreshes only after one.
+const MAIL_DOUBLE = `import { recordWriteSent } from "@/core/requestScope";
+export const sendMail = async (message) => {
+  recordWriteSent();
   globalThis.${EVENTS}.push("mail");
   if (globalThis.${SEND_FAILS}) throw new Error("the provider refused the message");
   globalThis.${SENT}.push(message);

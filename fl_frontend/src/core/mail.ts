@@ -7,7 +7,7 @@ import { frontend_config } from "./config";
 import { withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
-import { boundCall, getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
@@ -279,6 +279,9 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
+    // A message is a write nothing takes back, and one whose answer never comes may still have gone;
+    // `fetch` sends nothing on a signal the deadline has already aborted.
+    if (!bound.signal.aborted) recordWriteSent();
     try {
       res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: bound.signal });
     } catch (error) {
