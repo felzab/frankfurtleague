@@ -5,7 +5,8 @@ import { beforeEach, describe, it } from "node:test";
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const LOGGING = `const line = (...args) => void globalThis.__flBewLogs.push(JSON.stringify(args));
+export const logger = { info: line, warn: line, error: line };`;
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
@@ -15,7 +16,7 @@ const API = `export const apiClient = async (endpoint, schema, options = {}) => 
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
 const MAIL = `export const sendMail = async (mail) => {
-  globalThis.__flBewMails.push({ to: mail.to, subject: mail.subject });
+  globalThis.__flBewMails.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
   return { id: "msg-1" };
 };
 export class MailWithheldError extends Error {}
@@ -23,12 +24,16 @@ export class MailRecipientError extends Error {}`;
 const QUERIES = `export const getBewerbungSchulen = async () => ({ acknowledged: 1, schulen: [] });`;
 
 type ApiCall = { endpoint: string; method?: string; headers: Headers };
+type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 const calls: ApiCall[] = [];
-const mails: { to: string; subject: string }[] = [];
+const mails: Mail[] = [];
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
 recorders.__flBewCalls = calls;
 recorders.__flBewMails = mails;
+recorders.__flBewLogs = logs;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -63,6 +68,11 @@ const { APIBadStatusError } = await import("@/core/errors.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { mapBewerbungSubmitRefusal } = await import("@/features/bewerbungen/utils.ts");
+const route = await import("./route.ts");
+const { buildBewerbungEingangOffenEmail } = await import("@/core/bewerbungEmail.ts");
+const { bestaetigungsLink } = await import("@/features/bewerbungen/bestaetigungLink.ts");
+const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
+const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 const KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427";
 
@@ -137,6 +147,7 @@ const writes = () => calls.filter((call) => call.endpoint === "/bewerbungen");
 beforeEach(() => {
   calls.length = 0;
   mails.length = 0;
+  logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
 });
 
@@ -263,5 +274,130 @@ describe("the application handler's consent label", () => {
 
     assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET });
     assert.deepEqual(mails, []);
+  });
+});
+
+/** The messages one anlass sent, by the tag every message of the workflow carries. */
+const sentFor = (anlass: string): Mail[] => mails.filter((mail) => mail.tags?.anlass === anlass);
+
+/** `BODY` with the Trainer declared the Stellvertretung too, the seat filled from the Trainer as the form fills it. */
+const MIRRORED = { ...BODY, kontakte: { ...BODY.kontakte, stellvertretung: BODY.kontakte.trainer, trainer_ist_zugleich: "stellvertretung" } };
+
+/** The receipt the Ansprechperson is owed where `ausstehend` is still to answer. */
+const receiptOwed = (ausstehend: { vorname: string; rolleText: string }[]): string =>
+  buildBewerbungEingangOffenEmail({
+    saisonId: GESCHRIEBEN.saison_id,
+    origin: ORIGIN,
+    rollenText: rollenText(["ansprechperson"]),
+    ausstehend: ausstehend,
+    fristText: formatSpielDatum(GESCHRIEBEN.bestaetigungsfrist),
+    link: bestaetigungsLink(ORIGIN, GESCHRIEBEN.bestaetigungen.ansprechperson),
+  }).text;
+
+describe("who the submission's messages are addressed to", () => {
+  /* The receipt names every seat still to answer, and only the submitter can chase a colleague in the
+     corridor: the decision fan-out would reach three addresses nobody has confirmed yet. */
+  it("sends the receipt to the Ansprechperson alone, carrying that seat's own link", async () => {
+    await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.deepEqual(
+      sentFor("empfang").map((mail) => mail.to),
+      ["anna@schule.example"],
+    );
+    assert.equal(
+      sentFor("empfang")[0]?.text,
+      receiptOwed([
+        { vorname: "Bernd", rolleText: rollenText(["stellvertretung"]) },
+        { vorname: "Clara", rolleText: rollenText(["trainer"]) },
+      ]),
+    );
+  });
+
+  /* One link message per mailbox, and none for a seat the receipt already carries: a second message
+     asks one reader twice for one press. */
+  it("sends each other seat its own link, once per mailbox", async () => {
+    await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.deepEqual(
+      sentFor("eingang").map((mail) => [
+        mail.to,
+        mail.text.includes(bestaetigungsLink(ORIGIN, "s-frisch")),
+        mail.text.includes(bestaetigungsLink(ORIGIN, "t-frisch")),
+      ]),
+      [
+        ["bernd@schule.example", true, false],
+        ["clara@schule.example", false, true],
+      ],
+    );
+  });
+
+  /* One person holding two seats is one press, and a receipt listing both rows sends the submitter
+     chasing a colleague the other row already reached. */
+  it("folds a mirrored pair into one outstanding entry and one link message", async () => {
+    await bodyOf(aRequest({ "Idempotency-Key": KEY }, MIRRORED));
+
+    assert.equal(sentFor("empfang")[0]?.text, receiptOwed([{ vorname: "Clara", rolleText: rollenText(["stellvertretung", "trainer"]) }]));
+    assert.deepEqual(
+      sentFor("eingang").map((mail) => mail.to),
+      ["clara@schule.example"],
+    );
+  });
+
+  /* The token rides in the parameter the edge's redaction maps strip, spelled by the one helper; and no
+     line of the handler's own may carry it. */
+  it("mints every link through the one helper, and logs no token", async () => {
+    await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+    const minted = Object.values(GESCHRIEBEN.bestaetigungen);
+    const links = mails.flatMap((mail) => [...mail.text.matchAll(/https?:\/\/\S*token=\S*/g)].map(([link]) => link));
+
+    assert.deepEqual(
+      [...new Set(links)].toSorted(),
+      minted.map((token) => bestaetigungsLink(ORIGIN, token)).toSorted(),
+      "a message carries a link the helper did not spell, or misses one",
+    );
+    assert.deepEqual(
+      logs.filter((line) => minted.some((token) => line.includes(token))),
+      [],
+    );
+  });
+});
+
+describe("what the submission's messages say about themselves", () => {
+  it("tags every message with the application it is about, and keys none", async () => {
+    await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.ok(mails.length > 0, "no message was sent, so the tags below are judged over nothing");
+    // The tag routes a delivery event back to its seat; untagged, the event names a message stored against nothing.
+    assert.deepEqual(
+      mails.filter((mail) => mail.tags?.bewerbung_id !== GESCHRIEBEN.created_id),
+      [],
+    );
+    // Both fan-outs carry freshly minted links, so no second send composes the same body, and a key over a
+    // changed body is refused.
+    assert.deepEqual(
+      mails.map((mail) => mail.idempotencyKey),
+      mails.map(() => undefined),
+    );
+  });
+});
+
+describe("what the application handler answers", () => {
+  /* Nothing here authorizes anything, so the public spine's same-origin check is the one defence the
+     route has: a spine that checks a session would skip it, and its name would read as authorization. */
+  it("refuses a request from another site before it writes or mails anything", async () => {
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY, "sec-fetch-site": "cross-site" }));
+
+    assert.equal((answer.body as { success: boolean }).success, false, "a request from another site is answered as this page's own");
+    assert.deepEqual(writes(), []);
+    assert.deepEqual(mails, []);
+  });
+
+  /* POST alone: a mail scanner fetches every link in a message, and a second method would be one it
+     reaches with a fetch nobody made. */
+  it("answers one method, POST", () => {
+    assert.deepEqual(
+      Object.keys(route).filter((name) => ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(name)),
+      ["POST"],
+    );
   });
 });

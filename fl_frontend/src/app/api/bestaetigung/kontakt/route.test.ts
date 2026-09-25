@@ -5,7 +5,18 @@ import { beforeEach, describe, it } from "node:test";
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const LOGGING = `const line = (...args) => void globalThis.__flSeatLogs.push(JSON.stringify(args));
+export const logger = { info: line, warn: line, error: line };`;
+/* The serving origin every link in a message is minted on. */
+const ORIGIN = "http://localhost:3000";
+const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+/* The provider rather than the fan-out, which is what composes the message a case reads. */
+const MAIL = `export const sendMail = async (mail) => {
+  globalThis.__flSeatMails.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
+  return { id: "msg-1" };
+};
+export class MailWithheldError extends Error {}
+export class MailRecipientError extends Error {}`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.__flSeatCalls.push({ endpoint, method: options.method, body: options.body });
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
@@ -14,10 +25,16 @@ const API = `export const apiClient = async (endpoint, schema, options = {}) => 
 };`;
 
 type ApiCall = { endpoint: string; method?: string; body?: string };
+type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 const calls: ApiCall[] = [];
+const mails: Mail[] = [];
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
 recorders.__flSeatCalls = calls;
+recorders.__flSeatMails = mails;
+recorders.__flSeatLogs = logs;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -38,6 +55,8 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
+    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -49,6 +68,10 @@ const { APIBadStatusError } = await import("@/core/errors.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const route = await import("./route.ts");
+const { buildBewerbungWiderspruchEmail } = await import("@/core/bewerbungEmail.ts");
+const { rollenText, rolleText } = await import("@/features/bewerbungen/notifications.ts");
+const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
 const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
@@ -124,6 +147,8 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   calls.length = 0;
+  mails.length = 0;
+  logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -188,5 +213,103 @@ describe("the contact seat's confirmation handler", () => {
 
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false });
+  });
+});
+
+describe("what one answered seat sets the confirmation handler sending", () => {
+  /* The LAST seat, never any confirmation: told „vollständig“ while two seats are open, a submitter
+     stops chasing the people the application is still waiting for. */
+  it("calls the application complete only where the answer leaves no seat outstanding", async () => {
+    await bodyOf(aRequest(gueltigerKoerper));
+    assert.equal(mails.length, 0, "a confirmation leaving two seats open sends a message");
+
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ausstehend: [] });
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(
+      mails.map((mail) => [mail.to, mail.tags?.anlass]),
+      [[GESCHRIEBEN.ansprechperson_email, "vollstaendig"]],
+    );
+  });
+
+  /* `Absage` is the league's own rejection of a whole application; a seat's refusal is a
+     `Widerspruch`, and the two read as different decisions. */
+  it("sends the seat's own decline notice", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ergebnis: "abgelehnt" });
+
+    await bodyOf(aRequest({ ...gueltigerKoerper, antwort: "abgelehnt", geburtsdatum: null }));
+
+    assert.deepEqual(
+      mails.map((mail) => mail.text),
+      [
+        buildBewerbungWiderspruchEmail({
+          saisonId: GESCHRIEBEN.saison_id,
+          origin: ORIGIN,
+          rollenText: rollenText(["ansprechperson"]),
+          abgelehnt: { vorname: GESCHRIEBEN.vorname, rolleText: rolleText("ansprechperson") },
+          fristText: formatSpielDatum(GESCHRIEBEN.bestaetigungsfrist),
+        }).text,
+      ],
+    );
+  });
+
+  /* The one branch with nowhere to send: the seat that would have been addressed is the seat that just
+     emptied itself, and any substitute recipient is a third party. */
+  it("sends nothing where the Ansprechperson seat is empty, and logs neither address nor token nor person", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ergebnis: "abgelehnt", ansprechperson_email: null });
+
+    await bodyOf(aRequest({ ...gueltigerKoerper, antwort: "abgelehnt", geburtsdatum: null }));
+
+    assert.deepEqual(mails, []);
+    assert.equal(logs.length, 1, "the empty seat passes without a line saying the message went nowhere");
+    assert.doesNotMatch(
+      logs[0] ?? "",
+      new RegExp(`${gueltigerKoerper.token}|${GESCHRIEBEN.vorname}|@`),
+      "the line carries a token, a person or an address",
+    );
+  });
+
+  /* The token is spent by the time the message goes, so no second answer composes the same body: a key
+     would refuse the paired seat's genuine answer. The tag routes a delivery event back to its record. */
+  it("tags its message with the application, and keys none", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ausstehend: [] });
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(
+      mails.map((mail) => [mail.tags?.bewerbung_id, mail.idempotencyKey]),
+      [[GESCHRIEBEN.bewerbung_id, undefined]],
+    );
+  });
+});
+
+describe("what the confirmation handler answers the browser", () => {
+  /* `nachlesen` is this handler's own instruction to read the link again, and the page has no arm for
+     it: carried out, the page renders nothing it knows. */
+  it("hands no refusal's instruction to the browser", async () => {
+    const refusals = [
+      aRefusal("REQ-BEWERBUNG-009"),
+      aRefusal("REQ-BEWERBUNG-010"),
+      aRefusal("REQ-BEWERBUNG-011"),
+      aRefusal("REQ-BEWERBUNG-012"),
+      refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE),
+    ];
+
+    for (const refusal of refusals) {
+      schreibAntwort = () => refusal;
+      const answer = (await bodyOf(aRequest(gueltigerKoerper))).body as Record<string, unknown>;
+
+      assert.equal(answer.success, false, `${String(refusal.serverErrorCode)} was answered as a success`);
+      assert.ok(!("nachlesen" in answer), `${String(refusal.serverErrorCode)} carries the handler's instruction out`);
+    }
+  });
+
+  /* POST alone: a mail scanner fetches every link in a message, and a link that wrote on GET would
+     confirm for the scanner. */
+  it("answers one method, POST", () => {
+    assert.deepEqual(
+      Object.keys(route).filter((name) => ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(name)),
+      ["POST"],
+    );
   });
 });

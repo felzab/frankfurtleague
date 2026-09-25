@@ -558,6 +558,19 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(calls, []);
   });
 
+  /* The signature is over the bytes the provider sent: parsed first and re-serialised, a body written
+     with other whitespace verifies as a forgery, and a forged one is parsed before it is refused. */
+  it("verifies the bytes it was sent, and parses none it has not verified", async () => {
+    const spaced = await answerTo(signed(JSON.stringify(eventFor("email.delivered"), null, 2)));
+    const request = signed(JSON.stringify(eventFor("email.delivered")));
+    const unreadable = await answerTo(
+      new NextRequest("http://localhost/api/mail/zustellung", { method: "POST", headers: request.headers, body: "{ kein json" }),
+    );
+
+    assert.equal(spaced.status, 200, "a genuine event written with other whitespace is refused as a forgery");
+    assert.equal(unreadable.status, 400, "an unverified body is parsed before it is refused");
+  });
+
   it("answers 400 for a signature that is not this secret's", async () => {
     const foreignId = new Webhook(`whsec_${randomBytes(24).toString("base64")}`).sign(
       "msg_2xyzABC",

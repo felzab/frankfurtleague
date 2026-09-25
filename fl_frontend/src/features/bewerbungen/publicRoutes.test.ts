@@ -19,6 +19,8 @@ import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -27,6 +29,7 @@ import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
+import type { ReactElement, ReactNode } from "react";
 import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
@@ -76,21 +79,13 @@ const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 const REPO_DIR = path.resolve(FRONTEND_DIR, "..");
 const SRC_DIR = path.join(FRONTEND_DIR, "src");
 const APP_DIR = path.join(SRC_DIR, "app");
-const ROUTE_DIR = path.join(APP_DIR, "(public)", "bewerbung", "[saison_id]");
 
-const LANDING = readFileSync(path.join(APP_DIR, "(public)", "page.tsx"), "utf8");
-const PAGE = readFileSync(path.join(ROUTE_DIR, "page.tsx"), "utf8");
 const VIEW = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BewerbungView.tsx"), "utf8");
 const NEXT_CONFIG = readFileSync(path.join(FRONTEND_DIR, "next.config.ts"), "utf8");
 const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "band.ts"), "utf8");
 const BAND_COMPONENT = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
 const INVITATION_SOURCE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
-const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
-const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
-const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "kontakt", "route.ts"), "utf8");
-/** The provider's delivery webhook, the one session-less route that takes neither spine. */
-const ZUSTELLUNG_ROUTE = readFileSync(path.join(APP_DIR, "api", "mail", "zustellung", "route.ts"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
 /** The confirmation page's fact banner, read where the recipe it reaches for leaves no mark on the markup. */
 const PANELS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BestaetigungPanels.tsx"), "utf8");
@@ -115,6 +110,17 @@ const FENSTER: FLBewerbungFensterResponse = {
   laeuft: true,
   saison_beendet: false,
 };
+
+/** A public page resolved whole, its window read answering `fenster` and no season running. */
+async function publicMarkup(Page: () => ReactNode, fenster: FLBewerbungFensterResponse | null): Promise<string> {
+  answerReadsWith((endpoint, schema, params) => {
+    if (endpoint === "/saisons/current" || (endpoint === "/bewerbungen/fenster" && fenster === null)) throw backendNotFound(endpoint);
+    if (endpoint === "/bewerbungen/fenster") return fenster;
+    return EMPTIEST_ANSWER(endpoint, schema, params);
+  });
+
+  return renderPage(underNext(h(Page)));
+}
 
 const BASE_PROPS = { saisonId: "2026", isUnlesbar: false, today: TODAY, schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] };
 
@@ -474,13 +480,15 @@ describe("what the application page holds while it loads", () => {
   it("fills the viewport on a stream", () => {
     const region = rootClass(renderMarkup(ContentLoader, {}));
     const viewport = rootClass(renderMarkup(ContentLoader, { fills: "viewport" as const }));
-    const streamed = renderMarkup(BewerbungPage, { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
+    const props = { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) };
+    const streamed = renderMarkup(BewerbungPage, props);
+    // The element beside the render: a `<div>` spelling the loader's own classes renders the same markup.
+    const fallback = (BewerbungPage(props) as ReactElement<{ fallback: ReactElement<{ fills?: string }> }>).props.fallback;
 
     assert.notEqual(region, viewport, "the two fills render alike, so this case compares nothing");
     assert.equal(rootClass(streamed), viewport, "the page's boundary stops short of the footer");
-    /* Read beside the render: a `<div>` spelling the loader's own classes renders the same markup, so
-       only the source says the boundary holds the component rather than a copy of its output. */
-    assert.match(PAGE, /fallback=\{<ContentLoader fills="viewport" \/>\}/, "the page's boundary no longer holds a ContentLoader");
+    assert.equal(fallback.type, ContentLoader, "the page's boundary holds a copy of the loader's markup rather than the loader");
+    assert.equal(fallback.props.fills, "viewport");
   });
 });
 
@@ -511,10 +519,17 @@ describe("how the band writes the season it is inviting applications for", () =>
     assert.match(BAND, /root: "[^"]*\bbg-surface\b/, "the band lost the card box every page seats it in");
   });
 
-  /* The one box is nobody's to ask for, so the contact page asks for nothing. */
-  it("seats the contact page's band on the one box, asking for nothing", () => {
-    assert.match(KONTAKT_PAGE, /<BewerbungOffenBand \/>/, "the contact page hands the band a prop it no longer takes");
-    assert.doesNotMatch(KONTAKT_PAGE, /\bground=/, "the contact band asks for a ground again");
+  /* The one box is nobody's to ask for, so the contact page asks for nothing: no box of its own while
+     the window runs, and no stand-in for the rest of the year. */
+  it("seats the contact page's band on the one box, asking for nothing", async () => {
+    const running = await publicMarkup(KontaktPage, FENSTER);
+
+    assert.ok(running.includes(`class="${band().root()}"`), "the contact page's band wears a box other than the recipe's");
+    assert.equal(
+      textOf(await publicMarkup(KontaktPage, null)),
+      textOf(renderMarkup(KontaktView, {})),
+      "the contact page's band stands something in for a closed window",
+    );
   });
 });
 
@@ -531,32 +546,33 @@ describe("what the band's recipe is allowed to reach", () => {
 });
 
 /*
- What is read rather than rendered below is which component is handed to which as a prop, and which
- classes a recipe wrote: a prop binding reaches no markup, and a literal spelling those classes
- renders identical markup.
+ What is read rather than rendered below is which classes a recipe wrote: a literal spelling those
+ classes renders identical markup.
 */
 describe("what the landing page's one band slot holds", () => {
   /* The contact band reaches the page ONLY as what stands in for the application band, so a running
      window replaces it rather than adding a second band under it. */
-  it("renders the contact band only through the application band", () => {
-    assert.match(LANDING, /ersatz=\{<KontaktBand \/>\}/, "the contact band is no longer the application band's stand-in");
-    assert.equal((LANDING.match(/<KontaktBand \/>/g) ?? []).length, 1, "the contact band is rendered somewhere besides the slot");
+  it("renders the contact band only through the application band", async () => {
+    const closed = await publicMarkup(LandingPage, null);
+    const running = await publicMarkup(LandingPage, FENSTER);
+
+    assert.equal(closed.split("Du hast Fragen").length - 1, 1, "a closed window shows the contact band other than once");
+    assert.ok(running.includes("Deine Schule"), "a running window shows no application band, so the absence below proves nothing");
+    assert.ok(!running.includes("Du hast Fragen"), "the contact band stands beside the application band rather than in its place");
   });
 
   /* Neither band's words may be the fallback: the read resolves after paint, so a sentence there is
      one the reader watches being swapped for a different one. A skeleton says „not yet“ instead. */
-  it("falls back to a skeleton rather than to either band's words", () => {
+  it("falls back to a skeleton rather than to either band's words", async () => {
     const landing = renderMarkup(LandingPage, {});
+    // The words the skeleton's live region announces, which no other element on the page carries.
+    const waiting = "Bewerbungsfenster wird geladen";
 
     assert.ok(landing.includes(renderMarkup(BewerbungBandSkeleton, {})), "the band slot falls back to something other than its skeleton");
+    assert.ok(landing.includes(waiting), "the skeleton announces nothing, so the absence below proves nothing");
     assert.doesNotMatch(landing, /Deine Schule|Du hast Fragen/, "the fallback shows words it may have to swap for different ones");
-    /* Anchored on the slot rather than the page: the render finds the skeleton's markup ANYWHERE, so
-       a skeleton moved out of the fallback and drawn as a standing sibling satisfies it. */
-    assert.match(
-      LANDING,
-      /<Suspense fallback=\{<BewerbungBandSkeleton \/>\}>\s*<BewerbungOffenBand/,
-      "the band's slot falls back to something else",
-    );
+    // Resolved, the skeleton goes: one drawn as a standing sibling rather than as the fallback would stay.
+    assert.ok(!(await publicMarkup(LandingPage, null)).includes(waiting), "the skeleton stands beside the band rather than in its fallback");
   });
 
   /* The skeleton is built FROM the recipes it stands in for, so its height cannot drift from theirs.
@@ -577,9 +593,12 @@ describe("what the landing page's one band slot holds", () => {
 
   /* The two halves drift apart on their own: the page can stop passing the slot, or the view can
      stop rendering it, and either leaves the band silently gone with every gate green. */
-  it("passes the band into the view rather than rendering it beside", () => {
-    assert.match(KONTAKT_PAGE, /bewerbungSlot=\{/, "the contact page no longer hands the band to the view");
-    assert.match(KONTAKT_PAGE, /<BewerbungOffenBand[^>]*\/>/, "the contact page stopped rendering the band");
+  it("passes the band into the view rather than rendering it beside", async () => {
+    const html = await publicMarkup(KontaktPage, FENSTER);
+    const bandAt = html.indexOf("Deine Schule");
+
+    assert.notEqual(bandAt, -1, "the contact page stopped rendering the band");
+    assert.ok(bandAt > html.indexOf("offenes Ohr") && bandAt < html.indexOf("<h2"), "the band stands beside the view rather than in its slot");
   });
 });
 
@@ -621,42 +640,7 @@ describe("where the about page's questions sit in the heading outline", () => {
   });
 });
 
-describe("who the submission's receipt is addressed to", () => {
-  /* Which collector the route CALLS, the collectors themselves being pinned in `notifications.test.ts`.
-     Swapped for the decision fan-out, the receipt reaches three addresses nobody has confirmed yet,
-     and every test in this suite goes on passing. */
-  it("collects the Ansprechperson's mailbox alone, never the decision fan-out", () => {
-    assert.match(POST_ROUTE, /collectBewerbungEingangEmpfaenger\(kontakte\)/, "the receipt uses another collector");
-    assert.doesNotMatch(POST_ROUTE, /collectBewerbungEmpfaenger\(/, "the receipt fans out the way a committed decision does");
-  });
-
-  /* One link message per mailbox, and the seats the receipt already answers for left out of it:
-     their link travels in the receipt, and a second message asks one reader twice for one press. */
-  it("sends the link messages per mailbox, without the seats the receipt already carries", () => {
-    assert.match(POST_ROUTE, /sendBewerbungLinkMail\(/, "the links are fanned out through the per-recipient sender");
-    assert.match(
-      POST_ROUTE,
-      /empfangsSitze\(kontakte\.trainer_ist_zugleich\)/,
-      "the withheld set is decided here rather than where it is pinned",
-    );
-    /* Both lists read that one set: a mirrored seat left on the link map gets a second message, and
-       one left on the outstanding list sends the reader chasing themselves. */
-    assert.equal(
-      (POST_ROUTE.match(/!imEmpfang\.includes\(seat\.value\)/g) ?? []).length,
-      2,
-      "the link map and the outstanding list no longer read the same withheld set",
-    );
-    assert.match(POST_ROUTE, /link: bestaetigungsLink\(origin, seats\.ansprechperson\)/, "the receipt carries no link of its own");
-  });
-
-  /* A handler answers a request rather than rendering, so this is read: one person holding two seats
-     is one press, and a receipt listing both rows sends the submitter chasing a colleague the other
-     row already reached. */
-  it("folds a mirrored pair into one outstanding entry, as the link fan-out folds it", () => {
-    assert.match(POST_ROUTE, /seat\.value !== "trainer" \|\| zugleich === null/, "the outstanding list keeps the mirrored Trainer row");
-    assert.match(POST_ROUTE, /rollenText\(\[seat\.value, "trainer"\]\)/, "the surviving row does not name both seats that person holds");
-  });
-
+describe("how the workflow's links are spelled", () => {
   /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
      One module spells it, so a rename cannot leave a second spelling the maps do not cover. */
   it("spells every link the one way the edge redacts", () => {
@@ -665,15 +649,12 @@ describe("who the submission's receipt is addressed to", () => {
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
 
     for (const [whose, sourceText] of [
-      ["the submission handler", POST_ROUTE],
       ["the retention sweep", SWEEP],
       ["the administrator's re-send", ACTIONS],
     ] as const) {
       assert.match(sourceText, /bestaetigungsLink\(/, `${whose} no longer mints its link through the one helper`);
       assert.doesNotMatch(sourceText, /\/bestaetigung\/kontakt\?/, `${whose} spells a link of its own beside the helper`);
     }
-
-    assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
   });
 
   /* An edge file spelling the emptied path sends the mail's link to a 404 that no case here drives.
@@ -695,91 +676,6 @@ describe("who the submission's receipt is addressed to", () => {
         assert.doesNotMatch(sourceText, pattern, `${path.relative(REPO_DIR, file)} ${what}`);
       }
     }
-  });
-});
-
-describe("what stands in for a session on the session-less routes", () => {
-  /** Every name Next reads as a route handler, so a method nobody anticipated is caught by the set rather than by a list. */
-  const HTTP_METHODS: readonly string[] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
-
-  // Every export form a handler can take, `export { GET }` included: a reader keyed on
-  // `export async function` alone passes over the two spellings that are not one.
-  const exportedNames = (sourceText: string): string[] => [
-    ...[...sourceText.matchAll(/^export (?:async )?(?:function|const|let|var) (\w+)/gm)].map((hit) => hit[1] ?? ""),
-    ...[...sourceText.matchAll(/^export \{([^}]*)\}/gm)].flatMap((hit) =>
-      (hit[1] ?? "").split(",").map((eintrag) => (eintrag.split(" as ").pop() ?? "").trim()),
-    ),
-  ];
-
-  /* Both files say „POST alone, and no GET“ in prose and nothing held them to it: a `GET` added
-     later ships green, and a mail scanner fetching every link in a message would spend the token it
-     fetched. */
-  it("answers one method on each write, and that method is POST", () => {
-    for (const [whose, sourceText] of [
-      ["the application submit", POST_ROUTE],
-      ["the confirmation write", CONFIRM_ROUTE],
-    ] as const) {
-      const names = exportedNames(sourceText);
-
-      assert.ok(names.length > 0, `${whose} exports nothing this case can read, so the assertion below compares nothing`);
-      assert.deepEqual(
-        names.filter((name) => HTTP_METHODS.includes(name)),
-        ["POST"],
-        `${whose} answers a second method, which a mail scanner reaches with a fetch nobody made`,
-      );
-    }
-  });
-
-  /* `runAdminMutation`'s name says a session was checked. A public route reaching for it would read
-     as authorized by something, and nothing here authorizes anything. */
-  it("does not borrow the admin spine", () => {
-    assert.doesNotMatch(POST_ROUTE, /runAdminMutation/, "a session-less route runs through the admin mutation spine");
-    assert.match(POST_ROUTE, /handlePublicRequest\(request, \{/, "the route no longer runs through the public spine");
-  });
-
-  /* The one session-less route that takes NEITHER spine. `handlePublicRequest` always answers 200
-     with the outcome in the body, which tells a provider that retries on non-200 that a forgery and
-     an unreachable backend were both accepted. */
-  it("keeps the delivery webhook off both spines, and off a session it has no caller for", () => {
-    // The comments are cut first: this route's own doc block names both spines in order to say why
-    // it takes neither, so a sweep over the whole file would read the argument as the defect.
-    const code = ZUSTELLUNG_ROUTE.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-
-    assert.doesNotMatch(code, /handlePublicRequest/, "the webhook answers every failure 200 through the public spine");
-    assert.doesNotMatch(code, /getAdminSession|runAdminMutation/, "the webhook checks a session no provider holds");
-    assert.match(ZUSTELLUNG_ROUTE, /status: 400/, "an unverifiable request is not refused with a status the provider stops retrying on");
-    assert.match(ZUSTELLUNG_ROUTE, /status: 503/, "an unreachable backend is reported as an event the provider need not send again");
-  });
-
-  /* Parsing first and re-serialising changes key order and whitespace, and every real event then
-     verifies as a forgery. */
-  it("verifies the delivery webhook over the bytes the provider signed", () => {
-    const raw = ZUSTELLUNG_ROUTE.indexOf("await request.text()");
-    const parsedBody = ZUSTELLUNG_ROUTE.indexOf(".verify(");
-
-    assert.notEqual(raw, -1, "the webhook reads something other than the raw request body");
-    assert.ok(raw < parsedBody, "the body is parsed before it is verified");
-    assert.ok(ZUSTELLUNG_ROUTE.indexOf("JSON.parse") > parsedBody, "an unverified body is parsed");
-  });
-});
-
-describe("what one of the workflow's messages says about itself", () => {
-  /* The tag block is what routes a delivery event back to the seat it belongs to; without it an
-     event carries a message id this side has stored against nothing. */
-  it("names the application every message of the workflow is about", () => {
-    assert.equal(
-      (POST_ROUTE.match(/auftrag: \{ bewerbungId: eingang\.created_id/g) ?? []).length,
-      2,
-      "one of the submission's two fan-outs goes out untagged",
-    );
-    assert.match(CONFIRM_ROUTE, /auftrag: \{ bewerbungId: antwort\.bewerbung_id/, "the confirmation's own message goes out untagged");
-  });
-
-  /* Both messages here carry a link minted for this one submission, so no second send can compose
-     the same body: a key over a changed body is refused rather than collapsed. */
-  it("passes no idempotency key with a message carrying a freshly minted token", () => {
-    assert.doesNotMatch(POST_ROUTE, /idempotenzTag/, "the submission's link messages pass a key over a body that cannot repeat");
-    assert.doesNotMatch(CONFIRM_ROUTE, /idempotenzTag/, "the confirmation's notice passes a key a second answer would be refused over");
   });
 });
 
@@ -939,25 +835,11 @@ describe("which kit colours the wish picker leaves out", () => {
     );
   });
 
-  /* Colours an administrator ASSIGNED, off the endpoint that answers `saison_teams.trikot_farbe`.
-     Read off another application's `trikot.wunschfarbe` instead, the picker would carry one school's
-     submission into another school's form. Which endpoint a page reads reaches no markup. */
-  it("reads the season's assignments and no other application's wish", () => {
-    assert.match(PAGE, /getBewerbungTrikotfarben\(saison_id\)/, "the page no longer reads which colours the season has assigned");
-    assert.doesNotMatch(PAGE, /wunschfarbe/, "the application page reads a wish where it must read an assignment");
+  /* Colours an administrator ASSIGNED, never another application's `trikot.wunschfarbe`: that would
+     carry one school's submission into another school's form. What the page reads and hands on is
+     held in `fl_frontend/src/features/bewerbungen/routes.test.ts`; this is the view's half. */
+  it("reads no other application's wish in the view", () => {
     assert.doesNotMatch(VIEW, /wunschfarbe/, "the application view reads a wish where it must read an assignment");
-    assert.match(PAGE, /vergebeneFarben=\{vergeben\}/, "the page reads the assigned colours and hands them to nothing");
-  });
-
-  /* A failed read means "nothing is KNOWN to be taken", which offers the whole palette. Failing the
-     other way would withhold a colour nobody holds -- and a wish is not unique in any case. */
-  it("degrades to the empty set rather than to a narrowed palette", () => {
-    // The CALL, never the import that names it first: the statement's own semicolon is what bounds
-    // the read, and cut from the import the slice ends at the end of that line instead.
-    const branch = PAGE.slice(PAGE.indexOf("await getBewerbungTrikotfarben"));
-
-    assert.notEqual(branch, "", "the page no longer awaits the read this assertion is about");
-    assert.match(branch.slice(0, branch.indexOf(";")), /\(\) => \[\]/, "an unreadable answer no longer offers the whole palette");
   });
 });
 
@@ -1502,60 +1384,9 @@ describe("where a link answered in another window lands", () => {
     assert.match(widersprochen, /widersprochen/, "the objected panel no longer says the entry was refused");
     assert.doesNotMatch(confirmedPanel, /widersprochen/, "the confirmed panel talks about an objection");
   });
-
-  /*
-   Read rather than rendered, for the reason the session-less block above gives: this is the
-   handler's control flow, and the state it picks reaches the browser as JSON.
-  */
-  it("reads the link's standing instead of naming a state the refusal cannot tell apart", () => {
-    assert.match(CONFIRM_ROUTE, /getEinwilligungAnsicht\(token\)/, "the handler answers a state it guessed from the refusal code");
-    assert.match(CONFIRM_ROUTE, /nachlesen === true/, "the handler no longer branches on the refusal that asks for the read");
-  });
-
-  /* Destructured out, never spread with the rest: `nachlesen` is this handler's own instruction, and
-     the page has no arm for it. */
-  it("keeps that instruction out of what the browser is answered", () => {
-    assert.match(CONFIRM_ROUTE, /const \{ nachlesen, \.\.\.panel \} = refusal;/, "the refusal reaches the answer whole");
-    assert.doesNotMatch(CONFIRM_ROUTE, /\.\.\.refusal/, "the refusal is spread into the answer, its instruction with it");
-  });
 });
 
-/*
- Read rather than rendered, for the reason the session-less block above gives: a route handler
- composes a message and an answer, and neither becomes markup a renderer could be pointed at.
-*/
-describe("what one answered seat sets the confirmation route sending", () => {
-  /* The LAST seat, never any confirmation: told „vollständig“ while two seats are open, a submitter
-     stops chasing the people the application is still waiting for. */
-  it("calls the application complete only where the answer leaves no seat outstanding", () => {
-    assert.match(
-      CONFIRM_ROUTE,
-      /antwort\.ergebnis === "bestaetigt" && antwort\.ausstehend\.length === 0/,
-      "the completeness message is sent on a condition that is not the last seat landing",
-    );
-  });
-
-  /* `Absage` is the league's own rejection of a whole application and carries an administrator's
-     stated reason; a seat's refusal is a `Widerspruch`, and the two read as different decisions. */
-  it("sends the seat's own decline notice rather than the league's rejection", () => {
-    assert.match(CONFIRM_ROUTE, /buildBewerbungWiderspruchEmail/, "the decline no longer composes the message written for it");
-    assert.doesNotMatch(CONFIRM_ROUTE, /buildBewerbungAbsageEmail/, "a seat's refusal is reported as the league turning the school down");
-  });
-
-  /* The one branch with nowhere to send: the seat that would have been addressed is the seat that
-     just emptied itself, and any substitute recipient is a third party. */
-  it("sends nothing where the Ansprechperson seat is empty, and logs neither address nor token", () => {
-    const branch = CONFIRM_ROUTE.slice(CONFIRM_ROUTE.indexOf("ansprechperson_email === null"));
-    const upToSend = branch.slice(0, branch.indexOf("await sendBewerbungMail"));
-    // The call's own arguments, which is what reaches the stream; the comment above it is prose.
-    const logLine = /logger\.info\(([\s\S]*?)\);/.exec(upToSend)?.[1] ?? "";
-
-    assert.notEqual(branch, "", "the handler no longer answers an empty Ansprechperson seat at all");
-    assert.match(upToSend, /return;/, "the empty branch falls through into the send");
-    assert.notEqual(logLine, "", "the empty seat passes without a line saying the message went nowhere");
-    assert.doesNotMatch(logLine, /ansprechperson_email|token|vorname/, "the line carries an address, a token or a person");
-  });
-
+describe("what a decline may carry", () => {
   /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than
      a press: taken, the echo would report a scope the emptied slot records nowhere. */
   it("refuses a decline that carries the WhatsApp consent, at the shape both tiers judge", () => {
@@ -1574,19 +1405,5 @@ describe("what one answered seat sets the confirmation route sending", () => {
       "the refusal lands somewhere other than the switch",
     );
     assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: false }).success, true);
-  });
-
-  /* The address exists on this tier and must not leave it: the answer is composed key by key so a
-     later field on the response cannot ride out to the browser by being spread. */
-  it("answers the browser four named fields and no part of the mail", () => {
-    const answerLiteral = /return \{ success: true as const,([^}]*)\}/.exec(CONFIRM_ROUTE)?.[1] ?? "";
-
-    assert.notEqual(answerLiteral, "", "the success answer is no longer a literal this can read");
-    assert.deepEqual(
-      [...answerLiteral.matchAll(/(\w+):/g)].map((hit) => hit[1]),
-      ["ergebnis", "geburtsdatum", "whatsapp"],
-      "the browser is answered something other than the seat's own three fields",
-    );
-    assert.doesNotMatch(answerLiteral, /\.\.\./, "the answer spreads the response, so every server-only field travels with it");
   });
 });
