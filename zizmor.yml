@@ -3,9 +3,6 @@
 # `.github/dependabot.yml`. zizmor discovers this file from the repository root, and the persona
 # and `--offline` are the call site's to spell, never this file's.
 #
-# At the root, not `.github/`: `scripts/gate/scope_map.sh` maps `.github/` to the docs scope alone, where
-# a root file reaches the conservative arm and every scope with it.
-#
 # Invariants:
 # - A rule is disabled here only with its reason and the condition that would re-open it. A
 #   suppression nobody can re-decide is worse than a finding nobody fixed.

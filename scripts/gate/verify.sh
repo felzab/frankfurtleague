@@ -625,23 +625,6 @@ unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy f
   esac
 }
 
-# Both package scopes run these: a pull request cutting or adding a read across the package
-# boundary maps to one of them and not to the scripts scope, whose suite holds the cases.
-crossing_cases() { # $1 the scope running them
-  local py
-  step "$1 · the reads across the package boundary  (scripts/gate/scope_map.sh's arms)"
-  py="$(any_python || true)"
-  if [[ -z "$py" ]] || ! python_at_floor "$py"; then
-    skip "no python at the checkers' floor, so no arm was held to the reads it carries across"
-    return 0
-  fi
-  run_checker stop "scripts/tests/test_scope_decisions.py" "An arm in scripts/gate/scope_map.sh no longer answers a read across the package
-boundary; the failing case above names the path and the repair. A pull request changing such a
-read selects this scope and not the scripts scope, so it is held here." \
-    "$py" scripts/tests/test_scope_decisions.py
-  ok "every read across the package boundary has its arm, and every such arm its read"
-}
-
 # --- what the run covers -----------------------------------------------------------------------------
 
 # In no section: a line proving nothing would open one closing with no verdict, which `finish`
@@ -993,8 +976,6 @@ These are the same errors Pylance shows in the editor."
   unit_verdict backend_deps "${LINENO}" "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the
 package and its rule (https://deptry.com/rules-violations/); after a manifest edit:  cd fl_backend && uv lock"
   ok "the manifest declares what app/ imports"
-
-  crossing_cases backend
 fi
 
 # --- format ----------------------------------------------------------------------------------------
@@ -1116,8 +1097,6 @@ Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.js
     130) on_interrupt ;;
     *)   on_error "$AUDIT_RC" "${LINENO}" "pnpm audit:prod" ;;
   esac
-
-  crossing_cases frontend
 
   # A writer, and last: it also writes `.next/`, which tsconfig.json's `include` covers.
   step "frontend · next build"

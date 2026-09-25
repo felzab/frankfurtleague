@@ -2,7 +2,8 @@
 
 A shard runs the files `node --test` hands it and no others, so a count typed by hand beside the
 matrix can name shards no instance runs, their files in none while every instance is green. The
-refusals are driven through the real `scripts/gate/verify.sh` over a copy of `scripts/`.
+refusals are driven through the real `scripts/gate/verify.sh` over a copy of `scripts/`. The db tier
+starts under the unit tier's launcher, so a loader hook one of them takes the other takes too.
 
 Invariants:
   A shard the gate cannot place refuses at `docs/ops/spec.md` §1.7's exit 2, never at 1.
@@ -11,6 +12,7 @@ Invariants:
 from __future__ import annotations
 
 import functools
+import json
 import re
 from pathlib import Path
 from typing import Final
@@ -46,6 +48,37 @@ def test_every_shard_is_counted_by_the_matrix() -> None:
     assert specs == [DERIVED_SPEC], (
         f"the job hands `VERIFY_TEST_SHARD` {specs}, where the one spelling counting every instance is `{DERIVED_SPEC}`"
     )
+
+
+MANIFEST: Final = REPO_ROOT / "fl_frontend" / "package.json"
+DB_TIER_SCRIPT: Final = "test:db"
+UNIT_TIER_SCRIPT: Final = "test"
+
+# A script's command line up to its first quoted file pattern, which is where the two tiers part. A
+# flag written after a pattern is compared by nothing, so every launcher flag goes ahead of them.
+LAUNCHER_RE: Final = re.compile(r'^([^"]*)"')
+
+# A tier handing its patterns to another script, which carries the launcher both tiers share.
+RUNS_BASE_RE: Final = re.compile(r"^pnpm run ([\w:-]+) ")
+
+
+def _launched(scripts: dict[str, str], name: str) -> str:
+    """A tier's command line as it runs, the base script it hands its patterns to spelled in."""
+    command = scripts[name]
+    base = RUNS_BASE_RE.match(command)
+    return command if base is None else scripts[base[1]] + " " + command[base.end() :]
+
+
+def test_both_test_tiers_start_under_one_launcher() -> None:
+    """A hook one tier loads and the other does not runs the two under different loaders.
+
+    Read as each tier runs, so a tier spelling a launcher of its own is compared with the base the other runs.
+    """
+    scripts = json.loads(MANIFEST.read_text(encoding="utf-8"))["scripts"]
+    launchers = {name: LAUNCHER_RE.match(_launched(scripts, name)) for name in (UNIT_TIER_SCRIPT, DB_TIER_SCRIPT)}
+    assert all(launchers.values()), f"a tier's script names no quoted file pattern to part the launcher at: {launchers}"
+    unit, db = (match[1] for match in launchers.values() if match is not None)
+    assert unit == db, f"`{UNIT_TIER_SCRIPT}` starts under\n  {unit}\nand `{DB_TIER_SCRIPT}` under\n  {db}"
 
 
 @functools.cache

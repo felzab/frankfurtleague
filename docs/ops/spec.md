@@ -482,10 +482,6 @@ them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, 
 back what they named before its pull (`:: put_latest_back`), since an `up` reaching the application
 recreates it from whatever they name.
 
-**`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
-maps paths reads it; every other statement of which paths select which scope — the packaging list
-included — cites that file rather than repeating it.
-
 **The checkers are python, and one kernel is what makes their answers comparable** —
 `scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
 is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is
@@ -725,15 +721,11 @@ runs lands within a fifth of a second of each other on an idle machine** — a w
 of the machine rather than of the tier, and neither half of it belongs in
 `.github/gate-wall-clock.tsv`.
 
-CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
-`scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` scope but
-`frontend-units`, so a scope's name in the mapping and the flag that proves it are one word
-(`scripts/tests/test_scope_decisions.py :: UNMAPPED_SCOPES`). Which paths select `format` is decided by
-extension, because prettier's reach is; CI's `format` job runs wherever the formatter's paths
-changed, and the `frontend-units` shards beside the frontend job wherever it runs, that job running
-neither. **The `frontend` job maps its own scope** in its first step rather
-than waiting on `changes`, so the run's longest job starts with no job in front of it; the argument,
-and why a job mapped off reads as `skipped`, is at that job in `.github/workflows/verify.yml`.
+**CI runs every scope on every event**, one parallel job per scope (`.claude/CLAUDE.md` §7, **ci**).
+The `format` job and the `frontend-units` shards run beside the `frontend` job, which runs
+neither. **The aggregate `verify` job fails on a skipped job**, `commits` excepted on a push to main,
+which has no branch for it to read, so a condition added to a scope job cannot turn a run green over
+a scope that never ran.
 
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
@@ -779,10 +771,8 @@ frontend scope resolves the lockfile against `package.json` and the backend scop
 `uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
 expensive.
 
-**Nothing local reads the diff**, so only the bare run is sure to cover a change, and it is the run a
-pull request is called ready to merge on ([`docs/_git/spec.md`](../_git/spec.md) §1.5). The mapping is CI's, choosing each pull
-request's jobs from its paths, where any edit to a path an arm maps asks for that arm's scopes, a
-comment included.
+**Nothing reads the diff to choose a scope**, so only the bare run is sure to cover a change, and it is the run a
+pull request is called ready to merge on ([`docs/_git/spec.md`](../_git/spec.md) §1.5).
 
 **The scripts scope lints and type-checks its own python**, through configs that sit at the top of
 `scripts/` rather than at the repository root or inside one of its five directories: a root config
@@ -812,8 +802,8 @@ it, the default reads from `main` instead and so covers the commits below the fo
 superset, already checked when the branch beneath was, so the local run is stricter than CI rather
 than blinder.
 
-**The `changes` job writes a line-delta glance** into its run summary on every pull request. It
-decides nothing and can shrink no scope.
+**The `commits` job writes a line-delta glance** into its run summary on every pull request. It
+decides nothing.
 
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
@@ -836,21 +826,6 @@ edge's Control API socket and tmpfs to the deploy's, and `nginx/prod/prod.conf` 
 connector's rendered address alone (I18). A model it cannot read, a short-syntax port or volume
 among them, is a refusal rather than a verdict (§1.7).
 
-**An arm reaches across the package boundary wherever one package's suite reads the other's file as
-source text**, and what makes it necessary is that the assertion sits on the far side: a scope
-confined to the changed file's own package never runs the check written to catch that change, so the
-finding waits for the push to main. Four couplings take that shape — the generated contract both
-packages hold, the backend modules a frontend suite reads off disk, the frontend modules retyping a
-bound a backend suite compares, and the one frontend module a backend suite cuts a refusal's German
-out of. Which paths those are is in `scripts/gate/scope_map.sh`, and
-`scripts/tests/test_scope_decisions.py` holds each arm both to the
-scopes it must select and to the reads that earn it: it derives what each package reads of the other
-from the two trees and probes the mapping itself, so an arm short of a read and an arm outliving one
-are each a red branch. **A suite that discovers its subjects by walking the far tree is outside that
-equality**, an arm matching a path and a walk naming none, so those reaches are declared in that
-module and every path under one is spared — which is why a change anywhere in `fl_frontend/src` can
-still reach a backend assertion no arm carries.
-
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **refuses at 2 before building where the variable is set and the
 credential `.github/actions/actions-runtime-env` re-exports is missing** — buildx would fail too,
@@ -864,8 +839,8 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds one reference figure
-and one floor per job. Main pushes are the only comparable population — they alone run every scope,
-where a pull request's jobs are path-filtered. `scripts/checks/check_gate_budget.py` under `--window`
+and one floor per job. Main pushes are the population every row of that table is cut from, so the
+report reads the same one. `scripts/checks/check_gate_budget.py` under `--window`
 writes it, and how a median is taken is at `:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a
@@ -967,8 +942,7 @@ before pytest, so the download is attributed in the log rather than hidden insid
 be omitted from the standalone output entirely.
 
 `--quick` is every scope that needs no Docker, a run for iterating like any named one: it builds no
-image, and CI builds both on any pull request touching a packaging path `scripts/gate/scope_map.sh`
-lists.
+image, and CI builds both on every run.
 
 ### 1.7 Script conventions
 
@@ -1076,10 +1050,8 @@ its streams whatever the flag says**: the configuration validation in
 file (§1.5).
 
 **A script whose output only a machine reads is exempt, and the interface is what decides, never the
-folder.** `scripts/gate/scope_map.sh` writes `$GITHUB_OUTPUT`'s `key=value` lines and the assistant hooks
-answer in JSON, so a heading, a fold marker or a colour code in either is a corrupt answer
-rather than a nicer log. `scope_map.sh` accordingly takes no `--verbose`, and puts its
-human-readable line on stderr, where it cannot reach the outputs.
+folder.** The assistant hooks answer in JSON, so a heading, a fold marker or a colour code in one is
+a corrupt answer rather than a nicer log.
 
 ### 1.8 The edge's declared state
 
@@ -1138,8 +1110,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `get_config` rejects, a missing required one included                     | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                   |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 an undeclared name or a missing required one; values stay the boot gate's                 | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts` |
-| I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                      |
-| I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
 | I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                         |
 | I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, after its ref check; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the budget and advisory step names to `.github/workflows/verify.yml`      |
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |

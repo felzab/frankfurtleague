@@ -181,9 +181,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      clause in front of nobody.
    - **`docs/_standard/standard.md` against itself**, held to its own rules.
    - **Every "Enforced by" line against what the gate actually runs**, which is a stale claim
-     wherever it overstates. Check the gate's **scope mapping** as well as its scanner: a scope arm
-     that never selects the documentation gate leaves that surface unaudited whatever the scanner
-     does.
+     wherever it overstates.
 
    Then merge the segment reports into one, dedupe findings that describe the same defect from more
    than one segment, and rank: `Wrong` first, then `Cold`, then `Duplicate`, then `Excess`, then

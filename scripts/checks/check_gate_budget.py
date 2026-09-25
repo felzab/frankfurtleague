@@ -42,9 +42,9 @@ from checker_kernel import (
 
 REFERENCE: Final = Path(".github/gate-wall-clock.tsv")
 
-# The aggregate job and the path mapping, measured by no mode: neither is the gate's work, and the
-# budget and the `--window` report read one population.
-UNMEASURED_JOBS: Final[frozenset[str]] = frozenset({"verify", "changes"})
+# The aggregate job, measured by no mode: it is not the gate's work, and the budget and the
+# `--window` report read one population.
+UNMEASURED_JOBS: Final[frozenset[str]] = frozenset({"verify"})
 
 # A column that does not apply to a row -- a total's budget, a budget nobody set, a stamp over a
 # row with no figures of its own -- rather than a zero, which the report would divide by.
@@ -153,7 +153,7 @@ def _instant(stamp: str) -> float:
 def spans_of(payload: object) -> list[Span]:
     """Every job's span, first step to last, on the report's rules.
 
-    `skipped`: the scope was mapped off. `dropped`: the job did not succeed, so its timing is no
+    `skipped`: the job's condition skipped it. `dropped`: the job did not succeed, so its timing is no
     evidence. `unmeasured`: a success with no step timestamp, failed rather than passed.
     """
     if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
@@ -192,7 +192,7 @@ def check_run(rows: dict[str, Row], spans: list[Span], reference: str) -> tuple[
     for span in sorted(spans, key=lambda s: s.job):
         row = rows.get(span.job)
         if span.state == "skipped":
-            lines.append(f"{span.job}: skipped, its scope turned off by the path mapping")
+            lines.append(f"{span.job}: skipped by its own condition, so no length was taken")
             continue
         if span.state == "dropped":
             lines.append(f"{span.job}: did not succeed, so its length is no evidence and was not compared")
@@ -396,7 +396,7 @@ def report_window(rows: dict[str, Row], spans: list[Span], size: int, reference:
         "its timeout is invisible here.",
     ]
     if skipped:
-        out += ["", f"{skipped} job run(s) never started, their scope turned off by the path mapping rather than by anything they did."]
+        out += ["", f"{skipped} job run(s) never started, each skipped by its own condition rather than by anything it did."]
     if gone:
         out += ["", f"No successful run in this window: {', '.join(gone)}."]
     if unreferenced:

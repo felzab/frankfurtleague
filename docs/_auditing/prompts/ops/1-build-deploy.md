@@ -57,8 +57,8 @@ THE CHECKS, in priority order:
    (rendered-output defects, anything behind auth) and hunt for new ones; a class that is a
    cross-surface seam — cache-tag wiring is one — is crosscut 1 check 8's row, not this table's.
    Verify CI
-   (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched surface on a pull
-   request, everything on main), that the tree-diff step still guards `fl_frontend/tsconfig.json`
+   (`verify.yml`) runs every scope on every event and fails its aggregate on a skipped one, that the
+   tree-diff step still guards `fl_frontend/tsconfig.json`
    against the rewrite `next typegen` and `next build` each make, and
    that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
    commit SHA resolving to a real commit — the rule is `docs/_git/spec.md` §1.6 and the resolution

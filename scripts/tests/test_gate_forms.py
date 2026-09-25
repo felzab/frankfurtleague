@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from conftest import BASH, base_env, copy_scripts, new_root, run_shell, write, write_shell
+from conftest import BASH, base_env, copy_scripts, new_root, run_shell, write_shell
 from test_gate_prerequisites import PAST_THE_GUARD
 
 # `--frontend` alone selects three scopes -- it implies `--format` and `--frontend-units` -- and
@@ -51,8 +51,6 @@ fi
 printf '%s\\n' "the stub ran ${1:-}"
 exit 0
 """
-
-STUB_CROSSINGS: Final = 'print("the stub held every arm to its read")\n'
 
 STUB_PYTHON: Final = """#!/usr/bin/env bash
 exec "{interpreter}" "$@"
@@ -103,9 +101,6 @@ def _fixture() -> Fixture:
     # Empty: the gate's preflight refuses a frontend scope without it, and the stub reads nothing
     # from it.
     (root / "fl_frontend" / "node_modules").mkdir()
-    # The frontend scope runs the scope mapping's crossing cases out of a suite the copy leaves out,
-    # over two packages the fixture does not hold.
-    write(root, "scripts/tests/test_scope_decisions.py", STUB_CROSSINGS)
 
     stubs = new_root("fl-gate-stubs-")
     # The fixture has no virtualenv and no guaranteed `python3`: with no interpreter at the

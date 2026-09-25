@@ -1,12 +1,11 @@
 name: verify
 
-# The gate that `scripts/gate/verify.sh` is, run as parallel jobs mapped to the surfaces a change
-# touches.
+# The gate that `scripts/gate/verify.sh` is, every scope on every event, one parallel job per scope.
 
 on:
   pull_request:
-  # A push to main runs every scope unconditionally, which is what backstops the path mapping: a
-  # scope the mapping failed to select on the pull request still runs here.
+  # A pull request's run tests the merge ref, so the commit that lands is tested again here, and
+  # this run is the one the publish reads (`scripts/checks/check_publish_verdict.py`).
   push:
     branches: [main]
 
@@ -34,51 +33,45 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The path-to-scope mapping lives in scripts/gate/scope_map.sh — one copy, covered by selfcheck and
-  # shellcheck — and this job only feeds its stdout to $GITHUB_OUTPUT. It errs conservative: an
-  # unrecognised path turns every scope on.
-  changes:
+  # A pull request's commit messages, moved budgets and line delta, each read against the base. A
+  # push to main has no branch to measure, so the whole job is skipped.
+  commits:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # A scope the mapping printed nothing for runs: read as false, an empty output skips its job, and
-    # `verify`, reading a skip as a pass, would conclude success over a commit nothing tested.
-    outputs:
-      scripts: ${{ steps.map.outputs.scripts || 'true' }}
-      docs: ${{ steps.map.outputs.docs || 'true' }}
-      backend: ${{ steps.map.outputs.backend || 'true' }}
-      db: ${{ steps.map.outputs.db || 'true' }}
-      frontend: ${{ steps.map.outputs.frontend || 'true' }}
-      ops: ${{ steps.map.outputs.ops || 'true' }}
-      images: ${{ steps.map.outputs.images || 'true' }}
-      format: ${{ steps.map.outputs.format || 'true' }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-          # Full history: the mapping diffs against the merge base with the target branch.
+          # Full history: every step here reads this branch against the merge base.
           fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
+        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
+        # fail on a development machine over a language version.
 
-      - name: Map changed paths to scopes
-        id: map
-        # Values reach the script through env, never by interpolating `${{ }}` into `run:`; the
-        # reason is written out in .github/workflows/pr-body.yml.
+        # An interpreter and no virtualenv: both checks import the standard library alone, and the
+        # toolcache holds the pin, so this is a lookup rather than the install setup-uv and a sync
+        # would be.
+        with:
+          python-version-file: fl_backend/.python-version
+      - name: Check the branch's commit messages
         env:
           BASE_REF: ${{ github.base_ref }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            ./scripts/gate/scope_map.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
-          else
-            ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
-          fi
-
+        run: python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
+      - name: Hold a moved gate budget to its measurement
+        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
+        # stamp, or the pull request is refused here. This job, because it already has the
+        # interpreter and the full history the base comparison reads.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
       - name: Report the branch's line delta
         # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
         # the pull request adding it. Advisory by construction — no threshold, no verdict, and
-        # continue-on-error keeps a failure away from this job's outputs.
-        if: github.event_name == 'pull_request'
+        # continue-on-error keeps a failure away from this job's conclusion.
         continue-on-error: true
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -111,47 +104,7 @@ jobs:
             }
           ' >> "$GITHUB_STEP_SUMMARY"
 
-  # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
-  # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
-  # and merge unchecked -- while nothing waits on this job, so its full-history checkout sits off
-  # the critical path every scope job's `needs: changes` puts a step on.
-  commits:
-    # A push to main has no branch to measure, so the whole job is skipped rather than installing a
-    # toolchain for a step that would not run.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # Full history: the check reads this branch's commits against the merge base.
-          fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
-        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
-        # fail on a development machine over a language version.
-
-        # An interpreter and no virtualenv: both checks import the standard library alone, and the
-        # toolcache holds the pin, so this is a lookup rather than the install setup-uv and a sync
-        # would be.
-        with:
-          python-version-file: fl_backend/.python-version
-      - name: Check the branch's commit messages
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
-      - name: Hold a moved gate budget to its measurement
-        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused here. This job, because it already has the
-        # interpreter and the full history the base comparison reads.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
-
   scripts:
-    needs: changes
-    if: needs.changes.outputs.scripts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -198,8 +151,6 @@ jobs:
         run: ./scripts/gate/verify.sh --scripts
 
   docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -216,12 +167,9 @@ jobs:
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
-  # Prettier in check mode over the whole repository, wherever a changed path is one it governs:
-  # with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
+  # Prettier in check mode over the whole repository: with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
   # which runs beside the frontend job rather than on its path.
   format:
-    needs: changes
-    if: needs.changes.outputs.format == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -235,8 +183,6 @@ jobs:
         run: ./scripts/gate/verify.sh --format
 
   backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -256,8 +202,6 @@ jobs:
 
   # The marker belongs to the suite, not to this pipeline.
   db:
-    needs: changes
-    if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -312,14 +256,6 @@ jobs:
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 
-  # Off `needs: changes`, alone among the scope jobs: the longest job is the run's binder, and
-  # waiting on a whole job for one boolean cost it that job's span plus a queue. Its first step runs
-  # scripts/gate/scope_map.sh itself and gates every later step.
-
-  # A job that maps its scope off and ends green has the semantics `skipped` already has in the
-  # aggregate below, decided by the same mapping -- which stays one copy, in one script.
-
-  # The `changes` job still emits `frontend`, because the unit-test shard jobs below key on it.
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -336,27 +272,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history: scope_map.sh diffs against the merge base with the target branch and
-          # refuses without one. The extra fetch is a real subtraction from what skipping `changes`
-          # saves -- the pack is small, not free.
-          fetch-depth: 0
-      - name: Map changed paths to scopes
-        id: map
-        # The two arms are the `changes` job's, verbatim: a pull request diffs against its base, a
-        # push to main turns every scope on. Values reach the script through env, never `${{ }}`
-        # in `run:`; the reason is written out in .github/workflows/pr-body.yml.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            ./scripts/gate/scope_map.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
-          else
-            ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
-          fi
-      # Each step below runs unless the mapping printed `false`, for the reason the `changes` job's
-      # outputs give.
-      - if: steps.map.outputs.frontend != 'false'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         # NOT unused, and this is the job where that is hardest to see: no step here runs python,
         # yet `scripts/gate/gate_pool.py` -- which starts this scope's checks together -- needs one at
         # the checkers' floor, above this image's own.
@@ -367,16 +283,13 @@ jobs:
 
         # An interpreter and no virtualenv, for the reason written at `commits`; here the lookup is
         # on the run's critical path.
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
-      - if: steps.map.outputs.frontend != 'false'
-        uses: ./.github/actions/frontend-toolchain
+      - uses: ./.github/actions/frontend-toolchain
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
       # depends on hits exactly every run, and actions/cache does not write on an exact hit.
-      - if: steps.map.outputs.frontend != 'false'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
           key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
@@ -386,10 +299,8 @@ jobs:
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
-        if: steps.map.outputs.frontend != 'false'
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
-        if: steps.map.outputs.frontend != 'false'
         # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
         # key that is absent -- one presence check, Next's `writeConfigurationDefaults`, documented at
         # that file's `allowJs` line -- then carry on.
@@ -412,8 +323,6 @@ jobs:
   # Four, not three: three shards finish level with the frontend job, so the run would wait on the
   # slower of two near-equal spans; four finish well before it.
   frontend-units:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     # Spelled out because GitHub documents no default name for a matrix instance, and the budget
     # check finds each instance's row in .github/gate-wall-clock.tsv by exactly this name.
     name: frontend-units (${{ matrix.shard }})
@@ -444,8 +353,6 @@ jobs:
   # The compose files and the nginx configuration have no compiler; this scope parses and serves
   # them, and is the only thing standing between a typo in either and a failed deploy.
   ops:
-    needs: changes
-    if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -466,10 +373,7 @@ jobs:
 
   # Both image builds plus the instrumentation.js presence check — the failures no other scope can
   # see, because the frontend scope builds on the runner and never inside the image.
-  # `scripts/gate/scope_map.sh` lists the packaging inputs that select it.
   images:
-    needs: changes
-    if: needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -499,9 +403,10 @@ jobs:
         run: ./scripts/gate/verify.sh --images
 
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
-  # It runs on every event, so path filtering can never leave the required check hanging.
+  # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a
+  # failed need.
   verify:
-    needs: [changes, commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
+    needs: [commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -512,9 +417,8 @@ jobs:
       actions: read
       contents: read
     steps:
-      # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
-      # about which scopes ran, and a mapping that turned every scope off looks identical to a
-      # change that genuinely touched nothing.
+      # First, so it prints whether or not the verdict below refuses: a red `verify` names no job,
+      # and this is where each one's result is read.
       - name: Report each scope's result
         # This job IS the required status check, so nothing diagnostic in it may decide a merge. The
         # verdict is the step below and only that step; a report that cannot format its own output
@@ -532,7 +436,7 @@ jobs:
         # saying so and stopping.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The token is not needed after checkout, for the reason the changes job gives above.
+          # The token is not needed after checkout, for the reason the commits job gives above.
           persist-credentials: false
           sparse-checkout: |
             .github/gate-wall-clock.tsv
@@ -556,8 +460,8 @@ jobs:
         # reference table held in the tree. Advisory by construction — nothing here decides an
         # outcome, and continue-on-error keeps it away from the verdict this job is.
         continue-on-error: true
-        # Main pushes only, because they alone run every scope: a pull request's jobs are
-        # path-filtered, so no window cut from them compares like for like.
+        # Main pushes only: the window it prints is main's own runs, which says nothing a pull
+        # request changed, and each request it makes sits on the required check's path.
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -579,25 +483,24 @@ jobs:
           python scripts/checks/check_gate_budget.py --window "$fetched" --runs "$window" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any scope job failed or was cancelled
-        # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
-        # shell parsing of the needs context.
+        # A skip is the next step's to judge. Pure expressions, no shell parsing of the needs context.
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
 
-      # A push to main runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip there is a broken
-      # mapping or condition, which the step above passes. Every job this one needs is named but
-      # `commits`, which runs for pull requests only.
-      - name: Fail if a push to main skipped a scope job
+      # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition
+      # someone added, which the step above passes. Every job this one needs is named, `commits`
+      # under the one event it runs for.
+      - name: Fail if a scope job was skipped
         if: >-
-          github.event_name == 'push' && (needs.changes.result == 'skipped' || needs.scripts.result == 'skipped'
-          || needs.docs.result == 'skipped' || needs.format.result == 'skipped' || needs.backend.result == 'skipped'
-          || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
+          needs.scripts.result == 'skipped' || needs.docs.result == 'skipped' || needs.format.result == 'skipped'
+          || needs.backend.result == 'skipped' || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
           || needs.frontend-units.result == 'skipped' || needs.ops.result == 'skipped'
-          || needs.images.result == 'skipped')
+          || needs.images.result == 'skipped'
+          || (github.event_name == 'pull_request' && needs.commits.result == 'skipped')
         run: |
-          echo "::error::A push to main skipped a scope job, and every push runs them all -- the scope results above name it."
+          echo "::error::A scope job was skipped, and every event runs them all -- the scope results above name it."
           exit 1
 
       # `scripts/checks/check_publish_verdict.py :: BUDGET_STEP` finds this step by its exact name and

@@ -53,7 +53,7 @@ def aggregate(conclusion: str | None, budget_step: str = publish.BUDGET_STEP, **
         "Run actions/setup-python": "success",
         "Report the gate's wall clock": "success",
         "Fail if any scope job failed or was cancelled": "skipped",
-        "Fail if a push to main skipped a scope job": "skipped",
+        "Fail if a scope job was skipped": "skipped",
         budget_step: "success",
     }
     steps.update(overrides)
@@ -65,7 +65,7 @@ def job(name: str | None, conclusion: str | None, *steps: dict[str, Any]) -> dic
 
 
 # The scope jobs of a push run on main: `commits` runs for pull requests alone.
-SCOPES: Final = (job("changes", "success"), job("scripts", "success"), job("frontend", "success"), job("commits", "skipped"))
+SCOPES: Final = (job("scripts", "success"), job("frontend", "success"), job("commits", "skipped"))
 
 
 def jobs(*listed: dict[str, Any]) -> dict[str, Any]:
@@ -75,7 +75,6 @@ def jobs(*listed: dict[str, Any]) -> dict[str, Any]:
 BUDGET_ONLY: Final = jobs(*SCOPES, aggregate("failure", **{publish.BUDGET_STEP: "failure"}))
 # The budget step runs whatever the scope jobs concluded, so a failed scope leaves it passed or failed.
 A_SCOPE_FAILED: Final = jobs(
-    job("changes", "success"),
     job("scripts", "failure"),
     aggregate("failure", **{"Fail if any scope job failed or was cancelled": "failure"}),
 )
@@ -418,27 +417,10 @@ def test_the_advisory_steps_are_the_aggregate_jobs_continue_on_error_steps():
     )
 
 
-CHANGES_OUTPUT_RE: Final = re.compile(r"^      ([a-z][a-z-]*): \$\{\{ (.+) \}\}$")
-MAP_CONDITION_RE: Final = re.compile(r"\bsteps\.map\.outputs\.[a-z-]+ *[!=]= *'[a-z]+'")
-
-
-def test_a_scope_the_mapping_printed_nothing_for_runs_rather_than_skips():
-    """The verdict reads a skipped job as passed, so a mapping that printed nothing would publish a commit no scope tested."""
-    workflow = (WORKFLOWS / "verify.yml").read_text(encoding="utf-8")
-    bodies = job_bodies(workflow)
-    outputs = bodies["changes"].split("    outputs:\n", 1)[1].split("    steps:\n", 1)[0]
-    declared = [found.groups() for line in outputs.splitlines() if (found := CHANGES_OUTPUT_RE.match(line))]
-
-    assert declared, "no output was read out of verify.yml's `changes` job: this reader went inert"
-    assert [key for key, value in declared if value != f"steps.map.outputs.{key} || 'true'"] == [], declared
-    conditions = MAP_CONDITION_RE.findall(bodies["frontend"])
-    assert conditions, "no condition on the frontend job's own mapping was read: this reader went inert"
-    assert [condition for condition in conditions if not condition.endswith("!= 'false'")] == [], conditions
-
-
-SKIP_STEP: Final = "Fail if a push to main skipped a scope job"
+SKIP_STEP: Final = "Fail if a scope job was skipped"
 SKIP_TERM_RE: Final = re.compile(r"\bneeds\.([a-z][a-z-]*)\.result == 'skipped'")
-PUSH_ONLY: Final = "github.event_name == 'push' && ("
+# The one job whose skip is judged under one event: `commits` runs for pull requests alone.
+PULL_REQUEST_ONLY: Final = "(github.event_name == 'pull_request' && needs.commits.result == 'skipped')"
 
 
 def skip_condition_of(workflow: str) -> str:
@@ -455,15 +437,17 @@ def skip_condition_of(workflow: str) -> str:
     return " ".join(folded[1:])
 
 
-def test_a_push_to_main_fails_on_any_skipped_scope_job_but_commits():
-    """A scope the condition leaves out could skip on a push while `verify`, and so the publish verdict, read it as passed."""
+def test_every_event_fails_on_any_skipped_scope_job_and_a_pull_request_on_a_skipped_commits():
+    """A job the condition leaves out could skip while `verify`, and so the publish verdict, read it as passed."""
     workflow = (WORKFLOWS / "verify.yml").read_text(encoding="utf-8")
     needs = NEEDS_RE.search(job_bodies(workflow)[publish.AGGREGATE_JOB])
     assert needs is not None, "the aggregate job's `needs:` list was not read: this reader went inert"
     condition = skip_condition_of(workflow)
 
-    assert condition.startswith(PUSH_ONLY), f"the skip step is not held to push runs alone: {condition!r}"
-    named = SKIP_TERM_RE.findall(condition)
+    assert condition.count(PULL_REQUEST_ONLY) == 1, f"the skip step does not judge `commits` on pull requests alone: {condition!r}"
+    unconditional = condition.replace(PULL_REQUEST_ONLY, "")
+    assert "github.event_name" not in unconditional, f"the skip step holds a scope job to one event: {condition!r}"
+    named = SKIP_TERM_RE.findall(unconditional)
     assert sorted(named) == sorted({job.strip() for job in needs[1].split(",")} - {"commits"}), named
 
 

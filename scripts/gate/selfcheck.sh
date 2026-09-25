@@ -23,7 +23,7 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
+RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/selfcheck.sh)
 
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
 # replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
@@ -588,9 +588,7 @@ par_run unit_flags
 
 step "9. Every scope verify.sh declares has a CI job, and every CI job names a scope"
 # A scope added to verify.sh with no job behind it never runs in CI, with every gate green: step 8
-# reads verify.sh against itself, and `scripts/tests/test_scope_decisions.py ::
-# test_the_two_lists_of_scope_names_agree` guards the mapping's direction alone.
-# Two listings, two routes, per PRE-4.
+# reads verify.sh against itself. Two listings, two routes, per PRE-4.
 
 # What verify.sh declares is its `add_scope` lines; what CI runs is every flag handed to
 # `verify.sh` in a workflow `run:` line — a job's key is a label, and naming one after a scope binds nothing.

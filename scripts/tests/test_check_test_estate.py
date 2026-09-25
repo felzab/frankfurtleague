@@ -116,8 +116,8 @@ def test_a_missing_test_tree_is_refused_rather_than_passed():
 def test_the_real_backend_estate_is_judged_and_passes():
     """The corpora above are planted; this one is the real tree.
 
-    An edit to the checker selects the scripts scope and never the backend one, so a change that
-    starts refusing a correct tree fails the next backend branch instead.
+    The scripts scope run alone never reaches the backend scope's estate step, so a change to the
+    checker that starts refusing a correct tree fails here first.
     """
     done = run_main(REPO_ROOT)
 

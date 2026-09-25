@@ -222,15 +222,15 @@ def test_an_unbudgeted_row_is_measured_and_not_compared():
     assert lines == ["images: 900 s, measured and not budgeted (the header says why)"]
 
 
-def test_the_aggregate_and_the_mapping_are_not_measured():
+def test_the_aggregate_is_not_measured():
     """The report's own exclusion, so this check and the report describe one population."""
-    spans = budget.spans_of(payload(job("verify", 3), job("changes", 8), job("backend", 30)))
+    spans = budget.spans_of(payload(job("verify", 3), job("backend", 30)))
 
     assert [span.job for span in spans] == ["backend"]
 
 
 def test_a_skipped_job_and_a_failed_job_are_lines_rather_than_findings():
-    """A scope the mapping turned off started at nothing; a failed job's length is no evidence."""
+    """A job its condition skipped started at nothing; a failed job's length is no evidence."""
     rows = budget.parse_reference(BASELINE)
     spans = budget.spans_of(payload(job("backend", None, conclusion="skipped"), job("commits", None, conclusion="failure")))
 
@@ -238,7 +238,7 @@ def test_a_skipped_job_and_a_failed_job_are_lines_rather_than_findings():
 
     assert findings == []
     assert lines == [
-        "backend: skipped, its scope turned off by the path mapping",
+        "backend: skipped by its own condition, so no length was taken",
         "commits: did not succeed, so its length is no evidence and was not compared",
     ]
 
@@ -726,19 +726,13 @@ def aggregate_gaps(workflow: str) -> tuple[set[str], set[str]]:
 
 def test_a_job_the_aggregate_does_not_wait_on_is_named():
     """`aggregate_gaps`, over a job left out of the list: a reader that finds no gap anywhere would pass the tree."""
-    workflow = (
-        "on: push\njobs:\n  changes:\n    runs-on: x\n  lint:\n    needs: changes\n    runs-on: x\n"
-        "  verify:\n    needs: [changes]\n    runs-on: x\n"
-    )
+    workflow = "on: push\njobs:\n  commits:\n    runs-on: x\n  lint:\n    runs-on: x\n  verify:\n    needs: [commits]\n    runs-on: x\n"
 
     assert aggregate_gaps(workflow) == ({"lint"}, set())
 
 
 def test_the_aggregate_waits_on_every_other_job():
-    """A job `verify` does not wait on can fail under a green required check, `changes` included.
-
-    A failed `changes` skips every scope keyed on it, and the aggregate passes a skipped scope.
-    """
+    """A job `verify` does not wait on can fail under a green required check."""
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
     missing, unknown = aggregate_gaps(workflow)
 
