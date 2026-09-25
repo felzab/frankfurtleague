@@ -556,7 +556,7 @@ UNPLACED_SCRIPT_READS: Final[dict[tuple[str, str], tuple[str, ...]]] = {
     ("test_check_gate_budget.py", "REPO_ROOT / budget.REFERENCE"): (".github/gate-wall-clock.tsv",),
     ("test_deploy_streams.py", "REPO_ROOT / 'fl_backend'"): ("fl_backend/app/__init__.py", "fl_backend/app/core/config.py"),
     ("test_image_assertions.py", "REPO_ROOT / package / '.dockerignore'"): ("fl_frontend/.dockerignore", "fl_backend/.dockerignore"),
-    ("test_image_pins.py", "REPO_ROOT / relative"): (),
+    ("test_image_pins.py", "REPO_ROOT / relative"): ("fl_backend/tests/conftest.py",),
     ("test_message_gates.py", "SCRIPTS.parent / commits.ROADMAP_ENTRY_PAGES[0]"): ("docs/_roadmap/items.md",),
     # The trees the documentation standard's Scope line names, walked for the kinds each holds.
     ("test_scope_agreement.py", "REPO_ROOT / tree"): (),

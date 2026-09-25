@@ -17,8 +17,7 @@ version: 2
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below reads an image a script or a test names in a string, so these are kept by
 #   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
-#   `scripts/ops/local.sh`, and the db tier's `mongo:8` in `fl_backend/tests/conftest.py` and the
-#   frontend's `*.db.test.ts`.
+#   `scripts/ops/local.sh`, and the backend db tier's in `fl_backend/tests/conftest.py :: MONGO_IMAGE`.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------

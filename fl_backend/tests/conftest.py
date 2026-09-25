@@ -281,6 +281,10 @@ def saison() -> PayloadFactory:
     )
 
 
+# Both containers' image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
+# its full version, which `scripts/tests/test_image_pins.py` holds to that form.
+MONGO_IMAGE = "mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b"
+
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.
 TMPFS_DATA_PATH = "/data/db"
@@ -322,7 +326,7 @@ def _standalone_mongod() -> Iterator[str]:
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
-    with MongoDbContainer("mongo:8").with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
+    with MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
         yield str(container.get_connection_url())
 
 
@@ -334,7 +338,7 @@ def _replica_set_mongod() -> Iterator[str]:
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
     container = (
-        DockerContainer("mongo:8")
+        DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
         .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB}")

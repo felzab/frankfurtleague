@@ -191,6 +191,8 @@ else
       # `scripts/tests/test_deploy_streams.py` imports this module to run the deploy's own check of
       # the environment's names, so an edit here owes the scripts scope too.
       fl_backend/app/__init__.py|fl_backend/app/core/config.py) backend=true; db=true; docs=true; scripts=true ;;
+      # `scripts/tests/test_image_pins.py` holds the db tier's image here to its tag and digest (I367).
+      fl_backend/tests/conftest.py) backend=true; db=true; docs=true; scripts=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx over both edges. Both carry `docs`,
       # their comments being documentation (INC-6), and `scripts`, whose pin test holds every image

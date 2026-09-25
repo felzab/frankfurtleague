@@ -84,6 +84,7 @@ SCRIPT_IMAGES: Final = {
     "scripts/gate/selfcheck.sh:shellcheck": ("scripts/gate/selfcheck.sh", "koalaman/shellcheck"),
     "scripts/gate/selfcheck.sh:actionlint": ("scripts/gate/selfcheck.sh", "rhysd/actionlint"),
     "scripts/ops/local.sh:mongo": ("scripts/ops/local.sh", "mongo"),
+    "fl_backend/tests/conftest.py:mongo": ("fl_backend/tests/conftest.py", "mongo"),
 }
 ASSIGNMENT_RE: Final = re.compile(r'^([A-Z_]+)="([^"$]*)"$', re.MULTILINE)
 REFERENCE_RE: Final = r"(?<![\w/]){name}:[^\s\"']+"
