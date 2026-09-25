@@ -79,7 +79,7 @@ describe("what a sign-out tells the reader", () => {
     render(
       underNext(
         h(Probe, {
-          onSignOut: async () => {
+          onSignOut: async (): Promise<FormState> => {
             asked += 1;
             return { success: true, message: "Abgemeldet" };
           },
