@@ -47,8 +47,9 @@ paths:
 
 - A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
   and its code; a mapper in the feature slice words it for the save, and where the replayed
-  endpoint declares refusals the undo route words it again in its own replay table. A code
-  either path leaves unmapped, at whatever status, falls through to the shared fallback in
+  endpoint declares refusals the undo route words it again in its own replay table. The frontend
+  reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
+  code either path leaves unmapped falls through, at any status, to the shared fallback in
   `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry
   the same rule refuses again. Each slice's test asks its mapper about every refusal code
   `fl_backend/openapi.json` publishes on that endpoint (`fl_frontend/src/shared/testing/publishedRefusals.ts`),

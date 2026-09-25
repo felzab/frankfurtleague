@@ -197,7 +197,7 @@ def find_rules_refusal(
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_ABOVE_GROUP,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
             "a group cannot send more teams into the bracket than it holds",
         )
@@ -208,7 +208,7 @@ def find_rules_refusal(
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
         return WriteRefusal(
             error_code=RULES_DRAW_OUTVALUES_WIN,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"a draw would be worth {proposed.draw_points} against {proposed.win_points} for a win; "
             "no season can make drawing the better result",
         )
@@ -221,7 +221,7 @@ def find_rules_refusal(
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return WriteRefusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
         )
@@ -236,7 +236,7 @@ def find_rules_refusal(
     if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
         return WriteRefusal(
             error_code=RULES_FIXTURES_OVER_ONE_READ,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.number_of_groups} group(s) of {proposed.teams_per_group}, {proposed.qualifiers_per_group} "
             f"qualifying from each, plays {fixtures} fixtures; one read of a season carries {LIST_LIMIT_DEFAULT}, and every "
             "refusal this endpoint computes over a truncated read would be judging a partial season",
@@ -248,7 +248,7 @@ def find_rules_refusal(
     if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
         return WriteRefusal(
             error_code=RULES_FORFEIT_DRAWS_A_KNOCKOUT,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"a no-show would be awarded {proposed.forfeit_ergebnis.sieger_tore}:{proposed.forfeit_ergebnis.verlierer_tore} "
             "and this season plays a knockout round; a drawn forfeit leaves that round with nobody to advance",
         )
@@ -335,7 +335,7 @@ def find_saison_span_refusal(
     if offered_days < required_days:
         return WriteRefusal(
             error_code=SAISON_SPAN_BELOW_SCHEDULE,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"the season runs {start_date} to {end_date}, which is {offered_days} day(s), and these rules "
             f"imply {required_days} matchday(s); two matchdays cannot share a day",
         )

@@ -224,7 +224,8 @@ def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) 
         named = "both an existing club and a new school" if team_id is not None else "neither an existing club nor a new school"
         return WriteRefusal(
             error_code=BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("team_id",), ("schule",)),
             message=f"this submission names {named}; exactly one of the two says which school is applying",
         )
 
@@ -347,7 +348,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
 
     return WriteRefusal(
         error_code=BEWERBUNG_SCHLUESSEL_ABWEICHEND,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="this submission key already carries an application sent with other details; the first one stands as it was sent",
     )
 
@@ -659,14 +660,19 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a `REQ-VAL-001`, whose mark on
-    the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
+    Its own code with `refuse_age_outside_the_bounds`'s German rather than a `REQ-VAL-001`, whose
+    mark on the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
     """
 
     try:
         refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
     except ValueError as too_young_or_too_old:
-        return WriteRefusal(error_code=BEWERBUNG_KONTAKT_ALTER, status=HTTPStatus.CONFLICT, message=str(too_young_or_too_old))
+        return WriteRefusal(
+            error_code=BEWERBUNG_KONTAKT_ALTER,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
+            message=str(too_young_or_too_old),
+        )
 
     return None
 

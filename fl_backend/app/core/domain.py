@@ -1154,7 +1154,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
 RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-RULES-001",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`number_of_groups` x `qualifiers_per_group` must be a power of two the phase set can hold",
@@ -1163,7 +1163,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-007",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`qualifiers_per_group` may not exceed `teams_per_group`",
@@ -1172,7 +1172,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-008",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a draw may not be worth more than a win",
@@ -1181,7 +1181,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-010",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season whose rules produce a knockout round may not award a no-show a draw",
@@ -1254,7 +1254,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-013",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="the whole fixture list these rules imply must fit inside one season-scoped read",
@@ -1281,7 +1281,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-005",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season shorter than the matchdays its own rules imply is refused",
@@ -1628,7 +1628,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-002",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a fixture whose event awards nothing may not carry goals",
@@ -1637,7 +1637,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-003",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
         summary="a no-show may not be recorded on a fixture with an unresolved side",
@@ -1758,7 +1758,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-005",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a birthdate putting the person outside the age span this consent asks records nothing",
@@ -1788,7 +1788,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-008",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a consent to publishing photographs, video and interviews is taken only from a referee of the media age",
@@ -1874,7 +1874,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-005",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a submission needs exactly one of an existing club and a new school to say who is applying",
@@ -1944,7 +1944,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-012",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a contact person confirms with a date of birth inside the span the seats they hold ask for, judged before anything is written",
@@ -1971,7 +1971,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-015",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /bewerbungen",
         aggregate="Bewerbung",
         summary="a submission key already stored is replayed only over the details it was first sent with",
@@ -2097,7 +2097,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-007",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a birthdate putting the pupil outside the age span this consent asks is refused before anything is written",
@@ -2124,7 +2124,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-010",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a consent to publishing photographs, video and interviews is taken only from a pupil of the media age",
@@ -2133,7 +2133,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-011",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen",
         aggregate="Registrierung",
         summary="a submission key already stored is replayed only over the details it was first sent with",

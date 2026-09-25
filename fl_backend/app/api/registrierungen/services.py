@@ -229,7 +229,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
 
     return WriteRefusal(
         error_code=REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="this submission key already carries a registration sent with other details; the first one stands as it was sent",
     )
 
@@ -434,7 +434,8 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     if age < REGISTRIERUNG_MIN_ALTER_JAHRE:
         return WriteRefusal(
             error_code=REGISTRIERUNG_ALTER,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"this consent is given from {REGISTRIERUNG_MIN_ALTER_JAHRE} years of age, and the date entered does not reach it",
         )
 
@@ -442,7 +443,8 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
             error_code=REGISTRIERUNG_ALTER,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
@@ -504,7 +506,8 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
     return WriteRefusal(
         error_code=REGISTRIERUNG_MEDIEN_ALTER,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("medien",),),
         message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 

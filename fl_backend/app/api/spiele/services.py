@@ -810,7 +810,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
         return WriteRefusal(
             error_code=STATE_RESULT_ON_A_NON_EVENT,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=(
                 f"a fixture recorded as {payload.sonderereignis} awards nothing and cannot carry a result; clear the goals before setting it"
             ),
@@ -821,7 +821,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
         return WriteRefusal(
             error_code=STATE_NO_SHOW_WITHOUT_TWO_SIDES,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message="a no-show names the side that stayed away; this fixture still holds an unresolved slot",
         )
 

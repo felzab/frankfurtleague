@@ -335,14 +335,16 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
@@ -361,7 +363,8 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("medien",),),
         message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 

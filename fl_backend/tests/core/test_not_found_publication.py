@@ -71,9 +71,7 @@ def _raises_here(node: ast.AST) -> bool:
 @functools.cache
 def _can_raise(path: Path, lineno: int) -> bool:
     declaration = next(
-        node
-        for node in ast.walk(parsed(path))
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == lineno
+        node for node in ast.walk(parsed(path)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == lineno
     )
     parents = _parents(declaration)
 

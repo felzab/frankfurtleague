@@ -533,7 +533,7 @@ SHARED_CONTACT_DETAILS = [
 
 
 class TestTheThreeSeatsAreThreePeople:
-    """The two `model_validator`s. 422s rather than 409s: these are shape rules about the body, judged against no database."""
+    """The two `model_validator`s, so `REQ-VAL-001` rather than a rule's code: shape rules about the body, which the model judges."""
 
     def test_three_distinct_people_pass(self):
         """The floor under every refusal below."""

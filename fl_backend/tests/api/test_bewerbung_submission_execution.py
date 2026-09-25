@@ -34,6 +34,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import build_clearing_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exception_handlers import PAYLOAD_REFUSED
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
@@ -835,13 +836,13 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
         assert forged_actor not in str(submitted.log_rows[0])
 
-    def test_a_body_breaking_a_shape_rule_is_a_422_rather_than_a_409(self, mongo_replica_set_url: str):
+    def test_a_body_breaking_a_shape_rule_is_refused_as_a_payload(self, mongo_replica_set_url: str):
         """The distinctness rule is about the BODY, not a judgement against the database, so it reaches no refusal code."""
 
         shared = dict(KONTAKTE["ansprechperson"], telefon=KONTAKTE["trainer"]["telefon"])
         submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
 
-        assert submitted.response.status_code == 422
+        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
         assert submitted.stored == 0
 
     @pytest.mark.parametrize(

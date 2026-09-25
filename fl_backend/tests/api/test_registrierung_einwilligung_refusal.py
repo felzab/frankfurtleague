@@ -505,7 +505,7 @@ class TestWhatTheAnswerPayloadRefuses:
         assert FLRegistrierungBestaetigungPayload.model_validate(antwort(text_version=at_the_bound)).text_version == at_the_bound
 
     def test_a_malformed_date_is_refused(self, assert_rejects):
-        """A 422 rather than the age's 409: the shape of the field is the body's business, and the age is the person's."""
+        """`REQ-VAL-001` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
 
         assert_rejects(FLRegistrierungBestaetigungPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
 

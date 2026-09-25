@@ -340,7 +340,7 @@ class TestWhichFloorAPersonClears:
 
 
 class TestTheAgeAtConfirmation:
-    """`REQ-BEWERBUNG-012`: the bound `refuse_age_outside_the_bounds` holds, reached as a 409 with its own German."""
+    """`REQ-BEWERBUNG-012`: the bound `refuse_age_outside_the_bounds` holds, reached as a 422 with its own code and German."""
 
     @pytest.mark.parametrize(("mindestalter", "geburtsdatum", "refused"), AGE_BOUNDARIES)
     def test_each_boundary_falls_where_the_bound_says(self, mindestalter: int, geburtsdatum: str, refused: bool):
