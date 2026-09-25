@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapSpielRefusal } from "./refusals.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/spiele/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { patchAdminSpielDataAction, previewAdminSpielDataAction } = await import("./actions.ts");
 
 /** The one endpoint both write paths send, the dry run included, so one operation carries every refusal either can draw. */
