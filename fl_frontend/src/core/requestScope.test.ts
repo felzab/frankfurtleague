@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
@@ -13,6 +14,34 @@ import {
   runWithRequestScope,
   setRequestActor,
 } from "./requestScope.ts";
+
+// The two outbound clients' configuration and log, replaced at the module boundary: the real config
+// reads credentials no test run holds, and the mail client posts only for a production deployment.
+const MODULE_DOUBLES: Readonly<Record<string, string>> = {
+  "/src/core/config.ts": `export const frontend_config = {
+  API_URL: "http://backend:8000",
+  API_VERSION: 0,
+  INTERNAL_API_KEY_BASE: "base-key-double",
+  INTERNAL_API_KEY_SYSTEM: "system-key-double",
+  INTERNAL_API_KEY_ADMIN: "admin-key-double",
+  APP_ENV: "production",
+  AUTH_RESEND_KEY: "resend-key-double",
+};`,
+  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
+};
+
+registerHooks({
+  resolve: (specifier, context, nextResolve) =>
+    specifier === "server-only" ? { url: "data:text/javascript,export%20%7B%7D%3B", shortCircuit: true } : nextResolve(specifier, context),
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    const double = Object.entries(MODULE_DOUBLES).find(([tail]) => url.endsWith(tail))?.[1];
+    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
+  },
+});
+
+const { apiClient } = await import("./api.ts");
+const { sendMail } = await import("./mail.ts");
 
 const TRACE_ID = `${"0".repeat(31)}1`;
 const SPAN_ID = `${"0".repeat(15)}1`;
@@ -216,23 +245,62 @@ describe("the one deadline a request runs under", () => {
 /* Nested budgets hold in one order only: a call's own bound over the deadline would never bind, and the
    deadline at the edge's cut would be answered by nginx's 504 rather than by this application. */
 describe("the budgets a request's calls nest inside", () => {
-  const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
-  const readConstant = (relative: string, pattern: RegExp): number => {
-    const found = pattern.exec(readFileSync(path.join(REPO_ROOT, relative), "utf8"));
-    assert.ok(found, `${relative} no longer declares what ${String(pattern)} reads`);
-
-    return Number(found[1]);
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
   };
 
-  it("keeps every call's own bound under the deadline, and the deadline under the edge's cut", () => {
-    const edgeMs = readConstant("nginx/shared/site.conf", /^proxy_read_timeout (\d+)s;$/m) * 1000;
+  /** Every signal a call handed the transport, which never answers until that signal aborts. */
+  const signals: AbortSignal[] = [];
 
-    for (const [file, pattern] of [
-      ["fl_frontend/src/core/api.ts", /^const BASE_FETCH_TIMEOUT_MS = (\d+);$/m],
-      ["fl_frontend/src/core/mail.ts", /^const MAIL_TIMEOUT_MS = (\d+);$/m],
-    ] as const) {
-      assert.ok(readConstant(file, pattern) < REQUEST_DEADLINE_MS, `${file}'s own bound is not under the request's deadline`);
-    }
-    assert.ok(REQUEST_DEADLINE_MS < edgeMs, "the request's deadline is not under the edge's cut");
+  beforeEach(() => {
+    clock = 0;
+    signals.length = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+    mock.method(globalThis, "fetch", (_input: unknown, init?: RequestInit) => {
+      const signal = init?.signal ?? assert.fail("a call reached the transport with no signal");
+      signals.push(signal);
+      return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason as Error)));
+    });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  // Called at the start of a request, a call that never answers is ended before the deadline, and by its
+  // own bound: the deadline's cut would mark the request's outcome unknown.
+  for (const [client, call] of [
+    ["the backend client", () => apiClient("/x", { parse: (value: unknown) => value } as never)],
+    ["the mail client", () => sendMail({ to: "anna@example.org", subject: "Betreff", html: "<p>x</p>", text: "x" })],
+  ] as const) {
+    it(`ends ${client}'s call by its own bound, inside the deadline`, async () => {
+      const [aborted, cut] = await runWithRequestScope(scope(), async () => {
+        const settled = call().catch(() => undefined);
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(signals.length, 1, `${client} reached the transport ${String(signals.length)} times`);
+
+        advance(REQUEST_DEADLINE_MS - 1);
+        const answer = [signals[0]?.aborted, requestOutcomeUnknown()];
+        advance(REQUEST_DEADLINE_MS);
+        await settled;
+
+        return answer;
+      });
+
+      assert.equal(aborted, true, `${client}'s call ran on to the deadline: its own bound is not under it`);
+      assert.equal(cut, false, "the deadline, not the call's own bound, ended it");
+    });
+  }
+
+  it("keeps the deadline under the edge's cut", () => {
+    const siteConf = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "shared", "site.conf"), "utf8");
+    const found = /^proxy_read_timeout (\d+)s;$/m.exec(siteConf);
+    assert.ok(found, "nginx/shared/site.conf no longer declares the edge's read timeout");
+
+    assert.ok(REQUEST_DEADLINE_MS < Number(found[1]) * 1000, "the request's deadline is not under the edge's cut");
   });
 });
