@@ -1736,7 +1736,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ANONYMISE-004",
-        status=HTTPStatus.FORBIDDEN,
+        status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
         aggregate="Schiedsrichter",
         summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",

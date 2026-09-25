@@ -63,8 +63,8 @@ A domain refusal answers the status its check chose ([`docs/backend/spec.md`](..
 §1.4 holds the test), and a 409 wherever the same request would have succeeded against a different
 state of the database.
 
-**That holds where the caller is a stranger, so a shut window on the public application form is a 409
-and not a 403.** The endpoint is open to everyone
+**A 403 answers who the caller is and never the target's state (ruling R573), so a shut window on
+the public application form is a 409 even for a stranger.** The endpoint is open to everyone
 ([`docs/backend/spec.md`](../backend/spec.md) §1.1) and what refuses is the season's own state: the
 same submission would have been stored a week earlier, or before another school took the Kürzel.
 `REQ-*` still names a rule the request broke, and on this form the one who acts on it is a member of

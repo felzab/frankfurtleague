@@ -351,8 +351,8 @@ codes name a server fault rather than the request.
 (`fl_backend/tests/core/test_domain.py :: test_every_rule_is_answered_at_the_status_it_declares`), so
 the document publishes each code at the status a client meets it at:
 
-- **409** where some change to stored state would let the identical request through, the conflict
-  being one the caller can resolve before resubmitting
+- **409** where the refusal is about the target's current state, whoever can lift it — the caller,
+  an administrator, or time — so the identical request succeeds once that state changes (ruling R573)
 - **422** where none could, the payload contradicting itself or a fixed bound: its body is
   `FLRefusedPayloadBody`, each field the rule judged named with the rule's code as its `kind` where
   one payload shape carries the rule, and its enum sits beside `REQ-VAL-001` on the operation's 422.
@@ -363,9 +363,10 @@ the document publishes each code at the status a client meets it at:
 - **410** where a link is spent for good: its deadline has passed or its record was decided, and
   nothing reopens either, a fresh link being a new token. Its view still answers 200 with the state
   `abgelaufen`, so a page can say why before anyone presses
-- **403** where nothing the caller can do lifts the refusal: a visitor's address on the ban list,
-  which an administrator's own write meets as a 409 they can resolve by lifting the ban, and the
-  ghost referee's erasure
+- **403** only where the refusal is about who the caller is — their authority, their role or their
+  standing, a ban included — and never about the target's state (ruling R573): a visitor typing an
+  address the ban list holds. An administrator's write naming that address is about the entry it
+  writes, so it answers 409, as the ghost referee's erasure does
 
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never
