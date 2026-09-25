@@ -208,6 +208,18 @@ describe("the mail transport", () => {
     assert.deepEqual(await sendMail(MESSAGE), { id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" });
   });
 
+  /* A message is a write nothing takes back, and the admin spine refreshes the page off this record. */
+  it("records the accepted message as a write its request sent", async () => {
+    respond = async () => jsonResponse({ id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" }, 200);
+
+    const wrote = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      await sendMail(MESSAGE);
+      return requestWriteSent();
+    });
+
+    assert.equal(wrote, true, "an answered send left the request without a write");
+  });
+
   /* The message HAS gone. Throwing here would report a decision the league has already sent out as
      one that never happened. */
   it("answers a null id, rather than a refusal, when an accepted answer carries none", async () => {
