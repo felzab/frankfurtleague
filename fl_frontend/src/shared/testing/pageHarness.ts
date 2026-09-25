@@ -217,14 +217,14 @@ const REVEAL_FRAMES = 60;
 
 /**
  * The document a browser holds once the page's stream has run, every boundary awaited, as
- * `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` does not. Rejects on any error the
- * render reports: React answers a throw inside a boundary with its fallback, so an absence asserted over
- * the markup would pass over a crash.
+ * `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` does not.
  */
 export async function renderPage(tree: ReactNode): Promise<string> {
   const errors: unknown[] = [];
   const { prelude } = await prerenderToNodeStream(tree, { onError: (error) => void errors.push(error) });
   const markup = await text(prelude);
+  // React answers a throw inside a boundary with its fallback, so an absence asserted over that markup
+  // would pass over a crash.
   if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "the page's render reported errors");
 
   // A boundary still pending when the shell was written streams as its fallback beside the content and
