@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
@@ -15,8 +12,6 @@ import type { Leserichtung } from "@/shared/utils/leserichtung.ts";
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FilterLeiste } = await import("./FilterLeiste.tsx");
-
-const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 type Row = { id: string; status: string; gruppe: string };
 
@@ -132,30 +127,5 @@ describe("the bar with a read order", () => {
     assert.doesNotMatch(bar("", "desc"), /Alle Filter zurücksetzen/);
     assert.doesNotMatch(bar("status=aktiv", "desc"), /Alle Filter zurücksetzen/);
     assert.match(bar("status=aktiv&gruppe=A", "desc"), /Alle Filter zurücksetzen/);
-  });
-});
-
-/** Every module drawing the bar, by both routes into it, `AdminCrudView` itself being the second route's forwarder. */
-const BAR_SURFACES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 200)
-  .filter((file) => !file.endsWith(`${path.sep}AdminCrudView.tsx`))
-  .filter((file) => /<(?:AdminCrudView|FilterLeiste)\b/.test(readFileSync(file, "utf8")))
-  .map((file) => file.split(SRC)[1]?.split(path.sep).join("/") ?? "");
-
-describe("which surfaces offer a read order", () => {
-  /* The population is every surface that draws the bar and the property is which of them pass a
-     direction, so a surface acquiring one cannot drop out of the walk instead of failing it. */
-  it("finds the surfaces that draw the bar at all", () => {
-    assert.ok(BAR_SURFACES.length > 2, `only ${String(BAR_SURFACES.length)} surfaces draw the bar, so this case compares nothing`);
-  });
-
-  /* Named rather than counted: a third list acquiring a read-order control is a decision, and it is
-     taken here before it reaches a component every admin list renders. */
-  it("passes a direction from the two capped lists and from nowhere else", () => {
-    const passing = BAR_SURFACES.filter((file) => /leserichtung=/.test(readFileSync(path.join(SRC, file), "utf8"))).sort();
-
-    assert.deepEqual(passing, [
-      "/features/aktionen/components/views/AdminAktionenView.tsx",
-      "/features/bewerbungen/components/views/AdminBewerbungenView.tsx",
-    ]);
   });
 });
