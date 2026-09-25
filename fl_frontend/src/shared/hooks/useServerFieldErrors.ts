@@ -3,13 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { appToast } from "@/shared/utils/appToast";
-import { UNHANDLED_FIELD_REFUSAL } from "@/shared/utils/refusal";
+import { UNHANDLED_FIELD_REFUSAL, UNSHOWN_COST } from "@/shared/utils/refusal";
 
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-
-/** `UNHANDLED_FIELD_REFUSAL`'s first sentence, which every fallback opens on. */
-const UNSHOWN_COST = UNHANDLED_FIELD_REFUSAL.slice(0, UNHANDLED_FIELD_REFUSAL.indexOf(".") + 1);
 
 /** Refused paths' own messages as one run of sentences, or `""` where none brings one. */
 export function joinedMessages(messages: readonly string[]): string {
@@ -27,7 +24,7 @@ export function joinedMessages(messages: readonly string[]): string {
 export function unshownRefusal(messages: readonly string[]): string {
   const reasons = joinedMessages(messages);
 
-  return reasons === "" ? UNHANDLED_FIELD_REFUSAL : `${UNSHOWN_COST} ${reasons}`;
+  return reasons === "" ? UNHANDLED_FIELD_REFUSAL : `${UNSHOWN_COST}. ${reasons}`;
 }
 
 /** The admin editors' word for a failed save; a form whose save is not a change passes its own title. */
