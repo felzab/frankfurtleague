@@ -339,6 +339,18 @@ The invariant the tests pin here: the code on the wire and in the log is the **e
 (I345), so a client generated from it reads the envelope rather than FastAPI's default
 `HTTPValidationError`, a body this API never sends.
 
+**Two middleware refusals answer Starlette's plain-text 400 outside the envelope, and are left
+unwrapped**:
+
+- **`TrustedHostMiddleware`'s `Invalid host header`.** No caller the stack routes meets it: the
+  frontend calls over the Docker network, and nginx's one backend location presents the upstream's
+  own name ([`docs/ops/spec.md`](../ops/spec.md#13-nginx-routing) §1.3). A deploy whose hosts list
+  misses that name meets it.
+- **`CORSMiddleware`'s refused preflight**, `Disallowed CORS` naming the origin, method or headers. The
+  server-side frontend never sends a preflight. A visitor's browser can, at the liveness route
+  nginx forwards, but a preflight's answer is read by the browser's CORS check, which reads its
+  status and headers, and never reaches a script.
+
 **Every failure an operation can answer is published at its status with the codes it carries** — a
 dependency's 400, 401 and 503 (I370), a route's 404 for `DB-COMMON-001` (I369) and 409 for
 `DB-COMMON-002` (I358), each rule's code (I357), `REQ-VAL-001` on the 422 of every operation
