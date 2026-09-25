@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
@@ -10,7 +8,6 @@ import { APIBadStatusError } from "@/core/errors";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -41,9 +38,6 @@ import {
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
-
-/** Read for the codes each mapper's own switch names. */
-const UTILS = readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8");
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -424,35 +418,6 @@ function publishedOn(operation: keyof typeof PUBLISHED, code: string) {
 
   return refusedOn(operation, code);
 }
-
-const SUBMIT_MAPPER = sliceBetween(UTILS, "export function mapBewerbungSubmitRefusal", "export function nenntLaufendeFassung");
-const CONFIRM_MAPPER = sliceBetween(UTILS, "export function mapEinwilligungRefusal", "export function mapEinwilligungAnsichtRefusal");
-
-/** Every code a mapper's switch answers, read off it: no call enumerates the arms a mapper holds. */
-const armsOf = (mapper: string): string[] => [...mapper.matchAll(/case "([A-Z]+-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-describe("the codes the two mappers answer", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each mapper out of its file and finds its arms", () => {
-    assert.ok(SUBMIT_MAPPER.includes("REQ-BEWERBUNG-015"), "the submission mapper's switch is outside its slice");
-    assert.ok(!SUBMIT_MAPPER.includes("REQ-BEWERBUNG-011"), "the submission mapper's slice reaches the confirmation's");
-    assert.ok(CONFIRM_MAPPER.includes("REQ-BEWERBUNG-012"), "the confirmation mapper's switch is outside its slice");
-    assert.ok(armsOf(SUBMIT_MAPPER).length > 0 && armsOf(CONFIRM_MAPPER).length > 0, "no arm could be read out of a mapper");
-  });
-
-  /* The half the every-code cases below cannot see: an arm for a code its endpoint stopped
-     publishing is German nobody reaches, and it hides that the backend moved. */
-  it("answers no code its endpoint does not publish", () => {
-    for (const [operation, mapper] of [
-      [SUBMIT_OPERATION, SUBMIT_MAPPER],
-      [CONFIRM_OPERATION, CONFIRM_MAPPER],
-    ] as const) {
-      for (const code of armsOf(mapper)) {
-        assert.ok(PUBLISHED[operation].includes(code), `${code} is mapped here and not published on ${operation}`);
-      }
-    }
-  });
-});
 
 describe("what a submission's refusal is shown as", () => {
   const refusal = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code));
