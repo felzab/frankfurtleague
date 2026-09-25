@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapEinladungRefusal } from "./refusals.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/einladungen/mutations.ts"] });
+const { answerWith, calls } = doubleApiAnswers();
 const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 
 const KEY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026" };
@@ -18,6 +19,24 @@ const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
 const REVOKE_OPERATION = "DELETE /teams/{team_id}/saisons/{saison_id}/einladung";
 /** S9's flow raises it; this slice calls neither endpoint it is published on. */
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
+
+describe("the invite's writes", () => {
+  it("address the mint and the revoke by both ids in the path, and the send by its season", async () => {
+    calls.length = 0;
+    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: KEY.saison_id, zeilen: [] }));
+
+    await postEinladungAction(KEY);
+    await deleteEinladungAction(KEY);
+    await postEinladungVersandAction({ id: KEY.saison_id, erneut: true });
+
+    const einladung = `/teams/${KEY.team_id}/saisons/${KEY.saison_id}/einladung`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: einladung, method: "POST", body: undefined },
+      { endpoint: einladung, method: "DELETE", body: undefined },
+      { endpoint: `/saisons/${KEY.saison_id}/einladungen/versand`, method: "POST", body: { erneut: true } },
+    ]);
+  });
+});
 
 describe("the invite's refusals against the codes its endpoints publish", () => {
   it("answers every code the mint publishes through the mapper", async () => {

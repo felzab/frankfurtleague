@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { doubleActions, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /**
  * `next/headers` resolves only inside a Next build. Answering no traceparent leaves each read
@@ -17,10 +18,10 @@ registerHooks({
   },
 });
 
-/** The first argument of every `apiClient` call, which for this module is the path it asks for. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/core/api.ts"], answer: () => Promise.resolve({ acknowledged: 1, zeilen: [] }) });
+const { calls } = doubleApiAnswers(() => Promise.resolve({ acknowledged: 1, zeilen: [] }));
 
-const paths = (): string[] => calls.filter((call) => call.action === "apiClient").map((call) => String(call.payload));
+/** The path of every read, which for this module carries the question each one asks. */
+const paths = (): string[] => calls.map(({ endpoint }) => endpoint);
 
 const { getEinladung, getEinladungVersandVorschau } = await import("./queries.ts");
 
@@ -29,7 +30,6 @@ const SAISON_ID = "2627";
 
 beforeEach(() => {
   calls.length = 0;
-  answerWith(() => Promise.resolve({ acknowledged: 1, zeilen: [] }));
 });
 
 describe("the invite slice's reads", () => {
