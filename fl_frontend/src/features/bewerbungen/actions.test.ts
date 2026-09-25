@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
@@ -59,10 +60,13 @@ registerHooks({
       return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
     }
     if (url.endsWith("/src/core/mail.ts")) {
-      // A mailbox refusing the message is what a case sets `__flBewerbungMailRefused` for.
-      const source = `export class MailWithheldError extends Error {}
+      // A mailbox refusing the message is what a case sets `__flBewerbungMailRefused` for. The attempt
+      // records its write before the mailbox answers, as the real one does.
+      const source = `import { recordWriteSent } from "@/core/requestScope";
+export class MailWithheldError extends Error {}
 export class MailRecipientError extends Error {}
 export const sendMail = async (mail) => {
+  recordWriteSent();
   if (globalThis.__flBewerbungMailRefused) throw new MailRecipientError("the mailbox refused the message");
   globalThis.__flBewerbungMailed.push({ to: mail.to, text: mail.text });
   return { id: "msg-1" };
@@ -73,8 +77,8 @@ export const sendMail = async (mail) => {
   },
 });
 
-/* The real actions, called: the request they run in, the application three of them read first,
-   the club list and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in, the application three of
+   them read first, the club list and the backend client are the doubles. */
 doubleActionRequest();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
@@ -86,7 +90,7 @@ export const logger = { debug: record, info: record, warn: record, error: record
     return { format: "module", source, shortCircuit: true };
   },
 });
-const { answerWith, calls: writes } = doubleActions({ modules: ["/src/features/bewerbungen/mutations.ts"] });
+const { answerWith, calls: writes } = doubleApiAnswers();
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
   modules: ["/src/features/teams/queries.ts"],
@@ -293,8 +297,11 @@ const SITZ = {
   text_version: LIGA_KENNTNISNAHME.textVersion,
 } as const;
 
-/** The writes that mint a seat's link, and so spend the one it held. */
-const MINTS = ["erneutSendenEinwilligung", "korrigierenKontaktEmail", "besetzenKontaktSitz"];
+/** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
+const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/erneut`;
+const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
+const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
+const MINTS: readonly string[] = [ERNEUT_PATH, KORREKTUR_PATH, SITZ_PATH];
 
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
@@ -305,7 +312,7 @@ const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfris
  */
 function readAcrossTheWrite(before: unknown, after: unknown): void {
   readWith(() => {
-    const answer = writes.some(({ action }) => MINTS.includes(action)) ? after : before;
+    const answer = writes.some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
     return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
   });
 }
@@ -670,15 +677,15 @@ describe("a message that cannot be sent", () => {
     clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
 
     for (const [where, press, mint] of [
-      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), "erneutSendenEinwilligung"],
-      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), "korrigierenKontaktEmail"],
-      ["the reseat", () => besetzeKontaktSitzAction(SITZ), "besetzenKontaktSitz"],
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), ERNEUT_PATH],
+      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), KORREKTUR_PATH],
+      ["the reseat", () => besetzeKontaktSitzAction(SITZ), SITZ_PATH],
     ] as const) {
       const result = await press();
 
       assert.equal(result.success, false, `${where} answered as though the club read had not failed`);
       assert.deepEqual(
-        writes.filter(({ action }) => action === mint),
+        writes.filter(({ endpoint }) => endpoint === mint),
         [],
         `${where} spent the seat's link before a club read that could not compose its message`,
       );
@@ -1045,7 +1052,7 @@ describe("the person seated where one stepped out", () => {
 
     assert.equal(result.success, true, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`);
     assert.ok(
-      writes.some(({ action }) => action === "besetzenKontaktSitz"),
+      writes.some(({ endpoint }) => endpoint === SITZ_PATH),
       "the reseat never reached its write",
     );
   });
