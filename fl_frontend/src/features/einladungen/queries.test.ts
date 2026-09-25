@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
 /**
  * `next/headers` resolves only inside a Next build. Answering no traceparent leaves each read
@@ -26,9 +26,6 @@ const { calls } = doubleApiAnswers(({ endpoint }) =>
   ),
 );
 
-/** The path of every read, which for this module carries the question each one asks. */
-const paths = (): string[] => calls.map(({ endpoint }) => endpoint);
-
 const { getEinladung, getEinladungVersandVorschau } = await import("./queries.ts");
 
 const TEAM_ID = "a".repeat(24);
@@ -42,15 +39,16 @@ describe("the invite slice's reads", () => {
     await getEinladungVersandVorschau(SAISON_ID, false);
     await getEinladungVersandVorschau(SAISON_ID, true);
 
-    assert.deepEqual(paths(), [
-      `/saisons/${SAISON_ID}/einladungen/versand/vorschau?erneut=false`,
-      `/saisons/${SAISON_ID}/einladungen/versand/vorschau?erneut=true`,
+    const vorschau = `/saisons/${SAISON_ID}/einladungen/versand/vorschau`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `${vorschau}?erneut=false`, method: undefined, body: undefined },
+      { endpoint: `${vorschau}?erneut=true`, method: undefined, body: undefined },
     ]);
   });
 
   it("addresses one team's invite by both ids in the path", async () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    assert.deepEqual(paths(), [`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined }]);
   });
 });

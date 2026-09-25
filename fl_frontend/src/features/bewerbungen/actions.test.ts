@@ -357,7 +357,7 @@ const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfris
  */
 function readAcrossTheWrite(before: unknown, after: unknown): void {
   readWith(() => {
-    const answer = writes.some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
+    const answer = requestsOf(writes).some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
     return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
   });
 }
@@ -771,7 +771,7 @@ describe("a message that cannot be sent", () => {
 
       assert.equal(result.success, false, `${where} answered as though the club read had not failed`);
       assert.deepEqual(
-        writes.filter(({ endpoint }) => endpoint === mint),
+        requestsOf(writes).filter(({ endpoint }) => endpoint === mint),
         [],
         `${where} spent the seat's link before a club read that could not compose its message`,
       );
@@ -1138,7 +1138,7 @@ describe("the person seated where one stepped out", () => {
 
     assert.equal(result.success, true, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`);
     assert.ok(
-      writes.some(({ endpoint }) => endpoint === SITZ_PATH),
+      requestsOf(writes).some(({ endpoint }) => endpoint === SITZ_PATH),
       "the reseat never reached its write",
     );
   });

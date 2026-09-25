@@ -1,16 +1,21 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through and the request are
    the doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the
    components it renders. */
 doubleActionRequest();
 
-/** Every write acknowledged, with no link minted: the save then mails nothing. */
-const sent = doubleApiClient(() => ({ acknowledged: 1, updated_document: null, bestaetigung: null }));
+/** Every write acknowledged, echoing the referee as stored, with no link minted: the save then mails nothing. */
+const { calls: sent } = doubleApiAnswers(async ({ method }) => {
+  const stored = { id: SCHIEDSRICHTER_ID, ...REFEREE, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null };
+  return method === "PATCH"
+    ? { acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null }
+    : { acknowledged: 1, updated_document: stored };
+});
 
 const { anonymiseSchiedsrichterAction, patchSchiedsrichterAction } = await import("./actions.ts");
 
@@ -33,20 +38,13 @@ const MOVES_SPIELE = [
   { name: "refresh", args: [] },
 ];
 
-beforeEach(() => {
-  sent.length = 0;
-});
-
 describe("what the anonymisation moves", () => {
   /* A POST to `/anonymisieren`, never the DELETE beside it: that one stamps `inactive_since` and
      clears nothing. */
   it("calls the anonymisation endpoint and not the retire", async () => {
     await report();
 
-    assert.deepEqual(
-      sent.map(({ endpoint, method }) => ({ endpoint, method })),
-      [{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/anonymisieren`, method: "POST" }],
-    );
+    assert.deepEqual(requestsOf(sent), [{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/anonymisieren`, method: "POST", body: undefined }]);
   });
 
   /* The one cached read it moves: the repointed booking lands on every Spiel as a rename does, and without
