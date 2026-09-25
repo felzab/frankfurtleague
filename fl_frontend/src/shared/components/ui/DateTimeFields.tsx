@@ -220,6 +220,7 @@ export function AppTimeField({
     <TimeField
       className="w-full"
       name={name}
+      isRequired={useRequiredMark(name, "")}
       hourCycle={24}
       value={steady}
       onChange={onChange}

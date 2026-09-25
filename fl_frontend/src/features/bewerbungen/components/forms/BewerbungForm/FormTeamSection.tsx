@@ -1,6 +1,5 @@
 "use client";
 
-import { ComboBox } from "@heroui/react/combo-box";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
@@ -12,6 +11,7 @@ import {
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
 } from "@/features/bewerbungen/constants";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
+import { ComboBox } from "@/shared/components/ui/ComboBox";
 import {
   FIELD_COUNT_INPUT_CLASSES,
   FIELD_ERROR_CLASSES,

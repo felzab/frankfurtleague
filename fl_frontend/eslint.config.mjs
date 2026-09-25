@@ -233,9 +233,9 @@ const HEROUI_NUMBER_FIELD = {
 
 /** HeroUI's fields that carry a required mark, each rendered through the wrapper reading it off the form's schema. */
 const HEROUI_MARKED_FIELDS = {
-  group: ["@heroui/react/textfield", "@heroui/react/select", "@heroui/react/switch", "@heroui/react/autocomplete"],
+  group: ["@heroui/react/textfield", "@heroui/react/select", "@heroui/react/switch", "@heroui/react/autocomplete", "@heroui/react/combo-box"],
   message:
-    "Render a text field, select, switch or autocomplete through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
+    "Render a text field, select, switch, autocomplete or combo box through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
 };
 
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
@@ -471,8 +471,8 @@ const DYNAMIC_LOADS = [
     message: "Load HeroUI's number field through fl_frontend/src/shared/components/ui/NumberField.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:textfield|select|switch|autocomplete)$`),
-    message: "Load a text field, select, switch or autocomplete through its wrapper, by `import()` as much as by `import`.",
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:textfield|select|switch|autocomplete|combo-box)$`),
+    message: "Load a text field, select, switch, autocomplete or combo box through its wrapper, by `import()` as much as by `import`.",
   },
   {
     selector: loadOf(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex)),
@@ -735,7 +735,7 @@ const SOURCE_BANS = [
   {
     // Read off the element, so a hint handed down to a field through a prop or a child component passes unread.
     selector:
-      'JSXOpeningElement[name.name="Hint"]:has(JSXAttribute[name.name="mode"]:matches([value.value="field"], [value.expression.value="field"])):not(JSXElement[openingElement.name.name=/^(?:TextField|NumberField|Select|Autocomplete|Switch|DatePicker)$/] JSXOpeningElement)',
+      'JSXOpeningElement[name.name="Hint"]:has(JSXAttribute[name.name="mode"]:matches([value.value="field"], [value.expression.value="field"])):not(JSXElement[openingElement.name.name=/^(?:TextField|NumberField|Select|Autocomplete|ComboBox|Switch|DatePicker)$/] JSXOpeningElement)',
     message:
       'A hint in mode="field" is a field\'s description, which only the field it sits inside wires to its input: outside one it describes nothing (docs/frontend/spec.md :: I371).',
   },
@@ -967,7 +967,7 @@ const eslintConfig = defineConfig([
     [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [
-      ["TextField", "Select", "Switch", "Autocomplete"].map((wrapper) => `src/shared/components/ui/${wrapper}.tsx`),
+      ["TextField", "Select", "Switch", "Autocomplete", "ComboBox"].map((wrapper) => `src/shared/components/ui/${wrapper}.tsx`),
       HEROUI_MARKED_FIELDS,
       [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared],
     ],

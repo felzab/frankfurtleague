@@ -15,6 +15,7 @@ import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect:
 import { Select as HeroSelect } from "@heroui/react/select"; // expect: marked-field
 import { Switch as HeroSwitch } from "@heroui/react/switch"; // expect: marked-field
 import { Autocomplete as HeroAutocomplete } from "@heroui/react/autocomplete"; // expect: marked-field
+import { ComboBox as HeroComboBox } from "@heroui/react/combo-box"; // expect: marked-field
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 
@@ -95,6 +96,7 @@ export const TEXT_FIELD_LOADED = import("@heroui/react/textfield"); // expect: m
 export const SELECT_LOADED = import(`@heroui/react/select`); // expect: marked-field-load
 export const SWITCH_LOADED = import("@heroui/react/switch"); // expect: marked-field-load
 export const AUTOCOMPLETE_LOADED = import("@heroui/react/autocomplete"); // expect: marked-field-load
+export const COMBO_BOX_LOADED = import("@heroui/react/combo-box"); // expect: marked-field-load
 export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
 export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
@@ -151,7 +153,7 @@ export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load
 export const TEXT_FIELD_USED = HeroTextField;
-export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete];
+export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete, HeroComboBox];
 export const NATIVE_FORM = <form method="post" />; // expect: native-form
 export const LOOSE_HINT = <Hint mode="field" text="Beschreibt nichts." />; // expect: field-hint
 export const LOOSE_EXPRESSION_HINT = <Hint mode={"field"} text="Beschreibt nichts." />; // expect: field-hint
