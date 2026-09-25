@@ -331,15 +331,13 @@ class TestANameTheClassDoesNotDeclare:
         """
         # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
         # refusal to naming the variable.
-        rejected = "console-but-misspelled"
-        (tmp_path / ".env").write_bytes(f"LOG_FORMAT_={rejected}\n".encode())
+        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
         an_environment(monkeypatch, tmp_path)
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
 
         assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
-        assert rejected not in str(raised.value)
 
     def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
         """The gap the runbook's remedy is written around.

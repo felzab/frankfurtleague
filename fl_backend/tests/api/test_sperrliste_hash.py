@@ -52,11 +52,8 @@ class TestTheStoredFormOfAnAddress:
 
         stored = adresse_hash(ADDRESS, schluessel=KEY)
 
-        local_part, domain = ADDRESS.lower().split("@")
-        assert "@" not in stored
-        for recognisable in (local_part, domain, domain.encode("idna").decode()):
-            assert recognisable not in stored.lower()
-        # Hex, and the digest's full width: a truncated one is a collision surface nothing reports.
+        # Hex alone, so no text of the address survives, and the digest's full width: a truncated one is
+        # a collision surface nothing reports.
         assert len(stored) == 64
         assert set(stored) <= set("0123456789abcdef")
 

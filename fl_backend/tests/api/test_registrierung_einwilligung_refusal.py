@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Mapping
 from typing import Any
 
@@ -178,7 +179,8 @@ class TestATokenNoRegistrationHolds:
 
         assert refusal is not None
         assert refusal.error_code == REGISTRIERUNG_TOKEN_UNKNOWN
-        assert "Quillhilde" not in refusal.message
+        # Nothing the refusal is handed can carry a team or a pupil, so a parameter added to it is the leak.
+        assert set(inspect.signature(find_unknown_token_refusal).parameters) == {"found"}
 
 
 class TestALinkWhoseTimeIsOver:

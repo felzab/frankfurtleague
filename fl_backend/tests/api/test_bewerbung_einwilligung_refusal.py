@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Mapping
 from typing import Any, get_args
 
@@ -239,7 +240,9 @@ class TestATokenNoSeatHolds:
         refusal = find_unknown_token_refusal(seat=None)
 
         assert refusal is not None
-        assert "Zorbanax" not in refusal.message and "trainer" not in refusal.message
+        assert "trainer" not in refusal.message
+        # Nothing the refusal is handed can carry an application, so a parameter added to it is the leak.
+        assert set(inspect.signature(find_unknown_token_refusal).parameters) == {"seat"}
 
 
 class TestALinkWhoseTimeIsOver:
