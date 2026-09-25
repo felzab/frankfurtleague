@@ -84,6 +84,9 @@ const PERSON_NAME_REGEX = /^\p{L}[\p{L}\-' ]*$/u;
  */
 export const PersonNameSchema = z
   .string()
+  // First, as `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName` strips before its ceiling and pattern:
+  // counted untrimmed, a space typed after a name at the ceiling refuses what the API takes.
+  .trim()
   .nonempty({ error: "Bitte gib einen Namen ein." })
   .regex(PERSON_NAME_REGEX, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
 

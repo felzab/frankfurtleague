@@ -80,5 +80,13 @@ describe("the ceiling a referee's name is held to", () => {
     it(`takes a name at the ceiling on the ${label}`, () => {
       assert.equal(schema.safeParse({ ...schiedsrichter, name: "A".repeat(KONTAKT_NAME_MAX_LENGTH) }).success, true);
     });
+
+    // The API strips before it counts, so a space typed on either side of a name at the ceiling is a name it takes.
+    it(`takes a name at the ceiling with spaces around it on the ${label}, and sends it trimmed`, () => {
+      const atCeiling = "A".repeat(KONTAKT_NAME_MAX_LENGTH);
+      const parsed = schema.safeParse({ ...schiedsrichter, name: ` ${atCeiling} ` });
+
+      assert.equal(parsed.data?.name, atCeiling);
+    });
   }
 });
