@@ -174,10 +174,11 @@ async def post_many_to_db(
         # before it written, unlogged unless recorded here. Not under a session, where the abort takes
         # them back and a second write would mask this error with its own.
         landed = int((failure.details or {}).get("nInserted", 0))
-        if session is None and landed:
+        stands = session is None and landed > 0
+        if stands:
             await record_write(collection=collection, operation="insert_many", modified_count=landed)
 
-        if (refusal := _duplicate_key_of(failure)) is not None:
+        if not stands and (refusal := _duplicate_key_of(failure)) is not None:
             raise refusal from failure
         raise
 
@@ -193,9 +194,10 @@ DUPLICATE_KEY_ERROR = 11000
 
 
 def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
-    """So a batch answers 409 `DB-COMMON-002` as every other write does, a single insert's refusal being this error.
+    """So a batch answers 409 `DB-COMMON-002` as one insert does, asked only where nothing the batch wrote stands.
 
-    A write-concern error beside the refusals keeps the batch's own failure, which then says more than a refusal would.
+    A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
+    failure, which says more.
     """
 
     report = failure.details or {}

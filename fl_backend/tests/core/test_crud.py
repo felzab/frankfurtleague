@@ -8,6 +8,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
@@ -230,14 +231,14 @@ class TestPullOneFromDb:
         assert excinfo.value.filter == FILTER
 
 
-def refused_batch(error: Mapping[str, Any], *, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
-    """The server's report of a batch refused on its third document, the first two having landed."""
+def refused_batch(error: Mapping[str, Any], *, landed: int = 0, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
+    """The server's report of a batch refused after `landed` of its documents were written."""
 
     return BulkWriteError(
         {
             "writeErrors": [error],
             "writeConcernErrors": list(write_concern),
-            "nInserted": 2,
+            "nInserted": landed,
             "nUpserted": 0,
             "nMatched": 0,
             "nModified": 0,
@@ -256,6 +257,8 @@ DUPLICATE_ERROR: Mapping[str, Any] = {
     "keyValue": {"shorthand": "C2"},
     "op": {"name": "Club 2", "shorthand": "C2"},
 }
+# A stand-in for a transaction handle: an abort takes back whatever the batch wrote under it.
+SESSION = cast(AsyncClientSession, object())
 VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
 WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
 
@@ -273,21 +276,28 @@ class _RefusedBatchCollection:
         raise self.failure
 
 
-def batch_raised(failure: BulkWriteError) -> tuple[BaseException, list[Mapping[str, Any]]]:
+def batch_raised(failure: BulkWriteError, *, session: AsyncClientSession | None = None) -> tuple[BaseException, list[Mapping[str, Any]]]:
     stub = _RefusedBatchCollection(failure)
 
     with pytest.raises((BulkWriteError, DuplicateKeyError)) as raised:
-        asyncio.run(post_many_to_db(collection=cast(AsyncCollection, stub), documents=[{"name": "Club 0"}]))
+        asyncio.run(post_many_to_db(collection=cast(AsyncCollection, stub), documents=[{"name": "Club 0"}], session=session))
 
     return raised.value, stub.recorded
 
 
 class TestPostManyToDb:
-    def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self):
+    @pytest.mark.parametrize(
+        ("landed", "session"),
+        [
+            pytest.param(0, None, id="nothing written"),
+            pytest.param(2, SESSION, id="rows written under a session, which its abort takes back"),
+        ],
+    )
+    def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self, landed: int, session: AsyncClientSession | None):
         """`DuplicateKeyError`, which the handler answers 409 `DB-COMMON-002`, still naming the index it logs."""
 
-        failure = refused_batch(DUPLICATE_ERROR)
-        raised, _ = batch_raised(failure)
+        failure = refused_batch(DUPLICATE_ERROR, landed=landed)
+        raised, _ = batch_raised(failure, session=session)
 
         assert isinstance(raised, DuplicateKeyError)
         assert refused_index_of(raised) == REFUSED_INDEX
@@ -305,9 +315,11 @@ class TestPostManyToDb:
 
         assert raised is failure
 
-    def test_what_landed_before_the_refusal_is_still_recorded(self):
-        """Outside a session nothing takes the first two back, so the refusal raised in their place must not cost their row."""
+    def test_rows_that_stand_keep_the_batchs_own_failure_and_their_row(self):
+        """Outside a session nothing takes the first two back: a 409 would say nothing was written while they stand."""
 
-        _, recorded = batch_raised(refused_batch(DUPLICATE_ERROR))
+        failure = refused_batch(DUPLICATE_ERROR, landed=2)
+        raised, recorded = batch_raised(failure)
 
+        assert raised is failure
         assert [(row["operation"], row["modified_count"]) for row in recorded] == [("insert_many", 2)]
