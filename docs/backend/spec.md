@@ -419,9 +419,10 @@ left the season" are one failure mode, which is what the code table's own rule k
 (`fl_backend/app/core/routing.py :: by_id`) means `/spiele/not-an-id` matches no route at all, and a
 season id — a four-character string, never an ObjectId — reaches the lookup and 404s there instead. A
 query parameter carries input, so malformed input fails validation like any other: `REQ-VAL-001`, 422.
-`REQ-OID-001` (400) is the net behind both — bson's `InvalidId` mapped wherever a handler builds an
-ObjectId no convertor or model has checked — and through routed traffic it is expected to be
-unreachable.
+No handler maps bson's `InvalidId`: `fl_backend/app/shared/schemas/custom.py :: parse_object_id` is the
+one place a value becomes an ObjectId and it catches the error, so one raised anywhere else is a server
+bug and answers 500 `SRV-FAIL-001`
+(`fl_backend/tests/shared/test_custom.py :: test_parse_object_id_is_the_one_site_building_an_object_id_from_a_value`).
 
 ### 1.5 Environment
 

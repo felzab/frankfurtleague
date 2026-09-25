@@ -4,7 +4,6 @@ from collections.abc import Set as AbstractSet
 from http import HTTPStatus
 from typing import Any, Final
 
-from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -19,7 +18,6 @@ from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 NO_DATA_TEXT = "//- No Data -//"
 
 PAYLOAD_REFUSED = "REQ-VAL-001"
-MALFORMED_OBJECT_ID = "REQ-OID-001"
 STORED_DATA_INVALID = "SRV-VAL-001"
 UNHANDLED_CRASH = "SRV-FAIL-001"
 DATABASE_FAILED = "DB-FAIL-001"
@@ -257,15 +255,6 @@ def _dotted(path: str, name: Any) -> str:
     return f"{path}.{name}" if path else str(name)
 
 
-async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):
-    fl_logger.warning(
-        f"Invalid ObjectId format received: {str(exc) or NO_DATA_TEXT}",
-        extra={"error_code": MALFORMED_OBJECT_ID},
-    )
-
-    return error_response(status.HTTP_400_BAD_REQUEST, MALFORMED_OBJECT_ID)
-
-
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
     fl_logger.error(
         f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}",
@@ -284,5 +273,4 @@ def register_exception_handlers(app: FastAPI):
     # line below by being more specific, not by being registered first.
     app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
     app.add_exception_handler(PyMongoError, db_exception_handler)  # type: ignore
-    app.add_exception_handler(InvalidId, invalid_bson_oid_exception_handler)  # type: ignore
     app.add_exception_handler(Exception, global_catch_all_exception_handler)

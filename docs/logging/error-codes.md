@@ -54,7 +54,7 @@ The exception types carrying them are declared in `fl_backend/app/core/exception
 **A code raised under `app/api/` is a domain rule, stated in full at
 `fl_backend/app/core/domain.py :: RULES` and published at its status on its operations in
 `fl_backend/openapi.json`, and it takes no row here; the protocol codes in `app/core/` describe who you
-are, whether the body parses, and whether an id is an ObjectId.**
+are and whether the body parses.**
 `fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
 that correspondence in both directions, excusing the protocol codes by name, and
 `:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set.
@@ -102,7 +102,6 @@ which field is [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesti
 | `REQ-AUTH-004`  | 401    | `admin` key invalid                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `REQ-AUTH-005`  | 400    | No usable `X-FL-Actor` header on an admin-tier write                                                                                                                                                                                                                                                                                                                                                                |
 | `REQ-VAL-001`   | 422    | Request payload or parameters failed validation; at 400, with no `fields`, a body that is not JSON at all                                                                                                                                                                                                                                                                                                           |
-| `REQ-OID-001`   | 400    | A malformed ObjectId reached a handler — the net behind the path convertor and the query models, unreachable through routed traffic                                                                                                                                                                                                                                                                                 |
 | `DB-CONN-001`   | 503    | Database client unavailable                                                                                                                                                                                                                                                                                                                                                                                         |
 | `DB-CONN-002`   | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                                                                                                                                                                                                                                                                                                                                     |
 | `DB-COMMON-001` | 404    | No document matched the filter                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -224,6 +223,9 @@ demand a tree spell every code below.
   already held.
 - **`REQ-STATE-001`** — what it refused is unrecorded: no revision this history holds spells it, and
   the family's rows open at `REQ-STATE-002`.
+- **`REQ-OID-001`** — a malformed ObjectId reached a handler past the path convertor and the query
+  models. Nothing could raise it: the one site building an ObjectId from a value catches the error
+  itself, so the handler went, and one raised elsewhere now answers the server fault it is.
 - **`FE-AUTH-001`** — a sign-in library reported an access denial. The allowlist gate is this
   repository's own and answers an unlisted address by returning rather than by raising
   (`fl_frontend/src/core/auth.ts :: sendMagicLink`), so nothing on that path has a denial to report.
