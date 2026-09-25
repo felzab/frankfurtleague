@@ -211,3 +211,30 @@ def test_the_db_job_s_pull_step_reads_the_backend_tier_s_pin() -> None:
 
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == pin, f"the pull step read {done.stdout.strip()!r}, where the conftest pins {pin}"
+
+
+# The builder's whole-context COPY leaves out what `deps` installed from, whose check fails a patch
+# newer than the install. The failure needs a cache-hit `deps` layer, which only CI meets.
+FRONTEND_DOCKERFILE: Final = REPO_ROOT / "fl_frontend" / "Dockerfile"
+STAGE_RE: Final = re.compile(r"^[ \t]*FROM[ \t]+\S+[ \t]+AS[ \t]+(\S+)[ \t]*$", re.MULTILINE | re.IGNORECASE)
+COPY_RE: Final = re.compile(r"^[ \t]*COPY[ \t]+(.+?)[ \t]*$", re.MULTILINE | re.IGNORECASE)
+EXCLUDE: Final = "--exclude="
+
+
+def _stages(text: str) -> dict[str, str]:
+    """Each named stage's instructions, up to the next FROM."""
+    marks = list(STAGE_RE.finditer(text))
+    ends = [mark.start() for mark in marks[1:]] + [len(text)]
+    return {mark[1].lower(): text[mark.end() : end] for mark, end in zip(marks, ends, strict=True)}
+
+
+def test_the_builder_leaves_out_every_path_the_deps_stage_installed_from() -> None:
+    """Both sets read off the Dockerfile, so a copy added to `deps` or an exclude dropped is named."""
+    stages = _stages(FRONTEND_DOCKERFILE.read_text(encoding="utf-8"))
+    installed = {token for line in COPY_RE.findall(stages["deps"]) for token in line.split()[:-1] if not token.startswith("--")}
+    context = [line.split() for line in COPY_RE.findall(stages["builder"]) if line.split()[-2:] == [".", "."]]
+    assert installed, "no COPY was read out of the deps stage: this reader went inert"
+    assert len(context) == 1, f"the builder holds {len(context)} whole-context COPY lines, where the case reads exactly one"
+    excluded = {token.removeprefix(EXCLUDE) for token in context[0] if token.startswith(EXCLUDE)}
+
+    assert excluded == installed, f"deps installs from {sorted(installed)}; the builder excludes {sorted(excluded)}"

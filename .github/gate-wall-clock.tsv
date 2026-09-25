@@ -417,9 +417,10 @@
 # machine carrying a fleet of agent sessions. The arms overlap, so the rule costs less than this
 # machine resolves. Neither the reference nor the budget moves and neither takes a new stamp.
 #
-# `scripts` gained three cases in `scripts/tests/test_image_pins.py`: every tag an exact release,
-# 0.01 s; the frontend db tier's tag held to the backend pin's, 0.06 s; and the db job's pull step
-# run over the real conftest, 0.08-0.11 s, three runs each, measured locally on 2026-09-25 on a
+# `scripts` gained four cases in `scripts/tests/test_image_pins.py`: every tag an exact release,
+# 0.01 s; the frontend db tier's tag held to the backend pin's, 0.06 s; the db job's pull step run
+# over the real conftest, 0.08-0.11 s; and the frontend builder's excludes held to what its `deps`
+# stage copies, under 5 ms, three runs each, measured locally on 2026-09-25 on a
 # sixteen-core Windows machine carrying a fleet of agent sessions, so upper bounds. They ride a
 # module already dispatched and sit inside the floor the `scripts` row carries, so neither the
 # reference nor the budget moves and neither takes a new stamp.
