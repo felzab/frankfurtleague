@@ -1,37 +1,44 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
+
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 
-/* The real route and the mutation it replays through, called: the request it runs in, the backend client and
-   the mailer below are the doubles. */
+/* The real route, the mutation it replays through and the link mailer, called: the request it runs in, the
+   backend client and the mailer are the doubles. */
 doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers(() =>
-  Promise.resolve({ acknowledged: 1, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null }),
-);
-
-const NOTIFICATIONS = `export const mailSchiedsrichterLink = async (args) => { globalThis.__flUndoRefMails.push(args); return globalThis.__flUndoRefDelivered; };
-export const describeLinkMail = (email, delivered) => (delivered ? \`Der Bestätigungslink ging an \${email}.\` : \`Der Bestätigungslink konnte nicht an \${email} zugestellt werden.\`);`;
-
-type MailArgs = { email: string; schiedsrichterId: string };
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-const mails: MailArgs[] = [];
-recorders.__flUndoRefMails = mails;
-
+const mail = doubleSendMail();
+// The origin the link is minted on, which the real config reads from an environment this run has not got.
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/features/schiedsrichter/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts")) {
+      return { format: "module", source: `export const frontend_config = { AUTH_URL: "http://localhost:3000" };`, shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });
+
+/** Whether `call` is the delivery report a sent link files, which the backend applies. */
+const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/zustellung/");
+const REPORTED = { acknowledged: 1, angewendet: true };
+const client = doubleApiAnswers((call) =>
+  Promise.resolve(
+    reportsDelivery(call) ? REPORTED : { acknowledged: 1, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null },
+  ),
+);
+const calls = client.calls;
+/** Answers the replay with `next`, a delivery report after it as the endpoint does. */
+const answerWith = (next: () => Promise<unknown>): void =>
+  client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -70,11 +77,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<{ success: b
   return (await (await POST(request)).json()) as { success: boolean; message?: string; error?: string; warn?: boolean };
 };
 
-beforeEach(() => {
-  mails.length = 0;
-  recorders.__flUndoRefDelivered = true;
-});
-
 describe("the referee save's undo", () => {
   it("replays the stored values and drops the fixture cache", async () => {
     const answer = await bodyOf(aRequest(BODY));
@@ -101,7 +103,7 @@ describe("the referee save's undo", () => {
 
     assert.equal(answer.success, true);
     assert.deepEqual(
-      mails.map((mail) => mail.email),
+      mail.sent.map(({ to }) => to),
       ["alt@example.de"],
     );
     assert.match(answer.message ?? "", /Der Bestätigungslink ging an alt@example\.de\./);
@@ -122,7 +124,7 @@ describe("the referee save's undo", () => {
     const answer = await bodyOf(aRequest(BODY));
 
     assert.deepEqual(
-      mails.map((mail) => mail.email),
+      mail.sent.map(({ to }) => to),
       ["inzwischen@example.de"],
     );
     assert.match(answer.message ?? "", /ging an inzwischen@example\.de\./);
@@ -131,7 +133,7 @@ describe("the referee save's undo", () => {
   /* A committed restore that cost something: the standard sentence stands and the cost follows it,
      graded a warning so a replay with collateral does not read as a clean undo. */
   it("reports a failed send as a cost rather than as a failure", async () => {
-    recorders.__flUndoRefDelivered = false;
+    mail.answerWith(() => "refused");
     answerWith(() =>
       Promise.resolve({
         acknowledged: 1,
@@ -151,7 +153,7 @@ describe("the referee save's undo", () => {
   it("mails nothing where the replay minted nothing", async () => {
     await bodyOf(aRequest(BODY));
 
-    assert.deepEqual(mails, []);
+    assert.deepEqual(mail.sent, []);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {

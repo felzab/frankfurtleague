@@ -6,8 +6,11 @@ import { SITE_URL } from "@/core/brand.ts";
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import { einladungsLink } from "./einladungLink.ts";
+
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -22,41 +25,20 @@ registerHooks({
   },
 });
 
-/* The real actions and their mutations, called: the request they run in, the backend client, the reads
-   and the fan-out they hand each message to are the doubles. */
+/* The real actions, their mutations and the fan-out they hand each message to, called: the request they
+   run in, the backend client, the reads and the mailer are the doubles. */
 doubleActionRequest();
-const mint = doubleApiAnswers();
+const mail = doubleSendMail();
+
+/** Whether `call` is the delivery report a sent message files, which the backend applies. */
+const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/zustellung/");
+const REPORTED = { acknowledged: 1, angewendet: true };
+const mint = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? REPORTED : { acknowledged: 1 }));
+/** Answers the write a case presses with `next`, a delivery report after it as the endpoint does. */
+const answerTheWrite = (next: () => Promise<unknown>): void =>
+  mint.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
 const invite = doubleActions({ modules: ["/src/features/einladungen/queries.ts"] });
 const teams = doubleActions({ modules: ["/src/features/teams/queries.ts"] });
-
-type FanOutArgs = { buildMail: (address: string) => { text: string } };
-
-/** Every message handed to the fan-out, and what it answers until a case names another answer. */
-const fanOut = {
-  calls: [] as FanOutArgs[],
-  answer: (): Promise<unknown> => Promise.resolve({ delivered: [], unreachable: [], withheld: [] }),
-  answerWith(next: () => Promise<unknown>): void {
-    fanOut.answer = next;
-  },
-};
-Reflect.set(globalThis, "__flEinladungFanOut", fanOut);
-
-// The send records its write as `fl_frontend/src/core/mail.ts` does for every attempt it starts: the
-// admin spine judges a press that mints nothing by its mail alone.
-const FAN_OUT = `import { recordWriteSent } from "@/core/requestScope";
-export const sendZielMail = async (args) => {
-  recordWriteSent();
-  globalThis.__flEinladungFanOut.calls.push(args);
-  return globalThis.__flEinladungFanOut.answer();
-};`;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: FAN_OUT, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 const { mailEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
@@ -91,7 +73,7 @@ function answerTheSinglePressReads(): void {
 
 /** The text of every message the fan-out was handed since the case began, composed as it would be sent. */
 function mailedTexts(): string[] {
-  return fanOut.calls.map(({ buildMail }) => buildMail(ADDRESS).text);
+  return mail.sent.map(({ text }) => text);
 }
 
 describe("the invite link the mail carries", () => {
@@ -120,7 +102,7 @@ describe("the invite link the mail carries", () => {
    two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
 describe("the origin each press mints its invite link on", () => {
   it("is the configured one on the link the mint hands the panel", async () => {
-    mint.answerWith(() =>
+    answerTheWrite(() =>
       Promise.resolve({
         acknowledged: 1,
         saison_id: SAISON_ID,
@@ -138,8 +120,6 @@ describe("the origin each press mints its invite link on", () => {
   });
 
   it("is the configured one in the message the single press mails", async () => {
-    fanOut.calls.length = 0;
-    fanOut.answerWith(() => Promise.resolve({ delivered: [ADDRESS], unreachable: [], withheld: [] }));
     answerTheSinglePressReads();
 
     const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
@@ -154,9 +134,7 @@ describe("the origin each press mints its invite link on", () => {
   });
 
   it("is the configured one in the message the season-wide press mails", async () => {
-    fanOut.calls.length = 0;
-    fanOut.answerWith(() => Promise.resolve({ delivered: [ADDRESS], unreachable: [], withheld: [] }));
-    mint.answerWith(() =>
+    answerTheWrite(() =>
       Promise.resolve({
         acknowledged: 1,
         saison_id: SAISON_ID,
@@ -187,16 +165,15 @@ describe("the origin each press mints its invite link on", () => {
   });
 });
 
-/* The single press mints nothing, so the mail it hands the fan-out is its one write, and the admin
-   spine refreshes the panel's delivery record after a write alone. */
+/* The single press mints nothing, so its writes are the message and the delivery report filed after
+   it, and the admin spine refreshes the panel's delivery record after a write alone. */
 describe("the single press's write", () => {
   it("is the fan-out's send, after which the panel is refreshed", async () => {
-    fanOut.answerWith(() => Promise.resolve({ delivered: [ADDRESS], unreachable: [], withheld: [] }));
     answerTheSinglePressReads();
 
     const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
 
     assert.equal(result.success, true, "the press mailed nothing, so its write is judged on nothing");
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "a press whose only write was its mail left the panel standing");
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "a press whose writes were its message left the panel standing");
   });
 });

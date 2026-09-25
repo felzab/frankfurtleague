@@ -4,37 +4,42 @@ import { beforeEach, describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
+
+import type { MailOutcome, SentMail } from "@/shared/testing/mailDouble.ts";
 
 /* Replaced at the module boundary rather than the actions being reshaped to admit a seam: the real
-   client reaches a backend no test process runs, and the real fan-out reaches a mail provider. */
+   client reaches a backend no test process runs, and the real mailer a provider. The fan-out is the
+   real one, so what the actions hand it is read off the messages it sends. */
 const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
 /** What the client answers in this case, whichever endpoint the action reads. */
 let apiAnswer: () => unknown = () => undefined;
-doubleApiClient(() => apiAnswer());
-// The fan-out's double records the write the module it replaces records as it sends one, which the
-// admin spine judges its answer by; the shared client records its own.
+// The delivery report each accepted or refused message files, which the backend applies.
+doubleApiClient(({ endpoint }) => (endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : apiAnswer()));
 const TEAMS = `export const getTeamMemberships = async () => globalThis.__flSendTeams();`;
-const NOTIFICATIONS = `import { recordWriteSent } from "@/core/requestScope";
-export const sendZielMail = async (args) => {
-  recordWriteSent();
-  globalThis.__flSendLog.push("send:" + args.auftrag.zielId);
-  globalThis.__flSendMails.push(args);
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  globalThis.__flSendLog.push("settled:" + args.auftrag.zielId);
-  return globalThis.__flSendOutcome(args);
-};`;
-
-type MailArgs = {
-  auftrag: { ziel: string; zielId: string; anlass: string; idempotenzTag?: string };
-  recipients: string[];
-  buildMail: (address: string) => { subject: string; html: string; text: string };
-};
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-const mails: MailArgs[] = [];
 const log: string[] = [];
-recorders.__flSendMails = mails;
 recorders.__flSendLog = log;
+
+/** Each address's outcome: delivered, refused by the provider, or held by the deployment. */
+const outcome =
+  (delivered: string[], unreachable: string[], withheld: string[]) =>
+  ({ to }: SentMail): MailOutcome =>
+    withheld.includes(to) ? "withheld" : unreachable.includes(to) ? "refused" : delivered.includes(to) ? "accepted" : "lost";
+
+const mail = doubleSendMail();
+/** Answers every message with `answer`, logging the send and, a tick later, its settling against the row it is filed under. */
+const sendWith = (answer: (sent: SentMail) => MailOutcome): void =>
+  mail.answerWith(async (sent) => {
+    log.push(`send:${sent.tags?.ziel_id ?? ""}`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    log.push(`settled:${sent.tags?.ziel_id ?? ""}`);
+    return answer(sent);
+  });
+
+/** The tag a message's key is scoped by: `fl_frontend/src/features/zustellung/notifications.ts :: zielIdempotenzSchluessel`'s fourth part. */
+const keyTag = ({ idempotencyKey }: SentMail): string | undefined => idempotencyKey?.split("_")[3];
 
 // `refresh` writes to the same log the fan-out does, which is how the ordering case below reads which
 // of the two ran first; `cacheCalls` is a list of its own, so it cannot order a refresh against a send.
@@ -52,7 +57,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
     if (url.endsWith("/src/features/teams/queries.ts")) return { format: "module", source: TEAMS, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -110,23 +114,16 @@ const liveRow = (einladungId: string) => () => ({
   laeuft: true,
 });
 
-const outcome = (delivered: string[], unreachable: string[], withheld: string[]) => () => ({
-  delivered: delivered,
-  unreachable: unreachable,
-  withheld: withheld,
-});
-
 const press = (teamId: string, einladungId = EINLADUNG_ID) =>
   mailEinladungAction({ team_id: teamId, saison_id: SAISON_ID, einladung_id: einladungId, token: TOKEN });
 
 const sentence = (res: { success: boolean; message?: string; error?: string }): string => res.message ?? res.error ?? "";
 
 beforeEach(() => {
-  mails.length = 0;
   log.length = 0;
   apiAnswer = liveRow(EINLADUNG_ID);
   recorders.__flSendTeams = teamsHolding("a".repeat(24), BEIDE_BESTAETIGT);
-  recorders.__flSendOutcome = outcome(["jonas@beispiel.de", "erika@beispiel.de"], [], []);
+  sendWith(outcome(["jonas@beispiel.de", "erika@beispiel.de"], [], []));
 });
 
 describe("what the single invite press answers", () => {
@@ -138,7 +135,10 @@ describe("what the single invite press answers", () => {
 
     assert.equal(res.success, true);
     assert.equal(sentence(res), "Der Link ist an alle 2 Adressen unterwegs.");
-    assert.deepEqual(mails[0]?.recipients, ["jonas@beispiel.de", "erika@beispiel.de"]);
+    assert.deepEqual(
+      mail.sent.map(({ to }) => to),
+      ["jonas@beispiel.de", "erika@beispiel.de"],
+    );
   });
 
   /* Outside production every address is withheld, so a press that cannot tell the two apart offers
@@ -146,7 +146,7 @@ describe("what the single invite press answers", () => {
   it("counts a wholly withheld fan-out as a send, and says the deployment held it", async () => {
     const teamId = "c".repeat(24);
     recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    recorders.__flSendOutcome = outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], ["jonas@beispiel.de", "erika@beispiel.de"]);
+    sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], ["jonas@beispiel.de", "erika@beispiel.de"]));
 
     const res = await press(teamId);
 
@@ -154,10 +154,22 @@ describe("what the single invite press answers", () => {
     assert.equal(sentence(res), ZURUECKGEHALTEN);
   });
 
+  /* A held message reached no provider, so the press wrote nothing and the delivery record the panel
+     shows is the one it already had. */
+  it("leaves the panel standing where the deployment held every message", async () => {
+    const teamId = "6f".repeat(12);
+    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendWith(() => "withheld");
+
+    await press(teamId);
+
+    assert.ok(!log.includes("refresh"), "a press that sent nothing refreshed the panel as though it had written");
+  });
+
   it("refuses a fan-out that delivered to nobody and was withheld from nobody", async () => {
     const teamId = "d".repeat(24);
     recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    recorders.__flSendOutcome = outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []);
+    sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []));
 
     const res = await press(teamId);
 
@@ -170,7 +182,7 @@ describe("what the single invite press answers", () => {
   it("refreshes the panel after a fan-out that delivered to nobody", async () => {
     const teamId = "e".repeat(24);
     recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    recorders.__flSendOutcome = outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []);
+    sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []));
 
     await press(teamId);
 
@@ -188,7 +200,7 @@ describe("what the single invite press answers", () => {
 
     assert.equal(res.success, false);
     assert.match(sentence(res), /Dieser Link ist nicht mehr der offene Link dieses Teams/);
-    assert.deepEqual(mails, [], "a revoked token reached the fan-out");
+    assert.deepEqual(mail.sent, [], "a revoked token reached the fan-out");
   });
 
   it("refuses where no link stands at all, and composes nothing", async () => {
@@ -200,7 +212,7 @@ describe("what the single invite press answers", () => {
 
     assert.equal(res.success, false);
     assert.match(sentence(res), /Für dieses Team steht kein Link mehr offen/);
-    assert.deepEqual(mails, []);
+    assert.deepEqual(mail.sent, []);
   });
 
   /* Two refusals, each naming a different repair: entering contacts, or waiting for one of them to
@@ -218,7 +230,7 @@ describe("what the single invite press answers", () => {
 
     assert.match(sentence(ohneBlock), /keine Kontaktdaten hinterlegt/);
     assert.match(sentence(ohneBestaetigung), /bisher selbst bestätigt/);
-    assert.deepEqual(mails, [], "a team nobody may be written to still reached the fan-out");
+    assert.deepEqual(mail.sent, [], "a team nobody may be written to still reached the fan-out");
   });
 
   /* This press mints nothing, so two presses compose the identical body for the identical row and
@@ -229,7 +241,7 @@ describe("what the single invite press answers", () => {
 
     await press(teamId);
 
-    assert.match(mails[0]?.auftrag.idempotenzTag ?? "", /^\d{4}-\d{2}-\d{2}$/);
+    assert.match(mail.sent[0] === undefined ? "" : (keyTag(mail.sent[0]) ?? ""), /^\d{4}-\d{2}-\d{2}$/);
   });
 
   /* The delivery record is the only thing this press writes, so a refresh above the send would show
@@ -240,7 +252,9 @@ describe("what the single invite press answers", () => {
 
     await press(teamId);
 
-    assert.deepEqual(log, [`send:${EINLADUNG_ID}`, `settled:${EINLADUNG_ID}`, "refresh"]);
+    // The two confirmed seats are written to at once, so both sends settle before the refresh.
+    const [send, settled] = [`send:${EINLADUNG_ID}`, `settled:${EINLADUNG_ID}`];
+    assert.deepEqual(log, [send, send, settled, settled, "refresh"]);
   });
 });
 
@@ -279,7 +293,7 @@ describe("what the season-wide press answers", () => {
   it("keys each team's send on the row its link was minted on, apart from the single press's day", async () => {
     await pressSeason([zeile("aa", "t-aa", null), zeile("bb", "t-bb", null)]);
 
-    const keyed = mails.map(({ auftrag }) => [auftrag.zielId, auftrag.idempotenzTag]);
+    const keyed = mail.sent.map((sent) => [sent.tags?.ziel_id, keyTag(sent)]);
     assert.equal(new Set(keyed.map(([zielId]) => zielId)).size, 2, "two teams' sends share one record");
     for (const [, tag] of keyed) {
       assert.ok(tag !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(tag), `a send was keyed ${String(tag)}`);
@@ -289,7 +303,7 @@ describe("what the season-wide press answers", () => {
   /* Outside production every address is withheld, so a row that cannot tell the two apart reports
      each team as unreachable and names its address in danger red. */
   it("carries what the deployment withheld into the row it answers", async () => {
-    recorders.__flSendOutcome = (args: MailArgs) => ({ delivered: [], unreachable: args.recipients, withheld: args.recipients });
+    sendWith(() => "withheld");
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
@@ -302,7 +316,7 @@ describe("what the season-wide press answers", () => {
 
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
-    assert.deepEqual(mails, [], "a team the endpoint skipped was mailed anyway");
+    assert.deepEqual(mail.sent, [], "a team the endpoint skipped was mailed anyway");
   });
 
   /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of

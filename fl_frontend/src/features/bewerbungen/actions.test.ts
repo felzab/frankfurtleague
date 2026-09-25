@@ -5,6 +5,7 @@ import { beforeEach, describe, it } from "node:test";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
@@ -48,11 +49,9 @@ const errorOf = (result: { success: boolean; error?: string }): string => result
 
 /** The origin this run is configured with, which no published address shares. */
 const ORIGIN = "http://localhost:3000";
-const mailed: { to: string; text: string }[] = [];
 /** Every argument each logger call was handed, whatever its level. */
 const logged: unknown[][] = [];
 const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flBewerbungMailed = mailed;
 recorders.__flBewerbungLogged = logged;
 registerHooks({
   load(url, context, nextLoad) {
@@ -60,27 +59,14 @@ registerHooks({
     if (url.endsWith("/src/core/config.ts")) {
       return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
     }
-    if (url.endsWith("/src/core/mail.ts")) {
-      // A mailbox refusing the message is what a case sets `__flBewerbungMailRefused` for. The attempt
-      // records its write before the mailbox answers, as the real one does.
-      const source = `import { recordWriteSent } from "@/core/requestScope";
-export class MailWithheldError extends Error {}
-export class MailRecipientError extends Error {}
-export const sendMail = async (mail) => {
-  recordWriteSent();
-  if (globalThis.__flBewerbungMailRefused) throw new MailRecipientError("the mailbox refused the message");
-  globalThis.__flBewerbungMailed.push({ to: mail.to, text: mail.text });
-  return { id: "msg-1" };
-};`;
-      return { format: "module", source, shortCircuit: true };
-    }
     return nextLoad(url, context);
   },
 });
 
 /* The real actions and their mutations, called: the request they run in, the application three of
-   them read first, the club list and the backend client are the doubles. */
+   them read first, the club list, the backend client and the mailer are the doubles. */
 doubleActionRequest();
+const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
 registerHooks({
@@ -107,11 +93,8 @@ const { answerWith: clubsWith } = doubleActions({
   answer: () => Promise.resolve({ teams: [{ id: GEWAEHLT.bewerbung.team_id, name: "Helmholtz" }] }),
 });
 
-/* Each case starts with nothing mailed, logged or written, and with every mailbox taking the message. */
 beforeEach(() => {
-  mailed.length = 0;
   logged.length = 0;
-  recorders.__flBewerbungMailRefused = false;
 });
 const {
   ablehnenBewerbungAction,
@@ -433,21 +416,22 @@ describe("the application's writes", () => {
       return { ...request, body };
     });
     const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
-    const report = {
+    // Filed under the id the provider gave the message: the two decisions' messages are the first two.
+    const report = (nachricht: number) => ({
       endpoint: "/bewerbungen/zustellung/angenommen",
       method: "POST",
-      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: "msg-1", rollen: ["ansprechperson"] },
-    };
+      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: `msg-${String(nachricht)}`, rollen: ["ansprechperson"] },
+    });
     const { id: _id, rolle: _rolle, ...person } = SITZ;
     assert.deepEqual(sent, [
       { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
       { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
-      report,
+      report(3),
       { endpoint: `${bewerbung}/kontakte/ansprechperson/email`, method: "POST", body: { email: KORREKTUR.email } },
-      report,
+      report(4),
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
-      report,
+      report(5),
     ]);
   });
 });
@@ -496,7 +480,7 @@ describe("the message that follows a decision", () => {
   /* The decision is committed and no endpoint takes it back, so nothing after the send may report a
      failure — the addresses that were not reached travel in the success message instead. */
   it("reports the decision as taken whatever the mail did", async () => {
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
 
     for (const { where, betreff, landed, press } of DECISIONS) {
       answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
@@ -870,7 +854,7 @@ describe("the re-sent confirmation link", () => {
         .trim();
 
     const unsendable = Object.values(await unsendableAnswers());
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
     const unsent = errorOf(await einwilligungErneutSendenAction(ERNEUT));
@@ -887,7 +871,7 @@ describe("the re-sent confirmation link", () => {
   /* A success title over a message that never went out leaves an administrator waiting on an answer
      to a link that reached nobody, while the seat's previous one is spent. */
   it("answers a message that did not go out as a failure, naming what the press cost", async () => {
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
@@ -969,9 +953,9 @@ describe("the re-sent confirmation link", () => {
       "the landed send mailed no link, so the token is judged on nothing",
     );
 
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
     results.push(await einwilligungErneutSendenAction(ERNEUT));
-    recorders.__flBewerbungMailRefused = false;
+    answerMailWith(() => "accepted");
 
     writes.length = 0;
     readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
@@ -1045,7 +1029,7 @@ describe("the corrected contact address", () => {
   /* The address IS corrected whatever the message did, so a failure arm here would tell the
      administrator to try a correction that has already happened. */
   it("reports a corrected address whose message did not go as a correction that stands", async () => {
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(korrigiert()));
 
@@ -1172,7 +1156,7 @@ describe("the person seated where one stepped out", () => {
     const thrown = await besetzeKontaktSitzAction(SITZ);
 
     writes.length = 0;
-    recorders.__flBewerbungMailRefused = true;
+    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     const refused = await besetzeKontaktSitzAction(SITZ);
 
