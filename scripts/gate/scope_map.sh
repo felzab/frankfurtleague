@@ -172,7 +172,8 @@ else
       fl_frontend/src/core/trace.ts|fl_frontend/src/features/sperrliste/constants.ts| \
       fl_frontend/src/features/schiedsrichter/constants.ts| \
       fl_frontend/src/features/registrierungen/constants.ts| \
-      fl_frontend/src/core/objectId.ts|fl_frontend/src/features/sperrliste/schemas.ts)
+      fl_frontend/src/core/objectId.ts|fl_frontend/src/features/sperrliste/schemas.ts| \
+      fl_frontend/src/core/einwilligung.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/core/test_request_deadline.py` holds the backend's request deadline under
       # this module's fetch ceiling, so a raised or lowered ceiling would otherwise reach that
