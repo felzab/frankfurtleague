@@ -1,4 +1,5 @@
-from collections.abc import Callable, Iterator, Mapping
+import functools
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
 from typing import Any, NamedTuple
@@ -7,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
@@ -154,30 +156,49 @@ def document_routes(app: FastAPI) -> Iterator[DocumentedRoute]:
             yield DocumentedRoute(context.path_format, context.methods or set(), context.responses, context.dependant)
 
 
-def publish_extension(app: FastAPI, extension: str, values: Mapping[Operation, Any]) -> None:
-    """Written into the document and never onto a route.
+Document = dict[str, Any]
+# One edit of the document FastAPI generates, returning a new document and changing nothing it was handed.
+DocumentPass = Callable[[Document], Document]
 
-    A route's `openapi_extra` belongs to its module-level router, so an edit there is inherited by
-    every later build in the process and hides a defect showing only on the first.
+
+def publish_document(app: FastAPI, passes: Sequence[DocumentPass]) -> None:
+    """FastAPI's documented override: `passes` applied in order, the result stored once.
+
+    Never onto a route: a route's `openapi_extra` belongs to its module-level router, so every later
+    build in the process inherits the edit and hides a defect of the first.
     """
 
-    generate = app.openapi
-
-    def openapi() -> dict[str, Any]:
+    def openapi() -> Document:
         if app.openapi_schema:
             return app.openapi_schema
 
-        # `generate` returns the document FastAPI caches on the app, so this edit is made once.
-        document = generate()
-        for (path, method), value in values.items():
-            document["paths"][path][method][extension] = value
+        document = get_openapi(title=app.title, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
+        for edit in passes:
+            document = edit(document)
+        app.openapi_schema = document
 
-        return document
+        return app.openapi_schema
 
     app.openapi = openapi
 
 
-def publish_key_tiers(app: FastAPI) -> None:
+def with_operations_edited(document: Mapping[str, Any], edit: Callable[[Operation, Mapping[str, Any]], Mapping[str, Any]]) -> Document:
+    """`document` with every operation replaced by what `edit` answers for it."""
+
+    return {
+        **document,
+        "paths": {
+            path: {method: dict(edit((path, method), operation)) for method, operation in operations.items()}
+            for path, operations in document["paths"].items()
+        },
+    }
+
+
+def with_extension(document: Mapping[str, Any], extension: str, values: Mapping[Operation, Any]) -> Document:
+    return with_operations_edited(document, lambda key, operation: {**operation, extension: values[key]} if key in values else operation)
+
+
+def publish_key_tiers(app: FastAPI) -> DocumentPass:
     tiers: dict[Operation, str] = {}
     for route in document_routes(app):
         # Joined rather than picked: no single key satisfies two guards, so a value equal to no
@@ -185,10 +206,10 @@ def publish_key_tiers(app: FastAPI) -> None:
         joined = "+".join(sorted(KEY_TIERS[guard] for guard in route.calls & KEY_TIERS.keys()))
         tiers.update(dict.fromkeys(route.operations, joined or UNGUARDED_TIER))
 
-    publish_extension(app, KEY_TIER_EXTENSION, tiers)
+    return functools.partial(with_extension, extension=KEY_TIER_EXTENSION, values=tiers)
 
 
-def publish_stores_nothing(app: FastAPI) -> None:
+def publish_stores_nothing(app: FastAPI) -> DocumentPass:
     declared: dict[Operation, bool | str] = {}
     for route in document_routes(app):
         calls = route.calls
@@ -198,41 +219,32 @@ def publish_stores_nothing(app: FastAPI) -> None:
         if flag is not None:
             declared.update(dict.fromkeys(route.operations, flag))
 
-    publish_extension(app, STORES_NOTHING_EXTENSION, declared)
+    return functools.partial(with_extension, extension=STORES_NOTHING_EXTENSION, values=declared)
 
 
 def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
     return {"description": description, "content": {JSON_MEDIA_TYPE: {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
 
 
-def publish_failure_bodies(app: FastAPI) -> None:
-    generate = app.openapi
+def with_failure_bodies(document: Mapping[str, Any]) -> Document:
+    """`document` publishing this API's failure bodies in place of FastAPI's own."""
 
-    def openapi() -> dict[str, Any]:
-        # `generate` caches the document it builds on the app, so the edit below is made once and
-        # every later call reads it.
-        if app.openapi_schema:
-            return app.openapi_schema
+    components = document.get("components", {})
+    schemas = {name: schema for name, schema in components.get("schemas", {}).items() if name not in FASTAPI_VALIDATION_BODIES}
+    schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
 
-        document = generate()
-        schemas = document.setdefault("components", {}).setdefault("schemas", {})
-        for name in FASTAPI_VALIDATION_BODIES:
-            schemas.pop(name, None)
-        schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
-        # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
-        document["components"]["schemas"] = dict(sorted(schemas.items()))
+    def edit(_: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
+        responses = dict(operation["responses"])
+        # FastAPI's own placement, on every operation taking input, is what is kept: a `default`
+        # declared to FastAPI instead suppresses it everywhere.
+        if "422" in responses:
+            responses["422"] = body_response(FLRefusedPayloadBody, "Validation Error")
+        responses["default"] = body_response(FLFailureBody, "Failure")
 
-        for operations in document["paths"].values():
-            for operation in operations.values():
-                # FastAPI's own placement, on every operation taking input, is what is kept: a
-                # `default` declared to FastAPI instead suppresses it everywhere.
-                if "422" in operation["responses"]:
-                    operation["responses"]["422"] = body_response(FLRefusedPayloadBody, "Validation Error")
-                operation["responses"]["default"] = body_response(FLFailureBody, "Failure")
+        return {**operation, "responses": responses}
 
-        return document
-
-    app.openapi = openapi
+    # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
+    return with_operations_edited({**document, "components": {**components, "schemas": dict(sorted(schemas.items()))}}, edit)
 
 
 # Each operation's refusal codes, keyed by the status each is answered at.
@@ -271,50 +283,28 @@ def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
     return codes
 
 
-def publish_refusals(app: FastAPI) -> None:
+def publish_refusals(app: FastAPI) -> DocumentPass:
     """Each operation's refusals at their statuses, derived rather than listed, so the document cannot drift from `RULES` or a declaration."""
 
-    # At build rather than when the document is asked for: FastAPI caches what it generated before
-    # this wrapper runs, so a raise there fails only the first request and serves the gap after it.
+    # At build rather than when the document is asked for: the document is built on the first read,
+    # so a raise there would fail that request alone and leave the build standing.
     codes = refusal_codes(app)
     served = {operation for route in document_routes(app) for operation in route.operations}
     if unserved := sorted(codes.keys() - served):
         raise LookupError(f"RULES names operations the application does not serve: {unserved}")
 
-    generate = app.openapi
-
-    def openapi() -> dict[str, Any]:
-        if app.openapi_schema:
-            return app.openapi_schema
-
-        # Stored, as FastAPI's "Extending OpenAPI" override stores its own: the wrapped call cached
-        # the document before this edit, and every later call answers with the cache.
-        app.openapi_schema = with_refusals(generate(), codes)
-
-        return app.openapi_schema
-
-    app.openapi = openapi
+    return functools.partial(with_refusals, codes=codes)
 
 
-def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping[HTTPStatus, AbstractSet[str]]]) -> dict[str, Any]:
+def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping[HTTPStatus, AbstractSet[str]]]) -> Document:
     """`document` with each status an operation refuses at replaced by one publishing exactly its codes, whatever it carried."""
 
-    return {
-        **document,
-        "paths": {
-            path: {
-                method: {
-                    **operation,
-                    "responses": {
-                        **operation["responses"],
-                        **{str(status): refusal_response(status, found) for status, found in sorted(codes.get((path, method), {}).items())},
-                    },
-                }
-                for method, operation in operations.items()
-            }
-            for path, operations in document["paths"].items()
-        },
-    }
+    def edit(key: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
+        refused = {str(status): refusal_response(status, found) for status, found in sorted(codes.get(key, {}).items())}
+
+        return {**operation, "responses": {**operation["responses"], **refused}}
+
+    return with_operations_edited(document, edit)
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -364,10 +354,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         return "Hello World"
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
-    # caches what it builds, so an extension or an edit made afterwards never reaches a reader.
-    publish_key_tiers(app)
-    publish_stores_nothing(app)
-    publish_failure_bodies(app)
-    publish_refusals(app)
+    # caches what it builds, so an edit made afterwards never reaches a reader. The refusals pass
+    # last, since it replaces responses the failure bodies pass wrote.
+    publish_document(app, (publish_key_tiers(app), publish_stores_nothing(app), with_failure_bodies, publish_refusals(app)))
 
     return app
