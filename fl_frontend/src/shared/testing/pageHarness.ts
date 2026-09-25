@@ -9,6 +9,7 @@ import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ReactElement, ReactNode } from "react";
 
@@ -31,16 +32,8 @@ export type ReadAnswer = (endpoint: string, schema: AnswerSchema, params: Record
 /** What a page is handed of an answer its schema took, given the parse the client hands on. */
 export type HandOver = (endpoint: string, parsed: unknown) => unknown;
 
-// Through globals: a doubled module is compiled from source and shares nothing with this scope.
+// Through a global: a doubled module is compiled from source and shares nothing with this scope.
 const STEPS = "__flPageSteps";
-const ANSWER = "__flPageAnswer";
-const RECEIVE = "__flPageReceive";
-
-const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  const params = options.params ?? {};
-  globalThis.${STEPS}.push({ kind: "read", endpoint, params });
-  return globalThis.${RECEIVE}(endpoint, schema, options, await globalThis.${ANSWER}(endpoint, schema, params));
-};`;
 
 // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
 // The package is replaced whole: a module importing anything else from it fails to link here.
@@ -80,9 +73,6 @@ registerHooks({
     return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
   },
   load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-
     const loaded = nextLoad(url, context);
     if (loaded.source === undefined || loaded.source === null || !ES_MODULE.has(loaded.format ?? "")) return loaded;
     const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
@@ -189,10 +179,25 @@ export const backendNotFound = (endpoint: string): APIBadStatusError =>
 
 const asParsed: HandOver = (_endpoint, parsed) => parsed;
 let handOver: HandOver = asParsed;
+let answerRead: ReadAnswer = EMPTIEST_ANSWER;
 
-// The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses
-// rejects, and a page is handed the parse, never the body an answer built.
-globals[RECEIVE] = (endpoint: string, schema: z.ZodType, options: { method?: string; readOnly?: boolean }, body: unknown): unknown => {
+/**
+ * Answers every read from here on with `respond`, until another call names another. `handingOver`
+ * sees each answer only once the client's check has parsed it, so what it wraps is never read there.
+ */
+export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asParsed): void {
+  answerRead = respond;
+  handOver = handingOver;
+}
+
+doubleApiClient(async ({ endpoint, method, params, readOnly }, handedSchema) => {
+  const schema = handedSchema as z.ZodType & AnswerSchema;
+  const asked = (params ?? {}) as Record<string, unknown>;
+  steps.push({ kind: "read", endpoint, params: asked });
+  const body = await answerRead(endpoint, schema, asked);
+
+  // The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses
+  // rejects, and a page is handed the parse, never the body an answer built.
   const parsed = schema.safeParse(body);
   if (parsed.success) return handOver(endpoint, parsed.data);
   throw new APIMalformedDataError({
@@ -200,22 +205,12 @@ globals[RECEIVE] = (endpoint: string, schema: z.ZodType, options: { method?: str
     url: backendUrl(endpoint),
     statusCode: 200,
     endpoint: endpoint,
-    method: (options.method ?? "GET").toUpperCase(),
-    readOnly: options.readOnly === true,
+    method: (method ?? "GET").toUpperCase(),
+    readOnly: readOnly === true,
     traceId: "0",
     zodIssues: z.treeifyError(parsed.error),
   });
-};
-
-/**
- * Answers every read from here on with `respond`, until another call names another. `handingOver`
- * sees each answer only once the client's check has parsed it, so what it wraps is never read there.
- */
-export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asParsed): void {
-  globals[ANSWER] = respond;
-  handOver = handingOver;
-}
-answerReadsWith(EMPTIEST_ANSWER);
+});
 
 /** Where a thrown redirect sends the reader, read off the digest Next's `redirect()` stamps. */
 export const redirectTarget = (error: unknown): string | null => {
