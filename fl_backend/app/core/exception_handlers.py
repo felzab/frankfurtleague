@@ -163,7 +163,7 @@ def refused_codes(response: Mapping[str, Any]) -> set[str]:
 # the second 409 alone, so a second reason joins this code in one `refusal_response`
 # (`docs/backend/spec.md :: I358`).
 DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE_KEY})
-# Declared as the duplicate key is, and for its reason (`docs/backend/spec.md :: I368`).
+# Declared as the duplicate key is, and for its reason (`docs/backend/spec.md :: I369`).
 DOCUMENT_NOT_FOUND_RESPONSE: Final = refusal_response(HTTPStatus.NOT_FOUND, {DOCUMENT_NOT_FOUND})
 
 
