@@ -358,11 +358,12 @@ class TestWhetherThePickedClubMayApply:
         """
 
         gone = find_picked_club_refusal(team_raw=None)
-        retired = find_picked_club_refusal(team_raw={"_id": RETIRED_OID, "inactive_since": "2025-08-01"})
+        left_on = "2025-08-01"
+        retired = find_picked_club_refusal(team_raw={"_id": RETIRED_OID, "inactive_since": left_on})
 
         assert gone is not None and retired is not None
         assert gone.message == retired.message
-        for leaked in ("retired", "inactive", "left the league", "2025-08-01", str(RETIRED_OID)):
+        for leaked in ("retired", "inactive", "left the league", left_on, str(RETIRED_OID)):
             assert leaked not in retired.message
 
 

@@ -19,6 +19,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_EXPIRED,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     compose_bestaetigungen,
     hash_token,
@@ -80,14 +81,20 @@ ANTWORT_RESOLVES = frozenset(
 )
 
 
+# Sought as fragments by the leak searches, so a response carrying any part of a seat's record is caught.
+NACHNAME = "Mustermann"
+MAIL_DOMAIN = "example.com"
+TELEFON = "1234567"
+
+
 def person(vorname: str) -> dict[str, Any]:
     """One seat as the submission stores it: no date, no stamp, entered on the person's behalf."""
 
     return {
         "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
+        "nachname": f"{vorname}-{NACHNAME}",
+        "email": f"{vorname.lower()}@{MAIL_DOMAIN}",
+        "telefon": f"+49 170 {TELEFON}",
         "geburtsdatum": None,
         "einwilligung": {
             "umfang": "kontaktdaten",
@@ -244,7 +251,7 @@ class TestWhatALinkOpens:
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
         assert (response.vorname, response.text_version, response.zugleich_rolle) == ("Quillhilde", "v3", None)
         rendered = response.model_dump_json()
-        assert "Mustermann" not in rendered and "example.com" not in rendered and "1234567" not in rendered
+        assert NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
 
     @pytest.mark.parametrize(
         ("seat", "zugleich_rolle"),
@@ -469,8 +476,8 @@ class TestTheLinkIsSpentByTheStamp:
         code, message, document, rows = on_a_league(mongo_replica_set_url, body)
 
         assert code == BEWERBUNG_KONTAKT_ALTER
-        # The person reads this sentence, so „16“ here would tell them the date they typed was fine.
-        assert "18" in message and "16" not in message
+        # The person reads this sentence, so the Trainer's lower floor here would tell them the date they typed was fine.
+        assert str(SEAT_MIN_AGE_YEARS["ansprechperson"]) in message and str(SEAT_MIN_AGE_YEARS["trainer"]) not in message
         assert document == bewerbung_document()
         assert rows == []
 
@@ -587,8 +594,8 @@ class TestWhatTheAnswerHandsTheMailer:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["trainer"])).model_dump_json()
 
-        assert "bramblewick@example.com" not in rendered and "wraxlington@example.com" not in rendered
-        assert "Mustermann" not in rendered and "1234567" not in rendered
+        assert kontakte()["stellvertretung"]["email"] not in rendered and kontakte()["trainer"]["email"] not in rendered
+        assert NACHNAME not in rendered and TELEFON not in rendered
 
 
 class TestNoHashReachesAnAdminRead:

@@ -19,6 +19,7 @@ from .test_bewerbung_public_read import (
     DESCRIPTION,
     OPEN_SAISON,
     PREFIX,
+    RETIRED_CLUB,
     SCHULFORM,
     answered,
     seed_the_public_corpus,
@@ -68,7 +69,7 @@ class TestTheClubList:
     def test_a_retired_club_is_not_offered(self, seeded_url: str):
         """The picker offers what a school may apply AS, and `find_picked_club_refusal` refuses the same set at the write."""
 
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/schulen").text
+        assert RETIRED_CLUB[0] not in answered(seeded_url, f"{PREFIX}/schulen").text
 
     def test_the_list_is_sorted_by_name(self, seeded_url: str):
         """Seeded out of order, so this proves the sort rather than the insertion order."""
@@ -98,10 +99,11 @@ class TestTheKuerzelCheck:
     def test_the_answer_names_no_club(self, seeded_url: str):
         """A shape distinguishing a retired holder from a live one would publish which schools have left."""
 
-        body = answered(seeded_url, f"{PREFIX}/kuerzel/VE").json()
+        name, shorthand, _ = RETIRED_CLUB
+        body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
 
         assert set(body) == {"acknowledged", "shorthand", "vergeben"}
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
+        assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
 
 
 # Every public route, bound once: a route added to one list alone would keep its reachability test

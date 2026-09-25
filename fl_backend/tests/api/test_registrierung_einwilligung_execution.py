@@ -46,6 +46,10 @@ TWIN_OID = ObjectId("6890a1b2c3d4e5f607960022")
 TEAM_NAME = "Adler"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 
+# The other team in the league, whose name no link to this team may carry.
+OTHER_TEAM_NAME = "Falken"
+OTHER_SCHOOL = "Wraxlington"
+
 RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
@@ -133,7 +137,7 @@ def on_a_league(
             await database[Collection.TEAMS].insert_many(
                 [
                     team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
-                    team_document(OTHER_TEAM_OID, "Falken", "Wraxlington-Gymnasium"),
+                    team_document(OTHER_TEAM_OID, OTHER_TEAM_NAME, f"{OTHER_SCHOOL}-Gymnasium"),
                 ]
             )
             await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -202,10 +206,11 @@ class TestWhatALinkOpens:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).model_dump_json()
 
-        assert "Falken" not in rendered and "Wraxlington" not in rendered
-        assert "Brackenmoor" not in rendered
+        registration = registrierung_document()
+        assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
+        assert registration["nachname"] not in rendered
         assert TYPED_EMAIL not in rendered and FOLDED_EMAIL not in rendered
-        assert "Abwehr" not in rendered and "Q1" not in rendered
+        assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_rather_than_shown(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
@@ -416,7 +421,7 @@ class TestWhatAConfirmationWrites:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
 
-        assert "Brackenmoor" not in rendered and TYPED_EMAIL not in rendered
+        assert registrierung_document()["nachname"] not in rendered and TYPED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
 
 

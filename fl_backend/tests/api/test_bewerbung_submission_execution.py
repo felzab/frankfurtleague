@@ -376,7 +376,7 @@ class TestWhatTheLogRecords:
 
         rendered = on_a_league(mongo_replica_set_url, body)
 
-        for submitted in ("Wraxlington", "quillhilde@example.com", "+49 170 1111111", "1980-05-04"):
+        for submitted in (KONTAKTE["trainer"]["vorname"], KONTAKTE["ansprechperson"]["email"], KONTAKTE["trainer"]["telefon"]):
             assert submitted not in rendered
 
 
@@ -826,13 +826,14 @@ class TestASubmissionMadeOverTheWire:
         `aktionen.actor`, which is the record an erasure is audited against.
         """
 
-        forged = {**BASE_AUTH, ACTOR_HEADER: "attacker@example.com"}
+        forged_actor = "attacker@example.com"
+        forged = {**BASE_AUTH, ACTOR_HEADER: forged_actor}
         submitted = through_the_app(mongo_replica_set_url, payload(), headers=forged)
 
         assert submitted.response.status_code == 200
         assert len(submitted.log_rows) == 1
         assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
-        assert "attacker@example.com" not in str(submitted.log_rows[0])
+        assert forged_actor not in str(submitted.log_rows[0])
 
     def test_a_body_breaking_a_shape_rule_is_a_422_rather_than_a_409(self, mongo_replica_set_url: str):
         """The distinctness rule is about the BODY, not a judgement against the database, so it reaches no refusal code."""

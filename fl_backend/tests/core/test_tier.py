@@ -103,7 +103,9 @@ def test_a_command_sent_before_a_fixture_s_teardown_starts_is_the_running_test_s
 # A session fixture finishes at the root, where a conftest below it is never asked.
 PROBE_CONFTEST: Final = b"from tests.conftest import pytest_configure\n"
 
-PROBE_SUITE: Final = b"""import os
+MARKED_FIXTURE: Final = "built_by_a_marked_test"
+
+PROBE_SUITE: Final = f"""import os
 from collections.abc import Iterator
 
 import pytest
@@ -119,7 +121,7 @@ def _ping() -> None:
 
 
 @pytest.fixture(scope="session")
-def built_by_a_marked_test() -> Iterator[None]:
+def {MARKED_FIXTURE}() -> Iterator[None]:
     yield
     _ping()
 
@@ -136,7 +138,7 @@ def module_fixture_a_marked_test_built() -> Iterator[None]:
 
 
 @pytest.mark.db
-def test_marked(built_by_a_marked_test: None, module_fixture_a_marked_test_built: None) -> None:
+def test_marked({MARKED_FIXTURE}: None, module_fixture_a_marked_test_built: None) -> None:
     pass
 
 
@@ -146,7 +148,7 @@ def test_unmarked(built_by_an_unmarked_test: None) -> None:
 
 def test_unmarked_and_last(request: pytest.FixtureRequest) -> None:
     request.addfinalizer(_ping)
-"""
+""".encode()
 
 
 @pytest.mark.db
@@ -172,4 +174,4 @@ def test_a_session_s_teardown_is_charged_to_the_test_each_command_belongs_to(
     assert "test_unmarked carries no `@pytest.mark.db`" in output, output
     assert "as `built_by_an_unmarked_test` tore down" in output, output
     assert "test_unmarked_and_last carries no `@pytest.mark.db`" in output, output
-    assert "built_by_a_marked_test` tore down" not in output, output
+    assert f"{MARKED_FIXTURE}` tore down" not in output, output

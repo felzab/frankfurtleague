@@ -55,6 +55,9 @@ WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "ist_nachnominie
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in build_document()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]}
 
+# The one person whose squad row is retired, searched for as an absence.
+RETIRED_ROW_VORNAME = "Nils"
+
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
     "Adler": ObjectId("6890a1b2c3d4e5f607390012"),
@@ -480,7 +483,7 @@ class TestTheBaseTierReadExecuted:
 
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
-        assert "Nils" not in self._by_vorname(seeded_url)
+        assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
 
     def test_a_person_whose_every_squad_row_is_retired_still_reads(self, seeded_url: str):
         """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
@@ -607,7 +610,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _spieler("Ohne", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
                     _spieler("Weber", "Jonas", "Weber", inactive_since="2026-05-01"),
-                    _spieler("Kraus", "Nils", "Kraus"),
+                    _spieler("Kraus", RETIRED_ROW_VORNAME, "Kraus"),
                 ]
             )
             await database.saison_spieler.insert_many(

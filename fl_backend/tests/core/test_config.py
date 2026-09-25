@@ -27,7 +27,8 @@ from tests.worker import worker_database
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
 # for the one reason these cases are about wherever they run.
-UNROUTABLE_URI = "mongodb://192.0.2.1:27018"
+UNROUTABLE_HOST = "192.0.2.1"
+UNROUTABLE_URI = f"mongodb://{UNROUTABLE_HOST}:27018"
 
 
 def a_key_the_boot_accepts(prefix: str) -> str:
@@ -276,7 +277,8 @@ class TestTheBanListKey:
 class TestTheNamesOnlyErrorPath:
     def test_the_refusal_names_the_variables_and_carries_no_rejected_value(self, monkeypatch, tmp_path):
         """The incident's class: a value that reaches the container log is the whole exposure, and a name is all an operator needs."""
-        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="frankfurtleague.de", DB_BASE_NAME="frankfurt league")
+        origins, database = "frankfurtleague.de", "frankfurt league"
+        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS=origins, DB_BASE_NAME=database)
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
@@ -284,8 +286,8 @@ class TestTheNamesOnlyErrorPath:
         message = str(raised.value)
         assert "API_CORS_ALLOWED_ORIGINS" in message
         assert "DB_BASE_NAME" in message
-        assert "frankfurtleague.de" not in message
-        assert "frankfurt league" not in message
+        assert origins not in message
+        assert database not in message
 
     def test_the_pydantic_error_is_suppressed_rather_than_chained(self, monkeypatch, tmp_path):
         """`raise ... from None` is what keeps `input_value=` out of the traceback uvicorn prints, and nothing else in the path does."""
@@ -328,14 +330,15 @@ class TestANameTheClassDoesNotDeclare:
         """
         # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
         # refusal to naming the variable.
-        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
+        rejected = "console-but-misspelled"
+        (tmp_path / ".env").write_bytes(f"LOG_FORMAT_={rejected}\n".encode())
         an_environment(monkeypatch, tmp_path)
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
 
         assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
-        assert "console-but-misspelled" not in str(raised.value)
+        assert rejected not in str(raised.value)
 
     def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
         """The gap the runbook's remedy is written around.
@@ -375,7 +378,7 @@ class TestTheStartupPing:
                 boot()
 
         assert str(raised.value) == UNREACHABLE.sentence
-        assert "192.0.2.1" not in caplog.text
+        assert UNROUTABLE_HOST not in caplog.text
         assert "MONGODB_URI" in caplog.text
 
     def test_the_boot_opens_the_settings_the_application_was_built_with(self, monkeypatch, tmp_path, caplog):

@@ -47,6 +47,10 @@ CLUBS = (
 )
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
+# A club that has left, which the picker may not offer; its row still holds the season it left.
+RETIRED_CLUB = ("Verlassen", "VE", RETIRED_OID)
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"}
+
 OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"
 WINDOWLESS_SAISON = "2024"
@@ -140,8 +144,7 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
             ]
         )
         database[Collection.TEAMS].insert_many(
-            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS]
-            + [_club("Verlassen", "VE", RETIRED_OID, inactive_since="2025-08-01")]
+            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
         )
         database[Collection.SAISON_TEAMS].insert_many(
             [
@@ -152,14 +155,7 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
                 _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
                 # A club that LEFT the season, still holding its colour: the assignment stands until
                 # an administrator clears it, which is the set the admin sees too.
-                _junction(
-                    OPEN_SAISON,
-                    "Verlassen",
-                    "VE",
-                    RETIRED_OID,
-                    trikot_farbe="gruen",
-                    austritt={"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"},
-                ),
+                _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
                 # Another season's assignment, so an answer dropping the season term serves it too.
                 _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
             ]
@@ -271,7 +267,8 @@ class TestTheWindowReads:
         response = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
 
         assert set(response.json()) == {"acknowledged", "saison_id", "fenster"}
-        for withheld in ("future", f"{WINDOWLESS_SAISON}-01-01", "tordifferenz"):
+        stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
+        for withheld in (stored["status"], stored["start_date"], stored["rules"]["tiebreak_order"]):
             assert withheld not in response.text
 
     def test_the_window_body_carries_no_other_field_of_the_season(self, seeded_url: str):
@@ -305,7 +302,7 @@ class TestTheAssignedColoursRead:
 
         rendered = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").text
 
-        for withheld in ("Zetteltal", "Adlerhorst", "ZE", "rueckzug", str(OPEN_OID)):
+        for withheld in (*CLUBS[0][:2], CLUBS[1][0], AUSTRITT["type"], str(OPEN_OID)):
             assert withheld not in rendered
 
     def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self, seeded_url: str):

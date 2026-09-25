@@ -195,7 +195,10 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
     """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
-    assert "Fremd" not in table(league)
+    unseasoned = "Fremd"
+
+    assert unseasoned in league.team_oids, "the club this case is about is no longer seeded"
+    assert unseasoned not in table(league)
 
 
 def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague):
@@ -219,7 +222,7 @@ class TestTheSeasonsOwnIdentity:
 
         assert club is not None and club["name"] == "Helmholtz-Gymnasium"
         assert "Helmholtz" in table(league)
-        assert "Helmholtz-Gymnasium" not in table(league)
+        assert club["name"] not in table(league)
 
     def test_the_shorthand_comes_from_the_same_row(self, league: SeededLeague):
         """Both halves of the identity or neither: a card showing the season's name under today's shorthand is the same defect twice."""

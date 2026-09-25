@@ -384,7 +384,7 @@ class TestTheSweepAtAnActivation:
         assert recorded.get("before") is None
         assert GRUND not in repr(recorded)
         # The address the ban was taken from survives nowhere, the filter's own values included.
-        assert "zorbanax" not in repr(recorded).lower()
+        assert BANNED.split("@")[0].lower() not in repr(recorded).lower()
 
     def test_an_activation_removing_nothing_still_activates(self, mongo_replica_set_url: str):
         """The floor under every case above: a sweep sharing the rollover's transaction may still never move its answer."""

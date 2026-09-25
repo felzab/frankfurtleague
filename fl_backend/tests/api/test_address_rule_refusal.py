@@ -194,10 +194,13 @@ class TestEveryAddressPayloadHoldsTheSameRule:
     def test_the_refusal_quotes_nothing_of_the_address(self):
         """The message reaches the log line `REQ-VAL-001` writes, and an erasure reaches no log sink."""
 
+        local_part = "zorbanax"
         with pytest.raises(ValidationError) as raised:
-            ADDRESS_FIELDS["app.api.sperrliste.schemas.FLPostSperrlistePayload.email"].validate_python(f"zorbanax{FULL_WIDTH_AT}x@schule.de")
+            ADDRESS_FIELDS["app.api.sperrliste.schemas.FLPostSperrlistePayload.email"].validate_python(
+                f"{local_part}{FULL_WIDTH_AT}x@schule.de"
+            )
 
-        assert "zorbanax" not in raised.value.errors()[0]["msg"]
+        assert local_part not in raised.value.errors()[0]["msg"]
 
 
 class TestTheErasureLooksUpWhatAnyRuleStored:

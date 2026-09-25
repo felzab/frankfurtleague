@@ -27,7 +27,7 @@ from app.core.exception_handlers import (
     refused_codes,
     register_exception_handlers,
 )
-from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT
+from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthorizationException
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
@@ -55,7 +55,8 @@ def error_records(caplog) -> list[logging.LogRecord]:
 
 # The value the pattern below refuses. Distinctive, so its absence from a whole log document is
 # evidence rather than coincidence.
-REJECTED_NAME = "Maximilian<script>"
+REJECTED_MARKUP = "<script>"
+REJECTED_NAME = f"Maximilian{REJECTED_MARKUP}"
 
 
 class NamePayload(BaseModel):
@@ -176,7 +177,7 @@ class TestFailureBodies:
 
         # Named too, so the case cannot pass on a set that matched while a value leaked: this is
         # the message the 401 above actually carries.
-        assert "does not exist or is not valid" not in " ".join(response.headers.values())
+        assert RequestAuthorizationException(MISSING_TOKEN).error_detail["message"] not in " ".join(response.headers.values())
 
 
 def refused(body: object | None = None, *, content: bytes | None = None, query: str = "") -> dict[str, Any]:
@@ -530,12 +531,17 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
 # evidence rather than coincidence.
 REFUSED_SHORTHAND = "ZRBX"
 
+# The clause of `errmsg` that introduces the quoted value, sought on its own so no part of it travels.
+DUP_KEY_CLAUSE = "dup key"
+
 # The server's whole report for a single-document duplicate key: `errmsg` quotes the refused value a
 # second time beside `keyValue`, which is why neither may travel to the line.
 REFUSED_DUPLICATE_KEY_REPORT: dict[str, Any] = {
     "index": 0,
     "code": 11000,
-    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: uniq_shorthand dup key: {{ shorthand: "{REFUSED_SHORTHAND}" }}',
+    "errmsg": (
+        f'E11000 duplicate key error collection: fl_test.teams index: uniq_shorthand {DUP_KEY_CLAUSE}: {{ shorthand: "{REFUSED_SHORTHAND}" }}'
+    ),
     "keyPattern": {"shorthand": 1},
     "keyValue": {"shorthand": REFUSED_SHORTHAND},
 }
@@ -614,7 +620,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert response.status_code == 422
         document = logged_document(caplog)
         assert REJECTED_NAME not in document
-        assert "<script>" not in document
+        assert REJECTED_MARKUP not in document
 
     def test_a_refused_payload_still_names_the_field_the_kind_and_the_reason(self, caplog):
         with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
@@ -632,7 +638,7 @@ class TestValidationLoggingWithholdsTheValue:
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document
-        assert "<script>" not in document
+        assert REJECTED_MARKUP not in document
 
     def test_a_refused_stored_document_still_names_the_field_the_kind_and_the_reason(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
@@ -686,7 +692,7 @@ class TestValidationLoggingWithholdsTheValue:
 
         # `errmsg` quotes the value once and `keyValue` carries it again, so both stay off the line.
         assert REFUSED_SHORTHAND not in document
-        assert "dup key" not in document
+        assert DUP_KEY_CLAUSE not in document
 
     def test_a_duplicate_key_still_names_the_index_that_refused(self, caplog):
         document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)

@@ -41,6 +41,10 @@ BANNED = "Zorbanax@Beispielschule.de"
 BANNED_RETYPED = "zorbanax@beispielschule.de"
 OTHER = "quillhilde@beispielschule.de"
 
+# Searched for apart, so a row keeping either half of the address is caught where the whole is not.
+BANNED_LOCAL_PART, BANNED_DOMAIN = BANNED.lower().split("@")
+BANNED_SCHOOL = BANNED_DOMAIN.split(".")[0]
+
 GRUND = "Falsches Geburtsdatum bei der Anmeldung"
 
 # The league a ban needs to exist at all (`app/api/sperrliste/services.py ::
@@ -131,8 +135,8 @@ class TestWhatABanStores:
         # `erstellt_von` is the ADMINISTRATOR's own address and the one field here that may hold
         # one, so the `@` clause is asked of everything beside it.
         assert "@" not in repr({key: value for key, value in stored.items() if key != "erstellt_von"})
-        assert "zorbanax" not in repr(stored).lower()
-        assert "beispielschule" not in repr(stored).lower()
+        assert BANNED_LOCAL_PART not in repr(stored).lower()
+        assert BANNED_SCHOOL not in repr(stored).lower()
 
     def test_the_write_is_recorded_without_the_address(self, mongo_replica_set_url: str):
         """The log is the second place a value can survive a feature built to keep none: the create files a row here too."""
@@ -145,7 +149,7 @@ class TestWhatABanStores:
         recorded = on_a_clean_list(mongo_replica_set_url, body)
 
         assert "sperrliste" in recorded, "the create filed no log row at all, so the assertion below holds of nothing"
-        assert "Zorbanax".lower() not in recorded.lower()
+        assert BANNED_LOCAL_PART not in recorded.lower()
 
 
 class TestASecondBanOfOneAddress:
@@ -283,7 +287,7 @@ class TestWhatTheListServes:
         rendered = served.model_dump_json()
         # `erstellt_von` carries the administrator's own address, so the banned one is named
         # directly rather than sought by its `@`.
-        assert "zorbanax" not in rendered.lower()
+        assert BANNED_LOCAL_PART not in rendered.lower()
         assert "adresse_hash" not in rendered
         assert served.sperrliste[0].grund == GRUND
         assert served.sperrliste[0].erstellt_von == ADMIN
@@ -401,7 +405,7 @@ class TestLiftingABan:
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
-        assert "zorbanax" not in repr(images).lower()
+        assert BANNED_LOCAL_PART not in repr(images).lower()
 
     def test_an_id_no_row_holds_is_a_404_that_removes_nothing(self, mongo_replica_set_url: str):
         """A removal answering 200 over an empty result tells an administrator a ban is lifted that still stands."""

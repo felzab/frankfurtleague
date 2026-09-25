@@ -52,12 +52,10 @@ class TestTheWindowMustBeRunning:
     def test_the_refusal_names_none_of_the_four(self):
         """ONE code and one sentence: naming which would report a season's administrative state to a stranger."""
 
-        for refusal in (
-            find_fenster_refusal(saison_status="future", registrierung={**OPEN_WINDOW, "offen": False}, today=TODAY),
-            find_fenster_refusal(saison_status="past", registrierung=dict(OPEN_WINDOW), today=TODAY),
-        ):
+        for status, registrierung in (("future", {**OPEN_WINDOW, "offen": False}), ("past", dict(OPEN_WINDOW))):
+            refusal = find_fenster_refusal(saison_status=status, registrierung=registrierung, today=TODAY)
             assert refusal is not None
-            assert "offen" not in refusal.message and "past" not in refusal.message
+            assert "offen" not in refusal.message and status not in refusal.message
             assert OPEN_WINDOW["von"] not in refusal.message and OPEN_WINDOW["bis"] not in refusal.message
 
 
@@ -111,10 +109,11 @@ class TestTheSquadMustHaveRoom:
     def test_the_refusal_names_no_figure(self):
         """A stranger holding a link learns nothing about the squad's size or the season's cap."""
 
-        refusal = find_kader_refusal(squad_size=18, max_kadergroesse=18)
+        cap = 18
+        refusal = find_kader_refusal(squad_size=cap, max_kadergroesse=cap)
 
         assert refusal is not None
-        assert "18" not in refusal.message
+        assert str(cap) not in refusal.message
 
 
 class TestABannedAddress:

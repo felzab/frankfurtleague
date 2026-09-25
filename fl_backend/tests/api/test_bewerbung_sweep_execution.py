@@ -82,10 +82,14 @@ def first_hashes(prefix: str) -> dict[str, str]:
     return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}
 
 
+# Sought by the leak search over the candidates, so a surname reaching one is caught.
+NACHNAME = "Mustermann"
+
+
 def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
     return {
         "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
+        "nachname": f"{vorname}-{NACHNAME}",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": "+49 170 1234567",
         "geburtsdatum": None,
@@ -496,7 +500,7 @@ class TestTheFourteenDayClock:
         ]
         # The candidates alone: the reminders beside them carry their raw tokens by design.
         rendered = str([entry.model_dump(mode="json") for entry in response.loeschungen])
-        assert "token" not in rendered and "Mustermann" not in rendered
+        assert "token" not in rendered and NACHNAME not in rendered
 
     def test_the_erasure_takes_exactly_the_announced_ids_and_redacts_their_rows(self, mongo_replica_set_url: str):
         """Mail, stamp, erase: an id that does not qualify -- still inside its deadline, or another season's -- is skipped."""
