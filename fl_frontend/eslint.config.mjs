@@ -742,7 +742,18 @@ const SCOPED_BANS = [
     },
     { files: ["src/core/auth.ts"], ...LOGGED_ERROR },
   ],
-  [{ files: ["src/features/auth/actions.ts", "src/features/bewerbungen/notifications.ts"], ...LOGGED_ERROR }],
+  [
+    {
+      files: [
+        "src/features/auth/actions.ts",
+        "src/features/bewerbungen/actions.ts",
+        "src/features/bewerbungen/notifications.ts",
+        "src/features/bewerbungen/sweep.ts",
+        "src/features/zustellung/notifications.ts",
+      ],
+      ...LOGGED_ERROR,
+    },
+  ],
   // An admin view's file, whatever its component is named or bound as: the facets `AdminCrudView` is
   // handed are ones the view built, never a prop's, and a spread would hand one over unread.
   [
