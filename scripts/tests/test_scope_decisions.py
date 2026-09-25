@@ -93,6 +93,32 @@ def test_a_path_selects_every_scope_that_would_check_it() -> None:
     assert not missed, "\n".join(missed)
 
 
+# One arm's patterns: a line's text up to the `)` closing them, continuation lines joined first.
+ARM_PATTERNS_RE: Final = re.compile(r"^[ \t]*([^\s#()][^()\n]*)\)", re.MULTILINE)
+GLOB_CHARACTERS: Final = frozenset("*?[")
+
+
+def _arm_paths(mapping: Path) -> list[str]:
+    """Every glob-free pattern of the path arms, read out of the second `case` the mapping opens."""
+    text = mapping.read_text(encoding="utf-8")
+    first = text.index('case "$f" in')
+    body = text[text.index('case "$f" in', first + 1) :]
+    body = body[: body.index("\n    esac")].replace("\\\n", " ")
+    patterns = (pattern.strip() for arm in ARM_PATTERNS_RE.findall(body) for pattern in arm.split("|"))
+    return sorted(pattern for pattern in patterns if pattern and not GLOB_CHARACTERS & set(pattern))
+
+
+def test_every_path_an_arm_or_the_table_names_exists() -> None:
+    """A renamed file leaves its arm and its row green, each asking about a path no change can touch.
+
+    Globs are left out, a pattern rather than a path; the floor keeps an arm reader gone inert from passing.
+    """
+    named = _arm_paths(MAPPING)
+    assert len(named) > len(SELECTED), f"only {named} were read out of the mapping's arms: that reader went inert"
+    gone = [path for path in (*named, *(path for path, _ in SELECTED)) if not (REPO_ROOT / path).exists()]
+    assert not gone, "these name no file in the tree:\n" + "\n".join(sorted(set(gone)))
+
+
 def test_the_notice_file_selects_its_two_readers_scopes_and_nothing_else() -> None:
     """The derived reads ask for `frontend` alone, and the documentation gate reads the file too.
 
