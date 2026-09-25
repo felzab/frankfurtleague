@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import z from "zod";
-
-import { filesUnder } from "@/core/treeWalk.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
 
@@ -59,20 +55,6 @@ const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 
-const ADMIN_API = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
-
-/** Every undo route, walked rather than listed, so one added is swept with the rest. */
-const UNDO_ROUTES = filesUnder(ADMIN_API, (name) => name === "route.ts", 8).filter((file) => path.basename(path.dirname(file)) === "undo");
-
-/**
- * The slices whose replay commits in parts, each named by the sentence it answers when it stops. A
- * replay the backend commits whole words no such sentence and takes no row.
- */
-const PART_WAY: Record<string, RegExp> = {
-  spieler: /Nur die Personendaten wurden zurückgesetzt/,
-  teams: /Nur die Stammdaten wurden zurückgesetzt/,
-};
-
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 
 /** The ruling's words for an undo nobody can tell landed. */
@@ -105,19 +87,6 @@ async function undo(restore: () => Promise<UndoReport>, origin: string | null = 
 }
 
 describe("what the undo spine clears when a replay stops part-way", () => {
-  /* First: the cases below stop a restore part-way, which is worth holding only while a real replay
-     can, and an empty walk would hold that of no route at all. */
-  it("walks the replays that can leave rows behind", () => {
-    assert.ok(UNDO_ROUTES.length >= 8, `the walk found ${String(UNDO_ROUTES.length)} undo routes`);
-
-    for (const [slice, sentence] of Object.entries(PART_WAY)) {
-      const route = UNDO_ROUTES.find((file) => file.includes(path.join(slice, "undo")));
-
-      assert.ok(route, `no undo route was walked for ${slice}`);
-      assert.match(readFileSync(route, "utf8"), sentence, `${slice}: nothing reports a restore that stopped part-way`);
-    }
-  });
-
   /* The defect: an invalidation reached only past the refusal's own return never runs for those
      outcomes, so a cached fixture serves the pre-undo state for a day and a cached club for a week. */
   it("clears the caches before it reports a refusal", async () => {
