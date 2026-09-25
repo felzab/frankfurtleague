@@ -17,7 +17,12 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "next/cache": `export const refresh = () => { globalThis.${REFRESHED}.push(1); };`,
 };
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-const AUTH = `export const getAdminSession = async () => globalThis.${SESSION};`;
+// A session set to an `Error` is a session store that threw.
+const AUTH = `export const getAdminSession = async () => {
+  const session = globalThis.${SESSION};
+  if (session instanceof Error) throw session;
+  return session;
+};`;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -74,8 +79,24 @@ describe("the session guard every admin write runs behind", () => {
       return Promise.resolve({ success: true });
     });
 
-    assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
+    // Typed rather than worded, so the route chooses its 401 or 403 on the guard's refusal and no other.
+    assert.deepEqual(answer, { forbidden: true });
     assert.equal(ran, 0, "the route's body ran for a caller nobody authorized");
+  });
+
+  /* The body never ran, so nothing was written: an unclear answer would send the admin to check for a
+     change that cannot exist. */
+  it("answers a session store that threw as the failure it is, the body never having run", async () => {
+    bus[SESSION] = new Error("the session store is down");
+    let ran = 0;
+
+    const answer = await runAdminMutation("probeAction", { readOnly: false }, () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    });
+
+    assert.deepEqual(answer, { success: false, error: "Lade die Seite neu und versuche es erneut." });
+    assert.equal(ran, 0, "the body ran behind a guard that never resolved");
   });
 
   /* The session the guard resolved, so an action needing it pays no second read of the session store. */
@@ -112,7 +133,7 @@ describe("the refresh an admin write owes the page", () => {
   it("leaves a route handler's success to the route", async () => {
     const answer = await runAdminRouteWrite("probeRoute", () => Promise.resolve({ success: true }));
 
-    assert.deepEqual(answer, { success: true });
+    assert.deepEqual(answer, { forbidden: false, answer: { success: true } });
     assert.deepEqual(refreshed, []);
   });
 });

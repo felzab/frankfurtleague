@@ -85,7 +85,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
-  const result = await runAdminRouteWrite(route.mutationName, async () => {
+  const guarded = await runAdminRouteWrite(route.mutationName, async () => {
     const body: unknown = await request.json().catch(() => null);
     const parsed = route.schema.safeParse(body);
     if (!parsed.success) {
@@ -110,16 +110,18 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return { success: true as const, report };
   });
 
-  if (!result.success) {
-    // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
-    // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3). Only the spine's guard answers `ADMIN_FORBIDDEN`.
-    if (result.error === ADMIN_FORBIDDEN) {
-      // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
-      // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
-      // somewhere they can get back in.
-      return NextResponse.json(result, { status: (await getSignInDestination()) === "/" ? 403 : 401 });
-    }
+  // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
+  // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
+  if (guarded.forbidden) {
+    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
+    // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
+    // somewhere they can get back in.
+    const status = (await getSignInDestination()) === "/" ? 403 : 401;
+    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status });
+  }
 
+  const result = guarded.answer;
+  if (!result.success) {
     // Only a throw answers an unknown outcome here, in the shared reader's sentence for an unclear
     // save, where this write took a change back.
     const unclear = "outcome" in result && result.outcome === "unknown";
