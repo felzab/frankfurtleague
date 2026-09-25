@@ -139,15 +139,18 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
 /** Every refusal an action logs would otherwise reach the run's output as an error line. */
 const SILENT_LOGGER = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
 
+/** What the doubled sign-in store's `getAdminSession` answers: an administrator, or nobody signed in. */
+type AdminSessionDouble = { user: { email: string } } | null;
+
 /**
- * The sign-in store with an administrator signed in, the real one opening the database driver as it
- * loads. Every other export throws where called, its name read off the real module so an import links.
+ * The sign-in store answering `session`, the real one opening the database driver as it loads. Every
+ * other export throws where called, its name read off the real module so an import links.
  */
-function signedInStore(url: string): string {
+function signInStore(url: string, session: AdminSessionDouble): string {
   return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
     .map(([, name]) =>
       name === "getAdminSession"
-        ? `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`
+        ? `export const getAdminSession = async () => (${JSON.stringify(session)});`
         : `export const ${name ?? ""} = () => { throw new Error("the sign-in store's ${name ?? ""} is not doubled"); };`,
     )
     .join("\n");
@@ -157,7 +160,12 @@ function signedInStore(url: string): string {
  * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
  * through `doubleActions`. Registered before the action's `await import`, as `doubleActions` is.
  */
-export function doubleActionRequest(): void {
+export function doubleActionRequest({
+  session = { user: { email: "vorstand@example.org" } },
+}: {
+  /** Who the request is signed in as; `null` for a caller with no admin session. */
+  session?: AdminSessionDouble;
+} = {}): void {
   // A case reading `cacheCalls` otherwise also reads the invalidations every earlier case made.
   beforeEach(() => void (cacheCalls.length = 0));
   registerHooks({
@@ -171,7 +179,7 @@ export function doubleActionRequest(): void {
     },
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signedInStore(url), shortCircuit: true };
+      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url, session), shortCircuit: true };
       if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: SILENT_LOGGER, shortCircuit: true };
       return nextLoad(url, context);
     },

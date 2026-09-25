@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -7,24 +6,7 @@ import { pathToFileURL } from "node:url";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
-doubleActionRequest();
-
-/* The harness's signed-in store with its guard answering no session, every other export of the real
-   module still there for an actions module to link against. Registered after the harness, so it runs
-   first and edits what the harness answers. */
-registerHooks({
-  load(url, context, nextLoad) {
-    const loaded = nextLoad(url, context);
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (!url.endsWith("/src/core/auth.ts")) return loaded;
-
-    const signedIn = String(loaded.source);
-    const signedOut = signedIn.replace(/^export const getAdminSession = .*$/m, "export const getAdminSession = async () => null;");
-    if (signedOut === signedIn) throw new Error("the harness's sign-in store declares no getAdminSession line to sign out");
-
-    return { ...loaded, source: signedOut };
-  },
-});
+doubleActionRequest({ session: null });
 
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 
