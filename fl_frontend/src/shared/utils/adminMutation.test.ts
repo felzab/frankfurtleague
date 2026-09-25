@@ -1,54 +1,15 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
-/** What the guard resolves, set per case; and every refresh the spine asked Next for. */
-const SESSION = "__flSpineSession";
-const REFRESHED = "__flSpineRefreshed";
-const bus = globalThis as unknown as Record<string, unknown>;
-const ADMIN = { user: { email: "vorstand@example.org" } };
-
-/* Replaced at the module boundary, as `fl_frontend/src/shared/utils/publicRoute.test.ts` replaces them:
-   the trace seed, the refresh, the session and the framework's control-flow rethrow are the
+/* The trace seed, the refresh, the session and the framework's control-flow rethrow are the
    framework's, and the spine between them and the action is what is driven. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-  "next/cache": `export const refresh = () => { globalThis.${REFRESHED}.push(1); };`,
-};
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-// A session set to an `Error` is a session store that threw.
-const AUTH = `export const getAdminSession = async () => {
-  const session = globalThis.${SESSION};
-  if (session instanceof Error) throw session;
-  return session;
-};`;
+const ADMIN = { user: { email: "vorstand@example.org" } };
+const { setSession } = doubleActionRequest({ session: ADMIN });
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
-
-const refreshed: number[] = [];
-bus[REFRESHED] = refreshed;
-
-// An administrator signed in unless a case says otherwise, and no refresh carried into the next case.
-beforeEach(() => {
-  bus[SESSION] = ADMIN;
-  refreshed.length = 0;
-});
+/** How many times the spine asked Next to refresh the page since the case began. */
+const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
 const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
@@ -66,7 +27,7 @@ describe("the session guard every admin write runs behind", () => {
   /* Ahead of the body, so an unauthenticated caller reaches neither the payload nor the backend: the
      proxy's matcher is the only other layer (`docs/frontend/spec.md :: I7`). */
   it("turns away a caller with no admin session before the body runs", async () => {
-    bus[SESSION] = null;
+    setSession(null);
     let ran = 0;
 
     const answer = await runAdminMutation("probeAction", () => {
@@ -76,11 +37,11 @@ describe("the session guard every admin write runs behind", () => {
 
     assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
     assert.equal(ran, 0, "the body ran for a caller nobody authorized");
-    assert.deepEqual(refreshed, [], "a refused caller's page was refreshed");
+    assert.equal(refreshes(), 0, "a refused caller's page was refreshed");
   });
 
   it("turns one away from a route handler's write too", async () => {
-    bus[SESSION] = null;
+    setSession(null);
     let ran = 0;
 
     const answer = await runAdminRouteWrite("probeRoute", () => {
@@ -96,7 +57,7 @@ describe("the session guard every admin write runs behind", () => {
   /* The body never ran, so nothing was written: an unclear answer would send the admin to check for a
      change that cannot exist. */
   it("answers a session store that threw as the failure it is, the body never having run", async () => {
-    bus[SESSION] = new Error("the session store is down");
+    setSession(new Error("the session store is down"));
     let ran = 0;
 
     const answer = await runAdminMutation("probeAction", () => {
@@ -128,7 +89,7 @@ describe("the refresh an admin write owes the page", () => {
       writing(() => Promise.resolve({ success: true })),
     );
 
-    assert.equal(refreshed.length, 1, "a write that succeeded left the admin's page standing");
+    assert.equal(refreshes(), 1, "a write that succeeded left the admin's page standing");
   });
 
   /* A body sending no write moved nothing, and a refusal is answered on a page the admin may still
@@ -141,7 +102,7 @@ describe("the refresh an admin write owes the page", () => {
       writing(() => Promise.resolve({ success: false, error: "Nein." })),
     );
 
-    assert.deepEqual(refreshed, []);
+    assert.equal(refreshes(), 0);
   });
 
   /* The row may stand behind the throw, and a page left as it was offers the write again. */
@@ -150,10 +111,10 @@ describe("the refresh an admin write owes the page", () => {
       writing(() => Promise.reject(new RangeError("Invalid time value"))),
       writing(() => Promise.resolve({ success: false, error: "Unklar.", outcome: "unknown" as const })),
     ]) {
-      refreshed.length = 0;
+      cacheCalls.length = 0;
       await runAdminMutation("probeAction", body);
 
-      assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
+      assert.equal(refreshes(), 1, "a write that may have landed left the admin's page standing");
     }
   });
 
@@ -165,7 +126,7 @@ describe("the refresh an admin write owes the page", () => {
     );
 
     assert.deepEqual(answer, { forbidden: false, answer: { success: true } });
-    assert.deepEqual(refreshed, []);
+    assert.equal(refreshes(), 0);
   });
 });
 
@@ -206,7 +167,7 @@ describe("a throw of an API call inside an admin action", () => {
     );
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
-    assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
+    assert.equal(refreshes(), 1, "a write that may have landed left the admin's page standing");
   });
 
   /* The write's own answer is the one thing that says whether it landed. */
@@ -221,7 +182,7 @@ describe("a throw of an API call inside an admin action", () => {
 
       assert.equal("outcome" in answer ? answer.outcome : undefined, undefined, `${thrown.name} answered as unclear`);
     }
-    assert.deepEqual(refreshed, [], "a write that landed nothing refreshed the page");
+    assert.equal(refreshes(), 0, "a write that landed nothing refreshed the page");
   });
 
   /* Nothing left the request, so an unclear answer would send the admin to check for a change that cannot exist. */
@@ -230,7 +191,7 @@ describe("a throw of an API call inside an admin action", () => {
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
     assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");
-    assert.deepEqual(refreshed, []);
+    assert.equal(refreshes(), 0);
   });
 
   it("answers an unsent write behind a sent one as of unknown outcome, and refreshes", async () => {
@@ -240,7 +201,7 @@ describe("a throw of an API call inside an admin action", () => {
     );
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
-    assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
+    assert.equal(refreshes(), 1, "a write that may have landed left the admin's page standing");
   });
 });
 
@@ -274,11 +235,11 @@ describe("an admin action the request's deadline cut", () => {
       { success: true, message: "Gesendet." },
       { success: false, message: "Die E-Mail konnte nicht gesendet werden." },
     ]) {
-      refreshed.length = 0;
+      cacheCalls.length = 0;
       const answer = await cutIn(true, settled);
 
       assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown", `a cut write answered ${JSON.stringify(answer)}`);
-      assert.equal(refreshed.length, 1, `a cut write answering ${JSON.stringify(settled)} left the admin's page standing`);
+      assert.equal(refreshes(), 1, `a cut write answering ${JSON.stringify(settled)} left the admin's page standing`);
     }
   });
 

@@ -170,8 +170,8 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
 /** Every refusal an action logs would otherwise reach the run's output as an error line. */
 const SILENT_LOGGER = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
 
-/** What the doubled sign-in store's `getAdminSession` answers: an administrator, or nobody signed in. */
-type AdminSessionDouble = { user: { email: string } } | null;
+/** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
+type AdminSessionDouble = { user: { email: string } } | null | Error;
 
 // Through globals: the doubled store is compiled from source and shares nothing with this scope.
 const SESSION_BUS = "__flAdminSession";
@@ -189,7 +189,11 @@ const destinationOf = (session: AdminSessionDouble): string =>
  */
 function signInStore(url: string): string {
   const doubled: Record<string, string> = {
-    getAdminSession: `export const getAdminSession = async () => globalThis.${SESSION_BUS};`,
+    getAdminSession: `export const getAdminSession = async () => {
+  const session = globalThis.${SESSION_BUS};
+  if (session instanceof Error) throw session;
+  return session;
+};`,
     getSignInDestination: `export const getSignInDestination = async () => globalThis.${DESTINATION_BUS};`,
   };
   return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
