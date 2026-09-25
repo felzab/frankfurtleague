@@ -1,7 +1,7 @@
 import { registerHooks } from "node:module";
 
 /** One request a module handed the backend client: the path, and what it went with. */
-export type ApiCall = { endpoint: string; method: string | undefined; body: string | undefined; headers: Headers };
+export type ApiCall = { endpoint: string; method: string | undefined; body: string | undefined; params: unknown; headers: Headers };
 
 /** The response schema the caller handed the client, which an answer is parsed through where the case wants its shape held. */
 export type ApiSchema = { parse: (value: unknown) => unknown };
@@ -24,7 +24,7 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
 import { recordWriteSent } from "@/core/requestScope";
 export const apiClient = async (endpoint, schema, options = {}) => {
   if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
-  const call = { endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) };
+  const call = { endpoint, method: options.method, body: options.body, params: options.params, headers: new Headers(options.headers) };
   globalThis.${bus}.calls.push(call);
   return globalThis.${bus}.answer(call, schema);
 };`;

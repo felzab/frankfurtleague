@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
@@ -11,21 +12,19 @@ import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from 
    slice's actions module for the components they render. */
 doubleActionRequest();
 
-type Sent = { endpoint: string; method: string | undefined; body: unknown; params: unknown };
+/** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
+const sent = doubleApiClient(({ endpoint }, schema) => schema.parse(endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
 
-const sent: Sent[] = [];
+/** Each request the client was handed, its body parsed. */
+const bodiesParsed = () =>
+  sent.map(({ endpoint, method, body, params }) => ({
+    endpoint,
+    method,
+    body: body === undefined ? undefined : (JSON.parse(body) as unknown),
+    params,
+  }));
+
 const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flKontakteSent = sent;
-
-/** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it,
-    and the write it records as the real client does as it sends one. */
-const API = `import { mayHaveWritten } from "@/core/errors";
-import { recordWriteSent } from "@/core/requestScope";
-export const apiClient = async (endpoint, schema, options = {}) => {
-  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
-  globalThis.__flKontakteSent.push({ endpoint, method: options.method, body: options.body === undefined ? undefined : JSON.parse(options.body), params: options.params });
-  return schema.parse(globalThis.__flKontakteAnswer(endpoint));
-};`;
 
 const AUTH = `export const getAdminSession = async () => globalThis.__flKontakteSession;`;
 
@@ -33,7 +32,6 @@ const AUTH = `export const getAdminSession = async () => globalThis.__flKontakte
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -59,8 +57,6 @@ const ERASURE: FLKontaktErasureResponse = {
 /** The block's own answer: the seats as stored and the token of the block this save left. */
 let blockAnswer: Record<string, unknown> = {};
 
-recorders.__flKontakteAnswer = (endpoint: string) => (endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer);
-
 /** A block cleared whole, which every label check admits without a read, so the save reaches the client. */
 const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
 
@@ -76,7 +72,7 @@ describe("what the person's erasure sends", () => {
   it("sends the address in the body, to the erasure endpoint, as a POST", async () => {
     await eraseKontaktpersonAction({ email: ADDRESS });
 
-    assert.deepEqual(sent, [{ endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS }, params: undefined }]);
+    assert.deepEqual(bodiesParsed(), [{ endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS }, params: undefined }]);
   });
 
   /* The response carries counts and no person, and nothing on this side may put one back. */
@@ -102,7 +98,7 @@ describe("what the season's contacts save sends", () => {
   it("addresses the junction row by its natural key and sends the block alone", async () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.deepEqual(sent, [
+    assert.deepEqual(bodiesParsed(), [
       {
         endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`,
         method: "PATCH",
@@ -123,7 +119,7 @@ describe("what the season's contacts save sends", () => {
 
     await patchSaisonTeamKontakteAction(CLEARED);
     assert.deepEqual(
-      sent.map(({ body }) => body),
+      bodiesParsed().map(({ body }) => body),
       [{ kontakte: null, kontakte_stand: "9f2c" }],
     );
   });

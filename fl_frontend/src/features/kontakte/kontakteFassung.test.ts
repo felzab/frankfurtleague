@@ -2,15 +2,14 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 import type { FLKontaktperson, FLKontaktpersonPayload, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
 
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real session store a database. */
-const API = `export const apiClient = async (endpoint, _schema, options = {}) => {
-  globalThis.__flFassungCalls.push({ endpoint, method: options.method ?? "GET" });
-  return globalThis.__flFassungAnswer(endpoint);
-};`;
+const calls = doubleApiClient(({ endpoint }) => antwortFuer(endpoint));
 const AUTH = `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`;
 const LOGGING = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 const CONFIG = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
@@ -33,7 +32,6 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
@@ -53,14 +51,13 @@ const AELTER = "2026-09-bestaetigung-4";
 /** What the person's own confirmation page stores, which is never the running application label. */
 const BESTAETIGT = BESTAETIGUNG_KENNTNISNAHME.textVersion;
 
-const calls: { endpoint: string; method: string }[] = [];
 let stored: FLSaisonTeamKontakte | null = null;
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flFassungCalls = calls;
-recorders.__flFassungAnswer = (endpoint: string) =>
-  endpoint === "/teams/memberships"
+
+function antwortFuer(endpoint: string): unknown {
+  return endpoint === "/teams/memberships"
     ? { teams: [{ id: TEAM_ID, memberships: [{ saison_id: SAISON_ID, kontakte: stored, kontakte_stand: "stand" }] }] }
     : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "neu" };
+}
 
 const storedSeat = (vorname: string, textVersion: string): FLKontaktperson => ({
   vorname,

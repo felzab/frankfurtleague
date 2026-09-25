@@ -1,32 +1,16 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through and the request are
    the doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the
    components it renders. */
 doubleActionRequest();
 
-type Sent = { endpoint: string; method: string | undefined };
-
-const sent: Sent[] = [];
-Reflect.set(globalThis, "__flAnonymiseSent", sent);
-
 /** Every write acknowledged, with no link minted: the save then mails nothing. */
-const API = `export const apiClient = async (endpoint, _schema, options = {}) => {
-  globalThis.__flAnonymiseSent.push({ endpoint, method: options.method });
-  return { acknowledged: 1, updated_document: null, bestaetigung: null };
-};`;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+const sent = doubleApiClient(() => ({ acknowledged: 1, updated_document: null, bestaetigung: null }));
 
 const { anonymiseSchiedsrichterAction, patchSchiedsrichterAction } = await import("./actions.ts");
 
@@ -56,7 +40,10 @@ describe("what the anonymisation moves", () => {
   it("calls the anonymisation endpoint and not the retire", async () => {
     await report();
 
-    assert.deepEqual(sent, [{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/anonymisieren`, method: "POST" }]);
+    assert.deepEqual(
+      sent.map(({ endpoint, method }) => ({ endpoint, method })),
+      [{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/anonymisieren`, method: "POST" }],
+    );
   });
 
   /* The one cached read it moves: the repointed booking lands on every Spiel as a rename does, and without
