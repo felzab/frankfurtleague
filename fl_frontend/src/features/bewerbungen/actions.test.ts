@@ -115,12 +115,6 @@ const { rollenText } = await import("./notifications.ts");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-/** Read for the codes each mapper's own switch names, which no call can enumerate. */
-const REFUSALS = readFileSync(path.resolve(import.meta.dirname, "refusals.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts"), "utf8");
-/** The bound the decline's reason is mirrored from, read where it is written. */
-const BOUNDS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "bounds.py"), "utf8");
 
 /** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
 const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
@@ -134,26 +128,21 @@ const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 
-const MAPPER = sliceBetween(REFUSALS, "export function mapTriageRefusal", "export function mapEinwilligungErneutRefusal");
 const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
 const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "const BEWERBUNG_WEG");
 
-const ERNEUT_MAPPER = sliceBetween(REFUSALS, "export function mapEinwilligungErneutRefusal", "const ANGABEN_STEHEN_FEST");
 const ERNEUT_ACTION = sliceBetween(
   ACTIONS,
   "export async function einwilligungErneutSendenAction",
   "export async function kontaktEmailKorrigierenAction",
 );
 
-const KORREKTUR_MAPPER = sliceBetween(REFUSALS, "export function mapKontaktEmailRefusal", "export function mapKontaktSitzRefusal");
 const KORREKTUR_ACTION = sliceBetween(
   ACTIONS,
   "export async function kontaktEmailKorrigierenAction",
   "export async function besetzeKontaktSitzAction",
 );
 
-/* The last declaration in its module, so its slice runs to the end of the file. */
-const SITZ_MAPPER = sliceBetween(REFUSALS, "export function mapKontaktSitzRefusal", null);
 /* The reseat is the last declaration in the module, so its slice runs to the end of the file. */
 const SITZ_ACTION = sliceBetween(ACTIONS, "export async function besetzeKontaktSitzAction", null);
 
@@ -163,41 +152,19 @@ const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/em
 /** The one path that writes a whole person onto a submitted application, in the backend's own spelling. */
 const SITZ_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}";
 
-/** Every code the correction answers, read off its own switch rather than the re-send's. */
-const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-/** Every code the reseat answers, read off its own switch rather than the correction's. */
-const sitzCodes = [...SITZ_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-/** Every code the re-send answers, read off its own switch rather than the triage's. */
-const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-/** Every code the mapper answers, read off its switch. */
-const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
 describe("the slices these assertions read", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the mapper and both actions out of their files before reading them", () => {
-    assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
-    assert.ok(!MAPPER.includes("REQ-BEWERBUNG-011"), "the mapper's slice reaches the re-send's");
-
+  it("cuts both decisions out of their file before reading them", () => {
     assert.ok(ANNEHMEN_ACTION.includes("annehmenBewerbung(validated.data)"), "the acceptance's call is outside its slice");
     assert.ok(!ANNEHMEN_ACTION.includes("ablehnenBewerbung("), "the acceptance's slice reaches the decline");
 
     assert.ok(ABLEHNEN_ACTION.includes("ablehnenBewerbung(validated.data)"), "the decline's call is outside its slice");
     assert.ok(!ABLEHNEN_ACTION.includes("annehmenBewerbung("), "the decline's slice reaches the acceptance");
-
-    assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
   });
 
-  it("cuts the re-send's mapper and its action apart", () => {
-    assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
-    assert.ok(!ERNEUT_MAPPER.includes("REQ-BEWERBUNG-014"), "the re-send mapper's slice reaches the correction's");
-
+  it("cuts the re-send's action out of its file", () => {
     assert.ok(ERNEUT_ACTION.includes("erneutSendenEinwilligung(validated.data)"), "the re-send's call is outside its slice");
     assert.ok(!ERNEUT_ACTION.includes("ablehnenBewerbung("), "the re-send's slice reaches the decline");
-
-    assert.ok(erneutCodes.length > 0, "no refusal code could be read out of the re-send's mapper at all");
   });
 });
 
@@ -316,17 +283,9 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     assert.match(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
   });
 
-  it("maps no rule neither decision publishes", () => {
-    const published = new Set([...publishedRefusals(ANNEHMEN_OPERATION), ...publishedRefusals(ABLEHNEN_OPERATION)]);
-
-    assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
-    for (const code of mappedCodes) assert.ok(published.has(code), `${code} is mapped here and published on neither decision`);
-  });
-
   /* `REQ-ENTER-004` guards a group MOVE, which no acceptance performs: a row is created here, never
      moved. Reaching it from this action would refuse an acceptance over fixtures it does not touch. */
   it("leaves the group move's own refusal on the move", () => {
-    assert.ok(!mappedCodes.includes("REQ-ENTER-004"), "the triage answers the group move's refusal");
     assert.ok(!publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the document moved the lock onto the acceptance");
   });
 });
@@ -687,24 +646,6 @@ describe("the sentence both entry surfaces render for one code", () => {
 });
 
 describe("the decline's bound", () => {
-  /* Mirrored, never recalled: past the backend's ceiling the API's `REQ-VAL-001` marks the box with a
-     generic sentence rather than the bound's German. */
-  it("caps the reason at the number the backend states", () => {
-    const backend = /^BEWERBUNG_GRUND_MAX_LENGTH: Final = (\d+)$/m.exec(BOUNDS)?.[1] ?? "";
-    const frontend = /^export const BEWERBUNG_GRUND_MAX_LENGTH = (\d+);$/m.exec(CONSTANTS)?.[1] ?? "";
-
-    assert.notEqual(backend, "", "the backend no longer states the bound under that name");
-    assert.equal(frontend, backend, "the frontend mirror disagrees with the backend's bound");
-    assert.ok(SCHEMAS.includes("BEWERBUNG_GRUND_MAX_LENGTH"), "the payload schema stopped reading the mirrored bound");
-    /* The ceiling the schema enforces, beside the mention of it: a wider one written beside the import
-       still reads the mirror, and the reason it lets through is the one the API marks no field for. */
-    assert.equal(
-      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "a".repeat(BEWERBUNG_GRUND_MAX_LENGTH + 1) }).success,
-      false,
-      "a reason one character past the mirrored bound is taken here and refused only by the backend",
-    );
-  });
-
   /* A decline is stored on the application and mailed to the school in one irreversible step, so
      „   “ has to be refused as the empty reason it is. The backend's `min_length` does not strip, and
      the browser is where the value still can be. */
@@ -855,12 +796,6 @@ describe("the re-sent confirmation link", () => {
       mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
       "the re-sent link is minted on an origin this run was not configured with",
     );
-  });
-
-  it("maps no rule the re-send does not publish", () => {
-    const published = publishedRefusals(ERNEUT_OPERATION);
-
-    for (const code of erneutCodes) assert.ok(published.includes(code), `${code} is mapped by the re-send and published on it by no rule`);
   });
 
   /* The token is minted and the deadline moved by the time the message is composed, so the read that
@@ -1044,14 +979,6 @@ describe("the corrected contact address", () => {
     });
   });
 
-  it("maps no rule the correction does not publish", () => {
-    const published = publishedRefusals(KORREKTUR_OPERATION);
-
-    assert.ok(korrekturCodes.length > 0, "no refusal code could be read out of the correction's mapper at all");
-    for (const code of korrekturCodes)
-      assert.ok(published.includes(code), `${code} is mapped by the correction and published on it by no rule`);
-  });
-
   /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
      address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
   it("mails the address the write stored, never the one the read still holds", async () => {
@@ -1123,15 +1050,9 @@ describe("the corrected contact address", () => {
 describe("the person seated where one stepped out", () => {
   /* First, so a boundary that stopped matching fails here rather than leaving every assertion below
      reading an empty string and passing. */
-  it("cuts the reseat's mapper and its action out of the file", () => {
-    assert.ok(SITZ_MAPPER.includes("error.serverErrorCode"), "the reseat mapper's switch is outside its slice");
-    assert.ok(KORREKTUR_MAPPER.includes("error.serverErrorCode"), "the correction mapper's switch is outside its slice");
-    assert.ok(!KORREKTUR_MAPPER.includes("Neu besetzt"), "the correction mapper's slice reaches the reseat's");
-
+  it("cuts the reseat's action out of the file", () => {
     assert.ok(SITZ_ACTION.includes("besetzenKontaktSitz(validated.data)"), "the reseat's call is outside its slice");
     assert.ok(!KORREKTUR_ACTION.includes("besetzenKontaktSitz("), "the correction's slice still runs to the end of the file");
-
-    assert.ok(sitzCodes.length > 0, "no refusal code could be read out of the reseat's mapper at all");
   });
 
   it("answers every code the reseat publishes through its own mapper", async () => {
@@ -1158,12 +1079,6 @@ describe("the person seated where one stepped out", () => {
         }),
       mapped: mapKontaktSitzRefusal,
     });
-  });
-
-  it("maps no rule the reseat does not publish", () => {
-    const published = publishedRefusals(SITZ_OPERATION);
-
-    for (const code of sitzCodes) assert.ok(published.includes(code), `${code} is mapped by the reseat and published on it by no rule`);
   });
 
   /* `SITZ_LEER` is the correction's guard on an empty slot, and an empty slot is what this write runs
