@@ -8,9 +8,8 @@ import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { MailOutcome, SentMail } from "@/shared/testing/mailDouble.ts";
 
-/* Replaced at the module boundary rather than the actions being reshaped to admit a seam: the real
-   client reaches a backend no test process runs, and the real mailer a provider. The fan-out is the
-   real one, so what the actions hand it is read off the messages it sends. */
+/* The real client reaches a backend no test process runs and the real mailer a provider, so those two
+   are replaced; the fan-out is the real one, and what the actions hand it is read off the messages it sends. */
 const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
 /** What the client answers in this case, whichever endpoint the action reads. */
 let apiAnswer: () => unknown = () => undefined;

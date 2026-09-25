@@ -24,8 +24,8 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { MailOutcome } from "@/shared/testing/mailDouble.ts";
 
 /* The ORDER between the write and the send decides whether somebody is told they are barred by a
-   request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). The write, the
-   send and the refresh each append to one list, read instead of the source. */
+   request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double
+   appends to one list, read instead of the source. */
 const events: string[] = [];
 const EVENTS = "__flSperreEvents";
 (globalThis as unknown as Record<string, unknown>)[EVENTS] = events;

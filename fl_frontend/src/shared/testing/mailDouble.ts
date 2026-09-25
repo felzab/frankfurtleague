@@ -15,9 +15,8 @@ type MailAnswer = (mail: SentMail) => MailOutcome | Promise<MailOutcome>;
 let registered = 0;
 
 /**
- * Replaces `fl_frontend/src/core/mail.ts` at the module boundary, every message accepted until a case
- * names another answer for the rest of that case. The real fan-outs send through it, so what a suite
- * reads of a write record is what the mailer and the fan-out together leave.
+ * Stands in for `fl_frontend/src/core/mail.ts` alone: the real fan-outs send through it, so the write
+ * record a suite reads is the one the mailer and the fan-out leave together.
  */
 export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAnswer) => void } {
   const sent: SentMail[] = [];
