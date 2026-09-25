@@ -16,9 +16,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
-
-import { DRAFT_IN_THE_WAY } from "./banners";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 /** Said in the body and on the closed control alike, so the two cannot describe the empty row differently. */
 const KEINE_KONTAKTE = "Für diese Saison sind keine Kontakte gespeichert.";
@@ -53,7 +51,7 @@ export function FormKontakteLoeschenSection({
   const panel = formPanel({ tone: hasStored ? "danger" : "neutral" });
 
   const handleClear = () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.

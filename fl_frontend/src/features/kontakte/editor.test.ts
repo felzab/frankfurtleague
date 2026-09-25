@@ -35,7 +35,7 @@ import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shar
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import { buildKontakteBanners, DRAFT_IN_THE_WAY } from "./components/forms/AdminKontakteEditForm/banners.ts";
+import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { mapStaleBlockRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
@@ -80,6 +80,7 @@ const { AdminKontakteEditView } = await import("./components/views/AdminKontakte
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontakteEditPage } = await import("@/app/admin/kontakte/[team_id]/page.tsx");
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
+const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -1136,8 +1137,8 @@ describe("what the two destructive controls do to the page", () => {
     assert.deepEqual(
       toasts.map(({ variant, title, description }) => [variant, title, description]),
       [
-        ["warning", "Erst speichern", DRAFT_IN_THE_WAY],
-        ["warning", "Erst speichern", DRAFT_IN_THE_WAY],
+        ["warning", "Erst speichern", DRAFT_DISCARDED],
+        ["warning", "Erst speichern", DRAFT_DISCARDED],
       ],
       "a destructive control pressed over an unsaved draft does not say why it refused",
     );

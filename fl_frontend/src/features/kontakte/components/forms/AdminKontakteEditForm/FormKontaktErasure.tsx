@@ -15,9 +15,8 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
-import { DRAFT_IN_THE_WAY } from "./banners";
 import { FormKontaktReveal } from "./FormKontaktReveal";
 
 import type { ErasureAnsicht } from "@/features/kontakte/types";
@@ -80,7 +79,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   };
 
   const handleErase = () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     // On the arming press and on no other: this read serves contact records, so it is made when
     // somebody asks whom the address holds rather than on every render of the panel.

@@ -19,7 +19,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
@@ -295,7 +295,7 @@ export function AdminSchiedsrichterEditForm({
             kontakt={schiedsrichter.kontakt}
             // The page keys this view on the STORED record, so the write's refresh remounts the form
             // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() => guardAgainstDraft(isDirty, "Das Löschen verwirft die nicht gespeicherten Änderungen.")}
+            onBeforeAnonymise={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
           />
         </EditFormLayout>
 

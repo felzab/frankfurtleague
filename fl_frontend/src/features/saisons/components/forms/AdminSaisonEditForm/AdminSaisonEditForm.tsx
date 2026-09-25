@@ -23,7 +23,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -410,7 +410,7 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() => guardAgainstDraft(isDirty, "Die Umstellung verwirft die nicht gespeicherten Änderungen.")}
+            onBeforeActivate={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
             banners={banners}
           />
         </EditFormLayout>
