@@ -241,61 +241,69 @@ const isServerComponent = (type: unknown): type is (props: unknown) => unknown =
   !clientComponents.has(type) &&
   !(type.prototype as { isReactComponent?: unknown } | undefined)?.isReactComponent;
 
+/** A server component's element: its type is what the walk calls. */
+type ServerElement = { type: (props: unknown) => unknown; props: Record<string, unknown> };
+
+/** What entering a server component gives the walk: what it returned, walked on under `context`, or the walk's end. */
+type Entered<C> = { returned: unknown; context: C } | "stop";
+
+/** What a walk does at a server component, and at a promise the tree holds that rejects. */
+type Visitor<C> = { enter: (element: ServerElement, context: C) => Promise<Entered<C>>; rejected: (error: unknown) => void };
+
 /**
- * Calls every component a tree reaches, awaiting the async ones, so each read it makes is made; every
- * throw is recorded and the walk goes on past it. `connected` is whether a component above has
- * already awaited `connection()`.
+ * Resolves a tree as React's server renderer does, the one rule `callPage` and `pageBody` share;
+ * answers whether `enter` stopped the walk.
  */
-async function reach(node: unknown, walk: Walk, connected = false, depth = 0): Promise<void> {
-  if (depth > 60 || node === null || typeof node !== "object") return;
+async function resolveTree<C>(node: unknown, context: C, visitor: Visitor<C>, depth = 0): Promise<boolean> {
+  if (depth > 60 || node === null || typeof node !== "object") return false;
   if (Array.isArray(node)) {
-    for (const child of node) await reach(child, walk, connected, depth + 1);
-    return;
+    for (const child of node) if (await resolveTree(child, context, visitor, depth + 1)) return true;
+    return false;
   }
-  if (node instanceof Promise) {
-    await reach(await node.catch((error: unknown) => void walk.thrown.push(error)), walk, connected, depth + 1);
-    return;
-  }
+  if (node instanceof Promise) return resolveTree(await node.catch(visitor.rejected), context, visitor, depth + 1);
 
   const element = node as Partial<ReactElement<Record<string, unknown>>>;
-  if (element.props === undefined) return;
+  if (element.props === undefined) return false;
 
   // As React's server renderer does: every function component but a client one is called, and a
   // promise it returns awaited (`react-server-dom-webpack-server :: renderElement`).
   if (!isServerComponent(element.type)) {
-    for (const value of Object.values(element.props)) await reach(value, walk, connected, depth + 1);
-    return;
+    for (const value of Object.values(element.props)) if (await resolveTree(value, context, visitor, depth + 1)) return true;
+    return false;
   }
   // Its props are not walked: they reach the page only through what it returns, and walked here too,
   // every child it renders would be called twice.
-
-  const from = steps.length;
-  let returned: unknown;
-  try {
-    returned = await element.type(element.props);
-  } catch (error) {
-    walk.thrown.push(error);
-  }
-  // Its own steps alone: its children are called after it returns, so theirs land after this slice.
-  let own = connected;
-  for (const step of steps.slice(from)) {
-    if (step.kind === "connection") own = true;
-    else if (!own) walk.unconnected.push(`${element.type.name} :: ${step.endpoint}`);
-  }
-  await reach(returned, walk, own, depth + 1);
+  const entered = await visitor.enter({ type: element.type, props: element.props }, context);
+  return entered === "stop" || resolveTree(entered.returned, entered.context, visitor, depth + 1);
 }
 
 /** The props Next hands a page. */
 export type PageProps = { params: Promise<Record<string, unknown>>; searchParams: Promise<Record<string, string | string[]>> };
 
-/** Calls a page and everything its tree reaches, as `reach` does, a synchronous page's own throw recorded too. */
+/**
+ * Calls a page and every component its tree reaches, awaiting the async ones, so each read it makes
+ * is made; every throw is recorded and the walk goes on past it.
+ */
 export async function callPage<P>(Page: (props: P) => unknown, props: P): Promise<Walk> {
   const walk: Walk = { thrown: [], unconnected: [] };
-  try {
-    await reach({ type: Page, props }, walk);
-  } catch (error) {
-    walk.thrown.push(error);
-  }
+  // `connected`: whether a component above has already awaited `connection()`.
+  const enter = async (element: ServerElement, connected: boolean): Promise<Entered<boolean>> => {
+    const from = steps.length;
+    let returned: unknown;
+    try {
+      returned = await element.type(element.props);
+    } catch (error) {
+      walk.thrown.push(error);
+    }
+    // Its own steps alone: its children are called after it returns, so theirs land after this slice.
+    let own = connected;
+    for (const step of steps.slice(from)) {
+      if (step.kind === "connection") own = true;
+      else if (!own) walk.unconnected.push(`${element.type.name} :: ${step.endpoint}`);
+    }
+    return { returned: returned, context: own };
+  };
+  await resolveTree({ type: Page, props }, false, { enter: enter, rejected: (error) => void walk.thrown.push(error) });
   return walk;
 }
 
@@ -361,21 +369,23 @@ export async function renderPage(tree: ReactNode): Promise<string> {
   }
 }
 
-/** The first async component under `node`'s children, depth first. */
-function firstAsync(node: unknown): { type: (props: unknown) => Promise<unknown>; props: unknown } | null {
-  const element = node as Partial<ReactElement<{ children?: unknown }>> | null;
-  if (element === null || typeof element !== "object") return null;
-  if (Array.isArray(element)) return element.map(firstAsync).find((found) => found !== null) ?? null;
-  if (isAsync(element.type)) return { type: element.type, props: element.props };
-  return firstAsync(element.props?.children);
-}
-
 /**
- * A synchronous page's body: the first async component its tree holds, called as the component it is,
- * so a case reads the props it hands its view or renders them under Testing Library.
+ * A synchronous page's body: what the first async server component its tree reaches returns, found
+ * as `callPage` walks, so a case reads the props it hands its view or renders them under Testing
+ * Library.
  */
 export async function pageBody<P>(Page: (props: P) => unknown, props: P): Promise<ReactElement> {
-  const body = firstAsync(Page(props));
-  if (body === null) throw new Error(`${Page.name} returns no async component to call`);
-  return (await body.type(body.props)) as ReactElement;
+  const found: ReactElement[] = [];
+  const enter = async (element: ServerElement): Promise<Entered<undefined>> => {
+    if (!isAsync(element.type)) return { returned: element.type(element.props), context: undefined };
+    found.push((await element.type(element.props)) as ReactElement);
+    return "stop";
+  };
+  // Recorded by no walk, unlike `callPage`'s: a throw on the way to the body reaches the case.
+  const rejected = (error: unknown): never => {
+    throw error;
+  };
+  await resolveTree({ type: Page, props }, undefined, { enter: enter, rejected: rejected });
+  if (found[0] === undefined) throw new Error(`${Page.name} reaches no async component to call`);
+  return found[0];
 }

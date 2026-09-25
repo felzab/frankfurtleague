@@ -19,11 +19,16 @@ import {
   EMPTIEST_ANSWER,
   isNavigation,
   OBJECT_ID,
+  pageBody,
   readsOf,
   renderPage,
   steps,
 } from "./pageHarness.ts";
 import { renderTree } from "./renderTest.ts";
+
+import type { ReactElement } from "react";
+
+const textOf = (body: ReactElement): unknown => (body as ReactElement<{ children: unknown }>).props.children;
 
 /* `await import`, never a static import: the doubles are registered as the harness evaluates, and a
    static import would have resolved the real modules before then. */
@@ -190,6 +195,26 @@ describe("the page harness", () => {
 
     assert.ok(!page.includes(renderTree(tree)), "the two spell alike, so the helper below is proven over nothing");
     assert.ok(page.includes(asRenderedPage(renderTree(tree))));
+  });
+
+  /* The body is found by the walk's own rule: a synchronous wrapper around it is called, as React
+     calls it, rather than searched for a child it only returns. */
+  it("finds a page's body behind a synchronous wrapper", async () => {
+    async function Body() {
+      await connection();
+      return h("p", null, "Rumpf");
+    }
+    const Wraps = () => h(Suspense, { fallback: null }, h(Body));
+
+    const body = await pageBody(() => h("main", null, h(Wraps)), PROPS);
+
+    assert.equal(textOf(body), "Rumpf");
+  });
+
+  it("calls no component a `use client` module exports on the way to the body", async () => {
+    const body = await pageBody(() => h(Button, null, h(ReadsUnderIt)), PROPS);
+
+    assert.equal(textOf(body), "geladen");
   });
 
   /* An answer the client would refuse lets a page pass on data production never hands it. */
