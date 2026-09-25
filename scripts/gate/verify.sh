@@ -1145,20 +1145,30 @@ the service and the rule: docs/ops/spec.md I1, I174, I355 or I18." \
   MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
     -keyout .tmp-nginx-check/key.pem -out .tmp-nginx-check/cert.pem \
     || die "could not generate a throwaway certificate for the nginx check."
-  # The tag both compose files pin, so the nginx accepting prod.conf here is the one that serves
-  # it. A floating tag would move this check to a version the servers do not run.
-
-  # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
-  # as the server would load it.
-  MSYS_NO_PATHCONV=1 quietly docker run --rm \
-    --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
-    -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
-    -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-    -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
-    -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
-    nginx:1.31.6-alpine nginx -t \
-    || die "nginx refuses prod.conf — its own explanation is above."
-  ok "nginx accepts prod.conf"
+  # The image production's model names, read rather than spelled again, so the nginx accepting
+  # prod.conf here is the one that serves it. `write`, not `print`: a Windows stdout would end the
+  # name in a carriage return.
+  NGINX_IMAGE=""
+  if [[ -n "$OPS_PY" ]] && python_at_floor "$OPS_PY"; then
+    NGINX_IMAGE="$("$OPS_PY" -c 'import json, sys; sys.stdout.write(json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]["image"])' \
+      "${OPS_SCRATCH}/production.json")" \
+      || refuse "production's model names no image for nginx, so there is no release to parse prod.conf with."
+  fi
+  if [[ -z "$NGINX_IMAGE" ]]; then
+    skip "no python at the checkers' floor, so the image production runs was not read and prod.conf was not parsed"
+  else
+    # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
+    # as the server would load it.
+    MSYS_NO_PATHCONV=1 quietly docker run --rm \
+      --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+      -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
+      -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
+      -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
+      -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
+      "$NGINX_IMAGE" nginx -t \
+      || die "nginx refuses prod.conf — its own explanation is above."
+    ok "${NGINX_IMAGE} accepts prod.conf"
+  fi
 
   # A parse sees neither a log line nor a response, so nothing else here asserts what the access
   # line CONTAINS (`docs/logging/spec.md` L11) or which headers a location sends

@@ -101,8 +101,8 @@ services:
 
   nginx:
     # The exact patch, never the minor: a host pulls a tag it lacks and never again, so a minor tag
-    # stays at whichever patch it first pulled. The local stack and `nginx/edge_test.sh` read this
-    # line; `scripts/gate/verify.sh` spells it again.
+    # stays at whichever patch it first pulled. The local stack, `nginx/edge_test.sh` and
+    # `scripts/gate/verify.sh`'s `nginx -t` read this line.
     image: nginx:1.31.6-alpine
     restart: unless-stopped
     # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
