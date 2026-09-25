@@ -16,7 +16,8 @@ import type { FormState } from "@/shared/types/types";
 export function useSignOut(onSignOut: () => Promise<FormState>) {
   // The panels' own two-press control, whose double-press window keeps a double-click from ending the
   // session before the armed control was read (`docs/frontend/spec.md :: I37`).
-  const { isConfirming, isPending: isSigningOut, press, cancel } = useTwoPressConfirm();
+  const confirm = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = confirm;
   const router = useRouter();
 
   // On iOS a tap on non-interactive content moves focus nowhere, so a capture-phase outside press is the
@@ -61,8 +62,8 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
   };
 
   return {
-    isConfirming,
-    isSigningOut,
+    /** The two-press value whole, which each surface reads its armed and running state off rather than spelling either. */
+    confirm,
     /** One press: arms the control the first time, ends the session the second. */
     press: () => press(signOutNow),
     /** Back to rest. Called from whatever "never mind" looks like on the calling surface. */

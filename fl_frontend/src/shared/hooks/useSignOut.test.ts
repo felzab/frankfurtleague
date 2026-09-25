@@ -22,13 +22,13 @@ const { raised } = doubleToasts();
 const { useSignOut } = await import("./useSignOut.ts");
 
 function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnType<typeof h> {
-  const { isConfirming, isSigningOut, press } = useSignOut(onSignOut);
+  const { confirm, press } = useSignOut(onSignOut);
 
   // Marked as the control, or the hook's outside-press disarm takes the confirming press for a press elsewhere.
   return h(
     "button",
     { type: "button", onClick: press, "data-signout-control": "true" },
-    isSigningOut ? "Meldet ab..." : isConfirming ? "Wirklich abmelden" : "Abmelden",
+    confirm.isPending ? "Meldet ab..." : confirm.isConfirming ? "Wirklich abmelden" : "Abmelden",
   );
 }
 

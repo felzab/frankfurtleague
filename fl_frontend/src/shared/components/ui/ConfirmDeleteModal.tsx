@@ -16,6 +16,7 @@ import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ActionResult } from "@/shared/types/types";
 import type { ReactNode } from "react";
 
@@ -67,7 +68,8 @@ export function ConfirmDeleteModal({
 }) {
   // The panels' own two-press control, whose double-press window keeps a double-click on „Stilllegen“
   // from retiring the row before step 2 was read (`docs/frontend/spec.md :: I37`).
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const retirement = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = retirement;
   const router = useRouter();
 
   // Disarmed after the exit transition, or the step drops back to 1 while the dialog is still on screen.
@@ -147,28 +149,39 @@ export function ConfirmDeleteModal({
           )}
         </div>
 
-        {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. The action
-            first and the way back second, as on every confirmation (`docs/frontend/spec.md` §1.19). */}
-        <div className={MODAL_FOOTER_ROW_CLASSES}>
-          <Button
-            type="button"
-            variant="primary"
-            isPending={isPending}
-            className={formButton({ intent: "destructive" })}
-            onPress={handleDelete}>
-            {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-            {isPending ? RETIRE_RUNNING : isConfirming ? `Ja, ${RETIRE_INFINITIVE}` : RETIRE_CAPITALISED}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            isPending={isPending}
-            className={formButton({ intent: "cancel" })}
-            onPress={onClose}>
-            Abbrechen
-          </Button>
-        </div>
+        <RetireFooter
+          confirm={retirement}
+          onRetire={handleDelete}
+          onClose={onClose}
+        />
       </div>
     </ModalShell>
+  );
+}
+
+/** The dialog's two controls, handed the two-press value whole as the panels' controls are, so neither spells its flight. */
+function RetireFooter({ confirm, onRetire, onClose }: { confirm: TwoPressConfirm; onRetire: () => void; onClose: () => void }) {
+  return (
+    // No width here — the band declares its own, and a `w-full` beside it wins on source order. The action
+    // first and the way back second, as on every confirmation (`docs/frontend/spec.md` §1.19).
+    <div className={MODAL_FOOTER_ROW_CLASSES}>
+      <Button
+        type="button"
+        variant="primary"
+        isPending={confirm.isPending}
+        className={formButton({ intent: "destructive" })}
+        onPress={onRetire}>
+        {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
+        {confirm.isPending ? RETIRE_RUNNING : confirm.isConfirming ? `Ja, ${RETIRE_INFINITIVE}` : RETIRE_CAPITALISED}
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        isPending={confirm.isPending}
+        className={formButton({ intent: "cancel" })}
+        onPress={onClose}>
+        Abbrechen
+      </Button>
+    </div>
   );
 }

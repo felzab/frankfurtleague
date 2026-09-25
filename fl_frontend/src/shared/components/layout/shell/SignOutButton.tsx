@@ -13,13 +13,13 @@ import type { FormState } from "@/shared/types/types";
  * place safe. The behaviour is `useSignOut`'s; only the compact shape is this component's own.
  */
 export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormState> }) {
-  const { isConfirming, isSigningOut, press, disarm } = useSignOut(onSignOut);
+  const { confirm, press, disarm } = useSignOut(onSignOut);
 
   const button = (
     <button
       type="button"
-      disabled={isSigningOut}
-      aria-label={isConfirming ? "Abmelden?" : "Abmelden"}
+      disabled={confirm.isPending}
+      aria-label={confirm.isConfirming ? "Abmelden?" : "Abmelden"}
       data-signout-control="true"
       onClick={press}
       // Arming leaves focus on this button, so anything else the user does moves focus away from here.
@@ -30,11 +30,11 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       /* One red at rest and one when armed, with no hover step: a control that only looks destructive on
          approach says nothing to a reader scanning the bar. */
       className={`text-danger-strong flex h-9 shrink-0 items-center justify-center rounded-md font-semibold transition-colors disabled:opacity-60 ${
-        isConfirming ? "bg-danger/15 px-3" : "bg-danger/10 px-2"
+        confirm.isConfirming ? "bg-danger/15 px-3" : "bg-danger/10 px-2"
       }`}>
       {/* Armed, the control is its question and nothing else; at rest it is the one glyph, so the bar stays quiet. */}
-      {isConfirming ? (
-        <span className="fluid-sm whitespace-nowrap">{isSigningOut ? "Meldet ab..." : "Abmelden?"}</span>
+      {confirm.isConfirming ? (
+        <span className="fluid-sm whitespace-nowrap">{confirm.isPending ? "Meldet ab..." : "Abmelden?"}</span>
       ) : (
         <ArrowRightFromSquare
           aria-hidden="true"
@@ -46,5 +46,5 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
 
   // The tooltip names the resting control, whose glyph is its only label. Armed, the button already says it
   // in visible text, so a tooltip would repeat it.
-  return isConfirming ? button : <IconTooltip label="Abmelden">{button}</IconTooltip>;
+  return confirm.isConfirming ? button : <IconTooltip label="Abmelden">{button}</IconTooltip>;
 }
