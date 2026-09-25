@@ -167,12 +167,14 @@ describe("the message the barred person is sent", () => {
 
   /* A connection broken after the send left may be a message the provider accepted: saying the person
      was not told would be a guess, as it would in a fan-out. */
-  it("answers a notice whose connection broke off as of unknown outcome", async () => {
+  it("answers a notice whose connection broke off as a saved ban with an unclear notice", async () => {
     sendWith("lost");
 
     const result = await anAddressIsBanned();
 
-    assert.equal("outcome" in result ? result.outcome : undefined, "unknown");
+    // The ban was acknowledged: the general unclear-save sentence sends the administrator to check a row that stands.
+    assert.equal(result.success, true, "the acknowledged ban answered as unsaved or of unknown outcome");
+    assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
     assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });
 
