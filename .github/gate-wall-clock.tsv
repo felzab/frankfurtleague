@@ -298,7 +298,8 @@
 # interleaved, and the three cases holding the hook's refusal of a commit its own formatting
 # emptied took 4.3-13.0 s of it. Measured locally on 2026-09-25 on a sixteen-core Windows machine
 # carrying a fleet of agent sessions, so every figure is an upper bound. `--dist loadfile` hands
-# the module to one worker, where it is among the suite's longest chunks.
+# the module to one worker, where it is among the suite's longest chunks; the pytest unit's cost is
+# recorded whole below.
 #
 # `scripts` gained a module: `scripts/tests/test_deploy_edge_config.py` drives the deploy's edge
 # functions behind a stand-in `docker`, 10.0-10.7 s over three runs of the module alone against
@@ -375,6 +376,72 @@
 # locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so the
 # upper end reads that load. It sits inside the floor the `scripts` row carries, so neither its
 # reference nor its budget moves.
+#
+# `docs` lost its `diagram` and `header-see` checks and gained three reads:
+# `scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons` resolves every address an
+# unenforced rule's declared reason argues from; `:: check_handed_over_shapes` holds the shapes the
+# classifier hands over to the ones the gate reads, and to a single read of them; and
+# `scripts/checks/docs_gate/checks.py :: _uncited_lines` reads a source file's comments rather than
+# its whole text. The checker took 15.7-21.4 s over `main`'s tree against 17.9-23.6 s over the
+# branch's, five interleaved rounds after one warm run each, medians 16.4 s and 18.3 s; over a later
+# branch tree in a busier window, 16.9-20.8 s against 20.2-35.4 s, medians 18.9 s and 28.7 s.
+# Profiled in that window, the reasons read took 86-139 ms, 22-28 ms of it the shape comparison,
+# and the comment read 26-75 ms against 95-179 ms for the whole text. Called directly, the shape
+# comparison with its single-read rule takes 18 ms over a parsed classifier and 0.16-0.17 s on the
+# call that parses it. Measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a
+# fleet of agent sessions, so every figure is an upper bound. The quieter window's difference sits
+# inside the 3.9 s floor the `docs` row carries and the busier one's does not, so the first main
+# runs carrying the branch decide whether the row is re-stamped.
+#
+# `scripts` gained modules and cases, each module run alone three times unless a figure says
+# otherwise, measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of
+# agent sessions, so every figure is an upper bound:
+#
+# - `scripts/tests/test_check_publish_verdict.py`, 0.71-0.79 s; its case failing a push to `main`
+#   on a skipped scope job, under 5 ms
+# - `scripts/tests/test_deploy_pair.py`, 5.8-6.3 s; its three pull cases, 1.07-1.16 s together
+# - `scripts/tests/test_check_compose_model.py`, 0.51-0.54 s
+# - `scripts/tests/test_lockfile_release_age.py`, 10.9-11.3 s; its two setting-drift cases,
+#   1.05-1.12 s and 1.57-1.62 s
+# - `scripts/tests/test_image_assertions.py`, every answer the image assertions can give,
+#   28.1-29.3 s
+# - `scripts/tests/test_gate_forms.py`, 48.9-51.6 s over two runs; its pnpm refusal cases,
+#   17.6-18.8 s together, the annotate checker printing its population once under `--verbose`,
+#   3.1-3.3 s, and the crash named behind an earlier failure, 2.3-2.4 s
+# - `scripts/tests/test_scope_decisions.py`, the module above; its case holding every path an arm
+#   names to an existing file, under 5 ms, and its widened frontend-reach derivation, 87-99 ms a
+#   call against 81-94 ms before it widened
+# - `scripts/gate/selfcheck.sh`'s probe of the standard hook on a `Notice` write, 0.19-0.20 s a
+#   call, as the probe of a `.md` write beside it
+#
+# `--dist loadfile` hands each module to one worker; the pytest unit's cost is recorded whole below.
+#
+# `scripts` is selected by more pull requests: `scripts/gate/scope_map.sh` hands it
+# `fl_frontend/package.json`, both compose files, the frontend's Dockerfile and both images' ignore
+# files, whose contents its suites read. Such a pull request pays the `scripts` job where it paid
+# none. The job's pytest unit took 103.0-141.1 s over two runs in the gate's own form at eight
+# workers, measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of
+# agent sessions, so an upper bound. The selection moves no row, the rows being cut from pushes to
+# main, which run every scope; whether the unit's growth above moved the job's span past its floor
+# is for the first main runs carrying it to show.
+#
+# `scripts` and `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list
+# names. `ruff check --no-cache` took 185-842 ms with it against 187-1762 ms without over
+# `scripts`, and 254-2348 ms against 248-916 ms over the backend's `app` and `tests`, over eight
+# interleaved rounds, each run exit 0, measured locally on 2026-09-25 on a sixteen-core Windows
+# machine carrying a fleet of agent sessions. The arms overlap, so the rule costs less than this
+# machine resolves. Neither the reference nor the budget moves and neither takes a new stamp.
+#
+# `frontend` and `backend` each gained a step: the scope mapping's crossing cases,
+# `scripts/tests/test_scope_decisions.py :: CROSSING_CASES`, run through the module's entry on the
+# interpreter the job already holds. The entry alone took 3.45-3.54 s over two runs on each of the
+# backend's virtualenv and a bare interpreter, against 0.07-0.10 s for either interpreter's own
+# start, and 5.1 s inside one `--backend` run, measured locally on 2026-09-25 on a sixteen-core
+# Windows machine carrying a fleet of agent sessions, so every figure is an upper bound. The step
+# runs after each scope's pool, so each job pays it whole. It sits inside the `frontend` floor. The
+# `backend` floor of 4.9 s holds the standalone figure and not the in-run one, so whether the
+# runner's median moves that reference is the advisory report's to show, and a move takes a new
+# stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
