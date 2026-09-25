@@ -713,9 +713,7 @@ because a case is cut only where a surviving one still fails for the same regres
 - **The error boundaries' retry.** `fl_frontend/src/shared/components/ui/Error.tsx` and
   `fl_frontend/src/features/dashboard/components/ui/DashboardErrorBoundary.tsx` wire the same
   refresh-then-reset retry, and the argument for it is written at `Error.tsx` alone. The shape is
-  one hook; `fl_frontend/src/shared/hooks/errorBoundaryReports.test.ts` finds each boundary by the
-  text `useReportClientCrash(` in its file, so that sweep follows the call into the hook in the same
-  change.
+  one hook.
 
 **A test double is copied, and this pass takes it as the frontend's cleanup rather than a page's:**
 
