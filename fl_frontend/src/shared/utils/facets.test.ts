@@ -325,8 +325,8 @@ describe("countActiveFacets", () => {
 });
 
 /**
- * Every facet set, discovered rather than listed. **Imported dynamically by a computed path, which is a boundary rather
- * than a style**: this file lives in `shared`, which may not import `features`.
+ * Every facet set, discovered rather than listed: each slice's `facets.ts` is found by walking `features/` and imported
+ * by the path the walk yields, so a slice that adds one is checked without being named here.
  */
 const FEATURES_DIR = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -502,17 +502,12 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
 type Told = Record<string, Record<string, number>>;
 
 /**
- * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded by a
- * computed path, `shared` importing nothing from `features`.
+ * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded behind
+ * the harness, as `AdminCrudView` is above.
  */
 const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
   "aktionen/AKTIONEN_FACETS": {
-    load: async () =>
-      (
-        (await import(pathToFileURL(path.join(FEATURES_DIR, "aktionen", "components", "views", "AdminAktionenView.tsx")).href)) as {
-          AdminAktionenView: ComponentType<never>;
-        }
-      ).AdminAktionenView,
+    load: async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView as ComponentType<never>,
     props: (told) =>
       ({
         aktionen: [],
@@ -527,11 +522,7 @@ const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>
   },
   "bewerbungen/BEWERBUNGEN_FACETS": {
     load: async () =>
-      (
-        (await import(pathToFileURL(path.join(FEATURES_DIR, "bewerbungen", "components", "views", "AdminBewerbungenView.tsx")).href)) as {
-          AdminBewerbungenView: ComponentType<never>;
-        }
-      ).AdminBewerbungenView,
+      (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView as ComponentType<never>,
     props: (told) =>
       ({
         bewerbungen: [],
