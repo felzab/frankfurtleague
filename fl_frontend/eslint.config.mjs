@@ -212,9 +212,8 @@ const VENDOR_ROOTS = [
 const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [...VENDOR_ROOTS, ...patterns] }] });
 
 /**
- * Next keeps the router and search-parameter contexts on private modules no public export carries. A
- * slice reaching one outside the test harness carries a disable comment naming why, which
- * `reportUnusedDisableDirectives` fails once the import is gone.
+ * Next keeps the router and search-parameter contexts on private modules no public export carries.
+ * `nextContexts.ts` is their one importer, left out of this ban by a block of its own below.
  */
 const NEXT_PRIVATE_CONTEXTS = {
   regex: String.raw`next/dist/shared/lib/(?:app-router-context|hooks-client-context)\.shared-runtime`,
