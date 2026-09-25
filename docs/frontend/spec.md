@@ -177,10 +177,11 @@ through React's per-request `cache`, and which a scope opened inside it shares, 
 `fl_frontend/src/core/api.ts :: apiClient` and `fl_frontend/src/core/mail.ts :: sendMail` cap each
 call's own bound to what is left and start none once it has passed, a write so refused throwing
 `fl_frontend/src/core/errors.ts :: ApiUnsentError` or `fl_frontend/src/core/mail.ts :: MailUnsentError`
-rather than a network error, which a reader takes for a write that may have landed. **A write through
-`runAdminMutation` or `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` answers as
-of unknown outcome wherever the deadline cut a call or a mail may have gone**, whatever the handler
-made of either: part of the write may stand, as it may where the backend's own deadline cuts one
+rather than a network error, which a reader takes for a write that may have landed. **A request through
+`runAdminMutation` or `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` that sent a
+write answers as of unknown outcome wherever the deadline cut a call or a mail may have gone**,
+whatever the handler made of either, both spines judging by one reading of what the request sent
+(`fl_frontend/src/shared/utils/writeOutcome.ts :: answerThrow`): part of the write may stand, as it may where the backend's own deadline cuts one
 (`docs/backend/spec.md :: I321`). Both mail fan-outs count a send that broke off unanswered as neither
 delivered nor unreachable, and a send carrying an idempotency key is tried again after a broken
 connection, the provider collapsing the repeat. The deadline sits under the edge's cut by the proxy's

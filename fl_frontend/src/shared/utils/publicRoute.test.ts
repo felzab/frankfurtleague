@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
@@ -30,7 +30,8 @@ const { UNHANDLED_FIELD_REFUSAL } = await import("./refusal.ts");
 const { VALIDATION_FAILED } = await import("./validation.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
-const { markOutcomeUnknown } = await import("@/core/requestScope");
+const { ApiUnsentError } = await import("@/core/errors.ts");
+const { boundCall, markOutcomeUnknown, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
@@ -160,28 +161,64 @@ describe("a refusal the route itself leaves unmapped", () => {
   });
 });
 
-describe("a throw of the route's own code", () => {
-  const thrownBy = async (method: string) =>
-    (
-      (await handlePublicRequest(request("same-origin", { body: 0 }, method), {
-        routeName: "publicRouteTest",
-        run: async () => {
-          throw new RangeError("Invalid time value");
-        },
-      })) as unknown as { body: { success: boolean; error?: string; outcome?: string } }
-    ).body;
+/** What the spine answers for a route whose body runs `body` on a POST. */
+const answeredFor = async (body: () => Promise<never>) =>
+  (
+    (await handlePublicRequest(request("same-origin", { body: 0 }), { routeName: "publicRouteTest", run: body })) as unknown as {
+      body: { success: boolean; error?: string; outcome?: string };
+    }
+  ).body;
 
+describe("a throw of the route's own code", () => {
   /* The application route formats a date and composes its mails after the write, so a throw there
      leaves the row standing: answered as a failure, the applicant sends it again. */
-  it("answers a POST as of unknown outcome, the write perhaps standing", async () => {
-    assert.equal((await thrownBy("POST")).outcome, "unknown");
+  it("answers a throw after a sent write as of unknown outcome, the write perhaps standing", async () => {
+    const body = await answeredFor(async () => {
+      recordWriteSent();
+      throw new RangeError("Invalid time value");
+    });
+
+    assert.equal(body.outcome, "unknown");
   });
 
-  it("answers a GET, which wrote nothing, as the failure it is", async () => {
-    const body = await thrownBy("GET");
+  /* Judged by what the request sent, never by the route's own method: nothing left, so nothing stands. */
+  it("answers a throw before any write, on a POST, as the failure it is", async () => {
+    const body = await answeredFor(async () => {
+      throw new RangeError("Invalid time value");
+    });
 
     assert.equal(body.outcome, undefined);
     assert.equal(body.error, "Lade die Seite neu und versuche es erneut.");
+  });
+});
+
+describe("a public write the request's deadline refused before it left", () => {
+  const PLAIN = { outcome: undefined, error: "Lade die Seite neu und versuche es erneut." };
+  const plainOf = (body: { error?: string; outcome?: string }) => ({ outcome: body.outcome, error: body.error });
+
+  it("answers a first write refused unsent as the failure it is", async () => {
+    const body = await answeredFor(async () => {
+      throw new ApiUnsentError("POST");
+    });
+
+    assert.deepEqual(plainOf(body), PLAIN);
+  });
+
+  /* The spent deadline marks the request cut, which after a sent write would leave it unclear. */
+  it("answers it so with the deadline spent, no write having left before it", async () => {
+    let clock = 0;
+    mock.method(performance, "now", () => clock);
+    try {
+      const body = await answeredFor(async () => {
+        clock += REQUEST_DEADLINE_MS + 1;
+        boundCall(1000);
+        throw new ApiUnsentError("POST");
+      });
+
+      assert.deepEqual(plainOf(body), PLAIN);
+    } finally {
+      mock.restoreAll();
+    }
   });
 });
 
@@ -192,6 +229,8 @@ describe("a public route whose request left a call's outcome unknown", () => {
       (await handlePublicRequest(request("same-origin", { body: 0 }, method), {
         routeName: "publicRouteTest",
         run: async () => {
+          // A write sent on the POST alone: a GET sends none.
+          if (method === "POST") recordWriteSent();
           markOutcomeUnknown();
           return { success: true, message: "Deine Bewerbung ist eingegangen." };
         },

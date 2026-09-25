@@ -2,13 +2,14 @@ import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten, RolledBackError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
+import { requestWriteSent } from "@/core/requestScope";
 
-import { toActionErrorResult, unansweredAction } from "./actionError";
+import { unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
+import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
@@ -66,18 +67,15 @@ async function runGuarded<T extends { success: boolean }>(
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      // Judged by what this request sent, a server action being a POST whatever it does. Only a write's own
-      // answer says whether it landed, so after a sent write every other throw leaves it unknown.
-      const writesOwn = error instanceof RolledBackError || (typed && mayHaveWritten(error));
-      answer = requestWriteSent() && !writesOwn ? unansweredAction() : toActionErrorResult(error);
+      // Judged by what this request sent, a server action being a POST whatever it does.
+      answer = answerThrow(error);
     }
 
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
 
-    // Whatever the action made of a deadline's cut or of a mail that may have gone, a fan-out settling
-    // either among its refusals: part of the write may stand (`docs/frontend/spec.md :: I366`).
-    if (wrote && requestOutcomeUnknown()) {
+    // Whatever the action made of it: part of the write may stand.
+    if (writeOutcomeUnknown()) {
       logger.error(`Admin mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
       return { forbidden: false, answer: unansweredAction(), wrote: wrote };

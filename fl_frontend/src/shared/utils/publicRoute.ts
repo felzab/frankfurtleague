@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestOutcomeUnknown } from "@/core/requestScope";
 
-import { isRuleRefusal, refusedFailure, toActionErrorResult, unansweredAction } from "./actionError";
+import { isRuleRefusal, refusedFailure, unansweredAction } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
+import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
 import type { FormState } from "@/shared/types/types";
 import type { NextRequest } from "next/server";
@@ -68,14 +68,11 @@ export async function handlePublicRequest<T extends { success: boolean }>(
           : refusedFailure(error, UNHANDLED_FIELD_REFUSAL);
       }
 
-      // The request this route answers, for a throw carrying none of its own: code after a POST's
-      // write can throw with the row already stored.
-      answer = toActionErrorResult(error, { method: request.method, readOnly: false });
+      // Judged by what this request sent, never by the route's own method: a POST that sent nothing changed nothing.
+      answer = answerThrow(error);
     }
 
-    // The admin spine's rule, for the reason it gives there (`docs/frontend/spec.md :: I366`); a GET
-    // changed nothing, so it keeps the answer it built.
-    if (mayHaveWritten({ method: request.method, readOnly: false }) && requestOutcomeUnknown()) {
+    if (writeOutcomeUnknown()) {
       logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
 
       return unansweredAction();
