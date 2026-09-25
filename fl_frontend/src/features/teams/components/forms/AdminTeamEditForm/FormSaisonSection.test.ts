@@ -101,7 +101,12 @@ describe("the club's group swap after its answer", () => {
     await user.click(screen.getByRole("button", { name: /Tauschen mit/ }));
     await user.click(screen.getByRole("option", { name: /^TSV Beta/ }));
     await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
-    await waitFor(() => assert.equal(raised.length, 1));
+    // The toast is raised inside the transition, so the control still runs when it arrives: the panel is
+    // read once it has let go.
+    await waitFor(() => {
+      assert.equal(raised.length, 1);
+      assert.equal(screen.queryAllByRole("button", { name: "Tauscht..." }).length, 0, "the swap is still running");
+    });
 
     return { seen, user };
   }
