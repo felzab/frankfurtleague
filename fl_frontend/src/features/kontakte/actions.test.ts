@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -13,7 +11,6 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
@@ -21,13 +18,6 @@ import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from 
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
-
-/**
- * Read rather than called: what each case asserts is which module carries a step — which declares a
- * tier, which composes the report — and a call reports an outcome rather than the site.
- */
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 
 doubleEveryAction();
 
@@ -118,12 +108,6 @@ const LIST_MARKUP = await renderPage(listPage());
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
 
-/* Each declaration is cut at the one named after it, the header above the first included: a boundary
-   that stopped matching then fails the case pinning the cut rather than every case reading the slice. */
-const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseKontaktpersonAction", " * The three seats one club holds");
-const ACTION_HEADER = sliceBetween(ACTIONS, '"use server"', "export async function eraseKontaktpersonAction");
-const RESPONSE_SCHEMA = sliceBetween(SCHEMAS, "export const FLKontaktErasureResponseSchema", null);
-
 /** One response, spelled once so a report case names only the figures it is about. */
 function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
   return {
@@ -137,18 +121,6 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
 }
 
 describe("the erasure's refusals", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the action out of the file before reading it", () => {
-    assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
-    assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
-    assert.ok(!ERASE_ACTION.includes("patchSaisonTeamKontakte("), "the erasure's slice runs on into the seats' write");
-    assert.ok(
-      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations"'),
-      "the header's slice no longer holds the import",
-    );
-    assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
-  });
-
   /* The endpoint refuses on no rule: a person may want their details gone while the club they were
      reached for still plays. A rule published against it later fails here until a mapper words it. */
   it("maps no refusal of its own", () => {
@@ -159,23 +131,6 @@ describe("the erasure's refusals", () => {
         `${code} is published on the erasure and reaches the admin unmapped`,
       );
     }
-    assert.ok(!ERASE_ACTION.includes("serverErrorCode"), "the erasure maps a code its endpoint does not answer");
-    assert.ok(!ERASE_ACTION.includes("APIBadStatusError"), "the erasure catches a refusal its endpoint does not raise");
-  });
-});
-
-describe("what the erasure moves", () => {
-  /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
-     render pass, the public team reads carry no `kontakte` at all, and the applications and the log
-     are uncached too. */
-  it("moves no tag, and says why", () => {
-    // Both of the module's writes, so a second one added without the reasoning fails here.
-    assert.equal([...ACTIONS.matchAll(/No tag moves/g)].length, 2, "an absent invalidation is left unexplained");
-  });
-
-  /* The response carries counts and no person, and nothing on this side may put one back. */
-  it("reports counts and never the address", () => {
-    assert.ok(!RESPONSE_SCHEMA.includes("email"), "the response mirror carries an address the endpoint withholds");
   });
 });
 

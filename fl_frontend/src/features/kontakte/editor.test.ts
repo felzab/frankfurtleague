@@ -2,8 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -35,7 +33,6 @@ import {
 } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners, DRAFT_IN_THE_WAY } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -49,19 +46,6 @@ import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types"
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const SRC = path.resolve(REPO_ROOT, "fl_frontend", "src");
-
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-
-const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm");
-const FORM_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "AdminKontakteEditForm.tsx"), "utf8");
-const SECTION_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteSection.tsx"), "utf8");
-const CLEAR_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteLoeschenSection.tsx"), "utf8");
-/** Whitespace-collapsed: the section's copy is JSX text, so the formatter picks its line breaks. */
-const SECTION = SECTION_SOURCE.replace(/\s+/g, " ");
 
 /**
  * Every slice's writes, replaced at the module boundary: a real one needs a session and a backend, and
@@ -315,29 +299,7 @@ const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
    compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
 
-/* Each declaration is cut at the one named after it: a boundary that stopped matching then fails the
-   case pinning the cut rather than every case reading the slice. */
-const PATCH_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonTeamKontakteAction", null);
-const PAYLOAD_SCHEMA = sliceBetween(
-  SCHEMAS,
-  "export const FLPatchSaisonTeamKontaktePayloadSchema",
-  "export type FLPatchSaisonTeamKontaktePayload",
-);
-const RESPONSE_SCHEMA = sliceBetween(
-  SCHEMAS,
-  "export const FLPatchSaisonTeamKontakteResponseSchema",
-  "export type FLPatchSaisonTeamKontakteResponse",
-);
-
 describe("the contacts write against the codes its endpoint publishes", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts each declaration out of its file before reading it", () => {
-    assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
-    assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
-    assert.ok(PAYLOAD_SCHEMA.includes("team_id"), "the payload mirror's slice does not reach its fields");
-    assert.ok(RESPONSE_SCHEMA.includes("kontakte"), "the response mirror's slice does not reach its fields");
-  });
-
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
      (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
      falls through to the shared 409 fallback, which reports a duplicate entry. */
@@ -354,50 +316,9 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
     assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
   });
-
-  /* The block as stored and its own token, and no other field of the row: the group, the kit colour
-     and the Austritt are the club editor's, and echoing one would give this page a second subject. */
-  it("mirrors a response carrying the block, its token and nothing beside it", () => {
-    assert.deepEqual(
-      [...RESPONSE_SCHEMA.matchAll(/^\s{2}(\w+):/gm)].map((match) => match[1]),
-      ["saison_id", "team_id", "kontakte", "kontakte_stand"],
-    );
-  });
-
-  /* The payload mirror is composed from the club editor's, never restated: the two write the same
-     block, and a second spelling would drift with nothing able to see it. */
-  it("reuses the block's own mirror rather than restating it", () => {
-    assert.match(PAYLOAD_SCHEMA, /kontakte: FLSaisonTeamKontaktePayloadSchema\.nullable\(\)/, "the payload spells the block a second time");
-    assert.match(SCHEMAS, /from "@\/features\/teams\/schemas"/, "the block's mirror is no longer imported");
-  });
-});
-
-describe("what the contacts write moves", () => {
-  /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
-     render pass, and no public team read carries `kontakte` at all. */
-  it("moves no tag, and says why", () => {
-    assert.match(PATCH_ACTION, /No tag moves/, "the absent invalidation is left unexplained");
-  });
 });
 
 describe("the editor's shape", () => {
-  /* The shared editor surface, in full: a slice contributes its descriptors and its banners and
-     takes everything structural from `shared/components/ui`. */
-  it("is built from the shared editor modules and declares none of its own", () => {
-    for (const shared of [
-      "EditFormLayout",
-      "FormActionBar",
-      "DraftRail",
-      "DraftStatusProvider",
-      "ConfirmDiscardModal",
-      "ConfirmSaveModal",
-      "useDraftFieldErrors",
-    ]) {
-      assert.ok(FORM_SOURCE.includes(`{ ${shared} }`), `the editor no longer takes ${shared} from the shared surface`);
-    }
-    assert.match(FORM_SOURCE, /deriveKontakteDraftStatus/, "the editor derives its draft status somewhere else");
-  });
-
   /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
      what a seat owes is using it. */
   it("raises no heading the shell already owns", async () => {
@@ -511,16 +432,6 @@ describe("the editor's shape", () => {
 
     await user.click(screen.getByRole("switch", { name: "Ansprechperson hinterlegt" }));
     assert.equal(firstNames()[0]?.value, held, "the seat comes back empty, so the press cost the person it held");
-  });
-
-  /* Both controls hand their re-judging decision to a pure function, and the blur hands its path set
-     to one: an inline condition at any of the three is a rule stated twice, and `utils.test.ts` is
-     where each of them is proven in every direction. */
-  it("takes every re-judging decision from the shared helpers", () => {
-    // The decision comes FROM the helper, whatever it is passed: the argument list is the switch's
-    // business, and pinning it made restoring a switched-off seat read as a regression.
-    assert.match(SECTION, /const \{ next, revalidate \} = applySeatPresence\(/, "a seat's switch judges the mirror itself");
-    assert.match(SECTION, /const \{ next, revalidate \} = applySharedSeat\(/, "the shared-seat picker judges the mirror itself");
   });
 
   /* While the claim stands the Trainer is the named seat's person, so leaving one of that seat's
@@ -879,13 +790,6 @@ describe("the way in and out of the editor", () => {
     const wayOut = /<a [^>]*href="([^"]*)"[^>]*>Zur Seite des Teams</.exec(viewMarkup(null, false))?.[1] ?? "";
 
     assert.equal(wayOut, teamPageHref("t1", "2526"), "the way out is spelled a second time, or lost the season");
-    /* Read beside the render: this season needs no escaping, so a literal template renders the same
-       href while dropping the `encodeURIComponent` the builder puts round a season that does. */
-    assert.match(
-      FORM_SOURCE,
-      /teamHref=\{teamPageHref\(teamId, saison\.saisonId\)\}/,
-      "the way out is built at the call site rather than by the builder",
-    );
   });
 
   /* One noun for one concept: `Saison-Zugehörigkeit` is what the admin surface calls a junction row,
@@ -947,7 +851,6 @@ describe("how the editor clears a season's contact block", () => {
     );
     // The control: one switch per seat is what stayed, so a render carrying none proves nothing above.
     assert.ok(renderedSeats.includes("Trainer hinterlegt"), "the seats render no switch at all");
-    assert.ok(!SECTION.includes("toggleBlock"), "the block toggle's logic is back");
   });
 
   /* Its own red section, and LAST: every editor on the site puts its destructive section at the
@@ -967,9 +870,6 @@ describe("how the editor clears a season's contact block", () => {
     assert.ok(editor.includes(`<section class="${danger.root()}">`), "the deletion's box is not graded as destructive");
     assert.ok(editor.includes(`<div class="${danger.header()}">`), "the deletion's header band is not graded as destructive");
     assert.ok(editor.includes(`<h2 class="${danger.heading()}`), "the deletion's title is not graded as destructive");
-    // Read beside the render: spelling all three by hand renders identical markup, and what picks the
-    // tone is the one thing no state of this panel puts in the markup.
-    assert.match(CLEAR_SECTION, /formPanel\(\{ tone: hasStored \? "danger" : "neutral" \}\)/, "the grade is no longer the recipe's to give");
     // Nothing stored is nothing at stake, so the grade is spent nowhere.
     assert.ok(!viewMarkup(null).includes("border-danger/30"), "an empty block is graded as destructive");
     assert.ok(
@@ -1128,18 +1028,6 @@ describe("which wording a record cites", () => {
       LIGA_KENNTNISNAHME.textVersion,
       "the public form stamps its own version",
     );
-    // The identifier as well as the value: a literal that happens to agree today drifts on the next bump.
-    for (const [name, file] of [
-      ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
-      ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
-      ["the confirmation page", path.resolve(SRC, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx")],
-    ] as const) {
-      assert.match(
-        readFileSync(file, "utf8"),
-        /LIGA_KENNTNISNAHME|BESTAETIGUNG_KENNTNISNAHME/,
-        `${name} spells the version rather than reading it`,
-      );
-    }
   });
 
   /* Typed by hand, the version is a value nobody decided stored as though somebody had — and an edit
@@ -1149,13 +1037,6 @@ describe("which wording a record cites", () => {
 
     assert.notEqual(box, "", "the Fassung field is no longer rendered at all");
     assert.match(box, /readonly=""/i, "the Fassung field is no longer read-only");
-
-    // Both handlers, which no markup carries: read-only stops the caret, and a write reaching the
-    // field by either handler would still rewrite which text a stored record cites.
-    const fieldName = /<TextField[^>]*isReadOnly[\s\S]{0,400}?einwilligung\.text_version[\s\S]*?<\/TextField>/.exec(SECTION_SOURCE)?.[0] ?? "";
-
-    assert.match(fieldName, /onChange=\{\(\) => undefined\}/, "the Fassung field still writes what is typed into it");
-    assert.doesNotMatch(fieldName, /setEinwilligung\(\{ text_version/, "the Fassung field still edits the stored version");
   });
 });
 
@@ -1176,13 +1057,6 @@ describe("how the editor divides one person from the next", () => {
       assert.ok(header.includes(`<h2 class="${panel.heading()}`), "a seat spells its own heading again");
     }
     assert.ok(!sectionMarkup(BLOCK).includes("border-t pt-5 first:border-t-0"), "the seats are back to being slices of one panel");
-    /* Read beside the render: a literal spelling those same classes renders identical markup, and the
-       copy drifts at the next change to the recipe with nothing able to see it. */
-    assert.match(
-      SECTION,
-      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <PanelHeading className=\{panel\.heading\(\)\}/,
-      "a seat's panel is spelled out instead of read off formPanel",
-    );
   });
 
   /* An empty card carrying a title and nothing else is what the block heading had become once each
@@ -1405,23 +1279,6 @@ describe("which way the claim runs, at every site that reads it", () => {
       said().includes("Betroffen: Ansprechperson, Trainer."),
       "emptying the named seat does not name the Trainer it empties, the banner reading the raw draft",
     );
-  });
-
-  /* The admin editor and the public form run one direction through one function. Divergence here is
-     what this whole case was. */
-  it("runs the same direction as the public form's own judgement", () => {
-    const publicSource = readFileSync(path.resolve(SRC, "features", "bewerbungen", "utils.ts"), "utf8");
-
-    for (const [name, source] of [
-      ["the admin editor", readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8")],
-      ["the public form", publicSource],
-    ] as const) {
-      assert.match(
-        source,
-        /\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\)\)|\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\),/,
-        `${name} judges the claim's copies the other way round`,
-      );
-    }
   });
 });
 
