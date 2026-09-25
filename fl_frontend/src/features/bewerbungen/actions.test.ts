@@ -805,6 +805,18 @@ describe("the re-sent confirmation link", () => {
     assert.match(errorOf(result), /Versuche es noch einmal/, "the failure names no way out");
   });
 
+  /* The spine refreshes a success alone, and a message that did not go leaves the mint standing: the
+     seat's old link is spent and its deadline moved, which the page shows. */
+  it("refreshes the page after a re-send whose message did not go", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, null);
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.equal(result.success, false, "the message went, so the refresh below is judged on nothing");
+    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
+  });
+
   /* The endpoint writes the deadline in the same update that mints the token, so an application
      answering none afterwards is a contract broken rather than a state to word for an administrator. */
   it("throws where the write it has just made answers no deadline", async () => {
