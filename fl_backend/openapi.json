@@ -448,7 +448,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id"
+              "title": "Spiel Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -585,7 +586,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id"
+              "title": "Spiel Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -728,7 +730,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -1187,7 +1189,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -1265,7 +1267,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -1432,7 +1435,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -1550,7 +1554,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -1626,7 +1630,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -2026,7 +2031,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id"
+              "title": "Spieltag Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -2163,7 +2169,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id"
+              "title": "Spieltag Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -2284,7 +2291,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -2565,7 +2572,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -2702,7 +2710,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -2797,7 +2806,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -2873,7 +2882,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -3292,7 +3302,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -3745,7 +3755,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -4059,7 +4069,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -4137,7 +4147,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id"
+              "title": "Spielort Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -4274,7 +4285,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id"
+              "title": "Spielort Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -4392,7 +4404,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -4468,7 +4480,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id"
+              "title": "Spielort Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -4910,7 +4923,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -4988,7 +5001,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -5125,7 +5139,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -5244,7 +5259,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -5320,7 +5335,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -5814,7 +5830,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -5892,7 +5908,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -6358,7 +6375,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -6859,7 +6876,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id"
+              "title": "Spiel Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -7113,7 +7131,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -7586,7 +7604,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -7771,7 +7790,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -7893,7 +7913,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -7971,7 +7991,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8101,7 +8122,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -8179,7 +8200,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8307,7 +8329,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -8385,7 +8407,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8517,7 +8540,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -8595,7 +8618,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8789,7 +8813,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -8981,7 +9006,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id"
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -9343,7 +9369,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id"
+              "title": "Spieltag Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -9703,7 +9730,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -9865,7 +9893,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -10050,7 +10079,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -10171,7 +10201,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -10249,7 +10279,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -10379,7 +10410,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -10455,7 +10486,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -10649,7 +10681,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id"
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -11329,7 +11362,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -11468,6 +11501,12 @@
                         "error_code": {
                           "enum": [
                             "DB-COMMON-002",
+                            "REQ-DATE-009",
+                            "REQ-RULES-014",
+                            "REQ-RULES-015",
+                            "REQ-RULES-016",
+                            "REQ-RULES-017",
+                            "REQ-RULES-018",
                             "REQ-SPIELPLAN-001",
                             "REQ-SPIELPLAN-002",
                             "REQ-SPIELPLAN-003",
@@ -11495,11 +11534,8 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-DATE-005",
                             "REQ-RULES-001",
                             "REQ-RULES-007",
-                            "REQ-RULES-008",
-                            "REQ-RULES-010",
                             "REQ-RULES-013",
                             "REQ-VAL-001"
                           ]
@@ -11535,7 +11571,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -12065,7 +12101,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -12143,7 +12179,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id"
+              "title": "Spielort Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -12328,7 +12365,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -12514,7 +12552,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -12703,7 +12742,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id"
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -12754,7 +12794,8 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "DB-COMMON-002"
+                            "DB-COMMON-002",
+                            "REQ-ANONYMISE-004"
                           ]
                         }
                       }
@@ -12835,29 +12876,6 @@
                           "enum": [
                             "REQ-AUTH-001",
                             "REQ-AUTH-004"
-                          ]
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/FLFailureBody"
-                    },
-                    {
-                      "properties": {
-                        "error_code": {
-                          "enum": [
-                            "REQ-ANONYMISE-004"
                           ]
                         }
                       }
@@ -13103,7 +13121,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Aktion Id"
+              "title": "Aktion Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -13242,7 +13261,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -13368,7 +13388,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -13446,7 +13466,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -13565,7 +13586,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -13643,7 +13664,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -13839,7 +13861,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -13969,7 +13992,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -14047,7 +14070,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id"
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           },
           {
@@ -14177,7 +14201,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -14311,7 +14335,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -14497,7 +14521,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -14741,7 +14765,7 @@
                         "error_code": {
                           "enum": [
                             "REQ-AUTH-005",
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -14824,7 +14848,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sperrliste Id"
+              "title": "Sperrliste Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
             }
           }
         ],
@@ -15654,7 +15679,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -15785,7 +15810,8 @@
                         "error_code": {
                           "enum": [
                             "DB-COMMON-002",
-                            "REQ-BEWERBUNG-011"
+                            "REQ-BEWERBUNG-011",
+                            "REQ-BEWERBUNG-017"
                           ]
                         }
                       }
@@ -15842,7 +15868,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -16027,7 +16053,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -16190,7 +16216,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -16379,7 +16405,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -16540,7 +16566,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -16752,7 +16778,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -17219,7 +17245,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -17391,7 +17417,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -17570,7 +17596,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -17754,7 +17780,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -18100,7 +18126,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -18284,7 +18310,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -18468,7 +18494,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
@@ -18606,7 +18632,7 @@
                       "properties": {
                         "error_code": {
                           "enum": [
-                            "REQ-VAL-001"
+                            "REQ-VAL-002"
                           ]
                         }
                       }
