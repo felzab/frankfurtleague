@@ -36,14 +36,6 @@ FLAGS: Final = "--frontend"
 STUB_PNPM: Final = """#!/usr/bin/env bash
 set -u
 printf 'worker=%s step=%s\\n' "${FL_GATE_WORKER:-}" "${FL_GATE_STEP:-}" > "${FL_STUB_LOG}/${1//:/-}-$$-${RANDOM}"
-if [[ -n "${FL_STUB_REFUSE:-}" && "${1:-}" == "${FL_STUB_REFUSE}" ]]; then
-  printf '%s\\n' "[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] The lockfile does not satisfy project of id ."
-  exit 1
-fi
-if [[ -n "${FL_STUB_QUOTE:-}" && "${1:-}" == "${FL_STUB_QUOTE}" ]]; then
-  printf '%s\\n' "the stub ran ${1}" "a failing case expected [ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] in its output"
-  exit 1
-fi
 if [[ -n "${FL_STUB_CRASH:-}" && "${1:-}" == "${FL_STUB_CRASH}" ]]; then
   printf '%s\\n' "the stub crashed ${1}"
   exit 3
@@ -134,7 +126,7 @@ def _fixture() -> Fixture:
 
 @cache
 def _run(
-    *flags: str, fails: str = "", refuses: str = "", crashes: str = "", quotes: str = "", ci: bool = False, below_floor: bool = False
+    *flags: str, fails: str = "", crashes: str = "", ci: bool = False, below_floor: bool = False
 ) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
@@ -156,9 +148,7 @@ def _run(
         environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
-    environment["FL_STUB_REFUSE"] = refuses
     environment["FL_STUB_CRASH"] = crashes
-    environment["FL_STUB_QUOTE"] = quotes
     environment["TMPDIR"] = fixture.scratch.as_posix()
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
@@ -331,64 +321,25 @@ def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -
 UNIT_TESTS: Final = "test"
 
 
-# One subcommand per kind of call site passing `quietly --pnpm`: a direct step, a writer, a pooled
-# unit's verdict and the audit's own replay. The audit's failure is an advisory, so its control is 0.
-@pytest.mark.parametrize(
-    ("scope", "subcommand", "failed"),
-    [
-        ("--format", "format:check", 1),
-        ("--frontend-units", UNIT_TESTS, 1),
-        ("--frontend", "typegen", 1),
-        ("--frontend", "typecheck:only", 1),
-        ("--frontend", "audit:prod", 0),
-    ],
-)
-def test_pnpm_s_dependency_check_stopping_a_step_refuses_rather_than_failing(scope: str, subcommand: str, failed: int) -> None:
-    """Exit 2: pnpm stopped the script before it ran, so the step judged nothing (`.claude/CLAUDE.md` §7 **exit codes**).
+# The preflight's two disjuncts a fixture scope isolates; `--frontend` implies `--format`, and the db
+# scope has its own case below. The stub's failure names no code, so only the exit code can say it.
+@pytest.mark.parametrize(("scope", "subcommand"), [("--format", "format:check"), ("--frontend-units", UNIT_TESTS)])
+def test_a_tree_pnpm_will_not_start_a_command_in_refuses_the_run(scope: str, subcommand: str) -> None:
+    """Exit 2: pnpm's dependency check stops every `exec` and `run` alike, so no step would have judged anything.
 
-    The same subcommand failing on its own is the control: a runner refusing every stop passes nothing.
+    The step's own failure is the control: a runner refusing every failure passes nothing.
     """
-    refused, _ = _run(scope, refuses=subcommand)
+    refused, _ = _run(scope, fails="exec")
     output = refused.stdout + refused.stderr
     assert refused.returncode == 2, output
-    assert "pnpm's dependency check stopped this step" in output and "cd fl_frontend && pnpm install" in output, output
+    assert "pnpm would not start a command in fl_frontend" in output and "cd fl_frontend && pnpm install" in output, output
     assert "finding(s) in this run" not in output, output
     control, _ = _run(scope, fails=subcommand)
-    assert control.returncode == failed, control.stdout + control.stderr
-
-
-def test_a_pnpm_script_that_ran_and_failed_quoting_the_refusal_code_is_a_failure() -> None:
-    """Exit 1: the script started, so pnpm's check let it through, whatever its own output says after."""
-    done, _ = _run("--frontend-units", quotes=UNIT_TESTS)
-    output = done.stdout + done.stderr
-    assert done.returncode == 1, output
-    assert "pnpm's dependency check stopped this step" not in output, output
-
-
-# A checker that is no pnpm script, failing with output that quotes the dependency check's code: a
-# case asserting on a stub's refusal prints exactly that.
-STUB_QUOTING_PYTHON: Final = """#!/usr/bin/env bash
-case "${{1:-}}" in
-  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
-  scripts/checks/check_docs.py) printf '%s\\n' "a finding quoting [ERR_PNPM_VERIFY_DEPS_BEFORE_RUN]"; exit 1 ;;
-esac
-exit 0
-"""
-
-
-def test_a_failing_check_quoting_pnpm_s_refusal_code_is_a_failure() -> None:
-    """Exit 1: only a step that started a pnpm script can have been stopped by pnpm's dependency check."""
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    root, environment = _venv_root("fl-gate-quoting-", STUB_QUOTING_PYTHON)
-    # Serial: the stub interpreter would also be handed the pool's driver, and runs nothing.
-    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--docs", "--serial", env=environment)
-    output = done.stdout + done.stderr
-    assert done.returncode == 1, output
-    assert "pnpm's dependency check stopped this step" not in output, output
+    assert control.returncode == 1, control.stdout + control.stderr
 
 
 # The db scope under stubs: Docker answering its version, the interpreter passing pytest, and pnpm
-# refusing `run`, the subcommand `do_frontend_db` starts `test:db` through.
+# failing the preflight's `exec`.
 STUB_DOCKER: Final = """#!/usr/bin/env bash
 printf '%s\\n' "27.0.0"
 exit 0
@@ -401,8 +352,8 @@ exit 0
 """
 
 
-def test_pnpm_s_dependency_check_stopping_the_db_tier_ends_the_run_once_as_a_refusal() -> None:
-    """Exit 2, and no crash after it: a refusal ending a subshell alone left the gate to read its 2 as a crash."""
+def test_a_tree_pnpm_will_not_start_a_command_in_refuses_the_db_run_once() -> None:
+    """Exit 2 before either suite, and no crash after it: the db scope is the preflight's third disjunct."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root, environment = _venv_root("fl-gate-db-refusal-", STUB_DB_PYTHON)
     (root / "fl_frontend" / "node_modules").mkdir(parents=True)
@@ -412,14 +363,13 @@ def test_pnpm_s_dependency_check_stopping_the_db_tier_ends_the_run_once_as_a_ref
     log = stubs / "started"
     log.mkdir()
     environment["FL_STUB_LOG"] = str(log)
-    environment["FL_STUB_FAIL"] = ""
-    environment["FL_STUB_REFUSE"] = "run"
+    environment["FL_STUB_FAIL"] = "exec"
     # The tier's claim under the fixture's own directory, never the machine's.
     environment["TMPDIR"] = str(root)
     done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--db", env=environment)
     output = done.stdout + done.stderr
     assert done.returncode == 2, output
-    assert "pnpm's dependency check stopped this step" in output, output
+    assert "pnpm would not start a command in fl_frontend" in output, output
     assert "Crashed" not in output, output
 
 

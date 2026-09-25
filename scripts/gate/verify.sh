@@ -74,6 +74,17 @@ if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )); then
   require_dir fl_frontend/node_modules "Every frontend tool this run starts is installed there. Install it with:  cd fl_frontend && pnpm install"
 fi
 
+# pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) runs on every
+# `pnpm run` and `pnpm exec` (https://pnpm.io/settings/build), so one exec's exit code answers for
+# every step below, before any of them runs.
+pnpm_starts() { ( cd fl_frontend && pnpm exec node -e "" ); }
+if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )) && ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then
+  quietly pnpm_starts \
+    || refuse "pnpm would not start a command in fl_frontend: its dependency check found node_modules
+not answering the manifest and lockfile, or pnpm itself did not start (its own words are above), so no
+frontend step ran. Fix with:  cd fl_frontend && pnpm install  -- and commit the lockfile if it changes."
+fi
+
 # One capture directory per pool run, holding its units file, their output and its manifest.
 # Declared up here because the EXIT trap below reclaims them, and `set -u` refuses an array that
 # does not exist.
@@ -343,7 +354,7 @@ frontend_phases_disjoint
 run_writer() { # $1 unit
   local writer
   for writer in "${FRONTEND_WRITERS[@]}"; do
-    if [[ "$1" == "$writer" ]]; then quietly --pnpm "do_$1"; return; fi
+    if [[ "$1" == "$writer" ]]; then quietly "do_$1"; return; fi
   done
   on_error 3 "${BASH_LINENO[0]}" "do_$1 is run as a writer, and FRONTEND_WRITERS does not name it"
 }
@@ -382,7 +393,6 @@ pool_units_replayed() { # $1.. units
     # semicolon or a line ending after the name.
     [[ "$_REPLAY_SOURCE" == *"unit_replay ${unit}"[!a-zA-Z0-9_]* ]] \
       || [[ "$_REPLAY_SOURCE" == *"unit_verdict ${unit}"[!a-zA-Z0-9_]* ]] \
-      || [[ "$_REPLAY_SOURCE" == *"unit_verdict --pnpm ${unit}"[!a-zA-Z0-9_]* ]] \
       || on_error 3 "${BASH_LINENO[0]}" "the ${unit} unit is started by a pool and replayed nowhere in ${SELF##*/}, so its output and its status would be discarded and the scope would pass over a check nobody read"
   done
 }
@@ -602,11 +612,9 @@ unit_join() { # $1 unit — re-date the step to the work's own length, which is 
   if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
 }
 
-unit_verdict() { # [--pnpm, `quietly`'s] · $1 unit · $2 the line to blame a crash on · $3 the remedy for a failure
+unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy for a failure
   local rc=0
-  local -a pnpm=()
-  if [[ "$1" == --pnpm ]]; then pnpm=(--pnpm); shift; fi
-  quietly "${pnpm[@]}" unit_replay "$1" || rc=$?
+  quietly unit_replay "$1" || rc=$?
   case "$rc" in
     0)   ;;
     1)   die "$3" ;;
@@ -1002,7 +1010,7 @@ if (( RUN_FORMAT )); then
   step "format · prettier  (check mode — this gate never writes)"
   # No cause asserted: an unformatted file and a pnpm that would not start fail alike, and only
   # the capture above knows which.
-  quietly --pnpm do_prettier \
+  quietly do_prettier \
     || die "the formatter check did not pass — its own output is above.
 Where it names files, they are unformatted:  cd fl_frontend && pnpm format  -- then commit the result."
   ok "the tree is formatted"
@@ -1021,7 +1029,7 @@ if (( RUN_FRONTEND_UNITS )); then
   # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
   # collected, a crashed worker -- is a run that reached no verdict.
   UNIT_TESTS_RC=0
-  quietly --pnpm do_unit_tests || UNIT_TESTS_RC=$?
+  quietly do_unit_tests || UNIT_TESTS_RC=$?
   case "$UNIT_TESTS_RC" in
     0) ;;
     1) die "frontend unit tests failed." ;;
@@ -1080,17 +1088,17 @@ output is above." ;;
 
   step "frontend · tsc"
   unit_join typecheck
-  unit_verdict --pnpm typecheck "${LINENO}" "tsc found type errors."
+  unit_verdict typecheck "${LINENO}" "tsc found type errors."
   ok "no type errors"
 
   step "frontend · eslint"
   unit_join eslint
-  unit_verdict --pnpm eslint "${LINENO}" "eslint failed."
+  unit_verdict eslint "${LINENO}" "eslint failed."
   ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
   unit_join knip
-  unit_verdict --pnpm knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
+  unit_verdict knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
 Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.json beside the entry."
   ok "nothing unused"
 
@@ -1101,7 +1109,7 @@ Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.js
   # pnpm audit answers 1 for an advisory and 0 otherwise; every other status is a check that made
   # none, `unit_replay`'s 3 included. An else-arm would close the scope green over one.
   AUDIT_RC=0
-  quietly --pnpm unit_replay audit || AUDIT_RC=$?
+  quietly unit_replay audit || AUDIT_RC=$?
   case "$AUDIT_RC" in
     0)   ok "no known runtime vulnerabilities" ;;
     1)   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit" ;;
@@ -1382,7 +1390,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  quietly --pnpm do_frontend_db || FRONTEND_DB_RC=$?
+  quietly do_frontend_db || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
