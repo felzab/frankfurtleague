@@ -2,8 +2,7 @@ import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
-import { APIBadStatusError } from "@/core/errors";
-import { refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -135,15 +134,13 @@ export const BEWERBUNG_VERALTET = buildRefusal({
 export function mapBewerbungSubmitRefusal(
   error: unknown,
 ): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; schonAngekommen?: true } | null {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
-  // client, which a reload replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
+    // client, which a reload replaces.
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
     // The window closed between the page loading and this press. A reload is the whole remedy: the
     // page then says so itself instead of offering a form nothing accepts.
     case "REQ-BEWERBUNG-004":
@@ -209,21 +206,19 @@ export type EinwilligungRefusal = {
 };
 
 /**
- * A confirmation 409 as what the page should show, or `null` where the code is none of these.
+ * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
  * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
  * two of the three seats.
  */
 export function mapEinwilligungRefusal(error: unknown, mindestalter: number): EinwilligungRefusal | null {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
-  // mail's link replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+    // mail's link replaces.
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
     case "REQ-BEWERBUNG-010":
@@ -243,18 +238,16 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
 
 /** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
 export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
-  if (!(error instanceof APIBadStatusError)) return null;
+  if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
   // tiers bound its length apart.
-  if (error.statusCode === 422) return "ungueltig";
+  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  if (error.statusCode !== 409) return null;
-
-  // Every 409 alike: a spent link answers its own `zustand` in a 200, so a refusal is a token nothing
-  // could place, and a code nobody planned reads the same way.
-  return "ungueltig";
+  // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
+  // token nothing could place, and a code nobody planned reads the same way.
+  return isRuleRefusal(error) ? "ungueltig" : null;
 }
 
 /**

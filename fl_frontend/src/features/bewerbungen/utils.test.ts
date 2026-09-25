@@ -464,7 +464,15 @@ describe("what a submission's refusal is shown as", () => {
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
     assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999")), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
-    assert.equal(mapBewerbungSubmitRefusal(badStatus(404, "REQ-BEWERBUNG-005")), null);
+    // A write answered with a 5xx may have landed, which no refusal's words may deny.
+    assert.equal(mapBewerbungSubmitRefusal(badStatus(500, "REQ-BEWERBUNG-005")), null);
+  });
+
+  /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
+  it("answers a code alike at whatever status its rule answers with", () => {
+    for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
+      assert.deepEqual(mapBewerbungSubmitRefusal(badStatus(422, code)), refusal(code), code);
+    }
   });
 });
 

@@ -1,14 +1,14 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * `null` where the 409 is something else. It lands on the NAME box: `uniq_schiedsrichter_name` is this
+ * `null` where the refusal is something else. It lands on the NAME box: `uniq_schiedsrichter_name` is this
  * collection's only unique index, so the code can be about no other value the create or the edit sent.
  */
 export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
   if (error.serverErrorCode === "DB-COMMON-002") {
@@ -17,9 +17,9 @@ export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: 
   return null;
 }
 
-/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
+/** `null` where the refusal is something else; it lands on no field, the retire control being a dialog. */
 export function mapRetireRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-RETIRE-004") {
     return buildRefusal({
@@ -31,11 +31,11 @@ export function mapRetireRefusal(error: unknown): string | null {
 }
 
 /**
- * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
+ * The anonymisation refusal, or `null` when the refusal is something else. It lands on no field: the
  * control is a dialog rather than a form.
  */
 export function mapAnonymiseRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-ANONYMISE-004") {
     return buildRefusal({
@@ -58,23 +58,23 @@ const ADRESSE_GESPERRT = buildRefusal({
   repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /admin/sperrliste auf",
 });
 
-/** `null` where the 409 is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */
+/** `null` where the refusal is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */
 export function mapReactivateRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? ADRESSE_GESPERRT : null;
 }
 
-/** `null` where the 409 is something else. It lands on the address box, which is the value the list refused. */
+/** `null` where the refusal is something else. It lands on the address box, which is the value the list refused. */
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": ADRESSE_GESPERRT } } : null;
 }
 
 /** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
 export function mapEinladenRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-SCHIEDSRICHTER-001":

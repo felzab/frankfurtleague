@@ -1,11 +1,11 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Every refusal an edit can draw, in German, or `null` when none applies. */
 export function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-DATE-002") {
     return { fieldErrors: { beginn: "Dieser Zeitraum liegt außerhalb des Zeitraums der Saison." } };

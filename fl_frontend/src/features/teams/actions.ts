@@ -253,7 +253,7 @@ export async function patchSaisonTeamAction(
     }
 
     // Addressed by its natural key, so a 409 here is an entry refusal and never a unique index. The
-    // shared 409 fallback would name no reason, and it hides this page's swap control.
+    // shared fallback would name no reason, and it hides this page's swap control.
     let saisonTeam;
     try {
       saisonTeam = await patchSaisonTeam(validated.data);

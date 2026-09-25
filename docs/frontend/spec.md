@@ -194,7 +194,13 @@ rather than taking what is left of this one.
 `fl_frontend/src/shared/utils/actionError.ts :: refusedFieldErrors` keys each body path a
 `REQ-VAL-001` names as the control's `name` spells it, under `:: FELD_ABGELEHNT` and never the
 form's own message, which describes a rule the value already passed. `toActionErrorResult` and the
-public slices' 422 arms both reach it.
+public slices' `REQ-VAL-001` arms both reach it, and so does a rule's refusal no mapper words, whose
+`fields` mark the boxes it judged.
+
+**A refusal is read by its code, never by its status**
+(`fl_frontend/src/shared/utils/actionError.ts :: isRefusal`): codes are unique across the API, so a
+rule answering any status keeps the words its code is given, and a 5xx is never read as a refusal,
+since the write behind it may have landed.
 
 **A path no control renders is announced once, in the answer's own sentence** (I344): only a page
 older than the running API sends a body no box can take, so the repair is a reload, or on a page a
@@ -832,10 +838,10 @@ publishing no 409**, because a loop over an empty answer runs zero times and pro
 asked about by some test, and no test asks about an operation publishing none. The system tier is
 left out, on the premise that its callers log a refusal and show it to no one.
 
-**`DB-COMMON-002`, the unique index's refusal, is the one code the shared 409 fallback words**, as an
+**`DB-COMMON-002`, the unique index's refusal, is the one code the shared fallback words**, as an
 administrator's conflict with an entry that exists; a public route answers it in the visitor's words
-instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Any other code reaching
-the fallback is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
+instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Any other rule's code
+reaching the fallback (`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
 names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
 a reload discards what the visitor typed. Every undo route answers
 it in its own `REPLAY_REFUSALS` row with the shared sentence

@@ -1,4 +1,4 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -9,7 +9,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
  * differently.
  */
 export function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-EINLADUNG-001":

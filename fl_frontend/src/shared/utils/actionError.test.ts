@@ -260,6 +260,57 @@ describe("toActionErrorResult", () => {
   });
 });
 
+describe("a refusal read by its code, whatever its status", () => {
+  const refused = (statusCode: number, serverErrorCode: string, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
+    toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode, refusedFields }));
+
+  /* Codes are unique across the API, so a rule moved off 409 keeps the words its code is given here. */
+  it("keeps each worded code's answer at any status a rule answers with", () => {
+    for (const code of ["REQ-WIRING-001", "REQ-WIRING-002", "REQ-WIRING-003", "REQ-STATE-002", "REQ-ELIGIBILITY-001", "DB-COMMON-002"]) {
+      for (const status of [422, 404, 410, 403]) assert.deepEqual(refused(status, code), refused(409, code), `${code} at ${String(status)}`);
+    }
+  });
+
+  it("answers a rule no reader here words with the way out alone, at any status a rule answers with", () => {
+    for (const status of [422, 404, 410, 403]) {
+      assert.deepEqual(refused(status, "REQ-UNCLAIMED-000"), { success: false, error: UNKNOWN_REFUSAL }, String(status));
+    }
+  });
+
+  it("marks the box a rule's refusal names, with the way out for the rest", () => {
+    assert.deepEqual(refused(422, "REQ-UNCLAIMED-000", [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")]), {
+      success: false,
+      error: VALIDATION_FAILED,
+      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      unplacedError: UNKNOWN_REFUSAL,
+    });
+  });
+
+  /* A body the API cannot decode answers 400 with the refused payload's code, which a page older than the API sends. */
+  it("answers the refused payload's code alike at 400 and 422", () => {
+    assert.deepEqual(refused(400, "REQ-VAL-001"), refused(422, "REQ-VAL-001"));
+    assert.equal(refused(400, "REQ-VAL-001").error, "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
+  });
+
+  /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
+  it("answers a vanished record, a refused request and a refused credential on their own terms", () => {
+    assert.match(refused(404, "DB-COMMON-001").error, /nicht gefunden/);
+    for (const [status, code] of [
+      [400, "REQ-AUTH-005"],
+      [401, "REQ-AUTH-002"],
+    ] as const) {
+      assert.equal(refused(status, code).error, "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.", code);
+    }
+  });
+
+  /* A write a 5xx answered may have landed, and a refusal's words would say it did not. */
+  it("never words a server error by the code it carries", () => {
+    for (const code of ["REQ-WIRING-001", "REQ-STATE-002", "DB-COMMON-002", "REQ-UNCLAIMED-000"]) {
+      assert.equal(refused(500, code).outcome, "unknown", code);
+    }
+  });
+});
+
 describe("a payload the API refused", () => {
   const refused = (fields: Parameters<typeof refusedPayload>[0]) => toActionErrorResult(refusedPayload(fields));
 

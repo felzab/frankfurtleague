@@ -104,10 +104,25 @@ describe("what one refused confirmation asks the referee's page to show", () => 
   /* The page strips its token from the address bar, so a reload lands a live link on the panel
      calling it void; only the mail's link reopens it. */
   it("sends the referee back to the mail's link where the body, or a media yes only an older page offers, was refused", async () => {
-    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(422, ""), floor), { error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedPayload([], "/schiedsrichter/bestaetigung"), floor), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-008"), floor), {
       error: ANTWORT_NEU_OEFFNEN,
     });
+  });
+
+  /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
+  it("answers each code alike at whatever status its rule answers with", async () => {
+    for (const [code, statuses] of [
+      ["REQ-SCHIEDSRICHTER-002", [404, 409]],
+      ["REQ-SCHIEDSRICHTER-003", [410, 409]],
+      ["REQ-SCHIEDSRICHTER-008", [422, 409]],
+    ] as const) {
+      const [moved, conflict] = statuses.map((status) => mapSchiedsrichterBestaetigungRefusal(aRefusal(status, code), floor));
+      assert.deepEqual(await moved, await conflict, code);
+      assert.notEqual(await moved, null, code);
+    }
   });
 
   it("answers nothing for a code it does not word, so the caller reports a failure rather than a state", async () => {
@@ -122,11 +137,15 @@ describe("what one refused link read asks the page to show", () => {
      could place, and a code nobody planned reads the same way. */
   it("calls the link void on a refusal, whatever the code", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-002")), "ungueltig");
-    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(422, "")), "ungueltig");
+    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedPayload([], "/schiedsrichter/bestaetigung/ansicht")), "ungueltig");
+    // The unknown token's rule answers 404, which a vanished record answers too; the code tells them apart.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "REQ-SCHIEDSRICHTER-002")), "ungueltig");
   });
 
   it("leaves anything but a refusal to the page's own failed-read state", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(503, "")), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "DB-COMMON-001")), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(401, "REQ-AUTH-002")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);
   });
 });

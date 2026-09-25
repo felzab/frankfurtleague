@@ -1,4 +1,4 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -8,32 +8,32 @@ import type { FieldErrors } from "@/shared/utils/validation";
 export const SHORTHAND_TAKEN_ON_CREATE = "Dieses Kürzel hat schon ein anderes Team, vielleicht ein stillgelegtes, das Du reaktivieren kannst.";
 export const SHORTHAND_TAKEN_ON_EDIT = "Bitte wähle ein anderes Kürzel: dieses hat schon ein anderes Team, vielleicht ein stillgelegtes.";
 
-/** `null` where the error is no 409. Every 409 is `taken`: a club's only unique key is its shorthand. */
+/** `null` for any code but the unique index's, which is always `taken`: a club's only unique key is its shorthand. */
 export function mapShorthandRefusal(error: unknown, taken: string): { fieldErrors: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
 
   return { fieldErrors: { shorthand: taken } };
 }
 
-/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
+/** `null` where the refusal is something else; it lands on no field, the retire control being a dialog. */
 export function mapRetireRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-RETIRE-001") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "REQ-RETIRE-001") return null;
 
   return "Das Team spielt in einer laufenden oder geplanten Saison und kann nicht stillgelegt werden.";
 }
 
 /**
- * `null` where the error is no 409. Asked after `mapEntryRefusal`, so what reaches it is the unique
- * index on the junction's natural key: the club already stands in the season.
+ * `null` for any code but the unique index's, which on the junction's natural key says the club already
+ * stands in the season.
  */
 export function mapAlreadyEnteredRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
 
   return "Dieses Team ist schon in dieser Saison. Lade die Seite neu.";
 }
 
 export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
   if (error.serverErrorCode === "REQ-ENTER-001") {
     // `REQ-ENTER-001` to `-003` open with the sentence
     // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too, so only the
@@ -78,15 +78,13 @@ export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?:
  * answer `REQ-ENTER-005` about different clubs, and one message would be wrong on one of them.
  */
 export function mapReplacementRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError)) return null;
+  if (!isRefusal(error)) return null;
 
   // The three subjects the endpoint actually resolves. The outgoing club is not among them — a row
   // naming a club that does not exist is what this endpoint REPAIRS — so no message may claim it.
-  if (error.statusCode === 404) {
+  if (error.serverErrorCode === "DB-COMMON-001") {
     return "Saison, Saison-Zugehörigkeit oder das nachrückende Team wurde nicht gefunden. Lade die Seite neu und wähle erneut.";
   }
-  if (error.statusCode !== 409) return null;
-
   if (error.serverErrorCode === "REQ-REPLACE-001") {
     // No reload repairs a finished season, so the sentence names the seasons still open instead.
     return "Diese Saison ist abgeschlossen. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";

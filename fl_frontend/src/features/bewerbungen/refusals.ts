@@ -1,5 +1,5 @@
-import { APIBadStatusError } from "@/core/errors";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -9,13 +9,13 @@ import type { BewerbungHerkunft } from "./constants";
 const TEAMS_PAGE = "Teams";
 
 /**
- * A triage 409 as the message it should render, or `null` when the code is none of these.
+ * A triage refusal as the message it should render, or `null` when the code is none of these.
  *
  * The `REQ-ENTER` codes are the season's own entry rules, which
  * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates.
  */
 export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | null): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     // One code for both endpoints: what is refused is deciding an application twice, and which press
@@ -107,9 +107,9 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
   }
 }
 
-/** A re-send 409 as the message it should render, or `null` when the code is none of these. */
+/** A re-send refusal as the message it should render, or `null` when the code is none of these. */
 export function mapEinwilligungErneutRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     // The code the two decisions answer, given the re-send's own words: a link minted against a
@@ -140,9 +140,9 @@ const ANGABEN_STEHEN_FEST = buildRefusal({
 /** `REQ-BEWERBUNG-014` from either repair, worded as the submission words the same collision. */
 const ADRESSE_SCHON_VERGEBEN = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
-/** A correction 409 as the message it should render, or `null` when the code is none of these. */
+/** A correction refusal as the message it should render, or `null` when the code is none of these. */
 export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-BEWERBUNG-001":
@@ -165,9 +165,9 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
   }
 }
 
-/** A reseat 409 as the message it should render, or `null` when the code is none of these. */
+/** A reseat refusal as the message it should render, or `null` when the code is none of these. */
 export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-BEWERBUNG-001":

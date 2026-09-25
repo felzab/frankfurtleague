@@ -81,8 +81,6 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Every mapped refusal is read first: a duplicate `_id` arrives from the unique index with no
-    // rule code to discriminate on, so "die ID ist vergeben" can only be the fallback.
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);

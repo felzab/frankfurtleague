@@ -1,4 +1,4 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants";
 import { MAX_QUALIFIERS } from "./schemas";
@@ -40,9 +40,9 @@ const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahle
  */
 const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn noch einmal neu an.`;
 
-/** A rules 409 as the message it should render, or `null` when the code is none of these. */
+/** A rules refusal as the message it should render, or `null` when the code is none of these. */
 export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-RULES-001":
@@ -118,12 +118,12 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
 }
 
 /**
- * A generator 409 as the message it should render, or `null` for any other code. A state the panel
+ * A generator refusal as the message it should render, or `null` for any other code. A state the panel
  * already closes the control for means the page went stale, so it says to reload; every other code
  * names a repair and where it is made.
  */
 export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   // Which panel holds the three numbers this draw was judged on, and therefore where the repair is.
   const shapeFault = carriedShape ? shapeFaultMessage : rulesFaultMessage;
@@ -181,12 +181,9 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
   }
 }
 
-/**
- * `null` where the error is no 409. Asked after `mapRulesRefusal`, so what reaches it is a duplicate
- * `_id` from the unique index, which carries no rule code to discriminate on.
- */
+/** `null` for any code but the unique index's, which on a season can be about its `_id` alone. */
 export function mapSaisonIdRefusal(error: unknown): { error: string; fieldErrors: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
 
   return { error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
 }
@@ -197,7 +194,7 @@ export function mapSaisonIdRefusal(error: unknown): { error: string; fieldErrors
  * than implying one.
  */
 export function mapActivateRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-ACTIVATE-001":
@@ -221,7 +218,7 @@ export function mapActivateRefusal(error: unknown): string | null {
  * names a repair.
  */
 export function mapSwapRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-SWAP-001":
@@ -243,12 +240,12 @@ export function mapSwapRefusal(error: unknown): string | null {
 }
 
 /**
- * `null` where the 409 is something else. The panel closes the control for both halves, so this
+ * `null` where the refusal is something else. The panel closes the control for both halves, so this
  * arriving means the season moved under a page still offering the press. A reload returns to that
  * panel, which names any way out.
  */
 export function mapUndrawRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-SPIELPLAN-006") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "REQ-SPIELPLAN-006") return null;
 
   return (
     `Ein Spielplan lässt sich nur für eine geplante Saison zurücknehmen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +

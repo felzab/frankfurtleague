@@ -1,4 +1,4 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -12,9 +12,9 @@ const KEINE_SAISON = buildRefusal({
   repair: "Aktiviere zuerst eine Saison",
 });
 
-/** `null` where the 409 is something else. It lands on the ADDRESS box, the only value the create sent. */
+/** `null` where the refusal is something else. It lands on the ADDRESS box, the only value the create sent. */
 export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again
   // where two administrators press together, so which of them answers is a race.

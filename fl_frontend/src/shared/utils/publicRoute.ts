@@ -4,7 +4,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritt
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown } from "@/core/requestScope";
 
-import { toActionErrorResult, unansweredAction } from "./actionError";
+import { isRuleRefusal, refusedFailure, toActionErrorResult, unansweredAction } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 
@@ -60,10 +60,12 @@ export async function handlePublicRequest<T extends { success: boolean }>(
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      if (error instanceof APIBadStatusError && error.statusCode === 409) {
+      if (isRuleRefusal(error)) {
         // Any other code is a rule no mapper here words. Never the shared reader's reload: it discards the
         // entries a visitor typed, which the sentence answered promises are intact.
-        return { success: false, error: error.serverErrorCode === "DB-COMMON-002" ? SCHON_VORLIEGEND : UNHANDLED_FIELD_REFUSAL };
+        return error.serverErrorCode === "DB-COMMON-002"
+          ? { success: false, error: SCHON_VORLIEGEND }
+          : refusedFailure(error, UNHANDLED_FIELD_REFUSAL);
       }
 
       // The request this route answers, for a throw carrying none of its own: code after a POST's

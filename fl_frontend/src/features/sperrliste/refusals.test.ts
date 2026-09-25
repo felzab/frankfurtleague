@@ -44,10 +44,12 @@ describe("the address a unique index already holds", () => {
     assert.equal(mapAdresseRefusal(refusedWith(409, "REQ-VAL-001")), null);
   });
 
-  it("reads the status and not the code alone", () => {
-    /* The same code at 404 is a row another administrator has already lifted, which
+  it("reads the code and not the status", () => {
+    // Codes are unique across the API, so a rule moved to another status keeps its answer.
+    assert.deepEqual(mapAdresseRefusal(refusedWith(422, DUPLICATE_KEY)), mapAdresseRefusal(refusedWith(409, DUPLICATE_KEY)));
+    /* A row another administrator has already lifted is `DB-COMMON-001`, which
        `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is. */
-    assert.equal(mapAdresseRefusal(refusedWith(404, DUPLICATE_KEY)), null);
+    assert.equal(mapAdresseRefusal(refusedWith(404, "DB-COMMON-001")), null);
   });
 
   it("leaves an error that never came from the API alone", () => {

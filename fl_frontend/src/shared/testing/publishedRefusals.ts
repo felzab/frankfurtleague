@@ -11,12 +11,12 @@ type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * The unique index's refusal, and the one code the shared reader's 409 fallback words. Which mapper
+ * The unique index's refusal, and the one code the shared reader's fallback words. Which mapper
  * answers it instead, on a box or in a banner, is `docs/frontend/spec.md` §1.9's.
  */
 export const DUPLICATE_KEY = "DB-COMMON-002";
 
-/** A code no rule declares, which reaches the shared reader's 409 fallback and nothing else. */
+/** A code no rule declares, which reaches the shared reader's fallback and nothing else. */
 const UNCLAIMED = "REQ-UNCLAIMED-000";
 
 function readDocument(): JsonObject {

@@ -51,9 +51,14 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
     assert.match(String(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003"))), /^[^.]+\. [^.]+\.$/);
   });
 
-  it("leaves a conflict it does not know, and the same code at another status, to the shared reader", () => {
+  it("leaves a conflict it does not know to the shared reader, and words its own code at any status", () => {
     assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, DUPLICATE_KEY)), null);
-    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 404)), null);
+    // Codes are unique across the API, so a rule moved to another status keeps its answer.
+    assert.equal(
+      mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 422)),
+      mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003")),
+    );
+    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 500)), null, "a server error was worded as a refusal");
   });
 
   /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
@@ -108,8 +113,12 @@ describe("the venue name a unique index already holds", () => {
     }
   });
 
-  it("reads the status and not the code alone", () => {
-    assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 404)), null);
+  it("reads the code and not the status", () => {
+    assert.deepEqual(
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 422)),
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
+    );
+    assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
   });
 
   it("answers the create's and the edit's refusals on the name box, the two writes that send a name", async () => {

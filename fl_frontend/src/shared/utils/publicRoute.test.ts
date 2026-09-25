@@ -25,8 +25,11 @@ registerHooks({
 });
 
 const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
-const { toActionErrorResult } = await import("./actionError.ts");
+const { FELD_ABGELEHNT, toActionErrorResult } = await import("./actionError.ts");
 const { UNHANDLED_FIELD_REFUSAL } = await import("./refusal.ts");
+const { VALIDATION_FAILED } = await import("./validation.ts");
+const { APIBadStatusError } = await import("@/core/errors.ts");
+const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope");
 const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
@@ -97,15 +100,16 @@ describe("what stands in for a session on the public spine", () => {
 });
 
 describe("a refusal the route itself leaves unmapped", () => {
-  const refusedWith = async (serverErrorCode: string) =>
+  const answering = async (refusal: Error) =>
     (
       (await handlePublicRequest(request("same-origin", { body: 0 }), {
         routeName: "publicRouteTest",
         run: async () => {
-          throw refusedOn("POST /registrierungen", serverErrorCode);
+          throw refusal;
         },
       })) as unknown as { body: unknown }
     ).body;
+  const refusedWith = (serverErrorCode: string, statusCode = 409) => answering(refusedOn("POST /registrierungen", serverErrorCode, statusCode));
 
   /* The shared reader's sentence for it is an administrator's, about an entry they can open; a visitor
      on a public form has none, and reads that their details are already on file. */
@@ -119,6 +123,40 @@ describe("a refusal the route itself leaves unmapped", () => {
   it("answers every other conflict with the form's fallback, never the shared reader's reload", async () => {
     assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), { success: false, error: UNHANDLED_FIELD_REFUSAL });
     assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /lade die seite/i);
+  });
+
+  /* Codes are unique across the API, so a rule answering another status is still a rule's refusal,
+     and the shared reader's answer to that status would be the reload again. */
+  it("answers a rule's refusal alike at whatever status its rule answers with", async () => {
+    for (const status of [422, 404, 410, 403]) {
+      assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000", status), { success: false, error: UNHANDLED_FIELD_REFUSAL }, String(status));
+    }
+  });
+
+  it("marks the box a rule's refusal names, and says the form's fallback for the rest", async () => {
+    const refusal = new APIBadStatusError({
+      ...refusedOn("POST /registrierungen", "REQ-UNCLAIMED-000", 422),
+      message: "refused",
+      refusedFields: [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")],
+    });
+
+    assert.deepEqual(await answering(refusal), {
+      success: false,
+      error: VALIDATION_FAILED,
+      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      unplacedError: UNHANDLED_FIELD_REFUSAL,
+    });
+  });
+
+  it("leaves a vanished record, a refused credential and a server error to the shared reader", async () => {
+    for (const [code, status] of [
+      ["DB-COMMON-001", 404],
+      ["REQ-AUTH-002", 401],
+      ["REQ-UNCLAIMED-000", 500],
+    ] as const) {
+      const refusal = refusedOn("POST /registrierungen", code, status);
+      assert.deepEqual(await answering(refusal), toActionErrorResult(refusal, { method: "POST", readOnly: false }), code);
+    }
   });
 });
 

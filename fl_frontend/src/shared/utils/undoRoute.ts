@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getSignInDestination } from "@/core/auth";
-import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
+import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
 import { ADMIN_FORBIDDEN, runAdminRouteWrite } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
@@ -55,11 +54,11 @@ type UndoRoute<TPayload> = {
 };
 
 /**
- * The sentence a slice's own table words for the 409 its replay met, or `undefined` for any other
- * failure, which the route rethrows.
+ * The sentence a slice's own table words for the refusal its replay met, at whatever status its rule
+ * answers with, or `undefined` for any other failure, which the route rethrows.
  */
 export function replayRefusal(error: unknown, refusals: Readonly<Record<string, string>>): string | undefined {
-  const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
+  const code = isRefusal(error) ? error.serverErrorCode : undefined;
   // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
   return code == null || !Object.hasOwn(refusals, code) ? undefined : refusals[code];
 }

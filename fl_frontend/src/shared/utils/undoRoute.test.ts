@@ -257,14 +257,18 @@ const refused = (statusCode: number, serverErrorCode: string) =>
 describe("the sentence a replay's refusal is worded with", () => {
   const TABLE = { "REQ-TEST-001": "Die Rücknahme wurde nicht ausgeführt." };
 
-  it("answers the table's sentence for a 409 carrying one of its codes", () => {
-    assert.equal(replayRefusal(refused(409, "REQ-TEST-001"), TABLE), TABLE["REQ-TEST-001"]);
+  /* Codes are unique across the API, so a rule moved to another status keeps its row. */
+  it("answers the table's sentence for a refusal carrying one of its codes, at whatever status", () => {
+    for (const status of [409, 422, 404, 410, 403]) {
+      assert.equal(replayRefusal(refused(status, "REQ-TEST-001"), TABLE), TABLE["REQ-TEST-001"], String(status));
+    }
   });
 
   // `undefined` is the route's cue to rethrow, so each of these reaches the spine as a failure.
-  it("answers nothing for an unmapped code, another status, or anything but a refusal", () => {
+  it("answers nothing for an unmapped code, a server error, or anything but a refusal", () => {
     assert.equal(replayRefusal(refused(409, "REQ-TEST-002"), TABLE), undefined, "an unmapped code was worded");
-    assert.equal(replayRefusal(refused(422, "REQ-TEST-001"), TABLE), undefined, "a code under another status was worded");
+    // The replay may have landed behind a 5xx, which a refusal's "Die Änderung steht weiterhin." would deny.
+    assert.equal(replayRefusal(refused(500, "REQ-TEST-001"), TABLE), undefined, "a server error was worded as a refusal");
     assert.equal(replayRefusal(new Error("network"), TABLE), undefined, "a thrown error that is no refusal was worded");
   });
 

@@ -170,8 +170,6 @@ export async function postSaisonSpielerAction(
     try {
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
-      // The named refusals are checked first, because the fallback has no code to inspect: a repeat
-      // row from the unique index — which spans RETIRED ones — is what is left once they are ruled out.
       const refusal = mapSquadRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       const entered = mapAlreadyInSaisonRefusal(error);
@@ -256,7 +254,7 @@ export async function reactivateSaisonSpielerAction(
     }
 
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
-    // (`REQ-SQUAD-003`) — and the shared 409 fallback would name no reason.
+    // (`REQ-SQUAD-003`) — and the shared fallback would name no reason.
     let reactivateOperation;
     try {
       reactivateOperation = await reactivateSaisonSpieler(validated.data);

@@ -1,15 +1,15 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The 409s a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
+ * The refusals a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
  * the rest travel as a message, naming no single control. Every other code falls to
  * `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`.
  */
 export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-DATE-001") {
     return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };

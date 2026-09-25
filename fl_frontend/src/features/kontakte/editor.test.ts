@@ -302,7 +302,7 @@ const STALE_BLOCK = "REQ-KONTAKT-001";
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
      (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
-     falls through to the shared 409 fallback, which names no reason. */
+     falls through to the shared fallback, which names no reason. */
   it("words the one refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 

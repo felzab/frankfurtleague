@@ -1,4 +1,4 @@
-import { APIBadStatusError } from "@/core/errors";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT } from "./constants";
@@ -24,7 +24,7 @@ const SQUAD_ROLLE_TAKEN = buildRefusal({
  * belongs to a field — one is a fact about the season's rules, the other about the squad.
  */
 export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-SQUAD-001") {
     return { error: SQUAD_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
@@ -44,22 +44,22 @@ export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?:
 }
 
 /**
- * The erasure's precondition, or `null` when the 409 is something else. It lands on no field: the
+ * The erasure's precondition, or `null` when the refusal is something else. It lands on no field: the
  * control is a panel with nothing to fill in, and the repair it names is on another page.
  */
 export function mapErasureRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-PURGE-001") return ERASURE_NEEDS_RETIREMENT;
   return null;
 }
 
 /**
- * `null` where the error is no 409. Asked after `mapSquadRefusal`, so what reaches it is the unique
- * index on the junction's key, which spans retired rows: the player already stands in the season.
+ * `null` for any code but the unique index's, which on the junction's key spans retired rows: the
+ * player already stands in the season.
  */
 export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
 
   return ALREADY_IN_SAISON;
 }

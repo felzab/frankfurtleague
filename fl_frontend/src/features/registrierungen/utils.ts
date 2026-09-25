@@ -1,6 +1,5 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { APIBadStatusError } from "@/core/errors";
-import { refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -52,22 +51,20 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
 }
 
 /**
- * A submission 409 as what the form should show, or `null` where the code is none of these.
+ * A submission refusal as what the form should show, or `null` where the code is none of these.
  *
  * A refusal naming a field takes that field's own path, so it lands under the control at fault.
  */
 export function mapRegistrierungSubmitRefusal(
   error: unknown,
 ): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "ungueltig"; schonAngekommen?: true } | null {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
-  // client, which the team's link replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
+    // client, which the team's link replaces.
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
     // The link died between the page loading and this press, and the whole page is the answer: a
     // banner over a form nothing accepts invites a second attempt.
     case "REQ-EINLADUNG-003":
@@ -130,23 +127,21 @@ export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; u
 // caller reading the floor in front of the switch spends a second backend read on every one of
 // them.
 /**
- * A confirmation 409 as what the page should show, or `null` where the code is none of these.
+ * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
  * The floor is the token's own view's: a number of this mapper's own would state one the
  * endpoint is not using.
  */
 export async function mapBestaetigungRefusal(error: unknown, mindestalter: () => Promise<number | null>): Promise<BestaetigungRefusal | null> {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
-  // mail's link replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+    // mail's link replaces.
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The page offers no media switch below the served age, so only a page older than that rule
-    // sends this answer, and its repair is the 422's.
+    // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
       return { error: ANTWORT_NEU_OEFFNEN };
     case "REQ-REGISTRIERUNG-004":
@@ -172,15 +167,15 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
 /**
  * A refused read as the panel it renders, or `null` where the read failed instead.
  *
- * Every 409 alike: a spent link answers its own state in a 200, so a refusal is a token nothing
- * could place.
+ * Every rule's refusal alike: a spent link answers its own state in a 200, so a refusal is a token
+ * nothing could place.
  */
 export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | null {
-  if (!(error instanceof APIBadStatusError)) return null;
+  if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed.
-  if (error.statusCode === 422) return "ungueltig";
+  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  return error.statusCode === 409 ? "ungueltig" : null;
+  return isRuleRefusal(error) ? "ungueltig" : null;
 }

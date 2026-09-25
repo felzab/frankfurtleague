@@ -148,7 +148,7 @@ describe("what one refused submission shows", () => {
   });
 
   /* Both directions against the published document: a code the write path raises and this mapper
-     does not know falls through to the 409 fallback, which tells a pupil no reason. */
+     does not know falls through to the shared fallback, which tells a pupil no reason. */
   it("maps every code the write path publishes, and no rule it does not", () => {
     const published = publishedRefusals("POST /registrierungen");
     const mapped = [
@@ -248,7 +248,7 @@ describe("what one refused confirmation shows", () => {
   });
 
   /* Both directions against the published document, as the submission's twin has: a code the
-     confirmation raises and this mapper does not know falls through to the 409 fallback. */
+     confirmation raises and this mapper does not know falls through to the shared fallback. */
   it("maps every code the confirmation publishes, and no rule it does not", async () => {
     const published = publishedRefusals("POST /registrierungen/bestaetigung");
     const mapped = [
