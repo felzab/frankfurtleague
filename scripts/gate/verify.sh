@@ -241,6 +241,12 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # `app/` alone, deptry's default: `tests/` imports the dev group by design, and `scripts/` would
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
+# The db scope's two suites. `quietly` wraps the body rather than running inside its subshell, where
+# a refusal would end the subshell alone and the gate would then read its 2 as a crash.
+do_backend_db() {
+  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" )
+}
+do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
 
 # No `--cache-to` here: buildx answers one status for the whole solve, so a cache export failing after
 # the image loaded would read as a failed build. `export_image_cache` exports in a run of its own.
@@ -1298,7 +1304,7 @@ if (( RUN_DB )); then
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  ( cd fl_backend && quietly "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" ) || DB_RC=$?
+  quietly do_backend_db || DB_RC=$?
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
@@ -1315,7 +1321,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  ( cd fl_frontend && quietly --pnpm pnpm run test:db ) || FRONTEND_DB_RC=$?
+  quietly --pnpm do_frontend_db || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.

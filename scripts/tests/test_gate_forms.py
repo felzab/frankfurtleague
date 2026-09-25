@@ -355,3 +355,39 @@ def test_a_failing_check_quoting_pnpm_s_refusal_code_is_a_failure() -> None:
     output = done.stdout + done.stderr
     assert done.returncode == 1, output
     assert "pnpm's dependency check stopped this step" not in output, output
+
+
+# The db scope under stubs: Docker answering its version, the interpreter passing pytest, and pnpm
+# refusing `run`, the subcommand `do_frontend_db` starts `test:db` through.
+STUB_DOCKER: Final = """#!/usr/bin/env bash
+printf '%s\\n' "27.0.0"
+exit 0
+"""
+STUB_DB_PYTHON: Final = """#!/usr/bin/env bash
+case "${{1:-}}" in
+  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
+esac
+exit 0
+"""
+
+
+def test_pnpm_s_dependency_check_stopping_the_db_tier_ends_the_run_once_as_a_refusal() -> None:
+    """Exit 2, and no crash after it: a refusal ending a subshell alone left the gate to read its 2 as a crash."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, environment = _venv_root("fl-gate-db-refusal-", STUB_DB_PYTHON)
+    (root / "fl_frontend" / "node_modules").mkdir(parents=True)
+    stubs = Path(environment["PATH"].split(os.pathsep)[0])
+    for name, text in (("docker", STUB_DOCKER), ("pnpm", STUB_PNPM)):
+        os.chmod(write_shell(stubs / name, text), 0o755)
+    log = stubs / "started"
+    log.mkdir()
+    environment["FL_STUB_LOG"] = str(log)
+    environment["FL_STUB_FAIL"] = ""
+    environment["FL_STUB_REFUSE"] = "run"
+    # The tier's claim under the fixture's own directory, never the machine's.
+    environment["TMPDIR"] = str(root)
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--db", env=environment)
+    output = done.stdout + done.stderr
+    assert done.returncode == 2, output
+    assert "pnpm's dependency check stopped this step" in output, output
+    assert "Crashed" not in output, output
