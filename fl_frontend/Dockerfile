@@ -49,7 +49,10 @@ ENV SKIP_ENV_VALIDATION=true
 # scope, and `new MongoClient(undefined)` throws.
 ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 
-COPY . .
+# Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
+# install it validated, and a `deps` layer restored from the cache ran its install before this
+# context was checked out.
+COPY --exclude=patches --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml . .
 
 # Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
 # to keep current, and this one cannot disagree with the schema the same image was built from.
