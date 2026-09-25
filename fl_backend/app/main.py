@@ -121,18 +121,6 @@ FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
 FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
 
 
-def api_routes(app: FastAPI) -> Iterator[APIRoute]:
-    """Every route the application serves, nested includes opened.
-
-    Read and never edited: each is the object its module-level router holds, which every `create_app`
-    in a process shares.
-    """
-
-    for context in iter_route_contexts(app.routes):
-        if isinstance(context.original_route, APIRoute):
-            yield context.original_route
-
-
 Operation = tuple[str, str]
 
 

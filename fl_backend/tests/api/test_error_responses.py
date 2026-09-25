@@ -31,11 +31,11 @@ from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, RequestAuthor
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
-from app.main import api_routes, create_app, document_routes, publish_refusals, refusal_codes, with_refusals
+from app.main import create_app, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
-from tests.core.app_source import BACKEND_ROOT
+from tests.core.app_source import BACKEND_ROOT, api_routes
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the

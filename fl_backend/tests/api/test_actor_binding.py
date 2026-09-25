@@ -19,8 +19,9 @@ from app.core.security import (
     bind_public_actor,
     bind_system_actor,
 )
-from app.main import api_routes, create_app
+from app.main import create_app
 from tests.config import ADMIN_AUTH, build_test_config
+from tests.core.app_source import api_routes
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 

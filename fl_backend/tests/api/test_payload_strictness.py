@@ -12,9 +12,10 @@ from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
 from app.api.teams.schemas import FLPatchTeamPayload, FLTeam
-from app.main import api_routes, create_app
+from app.main import create_app
 from app.shared.schemas.addresses import FLAddressPayload
 from tests.config import build_test_config
+from tests.core.app_source import api_routes
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 

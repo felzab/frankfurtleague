@@ -1,8 +1,9 @@
 import pytest
 
 from app.core.config import API_VERSION
-from app.main import api_routes, create_app
+from app.main import create_app
 from tests.config import build_test_config
+from tests.core.app_source import api_routes
 
 # In the order a request is matched against them: `api_routes` opens each included router's wrapper
 # where it stands in `app.routes`, which is where matching descends into it.

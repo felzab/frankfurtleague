@@ -31,7 +31,7 @@ from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
-from app.main import api_routes, create_app
+from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, build_test_config
 from tests.core.app_source import (
@@ -40,6 +40,7 @@ from tests.core.app_source import (
     COLLECTION_ARGUMENT_SUFFIX,
     WRITE_HELPERS,
     Declaration,
+    api_routes,
     app_calls,
     callee,
     declared,

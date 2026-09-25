@@ -9,8 +9,9 @@ from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
 from app.core.security import MISSING_TOKEN, verify_access_admin, verify_access_base, verify_access_system
-from app.main import api_routes, create_app
+from app.main import create_app
 from tests.config import build_test_config
+from tests.core.app_source import api_routes
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 

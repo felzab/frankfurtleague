@@ -1,5 +1,5 @@
 """
-CORE · the application's own source read as syntax, for the sweeps holding a convention across every module
+CORE · the application's own source, read as syntax or as the routes it mounts, for the sweeps holding a convention across every module
 
 Every sweep over the whole of `app/` is cached for the run and answers a value no caller can change:
 each parametrised case asks again, and every caller is handed the one shared object, so a list one
@@ -18,6 +18,9 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from fastapi import FastAPI
+from fastapi.routing import APIRoute, iter_route_contexts
 
 from app.core.collections import Collection
 
@@ -656,3 +659,15 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+def api_routes(app: FastAPI) -> Iterator[APIRoute]:
+    """Every route the application serves, nested includes opened.
+
+    Read and never edited: each is the object its module-level router holds, which every `create_app`
+    in a process shares.
+    """
+
+    for context in iter_route_contexts(app.routes):
+        if isinstance(context.original_route, APIRoute):
+            yield context.original_route

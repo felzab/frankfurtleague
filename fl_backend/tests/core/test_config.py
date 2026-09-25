@@ -21,8 +21,9 @@ from app.core.config import (
 )
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
-from app.main import KEY_TIERS, api_routes, create_app
+from app.main import KEY_TIERS, create_app
 from tests.config import ConfigReadingNoDotenvFile
+from tests.core.app_source import api_routes
 from tests.worker import worker_database
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
