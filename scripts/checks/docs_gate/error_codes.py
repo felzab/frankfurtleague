@@ -17,7 +17,7 @@ import re
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _readable, code_body, python_tree, tracked_glob, tracked_page
+from .kernel import REPO_ROOT, Finding, _readable, code_body, python_tree, rebound, tracked_glob, tracked_page
 
 ERROR_CODES_CHECK: Final = "error-codes"
 ERROR_CODES_PAGE: Final = "docs/logging/error-codes.md"
@@ -75,14 +75,18 @@ def _rule_code(node: ast.expr) -> str | None:
     return code.value if isinstance(code, ast.Constant) and isinstance(code.value, str) else None
 
 
+def _domain_tree() -> ast.Module | None:
+    page = tracked_page(DOMAIN_MODULE)
+    return None if page is None else python_tree(page)
+
+
 @cache
 def _declared_rules() -> frozenset[str]:
     """Every code the backend declares a domain rule for, empty where the declaration is not one read here.
 
     Reached without opening the page: rows deciding which codes are owed one could never fail (PRE-4).
     """
-    page = tracked_page(DOMAIN_MODULE)
-    tree = None if page is None else python_tree(page)
+    tree = _domain_tree()
     for node in [] if tree is None else tree.body:
         if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == RULES_NAME:
             if not isinstance(node.value, ast.Tuple):
@@ -111,7 +115,7 @@ def check_error_codes() -> list[Finding]:
         # and would demand a row for every domain rule the backend spells.
         detail = f'`{DOMAIN_MODULE}` yielded no rule declaration as a tuple of `Rule(code="...")` calls, so the register was held to nothing'
         return [Finding("fail", ERROR_CODES_CHECK, rel, detail)]
-    found: list[Finding] = []
+    found = rebound(_domain_tree(), RULES_NAME, ERROR_CODES_CHECK, DOMAIN_MODULE)
     for code in sorted(rows & declared):
         detail = f"`{code}` is a domain rule, stated at `{DOMAIN_MODULE} :: RULES`, and takes no row here"
         found.append(Finding("fail", ERROR_CODES_CHECK, rel, detail))

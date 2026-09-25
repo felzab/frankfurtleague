@@ -386,6 +386,34 @@ def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str
 REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
 
 
+@pytest.mark.parametrize(
+    ("rel", "rebinding", "check", "name"),
+    [
+        pytest.param(DOMAIN_REGISTER, "UNENFORCED = UNENFORCED + ()", "citation", "UNENFORCED", id="reasons"),
+        pytest.param(SHAPE_CLASSIFIER, "_GATE_SHAPES = _GATE_SHAPES[:-1]", "citation", "_GATE_SHAPES", id="handed-over-shapes"),
+        pytest.param(DOMAIN_REGISTER, "RULES += ()", "error-codes", "RULES", id="rule-register"),
+        pytest.param(KERNEL, "CHECKS = dict(CHECKS)", "enforced-by", "CHECKS", id="check-registry"),
+    ],
+)
+def test_a_name_the_gate_reads_from_source_bound_twice_is_named(rel: str, rebinding: str, check: str, name: str) -> None:
+    """The gate reads a name's first binding, and Python runs with its last.
+
+    Written back by hand: the scripts copy the kernel sits in is left standing by the reset.
+    """
+    _reset()
+    kept = _read(rel)
+    _append(rel, rebinding)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        write(_gate().root, rel, kept)
+        _reset()
+    assert reported[("fail", check, rel)] == 1, _shape(reported)
+    assert f"binds `{name}` a second time" in output, output
+    _assert_corpus_restored()
+
+
 def test_a_check_registry_spelled_as_no_dict_literal_is_named() -> None:
     """The literal renamed and the registry bound to a copy of it: the lines a row's claim may not prove itself from go unread."""
     _reset()

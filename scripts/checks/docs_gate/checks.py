@@ -98,6 +98,7 @@ from .kernel import (
     located_code_spans,
     navigable_anchors_of,
     python_tree,
+    rebound,
     repo_path,
     repo_prefixes,
     scanned_files,
@@ -957,6 +958,7 @@ def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
             Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` is registered outside the `{REGISTRY_NAME}` literal, its claims unread")
             for name in sorted(set(CHECKS) - set(rows))
         ]
+    found += rebound(python_tree(REPO_ROOT / KERNEL_PAGE), REGISTRY_NAME, "enforced-by", KERNEL_PAGE)
     for name, check in CHECKS.items():
         found.extend(_check_claims(name, check, named.get(name, set()), invariants))
     return found

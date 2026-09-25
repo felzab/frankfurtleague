@@ -18,9 +18,21 @@ from collections.abc import Callable, Sequence
 from functools import cache
 from typing import Final
 
-from .kernel import REPO_ROOT, Finding, _readable, code_body, is_gitignored, python_tree, repo_path, tracked_glob, tracked_page
+from .kernel import (
+    REPO_ROOT,
+    Finding,
+    _readable,
+    code_body,
+    is_gitignored,
+    python_tree,
+    rebound,
+    repo_path,
+    tracked_glob,
+    tracked_page,
+)
 
 DOMAIN_MODULE: Final = "fl_backend/app/core/domain.py"
+DECLARED: Final = "UNENFORCED"
 # The one sheet holding the read rules, which refuse nothing and so reach no module's source.
 READ_RULES_SHEET: Final = "docs/backend/spec.md"
 APP_GLOB: Final = "fl_backend/app/**/*.py"
@@ -67,18 +79,22 @@ def _literal(node: ast.expr | None) -> str | None:
     return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
 
 
+def _tree(rel: str) -> ast.Module | None:
+    page = tracked_page(rel)
+    return None if page is None else python_tree(page)
+
+
 def declared_reasons() -> list[tuple[str, str | None, int]] | None:
     """Each entry's subject, its reason where one literal string spells it, and that reason's line.
 
     None where the module declares no `UNENFORCED` tuple this can read.
     """
-    page = tracked_page(DOMAIN_MODULE)
-    tree = None if page is None else python_tree(page)
+    tree = _tree(DOMAIN_MODULE)
     for node in [] if tree is None else tree.body:
         if not isinstance(node, ast.AnnAssign | ast.Assign):
             continue
         target = node.target if isinstance(node, ast.AnnAssign) else node.targets[0]
-        if isinstance(target, ast.Name) and target.id == "UNENFORCED" and isinstance(node.value, ast.Tuple):
+        if isinstance(target, ast.Name) and target.id == DECLARED and isinstance(node.value, ast.Tuple):
             entries: list[tuple[str, str | None, int]] = []
             for call in node.value.elts:
                 fields = {keyword.arg: keyword.value for keyword in call.keywords} if isinstance(call, ast.Call) else {}
@@ -90,8 +106,7 @@ def declared_reasons() -> list[tuple[str, str | None, int]] | None:
 
 def handed_over_value() -> ast.expr | None:
     """What the backend's classifier assigns the shapes it passes over as this package's, None where it declares none."""
-    page = tracked_page(CLASSIFIER)
-    tree = None if page is None else python_tree(page)
+    tree = _tree(CLASSIFIER)
     for node in [] if tree is None else tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == HANDED_OVER for target in node.targets):
             return node.value
@@ -140,7 +155,8 @@ def check_handed_over_shapes() -> list[Finding]:
         return [Finding("fail", "citation", CLASSIFIER, detail, value.lineno)]
     handed = set(patterns)
     owned = {shape.pattern for shape in OWNED_SHAPES}
-    found = [
+    found = rebound(_tree(CLASSIFIER), HANDED_OVER, "citation", CLASSIFIER)
+    found += [
         Finding("fail", "citation", CLASSIFIER, f"`{HANDED_OVER}` hands over `{one}`, a shape the gate does not read")
         for one in sorted(handed - owned)
     ]
@@ -173,7 +189,7 @@ def _unresolved(token: str, subject: str, invariants: dict[str, list[str]], cite
 def check_unenforced_reasons(invariants: dict[str, list[str]], cite: Cite) -> list[Finding]:
     """Every address an `UNENFORCED` reason argues from, resolved as the corpus's own citations are."""
     entries = declared_reasons()
-    found = check_handed_over_shapes()
+    found = [*check_handed_over_shapes(), *rebound(_tree(DOMAIN_MODULE), DECLARED, "citation", DOMAIN_MODULE)]
     if not entries:
         return [*found, Finding("fail", "citation", DOMAIN_MODULE, "yielded no `UNENFORCED` reason, so no reason's addresses were read")]
     if not resolvable_codes():

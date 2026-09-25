@@ -1413,6 +1413,23 @@ def python_tree(path: Path) -> ast.Module | None:
         return None
 
 
+def rebound(tree: ast.Module | None, name: str, check: str, rel: str) -> list[Finding]:
+    """A second binding of a name a reader takes from source, as the one finding it costs.
+
+    A reader takes the first binding, and Python runs with the last.
+    """
+    lines = sorted(
+        node.lineno
+        for node in ([] if tree is None else ast.walk(tree))
+        if (isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store))
+        or (isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) and node.name == name)
+        or (isinstance(node, ast.alias) and (node.asname or node.name) == name)
+    )
+    if len(lines) < 2:
+        return []
+    return [Finding("fail", check, rel, f"binds `{name}` a second time, so the gate reads a value Python replaces", lines[1])]
+
+
 def _python_names(tree: ast.Module) -> frozenset[str]:
     """Every name a Python module binds.
 
