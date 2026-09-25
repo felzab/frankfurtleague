@@ -5,7 +5,10 @@ import { callPage, clearSteps, OBJECT_ID, readsOf, steps } from "@/shared/testin
 
 import type { PageProps } from "@/shared/testing/pageHarness.ts";
 
-const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+// Typed as the props Next hands every page, which is what the harness calls a page with.
+const { default: AdminSchiedsrichterEditPage } = (await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx")) as {
+  default: (props: PageProps) => unknown;
+};
 const { default: AdminSchiedsrichterPage } = await import("@/app/admin/schiedsrichter/page.tsx");
 
 /** Every read one page makes, each answered with the emptiest body its schema takes. */
