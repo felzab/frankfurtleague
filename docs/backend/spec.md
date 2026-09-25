@@ -352,7 +352,10 @@ codes name a server fault rather than the request.
 the document publishes each code at the status a client meets it at:
 
 - **409** where the refusal is about the target's current state, whoever can lift it — the caller,
-  an administrator, or time — so the identical request succeeds once that state changes (ruling R573)
+  an administrator, or time — so the identical request succeeds once that state changes (ruling R573).
+  The draw judges the season's stored rules and dates beneath its payload's shape, so a rule reading
+  a stored value answers there under a draw twin
+  (`fl_backend/app/api/saisons/services.py :: DRAW_TWINS`)
 - **422** where none could, the payload contradicting itself or a fixed bound: its body is
   `FLRefusedPayloadBody`, each field the rule judged named with the rule's code as its `kind` where
   one payload shape carries the rule, and its enum sits beside `REQ-VAL-001` on the operation's 422.

@@ -1,19 +1,34 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any, get_args
 
 import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules, FLSpielplanShape
 from app.api.saisons.services import (
+    DRAW_TWINS,
     DRAWN_HOLDING_ITS_SIDES,
     RECORDED_FACT_FIELDS,
+    RULES_BRACKET_IMPOSSIBLE,
+    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+    RULES_DRAW_OUTVALUES_WIN,
+    RULES_DRAW_OUTVALUES_WIN_AS_STORED,
+    RULES_FIXTURES_OVER_ONE_READ,
+    RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+    RULES_QUALIFIERS_ABOVE_GROUP,
+    RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
     SAISON_SPAN_BELOW_SCHEDULE,
+    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+    SHAPE_ONLY_CODES,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
+    as_the_draw_answers,
     find_saison_span_refusal,
     find_spielplan_refusal,
     holds_a_recorded_fact,
@@ -697,3 +712,54 @@ class TestTheShapeADrawRunsFromIsMeasuredAgainstTheSeasonsSpan:
         """Why the endpoint owes a call of its own: this rule reads the groups and who stands in them, and no date at all."""
 
         assert refusal_for(rules=TIGHT_RULES.model_copy(update=WIDENED_SHAPE.model_dump()), occupancy={"A": 4, "B": 4}) is None
+
+
+def shared(code: str) -> WriteRefusal:
+    """A refusal as the season's own write answers it, which the draw then re-codes."""
+
+    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT, message="the shared check's detail")
+
+
+def on_the_draw(code: str, *, shape_stated: bool) -> tuple[str, HTTPStatus] | None:
+    answered = as_the_draw_answers(shared(code), shape_stated=shape_stated)
+
+    return None if answered is None else (answered.error_code, answered.status)
+
+
+class TestTheDrawAnswersStoredValuesUnderItsTwins:
+    """A refusal reading a stored value is a conflict with state on the draw, so it answers 409 under a code of its own."""
+
+    def test_a_draw_stating_no_shape_answers_every_shared_code_under_its_twin(self):
+        """No shape overlays anything, so every rule the draw asks judges the season's stored rules or dates."""
+
+        assert on_the_draw(RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
+            RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (RULES_FIXTURES_OVER_ONE_READ_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
+
+    @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
+    def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: str):
+        """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""
+
+        assert on_the_draw(code, shape_stated=True) == (code, HTTPStatus.UNPROCESSABLE_CONTENT)
+
+    @pytest.mark.parametrize("code", sorted(set(DRAW_TWINS) - SHAPE_ONLY_CODES))
+    def test_a_stated_shape_still_twins_a_rule_reading_a_stored_value(self, code: str):
+        """The points, the forfeit award and the dates are no part of a shape, so they are the season's stored ones."""
+
+        assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)
+
+    def test_a_code_the_draw_shares_with_nothing_is_left_alone(self):
+        assert on_the_draw(SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
+        assert as_the_draw_answers(None, shape_stated=False) is None
+
+    def test_the_twin_keeps_the_shared_checks_detail(self):
+        answered = as_the_draw_answers(shared(RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
+
+        assert answered is not None
+        assert answered.message == "the shared check's detail"

@@ -197,10 +197,16 @@ def _reaches_code(dotted: str, code: str) -> bool:
     """Whether the callable at `dotted` reaches the constant holding `code`."""
 
     return any(
-        getattr(module, referenced, None) == code
+        code in _codes_held(getattr(module, referenced, None))
         for module, function in _reached_functions(dotted)
         for referenced in _names_referenced(function)
     )
+
+
+def _codes_held(value: Any) -> tuple[Any, ...]:
+    """A constant's code, or each code a mapping of codes hands out: a draw twin is spelled as one."""
+
+    return tuple(value.values()) if isinstance(value, Mapping) else (value,)
 
 
 def _resolved(node: ast.expr, module: ModuleType) -> Any:
@@ -219,7 +225,11 @@ def _refusals_built(module: ModuleType, node: ast.AST) -> Iterator[tuple[str, An
     for call in ast.walk(node):
         if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == WriteRefusal.__name__:
             spelled = {keyword.arg: keyword.value for keyword in call.keywords}
-            yield _resolved(spelled["error_code"], module), _resolved(spelled["status"], module)
+            code = spelled["error_code"]
+            # A code read off a mapping by the refusal it re-codes is every code the mapping holds.
+            codes = _codes_held(_resolved(code.value, module)) if isinstance(code, ast.Subscript) else (_resolved(code, module),)
+            status = _resolved(spelled["status"], module)
+            yield from ((each, status) for each in codes)
 
 
 def _test_class_asserts_code(tested_by: str, code: str) -> bool:

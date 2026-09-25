@@ -22,8 +22,9 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
+    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
     RULES_SHAPE_AFTER_DRAW,
-    SAISON_SPAN_BELOW_SCHEDULE,
+    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
@@ -620,10 +621,10 @@ class TestEachRefusalIsReachedThroughTheRoute:
                 Seed(saison=saison_document(rules=rules_document(groups=2)), entered=entry_rows(groups=4)),
                 id="clubs in a group the season does not offer",
             ),
-            # `find_rules_refusal`, the OTHER call, and the groups match the rules so nothing above
-            # answers first: six qualifiers are no power of two, so this season has no bracket at all.
+            # `find_rules_refusal`, the OTHER call, the groups matching the rules so nothing above answers
+            # first: six qualifiers make no bracket, and with no shape stated the draw twin answers.
             pytest.param(
-                RULES_BRACKET_IMPOSSIBLE,
+                RULES_BRACKET_IMPOSSIBLE_AS_STORED,
                 Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
@@ -1435,7 +1436,7 @@ def the_tight_shape(*, qualifiers: int) -> FLSpielplanShape:
 
 
 class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
-    """`REQ-DATE-005` WIRED over the draw's own three, which decide how many matchdays a season takes.
+    """`REQ-DATE-009`, the draw's twin of `REQ-DATE-005`, WIRED over the draw's own three, which decide how many matchdays a season takes.
 
     `POST /saisons` measured the span against the rules the season was created with, and the draw
     replaces three of them.
@@ -1452,7 +1453,8 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
 
         refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
 
-        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        # The draw twin: the span weighed is the stored one, which a season patch can widen.
+        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
         assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
         # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
         # come back `REQ-DATE-005` on the next patch of any rule at all.

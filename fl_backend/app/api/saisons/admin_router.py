@@ -44,6 +44,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
+    as_the_draw_answers,
     find_activation_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
@@ -856,13 +857,17 @@ async def generate_spielplan(
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
         # skipped, each of those weighing a draw about to cease to exist.
+        shape_stated = spielplan_data.shape is not None
         refuse(
-            find_rules_refusal(
-                saison_status=str(saison_raw["status"]),
-                stored=None,
-                proposed=rules,
-                occupancy_by_gruppe=occupancy,
-                highest_wired_platz=0,
+            as_the_draw_answers(
+                find_rules_refusal(
+                    saison_status=str(saison_raw["status"]),
+                    stored=None,
+                    proposed=rules,
+                    occupancy_by_gruppe=occupancy,
+                    highest_wired_platz=0,
+                ),
+                shape_stated=shape_stated,
             )
         )
 
@@ -870,11 +875,14 @@ async def generate_spielplan(
         # worth measuring. Empty spans -- the draw dates nothing, and a replace has every stored
         # matchday still to delete below.
         refuse(
-            find_saison_span_refusal(
-                start_date=str(saison_raw["start_date"]),
-                end_date=str(saison_raw["end_date"]),
-                rules=rules,
-                spieltag_spans=[],
+            as_the_draw_answers(
+                find_saison_span_refusal(
+                    start_date=str(saison_raw["start_date"]),
+                    end_date=str(saison_raw["end_date"]),
+                    rules=rules,
+                    spieltag_spans=[],
+                ),
+                shape_stated=shape_stated,
             )
         )
 

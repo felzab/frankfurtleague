@@ -38,6 +38,9 @@ class Disarmed:
     #: The parameter and the literal, as source, every call of the check in that operation binds;
     #: `None` for a check read as a predicate, whose answer every call may test and nothing else.
     binding: tuple[str, str] | None
+    #: The function every call's answer is handed to, which answers the code under another; the
+    #: binding is then `None` and read no further.
+    recoded_by: str | None = None
 
 
 # A rule's check a route reaches without `RULES` naming it, disarmed at every call there.
@@ -45,6 +48,10 @@ STORED_NONE = Disarmed("only the rules judging the proposed numbers alone fire, 
 NO_SPANS = Disarmed("the draw dates no matchday and a create holds none, and this code weighs a dated one", ("spieltag_spans", "[]"))
 A_MOVE_IS_NO_ENTRY = Disarmed("a group move is no entry, so the season's status gate does not judge it", ("saison_status", "'future'"))
 A_PREDICATE = Disarmed("read to decide whether a reactivation mints a link", None)
+DRAW_TWIN = Disarmed(
+    "the draw reads this value from the stored season, so it answers the code's draw twin", None, recoded_by="as_the_draw_answers"
+)
+DRAW = "POST /saisons/{saison_id}/spielplan"
 
 CREATE_AND_DRAW = ("POST /saisons", "POST /saisons/{saison_id}/spielplan")
 STORED_SEASON_CODES = (
@@ -63,6 +70,7 @@ DISARMED: Mapping[tuple[str, str], Disarmed] = {
     **{("REQ-DATE-004", operation): NO_SPANS for operation in CREATE_AND_DRAW},
     ("REQ-ENTER-001", "PATCH /teams/{team_id}/saisons/{saison_id}"): A_MOVE_IS_NO_ENTRY,
     ("REQ-SCHIEDSRICHTER-006", "POST /schiedsrichter/{schiedsrichter_id}/reactivate"): A_PREDICATE,
+    **{(code, DRAW): DRAW_TWIN for code in ("REQ-RULES-008", "REQ-RULES-010", "REQ-DATE-005")},
 }
 
 # A named operation raising the code through a second function: `implemented_by` holds one, so the
@@ -202,6 +210,14 @@ def _decides_only(reach: _Reach, node: ast.AST) -> bool:
     return isinstance(parent, (ast.If, ast.IfExp, ast.While)) and parent.test is node
 
 
+def _handed_to(reach: _Reach, node: ast.AST, function: str) -> bool:
+    """Whether the value at `node` is an argument of a call to `function`, and so answered as that function answers it."""
+
+    parent = reach.parents.get(id(node))
+
+    return isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id == function and node in parent.args
+
+
 def test_every_allowlisted_call_binds_what_disarms_it():
     """The allowlist is keyed by code and operation, so an armed call would stand on it: each entry's binding is held at every call."""
 
@@ -210,7 +226,13 @@ def test_every_allowlisted_call_binds_what_disarms_it():
         reach = _reach()[operation]
         key, called = reach.declarations[next(rule.implemented_by for rule in RULES if rule.code == code)]
         for site in reach.sites[key]:
-            if disarmed.binding is None:
+            if disarmed.recoded_by is not None:
+                armed.extend(
+                    []
+                    if _handed_to(reach, site.call, disarmed.recoded_by)
+                    else [f"{code} on {operation}: line {site.call.lineno} hands the check's answer to nothing that re-codes it"]
+                )
+            elif disarmed.binding is None:
                 armed.extend(
                     []
                     if _decides_only(reach, site.call)

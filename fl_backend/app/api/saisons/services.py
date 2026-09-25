@@ -352,6 +352,38 @@ def find_saison_span_refusal(
     return None
 
 
+# Each code the draw shares with a season write, and its twin: the draw judges the STORED rules and
+# dates beneath its shape, so a refusal reading a stored value is a conflict with state, a 409.
+RULES_BRACKET_IMPOSSIBLE_AS_STORED = "REQ-RULES-014"
+RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED = "REQ-RULES-015"
+RULES_DRAW_OUTVALUES_WIN_AS_STORED = "REQ-RULES-016"
+RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED = "REQ-RULES-017"
+RULES_FIXTURES_OVER_ONE_READ_AS_STORED = "REQ-RULES-018"
+SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = "REQ-DATE-009"
+
+DRAW_TWINS: Mapping[str, str] = {
+    RULES_BRACKET_IMPOSSIBLE: RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+    RULES_QUALIFIERS_ABOVE_GROUP: RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
+    RULES_DRAW_OUTVALUES_WIN: RULES_DRAW_OUTVALUES_WIN_AS_STORED,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT: RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+    RULES_FIXTURES_OVER_ONE_READ: RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+    SAISON_SPAN_BELOW_SCHEDULE: SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+}
+
+# The three that read nothing but the shape's own three numbers: a shape in the payload makes them
+# judge the payload, which keeps the shared 422.
+SHAPE_ONLY_CODES = frozenset({RULES_BRACKET_IMPOSSIBLE, RULES_QUALIFIERS_ABOVE_GROUP, RULES_FIXTURES_OVER_ONE_READ})
+
+
+def as_the_draw_answers(refusal: WriteRefusal | None, *, shape_stated: bool) -> WriteRefusal | None:
+    """`refusal` as the draw answers it: under its twin where it read a stored value, else unchanged."""
+
+    if refusal is None or refusal.error_code not in DRAW_TWINS or (shape_stated and refusal.error_code in SHAPE_ONLY_CODES):
+        return refusal
+
+    return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT, message=refusal.message)
+
+
 # Activating demotes the incumbent to `past`, whose rules then freeze (`REQ-RULES-005`).
 ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
 
