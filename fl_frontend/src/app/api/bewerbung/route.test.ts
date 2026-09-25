@@ -110,12 +110,22 @@ function aRequest(headers: Record<string, string> = {}, body: unknown = BODY) {
 
 type Sitz = "ansprechperson" | "stellvertretung" | "trainer";
 
-/** `BODY` with one seat's consent label replaced, every other field as the schema takes it. */
-const labelledOn = (seat: Sitz, textVersion: string) => ({
+const labelled = (seat: Sitz, textVersion: string) => ({
+  ...BODY.kontakte[seat],
+  einwilligung: { ...BODY.kontakte[seat].einwilligung, text_version: textVersion },
+});
+
+/**
+ * `BODY` as a page loaded before a deploy sends it: that page stamped every seat with its own label,
+ * so no seat names the running one.
+ */
+const labelledThroughout = (textVersion: string) => ({
   ...BODY,
   kontakte: {
     ...BODY.kontakte,
-    [seat]: { ...BODY.kontakte[seat], einwilligung: { ...BODY.kontakte[seat].einwilligung, text_version: textVersion } },
+    ansprechperson: labelled("ansprechperson", textVersion),
+    stellvertretung: labelled("stellvertretung", textVersion),
+    trainer: labelled("trainer", textVersion),
   },
 });
 
@@ -237,7 +247,7 @@ describe("the application handler's consent label", () => {
   /* A retry across a deploy that moved the label resends the first press's words, and only the write
      can tell a stored key from a new one (`docs/frontend/spec.md :: I148`). */
   it("passes an earlier label on to the write, which answers a stored key's replay", async () => {
-    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn("trainer", "2026-09-bestaetigung-4")));
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));
 
     assert.equal(writes().length, 1);
     assert.equal((answer.body as { success: boolean }).success, true);
@@ -249,7 +259,7 @@ describe("the application handler's consent label", () => {
       throw aRefusal("REQ-BEWERBUNG-016");
     };
 
-    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledOn("trainer", "2026-09-bestaetigung-4")));
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));
 
     assert.deepEqual(answer.body, { success: false, error: BEWERBUNG_VERALTET });
     assert.deepEqual(mails, []);
