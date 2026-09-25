@@ -15,7 +15,10 @@ REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 DOCKERFILES: Final = (REPO_ROOT / "fl_frontend" / "Dockerfile", REPO_ROOT / "fl_backend" / "Dockerfile")
 COMPOSE_FILES: Final = (REPO_ROOT / "docker-compose.yml", REPO_ROOT / "docker-compose.local.yml")
 
-FROM_RE: Final = re.compile(r"^FROM (\S+)(?: AS (\S+))?$", re.MULTILINE)
+# Docker reads the instruction and `AS` in any case, and takes flags such as `--platform=` ahead of
+# the image, so a reader holding to one spelling passes a reference it never saw.
+FROM_RE: Final = re.compile(r"^[ \t]*FROM(?:[ \t]+--\S+)*[ \t]+(\S+)(?:[ \t]+AS[ \t]+(\S+))?[ \t]*$", re.MULTILINE | re.IGNORECASE)
+FROM_LINE_RE: Final = re.compile(r"^[ \t]*FROM[ \t]", re.MULTILINE | re.IGNORECASE)
 IMAGE_RE: Final = re.compile(r"^ +image: (.+)$", re.MULTILINE)
 # A name, a tag, and the registry's digest for it: the tag for the bot to compare, the digest for the pull.
 PINNED_RE: Final = re.compile(r"^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$")
@@ -29,12 +32,15 @@ def external_references() -> list[tuple[str, str]]:
     """Every image a Dockerfile builds from or a compose file names, its file beside it, stages and own images apart."""
     found: list[tuple[str, str]] = []
     for dockerfile in DOCKERFILES:
+        text = dockerfile.read_text(encoding="utf-8")
+        parsed = FROM_RE.findall(text)
+        assert len(parsed) == len(FROM_LINE_RE.findall(text)), f"{dockerfile.name}: a FROM line this reader does not parse"
         stages: set[str] = set()
-        for image, stage in FROM_RE.findall(dockerfile.read_text(encoding="utf-8")):
-            if image not in stages:
+        for image, stage in parsed:
+            if image.lower() not in stages:
                 found.append((dockerfile.relative_to(REPO_ROOT).as_posix(), image))
             if stage:
-                stages.add(stage)
+                stages.add(stage.lower())
     for compose in COMPOSE_FILES:
         for image in IMAGE_RE.findall(compose.read_text(encoding="utf-8")):
             if image.strip() != CLEARED and not OWN_IMAGE_RE.match(image.strip()):
@@ -45,8 +51,10 @@ def external_references() -> list[tuple[str, str]]:
 def test_every_external_image_is_pinned_by_tag_and_digest() -> None:
     """A reference without its digest pulls whatever its tag names on the day, and nothing else notices."""
     references = external_references() + [(path, image) for path, (_, image) in script_references().items()]
-    # Two Dockerfiles each build from at least one image, and production names two it does not build.
-    assert len(references) >= 4, f"only {references} were read: a reader went inert"
+    # Per file: a count across files is met by one reader alone while the others read nothing.
+    silent = [path.relative_to(REPO_ROOT).as_posix() for path in (*DOCKERFILES, *COMPOSE_FILES)]
+    silent = [path for path in silent if path not in {read for read, _ in references}]
+    assert not silent, f"no image was read out of {silent}: a reader went inert"
     unpinned = [f"{path}: {image}" for path, image in references if not PINNED_RE.match(image)]
     assert unpinned == [], "not pinned by tag and digest:\n" + "\n".join(unpinned)
 
