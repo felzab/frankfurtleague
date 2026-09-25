@@ -13,6 +13,7 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     CLUB_RETIRED,
     REPLACE_INCOMING_ALREADY_ENTERED,
+    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
     REPLACE_OUTGOING_HAS_A_RECORD,
     REPLACE_SAISON_FINISHED,
 )
@@ -691,12 +692,13 @@ class TestWhoMayArrive:
         assert code == REPLACE_INCOMING_ALREADY_ENTERED
         assert row is not None
 
-    def test_one_club_named_on_both_ends_is_refused(self, mongo_replica_set_url: str):
-        """The same arm: the row being replaced is itself a row the incoming club holds."""
+    def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
+        """`REQ-REPLACE-004`, judged before any read, so the row and the fixtures are left alone."""
 
-        code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
+        code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == REPLACE_INCOMING_ALREADY_ENTERED
+        assert code == REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
         """The entry gate's own code, because a replacement is one more way of bringing a club into a season."""

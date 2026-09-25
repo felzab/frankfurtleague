@@ -1092,7 +1092,8 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
 
 
 # A swap is neither an entry nor the move `REQ-ENTER-004` locks, so it carries codes of its own.
-# One code covers the three "not a swap" shapes, because the control offers only pairs that are one.
+# One code covers the two "not a swap" shapes the season decides, because the control offers only
+# pairs that are one.
 SWAP_NOT_A_SWAP = "REQ-SWAP-001"
 SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
 SWAP_SAISON_FINISHED = "REQ-SWAP-003"
@@ -1100,6 +1101,8 @@ SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
 SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
 # `REQ-SWAP-006` is FORWARDS ONLY, exactly as `REQ-ELIGIBILITY-001` is: the past is left alone.
 SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
+# Apart from `REQ-SWAP-001`, being the payload's own fault: no season could make one club a pair.
+SWAP_ONE_CLUB_TWICE = "REQ-SWAP-007"
 
 
 def fixtures_newly_fielding_a_departed_club(
@@ -1143,9 +1146,22 @@ def fixtures_newly_fielding_a_departed_club(
     return offending
 
 
+def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
+    """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
+
+    if team1_id != team2_id:
+        return None
+
+    return WriteRefusal(
+        error_code=SWAP_ONE_CLUB_TWICE,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="both ids name one club; a swap exchanges two of them",
+        fields=(("team1_id",), ("team2_id",)),
+    )
+
+
 def find_gruppe_swap_refusal(
     *,
-    is_same_team: bool,
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
@@ -1159,11 +1175,6 @@ def find_gruppe_swap_refusal(
     **The order is the argument**: it narrows from "not a swap" through the season to the two clubs,
     and the REPAIRABLE refusals come last, so nobody does work a terminal refusal wastes.
     """
-
-    if is_same_team:
-        return WriteRefusal(
-            error_code=SWAP_NOT_A_SWAP, status=HTTPStatus.CONFLICT, message="both ids name one club; a swap exchanges two of them"
-        )
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
     if missing:
@@ -1236,6 +1247,8 @@ def find_gruppe_swap_refusal(
 REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"
 REPLACE_OUTGOING_HAS_A_RECORD = "REQ-REPLACE-002"
 REPLACE_INCOMING_ALREADY_ENTERED = "REQ-REPLACE-003"
+# Apart from `REQ-REPLACE-003`, being the payload's own fault: no season makes a club its own replacement.
+REPLACE_ONE_CLUB_ON_BOTH_ENDS = "REQ-REPLACE-004"
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
@@ -1253,6 +1266,20 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
 
     # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
+    """Why this replacement names one club on both ends, or `None`. Judged before any read."""
+
+    if team_id != incoming_team_id:
+        return None
+
+    return WriteRefusal(
+        error_code=REPLACE_ONE_CLUB_ON_BOTH_ENDS,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the incoming club is the club being replaced; a replacement hands the row to another club",
+        fields=(("incoming_team_id",),),
+    )
 
 
 def find_replacement_refusal(
@@ -1297,8 +1324,6 @@ def find_replacement_refusal(
         return WriteRefusal(
             error_code=REPLACE_INCOMING_ALREADY_ENTERED,
             status=HTTPStatus.CONFLICT,
-            # Also the arm that catches one club named on both ends: the row being replaced is
-            # itself a row the incoming club holds, so replacing a club by itself lands here.
             message="the incoming club already holds a row in this season; a replacement brings in a club that is not entered yet",
         )
 

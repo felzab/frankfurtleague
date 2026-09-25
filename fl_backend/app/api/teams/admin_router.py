@@ -52,6 +52,7 @@ from app.api.teams.services import (
     find_club_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakte_precondition_refusal,
+    find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
     has_taken_place,
@@ -613,6 +614,9 @@ async def replace_saison_team(
     Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
     live squad rows are retired, in ONE transaction: the schedule survives.
     """
+
+    # Before any read, as the group swap judges its pair: this one is refused whatever the season holds.
+    refuse(find_replacement_pair_refusal(team_id=team_id, incoming_team_id=replacement_data.incoming_team_id))
 
     # Outside the transaction, as the group swap reads it: an unknown season is a 404 about the
     # season rather than about a junction row nobody expected to find in it.

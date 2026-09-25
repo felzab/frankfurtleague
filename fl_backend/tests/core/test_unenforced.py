@@ -209,7 +209,6 @@ def _swap(**overrides: Any):
 
     return find_gruppe_swap_refusal(
         **{
-            "is_same_team": False,
             "team1_gruppe": "A",
             "team2_gruppe": "B",
             "saison_status": "active",

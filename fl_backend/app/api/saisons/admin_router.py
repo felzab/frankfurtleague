@@ -56,7 +56,12 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
-from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club, has_taken_place
+from app.api.teams.services import (
+    find_gruppe_swap_refusal,
+    find_swap_pair_refusal,
+    fixtures_newly_fielding_a_departed_club,
+    has_taken_place,
+)
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -621,6 +626,9 @@ async def swap_gruppen(
     so each group stays a round robin. Neither `tore` nor `austritt` moves.
     """
 
+    # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
+    refuse(find_swap_pair_refusal(team1_id=swap_data.team1_id, team2_id=swap_data.team2_id))
+
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
@@ -690,7 +698,6 @@ async def swap_gruppen(
 
         refuse(
             find_gruppe_swap_refusal(
-                is_same_team=swap_data.team1_id == swap_data.team2_id,
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
