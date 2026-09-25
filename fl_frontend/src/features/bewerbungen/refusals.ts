@@ -12,8 +12,7 @@ const TEAMS_PAGE = "Teams";
  * A triage 409 as the message it should render, or `null` when the code is none of these.
  *
  * The `REQ-ENTER` codes are the season's own entry rules, which
- * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates. `herkunft` is what an
- * acceptance enters, and `null` for the decline, which enters nothing.
+ * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates.
  */
 export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | null): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -76,9 +75,9 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
       return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
     case "REQ-ENTER-003":
       return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
-    // Two unique indexes answer an acceptance: a new school's club meets `uniq_shorthand` with the
-    // Kürzel the school typed, which nothing edits, and a picked club already in the season meets the
-    // junction's, as the club editor's entry does. The decline's is the shared reader's.
+    // Two unique indexes answer an acceptance: a new school's club meets `uniq_shorthand` under a
+    // Kürzel nothing edits, a picked club already in the season the junction's. The decline enters
+    // nothing and passes `null`, leaving the code to the shared reader.
     case "DB-COMMON-002": {
       if (herkunft === "neue_schule") {
         return {

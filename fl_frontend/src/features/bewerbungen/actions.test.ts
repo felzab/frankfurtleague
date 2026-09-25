@@ -246,9 +246,8 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
   });
 
-  /* Two unique indexes answer an acceptance: a new school's club is created under the Kürzel the
-     school typed and meets `uniq_shorthand`, and a picked club already in the season meets the
-     junction's `uniq_saison_id_team_id`. The stored application is what tells the two apart. */
+  /* The stored application tells a new school's `uniq_shorthand` collision from a picked club's
+     `uniq_saison_id_team_id` one, and each gets the repair its own index asks for. */
   it("answers a new school's duplicate key with the Kürzel repair rather than the generic conflict", async () => {
     assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
     answerWith(() => Promise.reject(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY)));
