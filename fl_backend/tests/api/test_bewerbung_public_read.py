@@ -302,7 +302,7 @@ class TestTheAssignedColoursRead:
 
         rendered = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").text
 
-        for withheld in (*CLUBS[0][:2], CLUBS[1][0], AUSTRITT["type"], str(OPEN_OID)):
+        for withheld in (*CLUBS[0][:2], CLUBS[1][0], *RETIRED_CLUB[:2], AUSTRITT["type"], str(OPEN_OID)):
             assert withheld not in rendered
 
     def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self, seeded_url: str):
