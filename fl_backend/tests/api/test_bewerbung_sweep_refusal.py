@@ -36,6 +36,7 @@ from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import refuse_a_stalled_page
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
+from tests.documents import kontaktperson_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -49,28 +50,11 @@ MAILED_A_DAY_PAST = "2026-03-28"
 HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}
 
 
-def person(vorname: str, *, email: str | None = None, bestaetigt_am: str | None = None) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": "Brackenmoor",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
-
-
 def kontakte(**overrides: Any) -> dict[str, Any]:
     return {
-        "trainer": person("Quillhilde"),
-        "ansprechperson": person("Ansgar"),
-        "stellvertretung": person("Stellan"),
+        "trainer": kontaktperson_document("Quillhilde"),
+        "ansprechperson": kontaktperson_document("Ansgar"),
+        "stellvertretung": kontaktperson_document("Stellan"),
         "trainer_ist_zugleich": None,
         **overrides,
     }
@@ -169,7 +153,9 @@ class TestTheReminderMark:
     @pytest.mark.parametrize(
         ("kontakte_block", "bookkeeping", "why"),
         [
-            pytest.param(kontakte(trainer=person("Quillhilde", bestaetigt_am=YESTERDAY)), bestaetigungen(), "confirmed", id="confirmed"),
+            pytest.param(
+                kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY)), bestaetigungen(), "confirmed", id="confirmed"
+            ),
             pytest.param(
                 kontakte(), bestaetigungen(trainer={**bestaetigungen()["trainer"], "abgelehnt_am": YESTERDAY}), "declined", id="declined"
             ),
@@ -232,7 +218,9 @@ class TestOneMessagePerMailbox:
     """
 
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):
-        block = kontakte(trainer=person("Ida"), ansprechperson=person("Ida"), trainer_ist_zugleich="ansprechperson")
+        block = kontakte(
+            trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_ist_zugleich="ansprechperson"
+        )
 
         assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_SEATS) == [
             ("ida@example.com", ["trainer", "ansprechperson"]),
@@ -241,7 +229,8 @@ class TestOneMessagePerMailbox:
 
     def test_a_domain_spelled_in_another_case_is_the_same_inbox(self):
         block = kontakte(
-            ansprechperson=person("Ansgar", email="Ansgar@EXAMPLE.com"), stellvertretung=person("Stellan", email="Ansgar@example.com")
+            ansprechperson=kontaktperson_document("Ansgar", email="Ansgar@EXAMPLE.com"),
+            stellvertretung=kontaktperson_document("Stellan", email="Ansgar@example.com"),
         )
 
         grouped = group_seats_by_mailbox(kontakte=block, seats=("ansprechperson", "stellvertretung"))
@@ -252,7 +241,8 @@ class TestOneMessagePerMailbox:
         """Stricter than the erasure on purpose: over-matching here would put somebody else's link in a message."""
 
         block = kontakte(
-            ansprechperson=person("Ansgar", email="ansgar@example.com"), stellvertretung=person("Stellan", email="ANSGAR@example.com")
+            ansprechperson=kontaktperson_document("Ansgar", email="ansgar@example.com"),
+            stellvertretung=kontaktperson_document("Stellan", email="ANSGAR@example.com"),
         )
 
         assert len(group_seats_by_mailbox(kontakte=block, seats=("ansprechperson", "stellvertretung"))) == 2
@@ -314,7 +304,7 @@ class TestTheFourteenDayClock:
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=bestaetigungsfrist), today=TODAY) == due
 
     def test_an_application_every_seat_confirmed_waits_for_the_triage_instead(self):
-        stamped = kontakte(**{seat: person(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
 
         assert not deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
 
@@ -322,7 +312,7 @@ class TestTheFourteenDayClock:
     def test_an_erased_or_declined_seat_counts_as_outstanding(self, emptied: str):
         """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
 
-        stamped = kontakte(**{seat: person(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
         stamped[emptied] = None
 
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
@@ -411,7 +401,10 @@ class TestWhatTheNoticesNeed:
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
 
         assert ansprechperson_mailbox(kontakte=kontakte()) == ("ansgar@example.com", ["ansprechperson"])
-        assert ansprechperson_mailbox(kontakte=kontakte(trainer=person("Ansgar"))) == ("ansgar@example.com", ["trainer", "ansprechperson"])
+        assert ansprechperson_mailbox(kontakte=kontakte(trainer=kontaktperson_document("Ansgar"))) == (
+            "ansgar@example.com",
+            ["trainer", "ansprechperson"],
+        )
         assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None)) == (None, [])
 
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):

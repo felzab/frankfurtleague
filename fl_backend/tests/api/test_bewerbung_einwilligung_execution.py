@@ -27,7 +27,7 @@ from app.api.bewerbungen.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, team_document
+from tests.documents import ADDRESS, kontaktperson_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -88,22 +88,9 @@ TELEFON = "1234567"
 
 
 def person(vorname: str) -> dict[str, Any]:
-    """One seat as the submission stores it: no date, no stamp, entered on the person's behalf."""
-
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-{NACHNAME}",
-        "email": f"{vorname.lower()}@{MAIL_DOMAIN}",
-        "telefon": f"+49 170 {TELEFON}",
-        "geburtsdatum": None,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": None,
-        },
-    }
+    return kontaktperson_document(
+        vorname, nachname=f"{vorname}-{NACHNAME}", email=f"{vorname.lower()}@{MAIL_DOMAIN}", telefon=f"+49 170 {TELEFON}"
+    )
 
 
 def kontakte(*, trainer_ist_zugleich: str | None = None) -> dict[str, Any]:

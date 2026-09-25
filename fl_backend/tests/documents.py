@@ -134,6 +134,26 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
     }
 
 
+def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:
+    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it."""
+
+    return {
+        "vorname": vorname,
+        "nachname": f"{vorname}-Mustermann",
+        "email": f"{vorname.lower()}@example.com",
+        "telefon": "+49 170 1234567",
+        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
+        "einwilligung": {
+            "umfang": "kontaktdaten",
+            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
+            "text_version": "v3",
+            "datum": "2026-03-20",
+            "bestaetigt_am": bestaetigt_am,
+        },
+        **fields,
+    }
+
+
 def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fields: Any) -> dict[str, Any]:
     """A live row carries an explicit null `inactive_since`, which is the shape a write leaves and what a `$match` reads."""
 

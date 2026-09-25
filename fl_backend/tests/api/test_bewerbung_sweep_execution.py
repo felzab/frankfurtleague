@@ -44,7 +44,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -86,21 +86,8 @@ def first_hashes(prefix: str) -> dict[str, str]:
 NACHNAME = "Mustermann"
 
 
-def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-{NACHNAME}",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": None,
-        },
-    }
+def person(vorname: str, **fields: Any) -> dict[str, Any]:
+    return kontaktperson_document(vorname, nachname=f"{vorname}-{NACHNAME}", **fields)
 
 
 def kontakte() -> dict[str, Any]:

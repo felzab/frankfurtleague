@@ -49,6 +49,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
 )
+from tests.documents import kontaktperson_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -60,30 +61,11 @@ HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT
 BESTAETIGUNGEN: Mapping[str, Any] = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
 
-def person(vorname: str, *, bestaetigt_am: str | None = None) -> dict[str, Any]:
-    """One seat as the submission stored it, or as a confirmation left it."""
-
-    return {
-        "vorname": vorname,
-        "nachname": "Brackenmoor",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
-
-
 def kontakte(**overrides: Any) -> dict[str, Any]:
     return {
-        "trainer": person("Quillhilde"),
-        "ansprechperson": person("Ansgar"),
-        "stellvertretung": person("Stellan"),
+        "trainer": kontaktperson_document("Quillhilde"),
+        "ansprechperson": kontaktperson_document("Ansgar"),
+        "stellvertretung": kontaktperson_document("Stellan"),
         "trainer_ist_zugleich": None,
         **overrides,
     }
@@ -281,7 +263,7 @@ class TestASeatAlreadyAnswered:
     @pytest.mark.parametrize(
         "stored",
         [
-            pytest.param(application(kontakte=kontakte(trainer=person("Quillhilde", bestaetigt_am=YESTERDAY))), id="confirmed"),
+            pytest.param(application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY))), id="confirmed"),
             pytest.param(
                 application(
                     bestaetigungen={
@@ -305,7 +287,7 @@ class TestASeatAlreadyAnswered:
         assert refusal.error_code == BEWERBUNG_SEAT_ALREADY_ANSWERED
 
     def test_one_seats_answer_does_not_spend_the_others(self):
-        stored = application(kontakte=kontakte(trainer=person("Quillhilde", bestaetigt_am=YESTERDAY)))
+        stored = application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY)))
 
         assert (
             find_already_answered_refusal(kontakte=stored["kontakte"], bestaetigungen=stored["bestaetigungen"], seat="ansprechperson") is None
@@ -423,7 +405,11 @@ class TestWhatAReopenedLinkShows:
         ("stored", "zustand"),
         [
             pytest.param(application(), "gueltig", id="open, inside the deadline"),
-            pytest.param(application(kontakte=kontakte(trainer=person("Quillhilde", bestaetigt_am=YESTERDAY))), "bestaetigt", id="confirmed"),
+            pytest.param(
+                application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY))),
+                "bestaetigt",
+                id="confirmed",
+            ),
             pytest.param(
                 application(
                     kontakte=kontakte(trainer=None),
@@ -438,7 +424,7 @@ class TestWhatAReopenedLinkShows:
             pytest.param(application(bestaetigungsfrist=YESTERDAY), "abgelaufen", id="the deadline passed"),
             pytest.param(application(status="abgelehnt"), "abgelaufen", id="decided by the triage while open"),
             pytest.param(
-                application(status="angenommen", kontakte=kontakte(trainer=person("Quillhilde", bestaetigt_am=YESTERDAY))),
+                application(status="angenommen", kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY))),
                 "bestaetigt",
                 id="confirmed, then accepted",
             ),
@@ -453,7 +439,10 @@ class TestTheSeatsStillOpen:
         assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_SEATS)
 
     def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
-        assert ausstehende_seats(kontakte=kontakte(ansprechperson=person("Ansgar", bestaetigt_am=TODAY))) == ["trainer", "stellvertretung"]
+        assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", bestaetigt_am=TODAY))) == [
+            "trainer",
+            "stellvertretung",
+        ]
 
     def test_an_emptied_slot_still_counts(self):
         """A decline or an erasure leaves the application unable to complete, which is what this list tells the page."""
