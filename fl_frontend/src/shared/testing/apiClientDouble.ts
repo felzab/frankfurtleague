@@ -27,14 +27,15 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
   const bus = `__flApiClientDouble${String((registered += 1))}`;
   Reflect.set(globalThis, bus, { calls, answer });
 
-  // The record the real client makes as it sends a write, which the admin spine judges its answer by.
-  const source = `import { mayHaveWritten } from "@/core/errors";
-import { recordWriteSent } from "@/core/requestScope";
+  // Sent through the real client's own dispatch, so the write the admin spine judges its answer by is
+  // recorded here exactly as the real client records it.
+  const source = `import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch";
 export const apiClient = async (endpoint, schema, options = {}) => {
-  if (mayHaveWritten({ method: (options.method ?? "GET").toUpperCase(), readOnly: options.readOnly === true })) recordWriteSent();
   const call = { endpoint, method: options.method, body: options.body, params: options.params, headers: new Headers(options.headers), readOnly: options.readOnly };
-  globalThis.${bus}.calls.push(call);
-  return globalThis.${bus}.answer(call, schema);
+  return dispatchRequest(sentRequestOf(options.method, options.readOnly), async () => {
+    globalThis.${bus}.calls.push(call);
+    return globalThis.${bus}.answer(call, schema);
+  });
 };`;
 
   registerHooks({

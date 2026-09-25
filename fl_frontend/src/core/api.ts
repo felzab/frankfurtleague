@@ -2,11 +2,12 @@ import "server-only";
 
 import z from "zod";
 
+import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "./errors";
 import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, recordWriteSent } from "./requestScope";
+import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -168,12 +169,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const bound = boundCall(timeoutMs);
 
-  const sent: SentRequest = {
-    // `fetch`'s own default, upper-cased so `toActionErrorResult`'s safe-method test reads any
-    // spelling alike: `fetch` itself sends `patch` exactly as typed.
-    method: (customOptions.method ?? "GET").toUpperCase(),
-    readOnly: readOnly === true,
-  };
+  const sent = sentRequestOf(customOptions.method, readOnly);
 
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
@@ -204,12 +200,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       });
     }
 
-    // Past the refusal above, which sends nothing, and before `fetch`: a write whose answer never comes
-    // may still have landed.
-    if (mayHaveWritten(sent)) recordWriteSent();
-
+    // Past the refusal above, which sends nothing and so records no write.
     try {
-      res = await fetch(urlObj, { ...customOptions, headers, signal: bound.signal });
+      res = await dispatchRequest(sent, () => fetch(urlObj, { ...customOptions, headers, signal: bound.signal }));
     } catch (error) {
       throw asNetworkError(error);
     }

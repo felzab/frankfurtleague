@@ -40,8 +40,8 @@ const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./tr
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
 
-/** What the doubled transport was asked to send. */
-const sends: { url: string; init: RequestInit }[] = [];
+/** What the doubled transport was asked to send, and whether the request had recorded a write by then. */
+const sends: { url: string; init: RequestInit; wroteBeforeSend: boolean }[] = [];
 
 /** The backend's answer to the next call, read once; unset, an empty list. */
 let nextAnswer: Response | undefined;
@@ -56,7 +56,7 @@ let nextStalls = false;
 let nextAnswersAfterMs: number | undefined;
 
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  sends.push({ url: String(input), init: init ?? {} });
+  sends.push({ url: String(input), init: init ?? {}, wroteBeforeSend: requestWriteSent() });
   if (nextAnswersAfterMs !== undefined) {
     const delay = nextAnswersAfterMs;
     nextAnswersAfterMs = undefined;
@@ -273,8 +273,20 @@ describe("the write a call records in its request", () => {
     assert.equal(await recorded({ method: "PATCH" }, () => void (nextTimesOut = true)), true, "an unanswered write went unrecorded");
   });
 
+  /* The transport is where the answer may be lost, so the write is on the record before it is handed over. */
+  it("records a write before the transport is handed it", async () => {
+    await recorded({ method: "PATCH" });
+
+    assert.equal(sends.at(-1)?.wroteBeforeSend, true, "the write was recorded only once the transport had it");
+  });
+
   it("records none for a GET, or for a POST declaring itself read-only", async () => {
     assert.deepEqual([await recorded({}), await recorded({ method: "POST", readOnly: true })], [false, false]);
+  });
+
+  /* `fetch` sends a method exactly as typed, so a safe method spelled in lower case changes nothing either. */
+  it("reads a method's spelling as the backend does", async () => {
+    assert.deepEqual([await recorded({ method: "get" }), await recorded({ method: "patch" })], [false, true]);
   });
 });
 
