@@ -266,9 +266,14 @@ describe("the German each replacement refusal renders", () => {
 
   /* The response carries no `austritt` — a replacement always clears it — so the action cannot know
      whether one stood there, and reports the state rather than an event it did not observe. */
-  it("reports the cleared austritt as state, never as something it saw happen", () => {
-    assert.match(REPLACE_ACTION, /kein Austritt eingetragen/);
-    assert.doesNotMatch(REPLACE_ACTION, /Austritt wurde|aufgehoben/);
+  it("reports the cleared austritt as state, never as something it saw happen", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, name: "SG Beta", gruppe: "A", fanned_out_to_spiele: 0, ausgetragene_squad_rows: 0 }));
+
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" });
+    const message = result.success ? (result.message ?? "") : result.error;
+
+    assert.match(message, /Für SG Beta ist in dieser Saison kein Austritt eingetragen\./);
+    assert.doesNotMatch(message, /Austritt wurde|aufgehoben/);
   });
 });
 
