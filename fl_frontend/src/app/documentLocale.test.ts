@@ -46,8 +46,7 @@ describe("the document's locale", () => {
   });
 
   /* What fails a visitor is the two DISAGREEING — a de-DE pin under lang="en" is as wrong as an
-     unpinned field under lang="de" — so the field is held to the language the rendered document
-     declares rather than to a literal. */
+     unpinned field under lang="de" — so the field is held to the document's language, not a literal. */
   it("formats a date field under the root layout in the language the document declares", () => {
     const html = renderTree(
       underNext(

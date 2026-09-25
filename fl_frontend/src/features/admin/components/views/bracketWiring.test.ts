@@ -45,7 +45,7 @@ const sieger = (spielNr: number): FLSpielQuelle => ({ type: "spiel", ausgang: "s
 
 /**
  * Every origin a slot can have, across two rounds. The Halbfinale is fed by the Viertelfinale's first
- * fixture and by a number the season no longer holds, which is where the kind's own tint answers.
+ * fixture and by a number the season does not hold, which is where the kind's own tint answers.
  */
 const ROUNDS = [
   round("viertelfinale", [
@@ -85,7 +85,7 @@ describe("the bracket wiring review", () => {
   /* The fact under review is the edge, and a match card drops the provenance the moment a winner
      arrives. `.claude/rules/frontend.md` carries it as "render its wiring as cards". */
   it("draws each fixture as a table row, and nothing inside the table as a card", () => {
-    assert.equal(TABLES.length, ROUNDS.length, "a round's fixtures are no longer a table");
+    assert.equal(TABLES.length, ROUNDS.length, "a round's fixtures are drawn outside a table");
 
     const rows = TABLES.flatMap((table) => [...table.matchAll(/<tr\b[^>]*>/g)]).length;
     // Each table carries its header row beside one row per fixture.
@@ -112,19 +112,19 @@ describe("the bracket wiring review", () => {
   });
 
   /* Four states, four fills, so a chip answers "does this need me?" first. Flattened to one value the
-     panel reads as one colour; flattened to bare ink it stops being a chip. A Chip's `color` resolves
-     against HeroUI's own tokens, which this app maps none of, and a Tag renders unstyled, so the
-     chip has to be the app's own label pill. */
+     panel reads as one colour; flattened to bare ink it stops being a chip. */
   it("paints the four origins in four distinct label pills", () => {
     const origins = ["1. der Gruppe A", "Sieger von Spiel 99", "Manuell gesetzt", "Ohne Herkunft"];
     const tones = origins.map((origin) => toneOf(origin));
 
+    // The app's own pill: a Chip's `color` resolves against HeroUI's tokens, which this app maps none
+    // of, and a Tag renders unstyled.
     assert.deepEqual(
       tones.filter((tone) => tone === null),
       [],
       `an origin wears no label pill: ${origins.map((origin) => `${origin}: ${classOf(origin)}`).join(" | ")}`,
     );
-    assert.equal(new Set(tones).size, origins.length, `the origins no longer read apart: ${tones.join(", ")}`);
+    assert.equal(new Set(tones).size, origins.length, `two origins read alike: ${tones.join(", ")}`);
   });
 
   /* The chip names the round a slot is fed FROM, not the round it stands in, so the panel's own

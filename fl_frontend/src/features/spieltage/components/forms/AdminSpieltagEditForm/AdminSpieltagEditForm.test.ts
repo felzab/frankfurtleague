@@ -105,8 +105,7 @@ beforeEach(() => {
 
 describe("the one date a final's Spieltag is given", () => {
   /* `spieltagLabels` composes the rendered name from the phase and `position`, so a form choosing on
-     it would follow a string the page makes rather than the row's own state. The labels here are
-     chosen so that the name and the phase disagree. */
+     it would follow a string the page makes rather than the row's own state. Here the two disagree. */
   it("dates a final once and every other matchday twice, on the stored phase rather than the label", () => {
     let unmount = renderEditor(spieltag("finale", "Endspiel"));
     assert.deepEqual(pickers(), ["Datum"], "a final's matchday is asked for two dates");

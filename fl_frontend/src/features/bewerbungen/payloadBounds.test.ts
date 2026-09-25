@@ -190,9 +190,8 @@ describe("where a published ceiling reaches the box the applicant types in", () 
 });
 
 /**
- * Whether the stepper beside the box writing `name` still offers one more. react-aria closes the increment button once
- * the value stands at the field's `maxValue`, and it is the one place that bound reaches the markup: the box itself
- * carries neither `max` nor `aria-valuemax`.
+ * Whether the stepper beside the box writing `name` still offers one more. react-aria closes the increment button at
+ * `maxValue`, the one place that bound reaches the markup: the box carries neither `max` nor `aria-valuemax`.
  */
 function offersMore(html: string, name: string): boolean {
   const box = html.indexOf(`name="${name}"`);
