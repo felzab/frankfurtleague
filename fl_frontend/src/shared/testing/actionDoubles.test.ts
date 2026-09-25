@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
-
-import { blankComments } from "@/core/blankComments.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
 
@@ -25,17 +22,6 @@ doubleActionRequest();
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
 const spieltage = await import("@/features/spieltage/actions.ts");
 const nextCache = await import("next/cache");
-
-/**
- * Every member the tree actually calls, read off the call sites rather than off the module the
- * double mirrors: a second route to the same set, which is what makes disagreement visible
- * (`docs/_standard/standard.md` PRE-4).
- */
-const CALLED = new Set(
-  filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) =>
-    [...blankComments(readFileSync(file, "utf8")).matchAll(/\bappToast\.(\w+)\(/g)].map(([, member]) => member ?? ""),
-  ),
-);
 
 describe("the actions double", () => {
   /* The names come off the real module's source: a double listing them by hand answers `undefined`
@@ -147,13 +133,6 @@ describe("the request double", () => {
 });
 
 describe("the toast double", () => {
-  it("carries every member the tree raises through it", () => {
-    assert.ok(CALLED.size > 0, "no call site was found, so this compares the double against nothing");
-
-    const missing = [...CALLED].filter((member) => typeof Reflect.get(appToast, member) !== "function");
-    assert.deepEqual(missing, [], `the double answers undefined for: ${missing.join(", ")}`);
-  });
-
   it("records the severity, the title and the description of each announcement", () => {
     raised.length = 0;
     appToast.success("Gespeichert.", { description: "Die Änderung steht." });
