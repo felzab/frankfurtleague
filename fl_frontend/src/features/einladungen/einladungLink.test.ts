@@ -105,6 +105,8 @@ describe("the origin each press mints its invite link on", () => {
       mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-mail`)),
       "the mailed link is minted on an origin this run was not configured with",
     );
+    // The close's legal links are drawn on the origin the builder is handed, apart from the link.
+    assert.ok(!mailedTexts().some((text) => text.includes(SITE_URL)), "the message sends a reader of this run to the published site");
   });
 
   it("is the configured one in the message the season-wide press mails", async () => {
