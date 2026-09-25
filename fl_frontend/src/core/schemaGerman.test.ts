@@ -501,8 +501,6 @@ function resolveSpecifier(specifier: string, from: string): string | null {
 
 /**
  * Everything one file pulls in, transitively — the sections and shared controls a form renders through.
- * A second copy of `fl_frontend/src/core/refusalPaths.test.ts`'s walk: two instances that rhyme are
- * cheaper duplicated than abstracted into a module neither sweep owns.
  */
 function importTree(root: string, stopAt: ReadonlySet<string>): Set<string> {
   const seen = new Set<string>();
