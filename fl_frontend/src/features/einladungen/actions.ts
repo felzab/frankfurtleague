@@ -191,13 +191,7 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    try {
-      await deleteEinladung(validated.data);
-    } catch (error) {
-      const refusal = mapEinladungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
+    await deleteEinladung(validated.data);
 
     refresh();
 

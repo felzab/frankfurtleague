@@ -66,21 +66,15 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
     });
   });
 
-  /* The revoke asks the same mapper, which leaves the unique index's code to the shared reader. */
-  it("answers every code the revoke publishes through the mapper", async () => {
-    for (const code of publishedRefusals(REVOKE_OPERATION)) {
-      assert.notEqual(
-        answerShown(REVOKE_OPERATION, code, mapEinladungRefusal),
-        null,
-        `${code} is published on the revoke and reaches the admin unmapped`,
-      );
-    }
+  /* The revoke publishes the unique index's code alone, which this slice leaves to the shared reader,
+     so the revoke asks no mapper at all. */
+  it("answers every code the revoke publishes in the shared reader's words", async () => {
     await assertEachAnswered({
       operation: REVOKE_OPERATION,
       codes: publishedRefusals(REVOKE_OPERATION),
       refuseWith: answerWith,
       act: () => deleteEinladungAction(KEY),
-      mapped: mapEinladungRefusal,
+      mapped: () => null,
     });
   });
 
