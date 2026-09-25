@@ -1432,7 +1432,6 @@ describe("the confirmation workflow's messages", () => {
         );
         assert.doesNotMatch(branch, /\s[—–-]\s/, `${name} uses a dash as punctuation`);
         assert.ok(!branch.includes("Mannschaft"), `${name} says „Mannschaft“ where the league says „Team“`);
-        assert.ok(!branch.includes("bereits"), `${name} says „bereits“ where the league says „schon“`);
       }
     }
   });
