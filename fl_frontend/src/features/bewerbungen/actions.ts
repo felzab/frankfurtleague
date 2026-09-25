@@ -512,8 +512,8 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
       return { success: false, error: ADMIN_FORBIDDEN };
     }
 
-    // Judged before the parse, as `/api/bewerbung` judges the form's: a page opened before a deploy
-    // moved the label would seat a person under words the running build does not serve.
+    // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
+    // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
     if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
 
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
