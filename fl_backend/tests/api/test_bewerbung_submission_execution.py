@@ -42,6 +42,7 @@ from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -379,69 +380,6 @@ class TestWhatTheLogRecords:
             assert submitted not in rendered
 
 
-class _HoldsAfterItsLookup:
-    """A second press held between its real key lookup and its insert until the first press has committed.
-
-    Records each lookup's filter and each insert's failure: what the endpoint asked for, and how the
-    server ordered the two.
-    """
-
-    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
-        self._collection = collection
-        self._committed = committed
-        self.lookups = 0
-        self.looked_up = asyncio.Event()
-        self.lookup_filters: list[Any] = []
-        self.insert_failures: list[str] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        query = kwargs.get("filter", args[0] if args else {})
-        if "idempotenz_schluessel" in query:
-            self.lookups += 1
-            self.lookup_filters.append(query)
-            self.looked_up.set()
-            await self._committed.wait()
-
-        return found
-
-    async def until_looked_up(self, press: asyncio.Task[Any]) -> None:
-        """Raced against the press, never polled: a press ending without its lookup fails here rather than hanging the tier."""
-
-        looked_up = asyncio.create_task(self.looked_up.wait())
-        try:
-            await asyncio.wait({press, looked_up}, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            # On every path, as `abandon` drains its press: `cancel()` only schedules the cancellation,
-            # and awaiting the task finishes it inside this case rather than on the next one's loop pass.
-            looked_up.cancel()
-            await asyncio.gather(looked_up, return_exceptions=True)
-        if self.looked_up.is_set():
-            return
-
-        # A press that raised is its own failure, not a missing lookup.
-        if (error := press.exception()) is not None:
-            raise error
-        pytest.fail("the second press answered without looking its key up, so nothing held it across the first press's commit")
-
-    @staticmethod
-    async def abandon(press: asyncio.Task[Any]) -> None:
-        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
-
-        press.cancel()
-        await asyncio.gather(press, return_exceptions=True)
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        try:
-            return await self._collection.insert_one(*args, **kwargs)
-        except Exception as failure:
-            self.insert_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
-            raise
-
-
 # What each state writes over a fresh application: every one means a link may already be in an inbox.
 LINK_MAY_BE_OUT = [
     pytest.param({"kontakte.trainer.einwilligung.bestaetigt_am": TODAY}, id="a seat confirmed"),
@@ -645,9 +583,9 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
-            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
             second = asyncio.create_task(submit(database, schluessel=SCHLUESSEL, bewerbungen=held))
-            await held.until_looked_up(second)
+            await held.until_held(second)
 
             try:
                 first = await submit(database, schluessel=SCHLUESSEL)
@@ -678,7 +616,7 @@ class TestTheSubmissionKey:
             # Set before the press, so the wrapper records the lookup and holds nothing back.
             committed = asyncio.Event()
             committed.set()
-            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
             await submit(database, schluessel=SCHLUESSEL, bewerbungen=held)
 
             return held.lookup_filters

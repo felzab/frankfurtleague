@@ -24,6 +24,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
+from tests.holds import HeldCollection
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -387,7 +388,7 @@ class TestTwoMintsAtOnce:
             committed = asyncio.Event()
             held = _HoldsAfterItsRevoke(database[Collection.EINLADUNGEN], committed)
             second = asyncio.create_task(mint(database, TWO_SEATS, einladungen=held))
-            await held.until_revoked(second)
+            await held.until_held(second)
 
             try:
                 first = await mint(database, TWO_SEATS)
@@ -408,59 +409,24 @@ class TestTwoMintsAtOnce:
         assert live == [second] and first != second
 
 
-class _HoldsAfterItsRevoke:
+class _HoldsAfterItsRevoke(HeldCollection):
     """A second mint held between its revoke and its insert until the first mint has committed.
 
-    Records each revoke and each insert's failure: how many attempts ran, and how the server ordered the two.
+    Records each revoke as well: how many attempts ran.
     """
 
-    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
-        self._collection = collection
-        self._committed = committed
-        self.revokes = 0
-        self.revoked = asyncio.Event()
-        self.insert_failures: list[str] = []
+    MISSED = "the second mint answered without revoking, so nothing held it across the first mint's commit"
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
+    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
+        super().__init__(collection, committed)
+        self.revokes = 0
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
         result = await self._collection.update_many(*args, **kwargs)
         self.revokes += 1
-        self.revoked.set()
-        await self._committed.wait()
+        await self.hold()
 
         return result
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        try:
-            return await self._collection.insert_one(*args, **kwargs)
-        except Exception as failure:
-            self.insert_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
-            raise
-
-    async def until_revoked(self, mint_task: asyncio.Task[Any]) -> None:
-        """Raced against the mint, never polled: a mint ending without its revoke fails here rather than hanging the tier."""
-
-        revoked = asyncio.create_task(self.revoked.wait())
-        try:
-            await asyncio.wait({mint_task, revoked}, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            revoked.cancel()
-            await asyncio.gather(revoked, return_exceptions=True)
-        if self.revoked.is_set():
-            return
-
-        if (error := mint_task.exception()) is not None:
-            raise error
-        pytest.fail("the second mint answered without revoking, so nothing held it across the first mint's commit")
-
-    @staticmethod
-    async def abandon(mint_task: asyncio.Task[Any]) -> None:
-        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
-
-        mint_task.cancel()
-        await asyncio.gather(mint_task, return_exceptions=True)
 
 
 class TestTheRuleOfOneLiveInvitation:
