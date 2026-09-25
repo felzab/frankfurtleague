@@ -4,9 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { withoutPythonComments } from "@/core/pythonComments.ts";
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
@@ -19,18 +18,12 @@ const { answerWith } = doubleActions({ modules: ["/src/features/saisons/mutation
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
 
-/** Read rather than called where what is asserted is which tags a write clears, which its answer never shows. */
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-
 const CREATE_OPERATION = "POST /saisons";
 const EDIT_OPERATION = "PATCH /saisons/{saison_id}";
 const ACTIVATE_OPERATION = "POST /saisons/{saison_id}/activate";
 const DRAW_OPERATION = "POST /saisons/{saison_id}/spielplan";
 const UNDRAW_OPERATION = "DELETE /saisons/{saison_id}/spielplan";
 const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
-
-/** The last declaration in the file, so its slice runs to the end and the guard below pins that. */
-const UNDRAW_ACTION = sliceBetween(ACTIONS, "export async function undrawSpielplanAction", null);
 
 const SAISON_ID = "2026";
 
@@ -83,13 +76,6 @@ const GERMAN_OF: Record<string, string> = {
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
 
 describe("the saison actions against the codes their endpoints publish", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the undraw out of the file before reading it", () => {
-    assert.ok(UNDRAW_ACTION.includes("undrawSpielplan("), "the undraw's slice does not reach its own request");
-    // It runs to the end of the file, so a function appended after it would widen the slice in silence.
-    assert.equal(UNDRAW_ACTION.match(/export async function/g)?.length, 1, "the undraw's slice reaches another action");
-  });
-
   /* The create answers its own set alone, though `POST /saisons` prefixes two other operations. The
      rules come first: a rule reported as a taken id names a field that cannot repair it. */
   it("answers every refusal the create publishes, the rules before the taken id", async () => {
@@ -254,8 +240,25 @@ describe("the saison actions against the codes their endpoints publish", () => {
 describe("the undraw action", () => {
   /* The removal takes away exactly what the draw wrote, so anything the draw's write invalidated
      answers differently after this too. A narrower set leaves a cached season holding fixtures. */
-  it("clears the draw's own tag set", () => {
-    assert.match(UNDRAW_ACTION, /invalidateSpielplan\(validated\.data\.id\)/);
+  it("clears the draw's own tag set", async () => {
+    /** Every tag the last press cleared, as a set. */
+    const cleared = (): Set<unknown> => {
+      const tags = new Set(cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]));
+      cacheCalls.length = 0;
+      return tags;
+    };
+
+    answerWith(() =>
+      Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, removed_spieltage: 0, removed_spiele: 0 }),
+    );
+    assert.equal((await generateSpielplanAction({ id: SAISON_ID })).success, true, "the draw never landed, so its tags are judged on nothing");
+    const drawn = cleared();
+
+    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
+    assert.equal((await undrawSpielplanAction({ id: SAISON_ID })).success, true, "the undraw never landed, so its tags are judged on nothing");
+
+    assert.ok(drawn.size > 0, "the draw cleared no tag, so the two sets are compared over nothing");
+    assert.deepEqual(cleared(), drawn);
   });
 
   /* One sentence over the counts would report a watermark-only season as nothing done: it answers
