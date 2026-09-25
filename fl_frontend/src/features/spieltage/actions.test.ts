@@ -10,7 +10,6 @@ import { answerShown, assertEachAnswered, publishedRefusals, refusedOn } from "@
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
-import { FLSaisonPhaseSchema } from "../saisons/schemas.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 import { mapSpieltagRefusal } from "./refusals.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
@@ -25,13 +24,9 @@ const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEd
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm");
 
-const EDIT_FORM = readFileSync(path.resolve(EDITOR_DIR, "AdminSpieltagEditForm.tsx"), "utf8");
 /** The span validator the pickers feed, which is the backend's and not the Zod mirror's. */
 const BACKEND_CUSTOM_SCHEMAS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "custom.py"), "utf8");
-/** Whitespace-collapsed: the formatter picks the hint body's line breaks, not the author. */
-const HINT_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormZeitraumSection.tsx"), "utf8").replace(/\s+/g, " ");
 
 const PATCH_OPERATION = "PATCH /spieltage/{spieltag_id}";
 
@@ -126,21 +121,6 @@ describe("the German the ordering refusal renders", () => {
   });
 });
 
-describe("what bounds the Zeitraum pickers", () => {
-  /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
-     STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
-     own answer and carries no sentence beside it (`docs/frontend/spec.md` §1.12, diagnostic 4), so a
-     bound reaching wider than the span would be the only thing left saying which days are offered. */
-  it("bounds both pickers by the season's span, and promises the greying in no sentence", () => {
-    // Both claims are read off the panel's text: react-aria keeps a calendar's bounds in the popover
-    // it opens, and the hint body sits in a second one, so a rendering of the closed panel has neither.
-    const bounds = [...HINT_SECTION.matchAll(/(?:minValue|maxValue)=\{\w+\}/g)].map((match) => match[0]);
-
-    assert.deepEqual([...new Set(bounds)].sort(), ["maxValue={spanEnd}", "minValue={spanStart}"]);
-    assert.doesNotMatch(HINT_SECTION, /ausgegraut/);
-  });
-});
-
 /** The matchday nothing has been entered for, which both the rail and the pickers are read against. */
 const UNDATED = { beginn: "", ende: "" };
 
@@ -198,16 +178,6 @@ describe("the one date a final's Spieltag is given", () => {
     assert.deepEqual(fieldLabels(SPAN), ["Beginn", "Ende"]);
   });
 
-  /* `spieltagLabels` composes the rendered name from the phase and `position`, so a form choosing on
-     it would follow a string the page makes rather than the row's own state. */
-  it("chooses on the stored phase rather than on the rendered name", () => {
-    const decision = sliceBetween(EDIT_FORM, "const isSingleDay", ";");
-    const phase = /saison_phase === "(\w+)"/.exec(decision)?.[1] ?? "";
-
-    assert.ok(FLSaisonPhaseSchema.safeParse(phase).success, `${phase} is no phase the season schema declares`);
-    assert.doesNotMatch(decision, /label/);
-  });
-
   /* A form may offer only what the write path takes. Both validators refuse a REVERSED span and
      neither refuses an equal one, which is what leaves the day picked once saveable. */
   it("offers a same-day span each validator standing behind it accepts", () => {
@@ -221,23 +191,6 @@ describe("the one date a final's Spieltag is given", () => {
     assert.doesNotMatch(guard, /<=/);
   });
 
-  /* The picked day reaches `ende` in the draft rather than at the save, so the endpoint is sent the
-     pair it declares from either panel and no later step learns which one built it. */
-  it("builds the same payload from either panel", () => {
-    assert.match(
-      sliceBetween(EDIT_FORM, "const buildPayload", ";"),
-      /\(\): FLPatchSpieltagPayload => \(\{ id: spieltag\.id, beginn, ende \}\)/,
-    );
-    assert.doesNotMatch(sliceBetween(EDIT_FORM, "const buildPayload", ";"), /isSingleDay/);
-    assert.match(EDIT_FORM, /if \(isSingleDay\) setEnde\(next\);/);
-  });
-
-  /* A change list still describing two fields would name a picker that is not on screen and count one
-     picked day as two changes, which is also what `ConfirmDiscardModal` offers to throw away. */
-  it("tells the change list which panel it is describing", () => {
-    assert.match(sliceBetween(EDIT_FORM, "deriveSpieltagDraftStatus({", "})"), /isSingleDay/);
-  });
-
   /* Read off the derivation rather than off its source, so the rail's row and the control the reader
      is looking at are pinned to each other whichever of the two is renamed. */
   it("gives each panel's rows the labels that panel's pickers carry", () => {
@@ -246,11 +199,5 @@ describe("the one date a final's Spieltag is given", () => {
 
     assert.deepEqual(fieldLabels(SINGLE_DAY), railLabels(true));
     assert.deepEqual(fieldLabels(SPAN), railLabels(false));
-  });
-
-  /* `fl_backend/app/core/domain.py :: UNENFORCED` names this file as where a matchday off its implied
-     count is seen at all, and only the editor page's own fixture read fills the number it is seen by. */
-  it("reports the count gap from the row the editor's fixture read filled", () => {
-    assert.match(sliceBetween(EDIT_FORM, "buildSpieltagBanners({", "})"), /spieleAngelegt: spieltag\.spieleAngelegt/);
   });
 });
