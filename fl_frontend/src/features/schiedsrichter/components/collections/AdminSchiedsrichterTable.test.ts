@@ -2,16 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `Link` reads the first and `useSaisonHref` the second — and
-   the table renders under both. A Next release that moves either module fails this file at import. */
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-// eslint-disable-next-line no-restricted-imports -- not moved onto shared/testing/nextContexts.ts yet
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "../../schemas.ts";
@@ -54,15 +48,9 @@ const OHNE_KONTAKT: FLSchiedsrichter = { ...LIVE, id: "6890a1b2c3d4e5f607800004"
 
 const table = (rows: FLSchiedsrichter[]): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2026") },
-        h(AdminSchiedsrichterTable, { filteredSchiedsrichter: rows, emptiness: "none", setDeletingSchiedsrichter: () => undefined }),
-      ),
-    ),
+    underNext(h(AdminSchiedsrichterTable, { filteredSchiedsrichter: rows, emptiness: "none", setDeletingSchiedsrichter: () => undefined }), {
+      search: "saison_id=2026",
+    }),
   );
 
 /** Every accessible name the markup emits. Both layouts render, so a control appears once per layout. */
