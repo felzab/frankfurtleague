@@ -778,6 +778,8 @@ const SCOPED_BANS = [
       selector: inLiteral("REQ-EINLADUNG"),
       message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },
+    // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
+    { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },
   ],
   // The layer boundaries' own reach, production alone: a test loads a slice to sweep it.
   [
@@ -786,7 +788,7 @@ const SCOPED_BANS = [
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
-    { files: ["src/core/auth.ts"], ...LOGGED_ERROR },
+    { files: ["src/core/auth.ts", "src/core/mail.ts"], ...LOGGED_ERROR },
   ],
   [
     {
@@ -795,6 +797,7 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/actions.ts",
         "src/features/bewerbungen/notifications.ts",
         "src/features/bewerbungen/sweep.ts",
+        "src/features/sperrliste/actions.ts",
         "src/features/zustellung/notifications.ts",
       ],
       ...LOGGED_ERROR,

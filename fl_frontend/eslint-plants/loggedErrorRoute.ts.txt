@@ -1,0 +1,6 @@
+// Linted as src/app/api/mail/zustellung/route.ts.
+// The delivery report names its recipient, so its route hands the log no error either.
+export function planted(error: Error): void {
+  logger.error("mail.zustellung_ungeschrieben", error); // expect: logged-error
+  logger.error("mail.zustellung_ungeschrieben", undefined, { error_code: "FE-MAIL-003", name: error.name });
+}
