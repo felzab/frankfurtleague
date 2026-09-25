@@ -170,9 +170,12 @@ export function unansweredRead(): ActionFailure {
 
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
 function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
-  // Naming only a query parameter or the body whole, it is still a request the running API no
-  // longer takes, and the page that fits it comes with a reload.
-  if (error.serverErrorCode === "REQ-VAL-001") return refusedFailure(error, EINZELNE_ANGABEN_ABGELEHNT);
+  // A request the running API does not take, naming only a query parameter or the body whole, or
+  // unreadable (`REQ-VAL-002`): the page that fits it comes with a reload, where a retry resends it
+  // unchanged.
+  if (error.serverErrorCode === "REQ-VAL-001" || error.serverErrorCode === "REQ-VAL-002") {
+    return refusedFailure(error, EINZELNE_ANGABEN_ABGELEHNT);
+  }
 
   if (error.serverErrorCode === "REQ-WIRING-001") {
     // The form does not offer these shapes, so the request was built against a season that has since moved.

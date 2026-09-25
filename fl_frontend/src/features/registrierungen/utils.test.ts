@@ -118,6 +118,8 @@ describe("what one refused submission shows", () => {
       assert.deepEqual(mapRegistrierungSubmitRefusal(refusal(code)), { error: REGISTRIERUNG_NEU_OEFFNEN }, code);
     }
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-VAL-001", 422))?.error, REGISTRIERUNG_NEU_OEFFNEN);
+    // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
+    assert.equal(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", "REQ-VAL-002"))?.error, REGISTRIERUNG_NEU_OEFFNEN);
   });
 
   it("sends a dead invite to the page's own panel rather than to a field", () => {
@@ -258,6 +260,13 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
   });
 
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read with the mail's link", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), floorOf(16).lesen), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
   it("puts a body refusal naming a field on that field's box, with the mail's link beside it, reading no floor", async () => {
     const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), () => Promise.reject(new Error("the floor was read")));
 
@@ -329,10 +338,13 @@ describe("what a refused READ says about a link", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(new Error("keine Verbindung")), null);
   });
 
-  /* A route the API does not serve is met mid-deploy, while the pupil's link is still live: the
-     dead-link panel would send them away from a link that works a minute later. */
-  it("leaves a routing refusal to the page's own state, never the dead-link panel", () => {
+  /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
+     failed in the page's own encoding. The dead-link panel would send the pupil away from a live link. */
+  it("leaves a routing refusal or an unreadable body to the page's own state, never the dead-link panel", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-001", 404)), null);
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-002", 405)), null);
+    for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(operation, "REQ-VAL-002")), null, operation);
+    }
   });
 });

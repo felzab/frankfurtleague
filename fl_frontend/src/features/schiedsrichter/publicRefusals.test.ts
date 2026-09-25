@@ -30,6 +30,7 @@ const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } 
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */
 const MINDESTALTER = 16;
@@ -112,6 +113,10 @@ describe("what one refused confirmation asks the referee's page to show", () => 
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-008"), floor), {
       error: ANTWORT_NEU_OEFFNEN,
     });
+    // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn("POST /schiedsrichter/bestaetigung", "REQ-VAL-002"), floor), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
   });
 
   /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
@@ -150,6 +155,8 @@ describe("what one refused link read asks the page to show", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(401, "REQ-AUTH-002")), null);
     // A route the API does not serve is met mid-deploy, while the referee's link is still live.
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "REQ-ROUTE-001")), null);
+    // A body the API could not read judged no token, the page having encoded whatever the link held.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn("POST /schiedsrichter/bestaetigung/ansicht", "REQ-VAL-002")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);
   });
 });

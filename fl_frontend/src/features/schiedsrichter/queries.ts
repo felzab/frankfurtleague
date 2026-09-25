@@ -85,6 +85,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
+    case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The page offers no media switch below the served age, so only a page older than that rule

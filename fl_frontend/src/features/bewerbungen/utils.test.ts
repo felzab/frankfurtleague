@@ -549,6 +549,14 @@ describe("the submission's refusals against the codes its endpoint publishes", (
   /* Naming no field, the 422 refused the body's shape, so the answer names no box. Every body rule the
      form can break is mirrored: this is a drifted client, whose remedy is a reload, not „Versuche es
      erneut“. */
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read as a body refusal naming no field", () => {
+    const unreadable = mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-VAL-002"));
+
+    assert.notEqual(unreadable, null, "the unreadable body falls through to the shared handler's retry");
+    assert.deepEqual(unreadable, mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen")));
+  });
+
   it("answers a body refusal naming no field without sending the applicant to a box", () => {
     const mappedRefusal = mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"));
 
@@ -689,6 +697,13 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     assert.deepEqual(mappedRefusal, { error: ANTWORT_NEU_OEFFNEN });
   });
 
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read with the mail's link", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), VERTRETUNG_MIN_ALTER), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
   it("puts a body refusal naming a field on that field's box, with the mail's link for a box the panel lacks", () => {
     const mappedRefusal = mapEinwilligungRefusal(
       refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], "/bewerbungen"),
@@ -743,14 +758,15 @@ describe("mapEinwilligungAnsichtRefusal", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
 
-  /* A route the API does not serve is met mid-deploy, while the visitor's link is still live: the
-     dead-link panel would send them away from a link that works a minute later. */
-  it("leaves a routing refusal to the caller, never the dead-link panel", () => {
+  /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
+     failed in the page's own encoding. The dead-link panel would send the visitor away from a live link. */
+  it("leaves a routing refusal or an unreadable body to the caller, never the dead-link panel", () => {
     for (const [status, code] of [
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
     ] as const) {
       assert.equal(mapEinwilligungAnsichtRefusal(badStatus(status, code)), null, code);
     }
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002")), null);
   });
 });

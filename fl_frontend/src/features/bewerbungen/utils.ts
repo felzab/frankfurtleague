@@ -140,6 +140,7 @@ export function mapBewerbungSubmitRefusal(
   switch (error.serverErrorCode) {
     // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
     // client, which a reload replaces.
+    case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
     // The window closed between the page loading and this press. A reload is the whole remedy: the
@@ -221,6 +222,7 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
+    case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // With the record missing, the application the link names is gone, which is a link nothing places.

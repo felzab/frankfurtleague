@@ -65,6 +65,7 @@ export function mapRegistrierungSubmitRefusal(
   switch (error.serverErrorCode) {
     // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
     // client, which the team's link replaces.
+    case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
     // The link died between the page loading and this press, and the whole page is the answer: a
@@ -142,6 +143,7 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
+    case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The page offers no media switch below the served age, so only a page older than that rule

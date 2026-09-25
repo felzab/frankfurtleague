@@ -289,10 +289,11 @@ describe("a refusal read by its code, whatever its status", () => {
     });
   });
 
-  /* A body the API cannot decode answers 400 with the refused payload's code, which a page older than the API sends. */
-  it("answers the refused payload's code alike at 400 and 422", () => {
-    assert.deepEqual(refused(400, "REQ-VAL-001"), refused(422, "REQ-VAL-001"));
-    assert.equal(refused(400, "REQ-VAL-001").error, "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
+  /* A body the API cannot decode answers 400 under a code of its own. A retry would send the same
+     bytes, so it takes the refused payload's reload rather than the server error's retry. */
+  it("answers the unreadable body as it answers the refused payload", () => {
+    assert.deepEqual(refused(400, "REQ-VAL-002"), refused(422, "REQ-VAL-001"));
+    assert.equal(refused(400, "REQ-VAL-002").error, "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
   });
 
   /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
@@ -302,7 +303,6 @@ describe("a refusal read by its code, whatever its status", () => {
     // is gone, nor a rule's refusal: a page older or newer than the API meets these mid-deploy.
     for (const [status, code] of [
       [400, "REQ-AUTH-005"],
-      [400, "REQ-VAL-002"],
       [401, "REQ-AUTH-002"],
       [404, undefined],
       [404, "REQ-ROUTE-001"],
