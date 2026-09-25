@@ -278,6 +278,46 @@ def test_a_file_that_will_not_parse_refuses_the_commit_and_writes_nothing() -> N
     assert _on_disk(root, "u.ts") == b"export const u = 2;\n"
 
 
+def _formatted_head(root: Path) -> str:
+    """`a.ts` committed formatted, so staging its unformatted spelling is a change of formatting alone."""
+    write(root, "a.ts", _lines(FORMATTED))
+    git(root, "commit", "--no-verify", "-am", "formatted")
+    return git(root, "rev-parse", "HEAD")
+
+
+def test_a_commit_its_formatting_emptied_is_refused_and_leaves_index_and_working_copy() -> None:
+    """Git refuses an empty commit before the hook runs, never after, so this refusal is the hook's to make."""
+    root = _repository()
+    head = _formatted_head(root)
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    index = git(root, "ls-files", "-s")
+    done = _commit(root)
+    assert done.returncode != 0, done.stdout + done.stderr
+    assert "the commit would\n  be empty" in done.stderr, done.stderr
+    assert git(root, "rev-parse", "HEAD") == head
+    assert git(root, "ls-files", "-s") == index
+    assert _on_disk(root, "a.ts") == _lines(RAW).encode()
+
+
+def test_a_merge_its_formatting_leaves_equal_to_head_is_committed() -> None:
+    """The control: a merge's tree may equal HEAD's by design, and only the merge makes this one the same shape."""
+    root = _repository()
+    base = git(root, "rev-parse", "HEAD")
+    head = _formatted_head(root)
+    git(root, "checkout", "-q", "-b", "other", base)
+    write(root, "a.ts", _lines(RAW))
+    git(root, "commit", "--no-verify", "-am", "other")
+    git(root, "checkout", "-q", "work")
+    git(root, "merge", "--no-ff", "--no-commit", "-s", "ours", "other")
+    write(root, "a.ts", _lines(RAW))
+    git(root, "add", "a.ts")
+    done = _commit(root)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert git(root, "rev-parse", "HEAD^1") == head
+    assert len(git(root, "rev-list", "--parents", "-n", "1", "HEAD").split()) == 3
+
+
 def test_commit_all_formats_every_modified_file_in_the_commit_and_on_disk() -> None:
     root = _repository()
     write(root, "a.ts", _lines(RAW))

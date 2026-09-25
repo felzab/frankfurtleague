@@ -169,6 +169,31 @@ done < "$work/restage"
 raced=()
 while IFS= read -r -d '' index; do raced+=("${staged[$index]}"); done < "$work/raced"
 
+# Git refuses an empty commit only before this hook runs, so formatting that turns every staged
+# change back into HEAD's would commit nothing. A merge's tree may equal HEAD's by design.
+if [ ${#restaged[@]} -gt 0 ] && head_tree="$(git rev-parse -q --verify 'HEAD^{tree}')" \
+   && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  # A copy, so the refusal leaves the real index as it was.
+  if ! index_file="${GIT_INDEX_FILE:-$(git rev-parse --path-format=absolute --git-path index)}" \
+     || ! cp "$index_file" "$work/probe-index" \
+     || ! GIT_INDEX_FILE="$work/probe-index" git update-index -z --index-info < "$work/stage" \
+     || ! probe_tree="$(GIT_INDEX_FILE="$work/probe-index" git write-tree)"; then
+    echo "  pre-commit hook: could not tell whether formatting left anything to commit — the commit is refused." >&2
+    exit 1
+  fi
+  # The hook cannot see `--amend`, so an amend staging formatting alone is refused too; `--no-verify`
+  # makes that one.
+  if [ "$probe_tree" = "$head_tree" ]; then
+    {
+      echo "  pre-commit hook: formatted, every staged change is what HEAD already holds, so the commit would"
+      echo "  be empty — it is refused, and nothing was staged or written. To amend only the message, pass"
+      echo "  --no-verify:"
+      name_files "${restaged[@]}"
+    } >&2
+    exit 1
+  fi
+fi
+
 if [ ${#restaged[@]} -gt 0 ]; then
   if ! git update-index -z --index-info < "$work/stage"; then
     echo "  pre-commit hook: could not write the index — the commit is refused." >&2
