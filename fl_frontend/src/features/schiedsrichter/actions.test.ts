@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, describe, it, mock } from "node:test";
 
@@ -15,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -41,25 +41,12 @@ const { calls, answerWith, answerPending } = doubleActions({
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
 
-/* The referee's own link is worded beside its reads, which reach two packages this process cannot
-   load; no component a case renders reaches either. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/headers": "export const headers = async () => new Headers();",
-};
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined
-      ? nextResolve(specifier, context)
-      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
-  },
-});
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -73,14 +60,6 @@ const PANEL = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-/**
- * Read for the `key` that makes the panel's refresh load-bearing, which the page seats inside an async
- * Server Component behind its own awaits.
- */
-const PAGE = readFileSync(
-  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "schiedsrichter", "[schiedsrichter_id]", "page.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
 /** The backend redaction the panel's copy describes, read where it is written. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
@@ -306,6 +285,14 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
 };
+
+/** The record the editor page's read answers with, as the backend holds it at that moment. */
+let stored = { ...RECORD, inactive_since: null };
+answerReadsWith((endpoint, schema, params) =>
+  endpoint === `/schiedsrichter/${RECORD.id}`
+    ? answer(schema, endpoint, { schiedsrichter: stored })
+    : EMPTIEST_ANSWER(endpoint, schema, params),
+);
 
 /** What the save answers where the address of an outstanding referee moved and the link went out. */
 const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
@@ -558,8 +545,22 @@ describe("the erasure on the referee's editor", () => {
 
   /* A rename is the surviving write on this page, and the draft mirrors the stored record: without
      the key the saved values never reach the boxes and the form reads as dirty against them. */
-  it("keys the editor on the stored record, so a save remounts it", () => {
-    assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");
+  it("keys the editor on the stored record, so a save remounts it", async () => {
+    const user = userEvent.setup();
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = { ...RECORD, inactive_since: null };
+    const { rerender } = render(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+    await typeADraft(user);
+
+    // The refresh after a save re-reads the row as the backend stored it, which is not what was typed.
+    stored = { ...stored, name: "Anna Beispiel-Berg" };
+    rerender(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+
+    assert.equal(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Name" }).value,
+      "Anna Beispiel-Berg",
+      "the box keeps the draft over the record the save stored",
+    );
   });
 });
 
