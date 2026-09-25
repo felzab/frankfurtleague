@@ -42,7 +42,7 @@ const failureToasts = () =>
 const { RegistrierungView } = await import("./components/views/RegistrierungView.tsx");
 const { RegistrierungFormPanel } = await import("./components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
-const { STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
+const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
 
@@ -288,6 +288,18 @@ describe("which Stufen the registration form offers", () => {
 
     assert.ok(STUFE_OPTIONS.length > ANSICHT.erlaubte_stufen.length, "the season is as wide as the league, so this case compares nothing");
     assert.deepEqual(angeboten, [...ANSICHT.erlaubte_stufen], "the picker offers a Stufe the write path refuses, or drops one it takes");
+  });
+});
+
+describe("the Rückennummer box on the registration form", () => {
+  it("stops taking digits at the cap the squad editor's box holds", async () => {
+    const user = userEvent.setup();
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    const box = screen.getByRole("textbox", { name: "Rückennummer" });
+
+    await user.type(box, "1".repeat(NUMMER_MAX_LENGTH + 1));
+
+    assert.equal((box as HTMLInputElement).value, "1".repeat(NUMMER_MAX_LENGTH), "the pupil types a number the schema then refuses");
   });
 });
 

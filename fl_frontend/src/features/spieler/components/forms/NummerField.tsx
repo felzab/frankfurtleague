@@ -9,7 +9,7 @@ import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES } from "@/shared/components/ui
 
 import type { ReactNode } from "react";
 
-/** The squad number on the create dialog and on the squad editor alike, so neither caps or words it apart from the other. */
+/** The squad number on the squad editor and on the registration form alike, so neither caps or words it apart from the other. */
 export function NummerField({
   label,
   value,
@@ -20,8 +20,7 @@ export function NummerField({
   /** The box as typed. Emptied-means-absent is the caller's boundary, where its payload is built. */
   value: string;
   onChange: (next: string) => void;
-  /** For the editor, which judges a typed field once it is left; the dialog judges on submit. */
-  onBlur?: () => void;
+  onBlur: () => void;
 }) {
   return (
     <TextField

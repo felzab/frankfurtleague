@@ -10,6 +10,7 @@ import { TextField } from "@heroui/react/textfield";
 
 import { BestaetigungErgebnis } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
+import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { orderStufen } from "@/features/spieler/constants";
 import { FLSpielerPositionSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
@@ -248,19 +249,12 @@ export function RegistrierungFormPanel({
               />
             </div>
 
-            <TextField
-              name="nummer"
-              inputMode="numeric"
+            <NummerField
+              label={<Label className={FIELD_LABEL_CLASSES}>Rückennummer</Label>}
               value={draft.nummer}
               onChange={(next) => setDraft({ ...draft, nummer: next })}
-              onBlur={() => validateFields(["nummer"])}>
-              <Label className={FIELD_LABEL_CLASSES}>Rückennummer</Label>
-              <Input
-                placeholder="z.B. 7"
-                className={FIELD_INPUT_CLASSES}
-              />
-              <FieldError className={FIELD_ERROR_CLASSES} />
-            </TextField>
+              onBlur={() => validateFields(["nummer"])}
+            />
           </div>
 
           <section className="flex flex-col gap-y-3">
