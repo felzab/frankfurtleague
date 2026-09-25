@@ -15,13 +15,14 @@ const { raised } = doubleToasts();
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
 const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
-doubleActionRequest();
+const { setSession } = doubleActionRequest();
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
 const spieltage = await import("@/features/spieltage/actions.ts");
 const nextCache = await import("next/cache");
+const { getAdminSession } = await import("@/core/auth.ts");
 
 describe("the actions double", () => {
   /* The names come off the real module's source: a double listing them by hand answers `undefined`
@@ -129,6 +130,17 @@ describe("the request double", () => {
   /* After the case above, whose invalidations would otherwise stand in for the ones this case's write owes. */
   it("starts each case with no invalidation recorded", () => {
     assert.deepEqual(cacheCalls, []);
+  });
+
+  it("answers the session a case names, for the rest of that case", async () => {
+    setSession(null);
+
+    assert.equal(await getAdminSession(), null);
+  });
+
+  /* After the case above, whose signed-out request would otherwise stand in for this case's caller. */
+  it("signs the next case in as the request's own session again", async () => {
+    assert.deepEqual(await getAdminSession(), { user: { email: "vorstand@example.org" } });
   });
 });
 

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -10,7 +9,8 @@ import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from 
 /* The real actions over their real `mutations.ts`: the client they send through, the session and the
    request are the doubles. A file of its own, `actions.test.ts` and `editor.test.ts` replacing this
    slice's actions module for the components they render. */
-doubleActionRequest();
+const VORSTAND = { user: { email: "vorstand@example.org" } };
+const { setSession } = doubleActionRequest({ session: VORSTAND });
 
 /** What each endpoint answers, parsed by the schema the mutation hands over as the real client parses it. */
 const sent = doubleApiClient(({ endpoint }, schema) => schema.parse(endpoint === "/kontakte/erasure" ? ERASURE : blockAnswer));
@@ -23,19 +23,6 @@ const bodiesParsed = () =>
     body: body === undefined ? undefined : (JSON.parse(body) as unknown),
     params,
   }));
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-
-const AUTH = `export const getAdminSession = async () => globalThis.__flKontakteSession;`;
-
-// Registered after the request's doubles, so each of these answers before theirs.
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
@@ -62,7 +49,6 @@ const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id:
 
 beforeEach(() => {
   sent.length = 0;
-  recorders.__flKontakteSession = { user: { email: "vorstand@example.org" } };
   blockAnswer = { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "a1b2" };
 });
 
@@ -127,11 +113,11 @@ describe("what the season's contacts save sends", () => {
   /* The session first, because `runAdminMutation` seeds the scope the actor header is read from, then
      the parse, then the write, then the acknowledgement. */
   it("sends nothing without a session or over a body its parse refuses, and reports an unacknowledged save", async () => {
-    recorders.__flKontakteSession = null;
+    setSession(null);
     assert.deepEqual(await patchSaisonTeamKontakteAction(CLEARED), { success: false, error: ADMIN_FORBIDDEN });
     assert.deepEqual(sent, [], "the save reached the client for a request with no session");
 
-    recorders.__flKontakteSession = { user: { email: "vorstand@example.org" } };
+    setSession(VORSTAND);
     const malformed = await patchSaisonTeamKontakteAction({ ...CLEARED, team_id: "kein-team" });
     assert.equal(malformed.success, false, "a malformed club id was saved");
     assert.deepEqual(sent, [], "a body the parse refuses reached the client");

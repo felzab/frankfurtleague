@@ -155,15 +155,19 @@ const SILENT_LOGGER = "const inert = () => undefined; export const logger = { de
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, or nobody signed in. */
 type AdminSessionDouble = { user: { email: string } } | null;
 
+// Through a global: the doubled store is compiled from source and shares nothing with this scope.
+const SESSION_BUS = "__flAdminSession";
+
 /**
- * The sign-in store answering `session`, the real one opening the database driver as it loads. Every
- * other export throws where called, its name read off the real module so an import links.
+ * The sign-in store answering the session `doubleActionRequest` holds, the real one opening the
+ * database driver as it loads. Every other export throws where called, its name read off the real
+ * module so an import links.
  */
-function signInStore(url: string, session: AdminSessionDouble): string {
+function signInStore(url: string): string {
   return [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
     .map(([, name]) =>
       name === "getAdminSession"
-        ? `export const getAdminSession = async () => (${JSON.stringify(session)});`
+        ? `export const getAdminSession = async () => globalThis.${SESSION_BUS};`
         : `export const ${name ?? ""} = () => { throw new Error("the sign-in store's ${name ?? ""} is not doubled"); };`,
     )
     .join("\n");
@@ -176,11 +180,17 @@ function signInStore(url: string, session: AdminSessionDouble): string {
 export function doubleActionRequest({
   session = { user: { email: "vorstand@example.org" } },
 }: {
-  /** Who the request is signed in as; `null` for a caller with no admin session. */
+  /** Who the request is signed in as, until `setSession` names another for the rest of that case; `null` for nobody. */
   session?: AdminSessionDouble;
-} = {}): void {
-  // A case reading `cacheCalls` otherwise also reads the invalidations every earlier case made.
-  beforeEach(() => void (cacheCalls.length = 0));
+} = {}): { setSession: (next: AdminSessionDouble) => void } {
+  const setSession = (next: AdminSessionDouble): void => void Reflect.set(globalThis, SESSION_BUS, next);
+  setSession(session);
+  // Before every case: one reading `cacheCalls` would otherwise also read every earlier case's
+  // invalidations, and one after a case that signed out would run its write with no session.
+  beforeEach(() => {
+    cacheCalls.length = 0;
+    setSession(session);
+  });
   registerHooks({
     resolve(specifier, context, nextResolve) {
       // The real module, which `runAdminMutation` rethrows a navigation through: `next` publishes no
@@ -192,11 +202,13 @@ export function doubleActionRequest({
     },
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url, session), shortCircuit: true };
+      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url), shortCircuit: true };
       if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: SILENT_LOGGER, shortCircuit: true };
       return nextLoad(url, context);
     },
   });
+
+  return { setSession };
 }
 
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */
