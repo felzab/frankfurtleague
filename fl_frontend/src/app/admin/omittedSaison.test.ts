@@ -28,7 +28,7 @@ import {
 } from "@/shared/testing/pageHarness.ts";
 
 import type { FLSaison, FLSaisonStatus } from "@/features/saisons/schemas.ts";
-import type { AnswerSchema, PageProps } from "@/shared/testing/pageHarness.ts";
+import type { HandOver, PageProps } from "@/shared/testing/pageHarness.ts";
 import type { ReactNode } from "react";
 
 /** The id of each season `resolveAdminSaison` or `requireAdminSaison` answered, `null` for none. */
@@ -132,12 +132,20 @@ let league: FLSaison[] = [];
 /** What the cached running-season read answers, where it lags the list; `undefined` answers from `league`. */
 let cachedCurrent: FLSaison | undefined;
 
-/** The same, each holder in `key` answering with its rows tracked. */
-function withTrackedRows(schema: AnswerSchema, endpoint: string, key: string, holder: { memberships: { saison_id: string }[] }): unknown {
-  const parsed = answer(schema, endpoint, { [key]: [holder] }) as Record<string, { memberships: { saison_id: string }[] }[]>;
-  for (const entry of parsed[key] ?? []) entry.memberships = entry.memberships.map(tracked);
-  return parsed;
-}
+/** The list key of each read whose holders' rows a page picks from. */
+const HOLDERS: Readonly<Record<string, string>> = { "/teams/memberships": "teams", "/spieler/memberships": "spieler" };
+
+/**
+ * Each holder's rows tracked once the client's check has parsed them: that check reads every field,
+ * and would record a pick for each, and the parse it hands on is a copy no earlier tracker survives.
+ */
+const withTrackedRows: HandOver = (endpoint, parsed) => {
+  const key = HOLDERS[endpoint];
+  if (key === undefined) return parsed;
+  const body = parsed as Record<string, { memberships: { saison_id: string }[] }[]>;
+  for (const entry of body[key] ?? []) entry.memberships = entry.memberships.map(tracked);
+  return body;
+};
 
 /**
  * The season reads answer from `league`, the running one with its 404 while none is active, and every
@@ -154,11 +162,11 @@ answerReadsWith((endpoint, schema, params) => {
   // The public list withholds a planned season, as `GET /saisons` does.
   if (endpoint === "/saisons") return answer(schema, endpoint, { saisons: league.filter((entry) => entry.status !== "future") });
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: league });
-  if (endpoint === "/teams/memberships") return withTrackedRows(schema, endpoint, "teams", club(league));
-  if (endpoint === "/spieler/memberships") return withTrackedRows(schema, endpoint, "spieler", spieler(league));
+  if (endpoint === "/teams/memberships") return answer(schema, endpoint, { teams: [club(league)] });
+  if (endpoint === "/spieler/memberships") return answer(schema, endpoint, { spieler: [spieler(league)] });
 
   return EMPTIEST_ANSWER(endpoint, schema, params);
-});
+}, withTrackedRows);
 
 /** What one page did in one league: its reads, the seasons it resolved and picked rows of, and what it threw. */
 type Visit = {

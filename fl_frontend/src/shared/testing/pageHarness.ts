@@ -5,8 +5,9 @@ import { text } from "node:stream/consumers";
 
 import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
+import z from "zod";
 
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 
 import type { ReactElement, ReactNode } from "react";
@@ -27,14 +28,18 @@ export type AnswerSchema = {
 /** How the doubled client answers one read. */
 export type ReadAnswer = (endpoint: string, schema: AnswerSchema, params: Record<string, unknown>) => unknown;
 
+/** What a page is handed of an answer its schema took, given the parse the client hands on. */
+export type HandOver = (endpoint: string, parsed: unknown) => unknown;
+
 // Through globals: a doubled module is compiled from source and shares nothing with this scope.
 const STEPS = "__flPageSteps";
 const ANSWER = "__flPageAnswer";
+const RECEIVE = "__flPageReceive";
 
 const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
   const params = options.params ?? {};
   globalThis.${STEPS}.push({ kind: "read", endpoint, params });
-  return globalThis.${ANSWER}(endpoint, schema, params);
+  return globalThis.${RECEIVE}(endpoint, schema, options, await globalThis.${ANSWER}(endpoint, schema, params));
 };`;
 
 // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
@@ -167,11 +172,13 @@ export const EMPTIEST_ANSWER: ReadAnswer = (endpoint, schema) => {
   throw new Error(`no empty answer for ${endpoint}`);
 };
 
+const backendUrl = (endpoint: string): string => `http://backend/api/v0${endpoint}`;
+
 /** The backend's 404 for `endpoint`, which a query reading "none" off it turns into its `null`. */
 export const backendNotFound = (endpoint: string): APIBadStatusError =>
   new APIBadStatusError({
     message: "not found",
-    url: `http://backend/api/v0${endpoint}`,
+    url: backendUrl(endpoint),
     statusCode: 404,
     serverErrorCode: "DB-NOTFOUND-001",
     endpoint: endpoint,
@@ -180,9 +187,33 @@ export const backendNotFound = (endpoint: string): APIBadStatusError =>
     traceId: "0",
   });
 
-/** Answers every read from here on with `respond`, until another call names another. */
-export function answerReadsWith(respond: ReadAnswer): void {
+const asParsed: HandOver = (_endpoint, parsed) => parsed;
+let handOver: HandOver = asParsed;
+
+// The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses
+// rejects, and a page is handed the parse, never the body an answer built.
+globals[RECEIVE] = (endpoint: string, schema: z.ZodType, options: { method?: string; readOnly?: boolean }, body: unknown): unknown => {
+  const parsed = schema.safeParse(body);
+  if (parsed.success) return handOver(endpoint, parsed.data);
+  throw new APIMalformedDataError({
+    message: "API returned malformed data.",
+    url: backendUrl(endpoint),
+    statusCode: 200,
+    endpoint: endpoint,
+    method: (options.method ?? "GET").toUpperCase(),
+    readOnly: options.readOnly === true,
+    traceId: "0",
+    zodIssues: z.treeifyError(parsed.error),
+  });
+};
+
+/**
+ * Answers every read from here on with `respond`, until another call names another. `handingOver`
+ * sees each answer only once the client's check has parsed it, so what it wraps is never read there.
+ */
+export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asParsed): void {
   globals[ANSWER] = respond;
+  handOver = handingOver;
 }
 answerReadsWith(EMPTIEST_ANSWER);
 

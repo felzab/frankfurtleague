@@ -8,7 +8,21 @@ import { createContext, createElement as h, Suspense, useContext } from "react";
 import { render } from "@testing-library/react";
 import z from "zod";
 
-import { asRenderedPage, callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, readsOf, renderPage, steps } from "./pageHarness.ts";
+import { APIMalformedDataError } from "@/core/errors.ts";
+
+import {
+  answerReadsWith,
+  asRenderedPage,
+  callPage,
+  clearSteps,
+  emptiest,
+  EMPTIEST_ANSWER,
+  isNavigation,
+  OBJECT_ID,
+  readsOf,
+  renderPage,
+  steps,
+} from "./pageHarness.ts";
 import { renderTree } from "./renderTest.ts";
 
 /* `await import`, never a static import: the doubles are registered as the harness evaluates, and a
@@ -176,6 +190,40 @@ describe("the page harness", () => {
 
     assert.ok(!page.includes(renderTree(tree)), "the two spell alike, so the helper below is proven over nothing");
     assert.ok(page.includes(asRenderedPage(renderTree(tree))));
+  });
+
+  /* An answer the client would refuse lets a page pass on data production never hands it. */
+  it("rejects a read whose answer its schema refuses, as the client does", async () => {
+    answerReadsWith(() => ({ n: "eins" }));
+    try {
+      await assert.rejects(
+        apiClient("/falsch", Answer),
+        (error) => error instanceof APIMalformedDataError && error.endpoint === "/falsch",
+        "an answer the schema refuses reached the page",
+      );
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* The client hands on its parse: a page given the answer's own object sees fields production strips,
+     and a tracker on it has already recorded every field the check read. */
+  it("hands the page, and the hand-over before it, the parse rather than the answer's own body", async () => {
+    const built = { n: 1, fremd: true };
+    const seen: unknown[] = [];
+    answerReadsWith(
+      () => built,
+      (_endpoint, parsed) => {
+        seen.push(parsed);
+        return parsed;
+      },
+    );
+    try {
+      assert.deepEqual(await apiClient("/geparst", Answer), { n: 1 }, "the page was handed the body the answer built");
+      assert.notEqual(seen[0], built, "the hand-over was given the answer's own object, which the check had read");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
   });
 
   it("answers the schemas a read refuses an empty value for", () => {
