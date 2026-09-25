@@ -52,6 +52,7 @@ const BANS = [
   ["heroui-form", /Render a form through/],
   ["number-field", /Render a number field through/],
   ["number-field-load", /Load HeroUI's number field through/],
+  ["native-form", /never a native <form>/],
   ["hint-internals", /Render a hint through Hint or InfoHint/],
   ["vendor-root", /Import (?:a HeroUI component|an icon) from its own subpath/],
   ["vendor-root-load", /An `import\(\)` of a package root/],

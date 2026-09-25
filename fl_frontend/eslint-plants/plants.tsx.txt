@@ -138,3 +138,4 @@ export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load
+export const NATIVE_FORM = <form method="post" />; // expect: native-form

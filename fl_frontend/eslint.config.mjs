@@ -716,6 +716,13 @@ const SOURCE_BANS = [
     selector: `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
     message: "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
   },
+  {
+    selector: 'JSXOpeningElement[name.name="form"]',
+    message:
+      "A form is the shared Form, never a native <form>: fl_frontend/src/shared/components/ui/Form.tsx owns the submit and takes no function action (docs/frontend/spec.md :: I32).",
+    // It posts with no script of the page's own, so it runs before, and without, the app's JavaScript.
+    exempt: ["src/app/(public)/signin/bestaetigen/page.tsx"],
+  },
 ];
 
 /**
