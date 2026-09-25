@@ -1,8 +1,10 @@
 "use server";
 
 import { frontend_config } from "@/core/config";
+import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
+import { markOutcomeUnknown } from "@/core/requestScope";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -42,6 +44,9 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
       error_code: "FE-MAIL-008",
       name: failed instanceof Error ? failed.name : "unknown",
     });
+    // A connection broken after the send left may be a message the provider accepted, as the fan-outs
+    // settle it: the spine answers the press as of unknown outcome rather than as a notice that failed.
+    if (failed instanceof APINetworkError) markOutcomeUnknown();
 
     return false;
   }

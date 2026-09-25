@@ -50,10 +50,14 @@ export const deleteSperre = async () => {
 };`;
 
 // Both write doubles record their write as the clients they stand for do: the spine refreshes only after one.
-const MAIL_DOUBLE = `import { recordWriteSent } from "@/core/requestScope";
+const MAIL_DOUBLE = `import { APINetworkError } from "@/core/errors";
+import { recordWriteSent } from "@/core/requestScope";
 export const sendMail = async (message) => {
   recordWriteSent();
   globalThis.${EVENTS}.push("mail");
+  if (globalThis.${SEND_FAILS} === "broken") {
+    throw new APINetworkError({ message: "broke off", url: "https://api.resend.com/emails", method: "POST", readOnly: false, traceId: "0", isTimeout: false });
+  }
   if (globalThis.${SEND_FAILS}) throw new Error("the provider refused the message");
   globalThis.${SENT}.push(message);
   return { id: null };
@@ -207,6 +211,17 @@ describe("the message the barred person is sent", () => {
     assert.deepEqual(events, ["post", "mail", "refresh"]);
     assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
     assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
+  });
+
+  /* A connection broken after the send left may be a message the provider accepted: saying the person
+     was not told would be a guess, as it would in a fan-out. */
+  it("answers a notice whose connection broke off as of unknown outcome", async () => {
+    globals[SEND_FAILS] = "broken";
+
+    const result = await anAddressIsBanned();
+
+    assert.equal("outcome" in result ? result.outcome : undefined, "unknown");
+    assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });
 
   /* `EntityForm` shows the action's message as a description only where it DIFFERS from the title
