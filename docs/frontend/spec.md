@@ -153,12 +153,13 @@ error page ([`docs/logging/error-codes.md`](../logging/error-codes.md)). **No ac
 it writes: the spine reads it off the request.** `fl_frontend/src/core/api.ts :: apiClient` and
 `fl_frontend/src/core/mail.ts :: sendMail` record each call that may write as they send it, the API
 client judging by the call's own method and `readOnly`, which
-`fl_frontend/src/core/apiRequests.test.ts` holds to what each operation publishes; a write through any
-other client, the passkey removal's in the sign-in store, records itself at the call through
-`fl_frontend/src/core/requestScope.ts :: recordWriteSent`. A throw after a sent write may leave the
-row standing and answers as of unknown outcome (I326), a throw before any as the failure it is; and a
-sent write's success or unknown outcome refreshes the page (I233), a body that sent none moving
-nothing. A route handler's write
+`fl_frontend/src/core/apiRequests.test.ts` holds to what each operation publishes
+([`docs/backend/spec.md`](../backend/spec.md) I327); a write through any other client, the passkey
+removal's in the sign-in store, records itself at the call through
+`fl_frontend/src/core/requestScope.ts :: recordWriteSent`. After a sent write, a throw answers as of
+unknown outcome (I326) unless it is that write's own answer, which says whether it landed; with none
+sent, every throw answers as the failure it is. A sent write's success or unknown outcome refreshes
+the page (I233), and a body that sent none moves nothing. A route handler's write
 takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the same spine without the refresh Next refuses outside a server
 action.
 

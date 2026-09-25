@@ -609,8 +609,8 @@ describe("every call to an operation storing nothing declares itself a read, and
         call.readOnly,
         storesNothing,
         storesNothing
-          ? `${call.where} is a read ${operation.published} declares as storing nothing, and fails as a write of unknown outcome unless it says \`readOnly: true\``
-          : `${call.where} says \`readOnly: true\` to ${operation.published}, which may write: a failure on it would invite the retry that repeats the write`,
+          ? `${call.where} is a read ${operation.published} declares as storing nothing, and refreshes the admin's page and fails as a write of unknown outcome unless it says \`readOnly: true\``
+          : `${call.where} says \`readOnly: true\` to ${operation.published}, which may write: its success would leave the admin's page standing, and a failure on it would invite the retry that repeats the write`,
       );
     });
   }

@@ -50,6 +50,7 @@ beforeEach(() => {
 
 const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { APIBadStatusError, APINetworkError, RolledBackError } = await import("@/core/errors");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
 const writing =
@@ -185,6 +186,45 @@ describe("a throw of an admin action's own code", () => {
 
   it("answers a throw before any write, which changed nothing, as the failure it is", async () => {
     const answer = await thrownIn(false);
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
+    assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");
+  });
+});
+
+describe("a throw of an API call inside an admin action", () => {
+  const SENT = { url: "http://api/x", endpoint: "/x", traceId: "a".repeat(32) };
+  const timedOut = (method: string) => new APINetworkError({ ...SENT, message: "cut", method: method, readOnly: false, isTimeout: true });
+
+  /* The read's own error says only that the read changed nothing, while the write before it may stand. */
+  it("answers a read's failure after a sent write as of unknown outcome, and refreshes", async () => {
+    const answer = await runAdminMutation(
+      "probeAction",
+      writing(() => Promise.reject(timedOut("GET"))),
+    );
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
+    assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
+  });
+
+  /* The write's own answer is the one thing that says whether it landed. */
+  it("answers the sent write's own refusal, or its transaction's rollback, as the failure it is", async () => {
+    const refused = new APIBadStatusError({ ...SENT, message: "refused", statusCode: 404, method: "PATCH", readOnly: false });
+
+    for (const thrown of [refused, new RolledBackError(new Error("write conflict"))]) {
+      const answer = await runAdminMutation(
+        "probeAction",
+        writing(() => Promise.reject(thrown)),
+      );
+
+      assert.equal("outcome" in answer ? answer.outcome : undefined, undefined, `${thrown.name} answered as unclear`);
+    }
+    assert.deepEqual(refreshed, [], "a write that landed nothing refreshed the page");
+  });
+
+  /* Nothing left the request, so the write's method on the error promises a change that cannot exist. */
+  it("answers a write the deadline refused unsent, with none sent before, as the failure it is", async () => {
+    const answer = await runAdminMutation("probeAction", () => Promise.reject(timedOut("POST")));
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
     assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");

@@ -2,11 +2,11 @@ import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
-import { toActionErrorResult, unansweredAction } from "./actionError";
+import { toActionErrorResult, unansweredAction, unansweredRead } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 
@@ -66,9 +66,12 @@ async function runGuarded<T extends { success: boolean }>(
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      // A server action is a POST whatever it does, so what this request sent is what tells a write's throw
-      // from a read's.
-      answer = toActionErrorResult(error, { method: "POST", readOnly: !requestWriteSent() });
+      // Judged by what this request sent, a server action being a POST whatever it does. Only a write's own
+      // answer says whether it landed, so after a sent write every other throw leaves it unknown.
+      const writesOwn = error instanceof RolledBackError || (typed && mayHaveWritten(error));
+      if (requestWriteSent()) answer = writesOwn ? toActionErrorResult(error) : unansweredAction();
+      // With none sent, a write's own error is one the deadline refused unsent.
+      else answer = writesOwn ? unansweredRead() : toActionErrorResult(error);
     }
 
     // Read once the body has settled and inside this scope, which closes with the callback.
@@ -95,9 +98,9 @@ export async function runAdminMutation<T extends { success: boolean }>(
   if (guarded.forbidden) return { success: false, error: ADMIN_FORBIDDEN };
 
   const { answer, wrote } = guarded;
-  // Here rather than in each action, which could forget it (`docs/frontend/spec.md :: I233`), and after the
-  // guard's conversions, so a throw or a deadline's cut behind a sent write refreshes too; a refusal behind
-  // one is its action's to refresh.
+  // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
+  // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
+  // dropping the refused entries.
   if (wrote && (answer.success || ("outcome" in answer && answer.outcome === "unknown"))) refresh();
 
   return answer;
