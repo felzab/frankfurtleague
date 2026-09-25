@@ -475,28 +475,39 @@ def _parameters_of(scope: ast.Module | Declaration) -> list[ast.arg]:
     ]
 
 
+@functools.cache
+def _imports_by_name(tree: ast.Module) -> dict[str, tuple[str, str]]:
+    """Each name a module's `from` imports bind, to its source module and name.
+
+    Once a tree: the traces resolve thousands of callees, and a walk per lookup costs nearly all
+    their time. The first binding in walk order wins.
+    """
+
+    bound: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound.setdefault(alias.asname or alias.name, (node.module or "", alias.name))
+
+    return bound
+
+
 def _imported_declaration(name: str, tree: ast.Module) -> tuple[Declaration, Path] | None:
     """One name's declaration where the module imports it from `app/`, or `None` where nothing under `app/` declares it."""
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ImportFrom):
-            continue
+    imported = _imports_by_name(tree).get(name)
+    if imported is None:
+        return None
 
-        for alias in node.names:
-            if (alias.asname or alias.name) != name:
-                continue
+    dotted, original = imported
+    if not dotted.startswith("app."):
+        return None
 
-            dotted = node.module or ""
-            if not dotted.startswith("app."):
-                return None
+    candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
+    origin = candidate.with_suffix(".py") if candidate.with_suffix(".py").exists() else candidate / "__init__.py"
+    found = _declared_directly_in(parsed(origin)).get(original) if origin.exists() else None
 
-            candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
-            origin = candidate.with_suffix(".py") if candidate.with_suffix(".py").exists() else candidate / "__init__.py"
-            found = _declared_directly_in(parsed(origin)).get(alias.name) if origin.exists() else None
-
-            return (found, origin) if found is not None else None
-
-    return None
+    return (found, origin) if found is not None else None
 
 
 def resolve_callee(call: ast.Call, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
