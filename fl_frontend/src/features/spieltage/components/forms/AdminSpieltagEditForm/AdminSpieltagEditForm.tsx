@@ -65,10 +65,9 @@ export function AdminSpieltagEditForm({
   // The span rule is the edited season's, so the schema is built per instance rather than imported.
   const spieltagSchema = buildPatchSpieltagPayloadSchema(saisonSpan);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    useDraftFieldErrors({
-      schemas: { spieltag: spieltagSchema },
-    });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, formRef, formWiring } = useDraftFieldErrors({
+    schemas: { spieltag: spieltagSchema },
+  });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
   const buildPayload = (): FLPatchSpieltagPayload => ({ id: spieltag.id, beginn, ende });
@@ -84,10 +83,6 @@ export function AdminSpieltagEditForm({
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
-
-  // Every date is picked rather than typed, so every control is judged on change — and the cross-field
-  // span rule reports on `ende`, so both paths refresh together or its message never clears.
-  useForgiveFixed({ spieltag: buildPayload() });
 
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
