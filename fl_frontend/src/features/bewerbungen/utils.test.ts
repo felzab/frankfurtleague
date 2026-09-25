@@ -719,4 +719,15 @@ describe("mapEinwilligungAnsichtRefusal", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
+
+  /* A route the API does not serve is met mid-deploy, while the visitor's link is still live: the
+     dead-link panel would send them away from a link that works a minute later. */
+  it("leaves a routing refusal to the caller, never the dead-link panel", () => {
+    for (const [status, code] of [
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+    ] as const) {
+      assert.equal(mapEinwilligungAnsichtRefusal(badStatus(status, code)), null, code);
+    }
+  });
 });

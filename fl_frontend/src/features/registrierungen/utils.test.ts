@@ -310,4 +310,11 @@ describe("what a refused READ says about a link", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("DB-COMMON-001", 503)), null);
     assert.equal(mapRegistrierungAnsichtRefusal(new Error("keine Verbindung")), null);
   });
+
+  /* A route the API does not serve is met mid-deploy, while the pupil's link is still live: the
+     dead-link panel would send them away from a link that works a minute later. */
+  it("leaves a routing refusal to the page's own state, never the dead-link panel", () => {
+    assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-001", 404)), null);
+    assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-002", 405)), null);
+  });
 });

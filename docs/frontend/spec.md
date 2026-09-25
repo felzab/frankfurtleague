@@ -208,7 +208,10 @@ public slices' `REQ-VAL-001` arms both reach it, and so does a rule's refusal no
 **A refusal is read by its code, never by its status**
 (`fl_frontend/src/shared/utils/actionError.ts :: isRefusal`): codes are unique across the API, so a
 rule answering any status keeps the words its code is given, and a 5xx is never read as a refusal,
-since the write behind it may have landed.
+since the write behind it may have landed. **Whether a code is a rule's is its class alone**
+(`fl_frontend/src/core/errors.ts :: isRefusalCode`, which the test harness reads too): a credential,
+a request the API cannot take and a route it does not serve are never a rule, so a page older or
+newer than the API meets a failure mid-deploy, never a rule's words or a dead-link panel.
 
 **A path no control renders is announced once, in the answer's own sentence** (I344): only a page
 older than the running API sends a body no box can take, so the repair is a reload, or on a page a
@@ -845,8 +848,9 @@ linter can express is held, `fl_frontend/src/core/schemaGerman.test.ts` among th
 `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` reads the refusal codes
 `fl_backend/openapi.json` publishes on one operation, under any status, and **it throws for an
 operation publishing no refusal**, because a loop over an empty answer runs zero times and proves
-nothing. Which codes count is `fl_frontend/src/core/openapiDocument.ts :: isRefusalCode`: the
-protocol's codes are published on nearly every operation and answered alike by the shared reader.
+nothing. Which codes count is `fl_frontend/src/core/errors.ts :: isRefusalCode`, the predicate the
+production readers use: the protocol's codes are published on nearly every operation and answered
+alike by the shared reader.
 `fl_frontend/src/shared/testing/publishedRefusals.ts :: refusedOn` raises a code at the status the document publishes it under, and `:: answerShown` and
 `:: assertEachAnswered` ask each code at a second status too, so a mapper reading the status fails.
 `fl_frontend/src/app/refusalCoverage.test.ts :: ANSWERED_BY` holds the other half (I360): a table

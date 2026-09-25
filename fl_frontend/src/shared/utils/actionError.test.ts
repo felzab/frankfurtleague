@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
-import { isRefusalCode, publishedOperations } from "@/core/openapiDocument.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
 import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, rejectedWrite, toActionErrorResult, unansweredAction } from "./actionError.ts";
@@ -33,11 +33,11 @@ describe("toActionErrorResult", () => {
   /* The unique index's sentence sends the admin looking for an entry that exists, which a rule refusing
      for any other reason leaves them searching for in vain. */
   it("answers a 409 no reader here words with the way out alone, never the unique index's conflict", () => {
-    for (const serverErrorCode of ["REQ-UNCLAIMED-000", undefined]) {
-      const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-UNCLAIMED-000" }),
+    );
 
-      assert.deepEqual(result, { success: false, error: UNKNOWN_REFUSAL }, String(serverErrorCode));
-    }
+    assert.deepEqual(result, { success: false, error: UNKNOWN_REFUSAL });
   });
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
@@ -115,7 +115,8 @@ describe("toActionErrorResult", () => {
     for (const serverErrorCode of ["toString", "constructor", "valueOf"]) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 
-      assert.equal(result.error, UNKNOWN_REFUSAL, serverErrorCode);
+      // No rule's code either, so the answer is the unexplained failure's sentence.
+      assert.equal(result.error, "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.", serverErrorCode);
       assert.equal(result.errorCode, undefined, serverErrorCode);
     }
   });
@@ -297,11 +298,17 @@ describe("a refusal read by its code, whatever its status", () => {
   /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
   it("answers a vanished record, a refused request and a refused credential on their own terms", () => {
     assert.match(refused(404, "DB-COMMON-001").error, /nicht gefunden/);
-    // A 404 carrying no code is a route nothing served, never a record the API says is gone.
+    // A route the framework did not serve, or one no code names at all, is never a record the API says
+    // is gone, nor a rule's refusal: a page older or newer than the API meets these mid-deploy.
     for (const [status, code] of [
       [400, "REQ-AUTH-005"],
+      [400, "REQ-VAL-002"],
       [401, "REQ-AUTH-002"],
       [404, undefined],
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+      [409, undefined],
+      [418, "REQ-ROUTE-003"],
     ] as const) {
       assert.equal(
         refused(status, code).error,
@@ -311,14 +318,33 @@ describe("a refusal read by its code, whatever its status", () => {
     }
   });
 
-  /* Two readings reached by different routes, the fallback's by status and protocol code and the
-     harness's by the codes a mapper words, agree on every code the document publishes, at its
-     published status. */
-  it("takes exactly the refusal codes the document publishes, each at its published status, for a rule's", () => {
-    const answers = publishedOperations().flatMap(({ operation, answers: published }) => published.map((answer) => ({ operation, ...answer })));
-    assert.ok(answers.length > 0, "the document publishes no code at all");
+  /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
+     code or the unique index's is ever a refusal a mapper words. */
+  it("classifies a code by its class, whatever it is numbered", () => {
+    for (const code of [
+      "REQ-AUTH-005",
+      "REQ-VAL-001",
+      "REQ-VAL-002",
+      "REQ-ROUTE-001",
+      "REQ-ROUTE-003",
+      "DB-COMMON-001",
+      "DB-CONN-001",
+      "SRV-FAIL-001",
+    ]) {
+      assert.equal(isRefusalCode(code), false, code);
+    }
+    for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])
+      assert.equal(isRefusalCode(code), true, code);
+    assert.equal(isRefusalCode(undefined), false);
+  });
 
-    for (const { operation, code, status } of answers) {
+  /* The harness reads the same predicate, so this asks the document itself: every code it publishes at
+     a 4xx is a refusal exactly where the predicate says so, at the status it is published under. */
+  it("reads a published refusal as a rule's at its published status, and nothing else", () => {
+    const answers = publishedOperations().flatMap(({ operation, answers: published }) => published.map((answer) => ({ operation, ...answer })));
+    assert.ok(answers.some(({ code }) => isRefusalCode(code)) && answers.some(({ code }) => !isRefusalCode(code)), "one class is missing");
+
+    for (const { operation, code, status } of answers.filter(({ status: published }) => published < 500)) {
       const refusal = new APIBadStatusError({ ...write, message: "bad", statusCode: status, serverErrorCode: code });
       assert.equal(isRuleRefusal(refusal), isRefusalCode(code), `${code} at ${String(status)} on ${operation}`);
     }

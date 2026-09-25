@@ -26,14 +26,6 @@ type PublishedAnswer = { code: string; status: number };
 export type PublishedOperation = { operation: string; declaration: JsonObject; answers: PublishedAnswer[] };
 
 /**
- * Whether a slice's mapper words a published code: a rule's, or the unique index's. The protocol's codes
- * are published on nearly every operation and answered alike on all of them by the shared reader.
- */
-export function isRefusalCode(code: string): boolean {
-  return code === "DB-COMMON-002" || (code.startsWith("REQ-") && !code.startsWith("REQ-AUTH-") && code !== "REQ-VAL-001");
-}
-
-/**
  * Every `error_code` enum a schema carries, its `allOf` members and `$ref` targets followed: the
  * backend narrows the failure body by composing it, and an enum it moved into a component is still
  * the operation's own.

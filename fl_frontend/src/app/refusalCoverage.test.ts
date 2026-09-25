@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { isRefusalCode } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
-import { isRefusalCode, publishedOperations } from "@/core/openapiDocument.ts";
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */

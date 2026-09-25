@@ -1,4 +1,12 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRecordMissing, mayHaveWritten, RolledBackError } from "@/core/errors";
+import {
+  APIBadStatusError,
+  APIMalformedDataError,
+  APINetworkError,
+  isRecordMissing,
+  isRefusalCode,
+  mayHaveWritten,
+  RolledBackError,
+} from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
@@ -41,19 +49,12 @@ export function isRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * Whether one of the API's rules refused the request: codes are unique across the API, so a code no
- * arm names reaches its kind's fallback whichever status it came at.
+ * Whether one of the API's rules refused the request, by the code's class
+ * (`fl_frontend/src/core/errors.ts :: isRefusalCode`): a code no arm names reaches its kind's fallback
+ * at any status, and a protocol code, a routing one included, never does.
  */
 export function isRuleRefusal(error: unknown): error is APIBadStatusError {
-  if (!isRefusal(error)) return false;
-  // A conflict is a rule's however its body reads, one that failed to parse included.
-  if (error.statusCode === 409) return true;
-
-  // A refused payload and a vanished target each have their own answer; a 400 refuses the request's
-  // form and a 401 its credential, never what it asked for.
-  const answeredApart =
-    error.serverErrorCode === undefined || error.serverErrorCode === "REQ-VAL-001" || error.serverErrorCode === "DB-COMMON-001";
-  return !answeredApart && error.statusCode !== 400 && error.statusCode !== 401;
+  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
 }
 
 /**

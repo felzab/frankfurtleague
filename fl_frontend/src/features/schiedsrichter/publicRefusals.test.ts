@@ -146,6 +146,8 @@ describe("what one refused link read asks the page to show", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(503, "")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "DB-COMMON-001")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(401, "REQ-AUTH-002")), null);
+    // A route the API does not serve is met mid-deploy, while the referee's link is still live.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "REQ-ROUTE-001")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);
   });
 });

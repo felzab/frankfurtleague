@@ -71,7 +71,7 @@ describe("a read of a record the API says is missing", () => {
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
      find, and reading it as none would render a page's missing state while the API is unreachable. */
   it("keeps a 404 carrying no code, or another code, the failure it is", async () => {
-    for (const code of [undefined, "REQ-UNCLAIMED-000"]) {
+    for (const code of [undefined, "REQ-UNCLAIMED-000", "REQ-ROUTE-001"]) {
       const thrown = notFound(code);
       failure = thrown;
 
