@@ -9,7 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
 import { assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -59,16 +59,15 @@ export const sendMail = async (message) => {
   return { id: null };
 };`;
 
-const AUTH_DOUBLE = `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`;
-
 /* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
    that the action reached it at all. */
 const CACHE_DOUBLE = `export const refresh = () => { globalThis.${EVENTS}.push("refresh"); };`;
 
-const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
-
 const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
 
+doubleActionRequest();
+
+// Registered after the request's doubles, so its `next/cache` answers before theirs.
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/cache") return { url: asDataUrl(CACHE_DOUBLE), shortCircuit: true };
@@ -78,8 +77,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/features/sperrliste/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },

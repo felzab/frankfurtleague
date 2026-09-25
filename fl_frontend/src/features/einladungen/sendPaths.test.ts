@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* Replaced at the module boundary rather than the actions being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real fan-out reaches a mail provider. */
-const AUTH = `export const getAdminSession = async () => globalThis.__flSendSession;`;
 const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 // Each double records the write the module it replaces records as it sends one, which the admin spine
 // judges its answer by.
 const API = `import { mayHaveWritten } from "@/core/errors";
@@ -40,25 +38,21 @@ const log: string[] = [];
 recorders.__flSendMails = mails;
 recorders.__flSendLog = log;
 
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  // `refresh` writes to the same log the fan-out does, which is how the ordering case below reads
-  // which of the two ran first without asserting over either module's source.
-  "next/cache": `export const refresh = () => { globalThis.__flSendLog.push("refresh"); }; export const updateTag = () => {}; export const revalidateTag = () => {};`,
-  "next/headers": `export const headers = async () => new Headers();`,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
+// `refresh` writes to the same log the fan-out does, which is how the ordering case below reads which
+// of the two ran first; `cacheCalls` is a list of its own, so it cannot order a refresh against a send.
+const NEXT_CACHE = `export const refresh = () => { globalThis.__flSendLog.push("refresh"); }; export const updateTag = () => {}; export const revalidateTag = () => {};`;
 
+doubleActionRequest();
+
+// Registered after the request's doubles, so its `next/cache` answers before theirs.
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(NEXT_CACHE)}`, shortCircuit: true };
+    return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     if (url.endsWith("/src/features/teams/queries.ts")) return { format: "module", source: TEAMS, shortCircuit: true };
     if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
@@ -133,7 +127,6 @@ const sentence = (res: { success: boolean; message?: string; error?: string }): 
 beforeEach(() => {
   mails.length = 0;
   log.length = 0;
-  recorders.__flSendSession = { user: { email: "admin@example.de" } };
   recorders.__flSendApi = liveRow(EINLADUNG_ID);
   recorders.__flSendTeams = teamsHolding("a".repeat(24), BEIDE_BESTAETIGT);
   recorders.__flSendOutcome = outcome(["jonas@beispiel.de", "erika@beispiel.de"], [], []);
