@@ -288,11 +288,9 @@ async def erneut_einwilligung(
 
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
-    The application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an
-    application already decided (`REQ-BEWERBUNG-001`) and on any seat the link would open that is already confirmed
-    or declined, or one an application stored before the confirmation flow holds — the mirrored seat included
-    (`REQ-BEWERBUNG-011`). A decision, an answer or an erasure landing while the request runs is refused the same way.
-    A path naming no seat is a 404.
+    The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
+    is judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a
+    decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
