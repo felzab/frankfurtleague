@@ -31,7 +31,7 @@ import {
   useDraftFieldErrors,
   verdictMessage,
 } from "./useDraftFieldErrors.ts";
-import { UNHANDLED_FIELD_REFUSAL } from "./useServerFieldErrors.ts";
+import { unshownRefusal } from "./useServerFieldErrors.ts";
 
 import type { BlockingBanners, RailBanner } from "../components/ui/railBanner.ts";
 import type { ActionFailure } from "../types/types.ts";
@@ -597,11 +597,15 @@ describe("markedFieldCount", () => {
 });
 
 describe("a blocked press's announcement", () => {
-  it("names the fields the form marks rather than the paths the schema refused", async () => {
-    // Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them.
+  /* Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them: the mark speaks for that
+     one, and the other is said in its own words, or nothing says it at all. */
+  it("names the fields the form marks, and says the refusal of the one it renders no box for", async () => {
     const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["shorthand"]);
 
-    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`]);
+    assert.deepEqual(press.toasts, [
+      `${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`,
+      `Änderung nicht gespeichert: ${unshownRefusal(["Bitte gib den vollständigen Namen ein."])}`,
+    ]);
   });
 
   it("raises nothing where no field is marked, leaving the press to the unhandled-refusal report", async () => {
@@ -610,7 +614,7 @@ describe("a blocked press's announcement", () => {
 
     assert.deepEqual(
       press.toasts,
-      [`Änderung nicht gespeichert: ${UNHANDLED_FIELD_REFUSAL}`],
+      [`Änderung nicht gespeichert: ${unshownRefusal([CLIENT_SHORTHAND, "Bitte gib den vollständigen Namen ein."])}`],
       "the press raised a toast beside the report, or no report",
     );
     assert.equal(press.writes, 0, "a press nothing marked still wrote");
@@ -652,6 +656,17 @@ describe("a failed write's one announcement", () => {
     const toasts = await answerFailedWrite(REFUSED_SHORTHAND, ["full_name"]);
 
     assert.deepEqual(toasts, ["Änderung nicht gespeichert: Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
+  });
+
+  /* A slice's own map on a path no control renders brings no sentence of its own, and the path's message is the
+     one thing that tells the admin what to change. */
+  it("speaks the refused path's own message where the answer brings no sentence and no control renders the path", async () => {
+    const toasts = await answerFailedWrite(
+      { success: false, error: "Überprüfe Deine Eingaben.", fieldErrors: { gruppe: "Wähle eine Gruppe." } },
+      ["shorthand"],
+    );
+
+    assert.deepEqual(toasts, [`Änderung nicht gespeichert: ${unshownRefusal(["Wähle eine Gruppe."])}`]);
   });
 
   it("raises nothing where a control shows the refusal, which speaks for the press", async () => {
