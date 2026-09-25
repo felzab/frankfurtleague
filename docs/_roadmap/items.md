@@ -747,6 +747,71 @@ site over the local stack.
 been seen in a browser. The spans of every pair, the knip run and the whole of what the sweep kept
 are in the body of the commit that filed this entry.
 
+### `gzn4-secx` · A page is tested through a hand-built copy of React's server renderer, where Next recommends end-to-end tests
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**My ruling, 2026-09-25:** "Keep until E2E" — the page harness and the tests calling it stay until
+end-to-end tests replace them.
+
+**The harness is the suite's most exposed code to an upgrade.**
+`fl_frontend/src/shared/testing/pageHarness.ts` walks a page's tree as React's server renderer
+would, by hand: it tells a client module by a regular expression over its source, doubles
+`next/server` and the API client, and builds every read's answer out of Zod's internal schema
+definitions. A React, Next or Zod release can move any of the three underneath it. Next's testing
+guide, read 2026-09-25 for the release installed here and moving without us: "we recommend using
+**End-to-End Testing** over **Unit Testing** for `async` components"
+(https://nextjs.org/docs/app/guides/testing).
+
+**What the harness guards today**, each of which an end-to-end case asserts before the unit case
+guarding it goes:
+
+- every admin page reads the season the header shows, awaits `connection()` before its first read,
+  throws nothing but a redirect or a not-found, and sends the admin to the season list where the
+  league holds none (`fl_frontend/src/app/admin/omittedSaison.test.ts`)
+- a list route's loading fallback draws the search row and trigger box its page draws
+  (`fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`,
+  `fl_frontend/src/shared/components/ui/AdminCrudView.test.ts`)
+- every 404 answers the one not-found metadata — on the root boundary, on each catch-all, and
+  wherever a page's generated metadata misses (`fl_frontend/src/app/notFound.test.ts`)
+- a season-scoped public page's canonical names the season its address names, and the bare path
+  for the running one (`fl_frontend/src/app/dashboard/seasonCanonical.test.ts`)
+- which reads a page makes and in what order against `connection()`, a public page's noindex
+  metadata, and its 404 for a season nobody knows
+  (`fl_frontend/src/features/bewerbungen/routes.test.ts`,
+  `fl_frontend/src/features/schiedsrichter/routes.test.ts`)
+
+**Every other file calling it mixes page cases with view cases**, and
+`git grep -l pageHarness -- fl_frontend` selects them. A case about what the page does — a malformed
+id answered with a 404 before any read, the rows a page hands its view — moves to the end-to-end
+run; a case about the view renders that view with the props the page would hand it, and needs no
+harness at all. `fl_frontend/src/shared/testing/pageHarness.test.ts` tests the walk itself and goes
+with it.
+
+**Four things the adopting change meets first:**
+
+- **No CI job serves the application.** The ops scope parses the compose files and runs nginx alone
+  (`nginx/edge_test.sh`), and the images job builds both images and runs neither, so the end-to-end
+  job builds, serves and seeds its own stack, and lands with its measured cost in
+  `.github/gate-wall-clock.tsv`.
+- **Its data is its own.** `./scripts/ops/local.sh --seed` restores a copy of production, which a CI
+  runner never holds.
+- **The admin pages sit behind the mailed sign-in link**, and `.claude/CLAUDE.md` §3 refuses a
+  testing-only way past it in production code.
+- **The `connection()` order's symptom is a failed image build**, the builder reaching no backend
+  (`docs/frontend/spec.md :: I6`), and never anything a browser shows. Which run replaces the walk's
+  is settled before that case goes.
+
+**The cost is a dependency and a CI job**, adopted under `.claude/CLAUDE.md` §4's comparison rule,
+whose record is the adopting commit's body: Next's guide sets up both Cypress and Playwright for
+end-to-end testing, and the option needing no dependency is the harness this entry retires.
+
+**Done when** Playwright runs the pages above against the local stack in CI, every behaviour listed
+asserted there, and the harness and every page case calling it are deleted —
+`git grep -l pageHarness -- fl_frontend` printing nothing.
+
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
 | Status | Depends on |
