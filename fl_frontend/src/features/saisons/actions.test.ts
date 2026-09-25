@@ -260,17 +260,30 @@ describe("the undraw action", () => {
 
   /* One sentence over the counts would report a watermark-only season as nothing done: it answers
      with two zeroes and `watermark_cleared`. */
-  it("reports the three outcomes a 200 can carry apart", () => {
-    assert.match(UNDRAW_ACTION, /undrawOperation\.spieltage > 0 \|\| undrawOperation\.spiele > 0/);
-    assert.match(UNDRAW_ACTION, /undrawOperation\.watermark_cleared/);
-    assert.match(UNDRAW_ACTION, /hatte keinen Spielplan mehr/);
+  it("reports the three outcomes a 200 can carry apart", async () => {
+    const undrawn = async (spieltage: number, spiele: number, watermark_cleared: boolean) => {
+      answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage, spiele, watermark_cleared }));
+      const result = await undrawSpielplanAction({ id: SAISON_ID });
+      assert.equal(result.success, true, result.success ? "" : result.error);
+      return result.success ? (result.message ?? "") : "";
+    };
+
+    const messages = [await undrawn(3, 12, true), await undrawn(0, 0, true), await undrawn(0, 0, false)];
+
+    assert.equal(new Set(messages).size, 3, "two of the outcomes read alike");
+    assert.match(messages[0] ?? "", /Gelöscht wurden/);
+    assert.match(messages[1] ?? "", /hielt weder Spieltage noch Spiele/);
+    assert.match(messages[2] ?? "", /hatte keinen Spielplan mehr/);
   });
 
   /* This press is the half of `REQ-RULES-011`'s repair loop that reopens the three shape rules, so
      the message reporting it says where they and the clubs are changed before the redraw. */
-  it("names where the reopened numbers and the clubs are changed", () => {
-    assert.match(UNDRAW_ACTION, /Abschnitt Regeln/);
-    assert.match(UNDRAW_ACTION, /Teamseite/);
+  it("names where the reopened numbers and the clubs are changed", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
+
+    const result = await undrawSpielplanAction({ id: SAISON_ID });
+
+    assert.match(result.success ? (result.message ?? "") : result.error, /im Abschnitt Regeln ändern, die Teams über die Teamseite/);
   });
 
   /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive
