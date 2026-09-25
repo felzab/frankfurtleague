@@ -40,7 +40,7 @@ const DAY = "2016-09-04";
 
 describe("the document's locale", () => {
   // react-aria reads the NEAREST provider, so a second mount is a subtree formatting dates by
-  // whatever it pins, under the language the document declares. No render reaches every subtree.
+  // whatever it pins, under the language the document declares, in whichever component holds it.
   it("is pinned exactly once", () => {
     assert.equal(mounts.length, 1, `expected one <I18nProvider> mount, found ${String(mounts.length)}: ${mounts.join(", ")}`);
   });
