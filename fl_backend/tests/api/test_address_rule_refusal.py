@@ -29,8 +29,8 @@ HALF_WIDTH_VOICED_MARK = chr(0xFF9E)
 
 UMLAUT_LOCAL_PART = "jürgen@schule.de"
 
-# Every address here is one `EmailStr` accepts, so a row an older rule stored can hold it, and its
-# local part is not ASCII (`docs/backend/spec.md :: I332`).
+# Every address here is one `EmailStr` accepts, so each refusal below is the address rule's own rather
+# than the library's, and its local part is not ASCII (`docs/backend/spec.md :: I332`).
 BEYOND_ASCII = [
     pytest.param(UMLAUT_LOCAL_PART, id="an umlaut"),
     pytest.param(f"{chr(0xFF41)}nna@schule.de", id="a full-width letter"),
@@ -100,7 +100,7 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
     @pytest.mark.parametrize("email", BEYOND_ASCII)
     def test_the_address_passes_emailstr(self, email: str):
-        """The premise of every case here: an address no rule ever stored is no row that could need the refusal."""
+        """The premise of every case here: an address `EmailStr` refused would be refused with no address rule at all."""
 
         TypeAdapter(EmailStr).validate_python(email)
 

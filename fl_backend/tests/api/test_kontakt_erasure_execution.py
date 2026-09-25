@@ -817,7 +817,7 @@ SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.de"
 DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.de"
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607816001")
 
-LEGACY_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
+HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
 
 
 @pytest.mark.db
@@ -851,13 +851,13 @@ def test_erasing_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mon
     ],
 )
 def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_replica_set_url: str, stored: str):
-    """GDPR Art. 17: a lookup matches what was stored under older rules, so it holds the request to none of today's."""
+    """GDPR Art. 17: a row edited by hand past the address rule still names a person, so the lookup holds the request to no rule."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(LEGACY_ROW_OID, stored))
+        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(HAND_EDITED_ROW_OID, stored))
         await call_erasure(database, client, stored)
 
-        return (await stored_rows(database))[LEGACY_ROW_OID]["kontakte"]["trainer"]
+        return (await stored_rows(database))[HAND_EDITED_ROW_OID]["kontakte"]["trainer"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
 
