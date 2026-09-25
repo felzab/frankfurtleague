@@ -62,7 +62,7 @@ export async function undo(
 
 /**
  * Every code's answer a reason closed once on `closing`: a code the route's table leaves unmapped
- * falls through to the shared 409 sentence, which says nothing of what became of the change.
+ * falls through to the shared sentence, which says nothing of what became of the change.
  */
 export async function assertEachRefusalCloses({
   codes,
@@ -70,7 +70,7 @@ export async function assertEachRefusalCloses({
   press,
   closing = AENDERUNG_STEHT_WEITERHIN,
 }: {
-  /** `publishedRefusals(operation)`, spelled at the call so the coverage sweep reads the operation there. */
+  /** `publishedRefusals(operation)`, filtered where the route answers a code apart. */
   codes: readonly string[];
   refuse: (code: string) => void;
   press: () => Promise<UndoAnswer>;
@@ -90,7 +90,7 @@ export async function assertEachRefusalCloses({
     assert.equal(error.split(closing).length, 2, `${code} states what became of the change twice`);
     if (closing !== AENDERUNG_STEHT_WEITERHIN)
       assert.ok(!error.includes(AENDERUNG_STEHT_WEITERHIN), `${code} says the change stands after a half went back`);
-    // Whichever write met it, the unique index's refusal is the conflict the shared 409 reader words.
+    // Whichever write met it, the unique index's refusal is the conflict the shared reader words.
     if (code === DUPLICATE_KEY) assert.equal(error, `${KONFLIKT_MIT_BESTEHENDEM} ${closing}`);
 
     answers.set(code, error);
