@@ -69,7 +69,7 @@ describe("the document's locale", () => {
       new Date(`${DAY}T12:00:00Z`),
     );
     // react-aria wraps a date in Unicode isolates, which the language's own formatter does not.
-    const shown = textOf(html).replace(/[⁦-⁩]/g, "");
+    const shown = textOf(html).replace(/[\u2066-\u2069]/g, "");
     assert.ok(shown.includes(expected), `the document declares lang="${lang}", whose ${expected} the field does not show: ${shown}`);
   });
 });
