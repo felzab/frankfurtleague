@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { SITE_URL } from "@/core/brand.ts";
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 
@@ -135,5 +136,7 @@ describe("the origin each press mints its invite link on", () => {
       mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-versand`)),
       "the mailed link is minted on an origin this run was not configured with",
     );
+    // The close's legal links are drawn on the origin the builder is handed, apart from the link.
+    assert.ok(!mailedTexts().some((text) => text.includes(SITE_URL)), "the message sends a reader of this run to the published site");
   });
 });
