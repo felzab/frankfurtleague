@@ -735,6 +735,19 @@ const SCOPED_BANS = [
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
   ],
+  // Every query module caching none of its reads. One whose cached reads sit beside admin-tier ones
+  // takes the directive per function, which a module-wide ban would refuse.
+  [
+    {
+      files: ["admin", "aktionen", "bewerbungen", "einladungen", "schiedsrichter", "sperrliste", "spielorte"].map(
+        (slice) => `src/features/${slice}/queries.ts`,
+      ),
+      selector:
+        "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/]",
+      message:
+        'This module caches no read: `"use cache"` keys on the arguments, not the caller, so an admin read would become a shared slot (docs/frontend/spec.md §1.2).',
+    },
+  ],
   [
     {
       files: ["src/shared/**/*.{ts,tsx}"],
