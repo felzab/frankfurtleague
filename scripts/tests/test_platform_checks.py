@@ -276,6 +276,15 @@ def test_a_test_standing_down_on_the_platform_is_plat_2_in_each_shape() -> None:
         assert (code, found) == (GREEN, []), found
 
 
+def test_a_driver_snippet_in_a_form_the_clause_cannot_read_is_named() -> None:
+    """Joined into one string, the same stand-down reads as no snippet at all, so its form is the finding."""
+    joined = 'SNIPPET = "\\n".join(("if not tool.POSIX:", "    raise SystemExit(0)", "assert True"))'
+    with _appended(TOOL_TEST, "", joined):
+        code, found = _run()
+        assert code == RED
+        _only(found, PLATFORM, TOOL_TEST, "PLAT-2", "`SNIPPET`", "tuple or list of string lines")
+
+
 def test_a_constant_or_predicate_bound_to_one_value_alone_is_plat_3() -> None:
     """Both arms must execute everywhere, so the missing binding is named at the definition, and no row excuses it."""
     one_sided = (_gate().root / TOOL_TEST).read_text(encoding="utf-8").replace("    tool.POSIX = False" + NL, "")

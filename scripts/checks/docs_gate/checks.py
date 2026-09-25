@@ -948,6 +948,15 @@ def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
             else:
                 detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
                 found.append(Finding("fail", "enforced-by", STANDARD_PAGE, detail))
+    rows = _registry_rows()
+    if rows is None:
+        detail = f"`{REGISTRY_NAME}` is no annotated dict literal keyed by names, so a row's claim would be proved by its own spelling"
+        found.append(Finding("fail", "enforced-by", KERNEL_PAGE, detail))
+    else:
+        found += [
+            Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` is registered outside the `{REGISTRY_NAME}` literal, its claims unread")
+            for name in sorted(set(CHECKS) - set(rows))
+        ]
     for name, check in CHECKS.items():
         found.extend(_check_claims(name, check, named.get(name, set()), invariants))
     return found
@@ -957,25 +966,25 @@ REGISTRY_NAME: Final = "CHECKS"
 
 
 @cache
-def _registry_rows() -> dict[str, frozenset[int]]:
-    """Each registered check's own lines in `KERNEL_PAGE`, taken from the registry's syntax.
+def _registry_rows() -> dict[str, frozenset[int]] | None:
+    """Each registered check's own lines in `KERNEL_PAGE`, None where the registry is no dict literal.
 
     A row spells its contract inside a string, never as a citation, so a text match finds no citing
     line and certifies its own claim.
     """
     tree = python_tree(REPO_ROOT / KERNEL_PAGE)
-    if tree is None:
-        return {}
-    rows: dict[str, frozenset[int]] = {}
-    for node in ast.walk(tree):
+    for node in [] if tree is None else tree.body:
         if not isinstance(node, ast.AnnAssign) or not isinstance(node.target, ast.Name) or node.target.id != REGISTRY_NAME:
             continue
         if not isinstance(node.value, ast.Dict):
-            continue
+            return None
+        rows: dict[str, frozenset[int]] = {}
         for key, value in zip(node.value.keys, node.value.values, strict=True):
-            if isinstance(key, ast.Constant) and isinstance(key.value, str):
-                rows[key.value] = frozenset(range(key.lineno, (value.end_lineno or value.lineno) + 1))
-    return rows
+            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+                return None
+            rows[key.value] = frozenset(range(key.lineno, (value.end_lineno or value.lineno) + 1))
+        return rows
+    return None
 
 
 def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str, list[str]]) -> list[Finding]:
@@ -997,7 +1006,7 @@ def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str
         if not _resolve(left) and not is_gitignored(left):
             found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which names no file"))
             continue
-        for dead in _check_citation(contract, KERNEL_PAGE, invariants, _registry_rows().get(name)):
+        for dead in _check_citation(contract, KERNEL_PAGE, invariants, (_registry_rows() or {}).get(name)):
             found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which does not resolve: {dead.detail}"))
     return found
 

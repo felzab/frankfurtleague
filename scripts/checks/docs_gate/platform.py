@@ -188,6 +188,10 @@ def _snippet_lines(node: ast.AST) -> list[str] | None:
     return [str(elt.value) for elt in value.elts if isinstance(elt, ast.Constant)]
 
 
+def _strings(node: ast.AST) -> list[str]:
+    return [sub.value for sub in ast.walk(node) if isinstance(sub, ast.Constant) and isinstance(sub.value, str)]
+
+
 def _mentions(node: ast.AST, names: frozenset[str]) -> bool:
     for sub in ast.walk(node):
         if _predicate(sub) is not None:
@@ -288,6 +292,9 @@ def _scan_tests(rel: str, tree: ast.Module, source: Sequence[str], names: frozen
                 lines = _snippet_lines(child)
                 if lines is not None and _snippet_stands_down(lines, names):
                     detail = f"PLAT-2: the driver snippet `{symbol}` stands down on the platform -- {BOTH_ARMS}"
+                    found.append(_site(rel, _line(child), symbol, detail, source))
+                elif lines is None and _mentions_text("\n".join(_strings(child)), names):
+                    detail = f"PLAT-2: `{symbol}` spells the platform in text this clause reads only as a tuple or list of string lines"
                     found.append(_site(rel, _line(child), symbol, detail, source))
             if isinstance(child, ast.If) and _mentions(child.test, names) and _stands_down(child.body):
                 detail = f"PLAT-2: `{symbol or rel}` returns or exits when the platform says so -- {BOTH_ARMS}"

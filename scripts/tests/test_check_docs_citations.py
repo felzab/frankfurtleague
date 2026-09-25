@@ -382,6 +382,41 @@ def test_a_shape_the_backend_compiles_other_than_its_text_says_is_named(old: str
     _assert_corpus_restored()
 
 
+# The registry's own opening, as `docs_gate/kernel.py` spells it.
+REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
+
+
+def test_a_check_registry_spelled_as_no_dict_literal_is_named() -> None:
+    """The literal renamed and the registry bound to a copy of it: the lines a row's claim may not prove itself from go unread."""
+    _reset()
+    kept = _read(KERNEL)
+    _replace(KERNEL, REGISTRY_OPENING, REGISTRY_OPENING.replace("CHECKS", "_ROWS"))
+    _append(KERNEL, "CHECKS: Final = dict(_ROWS)")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        write(_gate().root, KERNEL, kept)
+        _reset()
+    assert reported[("fail", "enforced-by", KERNEL)] == 1, _shape(reported)
+    assert "`CHECKS` is no annotated dict literal keyed by names" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_check_registered_outside_the_registry_literal_is_named() -> None:
+    """A row added at run time has no lines in the literal, so its claims would be read against nothing."""
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    kernel.CHECKS["late-check"] = kernel.CHECKS[SELF_CLAIMED_CHECK]
+    try:
+        _, output = _output()
+    finally:
+        del kernel.CHECKS["late-check"]
+        _reset()
+    assert "`late-check` is registered outside the `CHECKS` literal" in output, output
+    _assert_corpus_restored()
+
+
 def test_a_code_only_a_comment_spells_is_no_code_a_reason_may_argue_from() -> None:
     """The sample's one raise commented out, so the reason citing its code argues from a module that talks about it."""
     _reset()
