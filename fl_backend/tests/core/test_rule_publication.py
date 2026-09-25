@@ -22,7 +22,6 @@ from tests.core.app_source import (
     Declaration,
     api_routes,
     bound_at,
-    callee,
     declared,
     module_of,
     resolve_callee,
@@ -37,7 +36,7 @@ class Disarmed:
 
     reason: str
     #: The parameter and the literal, as source, every call of the check in that operation binds;
-    #: `None` for a check read as a predicate, which no call may hand to `refuse`.
+    #: `None` for a check read as a predicate, whose answer every call may test and nothing else.
     binding: tuple[str, str] | None
 
 
@@ -79,7 +78,6 @@ PREFIX = f"/api/v{API_VERSION}"
 
 # The bare names the checks are declared under, which is all a call through a module or a value can spell.
 CHECK_NAMES = frozenset(rule.implemented_by.rsplit(".", 1)[1] for rule in RULES)
-REFUSE = "refuse"
 
 
 Key = tuple[Path, int]
@@ -101,15 +99,14 @@ class _Reach:
     declarations: dict[str, tuple[Key, Declaration]] = field(default_factory=dict)
     #: Every call site of each reached function, keyed by its declaration.
     sites: dict[Key, list[_Site]] = field(default_factory=dict)
-    #: The calls handed straight to `refuse`.
-    refused: set[int] = field(default_factory=set)
+    #: Each node's parent, keyed by the child's `id`, so a call is read in the expression holding it.
+    parents: dict[int, ast.AST] = field(default_factory=dict)
 
 
 def _trace(declaration: Declaration, path: Path, reach: _Reach, seen: set[tuple[Path, int]]) -> None:
-    for chain, call in scoped_calls(declaration, (declaration,)):
-        if callee(call) == REFUSE:
-            reach.refused.update(id(argument) for argument in call.args)
+    reach.parents.update((id(child), node) for node in ast.walk(declaration) for child in ast.iter_child_nodes(node))
 
+    for chain, call in scoped_calls(declaration, (declaration,)):
         resolved = resolve_callee(call, chain, path)
         if resolved is None:
             continue
@@ -192,6 +189,19 @@ def _unbound(reach: _Reach, site: _Site, called: Declaration, parameter: str, li
     yield f"{site.caller_path.relative_to(BACKEND_ROOT).as_posix()}:{site.call.lineno} binds `{parameter}` to `{argument}`"
 
 
+def _decides_only(reach: _Reach, node: ast.AST) -> bool:
+    """Whether the value at `node` is read as a condition and goes nowhere else: a refusal handed on is a refusal raised."""
+
+    parent = reach.parents.get(id(node))
+    if isinstance(parent, ast.Compare):
+        return any(isinstance(side, ast.Constant) and side.value is None for side in (parent.left, *parent.comparators))
+    # An operand's own value is what `and` and `or` answer, so the whole expression must decide too.
+    if isinstance(parent, ast.BoolOp):
+        return _decides_only(reach, parent)
+
+    return isinstance(parent, (ast.If, ast.IfExp, ast.While)) and parent.test is node
+
+
 def test_every_allowlisted_call_binds_what_disarms_it():
     """The allowlist is keyed by code and operation, so an armed call would stand on it: each entry's binding is held at every call."""
 
@@ -201,7 +211,11 @@ def test_every_allowlisted_call_binds_what_disarms_it():
         key, called = reach.declarations[next(rule.implemented_by for rule in RULES if rule.code == code)]
         for site in reach.sites[key]:
             if disarmed.binding is None:
-                armed.extend([f"{code} on {operation}: a call handed to `refuse`"] if id(site.call) in reach.refused else [])
+                armed.extend(
+                    []
+                    if _decides_only(reach, site.call)
+                    else [f"{code} on {operation}: line {site.call.lineno} reads the check as more than a condition"]
+                )
             else:
                 armed.extend(f"{code} on {operation}: {breach}" for breach in _unbound(reach, site, called, *disarmed.binding))
 
