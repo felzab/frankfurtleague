@@ -363,6 +363,9 @@ the document publishes each code at the status a client meets it at:
 - **410** where a link is spent for good: its deadline has passed or its record was decided, and
   nothing reopens either, a fresh link being a new token. Its view still answers 200 with the state
   `abgelaufen`, so a page can say why before anyone presses
+- **403** where nothing the caller can do lifts the refusal: a visitor's address on the ban list,
+  which an administrator's own write meets as a 409 they can resolve by lifting the ban, and the
+  ghost referee's erasure
 
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never

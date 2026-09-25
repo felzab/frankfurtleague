@@ -126,7 +126,7 @@ def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=GHOST_ERASED,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.FORBIDDEN,
         message=(
             "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
             "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"

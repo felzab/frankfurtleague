@@ -149,7 +149,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     # learns from this that the address is unusable and nothing about a list.
     return WriteRefusal(
         error_code=REGISTRIERUNG_ADRESSE_GESPERRT,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.FORBIDDEN,
         message="this email address cannot be used to register; use another, or ask the league",
     )
 
