@@ -8,5 +8,7 @@ import { DateField } from "@heroui/react/date-field"; // expect: segmented-impor
 import { HintPopover } from "./InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+import { createRequire as loadVia } from "node:module"; // expect: node-module
 
 export const USED = [HeroUIForm, RootForm, AppRouterContext, DateField, HintPopover, captureStdout, TEAM_FACETS];
+export const NODE_MODULE_USED = [loadVia];

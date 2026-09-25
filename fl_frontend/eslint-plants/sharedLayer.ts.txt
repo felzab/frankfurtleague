@@ -7,9 +7,11 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
 import { captureStdout } from "./testing/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-shared
+import { createRequire as loadVia } from "node:module"; // expect: node-module
 
 export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout, TEAMS_RELATIVE];
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-shared-load
 export const LOADED_RELATIVE = import("../features/teams/facets"); // expect: layer-shared-load
 // shared may load itself and core.
 export const LOADED_OWN = import("./components/ui/formFieldStyles");
+export const NODE_MODULE_USED = [loadVia];

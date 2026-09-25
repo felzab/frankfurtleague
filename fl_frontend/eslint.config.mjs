@@ -164,6 +164,16 @@ const TEST_SUPPORT = [
     .map((glob) => `src/${glob}`),
 ];
 
+/** What only the suite and its harness import: its own modules, and the loader's hooks. */
+const SUITE_IMPORTS = [
+  ...TEST_ONLY,
+  {
+    regex: "^(?:node:)?module$",
+    message:
+      "node:module rewrites how modules load, and a `createRequire` function held in a name loads past every load ban: a *.test.ts(x) file may import it, production code may not.",
+  },
+];
+
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
 const CLASS_LIST_CONSTANT = "^[A-Z][A-Z0-9_]*_CLASSES$";
 const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
@@ -332,8 +342,8 @@ const TRANSITION_REWRAP = {
 
 /**
  * The run-time loads `no-restricted-imports` never reads: `import()`, and a `createRequire` function
- * called where it is made. One held in a name loads unseen; `@typescript-eslint/no-require-imports`
- * refuses a bare `require()` alone.
+ * called where it is made. One held in a name loads unseen in the suite, the one place `SUITE_IMPORTS`
+ * lets node:module in; `@typescript-eslint/no-require-imports` refuses a bare `require()` alone.
  */
 const LOAD_SITES = [
   ["ImportExpression", ".source"],
@@ -505,8 +515,9 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: loadOf(specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))),
-    message: "A test-only module loaded at run time stays test-only: a *.test.ts(x) file may load it, production code may not.",
+    selector: loadOf(String.raw`(?:${specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))}|^(?:node:)?module$)`),
+    message:
+      "A test-only module, or node:module, loaded at run time stays the suite's: a *.test.ts(x) file may load it, production code may not.",
   },
   {
     // Taken apart where it is loaded, by destructuring or by a member; a `.then` callback's parameter
@@ -799,17 +810,24 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...SUITE_IMPORTS),
   },
   {
     files: ["src/core/**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.core),
+    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...SUITE_IMPORTS, LAYER_BOUNDARY.core),
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, ...TEST_SUPPORT],
-    rules: restrictImports(NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS, ...TEST_ONLY, LAYER_BOUNDARY.shared),
+    rules: restrictImports(
+      NEXT_PRIVATE_CONTEXTS,
+      SEGMENTED_DATE_CONTROLS,
+      HEROUI_FORM,
+      HINT_INTERNALS,
+      ...SUITE_IMPORTS,
+      LAYER_BOUNDARY.shared,
+    ),
   },
   // Each ban's one importer, last among the blocks reaching it for `restrictImports`'s reason, and left
   // out of that ban alone: a disable comment would excuse every import ban on its line.
@@ -821,7 +839,7 @@ const eslintConfig = defineConfig([
     files: [file],
     rules: restrictImports(
       ...[NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HINT_INTERNALS].filter((ban) => ban !== allowed),
-      ...TEST_ONLY,
+      ...SUITE_IMPORTS,
       LAYER_BOUNDARY.shared,
     ),
   })),

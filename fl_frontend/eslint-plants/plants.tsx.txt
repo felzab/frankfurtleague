@@ -31,6 +31,7 @@ declare const request: Request;
 declare const id: string;
 declare const extra: string;
 declare const bounds: object;
+import { createRequire as loadVia } from "node:module"; // expect: node-module
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -138,3 +139,4 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
     </div>
   );
 }
+export const NODE_MODULE_USED = [loadVia];

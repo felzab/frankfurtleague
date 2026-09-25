@@ -34,6 +34,8 @@ import { KEY_TIERS as KEY_TIERSTyped } from "./keyTiers.ts"; // expect: test-onl
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
 import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
+import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { registerHooks as hookVia } from "module"; // expect: node-module
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
@@ -43,3 +45,5 @@ export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
 export const LOADED_SHARED = import(`../shared/components/ui/formFieldStyles`); // expect: layer-core-load
 export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only-load
+export const NODE_MODULE_USED = [loadVia, hookVia];
+export const LOADED_LOADER = import("node:module"); // expect: test-only-load

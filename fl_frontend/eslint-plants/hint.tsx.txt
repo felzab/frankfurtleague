@@ -7,5 +7,7 @@ import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 // The one importer the popover and the panel allow.
 import { HintPanel, HintPopover } from "./InfoHint";
+import { createRequire as loadVia } from "node:module"; // expect: node-module
 
 export const USED = [Button, AppRouterContext, DateField, HeroForm, captureStdout, TEAM_FACETS, HintPanel, HintPopover];
+export const NODE_MODULE_USED = [loadVia];

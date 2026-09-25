@@ -13,6 +13,7 @@ import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 
 declare const bounds: object;
+import { createRequire as loadVia } from "node:module"; // expect: node-module
 
 export const USED = [TimeField, DateField, AppRouterContext, HeroForm, HintPanel, captureStdout, TEAM_FACETS];
 
@@ -23,3 +24,4 @@ export function AppDatePicker() {
     </Picker>
   );
 }
+export const NODE_MODULE_USED = [loadVia];
