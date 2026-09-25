@@ -13,8 +13,8 @@ import type { ZodType } from "zod";
 
 /**
  * What a cross-site caller is told, answered 200 for the reason `publicRoute.ts` states: a non-2xx
- * lands in the dispatch's rejection arm, which blames the transport and sends the admin to check a
- * connection that is fine.
+ * lands in the dispatch's rejection arm, which calls the undo unclear where this one certainly did
+ * not run.
  */
 const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. ${AENDERUNG_STEHT_WEITERHIN}`;
 

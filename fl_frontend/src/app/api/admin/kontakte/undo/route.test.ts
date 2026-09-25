@@ -42,7 +42,7 @@ describe("the contacts save's undo", () => {
   });
 
   /* An undo restores the earlier record, and the save it undoes moved the stored label the save's own
-     admission would judge it by, so a label no longer running is replayed rather than refused. */
+     admission would judge it by, so a label other than the running one is replayed rather than refused. */
   it("replays a seat under the label it was stored with, the running label or not", async () => {
     calls.length = 0;
     const seat = {

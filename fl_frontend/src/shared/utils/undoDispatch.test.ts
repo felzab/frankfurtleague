@@ -153,7 +153,7 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
 
   /* The cases proving the two above are the route's doing: an edge's 403 carries no envelope and is
      the transport, and a refusal the route answered 200 is the replay's, and neither leaves the page. */
-  it("stays for any other answer, blaming the transport on an edge's 403 and the replay on a refusal", async () => {
+  it("stays on the page for an edge's 403 and for a refusal the route answered", async () => {
     const challenged = await pressAgainst(new Response("<html></html>", { status: 403 }));
     assert.deepEqual(challenged.replacedWith, []);
     assert.equal(challenged.toasts.at(-1)?.variant, "danger");

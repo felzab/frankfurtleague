@@ -15,7 +15,10 @@ import type { QueryResult } from "@/shared/types/types";
 import type { FLKontaktErasureAnsichtResponse, FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
 import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
 
-/** The one repair the erasure panel holds: arming it again is what reads the list a second time. */
+/**
+ * The erasure panel's repair where the read answered no sentence of its own: arming it again is what
+ * reads the list a second time.
+ */
 const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
 
 /** One count as German reads it, with a word for none and a word for one. */
