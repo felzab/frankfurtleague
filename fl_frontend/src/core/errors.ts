@@ -34,6 +34,20 @@ export class RolledBackError extends Error {
   }
 }
 
+/**
+ * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
+ * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
+ * never answered.
+ */
+export class ApiUnsentError extends Error {
+  readonly code = "FE-NET-001";
+  override name = "ApiUnsentError";
+
+  constructor(method: string) {
+    super(`The request's deadline had passed before this ${method} was sent.`);
+  }
+}
+
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   traceId: string;

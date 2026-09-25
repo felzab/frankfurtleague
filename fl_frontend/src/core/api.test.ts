@@ -33,7 +33,7 @@ registerHooks({
 });
 
 const { apiClient } = await import("./api.ts");
-const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
@@ -375,11 +375,12 @@ describe("the request's deadline over a chain of calls", () => {
     assert.equal(cut, true, "the request does not know its deadline cut a call");
   });
 
-  it("draws no request once nothing is left, and answers the call as a timed-out write", async () => {
-    const [thrown, wrote] = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+  /** What a call made once nothing is left throws, and whether the request recorded a write for it. */
+  const refusedUnsent = (options: RequestInit) =>
+    runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
       advance(REQUEST_DEADLINE_MS);
 
-      const error = await apiClient("/x", z.unknown(), { method: "POST" }).then(
+      const error = await apiClient("/x", z.unknown(), options).then(
         () => assert.fail("the call past the deadline resolved"),
         (failure: unknown) => failure,
       );
@@ -387,9 +388,20 @@ describe("the request's deadline over a chain of calls", () => {
       return [error, requestWriteSent()] as const;
     });
 
+  /* Not a network error, which every reader of one takes for a write that may have landed: nothing left. */
+  it("draws no request once nothing is left, and throws a write as unsent", async () => {
+    const [thrown, wrote] = await refusedUnsent({ method: "POST" });
+
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
     assert.equal(wrote, false, "a write the deadline refused unsent was recorded as sent");
-    assert.ok(thrown instanceof APINetworkError, "the refused call was not thrown as a network error");
-    assert.deepEqual([thrown.isTimeout, thrown.method, thrown.readOnly], [true, "POST", false]);
+    assert.ok(thrown instanceof ApiUnsentError, "the refused write was thrown as one that may have landed");
+  });
+
+  it("throws a read refused unsent as the timeout it answers like", async () => {
+    const [thrown] = await refusedUnsent({});
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.ok(thrown instanceof APINetworkError, "the refused read was not thrown as a network error");
+    assert.deepEqual([thrown.isTimeout, thrown.method], [true, "GET"]);
   });
 });

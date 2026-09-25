@@ -2,7 +2,7 @@ import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten, RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
@@ -61,7 +61,7 @@ async function runGuarded<T extends { success: boolean }>(
 
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
       logger.error(`Admin mutation failed: ${mutationName}`, error, {
-        error_code: typed ? error.code : "FE-ACT-001",
+        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
         server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });

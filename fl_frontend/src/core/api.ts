@@ -4,7 +4,7 @@ import z from "zod";
 
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "./errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "./errors";
 import { logger } from "./logging";
 import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
@@ -193,6 +193,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     // Thrown here rather than left to `fetch`, which refuses an aborted signal unsent too but names no
     // deadline in what it throws (`docs/frontend/spec.md :: I366`).
     if (bound.signal.aborted) {
+      // Never a network error for a write, which every reader of one takes for a write that may have landed.
+      if (mayHaveWritten(sent)) throw new ApiUnsentError(sent.method);
       throw new APINetworkError({
         message: "The request's deadline had passed before this call was sent.",
         isTimeout: true,

@@ -50,7 +50,7 @@ beforeEach(() => {
 
 const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
-const { APIBadStatusError, APINetworkError, RolledBackError } = await import("@/core/errors");
+const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
 const writing =
@@ -220,6 +220,25 @@ describe("a throw of an API call inside an admin action", () => {
       assert.equal("outcome" in answer ? answer.outcome : undefined, undefined, `${thrown.name} answered as unclear`);
     }
     assert.deepEqual(refreshed, [], "a write that landed nothing refreshed the page");
+  });
+
+  /* Nothing left the request, so an unclear answer would send the admin to check for a change that cannot exist. */
+  it("answers a first write the deadline refused unsent as the failure it is, refreshing nothing", async () => {
+    const answer = await runAdminMutation("probeAction", () => Promise.reject(new ApiUnsentError("POST")));
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, undefined);
+    assert.equal("error" in answer ? answer.error : undefined, "Lade die Seite neu und versuche es erneut.");
+    assert.deepEqual(refreshed, []);
+  });
+
+  it("answers an unsent write behind a sent one as of unknown outcome, and refreshes", async () => {
+    const answer = await runAdminMutation(
+      "probeAction",
+      writing(() => Promise.reject(new ApiUnsentError("PATCH"))),
+    );
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
+    assert.equal(refreshed.length, 1, "a write that may have landed left the admin's page standing");
   });
 });
 

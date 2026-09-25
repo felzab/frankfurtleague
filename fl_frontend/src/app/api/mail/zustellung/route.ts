@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 
 import { frontend_config } from "@/core/config";
-import { APIBadStatusError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { meldeZustellEreignis } from "@/features/bewerbungen/mutations";
 import { leseZustellEreignis } from "@/features/bewerbungen/zustellung";
@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
       const { angewendet } = await meldeZielZustellEreignis(meldung.meldung);
       return ZIEL_ANGEWENDET(angewendet);
     } catch (error) {
-      const unerreichbar = error instanceof APINetworkError || (error instanceof APIBadStatusError && error.statusCode >= 500);
+      // An event the deadline kept from the API is as unwritten as one the network lost: the provider sends it again.
+      const unerreichbar =
+        error instanceof APINetworkError || error instanceof ApiUnsentError || (error instanceof APIBadStatusError && error.statusCode >= 500);
 
       // Never the tag block, the address or the provider's prose (`docs/logging/spec.md :: L9`).
       logger.error("mail.zustellung_ungeschrieben", undefined, {

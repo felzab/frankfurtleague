@@ -169,7 +169,9 @@ action.
 route handler's outermost, or a page render's first read, which every later read of that render joins
 through React's per-request `cache`, and which a scope opened inside it shares, its actor included.
 `fl_frontend/src/core/api.ts :: apiClient` and `fl_frontend/src/core/mail.ts :: sendMail` cap each
-call's own bound to what is left and start none once it has passed. **A write through
+call's own bound to what is left and start none once it has passed, a write so refused throwing
+`fl_frontend/src/core/errors.ts :: ApiUnsentError` or `fl_frontend/src/core/mail.ts :: MailUnsentError`
+rather than a network error, which a reader takes for a write that may have landed. **A write through
 `runAdminMutation` or `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` answers as
 of unknown outcome wherever the deadline cut a call or a mail may have gone**, whatever the handler
 made of either: part of the write may stand, as it may where the backend's own deadline cuts one

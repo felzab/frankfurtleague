@@ -83,7 +83,7 @@ const {
   ZUSTELLUNG_QUEUE_TINT,
   zustellungTags,
 } = await import("./zustellung.ts");
-const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
@@ -641,6 +641,18 @@ describe("POST /api/mail/zustellung", () => {
         traceId: "t".repeat(32),
         isTimeout: false,
       });
+    };
+
+    const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
+
+    assert.equal(status, 503);
+    assert.deepEqual(body, { error: "backend" });
+  });
+
+  /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
+  it("answers 503 where the deadline refused the write before it was sent", async () => {
+    recorders.__flZustellungAnswer = () => {
+      throw new ApiUnsentError("POST");
     };
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));

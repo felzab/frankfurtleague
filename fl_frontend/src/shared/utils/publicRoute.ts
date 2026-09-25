@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown } from "@/core/requestScope";
 
@@ -55,7 +55,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     } catch (error) {
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
       logger.error(`Public route failed: ${routeName}`, error, {
-        error_code: typed ? error.code : "FE-ACT-001",
+        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
         server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
