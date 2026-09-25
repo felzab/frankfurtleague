@@ -256,7 +256,8 @@ describe("hasFieldErrors", () => {
   });
 });
 
-const { UNHANDLED_FIELD_REFUSAL, unshownRefusal } = await import("./useServerFieldErrors.ts");
+const { unshownRefusal } = await import("./useServerFieldErrors.ts");
+const { UNHANDLED_FIELD_REFUSAL } = await import("../utils/refusal.ts");
 
 describe("what the fallback toast says", () => {
   /* The path's own message is the one thing that tells the reader what to change: a bare retry meets the

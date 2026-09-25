@@ -32,3 +32,16 @@ export function buildRefusal({ reason, repair, where }: RefusalParts): string {
  * site raises it beneath a title already saying the save did not happen.
  */
 export const UNKNOWN_REFUSAL = "Lade die Seite neu und versuche es erneut.";
+
+// Every form meeting a refusal no input shows, with no sentence of its own, says this. Here rather than in
+// the client hook raising it: a route handler receives a client module's exports as references, not strings.
+/**
+ * What it COST, never why the mechanism could not mark a control. The second half is the reassuring one: a reader
+ * told a save failed wants to know whether the work is gone.
+ */
+export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
+  // Never `Ablehnung` — that is the triage's decline, and this fires on that page too. Never a reload: it would
+  // discard the entries this sentence has just promised are intact.
+  reason: "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular",
+  repair: "Versuche es noch einmal",
+});

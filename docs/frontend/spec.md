@@ -205,8 +205,8 @@ The answer carries that sentence beside the map as `unplacedError`: an admin act
   failure's `unplacedError` over its `error` at every control that places no field.
 - **Where the answer brings no sentence, the toast says each unshown path's own message**
   (`fl_frontend/src/shared/hooks/useServerFieldErrors.ts :: unshownRefusal`), a blocked press's paths
-  included, and `:: UNHANDLED_FIELD_REFUSAL`'s retry speaks only where no path brings one either: it
-  resends the body just refused.
+  included, and `fl_frontend/src/shared/utils/refusal.ts :: UNHANDLED_FIELD_REFUSAL`'s retry speaks
+  only where no path brings one either: it resends the body just refused.
 
 **A save sent without a session leaves for `/signin` as a whole-page navigation** (I251), so on an
 editor holding unsaved changes the browser first asks whether to leave, and staying keeps the draft
@@ -827,7 +827,8 @@ left out, on the premise that its callers log a refusal and show it to no one.
 administrator's conflict with an entry that exists; a public route answers it in the visitor's words
 instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Any other code reaching
 the fallback is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
-names no reason. Every undo route answers
+names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
+a reload discards what the visitor typed. Every undo route answers
 it in its own `REPLAY_REFUSALS` row with the shared sentence
 (`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
 `fl_frontend/src/shared/utils/undoRoute.ts :: refusedReplay` closes, as it closes every row, on what

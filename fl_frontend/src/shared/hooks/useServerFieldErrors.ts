@@ -3,23 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { appToast } from "@/shared/utils/appToast";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { UNHANDLED_FIELD_REFUSAL } from "@/shared/utils/refusal";
 
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-
-// The answer to a refusal no input can show and whose answer brings no sentence of its own, written
-// where it is detected rather than at each form: every editor reaching it has the same thing to say.
-/**
- * What it COST, never why the mechanism could not mark a control. The second half is the reassuring one: a reader
- * told a save failed wants to know whether the work is gone.
- */
-export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
-  // Never `Ablehnung` — that is the triage's decline, and this fires on that page too. Never a reload: it would
-  // discard the entries this sentence has just promised are intact.
-  reason: "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular",
-  repair: "Versuche es noch einmal",
-});
 
 /** `UNHANDLED_FIELD_REFUSAL`'s first sentence, which every fallback opens on. */
 const UNSHOWN_COST = UNHANDLED_FIELD_REFUSAL.slice(0, UNHANDLED_FIELD_REFUSAL.indexOf(".") + 1);

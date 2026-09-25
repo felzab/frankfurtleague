@@ -26,6 +26,7 @@ registerHooks({
 
 const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
 const { toActionErrorResult } = await import("./actionError.ts");
+const { UNHANDLED_FIELD_REFUSAL } = await import("./refusal.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope");
 const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
@@ -113,10 +114,11 @@ describe("a refusal the route itself leaves unmapped", () => {
     assert.notEqual(SCHON_VORLIEGEND, toActionErrorResult(refusedOn("POST /registrierungen", DUPLICATE_KEY)).error);
   });
 
-  it("leaves every other conflict to the shared reader", async () => {
-    const refusal = refusedOn("POST /registrierungen", "REQ-UNCLAIMED-000");
-
-    assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), toActionErrorResult(refusal, { method: "POST", readOnly: false }));
+  /* The shared reader answers any other conflict with a reload, which discards what a visitor typed; the
+     form's own fallback promises those entries are intact and asks for nothing that loses them. */
+  it("answers every other conflict with the form's fallback, never the shared reader's reload", async () => {
+    assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), { success: false, error: UNHANDLED_FIELD_REFUSAL });
+    assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /lade die seite/i);
   });
 });
 
