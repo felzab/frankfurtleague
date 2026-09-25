@@ -394,11 +394,6 @@ function specifierOf(glob) {
 }
 const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
 
-/** A module Next may run on the server. The directive is the module's own prologue alone: one inside a function makes no client module. */
-const SERVER_MODULE = 'Program:not(:has(> ExpressionStatement[directive="use client"]))';
-
-const BROWSER_SUBMIT = specifiersOf(["**/publicSubmit.ts", "**/publicSubmit"]);
-
 /** An import ban's `regex` as a selector's pattern, where a slash would close the expression. */
 const selectorPattern = (regex) => regex.replaceAll("/", String.raw`\x2F`);
 
@@ -618,13 +613,6 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    // Without the prologue a module may run on the server, so a helper only client modules import is
-    // refused too: give it the prologue.
-    selector: `${SERVER_MODULE} :matches(:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${BROWSER_SUBMIT}/], ${loadOf(BROWSER_SUBMIT)})`,
-    message:
-      'fl_frontend/src/shared/utils/publicSubmit.ts is the browser\'s submit helper, which only a "use client" module imports; a sentence a route shares with it lives in reopenLink.ts.',
-  },
-  {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
     selector: [
@@ -674,7 +662,9 @@ const SCOPED_BANS = [
   [
     {
       files: ["src/app/**/*.{ts,tsx}"],
-      selector: `${SERVER_MODULE} :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]`,
+      // The directive is the module's own prologue alone: one inside a function makes no client module.
+      selector:
+        'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {
