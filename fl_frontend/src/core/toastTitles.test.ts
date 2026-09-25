@@ -529,11 +529,11 @@ function handWrittenFailures(files: readonly (readonly [string, string])[]): str
 }
 
 /**
- * The sites titling a failure's sentence themselves, each with the reason: a failure no FastAPI write
- * words carries no `outcome: "unknown"`, and an undo's does but is no save. A public panel's
- * `gesendet` is the transport's own sentence, held to files that post one.
+ * The sites titling a failure's sentence themselves, each with the reason. A public panel's `gesendet`
+ * is the transport's own sentence rather than an envelope's, and is held to files that post one.
  */
 const RAISED_BY_HAND: Readonly<Record<string, string>> = {
+  // Failures no FastAPI write words, so none can carry `outcome: "unknown"`.
   "features/passkeys/components/modals/PasskeyModal.tsx: result.error": "the passkey list, a read of the sign-in store",
   "shared/hooks/useSignOut.ts: result.error": "the sign-out, which Better Auth answers",
   "features/auth/components/forms/SignInForm.tsx: state.error": "the sign-in link, which Better Auth mints",
