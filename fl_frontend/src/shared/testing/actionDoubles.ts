@@ -110,14 +110,29 @@ export function doubleEveryAction(): ReturnType<typeof doubleActions> {
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
+/** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
+export type CacheCall = { name: string; args: unknown[] };
+
+/** Every invalidation since the case began, `doubleActionRequest` emptying it before each case. */
+export const cacheCalls: CacheCall[] = [];
+
+// Through a global: the doubled package is compiled from source and shares nothing with this scope.
+const CACHE_BUS = "__flNextCacheCalls";
+Reflect.set(globalThis, CACHE_BUS, cacheCalls);
+
+const recorded = (name: string): string => `export const ${name} = (...args) => void globalThis.${CACHE_BUS}.push({ name: "${name}", args });`;
+
 /**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
  * throw outside one, and `server-only` throws outside a server build.
  */
 export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "server-only": "export {};",
-  "next/cache":
-    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as revalidatePath, inert as cacheLife, inert as cacheTag };",
+  // `cacheLife` and `cacheTag` declare a cached read rather than clear one, so they record nothing.
+  "next/cache": [
+    ...["updateTag", "refresh", "revalidateTag", "revalidatePath"].map(recorded),
+    "const inert = () => undefined; export { inert as cacheLife, inert as cacheTag };",
+  ].join("\n"),
   "next/headers": "export const headers = async () => new Headers();",
 };
 
@@ -143,6 +158,8 @@ function signedInStore(url: string): string {
  * through `doubleActions`. Registered before the action's `await import`, as `doubleActions` is.
  */
 export function doubleActionRequest(): void {
+  // A case reading `cacheCalls` otherwise also reads the invalidations every earlier case made.
+  beforeEach(() => void (cacheCalls.length = 0));
   registerHooks({
     resolve(specifier, context, nextResolve) {
       // The real module, which `runAdminMutation` rethrows a navigation through: `next` publishes no

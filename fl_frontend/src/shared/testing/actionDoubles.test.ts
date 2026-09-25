@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { blankComments } from "@/core/blankComments.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 
@@ -15,11 +15,13 @@ const { raised } = doubleToasts();
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
 const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
+doubleActionRequest();
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
 const spieltage = await import("@/features/spieltage/actions.ts");
+const nextCache = await import("next/cache");
 
 /**
  * Every member the tree actually calls, read off the call sites rather than off the module the
@@ -84,6 +86,23 @@ describe("the actions double", () => {
     void spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" });
 
     leavePending("the opt-out's own case, which nothing renders a transition for");
+  });
+});
+
+describe("the request double", () => {
+  it("records each invalidation a write makes, in order, with what it was handed", () => {
+    nextCache.updateTag("teams");
+    nextCache.refresh();
+
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["teams"] },
+      { name: "refresh", args: [] },
+    ]);
+  });
+
+  /* After the case above, whose invalidations would otherwise stand in for the ones this case's write owes. */
+  it("starts each case with no invalidation recorded", () => {
+    assert.deepEqual(cacheCalls, []);
   });
 });
 
