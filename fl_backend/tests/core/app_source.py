@@ -515,7 +515,7 @@ class Binding:
     by_position: bool
 
 
-def _bound_at(call: ast.Call, parameter: str, position: int | None) -> Binding:
+def bound_at(call: ast.Call, parameter: str, position: int | None) -> Binding:
     """What one call binds to a named parameter.
 
     The explicit keyword first, then the position, and a `**` spread only where neither answered: read
@@ -572,7 +572,7 @@ def session_handoffs() -> tuple[SessionHandoff, ...]:
             carried = {parameter for scope in chain[len(outer) :] for parameter, _ in session_parameters(scope)}
 
             for parameter, position in session_parameters(declaration):
-                binding = _bound_at(call, parameter, position)
+                binding = bound_at(call, parameter, position)
                 found.append(
                     SessionHandoff(
                         where=f"{module} :: {callback.name}",
@@ -637,7 +637,7 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
             carried = {parameter} | {name for scope in chain[1:] for name, _ in session_parameters(scope)}
 
             if _reads_the_database_by_name(call):
-                reads.append((callee(call), _bound_at(call, "session", None).argument in carried))
+                reads.append((callee(call), bound_at(call, "session", None).argument in carried))
 
             resolved = resolve_callee(call, chain, path)
             if resolved is None:
@@ -645,9 +645,7 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
 
             called, called_in = resolved
             frontier += [
-                (called, called_in, name)
-                for name, position in session_parameters(called)
-                if _bound_at(call, name, position).argument in carried
+                (called, called_in, name) for name, position in session_parameters(called) if bound_at(call, name, position).argument in carried
             ]
 
         found.append(

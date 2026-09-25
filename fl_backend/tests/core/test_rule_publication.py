@@ -17,14 +17,24 @@ from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.main import create_app
 from tests.config import build_test_config
-from tests.core.app_source import BACKEND_ROOT, Declaration, api_routes, callee, declared, module_of, resolve_callee, scoped_calls
+from tests.core.app_source import BACKEND_ROOT, Declaration, api_routes, bound_at, callee, declared, module_of, resolve_callee, scoped_calls
 
-# A rule's check a route reaches without `RULES` naming it, with why the call there cannot raise its
-# code. Only a call whose arguments disarm the check belongs here; reading, not the trace, holds that.
-STORED_NONE = "called with `stored=None`, so only the rules judging the proposed numbers alone fire, and this code weighs a stored season"
-NO_SPANS = "called with `spieltag_spans=[]`: the draw dates no matchday and a create holds none, and this code weighs a dated one"
-A_MOVE_IS_NO_ENTRY = 'called with `saison_status="future"`: a group move is no entry, so the season\'s status gate does not judge it'
-A_PREDICATE = "read as a predicate deciding whether a reactivation mints a link, never passed to `refuse`"
+
+@dataclass(frozen=True)
+class Disarmed:
+    """Why a route reaching a rule's check it is not named for cannot raise the code, as a binding the trace can hold."""
+
+    reason: str
+    #: The parameter and the literal, as source, every call of the check in that operation binds;
+    #: `None` for a check read as a predicate, which no call may hand to `refuse`.
+    binding: tuple[str, str] | None
+
+
+# A rule's check a route reaches without `RULES` naming it, disarmed at every call there.
+STORED_NONE = Disarmed("only the rules judging the proposed numbers alone fire, and this code weighs a stored season", ("stored", "None"))
+NO_SPANS = Disarmed("the draw dates no matchday and a create holds none, and this code weighs a dated one", ("spieltag_spans", "[]"))
+A_MOVE_IS_NO_ENTRY = Disarmed("a group move is no entry, so the season's status gate does not judge it", ("saison_status", "'future'"))
+A_PREDICATE = Disarmed("read to decide whether a reactivation mints a link", None)
 
 CREATE_AND_DRAW = ("POST /saisons", "POST /saisons/{saison_id}/spielplan")
 STORED_SEASON_CODES = (
@@ -38,7 +48,7 @@ STORED_SEASON_CODES = (
     "REQ-RULES-012",
 )
 
-DISARMED: Mapping[tuple[str, str], str] = {
+DISARMED: Mapping[tuple[str, str], Disarmed] = {
     **{(code, operation): STORED_NONE for code in STORED_SEASON_CODES for operation in CREATE_AND_DRAW},
     **{("REQ-DATE-004", operation): NO_SPANS for operation in CREATE_AND_DRAW},
     ("REQ-ENTER-001", "PATCH /teams/{team_id}/saisons/{saison_id}"): A_MOVE_IS_NO_ENTRY,
@@ -58,6 +68,18 @@ PREFIX = f"/api/v{API_VERSION}"
 
 # The bare names the checks are declared under, which is all a call through a module or a value can spell.
 CHECK_NAMES = frozenset(rule.implemented_by.rsplit(".", 1)[1] for rule in RULES)
+REFUSE = "refuse"
+
+
+Key = tuple[Path, int]
+
+
+@dataclass(frozen=True)
+class _Site:
+    call: ast.Call
+    #: The innermost function around the call, whose own callers a pass-through binding is followed to.
+    caller: Declaration
+    caller_path: Path
 
 
 @dataclass
@@ -67,6 +89,11 @@ class _Reach:
     functions: set[str] = field(default_factory=set)
     #: A rule's check the trace could not follow: called through a module, or held as a value.
     blind: set[str] = field(default_factory=set)
+    declarations: dict[str, tuple[Key, Declaration]] = field(default_factory=dict)
+    #: Every call site of each reached function, keyed by its declaration.
+    sites: dict[Key, list[_Site]] = field(default_factory=dict)
+    #: The calls handed straight to `refuse`.
+    refused: set[int] = field(default_factory=set)
 
 
 def _names(declaration: Declaration) -> Iterator[tuple[ast.Name | ast.Attribute, str]]:
@@ -90,6 +117,9 @@ def _trace(declaration: Declaration, path: Path, reach: _Reach, seen: set[tuple[
     )
 
     for chain, call in scoped_calls(declaration, (declaration,)):
+        if callee(call) == REFUSE:
+            reach.refused.update(id(argument) for argument in call.args)
+
         resolved = resolve_callee(call, chain, path)
         if resolved is None:
             if callee(call) in CHECK_NAMES:
@@ -97,11 +127,15 @@ def _trace(declaration: Declaration, path: Path, reach: _Reach, seen: set[tuple[
             continue
 
         target, target_path = resolved
-        if (target_path, target.lineno) in seen:
+        key = (target_path, target.lineno)
+        reach.sites.setdefault(key, []).append(_Site(call, chain[-1], path))
+        if key in seen:
             continue
-        seen.add((target_path, target.lineno))
+        seen.add(key)
 
-        reach.functions.add(".".join((*target_path.relative_to(BACKEND_ROOT).with_suffix("").parts, target.name)))
+        dotted = ".".join((*target_path.relative_to(BACKEND_ROOT).with_suffix("").parts, target.name))
+        reach.functions.add(dotted)
+        reach.declarations[dotted] = (key, target)
         _trace(target, target_path, reach, seen)
 
 
@@ -147,6 +181,43 @@ def test_an_operation_reaching_a_rules_check_is_one_rules_names():
         "these reach a rule's check that `RULES` does not name them for, so their 409 omits its code"
     )
     assert sorted(DISARMED.keys() - unnamed) == [], "these entries name a reach the trace no longer finds"
+
+
+def _parameters(declaration: Declaration) -> list[str]:
+    return [argument.arg for argument in (*declaration.args.posonlyargs, *declaration.args.args, *declaration.args.kwonlyargs)]
+
+
+def _unbound(reach: _Reach, site: _Site, called: Declaration, parameter: str, literal: str) -> Iterator[str]:
+    """Each call site that does not bind `parameter` to `literal`, a caller's own parameter followed out to that caller's callers."""
+
+    positional = [argument.arg for argument in (*called.args.posonlyargs, *called.args.args)]
+    argument = bound_at(site.call, parameter, positional.index(parameter) if parameter in positional else None).argument
+    if argument == literal:
+        return
+
+    outer = reach.sites.get((site.caller_path, site.caller.lineno), [])
+    if argument in _parameters(site.caller) and outer:
+        for caller_site in outer:
+            yield from _unbound(reach, caller_site, site.caller, argument, literal)
+        return
+
+    yield f"{site.caller_path.relative_to(BACKEND_ROOT).as_posix()}:{site.call.lineno} binds `{parameter}` to `{argument}`"
+
+
+def test_every_allowlisted_call_binds_what_disarms_it():
+    """The allowlist is keyed by code and operation, so an armed call would stand on it: each entry's binding is held at every call."""
+
+    armed: list[str] = []
+    for (code, operation), disarmed in DISARMED.items():
+        reach = _reach()[operation]
+        key, called = reach.declarations[next(rule.implemented_by for rule in RULES if rule.code == code)]
+        for site in reach.sites[key]:
+            if disarmed.binding is None:
+                armed.extend([f"{code} on {operation}: a call handed to `refuse`"] if id(site.call) in reach.refused else [])
+            else:
+                armed.extend(f"{code} on {operation}: {breach}" for breach in _unbound(reach, site, called, *disarmed.binding))
+
+    assert armed == []
 
 
 def test_every_operation_rules_names_reaches_the_rules_check():
