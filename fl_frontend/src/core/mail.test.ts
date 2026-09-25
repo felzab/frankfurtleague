@@ -561,6 +561,26 @@ describe("a refusal the mail transport tries again", () => {
     );
   });
 
+  /* The broken first attempt may have been accepted, and the refusals after it say nothing about that
+     one: thrown as the refusal, the fan-out files the address unreachable and records it refused. */
+  it("ends a keyed send whose first attempt broke off as that network failure, whatever answered after it", async () => {
+    let at = 0;
+    respond = async () => {
+      at += 1;
+      if (at === 1) throw new TypeError("fetch failed");
+      return jsonResponse({ name: "application_error" }, 503);
+    };
+
+    const error = await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+      () => assert.fail("the refused retries resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.equal(sends.length, 3);
+    assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}, not as the broken attempt`);
+    assertHidesRecipient(error, "the broken-off send");
+  });
+
   it("gives up after three attempts and logs the refusal once", async () => {
     answersInTurn([429, 500, 503]);
 

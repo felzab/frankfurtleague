@@ -330,10 +330,23 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
       else if (error instanceof APINetworkError) logNetwork(error);
     };
 
+    // The first attempt that broke off, which the provider may have accepted: a refusal answering a
+    // later attempt says nothing about it, so the send ends as that network failure, of unknown outcome.
+    let brokeOff: APINetworkError | undefined;
+    const giveUp = (error: unknown): never => {
+      logGivenUp(error);
+      if (brokeOff === undefined || brokeOff === error) throw error;
+
+      logNetwork(brokeOff);
+      throw brokeOff;
+    };
+
     for (let attemptNumber = 1; ; attemptNumber++) {
       try {
         return await attempt();
       } catch (error) {
+        if (error instanceof APINetworkError) brokeOff ??= error;
+
         // A network failure is tried again only under an idempotency key, which the provider
         // documents as collapsing the repeat of a message it accepted before the connection broke:
         // without one, that repeat is a second message to a real person.
@@ -341,10 +354,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
           error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError && idempotencyKey !== undefined;
 
         // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
-        if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) {
-          logGivenUp(error);
-          throw error;
-        }
+        if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) giveUp(error);
 
         logger.warn("mail.send_retried", {
           error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
@@ -357,10 +367,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
         // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
         // kills, reporting the provider's own refusal as this application's timeout.
-        if (bound.signal.aborted) {
-          logGivenUp(error);
-          throw error;
-        }
+        if (bound.signal.aborted) giveUp(error);
       }
     }
   } finally {
