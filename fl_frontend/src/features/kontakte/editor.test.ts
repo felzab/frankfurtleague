@@ -13,13 +13,15 @@ import { userEvent } from "@testing-library/user-event";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
+import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
-import { FLTeamMembershipSchema } from "@/features/teams/schemas";
+import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answer, answerReadsWith, clearSteps, EMPTIEST_ANSWER, OBJECT_ID, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -49,9 +51,6 @@ const CLEAR_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteLoesche
 const ERASURE = readFileSync(path.resolve(EDITOR_DIR, "FormKontaktErasure.tsx"), "utf8");
 /** Whitespace-collapsed: the section's copy is JSX text, so the formatter picks its line breaks. */
 const SECTION = SECTION_SOURCE.replace(/\s+/g, " ");
-
-const PAGE_SOURCE = readFileSync(path.resolve(SRC, "app", "admin", "kontakte", "[team_id]", "page.tsx"), "utf8");
-const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
 
 /** The club editor, which lost the block and shows the way here instead. */
 const TEAM_FORM_DIR = path.resolve(SRC, "features", "teams", "components", "forms", "AdminTeamEditForm");
@@ -181,10 +180,44 @@ const viewElement = (kontakte: FLSaisonTeamKontakte | null, hasRow = true, teamI
 
 const viewMarkup = (kontakte: FLSaisonTeamKontakte | null, hasRow = true): string => editorTree(viewElement(kontakte, hasRow), kontakte);
 
-/** The page's own return. Its data component sits behind the boundary, whose fallback stands here. */
-const PAGE_MARKUP = renderTree(
-  h(AdminKontakteEditPage, { params: Promise.resolve({ team_id: "t1" }), searchParams: Promise.resolve({ saison_id: "2526" }) }),
-);
+/** The editor page's address: the club the answers below hold, in the season they hold it in. */
+const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchParams: Promise.resolve({ saison_id: "2526" }) };
+
+/** The block the page's memberships read answers with, as the backend holds it at that moment. */
+let storedBlock: FLSaisonTeamKontakte = BLOCK;
+
+/** The season the address names. No empty value satisfies a season's rules. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", {
+  id: "2526",
+  status: "active",
+  rules: {
+    win_points: 3,
+    draw_points: 1,
+    qualifiers_per_group: 2,
+    number_of_groups: 2,
+    teams_per_group: 4,
+    max_kadergroesse: 18,
+    tiebreak_order: "tordifferenz",
+    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+    erlaubte_stufen: ["E1", "Q1"],
+  },
+});
+
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
+  if (endpoint === "/teams/memberships") {
+    const club = answer(FLTeamWithMembershipsSchema, endpoint, {
+      id: OBJECT_ID,
+      name: "SG Alpha",
+      shorthand: "SA",
+      full_name: "Sportgemeinschaft Alpha",
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: storedBlock, kontakte_stand: "9f2c" }],
+    });
+    return answer(schema, endpoint, { teams: [club] });
+  }
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
 
 /** The words a reader hears at one heading level, in the order the markup carries them. */
 const headings = (html: string, level: string): string[] =>
@@ -231,10 +264,7 @@ const RESPONSE_SCHEMA = sliceBetween(
 const SUBMIT = sliceBetween(FORM_SOURCE, "const requestSave", "return (");
 const REQUEST_LEAVE = sliceBetween(EXIT_HOOK, "const requestLeave", "const discardAndLeave");
 const OFFER_UNDO = sliceBetween(FORM_SOURCE, "offerUndo({", "});");
-/**
- * One function body's statements, comments and blank lines dropped. What the text tests below can
- * assert is the SHAPE of a handler; that it behaves is not reachable from here.
- */
+/** One function body's statements, comments and blank lines dropped. */
 function statementsOf(slice: string): string[] {
   return slice
     .split("\n")
@@ -355,33 +385,51 @@ describe("the editor's shape", () => {
 
   /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
      what a seat owes is using it. */
-  it("raises no heading the shell already owns", () => {
-    const editor = viewMarkup(BLOCK);
+  it("raises no heading the shell already owns", async () => {
+    const { container, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
 
-    assert.ok(!editor.includes("<h1"), "the editor raises an h1 the shell already owns");
-    // The control: an editor rendering no title at all would satisfy the absence above.
-    assert.ok(headings(editor, "h2").includes("Trainer"), "the editor renders no seat title, so the absence above proves nothing");
-    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
-    /* The control the absence above needs more than the editor's: the page's whole return is one
-       boundary, so this render is the fallback and an empty one would satisfy it unread. */
-    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
-    /* The page's remaining half is its data component, which sits behind the boundary the chrome
-       renders: what stands in the markup above is the fallback, so what it wraps the view in is read. */
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+    // The control: an editor rendering no title at all would satisfy the absence below.
+    assert.ok(
+      [...container.querySelectorAll("h2")].some((heading) => heading.textContent === "Trainer"),
+      "the page renders no seat title, so the absence below proves nothing",
+    );
+    // A boolean rather than the node: a failing assertion over a DOM node serialises its whole tree.
+    assert.ok(container.querySelector("h1") === null, "the page raises an h1 the shell already owns");
+    unmount();
   });
 
-  /* The page's chrome may never wait on the row. `params` is awaited INSIDE the boundary for the same
-     reason. */
-  it("leaves the page's shape intact", () => {
-    assert.match(PAGE, /export default function AdminKontakteEditPage/, "the page's default export became async");
-    assert.match(PAGE, /await resolveTeamId\(params\)/, "the route's own id is resolved outside the boundary");
-    assert.match(PAGE, /resolveAdminSaison\(searchParams\)/, "the season is resolved at the wrong tier, or not at all");
+  /* The page's chrome may never wait on the row: rendered with no boundary awaited, its fallback
+     stands, where an async page would suspend whole. */
+  it("renders its fallback before the row resolves", () => {
+    assert.ok(renderTree(h(AdminKontakteEditPage, PAGE_PROPS)).includes('role="status"'), "the page waits on the row before it renders");
+  });
+
+  /* The club is judged before the backend is asked: a malformed id reads nothing. */
+  it("answers a malformed club id with a 404 before any read", async () => {
+    clearSteps();
+
+    await assert.rejects(pageBody(AdminKontakteEditPage, { ...PAGE_PROPS, params: Promise.resolve({ team_id: "kein-team" }) }), {
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
+    assert.deepEqual(readsOf(steps), [], "the page asked the backend about an id it could have refused unread");
   });
 
   /* Re-seeding is a `key`, not a prop: every field is `useState` initialised from the row, and an
      initialiser runs once per mounted instance. */
-  it("keys the view by the state the draft mirrors", () => {
-    assert.match(PAGE, /key=\{JSON\.stringify\(\{ team, saison \}\)\}/, "the editor's subtree is keyed by something else");
+  it("keys the view by the state the draft mirrors", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    // The refresh after a save re-reads the row as the backend stored it, which is not what was typed.
+    storedBlock = { ...BLOCK, ansprechperson: seatPerson("Grace", "Hopper", "grace.hopper@example.org") };
+    rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+
+    assert.equal(addresses()[0]?.value, "grace.hopper@example.org", "the box keeps the draft over the block the save stored");
+    unmount();
   });
 
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
