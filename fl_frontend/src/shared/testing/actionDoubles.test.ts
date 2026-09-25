@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
@@ -79,6 +82,43 @@ describe("the actions double", () => {
     answerPending({ success: false, error: "Der Spieltag ist gesperrt." });
 
     assert.deepEqual(await running, { success: false, error: "Der Spieltag ist gesperrt." });
+  });
+
+  /* The refusal is an `afterEach` failing the case that left the write, which no case in this file can
+     observe of itself: a file that leaves one, run in a child, is where it shows. */
+  it("fails a case that leaves a write running without naming why", () => {
+    const scratch = mkdtempSync(path.join(tmpdir(), "fl-pending-"));
+    const fixture = path.join(scratch, "leftPending.test.mjs");
+    const urlOf = (relative: string) => JSON.stringify(pathToFileURL(path.join(SRC, relative)).href);
+    writeFileSync(
+      fixture,
+      `import { it } from "node:test";
+import { doubleActions } from ${urlOf("shared/testing/actionDoubles.ts")};
+const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
+const spieltage = await import(${urlOf("features/spieltage/actions.ts")});
+it("leaves a write running", () => {
+  answerWith(() => new Promise(() => undefined));
+  void spieltage.patchSpieltagAction({ id: "s1" });
+});
+`,
+    );
+
+    // Without `NODE_TEST_CONTEXT`, which this runner sets and under which a child refuses to run a file.
+    const env = { ...process.env };
+    Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
+
+    try {
+      const run = spawnSync(
+        process.execPath,
+        ["--import", pathToFileURL(path.join(SRC, "..", "tsconfig-alias-hook.mjs")).href, "--test", "--test-reporter=spec", fixture],
+        { encoding: "utf8", timeout: 120_000, env },
+      );
+
+      assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.stdout}${run.stderr}`);
+      assert.ok(run.stdout.includes("the case left these actions pending"), run.stdout);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 
   it("lets a case that names why leave a write running", () => {
