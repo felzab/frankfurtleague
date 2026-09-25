@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { afterEach, describe, it, mock } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
@@ -34,7 +34,7 @@ registerHooks({
 
 const { apiClient } = await import("./api.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
-const { runWithRequestScope } = await import("./requestScope.ts");
+const { REQUEST_DEADLINE_MS, requestDeadlineCut, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
@@ -52,8 +52,16 @@ let nextTimesOut = false;
 /** Whether the next call's headers arrive and its body then never does until the call aborts, read once. */
 let nextStalls = false;
 
+/** How long the next call takes to answer, on the mocked timers, read once. */
+let nextAnswersAfterMs: number | undefined;
+
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   sends.push({ url: String(input), init: init ?? {} });
+  if (nextAnswersAfterMs !== undefined) {
+    const delay = nextAnswersAfterMs;
+    nextAnswersAfterMs = undefined;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
   if (nextTimesOut) {
     nextTimesOut = false;
     throw new DOMException("The operation was aborted.", "AbortError");
@@ -287,5 +295,77 @@ describe("the client's own timeout", () => {
     } finally {
       mock.timers.reset();
     }
+  });
+});
+
+describe("the request's deadline over a chain of calls", () => {
+  /** Each link answers inside the client's own bound, and two of them leave less than one bound of the deadline. */
+  const LINK_MS = 14000;
+
+  /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
+  };
+  const reachFetch = () => new Promise((resolve) => setImmediate(resolve));
+
+  beforeEach(() => {
+    clock = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  /* Asserted at the tick, one millisecond either side: on the mocked clock nothing else ends the stalled
+     third body, so a client ignoring the deadline fails here instead of hanging. */
+  it("aborts the call that would outlast it at what the chain left, not at the call's own bound", async () => {
+    const [thrown, cut] = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+      for (const link of ["/erste", "/zweite"]) {
+        nextAnswersAfterMs = LINK_MS;
+        const answered = apiClient(link, z.unknown());
+        await reachFetch();
+        advance(LINK_MS);
+        await answered;
+      }
+
+      nextStalls = true;
+      const third = apiClient("/dritte", z.unknown(), { method: "POST" }).then(
+        () => assert.fail("the stalled body resolved"),
+        (error: unknown) => error,
+      );
+      await reachFetch();
+      const signal = sends.at(-1)?.init.signal ?? assert.fail("the third call sent no signal");
+
+      advance(REQUEST_DEADLINE_MS - 2 * LINK_MS - 1);
+      assert.equal(signal.aborted, false, "the third call was aborted before the deadline");
+      advance(1);
+      assert.equal(signal.aborted, true, "the deadline passed and the third call ran on to its own bound");
+
+      return [await third, requestDeadlineCut()];
+    });
+
+    assert.ok(thrown instanceof APINetworkError, "the cut call was not thrown as a network error");
+    assert.equal(thrown.isTimeout, true, "the cut call was not answered as a timeout");
+    assert.equal(cut, true, "the request does not know its deadline cut a call");
+  });
+
+  it("draws no request once nothing is left, and answers the call as a timed-out write", async () => {
+    const thrown = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () => {
+      advance(REQUEST_DEADLINE_MS);
+
+      return apiClient("/x", z.unknown(), { method: "POST" }).then(
+        () => assert.fail("the call past the deadline resolved"),
+        (error: unknown) => error,
+      );
+    });
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.ok(thrown instanceof APINetworkError, "the refused call was not thrown as a network error");
+    assert.deepEqual([thrown.isTimeout, thrown.method, thrown.readOnly], [true, "POST", false]);
   });
 });

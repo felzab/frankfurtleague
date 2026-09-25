@@ -2,8 +2,9 @@ import { unstable_rethrow } from "next/navigation";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { requestDeadlineCut } from "@/core/requestScope";
 
-import { toActionErrorResult } from "./actionError";
+import { toActionErrorResult, unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 
@@ -39,8 +40,9 @@ export async function runAdminMutation<T extends { success: boolean }>(
   fn: () => Promise<T>,
 ): Promise<T | ActionFailure> {
   return runWithIncomingTrace(async () => {
+    let answer: T | ActionFailure;
     try {
-      return await fn();
+      answer = await fn();
     } catch (error) {
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
@@ -53,7 +55,17 @@ export async function runAdminMutation<T extends { success: boolean }>(
       });
 
       // A server action is a POST whatever it does, so its declaration is what tells the two apart.
-      return toActionErrorResult(error, { method: "POST", readOnly: readOnly });
+      answer = toActionErrorResult(error, { method: "POST", readOnly: readOnly });
     }
+
+    // Whatever the action made of the cut, a fan-out settling it among them: part of the write may
+    // stand, as the backend answers a write its own deadline cuts (`docs/frontend/spec.md :: I366`).
+    if (!readOnly && requestDeadlineCut()) {
+      logger.error(`Admin mutation cut by the request deadline: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
+
+      return unansweredAction();
+    }
+
+    return answer;
   });
 }

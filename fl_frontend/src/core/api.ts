@@ -6,7 +6,7 @@ import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
 import { logger } from "./logging";
-import { getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -166,8 +166,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     });
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const bound = boundCall(timeoutMs);
 
   const sent: SentRequest = {
     // `fetch`'s own default, upper-cased so `toActionErrorResult`'s safe-method test reads any
@@ -191,8 +190,20 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   let res: Response;
   let rawData: unknown;
   try {
+    // Thrown here rather than left to `fetch`, which refuses an aborted signal unsent too but names no
+    // deadline in what it throws (`docs/frontend/spec.md :: I366`).
+    if (bound.signal.aborted) {
+      throw new APINetworkError({
+        message: "The request's deadline had passed before this call was sent.",
+        isTimeout: true,
+        url: urlObj.toString(),
+        ...sent,
+        traceId: traceId,
+      });
+    }
+
     try {
-      res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
+      res = await fetch(urlObj, { ...customOptions, headers, signal: bound.signal });
     } catch (error) {
       throw asNetworkError(error);
     }
@@ -215,7 +226,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       });
     }
   } finally {
-    clearTimeout(timeoutId);
+    bound.clear();
   }
 
   const validated = schema.safeParse(rawData);

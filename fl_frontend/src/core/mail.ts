@@ -7,7 +7,7 @@ import { frontend_config } from "./config";
 import { withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
-import { getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
@@ -224,8 +224,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   // Above the timer below, which a throw from here would leave running for the whole budget.
   if (recipient === undefined) throw new MailRecipientError();
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
+  const bound = boundCall(MAIL_TIMEOUT_MS);
 
   // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
   // a status and the provider's code reach no stream otherwise. The recipient never travels on
@@ -270,7 +269,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
     try {
-      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: controller.signal });
+      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: bound.signal });
     } catch (error) {
       throw failNetwork(error);
     }
@@ -319,6 +318,9 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   };
 
   try {
+    // Refused unsent once the request's deadline is spent (`docs/frontend/spec.md :: I366`).
+    if (bound.signal.aborted) throw failNetwork(bound.signal.reason);
+
     for (let attemptNumber = 1; ; attemptNumber++) {
       try {
         return await attempt();
@@ -340,17 +342,17 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
           trace_id: traceId,
         });
 
-        await pause(MAIL_RETRY_DELAY_MS, controller.signal);
+        await pause(MAIL_RETRY_DELAY_MS, bound.signal);
 
         // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
         // kills, reporting the provider's own refusal as this application's timeout.
-        if (controller.signal.aborted) {
+        if (bound.signal.aborted) {
           logRefusal(error);
           throw error;
         }
       }
     }
   } finally {
-    clearTimeout(timeoutId);
+    bound.clear();
   }
 }

@@ -51,6 +51,7 @@ const logs: RecordedLine[] = [];
 
 const { sendMail, MailRecipientError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
+const { REQUEST_DEADLINE_MS, requestDeadlineCut, runWithRequestScope } = await import("./requestScope.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
 
@@ -745,5 +746,73 @@ describe("what the mail transport reports when a send fails", () => {
      process and a runtime assertion could not tell a present guard from an absent one. */
   it("guards the module as server-only, the key it reads being a credential", () => {
     assert.match(readFileSync(MAIL_MODULE, "utf8"), /^import "server-only";/);
+  });
+});
+
+describe("a send inside a request whose deadline runs out", () => {
+  const SCOPE = { traceId: "a".repeat(32), spanId: "b".repeat(16) };
+
+  /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
+  };
+
+  beforeEach(() => {
+    resetTransport();
+    clock = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  /* Asserted at the tick, as the send's own timeout is above: nothing else ends a send that never
+     answers, so a transport ignoring the deadline fails here instead of hanging. */
+  it("aborts a send begun late at what is left of the deadline, not at its own bound", async () => {
+    const [thrown, cut] = await runWithRequestScope(SCOPE, async () => {
+      advance(REQUEST_DEADLINE_MS - 5000);
+      respond = () => new Promise<Response>(() => {});
+      const pending = sendMail(MESSAGE).then(
+        () => assert.fail("the aborted send resolved"),
+        (error: unknown) => error,
+      );
+      const signal = sends[0]?.init.signal ?? assert.fail("the send drew no request");
+
+      advance(4999);
+      assert.equal(signal.aborted, false, "the send was aborted before the deadline");
+      advance(1);
+      assert.equal(signal.aborted, true, "the deadline passed and the send ran on to its own bound");
+
+      return [await pending, requestDeadlineCut()];
+    });
+
+    assert.ok(thrown instanceof APINetworkError, "the cut send was not thrown as a network error");
+    assert.equal(thrown.isTimeout, true);
+    assert.equal(cut, true, "the request does not know its deadline cut a send");
+  });
+
+  it("draws no request once nothing is left, and logs the send as timed out", async () => {
+    const thrown = await runWithRequestScope(SCOPE, () => {
+      advance(REQUEST_DEADLINE_MS);
+
+      return sendMail(MESSAGE).then(
+        () => assert.fail("the send past the deadline resolved"),
+        (error: unknown) => error,
+      );
+    });
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.ok(thrown instanceof APINetworkError, "the refused send was not thrown as a network error");
+    assert.equal(thrown.isTimeout, true);
+    assert.deepEqual(
+      logs.map((line) => [line.message, line.meta?.["is_timeout"]]),
+      [["mail.send_failed", true]],
+    );
+    assertHidesRecipient(thrown, "the refused send");
   });
 });
