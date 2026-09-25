@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
 import { assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
@@ -14,8 +15,7 @@ import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { mapAdresseRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import type { ReactElement } from "react";
 
 const EVENTS = "__flSperreEvents";
 const SENT = "__flSperreSentMail";
@@ -51,8 +51,6 @@ const MAIL_DOUBLE = `export const sendMail = async (message) => {
 
 const AUTH_DOUBLE = `export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });`;
 
-const HEADERS_DOUBLE = `export const headers = async () => new Headers();`;
-
 /* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
    that the action reached it at all. */
 const CACHE_DOUBLE = `export const refresh = () => { globalThis.${EVENTS}.push("refresh"); };`;
@@ -63,9 +61,7 @@ const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localh
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
     if (specifier === "next/cache") return { url: asDataUrl(CACHE_DOUBLE), shortCircuit: true };
-    if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -93,17 +89,27 @@ globals[POSTED] = posted;
 globals[SEND_FAILS] = false;
 globals[ANSWER] = { acknowledged: 1, created_id: "6890a1b2c3d4e5f607190001", gesperrt_bis_saison_id: ANSWERED_BOUND };
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "sperrliste", "page.tsx"), "utf8");
-/** Whitespace-collapsed: the page's copy is JSX text, so the formatter picks its line breaks. */
-const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
-
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/page.tsx");
+const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
-/** The page's own return. Its rows sit behind the boundary, whose fallback stands here. */
-const PAGE_MARKUP = renderTree(underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" }));
+/** The one ban the list read answers, every other read the emptiest body its schema takes. */
+const EINTRAG = {
+  id: OBJECT_ID,
+  grund: "Fremde Namen eingetragen",
+  erstellt_von: "vorstand@example.org",
+  erstellt_am: "2026-03-01",
+  gesperrt_bis_saison_id: "2030",
+};
+answerReadsWith((endpoint, schema, params) =>
+  endpoint === "/sperrliste"
+    ? answer(schema, endpoint, { sperrliste: [EINTRAG], anzahl_gesamt: 1 })
+    : EMPTIEST_ANSWER(endpoint, schema, params),
+);
+
+/** The page at its own address. */
+const PAGE = underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" });
 
 const CREATE_OPERATION = "POST /sperrliste";
 
@@ -252,23 +258,30 @@ describe("the address a reason may not carry", () => {
 describe("the page the ban list stands on", () => {
   /* One `h1` per page and the admin shell owns it (`.claude/rules/frontend.md`), so what this page
      may raise is none. */
-  it("raises no heading the shell already owns", () => {
-    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
-    /* The control that absence needs: the rows sit behind a boundary, so what renders is the
-       fallback, and a page rendering nothing at all would satisfy the line above unread. */
-    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
-    // The list itself renders behind the boundary, so what it returns is read rather than met.
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+  it("raises no heading the shell already owns", async () => {
+    const markup = await renderPage(PAGE);
+
+    // The control: a page rendering no row at all would satisfy the absence below unread.
+    assert.ok(markup.includes(EINTRAG.grund), "the list renders no ban, so the absence below proves nothing");
+    assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
   /* The bar an administrator types into is the one control this page offers, and the query it takes
      is a person's address: on this route alone it is held in the page rather than written to `?q=`. */
   it("asks the shell to hold the typed query instead of writing it", () => {
-    assert.match(PAGE, /<AdminCrudShell[^>]*\bprivateQuery\b/, "the bar writes the typed address into a request line nginx logs");
+    const shell = AdminSperrlistePage() as ReactElement<{ privateQuery?: boolean }>;
+
+    // What the flag does is `fl_frontend/src/shared/components/ui/AdminCrudPrivateQuery.test.ts`'s to hold.
+    assert.equal(shell.type, AdminCrudShell, "the page's chrome is no longer the shell the flag is read by");
+    assert.equal(shell.props.privateQuery, true, "the bar writes the typed address into a request line nginx logs");
   });
 
-  /* The page's chrome may never wait on the list. */
-  it("leaves the page's shape intact", () => {
-    assert.match(PAGE, /export default function AdminSperrlistePage/, "the page's default export became async");
+  /* The page's chrome may never wait on the list: rendered with no boundary awaited, the bar stands
+     beside the list's fallback, where an async page would suspend whole. */
+  it("renders its chrome before the list resolves", () => {
+    const markup = renderTree(PAGE);
+
+    assert.ok(markup.includes('role="status"'), "no fallback stands where the list will resolve");
+    assert.ok(markup.includes('type="search"'), "the page's bar waits on the list");
   });
 });
