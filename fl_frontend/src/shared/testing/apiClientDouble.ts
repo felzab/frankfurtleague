@@ -1,4 +1,5 @@
 import { registerHooks } from "node:module";
+import { beforeEach } from "node:test";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -44,4 +45,23 @@ export const apiClient = async (endpoint, schema, options = {}) => {
   });
 
   return calls;
+}
+
+/** Each request as the backend reads it: the path, the method, and the body parsed. */
+export const requestsOf = (calls: readonly ApiCall[]): { endpoint: string; method: string | undefined; body: unknown }[] =>
+  calls.map(({ endpoint, method, body }) => ({ endpoint, method, body: body === undefined ? undefined : (JSON.parse(body) as unknown) }));
+
+/**
+ * `doubleApiClient` answering every call with `answer`, until `answerWith` names another for the rest
+ * of that case: the double a suite drives a slice's real `mutations.ts` through.
+ */
+export function doubleApiAnswers(answer: () => Promise<unknown> = () => Promise.resolve({ acknowledged: 1 })): {
+  calls: ApiCall[];
+  answerWith: (next: () => Promise<unknown>) => void;
+} {
+  let answering = answer;
+  // Back to `answer` before every case: a case that named another would hand it to the next case's write.
+  beforeEach(() => void (answering = answer));
+
+  return { calls: doubleApiClient(() => answering()), answerWith: (next) => void (answering = next) };
 }

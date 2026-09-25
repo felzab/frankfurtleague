@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivateSpielortAction } = await import("./actions.ts");
 
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
