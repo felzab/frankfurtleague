@@ -402,19 +402,12 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     traceId: "0123456789abcdef",
   });
 
-/** Each operation's published codes, asked with a constant the coverage sweep can read. */
-const PUBLISHED = {
-  [SUBMIT_OPERATION]: publishedRefusals(SUBMIT_OPERATION),
-  [CONFIRM_OPERATION]: publishedRefusals(CONFIRM_OPERATION),
-  [ANSICHT_OPERATION]: publishedRefusals(ANSICHT_OPERATION),
-};
-
 /**
  * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
  * backend stopped publishing fails here rather than passing on a refusal nothing sends.
  */
-function publishedOn(operation: keyof typeof PUBLISHED, code: string) {
-  assert.ok(PUBLISHED[operation].includes(code), `${code} is no longer published on ${operation}`);
+function publishedOn(operation: string, code: string) {
+  assert.ok(publishedRefusals(operation).includes(code), `${code} is no longer published on ${operation}`);
 
   return refusedOn(operation, code);
 }
@@ -462,7 +455,7 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999")), null);
+    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
     // A write answered with a 5xx may have landed, which no refusal's words may deny.
     assert.equal(mapBewerbungSubmitRefusal(badStatus(500, "REQ-BEWERBUNG-005")), null);
@@ -709,7 +702,9 @@ describe("mapEinwilligungAnsichtRefusal", () => {
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009")), "ungueltig");
-    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW")), "ungueltig");
+    for (const status of [409, 404, 410]) {
+      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
+    }
   });
 
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read

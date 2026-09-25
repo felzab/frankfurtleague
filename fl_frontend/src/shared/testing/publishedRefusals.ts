@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 
 import { APIBadStatusError } from "@/core/errors.ts";
-import { DOCUMENT_PATH, readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { isRefusalCode, publishedOperations, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
+import type { PublishedOperation } from "@/core/openapiDocument.ts";
 import type { FieldErrors } from "@/shared/utils/validation.ts";
-
-type JsonObject = Record<string, unknown>;
-
-const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
  * The unique index's refusal, and the one code the shared reader's fallback words. Which mapper
@@ -19,78 +16,57 @@ export const DUPLICATE_KEY = "DB-COMMON-002";
 /** A code no rule declares, which reaches the shared reader's fallback and nothing else. */
 const UNCLAIMED = "REQ-UNCLAIMED-000";
 
-function readDocument(): JsonObject {
-  const parsed = readPublishedDocument();
-  if (!isObject(parsed) || !isObject(parsed.paths)) throw new Error(`${DOCUMENT_PATH} publishes no paths`);
+const OPERATIONS = new Map(publishedOperations().map((published) => [published.operation, published]));
 
-  return parsed;
-}
+/** `operation` as the document publishes it, spelled `<METHOD> <path>` below the version prefix. */
+function publishedOperation(operation: string): PublishedOperation {
+  const published = OPERATIONS.get(operation);
+  if (published === undefined)
+    throw new Error(`the document publishes no ${operation}; refresh it with the command ${REGENERATE_CITATION} declares`);
 
-const DOCUMENT = readDocument();
-
-/**
- * Every `error_code` enum a schema carries, its `allOf` members and `$ref` targets followed: the
- * backend narrows the failure body by composing it, and an enum it moved into a component is still
- * the operation's own.
- */
-function codeEnums(schema: unknown, seen: ReadonlySet<string> = new Set()): unknown[] {
-  if (!isObject(schema)) return [];
-
-  const ref = schema.$ref;
-  if (typeof ref === "string") {
-    const name = ref.replace(/^#\/components\/schemas\//, "");
-    const components = isObject(DOCUMENT.components) && isObject(DOCUMENT.components.schemas) ? DOCUMENT.components.schemas : {};
-    if (seen.has(name) || !(name in components)) throw new Error(`the document cannot resolve ${ref}`);
-
-    return codeEnums(components[name], new Set([...seen, name]));
-  }
-
-  const own = isObject(schema.properties) && isObject(schema.properties.error_code) ? schema.properties.error_code.enum : undefined;
-  const members = Array.isArray(schema.allOf) ? schema.allOf.flatMap((member) => codeEnums(member, seen)) : [];
-
-  return own === undefined ? members : [own, ...members];
+  return published;
 }
 
 /**
- * Every code `fl_backend/openapi.json` publishes on one operation's 409, the operation spelled
- * `<METHOD> <path>` below the version prefix. Throws where it publishes none: an empty answer would
- * run a caller's loop zero times, green.
+ * Every refusal code `fl_backend/openapi.json` publishes on one operation, under whichever status its
+ * rule answers with. Throws where it publishes none: an empty answer would run a caller's loop zero
+ * times, green.
  */
 export function publishedRefusals(operation: string): string[] {
-  const [method = "", route = ""] = operation.split(" ", 2);
-  const paths = DOCUMENT.paths as JsonObject;
-  // Derived rather than spelled: the document is generated under the test configuration, whose
-  // `API_VERSION` names the prefix.
-  const served = Object.keys(paths).filter((published) => /^\/api\/v\d+/.exec(published)?.[0] + route === published);
-  if (served.length !== 1) {
-    throw new Error(
-      `the document serves ${String(served.length)} paths for ${operation}; refresh it with the command ${REGENERATE_CITATION} declares`,
-    );
-  }
+  const codes = new Set(
+    publishedOperation(operation)
+      .answers.map(({ code }) => code)
+      .filter(isRefusalCode),
+  );
+  if (codes.size === 0) throw new Error(`the document publishes no refusal on ${operation}`);
 
-  const item = paths[served[0] ?? ""];
-  const responses = isObject(item) && isObject(item[method.toLowerCase()]) ? (item[method.toLowerCase()] as JsonObject).responses : undefined;
-  if (!isObject(responses)) throw new Error(`the document publishes no ${method} on ${route}`);
-
-  const conflict = responses["409"];
-  if (!isObject(conflict)) throw new Error(`the document publishes no 409 on ${operation}`);
-
-  const body = isObject(conflict.content) ? conflict.content["application/json"] : undefined;
-  const enums = codeEnums(isObject(body) ? body.schema : undefined);
-  // One enum and no more: two would leave which of them the backend answers from to the reader.
-  const [codes] = enums;
-  if (enums.length !== 1 || !Array.isArray(codes) || codes.length === 0 || !codes.every((code) => typeof code === "string")) {
-    throw new Error(`the 409 on ${operation} does not publish its codes as one enum of strings`);
-  }
-
-  return [...(codes as string[])].sort();
+  return [...codes].sort();
 }
 
 /**
- * The refusal the API client raises when `operation` answers `serverErrorCode`, so a mapper is asked
- * rather than read.
+ * The one status `operation` publishes `code` under. Throws for a code published under none or under
+ * two, where a caller asking for it names the status itself.
  */
-export function refusedOn(operation: string, serverErrorCode: string, statusCode = 409): APIBadStatusError {
+function publishedStatus(operation: string, code: string): number {
+  const statuses = publishedOperation(operation)
+    .answers.filter((answer) => answer.code === code)
+    .map(({ status }) => status);
+  if (statuses.length !== 1) {
+    throw new Error(`${operation} publishes ${code} under ${String(statuses.length)} statuses; name the one this case asks about`);
+  }
+
+  return statuses[0] ?? 0;
+}
+
+/**
+ * The refusal the API client raises when `operation` answers `serverErrorCode`, at the status the
+ * document publishes it under unless a case names another, so a mapper is asked rather than read.
+ */
+export function refusedOn(
+  operation: string,
+  serverErrorCode: string,
+  statusCode = publishedStatus(operation, serverErrorCode),
+): APIBadStatusError {
   const [method = "", endpoint = ""] = operation.split(" ", 2);
 
   return new APIBadStatusError({
@@ -106,6 +82,23 @@ export function refusedOn(operation: string, serverErrorCode: string, statusCode
 }
 
 /**
+ * The same refusal at another status a rule answers with. Codes are unique across the API, so a rule
+ * the backend moves keeps its answer, and each question below is put at both statuses.
+ */
+function atAnotherStatus(operation: string, refusal: APIBadStatusError): APIBadStatusError {
+  return refusedOn(operation, refusal.serverErrorCode ?? "", refusal.statusCode === 409 ? 422 : 409);
+}
+
+/** What is shown for one refusal as raised, its mapper having answered `own`. */
+function shownFrom(operation: string, refusal: APIBadStatusError, own: unknown): unknown {
+  if (own !== null) return own;
+
+  const shared = toActionErrorResult(refusal).error;
+  const unclaimed = toActionErrorResult(refusedOn(operation, UNCLAIMED, refusal.statusCode)).error;
+  return refusal.serverErrorCode === DUPLICATE_KEY || shared !== unclaimed ? shared : null;
+}
+
+/**
  * What a write shows for one refusal: the slice's mapper, then
  * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`, and `null` where the code
  * reaches that reader's fallback, which words `DUPLICATE_KEY` alone. A public route words that code
@@ -113,11 +106,22 @@ export function refusedOn(operation: string, serverErrorCode: string, statusCode
  */
 export function answerShown(operation: string, code: string, mapper: (error: unknown) => unknown): unknown {
   const refusal = refusedOn(operation, code);
-  const own = mapper(refusal);
-  if (own !== null) return own;
+  const moved = atAnotherStatus(operation, refusal);
+  const shown = shownFrom(operation, refusal, mapper(refusal));
+  // Asked at a second status too, so an answer that moves with the status fails.
+  assert.deepEqual(shownFrom(operation, moved, mapper(moved)), shown, `${code} on ${operation} is answered by its status`);
 
-  const shared = toActionErrorResult(refusal).error;
-  return code === DUPLICATE_KEY || shared !== toActionErrorResult(refusedOn(operation, UNCLAIMED)).error ? shared : null;
+  return shown;
+}
+
+/** `answerShown` for a mapper that answers once a read it makes has settled. */
+export async function answerSettled(operation: string, code: string, mapper: (error: unknown) => unknown): Promise<unknown> {
+  const refusal = refusedOn(operation, code);
+  const moved = atAnotherStatus(operation, refusal);
+  const shown = shownFrom(operation, refusal, await mapper(refusal));
+  assert.deepEqual(shownFrom(operation, moved, await mapper(moved)), shown, `${code} on ${operation} is answered by its status`);
+
+  return shown;
 }
 
 /** A failure as the form reads it back, where a key left `undefined` and a key left out read alike. */
@@ -141,30 +145,31 @@ async function actionAnswer(
 }
 
 /**
- * Calls a real action once per code, its doubled write refusing with it, against `actionAnswer` over
- * the mapper it should consult: an action asking another mapper, or none, fails by some code.
+ * Calls a real action per code, its doubled write refusing at the published status and at another,
+ * against `actionAnswer` over the mapper it should consult: an action asking another mapper, or none,
+ * or reading the status, fails by some code.
  */
 export async function assertEachAnswered({
   operation,
-  codes,
   refuseWith,
   act,
   mapped,
   readOnly = false,
 }: {
   operation: string;
-  /** `publishedRefusals(operation)`, spelled at the call so the coverage sweep reads the operation there. */
-  codes: readonly string[];
   /** The doubled write's `answerWith`. */
   refuseWith: (next: () => Promise<unknown>) => void;
   act: () => Promise<unknown>;
   mapped: (refusal: APIBadStatusError) => string | { error?: string; fieldErrors?: FieldErrors } | null;
   readOnly?: boolean;
 }): Promise<void> {
-  for (const code of codes) {
+  for (const code of publishedRefusals(operation)) {
     const refusal = refusedOn(operation, code);
-    refuseWith(() => Promise.reject(refusal));
+    const expected = await actionAnswer(refusal, mapped(refusal), readOnly);
 
-    assert.deepEqual(asRead(await act()), await actionAnswer(refusal, mapped(refusal), readOnly), `${code} on ${operation}`);
+    for (const sent of [refusal, atAnotherStatus(operation, refusal)]) {
+      refuseWith(() => Promise.reject(sent));
+      assert.deepEqual(asRead(await act()), expected, `${code} at ${String(sent.statusCode)} on ${operation}`);
+    }
   }
 }

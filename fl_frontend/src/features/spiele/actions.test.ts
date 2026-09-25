@@ -67,14 +67,12 @@ describe("the match editor's refusals against the codes its endpoint publishes",
   it("answers every refusal on the save and on the dry run through the mapper", async () => {
     await assertEachAnswered({
       operation: PATCH_OPERATION,
-      codes: publishedRefusals(PATCH_OPERATION),
       refuseWith: answerWith,
       act: () => patchAdminSpielDataAction(EDIT, "2026"),
       mapped: mapSpielRefusal,
     });
     await assertEachAnswered({
       operation: PATCH_OPERATION,
-      codes: publishedRefusals(PATCH_OPERATION),
       refuseWith: answerWith,
       act: () => previewAdminSpielDataAction(EDIT),
       mapped: mapSpielRefusal,

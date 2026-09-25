@@ -352,7 +352,7 @@ change still stands before leaving, a new sign-in landing on `/admin` rather tha
 the 403 counts only where it carries the route's envelope, an edge challenge answering 403 in markup.
 
 **Every undo replay can be refused on the way back**, and each answers in German out of
-its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
+its own replay table, the route's `REPLAY_REFUSALS` or, for a replay no save sends, the slice's (`fl_frontend/src/features/spiele/refusals.ts :: PAARUNGEN_REPLAY_REFUSALS`): the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
 standing only where the replay is one write**: a replay that commits in parts words the half that
 went back instead. **`fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` therefore
@@ -830,13 +830,20 @@ section in place of one is the excuse that decision refuses.
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/schemaGerman.test.ts` among them.
-`fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` reads the codes
-`fl_backend/openapi.json` publishes on one operation's 409, so each slice asks its mapper about the
-endpoint's own published set rather than a list somebody typed, and **it throws for an operation
-publishing no 409**, because a loop over an empty answer runs zero times and proves nothing.
-`fl_frontend/src/core/refusalCoverage.test.ts` holds the other half (I360): every published 409 is
-asked about by some test, and no test asks about an operation publishing none. The system tier is
-left out, on the premise that its callers log a refusal and show it to no one.
+
+**A slice's refusals are asked about as the document publishes them, never as somebody typed them.**
+`fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` reads the refusal codes
+`fl_backend/openapi.json` publishes on one operation, under any status, and **it throws for an
+operation publishing no refusal**, because a loop over an empty answer runs zero times and proves
+nothing. Which codes count is `fl_frontend/src/core/openapiDocument.ts :: isRefusalCode`: the
+protocol's codes are published on nearly every operation and answered alike by the shared reader.
+`fl_frontend/src/shared/testing/publishedRefusals.ts :: refusedOn` raises a code at the status the document publishes it under, and `:: answerShown` and
+`:: assertEachAnswered` ask each code at a second status too, so a mapper reading the status fails.
+`fl_frontend/src/app/refusalCoverage.test.ts :: ANSWERED_BY` holds the other half (I360): a table
+naming the mapper for every operation publishing a refusal, each code put to it, and agreeing with
+the document in both directions. The table lives in the test rather than beside the mappers, which
+no production code would read. The system tier is left out, on the premise that its callers log a
+refusal and show it to no one.
 
 **`DB-COMMON-002`, the unique index's refusal, is the one code the shared fallback words**, as an
 administrator's conflict with an entry that exists; a public route answers it in the visitor's words
@@ -844,7 +851,7 @@ instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Any
 reaching the fallback (`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
 names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
 a reload discards what the visitor typed. Every undo route answers
-it in its own `REPLAY_REFUSALS` row with the shared sentence
+it in its own replay table's row with the shared sentence
 (`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
 `fl_frontend/src/shared/utils/undoRoute.ts :: refusedReplay` closes, as it closes every row, on what
 became of the change: „Die Änderung steht weiterhin.“, or, where a replay of two writes had already
@@ -1992,7 +1999,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I348 | **The application and registration forms renew their key only where a box carries the refusal**; any other answer keeps it                                                                                                                 | `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx` and `fl_frontend/src/features/registrierungen/components/views/RegistrierungFormPanel.tsx` through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`; `fl_frontend/src/features/bewerbungen/submissionKey.test.ts` and `fl_frontend/src/features/registrierungen/submissionKey.test.ts`                                                                                      |
 | I351 | **A repeated submission's refused change is titled as arrived**, never I250's „nicht abgeschickt“: the first submission stands                                                                                                             | `fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal` and `fl_frontend/src/features/registrierungen/utils.ts :: mapRegistrierungSubmitRefusal` mark it; `fl_frontend/src/features/bewerbungen/form.test.ts`, `fl_frontend/src/features/registrierungen/publicRoutes.test.ts`                                                                                                                                                                                 |
 | I356 | **A state update after a transition's `await` runs inside a start call** until React lifts the limitation: bare, it commits before the transition ends                                                                                     | `fl_frontend/eslint.config.mjs :: TRANSITION_REWRAP` for a `set*` call in an inline callback of a `start*` function, driven by `fl_frontend/eslint-plants/transitions.tsx.txt`; review for the rest (§4)                                                                                                                                                                                                                                                                            |
-| I360 | **Every 409 code `fl_backend/openapi.json` publishes outside the system tier is put to the mapper answering it**, or the shared fallback answers it with no reason                                                                         | `fl_frontend/src/core/refusalCoverage.test.ts`; each slice's test, through `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` and `:: assertEachAnswered`                                                                                                                                                                                                                                                                                                   |
+| I360 | **Every refusal code `fl_backend/openapi.json` publishes outside the system tier is answered by its mapper**, or the shared fallback answers it with no reason                                                                             | `fl_frontend/src/app/refusalCoverage.test.ts :: ANSWERED_BY`; each slice's test, through `fl_frontend/src/shared/testing/publishedRefusals.ts :: publishedRefusals` and `:: assertEachAnswered`                                                                                                                                                                                                                                                                                     |
 | I361 | **A request payload's every published ceiling is refused one past and taken at by its Zod mirror**, or declared with the line saying why                                                                                                   | `fl_frontend/src/core/payloadBounds.test.ts`, over every component `fl_frontend/src/core/publishedCeilings.ts :: requestComponents` reaches, and `fl_frontend/src/core/payloadBounds.test.ts :: UNMIRRORED` held both ways                                                                                                                                                                                                                                                          |
 
 ## 3. Violation → remedy

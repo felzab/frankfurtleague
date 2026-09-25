@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapStaleBlockRefusal } from "./refusals.ts";
 
@@ -19,7 +19,6 @@ describe("what the contacts write answers a refusal with", () => {
   it("answers every refusal its endpoint publishes with the stale-block mapper", async () => {
     await assertEachAnswered({
       operation: KONTAKTE_OPERATION,
-      codes: publishedRefusals(KONTAKTE_OPERATION),
       refuseWith: answerWith,
       act: () =>
         patchSaisonTeamKontakteAction({ team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "stand" }),

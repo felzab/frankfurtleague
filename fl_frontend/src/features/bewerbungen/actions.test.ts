@@ -143,7 +143,6 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
     await assertEachAnswered({
       operation: ANNEHMEN_OPERATION,
-      codes: publishedRefusals(ANNEHMEN_OPERATION),
       refuseWith: answerWith,
       act: () => annehmenBewerbungAction(ANNAHME),
       mapped: acceptanceMapped,
@@ -166,7 +165,6 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
     await assertEachAnswered({
       operation: ABLEHNEN_OPERATION,
-      codes: publishedRefusals(ABLEHNEN_OPERATION),
       refuseWith: answerWith,
       act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
       mapped: declineMapped,
@@ -699,7 +697,6 @@ describe("the re-sent confirmation link", () => {
     }
     await assertEachAnswered({
       operation: ERNEUT_OPERATION,
-      codes: publishedRefusals(ERNEUT_OPERATION),
       refuseWith: answerWith,
       act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
       mapped: mapEinwilligungErneutRefusal,
@@ -931,7 +928,6 @@ describe("the corrected contact address", () => {
     }
     await assertEachAnswered({
       operation: KORREKTUR_OPERATION,
-      codes: publishedRefusals(KORREKTUR_OPERATION),
       refuseWith: answerWith,
       act: () => kontaktEmailKorrigierenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" }),
       mapped: mapKontaktEmailRefusal,
@@ -1024,7 +1020,6 @@ describe("the person seated where one stepped out", () => {
     }
     await assertEachAnswered({
       operation: SITZ_OPERATION,
-      codes: publishedRefusals(SITZ_OPERATION),
       refuseWith: answerWith,
       act: () =>
         besetzeKontaktSitzAction({

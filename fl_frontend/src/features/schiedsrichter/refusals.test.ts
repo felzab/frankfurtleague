@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAnonymiseRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
 
@@ -36,14 +36,12 @@ describe("what each referee write answers a refusal with", () => {
 
     await assertEachAnswered({
       operation: CREATE_OPERATION,
-      codes: publishedRefusals(CREATE_OPERATION),
       refuseWith: answerWith,
       act: () => postSchiedsrichterAction(REFEREE),
       mapped: saveAnswer,
     });
     await assertEachAnswered({
       operation: SAVE_OPERATION,
-      codes: publishedRefusals(SAVE_OPERATION),
       refuseWith: answerWith,
       act: () => patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE }),
       mapped: saveAnswer,
@@ -55,21 +53,18 @@ describe("what each referee write answers a refusal with", () => {
   it("answers the retirement's, the reactivation's and the erasure's refusals each with its own mapper", async () => {
     await assertEachAnswered({
       operation: RETIRE_OPERATION,
-      codes: publishedRefusals(RETIRE_OPERATION),
       refuseWith: answerWith,
       act: () => deleteSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapRetireRefusal,
     });
     await assertEachAnswered({
       operation: REACTIVATE_OPERATION,
-      codes: publishedRefusals(REACTIVATE_OPERATION),
       refuseWith: answerWith,
       act: () => reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapReactivateRefusal,
     });
     await assertEachAnswered({
       operation: ANONYMISE_OPERATION,
-      codes: publishedRefusals(ANONYMISE_OPERATION),
       refuseWith: answerWith,
       act: () => anonymiseSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapAnonymiseRefusal,

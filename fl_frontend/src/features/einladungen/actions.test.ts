@@ -36,7 +36,6 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
     }
     await assertEachAnswered({
       operation: MINT_OPERATION,
-      codes: publishedRefusals(MINT_OPERATION),
       refuseWith: answerWith,
       act: () => postEinladungAction(KEY),
       mapped: mapEinladungRefusal,
@@ -59,7 +58,6 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
     }
     await assertEachAnswered({
       operation: VERSAND_OPERATION,
-      codes: publishedRefusals(VERSAND_OPERATION),
       refuseWith: answerWith,
       act: () => postEinladungVersandAction({ id: KEY.saison_id, erneut: false }),
       mapped: mapEinladungRefusal,
@@ -71,7 +69,6 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
   it("answers every code the revoke publishes in the shared reader's words", async () => {
     await assertEachAnswered({
       operation: REVOKE_OPERATION,
-      codes: publishedRefusals(REVOKE_OPERATION),
       refuseWith: answerWith,
       act: () => deleteEinladungAction(KEY),
       mapped: () => null,

@@ -85,7 +85,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     );
     await assertEachAnswered({
       operation: CREATE_OPERATION,
-      codes: publishedRefusals(CREATE_OPERATION),
       refuseWith: answerWith,
       act: () => postSaisonAction(SAISON),
       mapped: (refusal) => mapRulesRefusal(refusal) ?? mapSaisonIdRefusal(refusal),
@@ -134,7 +133,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
     await assertEachAnswered({
       operation: EDIT_OPERATION,
-      codes: publishedRefusals(EDIT_OPERATION),
       refuseWith: answerWith,
       act: () => patchSaisonAction(SAISON),
       mapped: mapRulesRefusal,
@@ -151,7 +149,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
     await assertEachAnswered({
       operation: ACTIVATE_OPERATION,
-      codes: publishedRefusals(ACTIVATE_OPERATION),
       refuseWith: answerWith,
       act: () => activateSaisonAction({ id: SAISON_ID }),
       mapped: mapActivateRefusal,
@@ -164,7 +161,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
     await assertEachAnswered({
       operation: SWAP_OPERATION,
-      codes: publishedRefusals(SWAP_OPERATION),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
@@ -209,7 +205,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     ] as const) {
       await assertEachAnswered({
         operation: DRAW_OPERATION,
-        codes: publishedRefusals(DRAW_OPERATION),
         refuseWith: answerWith,
         act: () => generateSpielplanAction(payload),
         mapped: (refusal) => mapSpielplanRefusal(refusal, carriedShape),
@@ -229,7 +224,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
     await assertEachAnswered({
       operation: UNDRAW_OPERATION,
-      codes: publishedRefusals(UNDRAW_OPERATION),
       refuseWith: answerWith,
       act: () => undrawSpielplanAction({ id: SAISON_ID }),
       mapped: mapUndrawRefusal,

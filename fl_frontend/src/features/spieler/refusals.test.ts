@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 
 import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
 
@@ -29,7 +29,6 @@ describe("what each squad write answers a refusal with", () => {
   it("answers the erasure's refusals with the erasure's own mapper", async () => {
     await assertEachAnswered({
       operation: ERASURE_OPERATION,
-      codes: publishedRefusals(ERASURE_OPERATION),
       refuseWith: answerWith,
       act: () => eraseSpielerAction({ id: KEY.spieler_id }),
       mapped: mapErasureRefusal,
@@ -41,7 +40,6 @@ describe("what each squad write answers a refusal with", () => {
   it("answers the entry's refusals, the squad's rules before the unique index", async () => {
     await assertEachAnswered({
       operation: ENTRY_OPERATION,
-      codes: publishedRefusals(ENTRY_OPERATION),
       refuseWith: answerWith,
       act: () => postSaisonSpielerAction(ROW),
       mapped: (refusal) => mapSquadRefusal(refusal) ?? mapAlreadyInSaisonRefusal(refusal),
@@ -53,14 +51,12 @@ describe("what each squad write answers a refusal with", () => {
   it("answers the squad patch's and the row reactivation's refusals with the squad mapper", async () => {
     await assertEachAnswered({
       operation: SQUAD_PATCH_OPERATION,
-      codes: publishedRefusals(SQUAD_PATCH_OPERATION),
       refuseWith: answerWith,
       act: () => patchSaisonSpielerAction(ROW),
       mapped: mapSquadRefusal,
     });
     await assertEachAnswered({
       operation: REACTIVATE_ROW_OPERATION,
-      codes: publishedRefusals(REACTIVATE_ROW_OPERATION),
       refuseWith: answerWith,
       act: () => reactivateSaisonSpielerAction(KEY),
       mapped: mapSquadRefusal,
@@ -70,7 +66,6 @@ describe("what each squad write answers a refusal with", () => {
   it("leaves the row retirement's refusals to the shared reader", async () => {
     await assertEachAnswered({
       operation: RETIRE_ROW_OPERATION,
-      codes: publishedRefusals(RETIRE_ROW_OPERATION),
       refuseWith: answerWith,
       act: () => deleteSaisonSpielerAction(KEY),
       mapped: () => null,

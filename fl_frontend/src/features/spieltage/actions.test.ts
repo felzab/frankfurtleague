@@ -78,7 +78,6 @@ describe("the Spieltag refusals against the codes the matchday PATCH publishes",
   it("answers every refusal the save publishes through the mapper", async () => {
     await assertEachAnswered({
       operation: PATCH_OPERATION,
-      codes: publishedRefusals(PATCH_OPERATION),
       refuseWith: answerWith,
       act: () => patchSpieltagAction({ id: "6890a1b2c3d4e5f607182931", beginn: "2026-03-12", ende: "2026-03-12" }),
       mapped: mapSpieltagRefusal,

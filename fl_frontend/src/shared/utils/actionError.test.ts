@@ -4,9 +4,10 @@ import { describe, it } from "node:test";
 import { z } from "zod";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
+import { isRefusalCode, publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
-import { FELD_ABGELEHNT, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
+import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
 import { UNKNOWN_REFUSAL } from "./refusal.ts";
 import { VALIDATION_FAILED } from "./validation.ts";
 
@@ -300,6 +301,19 @@ describe("a refusal read by its code, whatever its status", () => {
       [401, "REQ-AUTH-002"],
     ] as const) {
       assert.equal(refused(status, code).error, "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.", code);
+    }
+  });
+
+  /* Two readings reached by different routes, the fallback's by status and protocol code and the
+     harness's by the codes a mapper words, agree on every code the document publishes, at its
+     published status. */
+  it("takes exactly the refusal codes the document publishes, each at its published status, for a rule's", () => {
+    const answers = publishedOperations().flatMap(({ operation, answers: published }) => published.map((answer) => ({ operation, ...answer })));
+    assert.ok(answers.length > 0, "the document publishes no code at all");
+
+    for (const { operation, code, status } of answers) {
+      const refusal = new APIBadStatusError({ ...write, message: "bad", statusCode: status, serverErrorCode: code });
+      assert.equal(isRuleRefusal(refusal), isRefusalCode(code), `${code} at ${String(status)} on ${operation}`);
     }
   });
 

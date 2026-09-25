@@ -1,9 +1,9 @@
 import { revalidateTag } from "next/cache";
 
 import { patchAdminSpielePaarungen } from "@/features/spiele/mutations";
+import { PAARUNGEN_REPLAY_REFUSALS } from "@/features/spiele/refusals";
 import { FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
 import { describeMovedSpiele } from "@/features/spiele/utils";
-import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
@@ -18,34 +18,6 @@ const UndoRequestSchema = FLPatchSpielePaarungenPayloadSchema.extend({
   saison_id: FLSpielSchema.shape.saison_id,
 });
 
-// One replay carries every fixture, so no row below names a single one.
-
-/**
- * The refusals a replay can meet, in German written for the undo — the save's own words name a field
- * this toast has not got, and a repair that would undo the undo.
- */
-const REPLAY_REFUSALS: Record<string, string> = {
-  // No „inzwischen“: the row can have retired before the save being undone, as one a reopening kept booked has.
-  "REQ-BOOKING-001":
-    "Ein ursprünglicher Spielort oder Schiedsrichter ist stillgelegt oder gelöscht, und der ursprüngliche Stand würde ihn einem Spiel wieder zuteilen.",
-  "REQ-CLASH-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist zu dieser Zeit inzwischen für ein anderes Spiel eingeteilt.",
-  "REQ-DATE-001": "Ein ursprüngliches Datum liegt nicht mehr im Zeitraum seines Spieltags.",
-  "REQ-ELIGIBILITY-001":
-    "Ein ursprünglich aufgestelltes Team ist inzwischen aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
-  "REQ-ELIGIBILITY-002": "Ein ursprünglich aufgestelltes Team nimmt nicht mehr an dieser Saison teil.",
-  "REQ-RESULT-001": "Ein Spiel ist inzwischen gewertet, und der ursprüngliche Stand lässt eine Seite ohne Team.",
-  "REQ-SPIELTAG-001": "Ein ursprünglich aufgestelltes Team spielt am selben Spieltag inzwischen schon in einem anderen Spiel.",
-  // The restored STATE and never a result: the refusal is raised by the resolution the replay would
-  // run, which a restored Herkunft moves as readily as a restored scoreline.
-  "REQ-SPIELTAG-002": "Mit dem ursprünglichen Stand würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen.",
-  "REQ-STATE-002": "Ein Spiel mit dem ursprünglichen Sonderereignis wird nicht gewertet und darf keine Tore tragen.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams, und im ursprünglichen Stand ist ein Platz offen.",
-  "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",
-  "REQ-WIRING-002": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich.",
-  "REQ-WIRING-003": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, die es in dieser Saison nicht gibt.",
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-};
-
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSpielEdit",
@@ -57,7 +29,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         // The change standing whole: the replay is one transaction, so a refusal on any fixture leaves
         // every one of them where the save put it.
-        return refusedReplay(error, REPLAY_REFUSALS);
+        return refusedReplay(error, PAARUNGEN_REPLAY_REFUSALS);
       }
 
       if (!operation.acknowledged) {
