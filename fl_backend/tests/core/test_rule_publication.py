@@ -17,7 +17,18 @@ from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.main import create_app
 from tests.config import build_test_config
-from tests.core.app_source import BACKEND_ROOT, Declaration, api_routes, bound_at, callee, declared, module_of, resolve_callee, scoped_calls
+from tests.core.app_source import (
+    BACKEND_ROOT,
+    Declaration,
+    api_routes,
+    bound_at,
+    callee,
+    declared,
+    module_of,
+    resolve_callee,
+    scoped_calls,
+    unfollowed_references,
+)
 
 
 @dataclass(frozen=True)
@@ -87,8 +98,6 @@ class _Reach:
     """What one operation's handler reaches: the functions, as `RULES` spells an `implemented_by`."""
 
     functions: set[str] = field(default_factory=set)
-    #: A rule's check the trace could not follow: called through a module, or held as a value.
-    blind: set[str] = field(default_factory=set)
     declarations: dict[str, tuple[Key, Declaration]] = field(default_factory=dict)
     #: Every call site of each reached function, keyed by its declaration.
     sites: dict[Key, list[_Site]] = field(default_factory=dict)
@@ -96,34 +105,13 @@ class _Reach:
     refused: set[int] = field(default_factory=set)
 
 
-def _names(declaration: Declaration) -> Iterator[tuple[ast.Name | ast.Attribute, str]]:
-    for node in ast.walk(declaration):
-        if isinstance(node, ast.Name):
-            yield node, node.id
-        elif isinstance(node, ast.Attribute):
-            yield node, node.attr
-
-
 def _trace(declaration: Declaration, path: Path, reach: _Reach, seen: set[tuple[Path, int]]) -> None:
-    here = path.relative_to(BACKEND_ROOT).as_posix()
-
-    # `resolve_callee` follows a bare name alone, so a check reached any other way raises a code
-    # the trace never sees: each such reference is recorded rather than passed over.
-    called = {id(node.func) for node in ast.walk(declaration) if isinstance(node, ast.Call)}
-    reach.blind.update(
-        f"{here}:{node.lineno} holds `{ast.unparse(node)}` as a value"
-        for node, name in _names(declaration)
-        if name in CHECK_NAMES and id(node) not in called
-    )
-
     for chain, call in scoped_calls(declaration, (declaration,)):
         if callee(call) == REFUSE:
             reach.refused.update(id(argument) for argument in call.args)
 
         resolved = resolve_callee(call, chain, path)
         if resolved is None:
-            if callee(call) in CHECK_NAMES:
-                reach.blind.add(f"{here}:{call.lineno} calls `{ast.unparse(call.func)}`, which the trace cannot follow")
             continue
 
         target, target_path = resolved
@@ -167,9 +155,9 @@ def _unnamed_reaches() -> set[tuple[str, str]]:
 
 
 def test_the_trace_follows_every_reference_to_a_rules_check():
-    """A check called through its module, or handed on as a value, raises its code where the cases below see nothing."""
+    """A check called through its module, or held as a value anywhere under `app/`, raises its code where the trace sees nothing."""
 
-    assert sorted({entry for reach in _reach().values() for entry in reach.blind}) == []
+    assert unfollowed_references(CHECK_NAMES) == []
 
 
 def test_an_operation_reaching_a_rules_check_is_one_rules_names():

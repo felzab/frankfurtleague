@@ -196,6 +196,27 @@ def calls_in(node: ast.AST, scope: str) -> Iterator[tuple[str, ast.Call]]:
         yield (chain[-1].name if chain else scope), call
 
 
+def unfollowed_references(names: frozenset[str], *, skip: frozenset[Path] = frozenset()) -> list[str]:
+    """Every reference under `app/` to `names` that `resolve_callee` cannot follow: anything but a call's bare callee.
+
+    Whole modules, since an alias held outside every traced function is one such reference too.
+    """
+
+    found: list[str] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        if path in skip:
+            continue
+
+        tree = parsed(path)
+        followed = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        for node in ast.walk(tree):
+            name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+            if name in names and id(node) not in followed:
+                found.append(f"{path.relative_to(BACKEND_ROOT).as_posix()}:{getattr(node, 'lineno', 0)} `{ast.unparse(node)}`")
+
+    return found
+
+
 @functools.cache
 def app_calls() -> tuple[tuple[str, str, ast.Call], ...]:
     """Every call the application makes, with the module and the function around it."""
