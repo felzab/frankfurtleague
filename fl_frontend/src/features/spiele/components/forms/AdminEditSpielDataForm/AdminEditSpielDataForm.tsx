@@ -11,7 +11,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -453,7 +452,7 @@ export function AdminEditSpielDataForm({
           ref={formRef}
           validationErrors={fieldErrors}
           className="flex min-h-0 w-full flex-1 flex-col"
-          onSubmit={runOnSubmit(requestSave)}>
+          onSubmit={requestSave}>
           <EditFormLayout
             header={pageHeader}
             onLeave={requestLeave}

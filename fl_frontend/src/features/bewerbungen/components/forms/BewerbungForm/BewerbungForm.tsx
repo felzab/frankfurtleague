@@ -19,7 +19,6 @@ import {
 } from "@/features/bewerbungen/utils";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
@@ -349,7 +348,7 @@ export function BewerbungForm({
         data-required-marks="on"
         validationErrors={mergedErrors}
         className="flex w-full flex-col gap-6"
-        onSubmit={runOnSubmit(handleSubmit)}>
+        onSubmit={handleSubmit}>
         <FormSchuleSection
           schulen={schulen}
           auswahl={draft.auswahl}

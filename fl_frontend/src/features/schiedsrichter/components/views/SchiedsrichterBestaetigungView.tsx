@@ -46,7 +46,6 @@ import {
   TOGGLE_GROUP_ALIGN_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -359,7 +358,7 @@ function SchiedsrichterFormPanel({
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
-      onSubmit={runOnSubmit(handleSubmit)}>
+      onSubmit={handleSubmit}>
       <SchiedsrichterHinweise werte={werte} />
 
       <BestaetigungAbschnitt titel="Deine Antwort">

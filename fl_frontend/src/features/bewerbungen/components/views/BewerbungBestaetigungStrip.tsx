@@ -33,7 +33,6 @@ import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
@@ -479,13 +478,13 @@ function AdresseKorrigieren({
     <Form
       ref={formRef}
       validationErrors={fieldErrors}
-      onSubmit={runOnSubmit(() => {
+      onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in the field submits too, and a second
         // correction mid-flight is refused as already stored.
         if (sendet) return;
 
         guardSubmit({ korrektur: payload }, () => void schreibe());
-      })}
+      }}
       className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
       <TextField
         isRequired
@@ -649,13 +648,13 @@ function SitzNeuBesetzen({
     <Form
       ref={formRef}
       validationErrors={fieldErrors}
-      onSubmit={runOnSubmit(() => {
+      onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in a field submits too, and a second
         // press mid-flight is refused as a seat already filled.
         if (sendet) return;
 
         guardSubmit({ neubesetzung: payload }, () => void schreibe());
-      })}
+      }}
       className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
       {/* The seat is named here and not on the button: the row above says „Niemand mehr in der
           Bewerbung“, so the box has to say which of the three seats it is filling. */}

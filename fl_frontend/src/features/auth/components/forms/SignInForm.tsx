@@ -14,7 +14,6 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
@@ -157,7 +156,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         <Form
           ref={formRef}
           validationErrors={fieldErrors}
-          onSubmit={runOnSubmit(handleFormSubmit)}
+          onSubmit={handleFormSubmit}
           className="flex flex-col gap-y-4">
           {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
             stopped matching the words a voice-control user reads. `TextField` associates it. */}

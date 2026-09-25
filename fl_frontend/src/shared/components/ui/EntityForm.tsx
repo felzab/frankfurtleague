@@ -10,7 +10,6 @@ import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
-import { runOnSubmit } from "./formSubmit";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -109,7 +108,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
       // when on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
       className="flex h-fit w-full flex-col gap-y-6 rounded-xl shadow-sm"
-      onSubmit={runOnSubmit(handleSubmit)}>
+      onSubmit={handleSubmit}>
       {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 

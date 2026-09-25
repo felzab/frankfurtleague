@@ -277,7 +277,7 @@ export function useDraftFieldErrors<TSchema extends string>({
 
   /**
    * Whether send has been pressed. Missing-value messages wait for it, so tabbing an untouched form paints nothing.
-   * Listened for rather than threaded through each editor: `runOnSubmit` prevents the default, but the event fired.
+   * Listened for rather than threaded through each editor: the shared `Form` prevents the default, but the event fired.
    */
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 

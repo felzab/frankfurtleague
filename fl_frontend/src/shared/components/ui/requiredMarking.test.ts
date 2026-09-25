@@ -25,7 +25,7 @@ const NO_ADDRESS: FLAddress = { strasse: "", hausnummer: "", plz: "", stadtteil:
  * What `EntityForm` puts on a form that marks its required fields. Asserted rather than written inline
  * because TypeScript waves a hyphenated attribute through in JSX position only, and this file has none.
  */
-const MARKS_REQUIRED = { "data-required-marks": "on" } as ComponentProps<typeof Form>;
+const MARKS_REQUIRED = { "data-required-marks": "on", onSubmit: () => undefined } as ComponentProps<typeof Form>;
 
 /** A required text field, with its label wrapped in as many elements as the caller nests it. */
 function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequired?: boolean }): string {

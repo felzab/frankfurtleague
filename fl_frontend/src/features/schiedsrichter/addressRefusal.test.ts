@@ -23,7 +23,13 @@ describe("an address only the API refuses", () => {
   it("is marked on the address box the create form renders, and on no other", () => {
     const result = toActionErrorResult(refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter"));
 
-    render(h(Form, { validationErrors: result.fieldErrors }, h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined })));
+    render(
+      h(
+        Form,
+        { onSubmit: () => undefined, validationErrors: result.fieldErrors },
+        h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined }),
+      ),
+    );
 
     const box = screen.getByRole("textbox", { name: "E-Mail" });
     assert.equal(box.getAttribute("aria-invalid"), "true", "the address box is not marked");

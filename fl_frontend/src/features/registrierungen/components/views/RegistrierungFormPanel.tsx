@@ -23,7 +23,6 @@ import {
   FORM_SECTION_HEADING_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -184,10 +183,10 @@ export function RegistrierungFormPanel({
       data-required-marks="on"
       validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
-      onSubmit={runOnSubmit(() => {
+      onSubmit={() => {
         // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
         guardSubmit({ registrierung: registrierungPayload(draft, token) }, writeAfterBlock);
-      })}>
+      }}>
       <section className={panel.root()}>
         <div className={panel.header()}>
           <PanelHeading

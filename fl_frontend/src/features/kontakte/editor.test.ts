@@ -376,7 +376,6 @@ describe("the editor's shape", () => {
       "ConfirmDiscardModal",
       "ConfirmSaveModal",
       "useDraftFieldErrors",
-      "runOnSubmit",
     ]) {
       assert.ok(FORM_SOURCE.includes(`{ ${shared} }`), `the editor no longer takes ${shared} from the shared surface`);
     }
