@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         return refusedReplay(error, REPLAY_REFUSALS);
       }
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten." };
+      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten." };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
     invalidate: () => {

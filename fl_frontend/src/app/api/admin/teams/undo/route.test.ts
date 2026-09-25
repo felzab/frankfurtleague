@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route, called: the request it runs in and the writes it replays are the doubles. */
 const { answerWith, calls } = doubleUndoRequest("/src/features/teams/mutations.ts");
@@ -67,5 +67,28 @@ describe("the team save's undo", () => {
       press: () => undo(POST, { club: CLUB, saison: SAISON }),
       closing: "Nur die Stammdaten wurden zurückgesetzt.",
     });
+  });
+
+  /* Unacknowledged, a write may still have landed, so each arm is titled unclear and never says the
+     change stands; the junction's sentence says whether the club half went back. */
+  it("answers an unacknowledged club half as of unknown outcome, replaying nothing after it", async () => {
+    calls.length = 0;
+    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+
+    assert.deepEqual(await undo(POST, { club: CLUB, saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten."));
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["patchTeam"],
+    );
+  });
+
+  it("answers an unacknowledged junction as of unknown outcome, alone or after the club half", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.action === "patchSaisonTeam" ? 0 : 1 }));
+
+    assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."));
+    assert.deepEqual(
+      await undo(POST, { club: CLUB, saison: SAISON }),
+      unacknowledged("Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit."),
+    );
   });
 });

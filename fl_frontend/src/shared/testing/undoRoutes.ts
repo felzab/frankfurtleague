@@ -26,6 +26,9 @@ export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleAc
   return doubleActions({ modules: [mutations], answer: () => Promise.resolve({ acknowledged: 1 }) });
 }
 
+/** A route's answer where its replay's write went unacknowledged, which may still have landed. */
+export const unacknowledged = (error: string): UndoAnswer => ({ success: false, error, outcome: "unknown" });
+
 /** One press through the route's own `POST`, same-origin unless a case says otherwise. */
 export async function undo(
   post: (request: NextRequest) => Promise<Response>,

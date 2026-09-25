@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route, called: the request it runs in and the write it replays are the doubles. */
 const { answerWith, calls } = doubleUndoRequest("/src/features/saisons/mutations.ts");
@@ -44,5 +44,12 @@ describe("the season save's undo", () => {
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
       press: () => undo(POST, BODY),
     });
+  });
+
+  /* It may still have landed, so it is titled unclear and never says the change stands. */
+  it("answers an unacknowledged replay as of unknown outcome, sending the admin to the season", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+
+    assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten."));
   });
 });

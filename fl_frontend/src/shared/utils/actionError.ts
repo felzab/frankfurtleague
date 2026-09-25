@@ -100,6 +100,13 @@ const OUTCOME_UNKNOWN: ActionFailure = {
 };
 
 /**
+ * An undo nobody can tell landed, said by the route for a replay that threw and by the dispatch for
+ * one that never answered: „nicht zurückgenommen“ would send the admin to undo by hand what may
+ * already be undone.
+ */
+export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+
+/**
  * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
  * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
  * error page.

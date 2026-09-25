@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         // No replay catch: the register declares no refusal against the season-independent person row.
         const operation = await patchSpieler(person);
         if (!operation.acknowledged) {
-          return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
+          return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
         }
       }
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         if (!operation.acknowledged) {
           // The first half may already be restored; reported rather than papered over.
           return {
-            refusal:
+            unclear:
               person === undefined
                 ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."
                 : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,

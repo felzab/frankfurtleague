@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
@@ -223,14 +223,14 @@ describe("the undo route, driven", () => {
     }
   });
 
-  it("does not resolve an unacknowledged write as a success", async () => {
+  /* It may still have landed, so it is titled unclear and never says the change stands. */
+  it("answers an unacknowledged write as of unknown outcome, sending the admin to the fixtures", async () => {
     recorders.__flUndoAnswer = () => ({ ...RESTORED, acknowledged: 0 });
 
-    const answered = await post(aReplayOf(SPIEL_ID));
+    const { status, ...answered } = await post(aReplayOf(SPIEL_ID));
 
-    assert.equal(answered.success, false);
-    // Never the change-stands sentence: an unacknowledged write may still have landed.
-    assert.doesNotMatch(answered.error ?? "", /steht weiterhin/);
+    assert.equal(status, 200);
+    assert.deepEqual(answered, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele."));
   });
 
   it("answers a clean replay with the plain restored sentence and no warning", async () => {

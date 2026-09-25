@@ -61,9 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!operation.acknowledged) {
-        // Never the change standing here: an unacknowledged write may still have landed, so the admin
-        // is sent to look rather than told the save is intact.
-        return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
+        return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
       }
 
       // The replay's own collateral, which the loop this replaced discarded: restoring the fixture the

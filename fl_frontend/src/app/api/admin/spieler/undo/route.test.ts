@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route, called: the request it runs in and the writes it replays are the doubles. */
 const { answerWith, calls } = doubleUndoRequest("/src/features/spieler/mutations.ts");
@@ -62,5 +62,31 @@ describe("the player save's undo", () => {
       press: () => undo(POST, { person: PERSON, saison: SAISON }),
       closing: "Nur die Personendaten wurden zurückgesetzt.",
     });
+  });
+
+  /* Unacknowledged, a write may still have landed, so each arm is titled unclear and never says the
+     change stands; the second half's sentence says whether the first went back. */
+  it("answers an unacknowledged person half as of unknown outcome, replaying nothing after it", async () => {
+    calls.length = 0;
+    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+
+    assert.deepEqual(
+      await undo(POST, { person: PERSON, saison: SAISON }),
+      unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten."),
+    );
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["patchSpieler"],
+    );
+  });
+
+  it("answers an unacknowledged squad half as of unknown outcome, alone or after the person half", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.action === "patchSaisonSpieler" ? 0 : 1 }));
+
+    assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."));
+    assert.deepEqual(
+      await undo(POST, { person: PERSON, saison: SAISON }),
+      unacknowledged("Nur die Personendaten wurden zurückgesetzt. Prüfe den Kadereintrag."),
+    );
   });
 });

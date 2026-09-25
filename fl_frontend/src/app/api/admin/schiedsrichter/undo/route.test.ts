@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
@@ -181,13 +181,13 @@ describe("the referee save's undo", () => {
     assert.match(answers.get("REQ-SCHIEDSRICHTER-007") ?? "", /Sperrliste/, "the blocked address is worded as something else");
   });
 
-  /* Never the change standing: an unacknowledged write may still have landed. */
-  it("sends the admin to the referee's row where the replay went unacknowledged", async () => {
+  /* It may still have landed, so it is titled unclear and never says the change stands. */
+  it("answers an unacknowledged replay as of unknown outcome, sending the admin to the referee", async () => {
     recorders.__flUndoRefAnswer = () => ({ acknowledged: 0, updated_document: null, fanned_out_to_spiele: 0, bestaetigung: null });
 
     const answer = await bodyOf(aRequest(BODY));
 
-    assert.deepEqual(answer, { success: false, error: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." });
+    assert.deepEqual(answer, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten."));
   });
 
   it("turns a cross-site caller away without replaying anything", async () => {

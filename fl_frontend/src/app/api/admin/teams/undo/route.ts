@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!operation.acknowledged) {
-          return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
+          return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
         }
       }
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         if (!operation.acknowledged) {
           // The first half may already be restored; reported rather than papered over.
           return {
-            refusal:
+            unclear:
               club === undefined
                 ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
                 : `${CLUB_HALF_RESTORED} Prüfe die Saison-Zugehörigkeit.`,

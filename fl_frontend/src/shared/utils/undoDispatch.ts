@@ -1,10 +1,10 @@
-import { AENDERUNG_STEHT_WEITERHIN } from "./actionError";
+import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
 import type { ActionFailure } from "@/shared/types/types";
 
 /** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
-type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean; outcome?: ActionFailure["outcome"] };
+type UndoOutcome = { success: true; message: string; warn: boolean } | { success: false; error: string; outcome?: ActionFailure["outcome"] };
 
 /**
  * Where the route turned the caller away rather than judging the replay, and what the danger toast
@@ -18,13 +18,6 @@ const TURNED_AWAY = {
 } as const;
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
-
-/**
- * An undo nobody can tell landed: a dispatch unanswered, or answered by anything but the route, may
- * have restored the change, and „nicht zurückgenommen“ would send the admin to undo by hand what may
- * already be undone.
- */
-const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 /** Whether a body parsed at all opens as every outcome of the route's does. */
 const isRouteEnvelope = (body: unknown): boolean =>
@@ -143,8 +136,9 @@ export function offerUndo<TPayload>({
             }
 
             if (!result.success) {
-              if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
-              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error ?? AENDERUNG_STEHT_WEITERHIN });
+              // The route's own sentence under either title: it names what to check.
+              if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: result.error });
+              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.
@@ -164,6 +158,8 @@ export function offerUndo<TPayload>({
             appToast.close(pendingKey);
             // Unlogged, for the reason the refresh's catch gives: the toast is the whole report.
             appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
+            // Re-read as the route's unknown outcome is: the restore may have landed on its way.
+            refreshTheScreen();
           },
         );
       },

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!operation.acknowledged) {
-        return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
+        return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
       }
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints

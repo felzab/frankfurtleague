@@ -75,6 +75,9 @@ const PART_WAY: Record<string, RegExp> = {
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 
+/** The ruling's words for an undo nobody can tell landed. */
+const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+
 type Undone = { answer: { success: boolean; error?: string }; status: number; invalidated: unknown[]; bodiesRead: number };
 
 /** One undo through the spine, with a restore that answers or throws as `restore` does, and every invalidation it made. */
@@ -134,20 +137,24 @@ describe("what the undo spine clears when a replay stops part-way", () => {
   });
 });
 
-describe("what the undo spine answers when its replay throws", () => {
+describe("what the undo spine answers when nobody can tell whether its replay landed", () => {
   /* A replay is a write, and one throwing after it wrote leaves the row restored: answered as a
-     failure, the admin undoes it a second time. */
-  it("answers a throw of the replay's own code as of unknown outcome", async () => {
+     failure, the admin undoes it a second time. The shared reader's sentence speaks of a save. */
+  it("answers a throw of the replay's own code as of unknown outcome, in words about the undo", async () => {
     const { answer, status } = await undo(async () => {
       throw new RangeError("Invalid time value");
     });
 
     assert.equal(status, 200);
-    assert.deepEqual(answer, {
-      success: false,
-      error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
-      outcome: "unknown",
-    });
+    assert.deepEqual(answer, { success: false, error: RUECKNAHME_UNKLAR, outcome: "unknown" });
+  });
+
+  /* An unacknowledged write may still have landed too, and the slice's own sentence says what to check. */
+  it("answers an unacknowledged replay as of unknown outcome, in the slice's own sentence", async () => {
+    const { answer, invalidated } = await undo(async () => ({ unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Eintrag." }));
+
+    assert.deepEqual(answer, { success: false, error: "Die Rücknahme wurde abgebrochen. Prüfe den Eintrag.", outcome: "unknown" });
+    assert.deepEqual(invalidated, [PAYLOAD], "a write that may have landed leaves the caches serving what it replaced");
   });
 });
 

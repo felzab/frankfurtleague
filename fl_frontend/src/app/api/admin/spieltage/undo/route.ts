@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         return refusedReplay(error, REPLAY_REFUSALS);
       }
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
+      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
     },
     invalidate: () => {
       revalidateTag("spieltage", { expire: 0 });

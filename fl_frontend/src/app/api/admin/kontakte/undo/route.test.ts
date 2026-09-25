@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route, called: the request it runs in and the write it replays are the doubles. */
 const { answerWith, calls } = doubleUndoRequest("/src/features/kontakte/mutations.ts");
@@ -82,5 +82,12 @@ describe("the contacts save's undo", () => {
         "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, meistens durch das Löschen einer Kontaktperson. " +
         "Die Rücknahme wurde nicht ausgeführt, damit die gelöschten Angaben nicht wieder eingetragen werden.",
     });
+  });
+
+  /* It may still have landed, so it is titled unclear and never says the change stands. */
+  it("answers an unacknowledged replay as of unknown outcome, sending the admin to the contacts", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 0 }));
+
+    assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
   });
 });

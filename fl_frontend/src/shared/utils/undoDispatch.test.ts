@@ -94,6 +94,7 @@ describe("what the shared undo dispatch says when it never landed", () => {
       [["Rücknahme unklar", RUECKNAHME_UNKLAR]],
     );
     assert.deepEqual(pressed.replacedWith, [], "a dispatch that never answered leaves the page");
+    assert.equal(pressed.refreshed, 1, "a restore that may have landed on its way left the screen as it was");
   });
 
   /* The browser's one path into the log is the crash report (`docs/logging/spec.md` §1.3); a `console`
@@ -163,15 +164,15 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.equal(refused.refreshed, 1);
   });
 
-  /* A restore whose commit answer was lost may stand, and the route's sentence for it speaks of a save
-     rather than of the change being taken back. */
-  it("says nobody can tell whether a replay of unknown outcome took the change back", async () => {
-    const error = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
+  /* A restore whose write went unacknowledged may stand, so neither title fits it but the unclear one,
+     and the route's sentence under it names what to check. */
+  it("titles a replay of unknown outcome unclear, under the route's own sentence", async () => {
+    const error = "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.";
     const pressed = await pressAgainst(Response.json({ success: false, error, outcome: "unknown" }));
 
     assert.deepEqual(
       pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
-      [["Rücknahme unklar", RUECKNAHME_UNKLAR]],
+      [["Rücknahme unklar", error]],
     );
     assert.equal(pressed.refreshed, 1, "a restore that may have landed left the screen as it was");
   });

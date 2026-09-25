@@ -4,7 +4,7 @@ import { getAdminSession, getSignInDestination } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { AENDERUNG_STEHT_WEITERHIN } from "./actionError";
+import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
@@ -22,13 +22,19 @@ const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
 /**
- * What one slice's replay answers: why it did not commit, or what a commit cost.
+ * What one slice's replay answers: why it did not commit, that nobody can tell whether it did, or
+ * what a commit cost.
  *
- * Two fields rather than a string meaning failure: a replay can land and still owe the admin a sentence.
+ * Fields rather than a string meaning failure: a replay can land and still owe the admin a sentence.
  */
 export type UndoReport = {
   /** The German refusal where the restore did not fully commit; absent where it did. */
   refusal?: string;
+  /**
+   * The German where the replay's write went unacknowledged, which may still have landed: answered as
+   * of unknown outcome, so the dispatch titles it unclear rather than refused.
+   */
+  unclear?: string;
   /**
    * What a committed restore moved beyond the rows it put back. Present, it follows the standard
    * sentence and grades the toast a warning, so a replay with collateral does not read as a clean undo.
@@ -113,18 +119,26 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
       }
     }
 
-    if (report.refusal !== undefined) {
-      return { success: false as const, error: report.refusal };
-    }
-
-    // The standard sentence FIRST and the cost after it: the undo landed, and what it cost is the
-    // second fact rather than a replacement for the first.
-    return {
-      success: true as const,
-      message: report.cost === undefined ? UNDO_RESTORED : `${UNDO_RESTORED} ${report.cost}`,
-      warn: report.cost !== undefined,
-    };
+    // `success` here means only that the replay ran: its report is answered below.
+    return { success: true as const, report };
   });
 
-  return NextResponse.json(result, { status });
+  if (!result.success) {
+    // Only a throw answers an unknown outcome here, in the shared reader's sentence for an unclear
+    // save, where this write took a change back.
+    const unclear = "outcome" in result && result.outcome === "unknown";
+    return NextResponse.json(unclear ? { ...result, error: RUECKNAHME_UNKLAR } : result, { status });
+  }
+
+  const { refusal, unclear, cost } = result.report;
+  if (unclear !== undefined) return NextResponse.json({ success: false, error: unclear, outcome: "unknown" });
+  if (refusal !== undefined) return NextResponse.json({ success: false, error: refusal });
+
+  // The standard sentence FIRST and the cost after it: the undo landed, and what it cost is the
+  // second fact rather than a replacement for the first.
+  return NextResponse.json({
+    success: true,
+    message: cost === undefined ? UNDO_RESTORED : `${UNDO_RESTORED} ${cost}`,
+    warn: cost !== undefined,
+  });
 }

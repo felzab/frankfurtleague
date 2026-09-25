@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         return refusedReplay(error, REPLAY_REFUSALS);
       }
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
+      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
     },
     invalidate: () => {
       revalidateTag("saisons", { expire: 0 });
