@@ -40,7 +40,9 @@ const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = 
 // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
 // The package is replaced whole: a module importing anything else from it fails to link here.
 const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
-  ...REQUEST_PACKAGES,
+  // Never `server-only`: this module's `data:` answer is an ES module, which Next's own CommonJS
+  // `require` of it reads as a path. `renderTest.ts` resolves it to the package's empty build instead.
+  ...Object.fromEntries(Object.entries(REQUEST_PACKAGES).filter(([specifier]) => specifier !== "server-only")),
   "next/server": `export const connection = async () => void globalThis.${STEPS}.push({ kind: "connection" });`,
 };
 

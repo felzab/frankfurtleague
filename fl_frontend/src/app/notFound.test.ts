@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { openGraphFor } from "@/shared/utils/metadata.ts";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
@@ -31,13 +32,9 @@ registerHooks({
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
-/* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only the
-   harness's resolve hook answers with the empty build. */
+/* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
+   `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
-/* After that resolver, never above it: the page harness answers `server-only` with an ES module,
-   which the resolver's CommonJS `require` cannot read. */
-const { answerReadsWith, callPage, EMPTIEST_ANSWER } = await import("@/shared/testing/pageHarness.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
 
 const APP_DIR = import.meta.dirname;
 
@@ -269,16 +266,7 @@ answerReadsWith((endpoint, schema, params) => {
   if (![...endpoint.split("/"), ...Object.values(params)].some((part) => MISSED.has(String(part))))
     return EMPTIEST_ANSWER(endpoint, schema, params);
 
-  throw new APIBadStatusError({
-    message: "not found",
-    url: `http://backend/api/v0${endpoint}`,
-    statusCode: 404,
-    serverErrorCode: "DB-NOTFOUND-001",
-    endpoint: endpoint,
-    method: "GET",
-    readOnly: true,
-    traceId: "0",
-  });
+  throw backendNotFound(endpoint);
 });
 
 const raisesNotFound = async (Page: PageModule["default"]): Promise<boolean> => {
