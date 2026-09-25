@@ -1,4 +1,5 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -45,7 +46,7 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
     nachname: draft.nachname,
     email: draft.email,
     position: draft.position,
-    nummer: draft.nummer.trim() === "" ? null : draft.nummer,
+    nummer: nummerPayload(draft.nummer),
     stufe: draft.stufe,
   };
 }

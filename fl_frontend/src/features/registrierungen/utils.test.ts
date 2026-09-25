@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
+import { nummerPayload } from "@/features/spieler/utils.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
@@ -73,6 +74,14 @@ describe("the draft as the submission spells it", () => {
     assert.equal(registrierungPayload(DRAFT, "t").nummer, null);
     assert.equal(registrierungPayload({ ...DRAFT, nummer: "   " }, "t").nummer, null, "a box holding spaces is a number nobody gave");
     assert.equal(registrierungPayload({ ...DRAFT, nummer: "7" }, "t").nummer, "7");
+  });
+
+  // The squad editor's own boundary, so a number the editor would take is never refused to a pupil.
+  it("sends a number typed with space around it trimmed, as the squad editor does", () => {
+    const nummer = registrierungPayload({ ...DRAFT, nummer: " 7 " }, "t").nummer;
+
+    assert.equal(nummer, "7", "the pupil is refused over a space nobody sees");
+    assert.equal(nummer, nummerPayload(" 7 "), "the registration and the squad editor send one number two ways");
   });
 
   it("carries the link's token rather than anything the form rendered", () => {
