@@ -2,9 +2,9 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-// Under `nginx/shared/site.conf :: proxy_read_timeout` by what the same response spends outside this
-// scope: the proxy's session read before it opens, and the page's re-render after it closes, whose
-// reads keep their own bounds (`docs/frontend/spec.md :: I366`).
+// Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
+// opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
+// times each gap between reads, not the response (`docs/frontend/spec.md :: I366`).
 export const REQUEST_DEADLINE_MS = 30000;
 
 interface RequestScope {

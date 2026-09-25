@@ -167,10 +167,10 @@ of unknown outcome wherever the deadline cut a call or a mail may have gone**, w
 made of either: part of the write may stand, as it may where the backend's own deadline cuts one
 (`docs/backend/spec.md :: I321`). Both mail fan-outs count a send that broke off unanswered as neither
 delivered nor unreachable, and a send carrying an idempotency key is tried again after a broken
-connection, the provider collapsing the repeat. The deadline sits under the edge's cut by what the
-same response spends outside it — the proxy's session read before the action, and the page's
-re-render after it, whose reads keep their own bounds — so a person is answered by this application
-rather than by nginx's 504.
+connection, the provider collapsing the repeat. The deadline sits under the edge's cut by the proxy's
+session read before the action: Next streams the action's answer as soon as it returns, the page's
+re-render following in chunks under a deadline of its own, and nginx times each gap between two reads
+rather than the whole response, so a person is answered by this application rather than by nginx's 504.
 
 **The bounds nest, each under the one outside it**: the backend's database deadline
 (`fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`) under a call's own bound
