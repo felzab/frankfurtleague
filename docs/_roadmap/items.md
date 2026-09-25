@@ -823,6 +823,26 @@ and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.m
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
 
+### `kcbz-wwup` · The season-wide invitation send mails one team after another, so a slow provider can leave a season half-invited
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**The one send that mails every team does it in series**
+(`fl_frontend/src/features/einladungen/actions.ts :: postEinladungVersandAction`), under the request
+deadline (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`). A provider slow enough to
+spend that deadline cuts the rest, and the admin is told the outcome is unclear; every send is keyed,
+so pressing again is safe.
+
+**The trigger:** a season-wide send that ends unclear. **Done when** the send goes out through Resend's
+batch endpoint, one call for the season, each message keeping its own delivery record and a refused
+mailbox costing only itself (I69).
+
+**The trap:** the batch endpoint's documented mode fails the whole call when one message is invalid;
+the per-message mode that keeps I69 appears in Resend's official Node SDK but not in its documentation,
+so its response shape is checked once against the live API before anything rests on it.
+
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
 | Status  | Depends on |
