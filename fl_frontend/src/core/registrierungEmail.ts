@@ -74,8 +74,8 @@ function aktionen(url: string): readonly Aktion[] {
  * For the reader who registered for nothing: a pupil's address can be typed by whoever holds the
  * team's invite. What ignoring costs differs from the referee's — here the entry goes by itself.
  */
-const ignorierSatz = (fristTage: number): string =>
-  `Du weißt nichts von einer Registrierung bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung wird die Registrierung nach ${String(fristTage)} Tagen von selbst gelöscht. Soll sie sofort weg, schreib uns an ${KONTAKT_EMAIL}.`;
+const ignorierSatz = (fristTage: number, kontakt: string): string =>
+  `Du weißt nichts von einer Registrierung bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung wird die Registrierung nach ${String(fristTage)} Tagen von selbst gelöscht. Soll sie sofort weg, schreib uns an ${kontakt}.`;
 
 function linkBloecke(url: string, fristTage: number): readonly string[] {
   return [
@@ -84,7 +84,8 @@ function linkBloecke(url: string, fristTage: number): readonly string[] {
        sign-in message's does. Marked as a link as well: an address a reader has to select and paste
        is not a route. */
     paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
-    paragraph(escapeHtml(ignorierSatz(fristTage)), "0", ASIDE_TEXT),
+    // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
+    paragraph(ignorierSatz(fristTage, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
   ];
 }
 
@@ -149,7 +150,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
           "",
           art21Satz(KONTAKT_EMAIL),
           "",
-          ignorierSatz(data.fristTage),
+          ignorierSatz(data.fristTage, KONTAKT_EMAIL),
         ].join("\n"),
       ),
       ...textFooter(site, [ANTWORT_SATZ_TEXT]),
@@ -193,9 +194,19 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
     }),
     text: [
       stuffSignatureDelimiter(
-        [`${BRAND_NAME}: Erinnerung`, "", anrede ?? "", "", frist ?? "", "", url, "", zweiLinks ?? "", "", ignorierSatz(data.fristTage)].join(
-          "\n",
-        ),
+        [
+          `${BRAND_NAME}: Erinnerung`,
+          "",
+          anrede ?? "",
+          "",
+          frist ?? "",
+          "",
+          url,
+          "",
+          zweiLinks ?? "",
+          "",
+          ignorierSatz(data.fristTage, KONTAKT_EMAIL),
+        ].join("\n"),
       ),
       ...textFooter(site, [ANTWORT_SATZ_TEXT]),
     ].join("\n"),
