@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import {
   mapAlreadyEnteredRefusal,
@@ -29,12 +26,6 @@ const {
   reactivateTeamAction,
   replaceSaisonTeamAction,
 } = await import("./actions.ts");
-
-/** Read rather than called where what is asserted is which tags a write clears, which its answer never shows. */
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-
-/* The last declaration in the module, so its slice runs to the end of the file. */
-const REPLACE_ACTION = sliceBetween(ACTIONS, "export async function replaceSaisonTeamAction", null);
 
 /* Each operation is named once. Written twice, a route rename could be answered on one of the two
    and leave the other reading a string the document does not publish. */
@@ -72,12 +63,6 @@ const replacementMessage = (code: string, statusCode = 409): string =>
 const entryAnswer = (error: unknown) => mapEntryRefusal(error) ?? mapAlreadyEnteredRefusal(error);
 
 describe("the team actions against the codes their endpoints publish", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/sourceText.ts :: sliceBetween`). */
-  it("cuts the replacement out of the file before reading it", () => {
-    assert.ok(REPLACE_ACTION.includes("replaceSaisonTeam(validated.data)"), "the replacement action is outside its slice");
-    assert.ok(!REPLACE_ACTION.includes("patchSaisonTeam("), "the replacement action's slice reaches the junction patch");
-  });
-
   /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's
      mapper answers its own set: the two share `REQ-ENTER-005` and nothing else. */
   it("reads each junction operation's own codes", () => {
@@ -191,10 +176,22 @@ describe("the team actions against the codes their endpoints publish", () => {
 
   /* Three resources, because one write moves all three: the junction row, the fixtures' sides, and
      the outgoing club's squad rows, which the same transaction retires. */
-  it("invalidates the clubs, the fixtures and the squads — the three reads the write moves", () => {
-    assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("teams", validated.data.saison_id)'), "the league table keeps the old club");
-    assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("spiele", validated.data.saison_id)'), "the schedule keeps the old club");
-    assert.ok(REPLACE_ACTION.includes('updateTag("spieler")'), "the public squad serves the retired players for days");
+  it("invalidates the clubs, the fixtures and the squads — the three reads the write moves", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, name: "SG Beta", gruppe: "A", fanned_out_to_spiele: 0, ausgetragene_squad_rows: 0 }));
+
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: "6890a1b2c3d4e5f607182933" });
+    const tags = cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]);
+
+    assert.equal(result.success, true, "the replacement never landed, so its tags are judged on nothing");
+    for (const [tag, stale] of [
+      ["teams", "every unscoped club read keeps the old club"],
+      [`teams:saison_id:${SAISON_ID}`, "the league table keeps the old club"],
+      ["spiele", "every unscoped fixture read keeps the old club"],
+      [`spiele:saison_id:${SAISON_ID}`, "the schedule keeps the old club"],
+      ["spieler", "the public squad serves the retired players for days"],
+    ] as const) {
+      assert.ok(tags.includes(tag), stale);
+    }
   });
 });
 
