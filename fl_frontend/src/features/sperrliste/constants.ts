@@ -38,8 +38,7 @@ export const SPERRE_AUFHEBEN_CONSEQUENCE =
 
 /**
  * What a CLEAN save answers. `EntityForm` shows it beside the form's title only where the two
- * DIFFER, which is how a failed send is told apart. The form spells the same words as a literal,
- * which `core/toastTitles.test.ts` needs.
+ * DIFFER, which is how a failed send is told apart.
  */
 export const SPERRE_ERFOLG = "Adresse gesperrt";
 

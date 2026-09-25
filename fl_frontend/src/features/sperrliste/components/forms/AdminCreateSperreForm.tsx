@@ -99,8 +99,6 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
       toPayload={toPayload}
       onSubmit={(payload) => postSperreAction(payload)}
       marksRequired
-      // The LITERAL, as every sibling form passes one: `core/toastTitles.test.ts` resolves this
-      // prop at the call site, and a constant here takes every EntityForm-fed title out of its sweep.
       successMessage="Adresse gesperrt"
       onClose={onClose}
     />

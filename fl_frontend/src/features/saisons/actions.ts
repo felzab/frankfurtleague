@@ -104,8 +104,8 @@ export async function postSaisonAction(
     return {
       success: true,
       created_id: postOperation.created_id,
-      // The id is the body's rather than the title's: `fl_frontend/src/core/toastTitles.test.ts`
-      // holds every title to a closed set, which one carrying a season could never join.
+      // The id is the body's rather than the title's: a title names the outcome, and the
+      // description tells one raising from another (`docs/frontend/spec.md :: I42`).
       message: `Saison ${validated.data.id} wird erst mit der Umstellung zur laufenden Saison.`,
     };
   });

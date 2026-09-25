@@ -187,8 +187,8 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // or the row an enrolment of unknown outcome stored.
       const full = (held.whenFull !== null || held.outcome === "unknown") && (await lade());
       setIstBeschaeftigt(false);
-      // One raising per outcome, and the literals at the call: `core/toastTitles.test.ts` reads a
-      // title from the call site, and a second site sharing one is told apart by its description.
+      // One raising per outcome: a second site sharing a title is told apart by its description
+      // (`docs/frontend/spec.md :: I42`).
       appToast.failure("Passkey nicht hinzugefügt", {
         error: full && held.whenFull !== null ? held.whenFull : held.description,
         outcome: held.outcome,

@@ -107,7 +107,6 @@ export function PasskeyForm({ step, address, next }: { step: Step; address: stri
     const held = await ceremonyHeld(step);
     if (held !== null) {
       setIsPending(false);
-      // Literals at the call, where `core/toastTitles.test.ts` reads a title from.
       appToast.danger(step === "enrol" ? "Passkey nicht eingerichtet" : "Nicht angemeldet", { description: held.description });
       // Re-read in place, as after an enrolment that worked, so the toast survives it.
       if (held.stale) router.refresh();
@@ -118,7 +117,6 @@ export function PasskeyForm({ step, address, next }: { step: Step; address: stri
       // The enrolment leaves the reader in front of the SECOND card, asking for another ceremony:
       // silent, that reads as the press having failed.
 
-      // Literals at the call, where `core/toastTitles.test.ts` reads a title from.
       appToast.success("Passkey eingerichtet", { description: "Melde Dich jetzt damit an." });
 
       // This same page offers the assertion next, so it is re-read in place: the session is

@@ -598,8 +598,8 @@ describe("seating another person where one stepped out", () => {
     }
 
     assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
-    // Its own title rather than the correction's „Link nicht gesendet“, which `core/toastTitles.test.ts`
-    // registers to one site: the two outcomes differ in what stands afterwards.
+    // Its own title rather than the correction's „Link nicht gesendet“: the two outcomes differ in
+    // what stands afterwards.
     assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht gesendet"]);
     assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });
