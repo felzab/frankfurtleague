@@ -22,6 +22,7 @@ import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { TextField } from "@/shared/components/ui/TextField";
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 import { HintPanel } from "@/shared/components/ui/InfoHint.tsx"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
@@ -152,6 +153,9 @@ export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load
 export const TEXT_FIELD_USED = HeroTextField;
 export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete];
 export const NATIVE_FORM = <form method="post" />; // expect: native-form
+export const LOOSE_HINT = <Hint mode="field" text="Beschreibt nichts." />; // expect: field-hint
+// Inside the field it explains, a field hint is that field's description, and the ban leaves it.
+export const FIELD_HINT = <TextField name="email"><Hint mode="field" text="Beschreibt das Feld." /></TextField>;
 export const BARE_MARK = <Select isRequired name="gruppe" />; // expect: hand-set-required
 export const LITERAL_MARK = <AppDatePicker isRequired={true} name="datum" />; // expect: hand-set-required
 export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // expect: hand-set-required

@@ -53,6 +53,7 @@ const BANS = [
   ["number-field", /Render a number field through/],
   ["number-field-load", /Load HeroUI's number field through/],
   ["native-form", /never a native <form>/],
+  ["field-hint", /A hint in mode="field" is a field/],
   ["marked-field", /Render a text field, select, switch or autocomplete through/],
   ["marked-field-load", /Load a text field, select, switch or autocomplete through/],
   ["hand-set-required", /never set by hand/],
