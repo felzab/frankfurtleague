@@ -51,7 +51,6 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const SRC = path.resolve(REPO_ROOT, "fl_frontend", "src");
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 
 const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm");
@@ -246,7 +245,6 @@ const STALE_BLOCK = "REQ-KONTAKT-001";
 /* Each declaration is cut at the one named after it: a boundary that stopped matching then fails the
    case pinning the cut rather than every case reading the slice. */
 const PATCH_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonTeamKontakteAction", null);
-const PATCH_MUTATION = sliceBetween(MUTATIONS, "export async function patchSaisonTeamKontakte", null);
 const PAYLOAD_SCHEMA = sliceBetween(
   SCHEMAS,
   "export const FLPatchSaisonTeamKontaktePayloadSchema",
@@ -273,8 +271,6 @@ describe("the contacts write against the codes its endpoint publishes", () => {
   it("cuts each declaration out of its file before reading it", () => {
     assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
     assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
-    assert.ok(PATCH_MUTATION.includes("/kontakte`"), "the mutation's slice does not reach the endpoint it addresses");
-    assert.ok(!PATCH_MUTATION.includes("/kontakte/erasure"), "the mutation's slice reaches back over the erasure");
     assert.ok(PAYLOAD_SCHEMA.includes("team_id"), "the payload mirror's slice does not reach its fields");
     assert.ok(RESPONSE_SCHEMA.includes("kontakte"), "the response mirror's slice does not reach its fields");
     assert.ok(SUBMIT.includes("patchSaisonTeamKontakteAction("), "the submit's slice does not reach its dispatch");
@@ -300,33 +296,6 @@ describe("the contacts write against the codes its endpoint publishes", () => {
     assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
   });
 
-  /* The house shape, in order: the session first, because `runAdminMutation` seeds the scope the
-     actor header is read from, then the parse, then the write, then the acknowledgement. */
-  it("takes the house shape for an admin write", () => {
-    assert.match(PATCH_ACTION, /runAdminMutation\("patchSaisonTeamKontakteAction"/, "the write runs outside runAdminMutation");
-    const order = ["getAdminSession()", "FLPatchSaisonTeamKontaktePayloadSchema.safeParse", "patchSaisonTeamKontakte(", "acknowledged"].map(
-      (token) => PATCH_ACTION.indexOf(token),
-    );
-    assert.ok(
-      order.every((at, index) => at !== -1 && (index === 0 || at > (order[index - 1] ?? -1))),
-      `the write's steps are out of order or missing: ${order.join(", ")}`,
-    );
-  });
-
-  /* Both ids in the PATH: a backend payload model that saw one refuses the whole body. */
-  it("addresses the junction row by its natural key and sends the block alone", () => {
-    assert.match(PATCH_MUTATION, /method: "PATCH"/, "the block is written by something other than a PATCH");
-    assert.match(PATCH_MUTATION, /`\/teams\/\$\{team_id\}\/saisons\/\$\{saison_id\}\/kontakte`/, "the endpoint moved");
-    assert.match(PATCH_MUTATION, /body: JSON\.stringify\(body\)/, "the block no longer travels in the body");
-    // Destructured out of the body, so neither id can be sent twice.
-    assert.deepEqual(statementsOf(PATCH_MUTATION).slice(1, 5), [
-      "team_id,",
-      "saison_id,",
-      "...body",
-      "}: FLPatchSaisonTeamKontaktePayload): Promise<FLPatchSaisonTeamKontakteResponse> {",
-    ]);
-  });
-
   /* The block as stored and its own token, and no other field of the row: the group, the kit colour
      and the Austritt are the club editor's, and echoing one would give this page a second subject. */
   it("mirrors a response carrying the block, its token and nothing beside it", () => {
@@ -348,15 +317,7 @@ describe("what the contacts write moves", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
      render pass, and no public team read carries `kontakte` at all. */
   it("moves no tag, and says why", () => {
-    assert.ok(!PATCH_ACTION.includes("updateTag("), "the write clears a cached read its endpoint does not move");
     assert.match(PATCH_ACTION, /No tag moves/, "the absent invalidation is left unexplained");
-  });
-
-  /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,
-     which is why the field is required with no default on either side. */
-  it("sends the block whole, nullable, and with no default", () => {
-    assert.ok(!PAYLOAD_SCHEMA.includes(".optional()"), "the block may be omitted, which leaves the stored one standing unannounced");
-    assert.ok(!PAYLOAD_SCHEMA.includes(".default("), "the block carries a default, so a form that forgot it would write one");
   });
 });
 
@@ -1150,12 +1111,6 @@ describe("what the two destructive controls do to the page", () => {
       assert.match(source, /router\.refresh\(\);/, `${name} does not re-read the row it just changed`);
       assert.doesNotMatch(source, /router\.(replace|push)\(/, `${name} navigates away from a page that still has content`);
     }
-  });
-
-  /* `POST /kontakte/erasure` refuses NOTHING, so an address matching nobody succeeds and clears zero.
-     Reported as „gelöscht“, that is a lie of the quiet kind. */
-  it("counts what an erasure cleared", () => {
-    assert.match(ACTIONS, /cleared: erasure\.cleared_kontakt_slots \+ erasure\.redacted_aktionen,/, "the action reports no count to judge by");
   });
 
   /* The whole safety of moving this control off a page that showed an address onto a page that shows

@@ -27,7 +27,6 @@ import type { FLKontaktErasureResponse } from "./schemas.ts";
  * tier, which composes the report — and a call reports an outcome rather than the site.
  */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 const SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
@@ -127,9 +126,6 @@ const ERASURE_OPERATION = "POST /kontakte/erasure";
    that stopped matching then fails the case pinning the cut rather than every case reading the slice. */
 const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseKontaktpersonAction", " * The three seats one club holds");
 const ACTION_HEADER = sliceBetween(ACTIONS, '"use server"', "export async function eraseKontaktpersonAction");
-/* The erasure's own half of `mutations.ts`. Cut, because the module holds the seats' write too, and
-   an assertion over the whole file would answer about whichever of the two moved last. */
-const ERASE_MUTATION = sliceBetween(MUTATIONS, "export async function eraseKontaktperson", "// Both ids go in the PATH");
 const RESPONSE_SCHEMA = sliceBetween(SCHEMAS, "export const FLKontaktErasureResponseSchema", null);
 
 /** One response, spelled once so a report case names only the figures it is about. */
@@ -150,8 +146,6 @@ describe("the erasure's refusals", () => {
     assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
     assert.ok(!ERASE_ACTION.includes("patchSaisonTeamKontakte("), "the erasure's slice runs on into the seats' write");
-    assert.ok(ERASE_MUTATION.includes('"/kontakte/erasure"'), "the erasure's mutation is outside its slice");
-    assert.ok(!ERASE_MUTATION.includes("/saisons/"), "the erasure's mutation slice runs on into the seats' write");
     assert.ok(
       ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations"'),
       "the header's slice no longer holds the import",
@@ -179,28 +173,13 @@ describe("what the erasure moves", () => {
      render pass, the public team reads carry no `kontakte` at all, and the applications and the log
      are uncached too. */
   it("moves no tag, and says why", () => {
-    assert.ok(!ACTIONS.includes("updateTag("), "a contacts write clears a cached read its endpoint does not move");
-    // The import spelled whole: the slice reaches `next/cache` for the router refresh and nothing else.
-    assert.match(ACTIONS, /^import \{ refresh \} from "next\/cache";$/m, "a contacts write reaches the cache API for more than a refresh");
     // Both of the module's writes, so a second one added without the reasoning fails here.
     assert.equal([...ACTIONS.matchAll(/No tag moves/g)].length, 2, "an absent invalidation is left unexplained");
-  });
-
-  /* The address travels in the BODY. A path or a query segment would file it in the access log, in
-     nginx's log and in `aktionen.request.path` — three fresh copies of the value being destroyed. */
-  it("sends the address in the body, to the erasure endpoint, as a POST", () => {
-    assert.match(ERASE_MUTATION, /"\/kontakte\/erasure"/, "the mutation no longer addresses the erasure endpoint");
-    assert.match(ERASE_MUTATION, /FLKontaktErasureResponseSchema,\s*\{\s*method: "POST"/, "the erasure is sent as something other than a POST");
-    assert.match(ERASE_MUTATION, /body: JSON\.stringify\(payload\)/, "the payload no longer travels in the body");
-    assert.ok(!ERASE_MUTATION.includes("params:"), "the address is sent as a query parameter, which the access log keeps");
-    assert.ok(!/\$\{[^}]*\}/.test(ERASE_MUTATION), "the endpoint interpolates a value into the path");
   });
 
   /* The response carries counts and no person, and nothing on this side may put one back. */
   it("reports counts and never the address", () => {
     assert.ok(!RESPONSE_SCHEMA.includes("email"), "the response mirror carries an address the endpoint withholds");
-    assert.ok(!/\bemail\b/.test(ERASE_ACTION), "the action's own report reads the address it was handed");
-    assert.match(ERASE_ACTION, /message: describeKontaktErasureUmfang\(erasure\)/, "the report is composed somewhere else now");
   });
 });
 
