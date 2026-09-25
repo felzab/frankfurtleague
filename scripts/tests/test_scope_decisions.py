@@ -13,6 +13,7 @@ import json
 import posixpath
 import re
 import subprocess
+import sys
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -976,3 +977,34 @@ def test_every_file_the_db_tier_arm_names_is_one_the_tier_loads_directly() -> No
     assert armed, "no path in scripts/gate/scope_map.sh was read as the db-tier arm's: that reader went inert"
     stale = sorted(armed - set(_db_tier_loads()))
     assert not stale, "drop each from scripts/gate/scope_map.sh's db-tier arm, or restore the load:\n" + "\n".join(stale)
+
+
+# Run by both package scopes too (`scripts/gate/verify.sh :: crossing_cases`): a pull request
+# changing a read across the boundary selects one of them and not this suite's, and the frontend
+# job holds no pytest.
+CROSSING_CASES: Final = (
+    test_every_file_the_other_package_reads_is_carried_across_by_an_arm,
+    test_every_arm_reaching_across_the_boundary_names_a_file_the_other_package_reads,
+    test_a_reach_that_names_no_single_file_is_one_this_check_declares,
+    test_every_module_a_mirror_register_names_selects_the_backend_scope,
+    test_every_path_in_the_mirror_arm_is_one_a_register_names,
+)
+
+
+def _crossing_run() -> int:
+    """Every crossing case, each failure printed with its own message, and the checkers' exit code."""
+    failed = 0
+    for case in CROSSING_CASES:
+        try:
+            case()
+        except AssertionError as refused:
+            print(f"{case.__name__}:\n{refused}\n")
+            failed = 1
+    return failed
+
+
+if __name__ == "__main__":
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "lib"))
+    import checker_kernel
+
+    raise SystemExit(checker_kernel.run(_crossing_run))
