@@ -162,5 +162,6 @@ export const FIELD_HINT = <TextField name="email"><Hint mode="field" text="Besch
 export const BARE_MARK = <Select isRequired name="gruppe" />; // expect: hand-set-required
 export const LITERAL_MARK = <AppDatePicker isRequired={true} name="datum" />; // expect: hand-set-required
 export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // expect: hand-set-required
-// A mark worked out from something is the wrappers' own spelling, and the ban leaves it.
-export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />;
+// A mark worked out at a call site is set by hand as much as a literal is.
+export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />; // expect: hand-set-required
+export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // expect: hand-set-required

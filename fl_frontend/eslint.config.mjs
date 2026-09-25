@@ -238,6 +238,18 @@ const HEROUI_MARKED_FIELDS = {
     "Render a text field, select, switch, autocomplete or combo box through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
 };
 
+/** The files `HEROUI_MARKED_FIELDS` homes, one wrapper per field type. */
+const MARKED_FIELD_HOMES = ["TextField", "Select", "Switch", "Autocomplete", "ComboBox"].map(
+  (wrapper) => `src/shared/components/ui/${wrapper}.tsx`,
+);
+
+/** Every wrapper handing HeroUI the required mark it reads off the form's schema, the number and date fields among them. */
+const MARKED_FIELD_WRAPPERS = [
+  ...MARKED_FIELD_HOMES,
+  "src/shared/components/ui/NumberField.tsx",
+  "src/shared/components/ui/DateTimeFields.tsx",
+];
+
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
 const HEROUI_FORM = {
   group: ["@heroui/react"],
@@ -740,13 +752,15 @@ const SOURCE_BANS = [
       'A hint in mode="field" is a field\'s description, which only the field it sits inside wires to its input: outside one it describes nothing (docs/frontend/spec.md :: I371).',
   },
   {
-    // A mark the wrapper derives is an expression, so a literal is what a hand-set one looks like.
-    selector: 'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.expression.value=true], [value.expression.value=false])',
+    // Any value, computed ones included: a mark worked out at a call site is as hand-set as a literal.
+    selector: 'JSXAttribute[name.name="isRequired"]',
     message:
       "A required mark is read off the form's schema, never set by hand: an exempt site states the rule outside the field's own schema that decides it (docs/frontend/spec.md :: I368).",
-    // Each names, at the mark, the rule its own leaf cannot state: a refinement or a switch owing the
-    // mark, or a pick whose emptying drops its whole section.
     exempt: [
+      // The wrappers, which hand HeroUI the mark they derive.
+      ...MARKED_FIELD_WRAPPERS,
+      // Each names, at the mark, the rule its own leaf cannot state: a refinement or a switch owing the
+      // mark, or a pick whose emptying drops its whole section.
       "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
       "src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
       "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx",
@@ -966,11 +980,7 @@ const eslintConfig = defineConfig([
     [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [
-      ["TextField", "Select", "Switch", "Autocomplete", "ComboBox"].map((wrapper) => `src/shared/components/ui/${wrapper}.tsx`),
-      HEROUI_MARKED_FIELDS,
-      [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared],
-    ],
+    [MARKED_FIELD_HOMES, HEROUI_MARKED_FIELDS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
     [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
