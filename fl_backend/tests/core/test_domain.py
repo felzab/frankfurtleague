@@ -66,37 +66,30 @@ PROTOCOL_CODES = frozenset(
 _CODE_PATTERN = "REQ-"
 
 # The declaration's own module, which never answers for a reason's own text: it is dropped from
-# every listing built out of the source trees, and a citation naming it resolves against nothing
-# (`docs/_standard/standard.md :: PRE-4`).
+# every listing built out of the source trees (`docs/_standard/standard.md :: PRE-4`).
 DECLARATION = APP_ROOT / "core" / "domain.py"
 DECLARATION_MODULE = "app.core.domain"
-
-# A `READ-*` rule refuses nothing, so no endpoint carries its code and `_codes_in` cannot reach one.
-# Its home is the read-rules table in `docs/backend/spec.md`, whose every row opens on the code.
-READ_RULES_SHEET = REPO_ROOT / "docs" / "backend" / "spec.md"
-_READ_RULE_ROW = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ")
 
 # What a `reason=` cites, by shape. Each kind carries its own idea of resolving, so a token is
 # classified before it is looked up, and one matching no shape at all fails rather than passing.
 _REASON_TOKEN = re.compile(r"`([^`]+)`")
-_RULE_CODE = re.compile(r"^(?:REQ|READ)-[A-Z]+-\d+$")
-_CODE_FAMILY = re.compile(r"^((?:REQ|READ)-[A-Z]+-)\*$")
-_CITATION = re.compile(r"^(\S+\.\w+) :: (.+)$")
+# The shapes the documentation gate resolves, each an address the corpus answers for; passed over
+# here, and read there (`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`).
+_GATE_SHAPES = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"^(?:REQ|READ)-[A-Z]+-\d+$",
+        r"^(?:REQ|READ)-[A-Z]+-\*$",
+        r"^\S+\.\w+ :: .+$",
+        r"^[\w.\-]+(?:/[\w.\-]*)+$",
+        r"^[IL]\d{1,3}[a-z]?$",
+    )
+)
 _ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
 _SURFACE = re.compile(r"^/\S*$")
-_REPO_PATH = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
 _INDEX_KEY = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
-# Ahead of the name shape, which every letter-and-digit token satisfies: an `I<n>` resolves against
-# the invariant tables, one namespace across the surface sheets with the logging band beside it
-# (OUT-4).
-_INVARIANT = re.compile(r"^[IL]\d{1,3}[a-z]?$")
 _NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
 _WORD = re.compile(r"[A-Za-z_]\w*")
-
-_SPEC_SHEETS = "docs/*/spec.md"
-_INVARIANTS_HEADING = re.compile(r"^## 2\. Invariants *$", re.MULTILINE)
-_SECTION_HEADING = re.compile(r"^## ", re.MULTILINE)
-_INVARIANT_ROW = re.compile(r"^\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 
 # The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
 # field beside the value it holds, and a type expression.
@@ -123,12 +116,6 @@ def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
     return found
 
 
-def _resolved_path(cited: str) -> Path | None:
-    """Package-relative first: a reason spells a backend path as the package does, `app/core/crud.py` rather than repository-relative."""
-
-    return next((candidate for candidate in (BACKEND_ROOT / cited, REPO_ROOT / cited) if candidate.exists()), None)
-
-
 def _page_serves(url: str, app_dir: Path = FRONTEND_APP) -> bool:
     """Whether a `page.tsx` serves `url`, through any route group.
 
@@ -145,20 +132,6 @@ def _page_serves(url: str, app_dir: Path = FRONTEND_APP) -> bool:
     segments = [segment for segment in url.split("/") if segment]
 
     return not any(_ROUTE_GROUP.match(segment) for segment in segments) and serves(app_dir, segments)
-
-
-@functools.cache
-def _resolvable_codes() -> frozenset[str]:
-    """Two listings reached by different routes.
-
-    A `REQ-*` code reaches `app/` through the endpoint that raises it; a `READ-*` rule refuses
-    nothing, so the spec sheet's table is its only home.
-    """
-
-    rows = READ_RULES_SHEET.read_text(encoding="utf-8").splitlines()
-    read_rules = {match.group(1) for line in rows if (match := _READ_RULE_ROW.match(line))}
-
-    return frozenset(_codes_in(APP_ROOT, skip=DECLARATION) | read_rules)
 
 
 @functools.cache
@@ -201,44 +174,12 @@ def _names_the_source_trees_spell() -> frozenset[str]:
     return frozenset(words)
 
 
-@functools.cache
-def _invariants_the_spec_sheets_define() -> frozenset[str]:
-    """Every number a sheet's own `## 2. Invariants` table declares.
-
-    Read here rather than through the documentation gate: `scripts/` is another package, and this
-    suite runs with the backend virtualenv alone on its path.
-    """
-
-    numbers: set[str] = set()
-    for sheet in sorted(REPO_ROOT.glob(_SPEC_SHEETS)):
-        text = sheet.read_text(encoding="utf-8")
-        opened = _INVARIANTS_HEADING.search(text)
-        if opened is None:
-            continue
-        closing = _SECTION_HEADING.search(text, opened.end())
-        numbers.update(_INVARIANT_ROW.findall(text[opened.end() : closing.start() if closing else len(text)]))
-    return frozenset(numbers)
-
-
 def _classify(token: str) -> tuple[str, bool | None]:
     """The kind, and whether it resolves -- `None` where the kind has no address, parting a spared value from one nothing answers for."""
 
-    if _RULE_CODE.match(token):
-        return "rule code", token in _resolvable_codes()
-
-    if family := _CODE_FAMILY.match(token):
-        return "code family", any(code.startswith(family.group(1)) for code in _resolvable_codes())
-
-    if citation := _CITATION.match(token):
-        file = _resolved_path(citation.group(1))
-        anchor = re.escape(citation.group(2))
-        cited = (
-            file is not None
-            and file != DECLARATION
-            and file.is_file()
-            and re.search(rf"(?<!\w){anchor}(?!\w)", file.read_text(encoding="utf-8")) is not None
-        )
-        return "citation", cited
+    # Ahead of every shape below: an `I<n>` is also a name either tree spells.
+    if any(shape.match(token) for shape in _GATE_SHAPES):
+        return "the documentation gate's", None
 
     if endpoint := _ENDPOINT.match(token):
         route, method = endpoint.group(2), endpoint.group(1).lower()
@@ -249,14 +190,8 @@ def _classify(token: str) -> tuple[str, bool | None]:
     if _SURFACE.match(token):
         return "surface", _page_serves(token)
 
-    if _REPO_PATH.match(token):
-        return "path", _resolved_path(token) is not None
-
     if key := _INDEX_KEY.match(token):
         return "index key", tuple(key.group(1).split(", ")) in _declared_index_keys()
-
-    if _INVARIANT.match(token):
-        return "invariant", token in _invariants_the_spec_sheets_define()
 
     if _NAME.match(token):
         return "name", all(segment in _names_the_source_trees_spell() for segment in token.split("."))
@@ -623,14 +558,6 @@ def test_every_anchor_a_reason_names_resolves(entry):
             unresolved.append(f"`{token}` ({kind})")
 
     assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
-
-
-def test_an_invariant_number_resolves_against_the_spec_sheets_rather_than_the_source_trees():
-    """A letter and a digit is a word either tree spells, so read as a bare name a renamed row resolves."""
-
-    assert _classify("I1") == ("invariant", True)
-    assert _classify("L1") == ("invariant", True)
-    assert _classify("I999") == ("invariant", False)
 
 
 def test_an_endpoint_resolves_against_the_whole_published_path():

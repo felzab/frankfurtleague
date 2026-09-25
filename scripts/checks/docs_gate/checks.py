@@ -111,6 +111,7 @@ from .kernel import (
     word_count,
 )
 from .platform import check_platform_branches, check_text_writes
+from .reasons import check_unenforced_reasons
 from .scheme import check_scheme_tokens
 
 # --- what a page's kind decides ------------------------------------------------------------------
@@ -2194,6 +2195,7 @@ def main() -> int:
     findings.extend(check_copy_rules())
     findings.extend(check_platform_branches())
     findings.extend(check_error_codes())
+    findings.extend(check_unenforced_reasons(existing_invariants, _check_citation))
     findings.extend(check_text_writes())
     findings.extend(check_scheme_tokens())
 

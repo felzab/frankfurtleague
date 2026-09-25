@@ -20,12 +20,15 @@ from typing import Final
 from conftest import write
 from test_check_docs import (
     ABSENT_ANCHOR,
+    BACKEND_RAISE,
+    BACKEND_SPEC,
     BACKEND_TEST,
     CASE_MODULE,
     CITED_CASE,
     CITED_HEADING,
     CITED_PYTHON_CASE,
     DEAD_ROOT_FOLDER_PATH,
+    DOMAIN_REGISTER,
     ESCAPED_CASE,
     ESCAPED_SOURCE,
     FENCED_ANCHOR,
@@ -57,6 +60,7 @@ from test_check_docs import (
     TWIN_NOTES,
     UNCITED_CASE,
     UNCITED_PYTHON_CASE,
+    UNENFORCED_SUBJECT,
     UNSTAGED_MODULE,
     UNTRACKED_TWIN,
     _append,
@@ -274,6 +278,67 @@ def test_a_citation_of_a_case_name_the_source_escapes_is_refused_before_any_coun
     assert code == 1, output
     assert "no longer appears" in output, output
     assert "test cases in" not in output, output
+    _assert_corpus_restored()
+
+
+# Each dead address a reason can argue from, one per shape the gate reads, beside a live read rule.
+DEAD_REASON: Final = (
+    "`REQ-GONE-001`, `REQ-GONE-*`, `READ-SAMPLE-002`, `app/gone.py`, `app/sample.py :: GONE`, "
+    "`app/core/domain.py :: RULES` and `I999`, where `READ-SAMPLE-001` stands."
+)
+READ_RULE_TABLE: Final = "It answers with one document.\n\n| Rule | Withholds |\n| --- | --- |\n| `READ-SAMPLE-001` | A name |"
+
+
+def _declare_unenforced(*entries: str) -> None:
+    """Entries after the fixture's own, each a `reason=` expression as the source spells it."""
+    rows = "".join(
+        f'    Unenforced(\n        subject="a planted state {n}",\n        reason={reason},\n    ),\n' for n, reason in enumerate(entries)
+    )
+    _replace(DOMAIN_REGISTER, "    ),\n)\n", "    ),\n" + rows + ")\n")
+
+
+def test_every_address_a_reason_argues_from_is_resolved_and_a_dead_one_named_by_its_check() -> None:
+    """One finding per dead address and one for a reason no literal spells; the live read rule and the fixture's own entry raise none."""
+    _reset()
+    _replace(BACKEND_SPEC, "It answers with one document.", READ_RULE_TABLE)
+    _declare_unenforced('"' + DEAD_REASON + '"', "REASON_HELD_ELSEWHERE")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    about = {check: reported[("fail", check, DOMAIN_REGISTER)] for check in ("citation", "path", "invariant-id")}
+    assert about == {"citation": 6, "path": 1, "invariant-id": 1}, _shape(reported)
+    assert "READ-SAMPLE-001" not in output, output
+    assert UNENFORCED_SUBJECT not in output, output
+    _assert_corpus_restored()
+
+
+def test_a_register_declaring_no_unenforced_state_is_named_rather_than_read_as_clean() -> None:
+    """A reader that found no tuple would otherwise pass every reason it never read."""
+    _reset()
+    _replace(DOMAIN_REGISTER, "UNENFORCED: tuple[Unenforced, ...] = (", "STATES = (")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "yielded no `UNENFORCED` reason" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_reason_names() -> None:
+    """The one module raising a code goes quiet, so the listing reason codes resolve against is empty."""
+    _reset()
+    _drop(SAMPLE, BACKEND_RAISE)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "so codes were read against nothing" in output, output
     _assert_corpus_restored()
 
 

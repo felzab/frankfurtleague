@@ -272,6 +272,11 @@ FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
 # tree and owed no row, which is what the clean corpus proves by carrying none for it.
 DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
 RULE_CODE: Final = "REQ-SAMPLE-002"
+UNENFORCED_SUBJECT: Final = "a sample state the register permits"
+LIVE_REASON: Final = (
+    "Near `REQ-SAMPLE-001` and `REQ-SAMPLE-*`, in `app/sample.py`, as `app/sample.py :: VALUE` and `I1` hold; "
+    "`GET /sample` is the backend's to read."
+)
 # The code the sample component's second literal spells, so the frontend owes two rows.
 SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
@@ -869,6 +874,15 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "RULES: tuple[Rule, ...] = (",
             '    Rule(code="' + RULE_CODE + '"),',
+            ")",
+            "",
+            # One live address of every shape the gate reads, and one the backend reads, which
+            # the gate must pass over rather than fail.
+            "UNENFORCED: tuple[Unenforced, ...] = (",
+            "    Unenforced(",
+            '        subject="' + UNENFORCED_SUBJECT + '",',
+            '        reason="' + LIVE_REASON + '",',
+            "    ),",
             ")",
         ),
         SCHEME: _scheme_page(),
