@@ -395,6 +395,11 @@ describe("one pass of the sweep", () => {
 
     const reminder = events.find((event) => event.kind === "mail");
     assert.equal(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    // The CONFIGURED origin and never the published one (`docs/frontend/spec.md :: I186`).
+    assert.ok(
+      reminder?.text.includes("http://localhost:3000/bestaetigung/kontakt?token=token-paar"),
+      "the reminder's link is minted on an origin this run was not configured with",
+    );
     assert.ok(reminder?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 
