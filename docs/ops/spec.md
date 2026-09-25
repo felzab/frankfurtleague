@@ -730,9 +730,10 @@ of the machine rather than of the tier, and neither half of it belongs in
 
 **CI runs every scope on every event**, one parallel job per scope (`.claude/CLAUDE.md` §7, **ci**).
 The `format` job and the `frontend-units` shards run beside the `frontend` job, which runs
-neither. **The aggregate `verify` job fails on a skipped job**, `commits` excepted on a push to main,
-which has no branch for it to read, so a condition added to a scope job cannot turn a run green over
-a scope that never ran.
+neither. **The aggregate `verify` job fails on a skipped job**, and **no scope job or its run step
+carries an `if:` or a `continue-on-error`**, either of which leaves the job `success` over a scope
+that never ran or failed
+(`scripts/tests/test_check_publish_verdict.py :: test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it`).
 
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
@@ -835,8 +836,8 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds one reference figure
-and one floor per job. Main pushes are the population every row of that table is cut from, so the
-report reads the same one. `scripts/checks/check_gate_budget.py` under `--window`
+and one floor per job. The report reads main pushes, the population every row with a reference
+is cut from; a row cut from pull-request runs carries `-` there and is held by its budget alone. `scripts/checks/check_gate_budget.py` under `--window`
 writes it, and how a median is taken is at `:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a

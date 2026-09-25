@@ -447,6 +447,39 @@ def test_every_event_fails_on_any_skipped_scope_job():
     assert sorted(named) == sorted(job.strip() for job in needs[1].split(",")), named
 
 
+# The aggregate job's own condition: it runs whatever its needs concluded, so a failed scope still
+# reaches the verdict steps. Every other job is one it needs, which
+# `scripts/tests/test_check_gate_budget.py :: test_the_aggregate_waits_on_every_other_job` holds.
+AGGREGATE_CONDITION: Final = "    if: always()"
+# What turns a scope's job green without its scope having run, at either level: a skipped step or
+# job, or a failure absorbed.
+UNCONDITIONED_KEYS: Final = ("if:", "continue-on-error:")
+
+
+def _steps(body: str) -> list[str]:
+    """A job's steps, each its own block of lines, read at the indent the workflow writes them."""
+    return body.split("\n      - ")[1:]
+
+
+def test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it():
+    """A skipped run step or an absorbed failure leaves the job `success`, which the aggregate's skip step never sees."""
+    bodies = job_bodies((WORKFLOWS / "verify.yml").read_text(encoding="utf-8"))
+    needs = NEEDS_RE.search(bodies[publish.AGGREGATE_JOB])
+    assert needs is not None, "the aggregate job's `needs:` list was not read: this reader went inert"
+    wrong: list[str] = []
+    for job in (name.strip() for name in needs[1].split(",")):
+        body = bodies[job]
+        header = body.split("\n    steps:\n", 1)[0]
+        wrong += [f"{job}: the job carries `{key}`" for key in UNCONDITIONED_KEYS if f"\n    {key}" in header]
+        runs = [step for step in _steps(body) if f"        run: ./scripts/gate/verify.sh --{job}\n" in step + "\n"]
+        if len(runs) != 1:
+            wrong.append(f"{job}: {len(runs)} steps run `./scripts/gate/verify.sh --{job}`, where one must")
+            continue
+        wrong += [f"{job}: its run step carries `{key}`" for key in UNCONDITIONED_KEYS if f"\n        {key}" in "\n" + runs[0]]
+    assert not wrong, "\n".join(wrong)
+    assert AGGREGATE_CONDITION in bodies[publish.AGGREGATE_JOB].split("\n    steps:\n", 1)[0]
+
+
 # The request main's tip is read from: a branch ref, which neither the commit being judged nor a tag
 # named `main` can stand in for.
 TIP_READ: Final = 'tip="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"'
