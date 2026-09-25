@@ -27,7 +27,8 @@ CRLF_CHECK: Final = "crlf-write"
 # fixtures a shell reads.
 PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/")
 TEST_SCOPES: Final[tuple[str, ...]] = ("scripts/tests/", "fl_backend/tests/")
-# `.githooks/` by folder: a hook carries no suffix.
+# `.githooks/` by the missing suffix: a hook carries none, git naming it by its event, and a module
+# a hook runs there carries its language's own.
 SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/")
 GIT_HOOKS_DIR: Final = ".githooks/"
 
@@ -122,7 +123,11 @@ def _test_files() -> tuple[Path, ...]:
 
 @cache
 def _shell_files() -> tuple[Path, ...]:
-    return tuple(p for p in scanned_files() if (p.suffix == ".sh" and _rel(p).startswith(SHELL_SCOPES)) or _rel(p).startswith(GIT_HOOKS_DIR))
+    return tuple(
+        p
+        for p in scanned_files()
+        if (p.suffix == ".sh" and _rel(p).startswith(SHELL_SCOPES)) or (not p.suffix and _rel(p).startswith(GIT_HOOKS_DIR))
+    )
 
 
 @cache
