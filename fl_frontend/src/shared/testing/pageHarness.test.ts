@@ -17,6 +17,7 @@ import {
   clearSteps,
   emptiest,
   EMPTIEST_ANSWER,
+  isClientModule,
   isNavigation,
   OBJECT_ID,
   pageBody,
@@ -168,6 +169,26 @@ describe("the page harness", () => {
       steps.some((step) => step.kind === "read" && step.endpoint === "/im-kind"),
       "the server child a client component holds was not reached",
     );
+  });
+
+  /* The two cases above reach the directive through real modules; these are the prologue's edges, and a
+     comment run a backtracking pattern takes exponential time over before it answers. */
+  it("reads `use client` from the directive prologue alone", () => {
+    for (const client of [
+      '"use client";',
+      "// a\n/* b */\n'use strict';\n'use client'\nexport {};",
+      '"use strict"\n"use client"\nexport {};',
+    ]) {
+      assert.equal(isClientModule(client), true, `${client}: a client module read as a server one`);
+    }
+    for (const server of [
+      'export const a = "use client";',
+      '"use client" + suffix;',
+      'const a = 1;\n"use client";',
+      `/*${"*//*".repeat(40)} "use client"`,
+    ]) {
+      assert.equal(isClientModule(server), false, `${server.slice(0, 60)}: a server module read as a client one`);
+    }
   });
 
   it("records every throw and walks on past it, telling Next's own answers from a crash", async () => {

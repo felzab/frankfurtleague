@@ -5,6 +5,7 @@ import { text } from "node:stream/consumers";
 
 import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
+import ts from "typescript";
 import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
@@ -54,8 +55,26 @@ const CLIENT_COMPONENTS = "__flClientComponents";
 const clientComponents = new WeakSet<object>();
 Reflect.set(globalThis, CLIENT_COMPONENTS, clientComponents);
 
-/** The directive opening a module, after any comment and a `"use strict"`. */
-const USE_CLIENT = /^(?:\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/))*\s*(?:(["'])use strict\1;?\s*)?(["'])use client\2/;
+/**
+ * Whether a module's directive prologue, the string statements before any other, holds `"use client"`.
+ * Read with TypeScript's scanner, which steps over comments without backtracking.
+ */
+export function isClientModule(source: string): boolean {
+  if (!source.includes("use client")) return false;
+
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, source);
+  let token = scanner.scan();
+  while (token === ts.SyntaxKind.StringLiteral) {
+    const directive = scanner.getTokenValue();
+    token = scanner.scan();
+    // A string the next token continues, `"use client" + x`, is an expression rather than a directive.
+    if (token !== ts.SyntaxKind.SemicolonToken && token !== ts.SyntaxKind.EndOfFileToken && !scanner.hasPrecedingLineBreak()) return false;
+    if (directive === "use client") return true;
+    if (token === ts.SyntaxKind.SemicolonToken) token = scanner.scan();
+  }
+
+  return false;
+}
 
 /** Appended to a client module, so each export is registered once the module has defined it. */
 const registering = (url: string): string =>
@@ -76,7 +95,7 @@ registerHooks({
     const loaded = nextLoad(url, context);
     if (loaded.source === undefined || loaded.source === null || !ES_MODULE.has(loaded.format ?? "")) return loaded;
     const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
-    return USE_CLIENT.test(source) ? { ...loaded, source: source + registering(url) } : loaded;
+    return isClientModule(source) ? { ...loaded, source: source + registering(url) } : loaded;
   },
 });
 
