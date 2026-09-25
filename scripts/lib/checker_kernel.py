@@ -165,8 +165,8 @@ def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: Tex
 def run(entry: Callable[[], int]) -> int:
     """A checker's `__main__` line, so one exit code means one thing whichever checker answered.
 
-    An unexpected exception is `EXIT_CRASH`, never `EXIT_FINDINGS`: that separates "not wide enough
-    to merge on" from "the check itself failed".
+    An unexpected exception is `EXIT_CRASH`, never `EXIT_FINDINGS`: that separates "the change needs
+    work" from "the check itself failed".
     """
     try:
         return entry()
