@@ -357,6 +357,9 @@ the document publishes each code at the status a client meets it at:
   `FLRefusedPayloadBody`, each field the rule judged named with the rule's code as its `kind` where
   one payload shape carries the rule, and its enum sits beside `REQ-VAL-001` on the operation's 422.
   An idempotency key replayed with other details is one, as the IETF idempotency-key draft advises
+- **404** where what the request names does not exist: a link's token, which is the resource's
+  identifier carried in a body for secrecy, or the season entry a path names, beside the
+  `DB-COMMON-001` a missing document answers
 
 **A `REQ-VAL-001` names where each refusal sits, so a form marks the field at fault**
 (`fl_backend/app/core/exception_handlers.py :: refused_fields_of`) — never the value, and never

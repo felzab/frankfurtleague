@@ -1731,7 +1731,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
         summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
@@ -1910,7 +1910,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-009",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
         summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
@@ -2016,7 +2016,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-EINLADUNG-001",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         operation="POST /teams/{team_id}/saisons/{saison_id}/einladung",
         aggregate="Einladung",
         summary="a link is minted only for a team the season already holds a junction row for",
@@ -2034,7 +2034,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-EINLADUNG-003",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         operation="POST /registrierungen/einladung/ansicht · POST /registrierungen",
         aggregate="Einladung",
         summary="a registration link opens nothing unless it is live: unknown and revoked answer alike, neither told from the other",
@@ -2070,7 +2070,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-REGISTRIERUNG-004",
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         operation="POST /registrierungen/bestaetigung/ansicht · POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary="a confirmation link that opens no registration is refused, unknown and replaced alike",

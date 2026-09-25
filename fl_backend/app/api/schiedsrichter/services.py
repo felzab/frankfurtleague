@@ -296,7 +296,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_UNKNOWN,
-        status=HTTPStatus.CONFLICT,
+        status=HTTPStatus.NOT_FOUND,
         message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 

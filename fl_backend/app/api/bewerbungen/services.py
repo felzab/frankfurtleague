@@ -589,7 +589,7 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
     if seat is None:
         return WriteRefusal(
             error_code=BEWERBUNG_TOKEN_UNKNOWN,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.NOT_FOUND,
             message="this link opens no seat of any application; it may have been replaced by a newer one, or the application is gone",
         )
 
