@@ -84,7 +84,8 @@ export function FormEinladungSection({
   const [isMinting, startMinting] = useTransition();
   const [isMailing, startMailing] = useTransition();
 
-  const { isConfirming, isPending: isWriting, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   const panel = formPanel();
   const busy = isMinting || isMailing || isWriting;
@@ -353,13 +354,9 @@ export function FormEinladungSection({
                   </ConfirmReveal>
                 )}
 
-                <ConfirmActionRow
-                  isConfirming={isConfirming}
-                  isPending={isWriting}
-                  onCancel={cancel}>
+                <ConfirmActionRow confirm={twoPress}>
                   <ConfirmPressButton
-                    isConfirming={isConfirming}
-                    isPending={isWriting}
+                    confirm={twoPress}
                     reason={
                       gewaehlt === null
                         ? "Wähle, was mit dem offenen Link passieren soll."

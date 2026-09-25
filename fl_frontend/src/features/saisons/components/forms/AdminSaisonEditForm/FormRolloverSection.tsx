@@ -59,7 +59,8 @@ export function FormRolloverSection({
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
   // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
-  const { isConfirming, isPending: isActivating, press, cancel } = useTwoPressConfirm(onBeforeActivate);
+  const twoPress = useTwoPressConfirm(onBeforeActivate);
+  const { isConfirming, press } = twoPress;
 
   const isAlreadyActive = saisonStatus === "active";
   const isFinishedSaison = saisonStatus === "past";
@@ -221,15 +222,11 @@ export function FormRolloverSection({
             {/* Disabled rather than left live to fail: the endpoint refuses each of these itself
                 and stays the authority, and this only stops the page offering an act it knows the
                 answer to. */}
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isActivating}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               {/* The body sits a screen away from the button, so the refusal is said again on the
                   control itself. */}
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isActivating}
+                confirm={twoPress}
                 reason={blockedReason}
                 resting={restingLabel}
                 armed={`Ja, auf ${saisonId} umstellen`}

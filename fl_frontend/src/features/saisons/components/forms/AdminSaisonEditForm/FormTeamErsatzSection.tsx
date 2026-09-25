@@ -51,7 +51,8 @@ export function FormTeamErsatzSection({
   const outgoing = ersatz.rows.find((row) => row.teamId === outgoingId) ?? null;
   const incoming = ersatz.candidates.find((candidate) => candidate.id === incomingId) ?? null;
 
-  const { isConfirming, isPending: isReplacing, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 
   // `REQ-REPLACE-002` in the form: a fixture carrying a record would be credited to the arriving
   // club, so the row it stands on cannot be handed over.
@@ -243,15 +244,11 @@ export function FormTeamErsatzSection({
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isReplacing}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isReplacing}
+                confirm={twoPress}
                 reason={isMissingAPick ? missingPickHint : null}
                 resting={restingLabel}
                 armed="Ja, Team ersetzen"

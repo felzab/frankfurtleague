@@ -33,6 +33,7 @@ import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -170,31 +171,27 @@ function BestaetigungAngaben({
  * objection stood in, so no new control lands under a finger already on the first.
  */
 function BestaetigungEntscheidung({
-  isConfirming,
+  widerspruch,
   isPending,
-  isDeclining,
   beschreibtId,
   onWiderspruch,
-  onCancel,
 }: {
-  isConfirming: boolean;
-  /** The confirmation's own flight, which the objection's `isDeclining` is graded apart from. */
+  /** The objection's two presses, which the confirmation's own flight is graded apart from. */
+  widerspruch: TwoPressConfirm;
+  /** The confirmation's own flight. */
   isPending: boolean;
-  isDeclining: boolean;
   beschreibtId: string;
   onWiderspruch: () => void;
-  onCancel: () => void;
 }) {
+  const { isConfirming } = widerspruch;
+
   return (
     <div className="flex w-full flex-col gap-y-3">
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isDeclining}
-        onCancel={onCancel}>
+      <ConfirmActionRow confirm={widerspruch}>
         {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending || isDeclining}
+          confirm={widerspruch}
+          submitting={isPending}
           // Nothing closes this press: both answers are legal from the moment the page opens.
           reason={null}
           resting="Eintrag bestätigen"
@@ -261,7 +258,8 @@ export function BestaetigungFormPanel({
 }) {
   const [isPending, startSending] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
-  const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
+  const widerspruch = useTwoPressConfirm();
+  const { isConfirming, press } = widerspruch;
 
   const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
@@ -401,12 +399,10 @@ export function BestaetigungFormPanel({
         )}
 
         <BestaetigungEntscheidung
-          isConfirming={isConfirming}
+          widerspruch={widerspruch}
           isPending={isPending}
-          isDeclining={isDeclining}
           beschreibtId={klickPunkteId}
           onWiderspruch={() => press(sendeWiderspruch)}
-          onCancel={cancel}
         />
       </BestaetigungAbschnitt>
     </Form>

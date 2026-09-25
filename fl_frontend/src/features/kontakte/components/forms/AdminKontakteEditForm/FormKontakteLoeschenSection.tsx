@@ -45,7 +45,8 @@ export function FormKontakteLoeschenSection({
   isDirty: boolean;
 }) {
   const router = useRouter();
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   // Graded only where there is something to take: a red panel over an empty row spends the grade on
   // a page where nothing is at stake.
@@ -126,15 +127,11 @@ export function FormKontakteLoeschenSection({
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isPending}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
               standing closure. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isPending}
+            confirm={twoPress}
             reason={hasStored ? null : KEINE_KONTAKTE}
             resting="Kontakte löschen"
             // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the

@@ -126,7 +126,8 @@ export function FormEinladungVersandSection({
   const [erneut, setErneut] = useState(false);
   const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
-  const { isConfirming, isPending: isSending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = twoPress;
 
   const panel = formPanel();
 
@@ -361,13 +362,9 @@ export function FormEinladungVersandSection({
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isSending}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isSending}
+                confirm={twoPress}
                 // The read the press waits on, which is pending-marked without claiming a write has
                 // started: nothing is written until the armed press.
                 held={isLoadingVorschau}

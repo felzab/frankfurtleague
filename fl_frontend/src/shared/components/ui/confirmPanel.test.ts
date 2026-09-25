@@ -8,6 +8,8 @@ import { refusalWrappers, renderMarkup, textOf } from "@/shared/testing/renderTe
 import { confirmButton, formButton } from "./formButtons";
 import { PANEL_REVEAL_CLASSES } from "./motion";
 
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
  static import beside it resolves first and dies on the extension.
@@ -23,9 +25,17 @@ const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: 
 /** The primary control the row stands its cancel beside, whose label is the panel's rather than the row's. */
 const PRIMARY = createElement("button", { type: "button" }, "Ja, löschen");
 
-const UNARMED = renderMarkup(ConfirmActionRow, { isConfirming: false, isPending: false, onCancel: () => undefined, children: PRIMARY });
-const ARMED = renderMarkup(ConfirmActionRow, { isConfirming: true, isPending: false, onCancel: () => undefined, children: PRIMARY });
-const IN_FLIGHT = renderMarkup(ConfirmActionRow, { isConfirming: true, isPending: true, onCancel: () => undefined, children: PRIMARY });
+/** The hook's value in the state a case names, its handlers inert: a static render presses nothing. */
+const twoPress = ({ isConfirming = false, isPending = false }: { isConfirming?: boolean; isPending?: boolean }): TwoPressConfirm => ({
+  isConfirming,
+  isPending,
+  press: () => undefined,
+  cancel: () => undefined,
+});
+
+const UNARMED = renderMarkup(ConfirmActionRow, { confirm: twoPress({}), children: PRIMARY });
+const ARMED = renderMarkup(ConfirmActionRow, { confirm: twoPress({ isConfirming: true }), children: PRIMARY });
+const IN_FLIGHT = renderMarkup(ConfirmActionRow, { confirm: twoPress({ isConfirming: true, isPending: true }), children: PRIMARY });
 
 const READOUT = renderMarkup(ConfirmReadoutRow, { label: "Saison", value: "2026/27" });
 
@@ -107,18 +117,27 @@ describe("the armed action row", () => {
   });
 });
 
-/** The shared control as a panel hands it over, in whichever of its four states a case names. */
-const pressButton = (state: { isConfirming?: boolean; isPending?: boolean; held?: boolean; reason?: string | null }): string =>
+/** The shared control as a panel hands it over, in whichever of its states a case names. */
+const pressButton = ({
+  isConfirming,
+  isPending,
+  ...rest
+}: {
+  isConfirming?: boolean;
+  isPending?: boolean;
+  held?: boolean;
+  submitting?: boolean;
+  reason?: string | null;
+}): string =>
   renderMarkup(ConfirmPressButton, {
-    isConfirming: false,
-    isPending: false,
+    confirm: twoPress({ isConfirming, isPending }),
     reason: null,
     resting: "Spielplan löschen",
     armed: "Ja, Spielplan löschen",
     running: "Löscht...",
     icon: createElement("svg", { "aria-hidden": "true", className: "size-4.5" }),
     onPress: () => undefined,
-    ...state,
+    ...rest,
   });
 
 const AT_REST = pressButton({});
@@ -169,6 +188,16 @@ describe("the shared confirm control", () => {
     assert.equal(controlWords(reading), "Ja, Spielplan löschen", "a read reports the write as running");
     assert.match(controlTag(reading), /\sdata-pending="true"/, "a press during the read reaches the write");
     assert.doesNotMatch(controlTag(reading), /\sdisabled=""/, "the read closes the control, dropping the keyboard's focus to the page");
+  });
+
+  /* The confirmation's own submit runs outside the hook, so nothing but this prop tells the control a
+     write is running at rest. */
+  it("says the form's own one-press write is running, holding the press", () => {
+    const submitting = pressButton({ submitting: true });
+
+    assert.equal(controlWords(submitting), "Löscht...", "the form's own write leaves the resting label standing");
+    assert.match(controlTag(submitting), /\sdata-pending="true"/, "a second press during the submit sends it twice");
+    assert.doesNotMatch(controlTag(submitting), /\sdisabled=""/, "the running submit closes the control it was started from");
   });
 
   /* A reason and a running write arrive together on the panel that reads before it erases: the write

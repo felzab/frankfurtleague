@@ -42,7 +42,8 @@ export function FormLoeschenSection({
   const saisonHref = useSaisonHref();
   // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save would
   // write the cleared values back. Here the press removes the subject the draft describes.
-  const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   const blockedReason = isRetired ? null : ERASURE_NEEDS_RETIREMENT;
   const panel = formPanel({ tone: blockedReason === null ? "danger" : "neutral" });
@@ -126,15 +127,11 @@ export function FormLoeschenSection({
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isErasing}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* The reason is said on the control as well as in the body above it, the treatment the
               rollover established. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isErasing}
+            confirm={twoPress}
             reason={blockedReason}
             resting="Spieler endgültig löschen"
             armed="Ja, Spieler endgültig löschen"

@@ -7,16 +7,22 @@ import { useRef, useState, useTransition } from "react";
 export const DOUBLE_PRESS_MS = 500;
 
 /**
- * The confirm-then-write control: the first press arms, the second writes — unless it lands within
- * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Every
- * arming panel shares it, so no two drift apart.
+ * Handed whole to `ConfirmActionRow` and `ConfirmPressButton`, never as flags a panel spells: a literal
+ * `isPending` typechecks, and its control then never says the write is running.
  */
-export function useTwoPressConfirm(guard?: () => boolean): {
+export interface TwoPressConfirm {
   isConfirming: boolean;
   isPending: boolean;
   press: (write: () => Promise<void>) => void;
   cancel: () => void;
-} {
+}
+
+/**
+ * The confirm-then-write control: the first press arms, the second writes — unless it lands within
+ * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Every
+ * arming panel shares it, so no two drift apart.
+ */
+export function useTwoPressConfirm(guard?: () => boolean): TwoPressConfirm {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPending, startWriting] = useTransition();
   // A ref, not state: the timestamp decides inside the handler and renders nothing.

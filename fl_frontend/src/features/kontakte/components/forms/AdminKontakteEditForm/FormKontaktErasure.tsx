@@ -62,7 +62,8 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
  */
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
   const router = useRouter();
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending, press } = twoPress;
   const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);
 
   const ansicht = gelesen?.email === email ? gelesen : null;
@@ -131,13 +132,9 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           // The arming read holds the press without being the write: the press left the keyboard's
           // focus here, and the control says „Löscht...“ for the deletion alone.
           held={isReading}

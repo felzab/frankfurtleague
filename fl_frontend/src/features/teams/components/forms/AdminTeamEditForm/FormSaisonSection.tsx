@@ -67,7 +67,8 @@ function GruppenTauschControl({
   self: SaisonSwapTeam;
 }) {
   const router = useRouter();
-  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
   // Graded by the SHARED `findSwapPartnerRefusal`, so a club this picker accepts is one the endpoint
@@ -197,15 +198,11 @@ function GruppenTauschControl({
             </ConfirmReveal>
           )}
 
-          <ConfirmActionRow
-            isConfirming={isConfirming}
-            isPending={isSwapping}
-            onCancel={cancel}>
+          <ConfirmActionRow confirm={twoPress}>
             {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                 §1.14). */}
             <ConfirmPressButton
-              isConfirming={isConfirming}
-              isPending={isSwapping}
+              confirm={twoPress}
               reason={partner === null ? "Wähle zuerst ein Team." : null}
               resting="Gruppen tauschen"
               armed="Ja, Gruppen tauschen"

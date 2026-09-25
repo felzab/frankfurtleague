@@ -60,7 +60,8 @@ export function AdminBewerbungAnnehmenSection({
   hindernis: string | null;
 }) {
   const router = useRouter();
-  const { isConfirming, isPending: isAccepting, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = twoPress;
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(null);
   const [trikotFarbe, setTrikotFarbe] = useState<FLTrikotFarbe | null>(null);
@@ -222,15 +223,11 @@ export function AdminBewerbungAnnehmenSection({
             )}
 
             <div className="flex w-full flex-col gap-y-2">
-              <ConfirmActionRow
-                isConfirming={isConfirming}
-                isPending={isAccepting}
-                onCancel={cancel}>
+              <ConfirmActionRow confirm={twoPress}>
                 {/* On the control, never a sentence beside it that a pick would unmount
                     (`docs/frontend/spec.md` §1.14). */}
                 <ConfirmPressButton
-                  isConfirming={isConfirming}
-                  isPending={isAccepting}
+                  confirm={twoPress}
                   reason={grund}
                   resting="Bewerbung annehmen"
                   armed="Ja, Team verbindlich aufnehmen"

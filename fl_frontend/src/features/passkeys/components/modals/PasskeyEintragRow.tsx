@@ -36,7 +36,8 @@ export function PasskeyEintragRow({
   reason: string | null;
   onRemove: (id: string) => Promise<void>;
 }) {
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   return (
     <li className="border-border flex flex-col gap-3 border-b py-4 last:border-b-0">
@@ -51,13 +52,9 @@ export function PasskeyEintragRow({
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           reason={reason}
           resting="Löschen"
           armed="Ja, Passkey löschen"

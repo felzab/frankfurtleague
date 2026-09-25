@@ -17,7 +17,8 @@ import { appToast } from "@/shared/utils/appToast";
  * („stilllegen“) that no ban is, this delete keeping nothing (`docs/frontend/spec.md :: I37`).
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   const handleAufheben = () => {
     press(async () => {
@@ -41,16 +42,12 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         {/* The day and never the reason: the reason runs to 500 characters an administrator typed,
             the card prints it directly above this control, and a name quoting it reads it out
             twice — once at rest and once armed. */}
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           reason={null}
           resting={`Sperre vom ${gesperrtAm} aufheben`}
           armed={`Ja, Sperre vom ${gesperrtAm} endgültig aufheben`}

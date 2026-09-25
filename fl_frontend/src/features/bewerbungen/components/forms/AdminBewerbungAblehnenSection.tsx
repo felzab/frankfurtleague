@@ -56,7 +56,8 @@ export function AdminBewerbungAblehnenSection({
   saisonId: string;
 }) {
   const router = useRouter();
-  const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = twoPress;
 
   const [grund, setGrund] = useState("");
   /** The refusal the API answered with, which lands on this field. Cleared on the next keystroke. */
@@ -181,15 +182,11 @@ export function AdminBewerbungAblehnenSection({
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isDeclining}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* On the control, never a sentence beside it that the first keystroke would unmount under the
               admin typing (`docs/frontend/spec.md` §1.14). */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isDeclining}
+            confirm={twoPress}
             reason={closedReason}
             resting="Bewerbung ablehnen"
             armed="Ja, Absage verbindlich verschicken"

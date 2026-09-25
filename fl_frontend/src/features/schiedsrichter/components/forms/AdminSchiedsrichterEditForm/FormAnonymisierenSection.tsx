@@ -54,7 +54,8 @@ export function FormAnonymisierenSection({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const { isConfirming, isPending: isAnonymising, press, cancel } = useTwoPressConfirm(onBeforeAnonymise);
+  const twoPress = useTwoPressConfirm(onBeforeAnonymise);
+  const { isConfirming, press } = twoPress;
 
   const panel = formPanel({ tone: "danger" });
 
@@ -153,15 +154,11 @@ export function FormAnonymisierenSection({
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isAnonymising}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
               löschen“ would read as the referee going, where what goes is their data. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isAnonymising}
+            confirm={twoPress}
             reason={null}
             resting="Daten löschen"
             armed="Ja, Daten endgültig löschen"

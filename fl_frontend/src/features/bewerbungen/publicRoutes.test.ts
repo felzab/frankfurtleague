@@ -1162,6 +1162,27 @@ describe("which floor the confirmation form judges a typed date by", () => {
 
     assert.equal(zuJungPanel(), null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
   });
+
+  /* The confirmation's submit runs outside the two-press hook, so this panel alone hands its control
+     that flight (`submitting`); dropped there, the press goes on reading „Eintrag bestätigen“. */
+  it("says on the press that the confirmation is sending until its answer arrives", async () => {
+    let antworte: (antwort: Response) => void = () => undefined;
+    fetchMock.mock.mockImplementationOnce(() => new Promise<Response>((resolve) => (antworte = resolve)));
+    const { user, unmount } = renderBestaetigung(BEWERBUNG_MIN_ALTER);
+    await tippeGeburtsdatum(user, zwischenDenBoeden());
+
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    const sagtLaufend = screen.queryByRole("button", { name: "Sendet..." }) !== null;
+
+    // Answered before the verdict, so a red case leaves no request open for the next one to meet.
+    await act(async () => {
+      antworte(new Response(JSON.stringify({ success: true, ergebnis: "bestaetigt", geburtsdatum: zwischenDenBoeden(), whatsapp: false })));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    unmount();
+
+    assert.ok(sagtLaufend, "the sending confirmation reads as the resting press");
+  });
 });
 
 describe("what arming the objection is allowed to move on the confirmation page", () => {

@@ -73,7 +73,8 @@ export function FormGruppenSwapSection({
 }) {
   const router = useRouter();
   const panel = formPanel();
-  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [first, setFirst] = useState<SaisonSwapTeam | null>(null);
   const [second, setSecond] = useState<SaisonSwapTeam | null>(null);
 
@@ -274,15 +275,11 @@ export function FormGruppenSwapSection({
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isSwapping}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isSwapping}
+                confirm={twoPress}
                 reason={isMissingAPick ? missingPickHint : null}
                 resting={restingLabel}
                 armed="Ja, Gruppen tauschen"

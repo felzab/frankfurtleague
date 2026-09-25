@@ -4,6 +4,7 @@ import { Button } from "@heroui/react/button";
 
 import { formButton } from "./formButtons";
 
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
 
 /**
@@ -11,16 +12,10 @@ import type { ReactNode } from "react";
  * **A column of full-width buttons below `sm`**: an armed label is a sentence, not a word.
  */
 export function ConfirmActionRow({
-  isConfirming,
-  isPending,
-  onCancel,
+  confirm,
   children,
 }: {
-  /** Renders the cancel. A standing „Abbrechen“ beside an unarmed control offers to cancel nothing. */
-  isConfirming: boolean;
-  /** Closes the cancel rather than hiding it, so the row does not reflow under the pointer mid-press. */
-  isPending: boolean;
-  onCancel: () => void;
+  confirm: TwoPressConfirm;
   /** The primary control, whose label, icon and gate are the panel's own. */
   children: ReactNode;
 }) {
@@ -29,12 +24,14 @@ export function ConfirmActionRow({
   return (
     <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       {children}
-      {isConfirming && (
+      {/* Armed alone: a standing „Abbrechen“ beside an unarmed control offers to cancel nothing. */}
+      {confirm.isConfirming && (
         <Button
           type="button"
           variant="secondary"
-          isPending={isPending}
-          onPress={onCancel}
+          // Held rather than hidden in flight, so the row does not reflow under the pointer mid-press.
+          isPending={confirm.isPending}
+          onPress={confirm.cancel}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>

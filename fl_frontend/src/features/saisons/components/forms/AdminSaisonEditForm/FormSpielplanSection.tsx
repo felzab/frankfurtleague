@@ -102,7 +102,8 @@ export function FormSpielplanSection({
   onBeforeWrite: () => boolean;
 } & SaisonSpielplanContext) {
   const router = useRouter();
-  const { isConfirming, isPending: isWriting, press, cancel } = useTwoPressConfirm(onBeforeWrite);
+  const twoPress = useTwoPressConfirm(onBeforeWrite);
+  const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   // The season's stored three, which a first draw keeps and a replace may move. Re-initialised by
   // the remount `page.tsx`'s key forces once the draw has written new ones.
@@ -490,15 +491,11 @@ export function FormSpielplanSection({
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isWriting}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
               treatment the rollover established. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isWriting}
+            confirm={twoPress}
             reason={closedReason}
             resting={restingLabel}
             armed={armedLabel}
