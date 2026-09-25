@@ -121,8 +121,8 @@ async function withToast(read: (toast: HTMLElement) => void): Promise<void> {
 }
 
 /**
- * The scale each state rests at, mirroring `@heroui/styles` 3.2.6's `toast.css`, which moves without us: an expanded
- * toast full size, a collapsed one at the `--scale-collapsed` HeroUI writes inline.
+ * The scale each state rests at, mirroring `@heroui/styles`' `toast.css`, which moves without us and is read against it
+ * below: an expanded toast full size, a collapsed one at the `--scale-collapsed` HeroUI writes inline.
  */
 const restingScale = ({ expanded }: State): string => (expanded ? "1" : "var(--scale-collapsed,1)");
 
@@ -138,7 +138,7 @@ describe("the toast against HeroUI's stacking states", () => {
         // Tied to the vendored sheet: a resting value it does not declare is a mirror gone stale.
         assert.ok(
           matching(toast, scales).some((declaration) => declaration.layer === "components" && declaration.value === resting),
-          `toast.css does not rest a ${describeState(state)} toast at ${resting}: re-read it and restamp`,
+          `toast.css does not rest a ${describeState(state)} toast at ${resting}: re-read it`,
         );
 
         enter(toast, state);
@@ -153,7 +153,7 @@ describe("the toast against HeroUI's stacking states", () => {
       }
 
       // Otherwise the hold overrides nothing, and a later HeroUI renaming the property would leave it holding air.
-      assert.ok(shrunk > 0, "HeroUI no longer shrinks a closing toast through `--toast-scale`: re-read `toast.css` and restamp");
+      assert.ok(shrunk > 0, "HeroUI no longer shrinks a closing toast through `--toast-scale`: re-read `toast.css`");
     });
   });
 
@@ -243,7 +243,7 @@ describe("the toast against HeroUI's stacking states", () => {
       for (const name of ["--toast-opacity-duration", "--toast-ease"]) {
         assert.ok(
           declared.some((declaration) => declaration.prop === name),
-          `toast.css does not declare ${name} on the toast: re-read it and restamp`,
+          `toast.css does not declare ${name} on the toast: re-read it`,
         );
       }
 
@@ -260,7 +260,7 @@ describe("the toast against HeroUI's stacking states", () => {
         // Otherwise there is nothing to restore, and a later HeroUI keeping its transitions would leave this a second copy.
         assert.ok(
           valuesOf("transition-property", "components").includes("none"),
-          `HeroUI does not stop the toast's transitions (${arm}): re-read toast.css and restamp`,
+          `HeroUI does not stop the toast's transitions (${arm}): re-read toast.css`,
         );
         assert.deepEqual(valuesOf("transition-property", "utilities"), ["opacity"], `the toast's reduced-motion transitions (${arm})`);
         assert.deepEqual(valuesOf("--tw-duration", "utilities"), ["var(--toast-opacity-duration)"], `the fade's duration (${arm})`);
@@ -301,6 +301,42 @@ describe("the toast's timer bar on a hidden page", () => {
       });
     } finally {
       Reflect.deleteProperty(document, "hidden");
+    }
+  });
+});
+
+/* A pending toast's spinner is the one thing saying a request still runs, and HeroUI stops every spinner under reduced
+   motion: the app's rule restarts it on HeroUI's own token, which a renamed token or class would leave matching nothing. */
+describe("a pending toast's spinner under reduced motion", () => {
+  it("turns on a token the stylesheet declares, where HeroUI would stop it", async () => {
+    const REDUCED = "(prefers-reduced-motion: reduce)";
+    const animations = await declarationsOf(/^animation$/);
+    const tokens = await declarationsOf(/^--animate-spin-fast$/);
+
+    render(h(AppToaster));
+    await act(async () => {
+      appToast.pending("Speichert...");
+    });
+
+    try {
+      const spinner = document.querySelector(".spinner") ?? assert.fail("a pending toast renders no `.spinner`");
+      const reduced = matching(spinner, animations).filter((declaration) => declaration.conditions.includes(REDUCED));
+
+      // Otherwise there is nothing to restart, and a later HeroUI letting its spinner turn would leave this a second copy.
+      assert.ok(
+        reduced.some((declaration) => declaration.layer === "components" && declaration.value === "none"),
+        "HeroUI no longer stops its spinner under reduced motion: re-read spinner.css",
+      );
+      assert.deepEqual(
+        reduced.filter((declaration) => declaration.layer === null && declaration.important).map(({ value }) => value),
+        ["var(--animate-spin-fast)"],
+      );
+      // A var() nothing declares leaves the animation invalid, which a browser reads as none at all.
+      assert.ok(tokens.length > 0, "nothing declares `--animate-spin-fast`, so the restart names no animation");
+    } finally {
+      await act(async () => {
+        appToast.clear();
+      });
     }
   });
 });

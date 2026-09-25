@@ -21,7 +21,7 @@ const toastCard = tv({
     // Two holds over disjoint states, so no ranking inside the utilities layer picks between them.
     /**
      * A closing toast keeps the scale it rested at, where HeroUI shrinks one behind the front through `--toast-scale`,
-     * out of reach of the document's scale pin. Written against `@heroui/styles` 3.2.6.
+     * out of reach of the document's scale pin.
      */
     toast:
       "data-exiting:not-data-expanded:[--toast-scale:var(--scale-collapsed,1)] data-exiting:data-expanded:[--toast-scale:1] motion-reduce:transition-opacity motion-reduce:duration-(--toast-opacity-duration) motion-reduce:ease-(--toast-ease)",

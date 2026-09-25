@@ -704,7 +704,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   padding-block: 0;
 }
 
-/* No scale in the arrival language, vendored ones included (`@heroui/styles` 3.2.6); the toast's own
+/* No scale in the arrival language, vendored ones included; the toast's own
    `--toast-scale` is `AppToaster`'s. Unlayered on `*`: inside a layer specificity loses, and
    tw-animate-css declares both properties `inherits: false`, so they land on the animating element. */
 *,
@@ -811,7 +811,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
      function, so everything with an element to hang a class on is ordinary TSX.
-     Written against `@heroui/styles` 3.2.6 (`docs/frontend/spec.md :: 1.11`). */
+     `fl_frontend/src/app/toastStack.test.ts` holds these rules against the installed `toast.css`. */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */
@@ -919,8 +919,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 }
 
-/* App-side overrides for the calendar, last so each beats the vendored rule it names at equal
-   specificity. Written against `@heroui/styles` 3.2.6, whose class names these are. */
+/* App-side overrides for the calendar, whose class names are `@heroui/styles`' own, last so each
+   beats the vendored rule it names at equal specificity. */
 @layer components {
   /* `rounded-lg` is what every option row, tab and field here takes, so a day reads as the same
      control family as the form behind it. HeroUI ships a circle. */
