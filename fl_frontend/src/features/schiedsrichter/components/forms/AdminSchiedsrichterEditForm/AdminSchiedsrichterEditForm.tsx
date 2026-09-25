@@ -105,9 +105,10 @@ export function AdminSchiedsrichterEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
+    });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
@@ -240,9 +241,7 @@ export function AdminSchiedsrichterEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchSchiedsrichterPayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

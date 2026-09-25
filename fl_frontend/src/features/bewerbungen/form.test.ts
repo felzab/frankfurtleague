@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -578,11 +579,11 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
      form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {
     const section = h(FormEinwilligungSection, { erteilt: false, onErteiltPicked: () => undefined });
-    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { onSubmit: () => undefined, schemas: [] }, section)))?.[1];
+    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { onSubmit: () => undefined, wiring: formWiring() }, section)))?.[1];
     assert.ok(name !== undefined, "the Kenntnisnahme switch renders no named control, so no refusal can reach it");
 
     const refused = renderTree(
-      h(Form, { onSubmit: () => undefined, schemas: [], validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }, section),
+      h(Form, { onSubmit: () => undefined, wiring: formWiring({ validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }) }, section),
     );
     const message = /<\w+\b([^>]*\bdata-slot="field-error"[^>]*)>Bestätige die Kenntnisnahme\.</.exec(refused)?.[1];
     assert.ok(message !== undefined, "a refusal handed to the switch's name renders no message under it");

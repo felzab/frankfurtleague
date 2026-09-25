@@ -278,10 +278,11 @@ function SchiedsrichterFormPanel({
   // would let the press through at a number the endpoint refuses.
   const antwortSchema = useMemo(() => buildSchiedsrichterBestaetigungPayloadSchema(mindestalter), [mindestalter]);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { bestaetigung: antwortSchema },
-    failureTitle: ANTWORT_NICHT_GESPEICHERT,
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bestaetigung: antwortSchema },
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
+    });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -352,10 +353,8 @@ function SchiedsrichterFormPanel({
 
   return (
     <Form
-      schemas={[antwortSchema]}
-      ref={formRef}
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
       onSubmit={handleSubmit}>
       <SchiedsrichterHinweise werte={werte} />

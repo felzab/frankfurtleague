@@ -76,7 +76,7 @@ export function RegistrierungFormPanel({
 
   const eingereichtRef = useRef<HTMLElement>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { registrierung: FLPostRegistrierungPayloadSchema },
     // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
     // made, and two titles for one failure read as two failures.
@@ -179,10 +179,8 @@ export function RegistrierungFormPanel({
 
   return (
     <Form
-      schemas={[FLPostRegistrierungPayloadSchema]}
-      ref={formRef}
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
       onSubmit={() => {
         // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).

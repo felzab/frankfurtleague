@@ -13,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { Label } from "@heroui/react/label";
 import { I18nProvider } from "@heroui/react/rac";
 
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
@@ -88,7 +89,7 @@ describe("a refusal the server put on a date or time field", () => {
           locale: "de-DE",
           children: h(
             Form,
-            { onSubmit: () => undefined, schemas: [], validationErrors: refused },
+            { onSubmit: () => undefined, wiring: formWiring({ validationErrors: refused }) },
             field(),
             h("button", { type: "button" }, "Weiter"),
           ),

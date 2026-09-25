@@ -138,9 +138,10 @@ export function AdminEditSpielDataForm({
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
   // server would have produced.
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spiel: FLPatchSpielDataPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spiel: FLPatchSpielDataPayloadSchema },
+    });
 
   // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every
   // route out of one drops it here, where no later handler can forget to.
@@ -449,9 +450,7 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
-          schemas={[FLPatchSpielDataPayloadSchema]}
-          ref={formRef}
-          validationErrors={fieldErrors}
+          wiring={formWiring}
           className="flex min-h-0 w-full flex-1 flex-col"
           onSubmit={requestSave}>
           <EditFormLayout

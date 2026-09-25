@@ -11,6 +11,7 @@ import type { BlockingBanners, RailBanner } from "@/shared/components/ui/railBan
 import type { FailureAnnouncement } from "@/shared/hooks/useServerFieldErrors";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { RefObject } from "react";
 import type { ZodType } from "zod";
 
 /**
@@ -407,17 +408,30 @@ export function useDraftFieldErrors<TSchema extends string>({
     write();
   };
 
+  /**
+   * Never either store on its own, and deliberately not memoised: react-aria latches "this server error was cleared"
+   * per `FormValidationContext` identity, so a stable object hands that decision back to the library.
+   */
+  const fieldErrors = mergeFieldVerdicts(submitErrors, verdicts);
+
   return {
-    /**
-     * Never either store on its own, and deliberately not memoised: react-aria latches "this server error was cleared"
-     * per `FormValidationContext` identity, so a stable object hands that decision back to the library.
-     */
-    fieldErrors: mergeFieldVerdicts(submitErrors, verdicts),
+    fieldErrors,
     setSubmitFieldErrors,
     reportSubmitFailure,
     guardSubmit,
     validatePaths,
     useForgiveFixed,
     formRef,
+    formWiring: { ref: formRef, validationErrors: fieldErrors, schemas: Object.values<ZodType>(schemas) },
   };
 }
+
+/**
+ * What the shared `Form` takes whole from this hook, so a form names its schemas once and cannot pair itself with
+ * another form's ref or error map.
+ */
+export type DraftFormWiring = {
+  ref: RefObject<HTMLFormElement | null>;
+  validationErrors: FieldErrors;
+  schemas: readonly ZodType[];
+};

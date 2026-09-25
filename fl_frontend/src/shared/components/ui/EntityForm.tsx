@@ -60,7 +60,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 }) {
   const [isPending, startSaving] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { entity: schema },
   });
 
@@ -102,9 +102,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 
   return (
     <Form
-      schemas={[schema]}
-      ref={formRef}
-      validationErrors={fieldErrors}
+      wiring={formWiring}
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only
       // when on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}

@@ -400,7 +400,7 @@ function AdresseKorrigieren({
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
@@ -468,9 +468,7 @@ function AdresseKorrigieren({
 
   return (
     <Form
-      schemas={[FLBewerbungKontaktEmailPayloadSchema]}
-      ref={formRef}
-      validationErrors={fieldErrors}
+      wiring={formWiring}
       onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in the field submits too, and a second
         // correction mid-flight is refused as already stored.
@@ -564,7 +562,7 @@ function SitzNeuBesetzen({
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
@@ -633,9 +631,7 @@ function SitzNeuBesetzen({
 
   return (
     <Form
-      schemas={[FLBewerbungKontaktSitzPayloadSchema]}
-      ref={formRef}
-      validationErrors={fieldErrors}
+      wiring={formWiring}
       onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in a field submits too, and a second
         // press mid-flight is refused as a seat already filled.

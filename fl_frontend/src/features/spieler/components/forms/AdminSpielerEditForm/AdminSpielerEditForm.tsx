@@ -95,9 +95,10 @@ export function AdminSpielerEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
+    });
 
   // The ids ride in the request URI, so neither is a path an input renders or a refusal can name.
   const buildPersonPayload = () => ({ id: spieler.id, ...personDraft });
@@ -321,9 +322,7 @@ export function AdminSpielerEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchSpielerPayloadSchema, FLPatchSaisonSpielerPayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

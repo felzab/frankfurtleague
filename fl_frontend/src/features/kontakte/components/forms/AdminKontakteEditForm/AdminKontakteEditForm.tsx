@@ -86,9 +86,10 @@ export function AdminKontakteEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
+    });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
   const buildPayload = (): FLPatchSaisonTeamKontaktePayload => ({
@@ -208,9 +209,7 @@ export function AdminKontakteEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchSaisonTeamKontaktePayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

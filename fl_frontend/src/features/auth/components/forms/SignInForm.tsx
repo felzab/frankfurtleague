@@ -60,7 +60,7 @@ export function SignInForm() {
 function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (value: string) => void }) {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { signIn: SignInPayloadSchema },
   });
 
@@ -154,9 +154,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
       <Tabs.Panel id="Admin">
         <Form
-          schemas={[SignInPayloadSchema]}
-          ref={formRef}
-          validationErrors={fieldErrors}
+          wiring={formWiring}
           onSubmit={handleFormSubmit}
           className="flex flex-col gap-y-4">
           {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name

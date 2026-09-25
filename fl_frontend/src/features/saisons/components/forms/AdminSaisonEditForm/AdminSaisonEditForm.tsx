@@ -105,9 +105,10 @@ export function AdminSaisonEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { saison: FLPatchSaisonPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { saison: FLPatchSaisonPayloadSchema },
+    });
 
   type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
 
@@ -300,9 +301,7 @@ export function AdminSaisonEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchSaisonPayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

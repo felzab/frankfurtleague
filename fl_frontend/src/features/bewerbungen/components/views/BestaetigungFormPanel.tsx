@@ -261,12 +261,13 @@ export function BestaetigungFormPanel({
 
   // The payload the write is judged by, judging the draft too: a second schema here would be the
   // page refusing at numbers the endpoint does not, on the day the two disagree.
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { einwilligung: antwortSchema },
-    // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
-    // change nobody here made, and two titles for one failure read as two failures.
-    failureTitle: "Antwort nicht gespeichert",
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { einwilligung: antwortSchema },
+      // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
+      // change nobody here made, and two titles for one failure read as two failures.
+      failureTitle: "Antwort nicht gespeichert",
+    });
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
 
@@ -347,10 +348,8 @@ export function BestaetigungFormPanel({
 
   return (
     <Form
-      schemas={[antwortSchema]}
-      ref={formRef}
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
       onSubmit={handleSubmit}>
       <BestaetigungHinweise

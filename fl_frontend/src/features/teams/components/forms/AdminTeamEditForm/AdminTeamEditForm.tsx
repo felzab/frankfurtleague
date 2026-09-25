@@ -117,9 +117,10 @@ export function AdminTeamEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
+    });
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with
   // its own German message, so a half-entered record is a field error rather than a silent skip.
@@ -365,9 +366,7 @@ export function AdminTeamEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchTeamPayloadSchema, FLPatchSaisonTeamPayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

@@ -10,6 +10,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { compiledGlobals } from "@/shared/testing/stylesheet.ts";
 
@@ -30,7 +31,11 @@ const STRASSE_REQUIRED = z.object({ strasse: z.string().nonempty(), stadtteil: z
  * What `EntityForm` puts on a form that marks its required fields. Asserted rather than written inline
  * because TypeScript waves a hyphenated attribute through in JSX position only, and this file has none.
  */
-const MARKS_REQUIRED = { "data-required-marks": "on", onSubmit: () => undefined, schemas: [STRASSE_REQUIRED] } as ComponentProps<typeof Form>;
+const MARKS_REQUIRED = {
+  "data-required-marks": "on",
+  onSubmit: () => undefined,
+  wiring: formWiring({ schemas: [STRASSE_REQUIRED] }),
+} as ComponentProps<typeof Form>;
 
 /** A required text field, with its label wrapped in as many elements as the caller nests it. */
 function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequired?: boolean }): string {
@@ -41,7 +46,7 @@ function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequi
     h(
       Form,
       // The app's own form rather than HeroUI's, so the mode the case below pins is the one it sets.
-      marksRequired ? MARKS_REQUIRED : { onSubmit: () => undefined, schemas: [STRASSE_REQUIRED] },
+      marksRequired ? MARKS_REQUIRED : { onSubmit: () => undefined, wiring: formWiring({ schemas: [STRASSE_REQUIRED] }) },
       h(TextField, { name: "strasse" }, label, h(Input, null), h(FieldError, null)),
       h(TextField, { name: "stadtteil" }, h(Label, null, "Stadtteil"), h(Input, null), h(FieldError, null)),
     ),
@@ -106,7 +111,7 @@ describe("where a field's required mark comes from", () => {
     const html = renderTree(
       h(
         Form,
-        { onSubmit: () => undefined, schemas: [z.object({ address: z.object({ stadtteil }) })] },
+        { onSubmit: () => undefined, wiring: formWiring({ schemas: [z.object({ address: z.object({ stadtteil }) })] }) },
         h(AddressFields, { value: NO_ADDRESS, onChange: () => undefined }),
       ),
     );

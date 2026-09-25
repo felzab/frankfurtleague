@@ -338,10 +338,11 @@ function SpielerBestaetigungForm({
   // person, so a schema on a constant would let the press through at the wrong number.
   const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { bestaetigung: bestaetigungSchema },
-    failureTitle: "Antwort nicht gespeichert",
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bestaetigung: bestaetigungSchema },
+      failureTitle: "Antwort nicht gespeichert",
+    });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
 
@@ -438,10 +439,8 @@ function SpielerBestaetigungForm({
 
   return (
     <Form
-      schemas={[bestaetigungSchema]}
-      ref={formRef}
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
       onSubmit={() => {
         guardSubmit({ bestaetigung: payload() }, sende);

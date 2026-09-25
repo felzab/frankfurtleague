@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT, toActionErrorResult } from "@/shared/utils/actionError.ts";
 
@@ -26,7 +27,7 @@ describe("an address only the API refuses", () => {
     render(
       h(
         Form,
-        { onSubmit: () => undefined, schemas: [], validationErrors: result.fieldErrors },
+        { onSubmit: () => undefined, wiring: formWiring({ validationErrors: result.fieldErrors }) },
         h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined }),
       ),
     );

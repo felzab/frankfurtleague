@@ -65,9 +65,10 @@ export function AdminSpieltagEditForm({
   // The span rule is the edited season's, so the schema is built per instance rather than imported.
   const spieltagSchema = buildPatchSpieltagPayloadSchema(saisonSpan);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spieltag: spieltagSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spieltag: spieltagSchema },
+    });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
   const buildPayload = (): FLPatchSpieltagPayload => ({ id: spieltag.id, beginn, ende });
@@ -167,9 +168,7 @@ export function AdminSpieltagEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[spieltagSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout

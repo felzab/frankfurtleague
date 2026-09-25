@@ -103,12 +103,13 @@ export function BewerbungForm({
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { bewerbung: FLPostBewerbungPayloadSchema },
-    // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
-    // made, and two titles for one failure read as two failures.
-    failureTitle: "Bewerbung nicht abgeschickt",
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bewerbung: FLPostBewerbungPayloadSchema },
+      // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
+      // made, and two titles for one failure read as two failures.
+      failureTitle: "Bewerbung nicht abgeschickt",
+    });
 
   // Above the „eingegangen“ return, as every hook here is: the panel it renders holds no form, and a
   // hook called only on the way to it would run a different number of times per render.
@@ -324,12 +325,10 @@ export function BewerbungForm({
       {hinweisSlot}
 
       <Form
-        schemas={[FLPostBewerbungPayloadSchema]}
-        ref={formRef}
+        wiring={{ ...formWiring, validationErrors: mergedErrors }}
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"
-        validationErrors={mergedErrors}
         className="flex w-full flex-col gap-6"
         onSubmit={handleSubmit}>
         <FormSchuleSection

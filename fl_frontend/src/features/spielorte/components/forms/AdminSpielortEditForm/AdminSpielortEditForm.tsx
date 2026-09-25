@@ -59,9 +59,10 @@ export function AdminSpielortEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spielort: FLPatchSpielortPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spielort: FLPatchSpielortPayloadSchema },
+    });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
@@ -176,9 +177,7 @@ export function AdminSpielortEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        schemas={[FLPatchSpielortPayloadSchema]}
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={requestSave}>
         <EditFormLayout
