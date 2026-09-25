@@ -31,6 +31,7 @@ from app.core.domain import (
     Action,
     Editability,
 )
+from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -57,7 +58,7 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 
 # Not domain rules: each is a property of the transport, and sitting in `app/core/` is what the
 # coverage test keys on — a boundary rather than an exception list.
-PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-AUTH-005", "REQ-VAL-001", "REQ-OID-001"})
+PROTOCOL_CODES = frozenset({MISSING_TOKEN, WRONG_BASE_KEY, WRONG_SYSTEM_KEY, WRONG_ADMIN_KEY, MISSING_ACTOR, "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
 

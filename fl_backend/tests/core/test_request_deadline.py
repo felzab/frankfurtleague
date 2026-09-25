@@ -26,7 +26,7 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_einladungen_collection
-from app.core.exception_handlers import STORES_NOTHING_WHEN, UNKNOWN_OUTCOME, db_exception_handler, stores_nothing
+from app.core.exception_handlers import DATABASE_FAILED, STORES_NOTHING_WHEN, UNKNOWN_OUTCOME, db_exception_handler, stores_nothing
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
@@ -50,7 +50,7 @@ SHORT_DEADLINE_S = 0.5
 # the stall's 60 s -- so an answer in time can only be the deadline's doing.
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
-FAILED = "DB-FAIL-001"
+FAILED = DATABASE_FAILED
 
 ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
 

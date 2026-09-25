@@ -15,6 +15,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, Writ
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
+    DATABASE_FAILED,
     JSON_MEDIA_TYPE,
     NO_DATA_TEXT,
     db_exception_handler,
@@ -24,8 +25,10 @@ from app.core.exception_handlers import (
     refused_codes,
     register_exception_handlers,
 )
+from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
+from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
 from app.main import api_routes, create_app, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
@@ -113,7 +116,7 @@ class TestFailureBodies:
 
         assert response.status_code == 401
         body = response.json()
-        assert body["error_code"] == "REQ-AUTH-001"
+        assert body["error_code"] == MISSING_TOKEN
         assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
@@ -121,13 +124,13 @@ class TestFailureBodies:
         response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == "REQ-AUTH-002"
+        assert response.json()["error_code"] == WRONG_BASE_KEY
 
     def test_an_unavailable_database_is_503_with_dbconn001(self):
         response = client().get("/api/v0/spiele", headers=BASE_AUTH)
 
         assert response.status_code == 503
-        assert response.json()["error_code"] == "DB-CONN-001"
+        assert response.json()["error_code"] == NO_DATABASE_CLIENT
         assert response.headers["Retry-After"] == "30"
 
     def test_a_request_validation_failure_maps_to_reqval001(self):
@@ -440,7 +443,7 @@ class TestErrorCodeLogging:
             client().get("/api/v0/spiele")
 
         codes = [getattr(record, "error_code", None) for record in error_records(caplog)]
-        assert "REQ-AUTH-001" in codes
+        assert MISSING_TOKEN in codes
         assert "API_ERROR" not in codes
 
 
@@ -665,7 +668,7 @@ class TestValidationLoggingWithholdsTheValue:
         # The second rule in the same report, whose shape names properties the document never carried.
         assert "nachname" in document
         assert "WriteError" in document and "code 121" in document
-        assert "DB-FAIL-001" in document
+        assert DATABASE_FAILED in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
         """Catches widening the report keys walked to the ones a refused value sits under."""
@@ -682,7 +685,7 @@ class TestValidationLoggingWithholdsTheValue:
         # A batch reports the whole document it tried to write as `op`, and quotes the duplicated key.
         assert REFUSED_SPIELER_OID not in document
         assert "dup key" not in document
-        assert "DB-FAIL-001" in document
+        assert DATABASE_FAILED in document
 
     def test_a_duplicate_keys_refused_value_never_reaches_the_line(self, caplog):
         document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
@@ -695,7 +698,7 @@ class TestValidationLoggingWithholdsTheValue:
         document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
 
         assert "uniq_shorthand" in document
-        assert "DB-COMMON-002" in document
+        assert DUPLICATE_KEY in document
 
     @pytest.mark.parametrize("details", [None, {"code": 11000}, {"errmsg": "E11000 duplicate key error, malformed"}])
     def test_a_report_with_no_parsable_index_still_writes_a_line(self, caplog, details):
@@ -704,7 +707,7 @@ class TestValidationLoggingWithholdsTheValue:
         document = duplicate_key_document(caplog, details)
 
         assert NO_DATA_TEXT in document
-        assert "DB-COMMON-002" in document
+        assert DUPLICATE_KEY in document
 
     def test_the_refusal_still_hands_back_an_id_to_quote(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})

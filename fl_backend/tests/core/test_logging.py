@@ -8,6 +8,7 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
+from app.core.exceptions import DUPLICATE_KEY
 from app.core.logging import (
     FL_LOGGER_NAME,
     FORWARDED_FAILURE_CODE,
@@ -19,6 +20,7 @@ from app.core.logging import (
     trace_id_var,
 )
 from app.core.middlewares import mint_span_id, resolve_trace_id
+from app.core.security import MISSING_TOKEN
 from tests.config import ConfigReadingNoDotenvFile
 from tests.core.app_source import APP_ROOT, parsed
 
@@ -80,11 +82,11 @@ class TestJSONFormatter:
         assert document["span_id"] == "SYSTEM"
 
     def test_structured_extras_travel_as_fields_after_the_head_and_before_the_error(self):
-        record = record_with_exception(error_code="REQ-AUTH-001", method="GET", path="/api/v0/spiele", status=401, duration_ms=1.2)
+        record = record_with_exception(error_code=MISSING_TOKEN, method="GET", path="/api/v0/spiele", status=401, duration_ms=1.2)
 
         document = json.loads(JSONFormatter().format(record))
 
-        assert document["error_code"] == "REQ-AUTH-001"
+        assert document["error_code"] == MISSING_TOKEN
         assert document["method"] == "GET"
         assert document["path"] == "/api/v0/spiele"
         assert document["status"] == 401
@@ -222,13 +224,13 @@ class TestConsoleFormatter:
 
     def test_the_ids_lead_the_tail_and_the_extras_follow_in_envelope_order(self):
         record = make_record(
-            trace_id=TRACE, span_id=SPAN, error_code="DB-COMMON-002", method="GET", path="/api/v0/spiele", status=409, duration_ms=1.2
+            trace_id=TRACE, span_id=SPAN, error_code=DUPLICATE_KEY, method="GET", path="/api/v0/spiele", status=409, duration_ms=1.2
         )
 
         line = plain(LevelAwareFormatter().format(record))
 
         assert line.endswith(
-            f" - hello trace_id={TRACE} span_id={SPAN} error_code=DB-COMMON-002 method=GET path=/api/v0/spiele status=409 duration_ms=1.2"
+            f" - hello trace_id={TRACE} span_id={SPAN} error_code={DUPLICATE_KEY} method=GET path=/api/v0/spiele status=409 duration_ms=1.2"
         )
 
     def test_the_sentinel_is_written_outside_a_request(self):

@@ -10,7 +10,8 @@ from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import ACTOR_HEADER
+from app.core.exception_handlers import DATABASE_FAILED
+from app.core.security import ACTOR_HEADER, WRONG_ADMIN_KEY
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
@@ -22,10 +23,10 @@ from .conftest import config_for, unwritten
 ACTOR = "admin@example.com"
 
 # Which guard refused, and so which tier the route belongs to: no key satisfies both.
-ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
+ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure.
-UNREACHED_DATABASE = "DB-FAIL-001"
+UNREACHED_DATABASE = DATABASE_FAILED
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every reading case here shares.

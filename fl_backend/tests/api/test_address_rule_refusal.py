@@ -14,6 +14,7 @@ from pydantic.warnings import UnsupportedFieldAttributeWarning
 import app
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.core.config import API_VERSION
+from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
@@ -48,7 +49,7 @@ UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 # The control's answer: a well-formed request that got past validation and reached the database. The
 # refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
 # which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
-UNREACHED_DATABASE = {"DB-FAIL-001", "DB-FAIL-002"}
+UNREACHED_DATABASE = {DATABASE_FAILED, UNKNOWN_OUTCOME}
 
 ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
 

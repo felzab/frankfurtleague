@@ -10,7 +10,9 @@ from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exception_handlers import DATABASE_FAILED
 from app.core.exceptions import DOCUMENT_NOT_FOUND
+from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
@@ -20,12 +22,12 @@ from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = "REQ-AUTH-002"
-ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
+BASE_GUARD_REFUSED = WRONG_BASE_KEY
+ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-FAIL-001"
+UNREACHED_DATABASE = DATABASE_FAILED
 
 SAISON_ID = "2026"
 

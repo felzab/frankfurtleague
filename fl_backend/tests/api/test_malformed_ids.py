@@ -6,6 +6,7 @@ import pymongo
 import pytest
 from httpx2 import Response
 
+from app.core.exception_handlers import DATABASE_FAILED
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
@@ -17,7 +18,7 @@ NON_HEX_ID = "z" * 24
 
 # Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-FAIL-001"
+UNREACHED_DATABASE = DATABASE_FAILED
 
 
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
