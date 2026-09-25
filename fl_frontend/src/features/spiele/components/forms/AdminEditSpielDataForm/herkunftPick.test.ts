@@ -1,15 +1,15 @@
 import "@/shared/testing/dom.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
 
-import { FLSpielSchema } from "@/features/spiele/schemas.ts";
+import { FLSpielAdminSchema, FLSpielSchema } from "@/features/spiele/schemas.ts";
+import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -17,12 +17,13 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
 import type { FLSpiel, FLSpielQuelle } from "@/features/spiele/schemas.ts";
 import type { SpielBanner } from "./banners.ts";
 
+// The editor asks its dry run from an effect, which a server render never runs: nothing here is answered.
+doubleActions({ modules: ["/src/features/spiele/actions.ts"], answer: () => new Promise<never>(() => undefined) });
+
 const { FormTeamPicker } = await import("./FormTeamPicker.tsx");
+const { AdminEditSpielDataForm } = await import("./AdminEditSpielDataForm.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { SpielExpectedProvider } = await import("./SpielExpectedContext.tsx");
-
-/** The rule's other half: the picker drops the row, and the editor feeds the banner saying why. */
-const EDITOR = readFileSync(path.resolve(import.meta.dirname, "AdminEditSpielDataForm.tsx"), "utf8");
 
 const SAISON = "2026";
 
@@ -258,8 +259,30 @@ describe("the Herkunft picker's group placing", () => {
   });
 
   /* One derivation behind both, or the picker closes a control the banner beneath it denies is
-     closed at all. Two files agreeing, which is what neither one's markup can show. */
-  it("feeds that banner the derivation the picker closes on", () => {
-    assert.match(EDITOR, /seedsFromTheGroups: isFirstKnockoutRound\(saisonSpiele, spielData\)/);
+     closed at all. The editor raises the banner; the same fixture in the two seasons answers it both ways. */
+  it("raises that banner from the editor exactly where the picker closes the placing", () => {
+    const WIRED = spiel(3, "halbfinale", GRUPPE_PLATZ);
+    const BANNER = "Ein Platz in einer Gruppe ist als Herkunft von Team 1 nur in der ersten KO-Runde wählbar";
+    const editor = (saisonSpiele: FLSpiel[]): string =>
+      renderTree(
+        underNext(
+          h(AdminEditSpielDataForm, {
+            spielData: FLSpielAdminSchema.parse(WIRED),
+            teams: [],
+            spielorte: [],
+            schiedsrichter: [],
+            saisonSpiele: saisonSpiele.map((one) => (one.id === WIRED.id ? WIRED : one)),
+            numberOfGroups: 2,
+            isFinishedSaison: false,
+            today: "2026-09-14",
+            categorize: () => new Set<never>(),
+            pageHeader: { title: "Spiel 3" },
+          }),
+          { search: "saison_id=2026" },
+        ),
+      );
+
+    assert.ok(editor(BRACKET_OF_16).includes(BANNER), "a group placing past the bracket's first round raises no banner saying why");
+    assert.ok(!editor(BRACKET_OF_4).includes(BANNER), "the round the bracket opens on is told a group placing is closed there");
   });
 });
