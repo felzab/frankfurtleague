@@ -794,7 +794,7 @@ class TestASubmissionMadeOverTheWire:
 
         submitted = through_the_app(mongo_replica_set_url, payload())
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert submitted.response.json()["eingereicht_am"] == TODAY
         assert submitted.stored == 1
 
@@ -831,7 +831,7 @@ class TestASubmissionMadeOverTheWire:
         forged = {**BASE_AUTH, ACTOR_HEADER: forged_actor}
         submitted = through_the_app(mongo_replica_set_url, payload(), headers=forged)
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert len(submitted.log_rows) == 1
         assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
         assert forged_actor not in str(submitted.log_rows[0])
@@ -866,7 +866,7 @@ class TestASubmissionMadeOverTheWire:
 
         submitted = through_the_app(mongo_replica_set_url, payload(), schluessel="")
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert submitted.stored == 1
         assert submitted.keyed == 0
 

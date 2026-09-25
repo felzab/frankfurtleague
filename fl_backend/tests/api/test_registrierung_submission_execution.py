@@ -635,7 +635,7 @@ class TestTheKeyOverTheWire:
 
             return response.status_code, [row.get("idempotenz_schluessel") for row in await rows_of(database)]
 
-        assert on_a_league(mongo_replica_set_url, body) == (200, [str(SCHLUESSEL)])
+        assert on_a_league(mongo_replica_set_url, body) == (201, [str(SCHLUESSEL)])
 
     @pytest.mark.parametrize(
         "schluessel",
@@ -663,7 +663,7 @@ class TestTheKeyOverTheWire:
 
             return response.status_code, [("idempotenz_schluessel" in row) for row in await rows_of(database)]
 
-        assert on_a_league(mongo_replica_set_url, body) == (200, [False])
+        assert on_a_league(mongo_replica_set_url, body) == (201, [False])
 
 
 class TestWhatASubmissionIsRefused:

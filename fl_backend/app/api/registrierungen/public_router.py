@@ -210,6 +210,7 @@ async def _answer_as_the_first(
 @router.post(
     "",
     response_model=FLPostRegistrierungResponse,
+    status_code=201,
     summary="Register through a team's link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
