@@ -330,9 +330,8 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
 };
 
 /**
- * The payload as the editor judges it, which refuses no event while its switch asserts one. A FACTORY because the
- * switch is the editor's own state, which the payload has no field for: the write path takes `null` as "no event",
- * so an asserted event left unpicked would save as none.
+ * The payload as the editor judges it. A FACTORY because the switch asserting an event is editor state the payload
+ * has no field for, and the write path takes `null` as no event: unrefused, an unpicked event saves as none.
  */
 export function buildPatchSpielDataPayloadSchema({ hasSonderereignis }: { hasSonderereignis: boolean }) {
   if (!hasSonderereignis) return FLPatchSpielDataPayloadSchema;
