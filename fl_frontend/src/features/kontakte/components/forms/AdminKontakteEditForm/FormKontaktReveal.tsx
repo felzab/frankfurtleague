@@ -9,10 +9,7 @@ const rolleLabel = (rolle: FLKontaktSitz["rolle"]): string => KONTAKT_ROLLEN.fin
 
 /**
  * Whom the erasure would reach, listed inside the armed reveal
- * (`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`).
- *
- * Its own component rendering FROM PROPS because a press is a state no render arrives at
- * (`docs/frontend/spec.md` §1.9), and this list is the claim the confirmation rests on.
+ * (`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`): the claim the confirmation rests on.
  */
 export function FormKontaktReveal({
   saison_teams,
