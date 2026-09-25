@@ -142,6 +142,28 @@ for (const plant of plants) {
   );
 }
 
+const syntaxMessages = (rules) => new Set((rules?.["no-restricted-syntax"] ?? []).slice(1).map((ban) => ban.message));
+
+/**
+ * Each file a syntax ban exempts, which is a block of its own naming one path, with the bans it
+ * escapes: the ones a sibling path in its directory and population is held to and it is not.
+ */
+const exemptions = await Promise.all(
+  config
+    .filter((block) => block.files?.length === 1 && !/[*{]/.test(block.files[0]) && block.rules?.["no-restricted-syntax"] !== undefined)
+    .map(async ({ files: [file] }) => {
+      const sibling = path.posix.join(
+        path.posix.dirname(file),
+        `zzExemptionCheck${isTestPath(file) ? ".test" : ""}${path.posix.extname(file)}`,
+      );
+      const own = syntaxMessages((await eslint.calculateConfigForFile(path.join(HERE, file))).rules);
+      const held = syntaxMessages((await eslint.calculateConfigForFile(path.join(HERE, sibling))).rules);
+      const [result] = await eslint.lintText(readFileSync(path.join(HERE, file), "utf8"), { filePath: path.join(HERE, sibling) });
+      const reported = new Set(result.messages.map((message) => message.message));
+      return { file, escaped: [...held].filter((message) => !own.has(message)), reported };
+    }),
+);
+
 describe("the lint bans, driven against planted source", () => {
   for (const plant of plants) {
     it(`${plant.name}: every mark is reported on its line with its ban, and nothing else is`, () => {
@@ -180,5 +202,14 @@ describe("the lint bans, driven against planted source", () => {
       return missing.length === 0 ? [] : [`${rule}, block ${index} (${JSON.stringify(block.files)}): ${missing.join(", ")}`];
     });
     assert.deepEqual(gaps, []);
+  });
+
+  // An exemption outliving its reason would excuse the next file written at that path unseen.
+  it("every exempt file still spells what it is exempt from", () => {
+    assert.ok(exemptions.length > 0, "no exempt file found: the reader of the exemption blocks has lost them");
+    const stale = exemptions.flatMap(({ file, escaped, reported }) =>
+      escaped.filter((message) => !reported.has(message)).map((message) => `${file}: ${keyOf(message)}`),
+    );
+    assert.deepEqual(stale, []);
   });
 });

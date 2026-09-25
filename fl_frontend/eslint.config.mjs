@@ -644,7 +644,6 @@ const SOURCE_BANS = [
   {
     selector: 'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',
     message: "Render `PanelHeading` rather than spelling a panel heading.",
-    exempt: ["src/shared/components/ui/PanelHeading.tsx"],
   },
   {
     selector: "JSXElement[openingElement.name.name=/^h[1-6]$/] JSXElement[openingElement.name.name=/^(?:Info)?Hint/]",
